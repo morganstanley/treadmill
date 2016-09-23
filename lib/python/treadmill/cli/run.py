@@ -1,0 +1,153 @@
+"""Manage Treadmill app manifest."""
+from __future__ import absolute_import
+
+import logging
+
+import click
+import yaml
+
+from .. import cli
+from treadmill import restclient
+from treadmill import context
+
+_LOGGER = logging.getLogger(__name__)
+
+_DEFAULT_MEM = '100M'
+_DEFAULT_DISK = '100M'
+_DEFAULT_CPU = '10%'
+_DEFAULT_RESTART_COUNT = 1
+
+
+def _set_defaults(app, memory, cpu, disk):
+    """Ensure that memory, cpu, disk are set."""
+    if memory:
+        app['memory'] = memory
+    if disk:
+        app['disk'] = disk
+    if cpu:
+        app['cpu'] = cpu
+
+
+def _run(apis,
+         count,
+         manifest,
+         memory,
+         cpu,
+         disk,
+         tickets,
+         service,
+         restart_count,
+         endpoint,
+         appname,
+         command):
+    """Run Treadmill app."""
+    # too many branches
+    #
+    # pylint: disable=R0912
+    app = {}
+    if manifest:
+        app = yaml.load(manifest.read())
+
+    if memory:
+        app['memory'] = memory
+    if disk:
+        app['disk'] = disk
+    if cpu:
+        app['cpu'] = cpu
+
+    if endpoint:
+        app['endpoints'] = [{'name': name, 'port': port}
+                            for name, port in endpoint]
+    if tickets:
+        app['tickets'] = tickets
+
+    if command:
+        if not service:
+            # Take the basename of the command, always assume / on all
+            # platforms.
+            service = command[0].split('/')[-1]
+
+    services_dict = {svc['name']: svc for svc in app.get('services', [])}
+    if service:
+        if service not in services_dict:
+            services_dict[service] = {
+                'name': service,
+                'restart_count': _DEFAULT_RESTART_COUNT
+            }
+
+        if command:
+            services_dict[service]['command'] = ' '.join(list(command))
+        if restart_count:
+            services_dict[service]['restart_count'] = restart_count
+
+    if services_dict:
+        app['services'] = services_dict.values()
+
+    url = '/v3/instance/' + appname
+    if count:
+        url += '?count=%d' % count
+
+    response = restclient.post(apis, url, payload=app)
+    for instance_id in response.json():
+        cli.out(instance_id)
+
+
+def init():
+    """Return top level command handler."""
+
+    @click.command()
+    @click.option('--cell', required=True,
+                  envvar='TREADMILL_CELL',
+                  callback=cli.handle_context_opt,
+                  expose_value=False)
+    @click.option('--api', required=False, help='API url to use.',
+                  metavar='URL',
+                  envvar='TREADMILL_RESTAPI')
+    @click.option('--count', help='Number of instances to start',
+                  default=1)
+    @click.option('--manifest', help='App manifest file (stream)',
+                  type=click.File(mode='rb'))
+    @click.option('--memory', help='Memory demand.',
+                  metavar='GB|MB',
+                  callback=cli.validate_memory)
+    @click.option('--cpu', help='CPU demand, %.',
+                  metavar='XX%',
+                  callback=cli.validate_cpu)
+    @click.option('--disk', help='Disk demand.',
+                  metavar='GB|MB',
+                  callback=cli.validate_disk)
+    @click.option('--tickets', help='Tickets.',
+                  type=cli.LIST)
+    @click.option('--service', help='Service name.', type=str)
+    @click.option('--restart-count', help='Service restart count.', type=int)
+    @click.option('--endpoint', help='Network endpoint.',
+                  type=(str, int), multiple=True)
+    @click.argument('appname')
+    @click.argument('command', nargs=-1)
+    @cli.ON_REST_EXCEPTIONS
+    def run(api,
+            count,
+            manifest,
+            memory,
+            cpu,
+            disk,
+            tickets,
+            service,
+            restart_count,
+            endpoint,
+            appname,
+            command):
+        """Schedule Treadmill app.
+
+        With no options, will schedule already configured app, fail if app
+        is not configured.
+
+        When manifest (or other options) are specified, they will be merged
+        on top of existing manifest if it exists.
+        """
+        apis = context.GLOBAL.cell_api(api)
+        return _run(
+            apis, count, manifest, memory, cpu, disk, tickets,
+            service, restart_count, endpoint, appname, command)
+
+    return run

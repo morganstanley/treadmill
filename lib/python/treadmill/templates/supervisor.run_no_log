@@ -1,0 +1,8 @@
+#!/bin/sh
+
+export KRB5CCNAME="FILE:${TREADMILL_HOST_TICKET}"
+
+exec 1>>{{ log_out }}
+exec 2>&1
+
+exec {{ cmd }}

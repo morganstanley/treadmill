@@ -1,0 +1,11 @@
+#!/bin/sh
+
+# Unix time.
+NOW=$({{ date }} +%s)
+
+{{ echo }} $NOW $* >> ./finished
+
+{% for cmd in cmds %}
+{%- if loop.last -%}exec \{%- endif %}
+{{ cmd }} >> ./finish.log
+{% endfor %}

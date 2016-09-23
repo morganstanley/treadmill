@@ -1,0 +1,5 @@
+#!/bin/sh
+
+# Start s6 logger.
+
+exec {{ s6 }}/bin/s6-log -b n20 s1000000 .

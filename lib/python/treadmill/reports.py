@@ -1,0 +1,169 @@
+"""Handles reports over scheduler data."""
+
+from __future__ import absolute_import
+
+import time
+import datetime
+import itertools
+import logging
+
+import numpy as np
+import pandas as pd
+
+
+_LOGGER = logging.getLogger(__name__)
+
+
+def servers(cell):
+    """Returns dataframe for servers hierarchy."""
+
+    def _server_row(server):
+        """Converts server object to dict used to construct dataframe row.
+        """
+        row = {
+            'name': server.name,
+            'memory': server.init_capacity[0],
+            'cpu': server.init_capacity[1],
+            'disk': server.init_capacity[2],
+            'free.memory': server.free_capacity[0],
+            'free.cpu': server.free_capacity[1],
+            'free.disk': server.free_capacity[2],
+            'state': server.state.value,
+            'valid_until': np.datetime64(
+                datetime.datetime.fromtimestamp(server.valid_until)),
+        }
+
+        node = server.parent
+        while node:
+            row[node.level] = node.name
+            node = node.parent
+
+        return row
+
+    frame = pd.DataFrame.from_dict([_server_row(server)
+                                    for server in cell.members().values()])
+    if frame.empty:
+        frame = pd.DataFrame(columns=['name', 'memory', 'cpu', 'disk',
+                                      'free.memory', 'free.cpu', 'free.disk',
+                                      'state'])
+
+    return frame.set_index('name')
+
+
+def node_features(cell):
+    """Return nodes and features as dataframe."""
+    # Current concrete model assume features for servers only.
+
+    def _server_features_row(server):
+        """Convert server features to dict."""
+        row = {
+            'name': server.name
+        }
+        for feature in server.features:
+            row[feature] = True
+        return row
+
+    frame = pd.DataFrame.from_dict([_server_features_row(server)
+                                    for server in cell.members().values()])
+    if frame.empty:
+        return frame
+
+    return frame.set_index('name')
+
+
+def allocations(cell):
+    """Converts cell allocations into dataframe row."""
+
+    def _leafs(path, alloc):
+        """Generate leaf allocations - (path, alloc) tuples."""
+        if not alloc.sub_allocations:
+            return iter([('/'.join(path), alloc)])
+        else:
+            def _chain(acc, item):
+                """Chains allocation iterators."""
+                name, suballoc = item
+                return itertools.chain(acc, _leafs(path + [name], suballoc))
+
+            return reduce(_chain, alloc.sub_allocations.iteritems(), [])
+
+    def _allocation_row(name, alloc):
+        """Converts allocation to dict/dataframe row."""
+        if not name:
+            name = 'root'
+        return {
+            'name': name,
+            'memory': alloc.reserved[0],
+            'cpu': alloc.reserved[1],
+            'disk': alloc.reserved[2],
+            'rank': alloc.rank,
+            'max_utilization': alloc.max_utilization,
+        }
+
+    return pd.DataFrame.from_dict(
+        [_allocation_row(name, alloc)
+         for name, alloc in _leafs([], cell.allocation)]).set_index('name')
+
+
+def allocation_features(cell):
+    """Returns dataframe for allocation features."""
+    del cell
+    return pd.DataFrame()
+
+
+def apps(cell):
+    """Return application queue and app details as dataframe."""
+
+    def _app_row(item):
+        """Converts app queue item into dict for dataframe row."""
+        rank, util, pending, order, app = item
+        return {
+            'instance': app.name,
+            'affinity': app.affinity.name,
+            'allocation': app.allocation.name,
+            'rank': rank,
+            'util': util,
+            'pending': pending,
+            'order': order,
+            'identity_group': app.identity_group,
+            'identity': app.identity,
+            'memory': app.demand[0],
+            'cpu': app.demand[1],
+            'disk': app.demand[2],
+            'duration': app.duration,
+            'data_retention_timeout': app.data_retention_timeout,
+            'server': app.server
+        }
+
+    queue = cell.allocation.utilization_queue(cell.size())
+    frame = pd.DataFrame.from_dict([_app_row(item) for item in queue])
+
+    if frame.empty:
+        return frame
+
+    return frame.set_index('instance')
+
+
+def utilization(prev_utilization, apps_df):
+    """Returns dataseries describing cell utilization.
+
+    prev_utilization - utilization dataframe before current.
+    apps - app queue dataframe.
+    """
+
+    # Passed by ref.
+    row = apps_df.reset_index()
+    row['count'] = 1
+    row['name'] = row['instance'].apply(lambda x: x.split('#')[0])
+    row = row.groupby('name').agg({'cpu': np.sum,
+                                   'memory': np.sum,
+                                   'disk': np.sum,
+                                   'count': np.sum,
+                                   'util': np.max})
+    row = row.stack()
+    dt_now = datetime.datetime.fromtimestamp(time.time())
+    current = pd.DataFrame([row], index=pd.DatetimeIndex([dt_now]))
+
+    if prev_utilization is None:
+        return current
+    else:
+        return prev_utilization.append(current)

@@ -1,0 +1,6 @@
+#!/bin/sh
+
+SCRIPTDIR=$( cd ${0%/*} && pwd -P )
+export PYTHONPATH=$SCRIPTDIR/../lib/python
+
+exec python -m treadmill $*

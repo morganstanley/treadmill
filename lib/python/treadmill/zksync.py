@@ -1,0 +1,142 @@
+"""
+Syncronizes Zookeeper to file system.
+"""
+from __future__ import absolute_import
+
+import logging
+import glob
+import os
+import tempfile
+import time
+
+from treadmill import fs
+from treadmill import exc
+from treadmill import utils
+from treadmill import zknamespace as z
+
+
+_LOGGER = logging.getLogger(__name__)
+
+
+class Zk2Fs(object):
+    """Syncronize Zookeeper with file system."""
+
+    def __init__(self, zkclient, fsroot):
+        self.watches = set()
+        self.processed_once = set()
+        self.zkclient = zkclient
+        self.fsroot = fsroot
+
+    def _update_last(self):
+        """Update .modified timestamp to indicate changes were made."""
+        modified_file = os.path.join(self.fsroot, '.modified')
+        utils.touch(modified_file)
+        os.utime(modified_file, (time.time(), time.time()))
+
+    def _fpath(self, zkpath):
+        """Returns file path to given zk node."""
+        return os.path.join(self.fsroot, zkpath.lstrip('/'))
+
+    def _default_on_del(self, zkpath):
+        """Default callback invoked on node delete, remove file."""
+        fs.rm_safe(self._fpath(zkpath))
+
+    def _default_on_add(self, zknode):
+        """Default callback invoked on node is added, default - sync data."""
+        self.sync_data(zknode)
+
+    def _data_watch(self, zkpath, data, _stat, event):
+        """Invoked when data changes."""
+        fpath = self._fpath(zkpath)
+        if data is None and event is None:
+            _LOGGER.info('Node does not exist: %s', zkpath)
+            self.watches.discard(zkpath)
+            fs.rm_safe(fpath)
+
+        elif event is not None and event.type == 'DELETED':
+            _LOGGER.info('Node removed: %s', zkpath)
+            self.watches.discard(zkpath)
+            fs.rm_safe(fpath)
+        else:
+            with tempfile.NamedTemporaryFile(dir=os.path.dirname(fpath),
+                                             delete=False,
+                                             prefix='.tmp') as temp:
+                temp.write(data)
+                os.rename(temp.name, fpath)
+
+        # Returning False will not renew the watch.
+        renew = zkpath in self.watches
+        _LOGGER.info('Renew wathch on %s - %s', zkpath, renew)
+        return renew
+
+    def _children_watch(self, zkpath, children, watch_data,
+                        on_add, on_del):
+        """Callback invoked on children watch."""
+        fpath = self._fpath(zkpath)
+        filenames = set(map(os.path.basename,
+                            glob.glob(os.path.join(fpath, '*'))))
+        children = set(children)
+
+        for extra in filenames - children:
+            _LOGGER.info('Delete: %s', extra)
+            self.watches.discard(z.join_zookeeper_path(zkpath, extra))
+            on_del(z.join_zookeeper_path(zkpath, extra))
+
+        if zkpath not in self.processed_once:
+            self.processed_once.add(zkpath)
+            for common in filenames & children:
+                _LOGGER.info('Common: %s', common)
+
+                zknode = z.join_zookeeper_path(zkpath, common)
+                if watch_data:
+                    self.watches.add(zknode)
+
+                on_add(zknode)
+
+        for missing in children - filenames:
+            _LOGGER.info('Add: %s', missing)
+
+            zknode = z.join_zookeeper_path(zkpath, missing)
+            if watch_data:
+                self.watches.add(zknode)
+
+            on_add(zknode)
+
+        return True
+
+    def sync_data(self, zkpath):
+        """Sync zk node data to file."""
+
+        @self.zkclient.DataWatch(zkpath)
+        @exc.exit_on_unhandled
+        def _data_watch(data, stat, event):
+            """Invoked when data changes."""
+            renew = self._data_watch(zkpath, data, stat, event)
+            self._update_last()
+            return renew
+
+    def sync_children(self, zkpath, watch_data=False,
+                      on_add=None, on_del=None):
+        """Sync children of zkpath to fpath."""
+
+        _LOGGER.info('sync children: zk = %s, watch_data: %s',
+                     zkpath,
+                     watch_data)
+
+        fpath = self._fpath(zkpath)
+        fs.mkdir_safe(fpath)
+
+        if not on_del:
+            on_del = self._default_on_del
+        if not on_add:
+            on_add = self._default_on_add
+
+        @self.zkclient.ChildrenWatch(zkpath)
+        @exc.exit_on_unhandled
+        def _children_watch(children):
+            """Callback invoked on children watch."""
+            renew = self._children_watch(zkpath,
+                                         children, watch_data, on_add, on_del)
+
+            self._update_last()
+            return renew
