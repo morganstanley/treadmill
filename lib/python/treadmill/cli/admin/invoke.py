@@ -14,6 +14,7 @@ import yaml
 
 from treadmill import authz
 from treadmill import cli
+from treadmill import context
 
 
 class Context(object):
@@ -162,6 +163,11 @@ def init():
             raise click.BadParameter('must use --outfmt [json|yaml]')
 
     for resource in list_resource_types('treadmill.api'):
-        make_resource_group(ctx, invoke, resource)
+        # TODO: for now, catch the ContextError as endpoint.py and state.py are
+        # calling context.GLOBAL.zk.conn, which fails, as cell is not set yet
+        try:
+            make_resource_group(ctx, invoke, resource)
+        except context.ContextError:
+            pass
 
     return invoke

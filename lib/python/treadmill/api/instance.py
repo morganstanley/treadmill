@@ -7,6 +7,7 @@ import logging
 from treadmill import admin
 from treadmill import authz
 from treadmill import context
+from treadmill import exc
 from treadmill import master
 from treadmill import schema
 
@@ -69,6 +70,7 @@ class API(object):
             if not rsrc:
                 admin_app = admin.Application(context.GLOBAL.ldap.conn)
                 configured = admin_app.get(rsrc_id)
+                _LOGGER.info('Configured: %s %r', rsrc_id, configured)
             else:
                 configured = rsrc
                 app.verify_feature(rsrc.get('features', []))
@@ -81,13 +83,19 @@ class API(object):
             if instance_plugin:
                 configured = instance_plugin.add_attributes(rsrc_id,
                                                             configured)
+
             if 'proid' not in configured:
-                raise Exception('Missing required attribute: proid')
+                raise exc.TreadmillError(
+                    'Missing required attribute: proid')
             if 'environment' not in configured:
-                raise Exception('Missing required attribute: environment')
+                raise exc.TreadmillError(
+                    'Missing required attribute: environment')
 
             if 'identity_group' not in configured:
                 configured['identity_group'] = None
+
+            if 'affinity' not in configured:
+                configured['affinity'] = '{0}.{1}'.format(*rsrc_id.split('.'))
 
             scheduled = master.create_apps(context.GLOBAL.zk.conn,
                                            rsrc_id, configured, count)

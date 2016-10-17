@@ -39,7 +39,7 @@ def init():
 
         # Setup the watchdog
         watchdog_lease = app_env.watchdogs.create(
-            name='svc:{svc_name}'.format(svc_name=_SERVICE_NAME),
+            name='svc-{svc_name}'.format(svc_name=_SERVICE_NAME),
             timeout='{hb:d}s'.format(hb=_WATCHDOG_HEARTBEAT_SEC),
             content='Service {svc_name!r} failed'.format(
                 svc_name=_SERVICE_NAME),

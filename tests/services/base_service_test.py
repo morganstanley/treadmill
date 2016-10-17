@@ -176,7 +176,7 @@ class BaseServiceTest(unittest.TestCase):
         )
         mock_watchdog.return_value.create.assert_called_with(
             content=mock.ANY,
-            name='svc:MyTestService',
+            name='svc-MyTestService',
             timeout='60s'
         )
         mock_watchdog_lease = mock_watchdog.return_value.create.return_value
@@ -278,6 +278,7 @@ class BaseServiceTest(unittest.TestCase):
         self.assertFalse(mock_callbacks[2]['callback'].called)
 
         self.assertTrue(res)
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -1,0 +1,35 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "resource_id": {
+        "type": "string",
+        "format": "hostname"
+    },
+    "resource": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+            "cell": {
+                "$ref": "common.json#/cell"
+            },
+            "traits": {
+                "type": "array",
+                "items": { "$ref": "common.json#/trait" }
+            },
+            "label": {
+                "$ref": "common.json#/label"
+            },
+            "parameters": {
+                "type": "array",
+                "items": { "$ref": "common.json#/parameter" }
+            }
+        }
+    },
+    "verbs": {
+        "create": {
+            "required": []
+        },
+        "update": {
+            "required": []
+        }
+    }
+}

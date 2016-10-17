@@ -18,22 +18,24 @@ class API(object):
 
         @schema.schema(
             cell={'anyOf': [{'type': 'null'}, {'$ref': 'common.json#/cell'}]},
-            features={'anyOf':
-                      [{'type': 'null'},
-                       {'$ref': 'server.json#/resource/properties/features'}]})
+            label={'anyOf': [
+                {'type': 'null'},
+                {'$ref': 'server.json#/resource/properties/label'}
+            ]}
+        )
         # () will not pass validation, but it is indication for introspetion
         # that the required type is list.
-        def _list(cell=None, features=()):
+        def _list(cell=None, label=()):
             """List servers by cell and/or features."""
-            if features == ():
-                features = []
+            if label == ():
+                label = None
 
             filter_ = {}
             if cell:
                 filter_['cell'] = cell
 
-            if features:
-                filter_['features'] = features
+            if label:
+                filter_['label'] = label
 
             return _admin_svr().list(filter_)
 

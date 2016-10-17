@@ -12,6 +12,7 @@ import subprocess
 from .. import cgroups
 from .. import exc
 from .. import fs
+from .. import logcontext as lc
 from .. import lvm
 from .. import sysinfo
 from .. import utils
@@ -19,8 +20,8 @@ from .. import subproc
 
 from ._base_service import BaseResourceServiceImpl
 
+_LOGGER = lc.ContainerAdapter(logging.getLogger(__name__))
 
-_LOGGER = logging.getLogger(__name__)
 
 #: Minimum size for the Treadmill volume group. If we can't use this much, the
 #: server node start will fail
@@ -167,104 +168,109 @@ class LocalDiskResourceService(BaseResourceServiceImpl):
         read_iops = self._default_read_iops
         write_iops = self._default_write_iops
 
-        size_in_bytes = utils.size_to_bytes(size)
-        # FIXME(boysson): This kind of manipulation should live elsewhere.
-        _, uniqueid = app_unique_name.rsplit('-', 1)
+        with lc.LogContext(_LOGGER, rsrc_id):
+            _LOGGER.info('Processing request')
 
-        # Create the logical volume
-        existing_volume = uniqueid in self._volumes
-        if not existing_volume:
-            needed = math.ceil(size_in_bytes / self._status['extent_size'])
-            if needed > self._status['extent_free']:
-                # If we do not have enough space, delay the creation until
-                # another volume is deleted.
-                _LOGGER.info('Delaying request %r until %d extents are free',
-                             rsrc_id, needed)
-                self._pending.append(rsrc_id)
-                return None
+            size_in_bytes = utils.size_to_bytes(size)
+            # FIXME(boysson): This kind of manipulation should live elsewhere.
+            _, uniqueid = app_unique_name.rsplit('-', 1)
 
-            lvm.lvcreate(
-                volume=uniqueid,
-                group=self.TREADMILL_VG,
-                size_in_bytes=size_in_bytes,
+            # Create the logical volume
+            existing_volume = uniqueid in self._volumes
+            if not existing_volume:
+                needed = math.ceil(size_in_bytes / self._status['extent_size'])
+                if needed > self._status['extent_free']:
+                    # If we do not have enough space, delay the creation until
+                    # another volume is deleted.
+                    _LOGGER.info(
+                        'Delaying request %r until %d extents are free',
+                        rsrc_id, needed)
+                    self._pending.append(rsrc_id)
+                    return None
+
+                lvm.lvcreate(
+                    volume=uniqueid,
+                    group=self.TREADMILL_VG,
+                    size_in_bytes=size_in_bytes,
+                )
+                # We just created a volume, refresh cached status from LVM
+                self._status = _refresh_vg_status(self.TREADMILL_VG)
+
+            lv_info = lvm.lvdisplay(volume=uniqueid, group=self.TREADMILL_VG)
+
+            # Configure block device using cgroups (this is idempotent)
+            # FIXME(boysson): The unique id <-> cgroup relation should be
+            #                 captured in the cgroup module.
+            cgrp = os.path.join('treadmill', 'apps', app_unique_name)
+            cgroups.create('blkio', cgrp)
+            major, minor = lv_info['dev_major'], lv_info['dev_minor']
+            cgroups.set_value(
+                'blkio', cgrp,
+                'blkio.throttle.write_bps_device',
+                '{major}:{minor} {bps}'.format(
+                    major=major,
+                    minor=minor,
+                    bps=utils.size_to_bytes(write_bps),
+                )
             )
-            # We just created a volume, refresh cached status from LVM
-            self._status = _refresh_vg_status(self.TREADMILL_VG)
-
-        lv_info = lvm.lvdisplay(volume=uniqueid, group=self.TREADMILL_VG)
-
-        # Configure block device using cgroups (this is idempotent)
-        # FIXME(boysson): The unique id <-> cgroup relation should be captured
-        #                 in the cgroup module.
-        cgrp = os.path.join('treadmill', 'apps', app_unique_name)
-        cgroups.create('blkio', cgrp)
-        major, minor = lv_info['dev_major'], lv_info['dev_minor']
-        cgroups.set_value(
-            'blkio', cgrp,
-            'blkio.throttle.write_bps_device',
-            '{major}:{minor} {bps}'.format(
-                major=major,
-                minor=minor,
-                bps=utils.size_to_bytes(write_bps),
+            cgroups.set_value(
+                'blkio', cgrp,
+                'blkio.throttle.read_bps_device',
+                '{major}:{minor} {bps}'.format(
+                    major=major,
+                    minor=minor,
+                    bps=utils.size_to_bytes(read_bps),
+                )
             )
-        )
-        cgroups.set_value(
-            'blkio', cgrp,
-            'blkio.throttle.read_bps_device',
-            '{major}:{minor} {bps}'.format(
-                major=major,
-                minor=minor,
-                bps=utils.size_to_bytes(read_bps),
+            cgroups.set_value(
+                'blkio', cgrp,
+                'blkio.throttle.write_iops_device',
+                '{major}:{minor} {iops}'.format(
+                    major=major,
+                    minor=minor,
+                    iops=write_iops
+                )
             )
-        )
-        cgroups.set_value(
-            'blkio', cgrp,
-            'blkio.throttle.write_iops_device',
-            '{major}:{minor} {iops}'.format(
-                major=major,
-                minor=minor,
-                iops=write_iops
+            cgroups.set_value(
+                'blkio', cgrp,
+                'blkio.throttle.read_iops_device',
+                '{major}:{minor} {iops}'.format(
+                    major=major,
+                    minor=minor,
+                    iops=read_iops
+                )
             )
-        )
-        cgroups.set_value(
-            'blkio', cgrp,
-            'blkio.throttle.read_iops_device',
-            '{major}:{minor} {iops}'.format(
-                major=major,
-                minor=minor,
-                iops=read_iops
-            )
-        )
 
-        volume_data = {
-            k: lv_info[k]
-            for k in ['name', 'block_dev', 'dev_major', 'dev_minor']
-        }
+            volume_data = {
+                k: lv_info[k]
+                for k in ['name', 'block_dev', 'dev_major', 'dev_minor']
+            }
 
-        # Record existence of the volume.
-        self._volumes[lv_info['name']] = volume_data
+            # Record existence of the volume.
+            self._volumes[lv_info['name']] = volume_data
 
         return volume_data
 
     def on_delete_request(self, rsrc_id):
         app_unique_name = rsrc_id
 
-        # FIXME(boysson): This kind of manipulation should live elsewhere.
-        _, uniqueid = app_unique_name.rsplit('-', 1)
+        with lc.LogContext(_LOGGER, rsrc_id):
+            # FIXME(boysson): This kind of manipulation should live elsewhere.
+            _, uniqueid = app_unique_name.rsplit('-', 1)
 
-        # Remove it from state (if present)
-        if not self._destroy_volume(uniqueid):
-            return
+            # Remove it from state (if present)
+            if not self._destroy_volume(uniqueid):
+                return
 
-        # Now that we successfully removed a volume, retry all the pending
-        # resources.
-        for pending_id in self._pending:
-            self._retry_request(pending_id)
-        self._pending = []
+            # Now that we successfully removed a volume, retry all the pending
+            # resources.
+            for pending_id in self._pending:
+                self._retry_request(pending_id)
+            self._pending = []
 
-        # We just destroyed a volume, refresh cached status from LVM and notify
-        # the service of the availability of the new status.
-        self._status = _refresh_vg_status(self.TREADMILL_VG)
+            # We just destroyed a volume, refresh cached status from LVM and
+            # notify the service of the availability of the new status.
+            self._status = _refresh_vg_status(self.TREADMILL_VG)
 
         return True
 

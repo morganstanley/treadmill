@@ -11,12 +11,12 @@ import click.testing
 import mock
 
 from treadmill import context
-from treadmill.cli import scheduler as scheduler_cli
-from treadmill.cli import blackout as blackout_cli
 from treadmill.cli import configure as configure_cli
 from treadmill.cli import discovery as discovery_cli
 from treadmill.cli import sproc as sproc_cli
+from treadmill.cli.admin import blackout as blackout_cli
 from treadmill.cli.admin import show as admin_show_cli
+from treadmill.cli.admin import scheduler as scheduler_cli
 
 from treadmill.sproc import zk2fs as zk2fs_sproc
 

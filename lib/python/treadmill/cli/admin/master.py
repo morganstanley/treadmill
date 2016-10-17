@@ -1,4 +1,4 @@
-"""Implementation of treadmill admin master CLI plugin."""
+"""Implementation of treadmill admin master CLI plugin"""
 from __future__ import absolute_import
 
 import click
@@ -13,18 +13,18 @@ from treadmill import scheduler as treadmill_sched
 
 
 def server_group(parent):
-    """Server CLI group."""
+    """Server CLI group"""
     formatter = cli.make_formatter(cli.ServerNodePrettyFormatter)
 
     @parent.group()
     def server():
-        """Manage Treadmill server configuration."""
+        """Manage server configuration"""
         pass
 
     @server.command()
     @cli.admin.ON_EXCEPTIONS
     def list():  # pylint: disable=W0622
-        """List servers."""
+        """List servers"""
         servers = []
         for name in master.list_servers(context.GLOBAL.zk.conn):
             server = master.get_server(context.GLOBAL.zk.conn, name)
@@ -46,7 +46,7 @@ def server_group(parent):
     @click.argument('server')
     @cli.admin.ON_EXCEPTIONS
     def configure(server, features, parent, memory, cpu, disk):
-        """View or modify server configuration."""
+        """Create, get or modify server configuration"""
         if parent:
             path = parent.split('/')
             bucket = None
@@ -80,7 +80,7 @@ def server_group(parent):
     @click.argument('server')
     @cli.admin.ON_EXCEPTIONS
     def delete(server):
-        """View or modify server configuration."""
+        """Delete server configuration"""
         master.delete_server(context.GLOBAL.zk.conn, server)
 
     del configure
@@ -89,18 +89,18 @@ def server_group(parent):
 
 
 def app_group(parent):
-    """App CLI group."""
+    """App CLI group"""
     formatter = cli.make_formatter(cli.AppPrettyFormatter)
 
-    @parent.group()
+    @parent.group(name='app')
     def app():
-        """Manage Treadmill server configuration."""
+        """Manage app configuration"""
         pass
 
     @app.command()
     @cli.admin.ON_EXCEPTIONS
     def list():  # pylint: disable=W0622
-        """List apps."""
+        """List apps"""
         for appname in master.list_scheduled_apps(context.GLOBAL.zk.conn):
             print appname
 
@@ -113,7 +113,7 @@ def app_group(parent):
     @click.argument('app')
     @cli.admin.ON_EXCEPTIONS
     def schedule(app, manifest, count, env, proid):
-        """Schedule app(s) on the cell master."""
+        """Schedule app(s) on the cell master"""
         data = yaml.load(manifest.read())
         # TODO: should we delete all potential attributes starting
         #                with _ ?
@@ -135,7 +135,7 @@ def app_group(parent):
     @click.argument('instance')
     @cli.admin.ON_EXCEPTIONS
     def configure(instance):
-        """View instance configuration."""
+        """View app instance configuration"""
         scheduled = master.get_app(context.GLOBAL.zk.conn, instance)
         cli.out(formatter(scheduled))
 
@@ -143,7 +143,7 @@ def app_group(parent):
     @click.argument('apps', nargs=-1)
     @cli.admin.ON_EXCEPTIONS
     def delete(apps):
-        """Deletes (unschedules) the app by pattern."""
+        """Deletes (unschedules) the app by pattern"""
         master.delete_apps(context.GLOBAL.zk.conn, apps)
 
     del list
@@ -153,12 +153,12 @@ def app_group(parent):
 
 
 def monitor_group(parent):
-    """App monitor CLI group."""
+    """App monitor CLI group"""
     formatter = cli.make_formatter(cli.AppMonitorPrettyFormatter())
 
     @parent.group()
     def monitor():
-        """Manage app monitors configuration."""
+        """Manage app monitors configuration"""
         pass
 
     @monitor.command()
@@ -166,7 +166,7 @@ def monitor_group(parent):
     @click.argument('app')
     @cli.admin.ON_EXCEPTIONS
     def configure(app, count):
-        """Configures app monitor."""
+        """Create, get or modify an app monitor configuration"""
         zkclient = context.GLOBAL.zk.conn
         if count is not None:
             master.update_appmonitor(zkclient, app, count)
@@ -177,12 +177,12 @@ def monitor_group(parent):
     @click.argument('app')
     @cli.admin.ON_EXCEPTIONS
     def delete(app):
-        """Deletes app monitor."""
+        """Deletes app monitor"""
         master.delete_appmonitor(context.GLOBAL.zk.conn, app)
 
     @monitor.command(name='list')
     def _list():
-        """List all configured monitors."""
+        """List all configured monitors"""
         zkclient = context.GLOBAL.zk.conn
         monitors = [
             master.get_appmonitor(zkclient, app)
@@ -197,31 +197,31 @@ def monitor_group(parent):
 
 
 def cell_group(parent):
-    """Cell CLI group."""
+    """Cell CLI group"""
 
     @parent.group()
     def cell():
-        """Manage top level cell configuration."""
+        """Manage top level cell configuration"""
         pass
 
     @cell.command()
     @click.argument('bucket')
     @cli.admin.ON_EXCEPTIONS
     def insert(bucket):
-        """Add top level bucket to the cell."""
+        """Add top level bucket to the cell"""
         master.cell_insert_bucket(context.GLOBAL.zk.conn, bucket)
 
     @cell.command()
     @click.argument('bucket')
     @cli.admin.ON_EXCEPTIONS
     def remove(bucket):
-        """Remove top level bucket to the cell."""
+        """Remove top level bucket to the cell"""
         master.cell_remove_bucket(context.GLOBAL.zk.conn, bucket)
 
     @cell.command()
     @cli.admin.ON_EXCEPTIONS
     def list():  # pylint: disable=W0622
-        """List top level bucket in the cell."""
+        """List top level bucket in the cell"""
         buckets = master.cell_buckets(context.GLOBAL.zk.conn)
         for bucket in buckets:
             print bucket
@@ -232,12 +232,12 @@ def cell_group(parent):
 
 
 def bucket_group(parent):
-    """Bucket CLI group."""
+    """Bucket CLI group"""
     formatter = cli.make_formatter(cli.BucketPrettyFormatter)
 
     @parent.group()
     def bucket():
-        """Manage Treadmill bucket configuration."""
+        """Manage Treadmill bucket configuration"""
         pass
 
     @bucket.command()
@@ -246,7 +246,7 @@ def bucket_group(parent):
     @click.argument('bucket')
     @cli.admin.ON_EXCEPTIONS
     def configure(features, bucket):
-        """Display or modify bucket configuration."""
+        """Create, get or modify bucket configuration"""
         features = cli.combine(features)
         if features:
             # This is special case - reset features to empty.
@@ -263,7 +263,7 @@ def bucket_group(parent):
     @bucket.command()
     @cli.admin.ON_EXCEPTIONS
     def list():  # pylint: disable=W0622
-        """Delete bucket."""
+        """Delete bucket"""
         buckets = []
         for name in master.cell_buckets(context.GLOBAL.zk.conn):
             bucket = master.get_bucket(context.GLOBAL.zk.conn, name)
@@ -276,7 +276,7 @@ def bucket_group(parent):
     @click.argument('bucket')
     @cli.admin.ON_EXCEPTIONS
     def delete(bucket):
-        """Delete bucket."""
+        """Delete bucket"""
         master.delete_bucket(context.GLOBAL.zk.conn, bucket)
 
     del configure
@@ -285,7 +285,7 @@ def bucket_group(parent):
 
 
 def scheduler_group(parent):
-    """Scheduler CLI group."""
+    """Scheduler CLI group"""
 
     @parent.command()
     @click.option('--reschedule', default=False)
@@ -298,7 +298,7 @@ def scheduler_group(parent):
     )
     @cli.admin.ON_EXCEPTIONS
     def scheduler(view, reschedule, csv):
-        """Manage Treadmill server configuration."""
+        """View scheduler details"""
         treadmill_sched.DIMENSION_COUNT = 3
 
         cell_master = master.Master(context.GLOBAL.zk.conn,
@@ -340,12 +340,12 @@ def scheduler_group(parent):
 
 
 def identity_group_group(parent):
-    """App monitor CLI group."""
+    """App monitor CLI group"""
     formatter = cli.make_formatter(cli.IdentityGroupPrettyFormatter)
 
     @parent.group(name='identity-group')
     def identity_group():
-        """Manage identity group configuration."""
+        """Manage identity group configuration"""
         pass
 
     @identity_group.command()
@@ -353,7 +353,7 @@ def identity_group_group(parent):
     @click.argument('group')
     @cli.admin.ON_EXCEPTIONS
     def configure(group, count):
-        """Configures app monitor."""
+        """Create, get or modify identity group configuration"""
         zkclient = context.GLOBAL.zk.conn
         if count is not None:
             master.update_identity_group(zkclient, group, count)
@@ -364,12 +364,12 @@ def identity_group_group(parent):
     @click.argument('group')
     @cli.admin.ON_EXCEPTIONS
     def delete(group):
-        """Deletes identity group."""
+        """Deletes identity group"""
         master.delete_identity_group(context.GLOBAL.zk.conn, group)
 
     @identity_group.command(name='list')
     def _list():
-        """List all configured identity groups."""
+        """List all configured identity groups"""
         zkclient = context.GLOBAL.zk.conn
         groups = [
             master.get_identity_group(zkclient, group)
@@ -384,7 +384,7 @@ def identity_group_group(parent):
 
 
 def init():
-    """Return top level command handler."""
+    """Return top level command handler"""
 
     @click.group()
     @click.option('--cell', required=True,
@@ -392,7 +392,7 @@ def init():
                   is_eager=True, callback=cli.handle_context_opt,
                   expose_value=False)
     def master_group():
-        """Manage Treadmill master data."""
+        """Manage Treadmill master data"""
         pass
 
     cell_group(master_group)

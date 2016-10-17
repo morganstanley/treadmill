@@ -17,6 +17,24 @@ import numpy as np
 from treadmill import scheduler
 
 
+_TRAITS = dict()
+
+
+# Helper functions to convert user readable traits to bit mask.
+def _trait2int(trait):
+    if trait not in _TRAITS:
+        _TRAITS[trait] = len(_TRAITS) + 1
+    return 2 ** _TRAITS[trait]
+
+
+def _traits2int(traits):
+    return reduce(
+        lambda acc, t: acc | _trait2int(t),
+        traits,
+        0
+    )
+
+
 def app_list(count, name, *args, **kwargs):
     """Return list of apps."""
     return [scheduler.Application(name + '-' + str(idx),
@@ -180,46 +198,47 @@ class AllocationTest(unittest.TestCase):
                                      _order, _app) in queue[-3:]])
 
 
-class FeatureSetTest(unittest.TestCase):
-    """treadmill.scheduler.FeatureSet tests."""
+class TraitSetTest(unittest.TestCase):
+    """treadmill.scheduler.TraitSet tests."""
 
     def setUp(self):
         scheduler.DIMENSION_COUNT = 2
-        super(FeatureSetTest, self).setUp()
+        super(TraitSetTest, self).setUp()
 
-    def test_features(self):
-        """Test feature inheritance."""
-        fset_a = scheduler.FeatureSet(['a'])
-        fset_b = scheduler.FeatureSet(['b'])
+    def test_traits(self):
+        """Test trait inheritance."""
+        trait_a = int('0b0000001', 2)
 
-        fset_xz = scheduler.FeatureSet(['x', 'z'])
-        fset_xy = scheduler.FeatureSet(['x', 'y'])
+        trait_x = int('0b0000100', 2)
+        trait_y = int('0b0001000', 2)
+        trait_z = int('0b0010000', 2)
 
-        self.assertTrue(fset_a.has('a'))
-        fset_a.inherit(fset_b)
-        self.assertTrue(fset_a.has('a'))
-        self.assertTrue(fset_a.has('b'))
+        fset_a = scheduler.TraitSet(trait_a)
 
-        fset_a.add(fset_xy)
-        self.assertTrue(fset_a.has('a'))
-        self.assertTrue(fset_a.has('b'))
-        self.assertTrue(fset_a.has('x'))
-        self.assertTrue(fset_a.has('y'))
+        fset_xz = scheduler.TraitSet(trait_x | trait_z)
+        fset_xy = scheduler.TraitSet(trait_x | trait_y)
 
-        fset_a.add(fset_xz)
-        self.assertTrue(fset_a.has('x'))
-        self.assertTrue(fset_a.has('y'))
-        self.assertTrue(fset_a.has('z'))
+        self.assertTrue(fset_a.has(trait_a))
 
-        fset_a.remove(fset_xy)
-        self.assertTrue(fset_a.has('x'))
-        self.assertFalse(fset_a.has('y'))
-        self.assertTrue(fset_a.has('z'))
+        fset_a.add('xy', fset_xy.traits)
+        self.assertTrue(fset_a.has(trait_a))
+        self.assertTrue(fset_a.has(trait_x))
+        self.assertTrue(fset_a.has(trait_y))
 
-        fset_a.remove(fset_xz)
-        self.assertFalse(fset_a.has('x'))
-        self.assertFalse(fset_a.has('y'))
-        self.assertFalse(fset_a.has('z'))
+        fset_a.add('xz', fset_xz.traits)
+        self.assertTrue(fset_a.has(trait_x))
+        self.assertTrue(fset_a.has(trait_y))
+        self.assertTrue(fset_a.has(trait_z))
+
+        fset_a.remove('xy')
+        self.assertTrue(fset_a.has(trait_x))
+        self.assertFalse(fset_a.has(trait_y))
+        self.assertTrue(fset_a.has(trait_z))
+
+        fset_a.remove('xz')
+        self.assertFalse(fset_a.has(trait_x))
+        self.assertFalse(fset_a.has(trait_y))
+        self.assertFalse(fset_a.has(trait_z))
 
 
 class NodeTest(unittest.TestCase):
@@ -287,7 +306,7 @@ class NodeTest(unittest.TestCase):
         self.assertTrue(np.array_equal(parent.free_capacity,
                                        np.array([10., 5.])))
 
-        self.assertTrue(np.array_equal(bucket.size(),
+        self.assertTrue(np.array_equal(bucket.size(None),
                                        np.array([20., 10.])))
 
         # Create 10 identical apps.
@@ -366,16 +385,16 @@ class NodeTest(unittest.TestCase):
 
     def test_valid_times(self):
         """Tests node valid_until calculation."""
-        top = scheduler.Bucket('top', features=['top'])
-        left = scheduler.Bucket('left', features=['left'])
-        right = scheduler.Bucket('right', features=['right'])
-        srv_a = scheduler.Server('a', [10, 10], features=['a', '0'],
+        top = scheduler.Bucket('top', traits=_traits2int(['top']))
+        left = scheduler.Bucket('left', traits=_traits2int(['left']))
+        right = scheduler.Bucket('right', traits=_traits2int(['right']))
+        srv_a = scheduler.Server('a', [10, 10], traits=_traits2int(['a', '0']),
                                  valid_until=1)
-        srv_b = scheduler.Server('b', [10, 10], features=['b', '0'],
+        srv_b = scheduler.Server('b', [10, 10], traits=_traits2int(['b', '0']),
                                  valid_until=2)
-        srv_y = scheduler.Server('y', [10, 10], features=['y', '1'],
+        srv_y = scheduler.Server('y', [10, 10], traits=_traits2int(['y', '1']),
                                  valid_until=3)
-        srv_z = scheduler.Server('z', [10, 10], features=['z', '1'],
+        srv_z = scheduler.Server('z', [10, 10], traits=_traits2int(['z', '1']),
                                  valid_until=4)
 
         top.add_node(left)
@@ -399,18 +418,18 @@ class NodeTest(unittest.TestCase):
         self.assertEquals(left.valid_until, 2)
         self.assertEquals(right.valid_until, 3)
 
-    def test_node_features(self):
-        """Tests node feature inheritance."""
-        top = scheduler.Bucket('top', features=['top'])
-        left = scheduler.Bucket('left', features=['left'])
-        right = scheduler.Bucket('right', features=['right'])
-        srv_a = scheduler.Server('a', [10, 10], features=['a', '0'],
+    def test_node_traits(self):
+        """Tests node trait inheritance."""
+        top = scheduler.Bucket('top', traits=_traits2int(['top']))
+        left = scheduler.Bucket('left', traits=_traits2int(['left']))
+        right = scheduler.Bucket('right', traits=_traits2int(['right']))
+        srv_a = scheduler.Server('a', [10, 10], traits=_traits2int(['a', '0']),
                                  valid_until=500)
-        srv_b = scheduler.Server('b', [10, 10], features=['b', '0'],
+        srv_b = scheduler.Server('b', [10, 10], traits=_traits2int(['b', '0']),
                                  valid_until=500)
-        srv_y = scheduler.Server('y', [10, 10], features=['y', '1'],
+        srv_y = scheduler.Server('y', [10, 10], traits=_traits2int(['y', '1']),
                                  valid_until=500)
-        srv_z = scheduler.Server('z', [10, 10], features=['z', '1'],
+        srv_z = scheduler.Server('z', [10, 10], traits=_traits2int(['z', '1']),
                                  valid_until=500)
 
         top.add_node(left)
@@ -420,52 +439,48 @@ class NodeTest(unittest.TestCase):
         right.add_node(srv_y)
         right.add_node(srv_z)
 
-        self.assertTrue(top.features.has('a'))
-        self.assertTrue(top.features.has('b'))
-        self.assertTrue(top.features.has('0'))
-        self.assertTrue(top.features.has('y'))
-        self.assertTrue(top.features.has('z'))
-        self.assertTrue(top.features.has('1'))
+        self.assertTrue(top.traits.has(_trait2int('a')))
+        self.assertTrue(top.traits.has(_trait2int('b')))
+        self.assertTrue(top.traits.has(_trait2int('0')))
+        self.assertTrue(top.traits.has(_trait2int('y')))
+        self.assertTrue(top.traits.has(_trait2int('z')))
+        self.assertTrue(top.traits.has(_trait2int('1')))
 
-        self.assertTrue(left.features.has('a'))
-        self.assertTrue(left.features.has('b'))
-        self.assertTrue(left.features.has('0'))
-        self.assertFalse(left.features.has('y'))
-        self.assertFalse(left.features.has('z'))
-        self.assertFalse(left.features.has('1'))
-
-        self.assertTrue(srv_a.features.has('top'))
-        self.assertTrue(srv_a.features.has('left'))
-        self.assertFalse(srv_a.features.has('right'))
+        self.assertTrue(left.traits.has(_trait2int('a')))
+        self.assertTrue(left.traits.has(_trait2int('b')))
+        self.assertTrue(left.traits.has(_trait2int('0')))
+        self.assertFalse(left.traits.has(_trait2int('y')))
+        self.assertFalse(left.traits.has(_trait2int('z')))
+        self.assertFalse(left.traits.has(_trait2int('1')))
 
         left.remove_node('a')
-        self.assertFalse(left.features.has('a'))
-        self.assertTrue(left.features.has('b'))
-        self.assertTrue(left.features.has('0'))
+        self.assertFalse(left.traits.has(_trait2int('a')))
+        self.assertTrue(left.traits.has(_trait2int('b')))
+        self.assertTrue(left.traits.has(_trait2int('0')))
 
-        self.assertFalse(top.features.has('a'))
-        self.assertTrue(top.features.has('b'))
-        self.assertTrue(top.features.has('0'))
+        self.assertFalse(top.traits.has(_trait2int('a')))
+        self.assertTrue(top.traits.has(_trait2int('b')))
+        self.assertTrue(top.traits.has(_trait2int('0')))
 
         left.remove_node('b')
-        self.assertFalse(left.features.has('b'))
-        self.assertFalse(left.features.has('0'))
+        self.assertFalse(left.traits.has(_trait2int('b')))
+        self.assertFalse(left.traits.has(_trait2int('0')))
 
-        self.assertFalse(top.features.has('b'))
-        self.assertFalse(top.features.has('0'))
+        self.assertFalse(top.traits.has(_trait2int('b')))
+        self.assertFalse(top.traits.has(_trait2int('0')))
 
-    def test_app_feature_placement(self):
-        """Tests placement of app with features."""
-        top = scheduler.Bucket('top', features=['top'])
-        left = scheduler.Bucket('left', features=['left'])
-        right = scheduler.Bucket('right', features=['right'])
-        srv_a = scheduler.Server('a', [10, 10], features=['a', '0'],
+    def test_app_trait_placement(self):
+        """Tests placement of app with traits."""
+        top = scheduler.Bucket('top', traits=_traits2int(['top']))
+        left = scheduler.Bucket('left', traits=_traits2int(['left']))
+        right = scheduler.Bucket('right', traits=_traits2int(['right']))
+        srv_a = scheduler.Server('a', [10, 10], traits=_traits2int(['a', '0']),
                                  valid_until=500)
-        srv_b = scheduler.Server('b', [10, 10], features=['b', '0'],
+        srv_b = scheduler.Server('b', [10, 10], traits=_traits2int(['b', '0']),
                                  valid_until=500)
-        srv_y = scheduler.Server('y', [10, 10], features=['y', '1'],
+        srv_y = scheduler.Server('y', [10, 10], traits=_traits2int(['y', '1']),
                                  valid_until=500)
-        srv_z = scheduler.Server('z', [10, 10], features=['z', '1'],
+        srv_z = scheduler.Server('z', [10, 10], traits=_traits2int(['z', '1']),
                                  valid_until=500)
 
         top.add_node(left)
@@ -475,37 +490,43 @@ class NodeTest(unittest.TestCase):
         right.add_node(srv_y)
         right.add_node(srv_z)
 
-        alloc_a = scheduler.Allocation(features=['a'])
+        alloc_a = scheduler.Allocation(traits=_traits2int(['a']))
         apps_a = app_list(10, 'app_a', 50, [2, 2])
         for app in apps_a:
             alloc_a.add(app)
 
-        # srv_a is the only one with feature 'a'.
+        # srv_a is the only one with trait  'a'.
         self.assertTrue(top.put(apps_a[0]))
         self.assertTrue(top.put(apps_a[1]))
         self.assertIn(apps_a[0].name, srv_a.apps)
         self.assertIn(apps_a[1].name, srv_a.apps)
 
-        alloc_0 = scheduler.Allocation(features=['0'])
+        alloc_0 = scheduler.Allocation(traits=_traits2int(['0']))
         apps_0 = app_list(10, 'app_0', 50, [2, 2])
         for app in apps_0:
             alloc_0.add(app)
 
-        # '0' feature - two servers, will spread by default.
+        # '0' trait - two servers, will spread by default.
         self.assertTrue(top.put(apps_0[0]))
         self.assertTrue(top.put(apps_0[1]))
         self.assertIn(apps_0[0].name, srv_a.apps)
         self.assertIn(apps_0[1].name, srv_b.apps)
 
-        alloc_r1 = scheduler.Allocation(features=['right', '1'])
-        apps_r1 = app_list(10, 'app_r1', 50, [2, 2])
-        for app in apps_r1:
-            alloc_r1.add(app)
+        # Prev implementation propagated traits from parent to children,
+        # so "right" trait propagated to leaf servers.
+        #
+        # This behavior is removed, so placing app with "right" trait will
+        # fail.
+        #
+        # alloc_r1 = scheduler.Allocation(traits=_traits2int(['right', '1']))
+        # apps_r1 = app_list(10, 'app_r1', 50, [2, 2])
+        # for app in apps_r1:
+        #    alloc_r1.add(app)
 
-        self.assertTrue(top.put(apps_r1[0]))
-        self.assertTrue(top.put(apps_r1[1]))
-        self.assertIn(apps_r1[0].name, srv_y.apps)
-        self.assertIn(apps_r1[1].name, srv_z.apps)
+        # self.assertTrue(top.put(apps_r1[0]))
+        # self.assertTrue(top.put(apps_r1[1]))
+        # self.assertIn(apps_r1[0].name, srv_y.apps)
+        # self.assertIn(apps_r1[1].name, srv_z.apps)
 
         apps_nothing = app_list(10, 'apps_nothing', 50, [1, 1])
         self.assertTrue(top.put(apps_nothing[0]))
@@ -524,16 +545,16 @@ class NodeTest(unittest.TestCase):
 
     def test_size_and_members(self):
         """Tests recursive size calculation."""
-        top = scheduler.Bucket('top', features=['top'])
-        left = scheduler.Bucket('left', features=['left'])
-        right = scheduler.Bucket('right', features=['right'])
-        srv_a = scheduler.Server('a', [1, 1], features=['a', '0'],
+        top = scheduler.Bucket('top', traits=_traits2int(['top']))
+        left = scheduler.Bucket('left', traits=_traits2int(['left']))
+        right = scheduler.Bucket('right', traits=_traits2int(['right']))
+        srv_a = scheduler.Server('a', [1, 1], traits=_traits2int(['a', '0']),
                                  valid_until=500)
-        srv_b = scheduler.Server('b', [1, 1], features=['b', '0'],
+        srv_b = scheduler.Server('b', [1, 1], traits=_traits2int(['b', '0']),
                                  valid_until=500)
-        srv_y = scheduler.Server('y', [1, 1], features=['y', '1'],
+        srv_y = scheduler.Server('y', [1, 1], traits=_traits2int(['y', '1']),
                                  valid_until=500)
-        srv_z = scheduler.Server('z', [1, 1], features=['z', '1'],
+        srv_z = scheduler.Server('z', [1, 1], traits=_traits2int(['z', '1']),
                                  valid_until=500)
 
         top.add_node(left)
@@ -544,9 +565,9 @@ class NodeTest(unittest.TestCase):
         right.add_node(srv_z)
 
         # pylint: disable=W0212
-        self.assertTrue(scheduler._all_isclose(srv_a.size(), [1, 1]))
-        self.assertTrue(scheduler._all_isclose(left.size(), [2, 2]))
-        self.assertTrue(scheduler._all_isclose(top.size(), [4, 4]))
+        self.assertTrue(scheduler._all_isclose(srv_a.size(None), [1, 1]))
+        self.assertTrue(scheduler._all_isclose(left.size(None), [2, 2]))
+        self.assertTrue(scheduler._all_isclose(top.size(None), [4, 4]))
 
         self.assertEquals({'a': srv_a,
                            'b': srv_b,
@@ -555,13 +576,13 @@ class NodeTest(unittest.TestCase):
 
     def test_affinity_counters(self):
         """Tests affinity counters."""
-        top = scheduler.Bucket('top', features=['top'])
-        left = scheduler.Bucket('left', features=['left'])
-        right = scheduler.Bucket('right', features=['right'])
-        srv_a = scheduler.Server('a', [10, 10], features=[], valid_until=500)
-        srv_b = scheduler.Server('b', [10, 10], features=[], valid_until=500)
-        srv_y = scheduler.Server('y', [10, 10], features=[], valid_until=500)
-        srv_z = scheduler.Server('z', [10, 10], features=[], valid_until=500)
+        top = scheduler.Bucket('top', traits=_traits2int(['top']))
+        left = scheduler.Bucket('left', traits=_traits2int(['left']))
+        right = scheduler.Bucket('right', traits=_traits2int(['right']))
+        srv_a = scheduler.Server('a', [10, 10], traits=0, valid_until=500)
+        srv_b = scheduler.Server('b', [10, 10], traits=0, valid_until=500)
+        srv_y = scheduler.Server('y', [10, 10], traits=0, valid_until=500)
+        srv_z = scheduler.Server('z', [10, 10], traits=0, valid_until=500)
 
         top.add_node(left)
         top.add_node(right)
@@ -572,7 +593,7 @@ class NodeTest(unittest.TestCase):
 
         apps_a = app_list(10, 'app_a', 50, [1, 1])
 
-        srv_a.put(apps_a[0])
+        self.assertTrue(srv_a.put(apps_a[0]))
         self.assertEquals(1, srv_a.affinity_counters['app_a'])
         self.assertEquals(1, left.affinity_counters['app_a'])
         self.assertEquals(1, top.affinity_counters['app_a'])
@@ -599,26 +620,59 @@ class CellTest(unittest.TestCase):
         """Simple test to test empty bucket"""
         cell = scheduler.Cell('top')
 
-        empty = scheduler.Bucket('empty', features=[])
+        empty = scheduler.Bucket('empty', traits=0)
         cell.add_node(empty)
 
-        bucket = scheduler.Bucket('bucket', features=[])
-        srv_a = scheduler.Server('a', [10, 10], features=[], valid_until=500)
+        bucket = scheduler.Bucket('bucket', traits=0)
+        srv_a = scheduler.Server('a', [10, 10], traits=0, valid_until=500)
         bucket.add_node(srv_a)
 
         cell.add_node(bucket)
 
         cell.schedule()
 
+    def test_labels(self):
+        """Test scheduling with labels."""
+        cell = scheduler.Cell('top')
+        left = scheduler.Bucket('left', traits=0)
+        right = scheduler.Bucket('right', traits=0)
+        srv_a = scheduler.Server('a_xx', [10, 10], valid_until=500, label='xx')
+        srv_b = scheduler.Server('b', [10, 10], valid_until=500)
+        srv_y = scheduler.Server('y_xx', [10, 10], valid_until=500, label='xx')
+        srv_z = scheduler.Server('z', [10, 10], valid_until=500)
+
+        cell.add_node(left)
+        cell.add_node(right)
+        left.add_node(srv_a)
+        left.add_node(srv_b)
+        right.add_node(srv_y)
+        right.add_node(srv_z)
+
+        app1 = scheduler.Application('app1', 4, [1, 1], 'app')
+        app2 = scheduler.Application('app2', 3, [2, 2], 'app')
+        app3 = scheduler.Application('app_xx_3', 2, [3, 3], 'app')
+        app4 = scheduler.Application('app_xx_4', 1, [4, 4], 'app')
+        cell.allocations[None].add(app1)
+        cell.allocations[None].add(app2)
+        cell.allocations['xx'].add(app3)
+        cell.allocations['xx'].add(app4)
+
+        cell.schedule()
+
+        self.assertEquals(app1.server, 'b')
+        self.assertEquals(app2.server, 'z')
+        self.assertEquals(app3.server, 'a_xx')
+        self.assertEquals(app4.server, 'y_xx')
+
     def test_simple(self):
         """Simple placement test."""
         cell = scheduler.Cell('top')
-        left = scheduler.Bucket('left', features=[])
-        right = scheduler.Bucket('right', features=[])
-        srv_a = scheduler.Server('a', [10, 10], features=[], valid_until=500)
-        srv_b = scheduler.Server('b', [10, 10], features=[], valid_until=500)
-        srv_y = scheduler.Server('y', [10, 10], features=[], valid_until=500)
-        srv_z = scheduler.Server('z', [10, 10], features=[], valid_until=500)
+        left = scheduler.Bucket('left', traits=0)
+        right = scheduler.Bucket('right', traits=0)
+        srv_a = scheduler.Server('a', [10, 10], traits=0, valid_until=500)
+        srv_b = scheduler.Server('b', [10, 10], traits=0, valid_until=500)
+        srv_y = scheduler.Server('y', [10, 10], traits=0, valid_until=500)
+        srv_z = scheduler.Server('z', [10, 10], traits=0, valid_until=500)
 
         cell.add_node(left)
         cell.add_node(right)
@@ -631,10 +685,10 @@ class CellTest(unittest.TestCase):
         app2 = scheduler.Application('app2', 3, [2, 2], 'app')
         app3 = scheduler.Application('app3', 2, [3, 3], 'app')
         app4 = scheduler.Application('app4', 1, [4, 4], 'app')
-        cell.allocation.add(app1)
-        cell.allocation.add(app2)
-        cell.allocation.add(app3)
-        cell.allocation.add(app4)
+        cell.allocations[None].add(app1)
+        cell.allocations[None].add(app2)
+        cell.allocations[None].add(app3)
+        cell.allocations[None].add(app4)
 
         cell.schedule()
 
@@ -645,7 +699,7 @@ class CellTest(unittest.TestCase):
 
         # Add high priority app that needs entire cell
         app_prio50 = scheduler.Application('prio50', 50, [10, 10], 'app')
-        cell.allocation.add(app_prio50)
+        cell.allocations[None].add(app_prio50)
         cell.schedule()
 
         # The queue is ordered by priority:
@@ -659,7 +713,7 @@ class CellTest(unittest.TestCase):
         self.assertEquals(app4.server, 'a')
 
         app_prio51 = scheduler.Application('prio51', 51, [10, 10], 'app')
-        cell.allocation.add(app_prio51)
+        cell.allocations[None].add(app_prio51)
         cell.schedule()
 
         # app4 is now colocated with app1. app4 will still be evicted first,
@@ -674,8 +728,8 @@ class CellTest(unittest.TestCase):
 
         app_prio49_1 = scheduler.Application('prio49_1', 49, [10, 10], 'app')
         app_prio49_2 = scheduler.Application('prio49_2', 49, [9, 9], 'app')
-        cell.allocation.add(app_prio49_1)
-        cell.allocation.add(app_prio49_2)
+        cell.allocations[None].add(app_prio49_1)
+        cell.allocations[None].add(app_prio49_2)
         cell.schedule()
 
         # 50/51 not moved. from the end of the queue,
@@ -693,12 +747,12 @@ class CellTest(unittest.TestCase):
     def test_affinity_limits(self):
         """Simple placement test."""
         cell = scheduler.Cell('top')
-        left = scheduler.Bucket('left', features=[])
-        right = scheduler.Bucket('right', features=[])
-        srv_a = scheduler.Server('a', [10, 10], features=[], valid_until=500)
-        srv_b = scheduler.Server('b', [10, 10], features=[], valid_until=500)
-        srv_y = scheduler.Server('y', [10, 10], features=[], valid_until=500)
-        srv_z = scheduler.Server('z', [10, 10], features=[], valid_until=500)
+        left = scheduler.Bucket('left', traits=0)
+        right = scheduler.Bucket('right', traits=0)
+        srv_a = scheduler.Server('a', [10, 10], traits=0, valid_until=500)
+        srv_b = scheduler.Server('b', [10, 10], traits=0, valid_until=500)
+        srv_y = scheduler.Server('y', [10, 10], traits=0, valid_until=500)
+        srv_z = scheduler.Server('z', [10, 10], traits=0, valid_until=500)
 
         cell.add_node(left)
         cell.add_node(right)
@@ -712,11 +766,11 @@ class CellTest(unittest.TestCase):
 
         apps = app_list(10, 'app', 50, [1, 1],
                         affinity_limits={'server': 1})
-        cell.add_app(cell.allocation, apps[0])
-        cell.add_app(cell.allocation, apps[1])
-        cell.add_app(cell.allocation, apps[2])
-        cell.add_app(cell.allocation, apps[3])
-        cell.add_app(cell.allocation, apps[4])
+        cell.add_app(cell.allocations[None], apps[0])
+        cell.add_app(cell.allocations[None], apps[1])
+        cell.add_app(cell.allocations[None], apps[2])
+        cell.add_app(cell.allocations[None], apps[3])
+        cell.add_app(cell.allocations[None], apps[4])
 
         cell.schedule()
 
@@ -732,10 +786,10 @@ class CellTest(unittest.TestCase):
         apps = app_list(10, 'app', 50, [1, 1],
                         affinity_limits={'server': 1, 'rack': 1})
 
-        cell.add_app(cell.allocation, apps[0])
-        cell.add_app(cell.allocation, apps[1])
-        cell.add_app(cell.allocation, apps[2])
-        cell.add_app(cell.allocation, apps[3])
+        cell.add_app(cell.allocations[None], apps[0])
+        cell.add_app(cell.allocations[None], apps[1])
+        cell.add_app(cell.allocations[None], apps[2])
+        cell.add_app(cell.allocations[None], apps[3])
         cell.schedule()
 
         self.assertIsNotNone(apps[0].server)
@@ -749,10 +803,10 @@ class CellTest(unittest.TestCase):
         apps = app_list(10, 'app', 50, [1, 1],
                         affinity_limits={'server': 1, 'rack': 2, 'cell': 3})
 
-        cell.add_app(cell.allocation, apps[0])
-        cell.add_app(cell.allocation, apps[1])
-        cell.add_app(cell.allocation, apps[2])
-        cell.add_app(cell.allocation, apps[3])
+        cell.add_app(cell.allocations[None], apps[0])
+        cell.add_app(cell.allocations[None], apps[1])
+        cell.add_app(cell.allocations[None], apps[2])
+        cell.add_app(cell.allocations[None], apps[3])
         cell.schedule()
 
         self.assertIsNotNone(apps[0].server)
@@ -767,12 +821,12 @@ class CellTest(unittest.TestCase):
         #
         # pylint: disable=R0915
         cell = scheduler.Cell('top')
-        left = scheduler.Bucket('left', features=[])
-        right = scheduler.Bucket('right', features=[])
-        srv_a = scheduler.Server('a', [10, 10], features=[], valid_until=500)
-        srv_b = scheduler.Server('b', [10, 10], features=[], valid_until=500)
-        srv_y = scheduler.Server('y', [10, 10], features=[], valid_until=500)
-        srv_z = scheduler.Server('z', [10, 10], features=[], valid_until=500)
+        left = scheduler.Bucket('left', traits=0)
+        right = scheduler.Bucket('right', traits=0)
+        srv_a = scheduler.Server('a', [10, 10], traits=0, valid_until=500)
+        srv_b = scheduler.Server('b', [10, 10], traits=0, valid_until=500)
+        srv_y = scheduler.Server('y', [10, 10], traits=0, valid_until=500)
+        srv_z = scheduler.Server('z', [10, 10], traits=0, valid_until=500)
 
         cell.add_node(left)
         cell.add_node(right)
@@ -793,8 +847,8 @@ class CellTest(unittest.TestCase):
                                              'unsticky',
                                              data_retention_timeout=0)
 
-        cell.allocation.add(sticky_apps[0])
-        cell.allocation.add(unsticky_app)
+        cell.allocations[None].add(sticky_apps[0])
+        cell.allocations[None].add(unsticky_app)
 
         cell.schedule()
 
@@ -838,8 +892,8 @@ class CellTest(unittest.TestCase):
         #
         # Other sticky apps will be pending.
         time.time.return_value = 135
-        cell.allocation.add(sticky_apps[1])
-        cell.allocation.add(sticky_apps[2])
+        cell.allocations[None].add(sticky_apps[1])
+        cell.allocations[None].add(sticky_apps[2])
         cell.schedule()
 
         # Original app still on 'y', timeout did not expire
@@ -866,12 +920,12 @@ class CellTest(unittest.TestCase):
         #
         # pylint: disable=R0915
         cell = scheduler.Cell('top')
-        left = scheduler.Bucket('left', features=[])
-        right = scheduler.Bucket('right', features=[])
-        srv_a = scheduler.Server('a', [10, 10], features=[], valid_until=500)
-        srv_b = scheduler.Server('b', [10, 10], features=[], valid_until=500)
-        srv_y = scheduler.Server('y', [10, 10], features=[], valid_until=500)
-        srv_z = scheduler.Server('z', [10, 10], features=[], valid_until=500)
+        left = scheduler.Bucket('left', traits=0)
+        right = scheduler.Bucket('right', traits=0)
+        srv_a = scheduler.Server('a', [10, 10], traits=0, valid_until=500)
+        srv_b = scheduler.Server('b', [10, 10], traits=0, valid_until=500)
+        srv_y = scheduler.Server('y', [10, 10], traits=0, valid_until=500)
+        srv_z = scheduler.Server('z', [10, 10], traits=0, valid_until=500)
 
         cell.add_node(left)
         cell.add_node(right)
@@ -886,10 +940,10 @@ class CellTest(unittest.TestCase):
         apps = app_list(10, 'app', 50, [1, 1],
                         affinity_limits={'server': 1, 'rack': 1})
 
-        cell.add_app(cell.allocation, apps[0])
-        cell.add_app(cell.allocation, apps[1])
-        cell.add_app(cell.allocation, apps[2])
-        cell.add_app(cell.allocation, apps[3])
+        cell.add_app(cell.allocations[None], apps[0])
+        cell.add_app(cell.allocations[None], apps[1])
+        cell.add_app(cell.allocations[None], apps[2])
+        cell.add_app(cell.allocations[None], apps[3])
 
         cell.schedule()
 
@@ -902,14 +956,14 @@ class CellTest(unittest.TestCase):
         """Tests scheduling apps with identity."""
         cell = scheduler.Cell('top')
         for idx in xrange(0, 10):
-            server = scheduler.Server(str(idx), [10, 10], features=[],
+            server = scheduler.Server(str(idx), [10, 10], traits=0,
                                       valid_until=time.time() + 1000)
             cell.add_node(server)
 
         cell.configure_identity_group('ident1', 3)
         apps = app_list(10, 'app', 50, [1, 1], identity_group='ident1')
         for app in apps:
-            cell.add_app(cell.allocation, app)
+            cell.add_app(cell.allocations[None], app)
 
         self.assertTrue(apps[0].acquire_identity())
         self.assertEquals(set([1, 2]), apps[0].identity_group_ref.available)
@@ -941,16 +995,16 @@ class CellTest(unittest.TestCase):
                           len([app for app in apps if app.server is not None]))
 
     def test_schedule_once(self):
-        """Tests schedule once feature on server down."""
+        """Tests schedule once trait on server down."""
         cell = scheduler.Cell('top')
         for idx in xrange(0, 10):
-            server = scheduler.Server(str(idx), [10, 10], features=[],
+            server = scheduler.Server(str(idx), [10, 10], traits=0,
                                       valid_until=time.time() + 1000)
             cell.add_node(server)
 
         apps = app_list(2, 'app', 50, [6, 6], schedule_once=True)
         for app in apps:
-            cell.add_app(cell.allocation, app)
+            cell.add_app(cell.allocations[None], app)
 
         cell.schedule()
 
@@ -968,10 +1022,10 @@ class CellTest(unittest.TestCase):
         self.assertTrue(apps[1].evicted)
 
     def test_schedule_once_eviction(self):
-        """Tests schedule once feature with eviction."""
+        """Tests schedule once trait with eviction."""
         cell = scheduler.Cell('top')
         for idx in xrange(0, 10):
-            server = scheduler.Server(str(idx), [10, 10], features=[],
+            server = scheduler.Server(str(idx), [10, 10], traits=0,
                                       valid_until=time.time() + 1000)
             cell.add_node(server)
 
@@ -988,10 +1042,10 @@ class CellTest(unittest.TestCase):
 
         small_apps = app_list(10, 'small', 50, [1, 1], schedule_once=True)
         for app in small_apps:
-            cell.add_app(cell.allocation, app)
+            cell.add_app(cell.allocations[None], app)
         large_apps = app_list(10, 'large', 60, [8, 8], schedule_once=True)
         for app in large_apps:
-            cell.add_app(cell.allocation, app)
+            cell.add_app(cell.allocations[None], app)
 
         placement = cell.schedule()
         # Check that all apps are placed.
@@ -1002,7 +1056,7 @@ class CellTest(unittest.TestCase):
         # Add one app, higher priority than rest, will force eviction.
         medium_apps = app_list(1, 'medium', 70, [5, 5])
         for app in medium_apps:
-            cell.add_app(cell.allocation, app)
+            cell.add_app(cell.allocations[None], app)
 
         cell.schedule()
         self.assertEquals(len([app for app in small_apps if app.evicted]), 0)

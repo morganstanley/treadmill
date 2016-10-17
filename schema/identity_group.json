@@ -1,0 +1,21 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "resource_id": { "$ref": "common.json#/identity_group_id" },
+    "resource": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+            "count": { "type": "integer" },
+            "minimum": 0,
+            "maximum": 1000
+        }
+    },
+    "verbs": {
+        "create": {
+            "required": ["count"]
+        },
+        "update": {
+            "required": ["count"]
+        }
+    }
+}

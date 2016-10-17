@@ -17,6 +17,7 @@ import kazoo
 
 from treadmill import authz
 from treadmill import rest
+from treadmill import exc
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -90,6 +91,17 @@ def failed_dependency(err):
 def json_validation_error_exc(err):
     """JSON Schema Validation error exception handler."""
     return failed_dependency(err)
+
+
+@rest.FLASK_APP.errorhandler(exc.TreadmillError)
+def treadmill_exc(err):
+    """Zookeeper exception handler."""
+    _LOGGER.error('exception: %r', err)
+    response = flask.jsonify({'message': err.message,
+                              'status': httplib.BAD_REQUEST})
+
+    response.status_code = httplib.BAD_REQUEST
+    return response
 
 
 def internal_server_error(err):

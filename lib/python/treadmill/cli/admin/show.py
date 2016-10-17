@@ -1,4 +1,4 @@
-"""Trace treadmill application events."""
+"""Trace treadmill application events"""
 from __future__ import absolute_import
 
 import logging
@@ -13,7 +13,7 @@ _LOGGER = logging.getLogger()
 
 
 def init():
-    """Return top level command handler."""
+    """Return top level command handler"""
 
     @click.group()
     @click.option('--cell', required=True,
@@ -21,24 +21,24 @@ def init():
                   callback=cli.handle_context_opt,
                   expose_value=False)
     def top():
-        """List Treadmill apps."""
+        """Show Treadmill apps"""
         pass
 
     @top.command()
     def scheduled():
-        """List scheduled applications."""
+        """List scheduled applications"""
         for app in sorted(context.GLOBAL.zk.conn.get_children(z.SCHEDULED)):
             cli.out(app)
 
     @top.command()
     def running():
-        """List scheduled applications."""
+        """List running applications"""
         for app in sorted(context.GLOBAL.zk.conn.get_children(z.RUNNING)):
             cli.out(app)
 
     @top.command()
     def pending():
-        """List scheduled applications."""
+        """List pending applications"""
         running = set(context.GLOBAL.zk.conn.get_children(z.RUNNING))
         scheduled = set(context.GLOBAL.zk.conn.get_children(z.SCHEDULED))
         for app in sorted(scheduled - running):
@@ -46,7 +46,7 @@ def init():
 
     @top.command()
     def stopped():
-        """List stopped applications."""
+        """List stopped applications"""
         running = set(context.GLOBAL.zk.conn.get_children(z.RUNNING))
         scheduled = set(context.GLOBAL.zk.conn.get_children(z.SCHEDULED))
         for app in sorted(running - scheduled):

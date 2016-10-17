@@ -1,4 +1,4 @@
-"""Treadmill v3 REST."""
+"""Treadmill REST APIs"""
 from __future__ import absolute_import
 
 import os
@@ -25,14 +25,14 @@ __path__ = pkgutil.extend_path(__path__, __name__)
 _LOGGER = logging.getLogger(__name__)
 
 
-def init(apis):
+def init(apis, title=None, cors_origin=None):
     """Module initialization."""
 
-    blueprint = flask.Blueprint('v3', __name__, url_prefix='/v3')
+    blueprint = flask.Blueprint('v1', __name__)
 
-    api = restplus.Api(blueprint, version='3.0', ui=False,
-                       title="Treadmill's API Server - v3",
-                       description="Treadmill's API server")
+    api = restplus.Api(blueprint, version='1.0', ui=False,
+                       title=title,
+                       description="Treadmill REST API Documentation")
 
     @blueprint.route('/docs/', endpoint='docs')
     def _swagger_ui():
@@ -42,8 +42,7 @@ def init(apis):
     rest.FLASK_APP.register_blueprint(blueprint)
     rest.FLASK_APP.register_blueprint(restplus.apidoc.apidoc)
 
-    # TODO: origin must be configurable.
-    cors = webutils.cors(origin='.*',
+    cors = webutils.cors(origin=cors_origin,
                          content_type='application/json',
                          credentials=True)
 
@@ -59,7 +58,7 @@ def init(apis):
             _LOGGER.info('Loading api: %s', apimod)
 
             api_restmod = importlib.import_module(
-                'treadmill.rest.v3.' + apimod)
+                'treadmill.rest.api.' + apimod)
             api_implmod = importlib.import_module(
                 'treadmill.api.' + apimod)
 
@@ -69,4 +68,4 @@ def init(apis):
         except ImportError as err:
             _LOGGER.warn('Unable to load %s api: %s', apimod, err)
 
-    return ['/v3/' + apimod.replace('_', '-') for apimod in apis]
+    return ['/' + apimod.replace('_', '-') for apimod in apis]

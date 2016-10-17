@@ -23,10 +23,14 @@ import errno  # pylint: disable=C0411
 
 import collections
 import logging
+import os
 import select
 import enum
 
-from .syscall import inotify
+if os.name == 'nt':
+    from .syscall import readdirchange
+else:
+    from .syscall import inotify
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -59,18 +63,22 @@ class DirWatcher(object):
 
     def __init__(self, watch_dir):
         self.watch_dir = watch_dir
-        self.inotify = inotify.Inotify(inotify.IN_CLOEXEC)
-        self.inotify.add_watch(
-            watch_dir,
-            event_mask=(
-                inotify.IN_ATTRIB |
-                inotify.IN_CREATE |
-                inotify.IN_DELETE |
-                inotify.IN_DELETE_SELF |
-                inotify.IN_MODIFY |
-                inotify.IN_MOVE
+        if os.name == 'nt':
+            self.inotify = readdirchange.ReadDirChange()
+            self.inotify.add_watch(watch_dir)
+        else:
+            self.inotify = inotify.Inotify(inotify.IN_CLOEXEC)
+            self.inotify.add_watch(
+                watch_dir,
+                event_mask=(
+                    inotify.IN_ATTRIB |
+                    inotify.IN_CREATE |
+                    inotify.IN_DELETE |
+                    inotify.IN_DELETE_SELF |
+                    inotify.IN_MODIFY |
+                    inotify.IN_MOVE
+                )
             )
-        )
         self.event_list = collections.deque()
         self.poll = select.poll()
         self.poll.register(self.inotify, select.POLLIN)

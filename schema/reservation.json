@@ -1,0 +1,34 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "resource_id": {
+        "type": "string"
+    },
+    "resource": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+            "memory": { "$ref": "common.json#/memory" },
+            "cpu": { "$ref": "common.json#/cpu" },
+            "disk": { "$ref": "common.json#/disk" },
+            "rank": { "$ref": "common.json#/rank" },
+            "label": {
+                "$ref": "common.json#/label"
+            }
+        }
+    },
+    "verbs": {
+        "create": {
+            "required": [ "memory", "cpu", "disk" ]
+        },
+        "update": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "memory": { "$ref": "#/resource/properties/memory" },
+                "cpu": { "$ref": "#/resource/properties/cpu" },
+                "disk": { "$ref": "#/resource/properties/disk" },
+                "label": { "$ref": "#/resource/properties/label"}
+            }
+        }
+    }
+}

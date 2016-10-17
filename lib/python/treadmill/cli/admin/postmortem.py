@@ -1,4 +1,5 @@
-"""Collect node information post crash.
+"""
+Collect node information post crash.
 """
 from __future__ import absolute_import
 
@@ -18,7 +19,7 @@ _LOGGER = logging.getLogger(__name__)
 
 
 def init():
-    """Return top level command handler."""
+    """Return top level command handler"""
 
     @click.group()
     @click.option('--install-dir',
@@ -31,7 +32,7 @@ def init():
                   help='arguments for upload script')
     @click.pass_context
     def collect(install_dir, upload_script, upload_args):
-        """collect Treadmill node data."""
+        """Collect Treadmill node data"""
 
         filetime = utils.datetime_utcnow().strftime('%Y%m%d_%H%M%SUTC')
         hostname = socket.gethostname()

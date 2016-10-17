@@ -25,7 +25,6 @@ class RestServer(object):
 
     def run(self, auth_type=None, protect=None):
         """Start server"""
-        # TODO: is there better way not to hardcode v3?
         if auth_type is not None:
             _LOGGER.info('Starting REST server: %s:%s, auth: %s, protect: %r',
                          self.host, self.port, auth_type, protect)

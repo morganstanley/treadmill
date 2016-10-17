@@ -29,10 +29,27 @@ _MAX_UTILIZATION = float('inf')
 _GLOBAL_ORDER_BASE = time.mktime((2014, 1, 1, 0, 0, 0, 0, 0, 0))
 
 
+def _bit_count(value):
+    """Returns number of bits set."""
+    count = 0
+    while value:
+        value &= value - 1
+        count += 1
+    return count
+
+
 def zero_capacity():
     """Returns zero capacity vector."""
     assert DIMENSION_COUNT is not None, 'Dimension count not set.'
     return np.zeros(DIMENSION_COUNT)
+
+
+def eps_capacity():
+    """Returns eps capacity vector."""
+    assert DIMENSION_COUNT is not None, 'Dimension count not set.'
+    return np.array(
+        [np.finfo(float).eps for _x in xrange(0, DIMENSION_COUNT)]
+    )
 
 
 def _global_order():
@@ -196,7 +213,7 @@ class Application(object):
         'demand',
         'affinity',
         'priority',
-        'features',
+        'traits',
         'allocation',
         'data_retention_timeout',
         'server',
@@ -219,6 +236,7 @@ class Application(object):
         self.global_order = _global_order()
         self.allocation = None
         self.server = None
+
         self.name = name
         self.affinity = Affinity(affinity, affinity_limits)
         self.priority = priority
@@ -262,12 +280,12 @@ class Application(object):
         return self.identity_group_ref is None or self.identity is not None
 
     @property
-    def features(self):
-        """The app features are derived from allocation."""
+    def traits(self):
+        """The app traits are derived from allocation."""
         if self.allocation is None:
-            return set()
+            return 0
         else:
-            return self.allocation.features
+            return self.allocation.traits
 
 
 class Strategy(object):
@@ -325,57 +343,52 @@ class PackStrategy(Strategy):
         return self.current
 
 
-class FeatureSet(object):
-    """Hierarchical set of features."""
+class TraitSet(object):
+    """Hierarchical set of traits."""
     __slots__ = (
-        'features',
-        'inherited_features',
-        'children_features',
+        'self_traits',
+        'children_traits',
+        'traits',
     )
 
-    def __init__(self, features):
-        # Private features.
-        self.features = set()
-        if features:
-            self.features.update(features)
+    def __init__(self, traits=0):
+        if not traits:
+            traits = 0
 
-        # Inherited from parent(s)
-        self.inherited_features = set()
+        # Private traits.
+        assert isinstance(traits, int) or isinstance(traits, long)
+        self.self_traits = traits
 
-        # Union of all children features.
-        self.children_features = collections.Counter()
+        # Union of all children traits.
+        self.children_traits = dict()
 
-    def __iter__(self):
-        """Implementation of feature iterator."""
-        return iter(self.features)
+        self._recalculate()
 
-    def has(self, feature):
-        """Check if feature is available."""
-        return (feature in self.features or
-                feature in self.inherited_features or
-                feature in self.children_features)
+    def _recalculate(self):
+        """Calculate combined set of all traits."""
+        self.traits = self.self_traits
+        for trait in self.children_traits.values():
+            self.traits |= trait
 
-    def add(self, child):
-        """Merge node features, propagate self and inherited to the child."""
-        # Update children features.
-        self.children_features.update(child.features)
-        self.children_features.update(child.children_features)
+    def has(self, traits):
+        """Check if all traits are present."""
+        return (self.traits & traits) == traits
 
-    def inherit(self, parent):
-        """Inherit parent feature and propagate them to children."""
-        self.inherited_features.update(parent.features)
-        self.inherited_features.update(parent.inherited_features)
+    def add(self, child, traits):
+        """."""
+        # Update children traits.
+        self.children_traits[child] = traits
+        self._recalculate()
 
     def remove(self, child):
-        """Remove child features from the list."""
-        self.children_features.subtract(child.features)
-        self.children_features.subtract(child.children_features)
-        # Remove zero (and negative) counters from set.
-        self.children_features += collections.Counter()
+        """Remove child traits from the list."""
+        if child in self.children_traits:
+            del self.children_traits[child]
+        self._recalculate()
 
     def is_same(self, other):
-        """Compares own features, ignore child and inherited."""
-        return self.features == other.features
+        """Compares own traits, ignore child."""
+        return self.self_traits == other.self_traits
 
 
 class AffinityCounter(object):
@@ -397,20 +410,22 @@ class Node(object):
         'free_capacity',
         'parent',
         'children',
-        'features',
+        'traits',
+        'labels',
         'affinity_counters',
         'valid_until',
         '_state',
         '_state_since',
     )
 
-    def __init__(self, name, features, level, valid_until=0):
+    def __init__(self, name, traits, level, valid_until=0):
         self.name = name
         self.level = level
         self.free_capacity = zero_capacity()
         self.parent = None
         self.children = collections.OrderedDict()
-        self.features = FeatureSet(features)
+        self.traits = TraitSet(traits)
+        self.labels = set()
         self.affinity_counters = collections.Counter()
         self.valid_until = valid_until
         self._state = State.up
@@ -438,11 +453,12 @@ class Node(object):
         """Set node state and records time."""
         self.set_state(new_state, time.time())
 
-    def add_child_features(self, node):
-        """Recursively add child features up."""
-        self.features.add(node.features)
+    def add_child_traits(self, node):
+        """Recursively add child traits up."""
+        self.traits.add(node.name, node.traits.traits)
         if self.parent:
-            self.parent.add_child_features(node)
+            self.parent.remove_child_traits(self.name)
+            self.parent.add_child_traits(self)
 
     def adjust_valid_until(self, child_valid_until):
         """Recursively adjust valid until time."""
@@ -458,11 +474,12 @@ class Node(object):
         if self.parent:
             self.parent.adjust_valid_until(child_valid_until)
 
-    def remove_child_features(self, node):
-        """Recursively remove child features up."""
-        self.features.remove(node.features)
+    def remove_child_traits(self, node_name):
+        """Recursively remove child traits up."""
+        self.traits.remove(node_name)
         if self.parent:
-            self.parent.remove_child_features(node)
+            self.parent.remove_child_traits(self.name)
+            self.parent.add_child_traits(self)
 
     def reset_children(self):
         """Reset children to empty list."""
@@ -471,38 +488,47 @@ class Node(object):
         self.children = collections.OrderedDict()
 
     def add_node(self, node):
-        """Add child node, set the features and propagate features up."""
+        """Add child node, set the traits and propagate traits up."""
         assert node.parent is None
         assert node.name not in self.children
 
         node.parent = self
         self.children[node.name] = node
 
-        node.features.inherit(self.features)
-        self.add_child_features(node)
+        self.add_child_traits(node)
         self.increment_affinity(node.affinity_counters)
+        self.add_labels(node.labels)
         self.adjust_valid_until(node.valid_until)
 
+    def add_labels(self, labels):
+        """Recursively add labels to self and parents."""
+        self.labels.update(labels)
+        if self.parent:
+            self.parent.add_labels(self.labels)
+
     def remove_node(self, node_name):
-        """Remove child node and adjust the features."""
+        """Remove child node and adjust the traits."""
         assert node_name in self.children
         node = self.children[node_name]
 
         del self.children[node_name]
-        self.remove_child_features(node)
+        self.remove_child_traits(node_name)
         self.decrement_affinity(node.affinity_counters)
         self.adjust_valid_until(None)
 
         node.parent = None
-        node.features.inherited_features = set()
-
         return node
 
     def check_app_constraints(self, app):
         """Find app placement on the node."""
-        for feature in app.features:
-            if not self.features.has(feature):
+        if app.allocation is not None:
+            if app.allocation.label not in self.labels:
+                _LOGGER.info('Missing label: %s', app.allocation.label)
                 return False
+
+        if app.traits != 0 and not self.traits.has(app.traits):
+            _LOGGER.info('Missing traits: %s', app.traits)
+            return False
 
         if (self.affinity_counters[app.affinity.name] >=
                 app.affinity.limits[self.level]):
@@ -517,14 +543,13 @@ class Node(object):
         """Abstract method, should never be called."""
         raise Exception('Not implemented.')
 
-    def size(self):
+    def size(self, label):
         """Returns total capacity of the children."""
-        if not self.children:
-            return np.array(
-                [np.finfo(float).eps for _x in xrange(0, DIMENSION_COUNT)]
-            )
-        else:
-            return np.sum([n.size() for n in self.children.values()], 0)
+        if not self.children or label not in self.labels:
+            return eps_capacity()
+
+        return np.sum([
+            n.size(label) for n in self.children.values()], 0)
 
     def members(self):
         """Return set of all leaf node names."""
@@ -552,15 +577,15 @@ class Bucket(Node):
 
     __slots__ = (
         'affinity_strategies',
-        'features',
+        'traits',
     )
 
     _default_strategy_t = SpreadStrategy
 
-    def __init__(self, name, features=None, level=None):
-        super(Bucket, self).__init__(name, features, level)
+    def __init__(self, name, traits=0, level=None):
+        super(Bucket, self).__init__(name, traits, level)
         self.affinity_strategies = dict()
-        self.features = FeatureSet(features)
+        self.traits = TraitSet(traits)
 
     def set_affinity_strategy(self, affinity, strategy_t):
         """Initilaizes placement strategy for given affinity."""
@@ -663,9 +688,10 @@ class Server(Node):
         'apps',
     )
 
-    def __init__(self, name, capacity, valid_until, features=None):
-        super(Server, self).__init__(name, features=features, level='server',
+    def __init__(self, name, capacity, valid_until, traits=0, label=None):
+        super(Server, self).__init__(name, traits=traits, level='server',
                                      valid_until=valid_until)
+        self.labels = set([label])
         self.init_capacity = np.array(capacity, dtype=float)
         self.free_capacity = self.init_capacity.copy()
         self.apps = dict()
@@ -674,13 +700,14 @@ class Server(Node):
         return 'server: %s %s' % (self.name, self.init_capacity)
 
     def is_same(self, other):
-        """Compares capacity and features against another server.
+        """Compares capacity and traits against another server.
 
         valid_until is ignored, as server comes up after reboot will have
         different valid_until value.
         """
-        return (_all_eq(self.init_capacity, other.init_capacity) and
-                self.features.is_same(other.features))
+        return (self.labels == other.labels and
+                _all_eq(self.init_capacity, other.init_capacity) and
+                self.traits.is_same(other.traits))
 
     def put(self, app):
         """Tries to put the app on the server."""
@@ -726,8 +753,10 @@ class Server(Node):
         for appname in list(self.apps):
             self.remove(appname)
 
-    def size(self):
+    def size(self, label):
         """Return server capacity."""
+        if label not in self.labels:
+            return eps_capacity()
         return self.init_capacity
 
     def members(self):
@@ -787,24 +816,26 @@ class Allocation(object):
     __slots__ = (
         'reserved',
         'rank',
-        'features',
+        'traits',
+        'label',
         'max_utilization',
         'apps',
         'sub_allocations',
         'path',
     )
 
-    def __init__(self, reserved=None, rank=None, features=None,
+    def __init__(self, reserved=None, rank=None, traits=None,
                  max_utilization=None):
         self.set_reserved(reserved)
 
         self.rank = None
-        self.features = set()
+        self.traits = 0
+        self.label = None
         self.max_utilization = _MAX_UTILIZATION
         self.reserved = zero_capacity()
 
         self.set_max_utilization(max_utilization)
-        self.set_features(features)
+        self.set_traits(traits)
         self.update(reserved, rank)
         self.apps = dict()
         self.sub_allocations = dict()
@@ -849,12 +880,12 @@ class Allocation(object):
         else:
             self.max_utilization = _MAX_UTILIZATION
 
-    def set_features(self, features):
-        """Set features, account for default None value."""
-        if not features:
-            self.features = set()
+    def set_traits(self, traits):
+        """Set traits, account for default None value."""
+        if not traits:
+            self.traits = 0
         else:
-            self.features = set(features)
+            self.traits = traits
 
     def add(self, app):
         """Add application to the allocation queue.
@@ -911,11 +942,7 @@ class Allocation(object):
             # over pending.
             pending = 0 if app.server else 1
             if util <= self.max_utilization:
-                yield (self.rank - len(self.features),
-                       util,
-                       pending,
-                       app.global_order,
-                       app)
+                yield (self.rank, util, pending, app.global_order, app)
             else:
                 break
 
@@ -930,7 +957,6 @@ class Allocation(object):
         with utilization < 1 will remain with utilzation < 1.
         """
         total_reserved = self.total_reserved()
-
         queues = [alloc.utilization_queue(0)
                   for alloc in self.sub_allocations.values()]
 
@@ -978,15 +1004,21 @@ class Allocation(object):
 class Cell(Bucket):
     """Top level node."""
     __slots__ = (
-        'allocation',
+        'allocations',
         'next_event_at',
         'apps',
         'identity_groups',
     )
 
-    def __init__(self, name):
-        super(Cell, self).__init__(name, features=[], level='cell')
-        self.allocation = Allocation()
+    def __init__(self, name, labels=None):
+        super(Cell, self).__init__(name, traits=0, level='cell')
+
+        if not labels:
+            labels = set()
+
+        assert isinstance(labels, set)
+        self.allocations = collections.defaultdict(Allocation)
+
         self.apps = dict()
         self.identity_groups = collections.defaultdict(IdentityGroup)
         self.next_event_at = np.inf
@@ -1150,17 +1182,16 @@ class Cell(Bucket):
             if not app.server:
                 app.release_identity()
 
-    def schedule(self):
-        """Run the scheduler."""
+    def schedule_alloc(self, allocation):
+        """Run the scheduler for given allocation."""
 
         begin = time.time()
 
-        queue = [item[-1]
-                 for item in self.allocation.utilization_queue(self.size())]
+        servers = self.members()
+        size = self.size(allocation.label)
+        queue = [item[-1] for item in allocation.utilization_queue(size)]
 
         before = {app.name: app.server for app in queue}
-
-        servers = self.members()
 
         self._fix_invalid_placements(queue, servers)
         self._handle_inactive_servers(servers)
@@ -1181,6 +1212,14 @@ class Cell(Bucket):
                 _LOGGER.info('New placement: %s - %s => %s',
                              appname, s_before, s_after)
 
+        return placement
+
+    def schedule(self):
+        """Run the scheduler."""
+        placement = []
+        for label, allocation in self.allocations.iteritems():
+            allocation.label = label
+            placement.extend(self.schedule_alloc(allocation))
         return placement
 
 

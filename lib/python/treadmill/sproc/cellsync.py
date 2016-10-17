@@ -55,6 +55,18 @@ def _sync_collection(zkclient, entities, zkpath, match=None):
             _LOGGER.info('Up to date: %s', zkname)
 
 
+def _sync_allocations(zkclient, allocations):
+    """Syncronize allocations."""
+    filtered = []
+    for alloc in allocations:
+        _LOGGER.info('Sync allocation: %s', alloc)
+        name, _cell = alloc['_id'].rsplit('/', 1)
+        alloc['name'] = name
+        filtered.append(alloc)
+
+    zkutils.put(zkclient, z.path.allocation(), filtered, check_content=True)
+
+
 def _run_sync():
     """Sync Zookeeper with LDAP, runs with lock held."""
     def match_appgroup(name, group):
@@ -70,6 +82,13 @@ def _run_sync():
         app_groups = admin_app_group.list({})
         _sync_collection(context.GLOBAL.zk.conn,
                          app_groups, z.path.appgroup(), match_appgroup)
+
+        # Sync allocations.
+        admin_alloc = admin.CellAllocation(context.GLOBAL.ldap.conn)
+
+        allocations = admin_alloc.list({'cell': context.GLOBAL.cell})
+        _sync_allocations(context.GLOBAL.zk.conn,
+                          allocations)
 
         # Servers - because they can have custom topology - are loaded
         # from the plugin.

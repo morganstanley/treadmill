@@ -55,8 +55,10 @@ def authorize(authorizer):
     @decorator.decorator
     def decorated(func, *args, **kwargs):
         """Decorated function."""
-        action = func.__name__.strip('_')
-        authorizer.authorize(func.__module__, action, args, kwargs)
+        action = getattr(func, 'auth_action', func.__name__.strip('_'))
+        resource = getattr(func, 'auth_resource', func.__module__.strip('_'))
+        _LOGGER.debug('Authorize: %s %s %r %r', resource, action, args, kwargs)
+        authorizer.authorize(resource, action, args, kwargs)
         return func(*args, **kwargs)
 
     return decorated

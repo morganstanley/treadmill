@@ -15,7 +15,6 @@ import unittest
 import tests.treadmill_test_deps  # pylint: disable=W0611
 
 import kazoo
-import kazoo.zkutils
 import mock
 import numpy as np
 
@@ -73,17 +72,17 @@ class MasterTest(mockzk.MockZookeeperTestCase):
             },
             'buckets': {
                 'pod:pod1': {
-                    'features': []
+                    'traits': None,
                 },
                 'pod:pod2': {
-                    'features': []
+                    'traits': None,
                 },
                 'rack:1234': {
-                    'features': [],
+                    'traits': None,
                     'parent': 'pod:pod1',
                 },
                 'rack:2345': {
-                    'features': [],
+                    'traits': None,
                     'parent': 'pod:pod1',
                 },
             },
@@ -151,13 +150,13 @@ class MasterTest(mockzk.MockZookeeperTestCase):
             'server.presence': {},
             'buckets': {
                 'pod:pod1': {
-                    'features': []
+                    'traits': None,
                 },
                 'pod:pod2': {
-                    'features': []
+                    'traits': None,
                 },
                 'rack:1234': {
-                    'features': [],
+                    'traits': None,
                     'parent': 'pod:pod1',
                 },
             },
@@ -191,40 +190,31 @@ class MasterTest(mockzk.MockZookeeperTestCase):
         """Tests loading allocation from serialized db data."""
         kazoo.client.KazooClient.get.return_value = ("""
 ---
-treadmill:
-  dev:
-    -alloc:
-      assignments:
-        proid:treadmlx:
-          '%': 10
-        proid:treadmlp:
-          'test': 42
-      rank: 100
-      reserved:
-        cpu: 100%
-        disk: 1G
-        memory: 1G
+- name: treadmill/dev
+  assignments:
+  - pattern: treadmlx.*
+    priority: 10
+  - pattern: treadmlp.test
+    priority: 42
+  rank: 100
+  cpu: 100%
+  disk: 1G
+  memory: 1G
 """, None)
+
         self.master.load_allocations()
-        root = self.master.cell.allocation
+        root = self.master.cell.allocations[None]
         self.assertIn('treadmill', root.sub_allocations)
         leaf_alloc = root.get_sub_alloc('treadmill').get_sub_alloc('dev')
         self.assertEquals(100, leaf_alloc.rank)
         self.assertEquals(1024, leaf_alloc.reserved[0])
         self.assertEquals(100, leaf_alloc.reserved[1])
         self.assertEquals(1024, leaf_alloc.reserved[2])
-        self.assertEquals(dict(), leaf_alloc.sub_allocations)
 
-        root_assign = self.master.assignments
+        assignments = self.master.assignments
         self.assertEquals(
             (10, leaf_alloc),
-            root_assign['proid:treadmlx']['*[#]' + '[0-9]' * 10]
-        )
-
-        # Passthrough with no info - 0, root.
-        self.assertEquals(
-            (1, self.master.cell.allocation.get_sub_alloc('default:xxx')),
-            self.master.find_assignment('xxx.bla#1234567890', {})
+            assignments['treadmlx.*[#]' + '[0-9]' * 10]
         )
 
     @mock.patch('kazoo.client.KazooClient.get', mock.Mock())
@@ -262,13 +252,13 @@ treadmill:
     def test_reschedule(self):
         """Tests application placement."""
         srv_1 = scheduler.Server('1', [10, 10, 10],
-                                 valid_until=1000, features=[])
+                                 valid_until=1000, traits=0)
         srv_2 = scheduler.Server('2', [10, 10, 10],
-                                 valid_until=1000, features=[])
+                                 valid_until=1000, traits=0)
         srv_3 = scheduler.Server('3', [10, 10, 10],
-                                 valid_until=1000, features=[])
+                                 valid_until=1000, traits=0)
         srv_4 = scheduler.Server('4', [10, 10, 10],
-                                 valid_until=1000, features=[])
+                                 valid_until=1000, traits=0)
         cell = self.master.cell
         cell.add_node(srv_1)
         cell.add_node(srv_2)
@@ -278,8 +268,8 @@ treadmill:
         app1 = scheduler.Application('app1', 4, [1, 1, 1], 'app')
         app2 = scheduler.Application('app2', 3, [2, 2, 2], 'app')
 
-        cell.add_app(cell.allocation, app1)
-        cell.add_app(cell.allocation, app2)
+        cell.add_app(cell.allocations[None], app1)
+        cell.add_app(cell.allocations[None], app2)
 
         # At this point app1 is on server 1, app2 on server 2.
         self.master.reschedule()
@@ -308,13 +298,13 @@ treadmill:
     def test_reschedule_once(self):
         """Tests application placement."""
         srv_1 = scheduler.Server('1', [10, 10, 10],
-                                 valid_until=1000, features=[])
+                                 valid_until=1000, traits=0)
         srv_2 = scheduler.Server('2', [10, 10, 10],
-                                 valid_until=1000, features=[])
+                                 valid_until=1000, traits=0)
         srv_3 = scheduler.Server('3', [10, 10, 10],
-                                 valid_until=1000, features=[])
+                                 valid_until=1000, traits=0)
         srv_4 = scheduler.Server('4', [10, 10, 10],
-                                 valid_until=1000, features=[])
+                                 valid_until=1000, traits=0)
         cell = self.master.cell
         cell.add_node(srv_1)
         cell.add_node(srv_2)
@@ -325,8 +315,8 @@ treadmill:
                                      schedule_once=True)
         app2 = scheduler.Application('app2', 3, [2, 2, 2], 'app')
 
-        cell.add_app(cell.allocation, app1)
-        cell.add_app(cell.allocation, app2)
+        cell.add_app(cell.allocations[None], app1)
+        cell.add_app(cell.allocations[None], app2)
 
         # At this point app1 is on server 1, app2 on server 2.
         self.master.reschedule()
@@ -374,13 +364,13 @@ treadmill:
             },
             'buckets': {
                 'pod:pod1': {
-                    'features': []
+                    'traits': None,
                 },
                 'pod:pod2': {
-                    'features': []
+                    'traits': None,
                 },
                 'rack:1234': {
-                    'features': [],
+                    'traits': None,
                     'parent': 'pod:pod1',
                 },
             },
@@ -475,13 +465,13 @@ treadmill:
             },
             'buckets': {
                 'pod:pod1': {
-                    'features': []
+                    'traits': None,
                 },
                 'pod:pod2': {
-                    'features': []
+                    'traits': None,
                 },
                 'rack:1234': {
-                    'features': [],
+                    'traits': None,
                     'parent': 'pod:pod1',
                 },
             },

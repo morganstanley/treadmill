@@ -4,8 +4,6 @@ from __future__ import absolute_import
 import sys
 
 import os
-if os.name != 'nt':
-    import pwd  # pylint: disable=C0411
 
 import fnmatch
 import logging
@@ -18,6 +16,7 @@ import kazoo
 from kazoo.protocol import states
 import yaml
 
+from . import userutil
 from . import utils
 from . import sysinfo
 from . import trace
@@ -69,10 +68,10 @@ def make_self_acl(perm):
 
     If the user is root, use host/<hostname> principal.
     """
-    if utils.is_root():
+    if userutil.is_root():
         return make_host_acl(perm, sysinfo.hostname())
 
-    user = pwd.getpwuid(os.getuid())[0]
+    user = userutil.get_current_username()
     return make_user_acl(user, perm)
 
 

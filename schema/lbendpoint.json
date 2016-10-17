@@ -1,0 +1,41 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "resource_id": {
+        "type": "string",
+        "maxLength": 60,
+        "pattern": "^[a-z0-9\\-]+(\\.[a-z0-9\\-]+)*$"
+    },
+    "resource": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+            "cells": {
+                "type": "array",
+                "items": { "$ref": "common.json#/cell" },
+                "minItems": 1
+            },
+            "pattern": {
+                "type": "string"
+            },
+            "endpoint": { "$ref": "common.json#/endpoint" },
+            "environment": { "$ref": "common.json#/environment" },
+            "lbenv": {
+                "type": "string",
+                "pattern": "^qa|prod$"
+            }
+            "port": { "$ref": "common.json#/port" },
+        }
+    },
+    "verbs": {
+        "create": {
+            "required": ["endpoint", "pattern", "environment",
+                         "lbenv"]
+        },
+        "update": {
+            "required": ["lbenv"]
+        },
+        "delete": {
+            "required": ["lbenv"]
+        }
+    }
+}

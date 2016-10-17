@@ -27,11 +27,8 @@ def print_yaml(obj):
                     explicit_end=True)
 
 
-class AppTraceEventsOnly(apptrace.AppTraceEventsStdout):
+class AppTraceEventsOnly(apptrace.AppTraceEvents):
     """Prints app events without stdout/err info."""
-
-    def __init__(self):
-        apptrace.AppTraceEventsStdout.__init__(self)
 
     def on_service_exited(self, when, service, svcinfo):
         """Suppress stdout/err info."""

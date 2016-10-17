@@ -46,6 +46,16 @@ class NotAuthorizedError(Exception):
         super(NotAuthorizedError, self).__init__(_msg(response))
 
 
+class BadRequestError(Exception):
+    """Error raised on HTTP 400 (Bad request)
+
+    Attributes:
+    message -- message to return
+    """
+    def __init__(self, response):
+        super(BadRequestError, self).__init__(_msg(response))
+
+
 class NotFoundError(Exception):
     """Error raised on HTTP 404 (Not Found).
 
@@ -97,6 +107,7 @@ def _handle_error(url, response):
         httplib.FOUND: AlreadyExistsError('Resource already exists: %s' % url),
         httplib.FAILED_DEPENDENCY: ValidationError(response),
         httplib.UNAUTHORIZED: NotAuthorizedError(response),
+        httplib.BAD_REQUEST: BadRequestError(response),
     }
 
     if response.status_code in handlers:
@@ -135,6 +146,7 @@ def _call(url, method, payload=None, headers=None, auth=_KERBEROS_AUTH,
 def _call_list(urls, method, payload=None, headers=None, auth=_KERBEROS_AUTH,
                proxies=None):
     """Call list of supplied URLs, return on first success."""
+    _LOGGER.debug('Call %s on %r', method, urls)
     attempts = []
     for url in urls:
         success, response = _call(url, method, payload, headers, auth, proxies)

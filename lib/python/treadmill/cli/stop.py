@@ -27,7 +27,7 @@ def init():
             return
 
         apis = context.GLOBAL.cell_api(api)
-        response = restclient.post(apis, '/v3/instance/_bulk/delete',
+        response = restclient.post(apis, '/instance/_bulk/delete',
                                    payload=list(instances))
 
         return response.json()

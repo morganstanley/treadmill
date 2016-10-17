@@ -313,6 +313,4 @@ def store_tickets(reply, tkt_spool_dir):
             _LOGGER.info('Creating link: %s => %s',
                          tkt_spool_link,
                          os.path.basename(tkt_spool_path))
-            tmp_link = tempfile.mktemp(dir=os.path.dirname(tkt_spool_link))
-            os.symlink(os.path.basename(tkt_spool_path), tmp_link)
-            os.rename(tmp_link, tkt_spool_link)
+            fs.symlink_safe(tkt_spool_link, os.path.basename(tkt_spool_path))

@@ -163,10 +163,10 @@ class Master(object):
         data = zkutils.get_default(self.zkclient,
                                    z.path.bucket(bucketname),
                                    default={})
-        features = data.get('features')
+        traits = data.get('traits', 0)
 
         level = data.get('level', bucketname.split(':')[0])
-        bucket = scheduler.Bucket(bucketname, features=features, level=level)
+        bucket = scheduler.Bucket(bucketname, traits=traits, level=level)
         self.buckets[bucketname] = bucket
 
         parent_name = data.get('parent')
@@ -193,11 +193,13 @@ class Master(object):
 
             assert 'parent' in data
             parentname = data['parent']
+            label = data.get('label', None)
 
             server = scheduler.Server(servername,
                                       resources(data),
                                       valid_until=data.get('valid_until', 0),
-                                      features=data.get('features', None))
+                                      label=label,
+                                      traits=data.get('traits', 0))
 
             parent = self.buckets.get(parentname)
             if not parent:
@@ -256,10 +258,13 @@ class Master(object):
             assert 'parent' in data
             assert data['parent'] in self.buckets
 
+            label = data.get('label')
+
             server = scheduler.Server(servername,
                                       resources(data),
                                       valid_until=data.get('valid_until', 0),
-                                      features=data.get('features', None))
+                                      label=label,
+                                      traits=data.get('traits', 0))
 
             parent = self.buckets[data['parent']]
             # TODO: assume that bucket topology is constant, e.g.
@@ -322,79 +327,47 @@ class Master(object):
 
     def load_allocations(self):
         """Load allocations and assignments map."""
-        root_alloc = scheduler.Allocation()
-        assignments = dict()
         data = zkutils.get_default(self.zkclient, z.ALLOCATIONS, default={})
-
-        self.load_alloc_data(root_alloc, assignments, data)
-        self.cell.allocation = root_alloc
-        self.assignments = assignments
-
-    def load_alloc_data(self, parent, assignments_acc, data):
-        """Loads allocation data into parent alloc dict."""
         if not data:
             return
 
-        for name, alloc_data in data.iteritems():
-            name = str(name)
-            reserved = None
-            rank = None
-            max_utilization = None
+        for obj in data:
+            label = obj.get('label')
+            name = obj['name']
 
-            if '-alloc' in alloc_data:
-                # leaf
-                attrs = alloc_data['-alloc']
-                reserved = resources(attrs.get('reserved', None))
-                rank = attrs.get('rank', None)
-                max_utilization = attrs.get('max_utilization', None)
-                features = attrs.get('features', None)
+            _LOGGER.info('Loading allocation: %s, label: %s', name, label)
 
-                child = scheduler.Allocation(reserved, rank=rank,
-                                             features=features,
-                                             max_utilization=max_utilization)
+            alloc = self.cell.allocations[label]
+            for part in re.split('[/:]', name):
+                alloc = alloc.get_sub_alloc(part)
+                capacity = resources(obj)
+                alloc.update(capacity, obj['rank'], obj.get('max-utilization'))
 
-                assignments = attrs.get('assignments', {})
-                for assignment in assignments:
-                    if assignment not in assignments_acc:
-                        assignments_acc[assignment] = dict()
-                    for pattern, prio in assignments[assignment].iteritems():
-                        fixed_pattern = pattern.replace('%', '*')
-                        # An instance is an app name, a '#', and a 10 digit
-                        # number.
-                        fixed_pattern += '[#]' + ('[0-9]' * 10)
-                        assignments_acc[assignment][fixed_pattern] = (prio,
-                                                                      child)
+            for assignment in obj.get('assignments', []):
+                pattern = assignment['pattern'] + '[#]' + ('[0-9]' * 10)
+                priority = assignment['priority']
+                _LOGGER.info('Assignment: %s - %s', pattern, priority)
+                self.assignments[pattern] = (priority, alloc)
 
-                del alloc_data['-alloc']
-            else:
-                child = scheduler.Allocation()
-
-            parent.add_sub_alloc(name, child)
-            self.load_alloc_data(child, assignments_acc, alloc_data)
-
-    def find_assignment(self, name, manifest):
+    def find_assignment(self, name):
         """Find allocation by matching app assignment."""
-        pattern_maj = manifest.get('allocation')
-        _first, _sep, pattern_min = name.partition('.')
+        _LOGGER.debug('Find assignment: %s', name)
+        assignments = reversed(sorted(self.assignments.iteritems()))
 
-        _LOGGER.debug('Find assignment: %s.%s', pattern_maj, pattern_min)
-
-        if pattern_maj not in self.assignments:
-            return self.find_default_assignment(name)
-
-        assignments = reversed(sorted(
-            self.assignments[pattern_maj].iteritems()))
         for pattern, assignment in assignments:
-            if fnmatch.fnmatch(pattern_min, pattern):
+            if fnmatch.fnmatch(name, pattern):
+                _LOGGER.info('Found: %s, assignment: %s', pattern, assignment)
                 return assignment
 
+        _LOGGER.info('Default assignment.')
         return self.find_default_assignment(name)
 
     def find_default_assignment(self, name):
         """Finds (creates) default assignment."""
-        alloc = self.cell.allocation
+        alloc = self.cell.allocations[None]
+        unassigned = alloc.get_sub_alloc('_default')
         proid, _rest = name.split('.', 1)
-        return 1, alloc.get_sub_alloc('default:' + proid)
+        return 1, unassigned.get_sub_alloc(proid)
 
     def load_apps(self, readonly=False):
         """Load application data."""
@@ -413,7 +386,7 @@ class Master(object):
             self.cell.remove_app(appname)
             return
 
-        priority, allocation = self.find_assignment(appname, manifest)
+        priority, allocation = self.find_assignment(appname)
         if 'priority' in manifest and int(manifest['priority']) != -1:
             priority = int(manifest['priority'])
 
@@ -472,34 +445,39 @@ class Master(object):
         """Restore placements after reload."""
         integrity = collections.defaultdict(list)
 
-        for server in self.servers:
+        for servername in self.servers:
             try:
-                placement_node = z.path.placement(server)
+                placement_node = z.path.placement(servername)
                 placed_apps = self.zkclient.get_children(placement_node)
             except kazoo.exceptions.NoNodeError:
                 placed_apps = []
 
             for appname in placed_apps:
-                appnode = z.path.placement(server, appname)
+                appnode = z.path.placement(servername, appname)
                 if appname not in self.cell.apps:
                     # Stale app - safely ignored.
                     zkutils.ensure_deleted(self.zkclient, appnode)
                 else:
                     # Try to restore placement, if failed (e.g capacity of the
-                    # server changed - remove.
+                    # servername changed - remove.
                     #
-                    # The server does not need to be active at the time, for
-                    # applications will be moved from servers in DOWN state
+                    # The servername does not need to be active at the time,
+                    # for applications will be moved from servers in DOWN state
                     # on subsequent reschedule.
                     app = self.cell.apps[appname]
-                    integrity[appname].append(server)
+                    integrity[appname].append(servername)
 
-                    if self.servers[server].put(app):
+                    server = self.servers[servername]
+
+                    # Placement is restored and assumed to be correct, so
+                    # force placement be specifying the server label.
+                    assert app.allocation is not None
+                    if server.put(app):
                         _LOGGER.info('Restore placement: %s => %s',
-                                     appname, server)
+                                     appname, servername)
                     else:
                         _LOGGER.info('Failed to restore placement: %s => %s',
-                                     appname, server)
+                                     appname, servername)
                         zkutils.ensure_deleted(self.zkclient, appnode)
                         # Check if app is marked to be scheduled once. If it is
                         # remove the app.
@@ -514,10 +492,12 @@ class Master(object):
             if len(servers) > 1:
                 _LOGGER.warn('Integrity error: %s placed on %r',
                              appname, servers)
-                for server in servers:
-                    zkutils.ensure_deleted(self.zkclient,
-                                           z.path.placement(server, appname))
-                    self.servers[server].remove(appname)
+                for servername in servers:
+                    zkutils.ensure_deleted(
+                        self.zkclient,
+                        z.path.placement(servername, appname)
+                    )
+                    self.servers[servername].remove(appname)
 
     def restore_identities(self):
         """Restore app identities."""
@@ -545,7 +525,7 @@ class Master(object):
             self.adjust_server_state(servername)
         # Server was down, and now is up.
         for servername in down_servers & servers:
-            # Make sure that new server capacity and features are up to
+            # Make sure that new server capacity and traits are up to
             # date.
             _LOGGER.info('Server is up: %s', servername)
             self.reload_server(servername)
@@ -896,19 +876,19 @@ def update_app_priorities(zkclient, updates):
     create_event(zkclient, 1, 'apps', updates.keys())
 
 
-def create_bucket(zkclient, bucket_id, parent_id, features=None):
+def create_bucket(zkclient, bucket_id, parent_id, traits=0):
     """Creates bucket definition in Zookeeper."""
     data = {
-        'features': features,
+        'traits': traits,
         'parent': parent_id
     }
     zkutils.put(zkclient, z.path.bucket(bucket_id), data, check_content=True)
 
 
-def update_bucket_features(zkclient, bucket_id, features):
-    """Updates bucket features."""
+def update_bucket_traits(zkclient, bucket_id, traits):
+    """Updates bucket traits."""
     data = get_bucket(zkclient, bucket_id)
-    data['features'] = features
+    data['traits'] = traits
     zkutils.put(zkclient, z.path.bucket(bucket_id), data, check_content=True)
 
 
@@ -956,11 +936,12 @@ def list_servers(zkclient):
     return sorted(zkclient.get_children(z.SERVERS))
 
 
-def update_server_features(zkclient, server_id, features):
-    """Updates server features."""
+def update_server_attrs(zkclient, server_id, traits, label):
+    """Updates server traits."""
     node = z.path.server(server_id)
     data = zkutils.get(zkclient, node)
-    data['features'] = features
+    data['traits'] = traits
+    data['label'] = label
 
     if zkutils.update(zkclient, node, data, check_content=True):
         create_event(zkclient, 0, 'servers', [server_id])
@@ -1070,7 +1051,11 @@ def update_identity_group(zkclient, ident_group_id, count):
     """Updates identity group count."""
     node = z.path.identity_group(ident_group_id)
     data = {'count': count}
-    if zkutils.put(zkclient, node, data, check_content=True):
+    if zkutils.put(zkclient,
+                   node,
+                   data,
+                   check_content=True,
+                   acl=[_SERVERS_ACL]):
         create_event(zkclient, 0, 'identity_groups', [ident_group_id])
 
 

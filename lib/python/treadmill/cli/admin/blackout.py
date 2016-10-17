@@ -7,12 +7,12 @@ import re
 import click
 import kazoo
 
-from .. import presence
-from .. import utils
-from .. import zkutils
-from .. import context
-from .. import cli
-from .. import zknamespace as z
+from treadmill import presence
+from treadmill import utils
+from treadmill import zkutils
+from treadmill import context
+from treadmill import cli
+from treadmill import zknamespace as z
 
 
 _LOGGER = logging.getLogger(__name__)

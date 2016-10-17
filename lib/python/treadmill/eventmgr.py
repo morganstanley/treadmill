@@ -20,7 +20,6 @@ import logging
 import tempfile
 
 import kazoo
-import kazoo.zkutils
 import kazoo.client
 
 import yaml
@@ -65,7 +64,7 @@ class EventMgr(object):
         """Establish connection to Zookeeper and subscribes to node events."""
         # Setup the watchdog
         watchdog_lease = self.tm_env.watchdogs.create(
-            name='svc:{svc_name}'.format(svc_name=self.name),
+            name='svc-{svc_name}'.format(svc_name=self.name),
             timeout='{hb:d}s'.format(hb=_WATCHDOG_TIMEOUT_SEC),
             content='Service %r failed' % self.name
         )

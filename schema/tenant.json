@@ -1,0 +1,26 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "resource_id": {
+        "type": "string",
+        "pattern": "^(\\w+)(:\\w+)*$"
+    },
+    "resource": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+            "systems": {
+                "type": "array",
+                "items": { "$ref": "common.json#/system_id" },
+                "minItems": 1
+            }
+        }
+    },
+    "verbs": {
+        "create": {
+            "required": [ "systems" ]
+        },
+        "update": {
+            "required": [ "systems" ]
+        }
+    }
+}

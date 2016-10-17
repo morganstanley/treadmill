@@ -16,29 +16,34 @@ _LOGGER = logging.getLogger(__name__)
 
 
 def server_group(parent):
-    """Configures server CLI group."""
+    """Configures server CLI group"""
     formatter = cli.make_formatter(cli.ServerPrettyFormatter)
 
     @parent.group()
     def server():
-        """Manage Treadmill server configuration."""
+        """Manage server configuration"""
         pass
 
     @server.command()
-    @click.option('-c', '--cell', help='Treadmll cell.')
-    @click.option('-f', '--features', help='List of server features',
+    @click.option('-c', '--cell', help='Treadmll cell')
+    @click.option('-t', '--traits', help='List of server traits',
                   multiple=True, default=[])
+    @click.option('-l', '--label', help='Server label')
     @click.argument('server')
     @cli.admin.ON_EXCEPTIONS
-    def configure(cell, features, server):
-        """Get or modify server configuration."""
+    def configure(cell, traits, server, label):
+        """Create, get or modify server configuration"""
         admin_srv = admin.Server(context.GLOBAL.ldap.conn)
 
         attrs = {}
         if cell:
             attrs['cell'] = cell
-        if features:
-            attrs['features'] = cli.combine(features)
+        if traits:
+            attrs['traits'] = cli.combine(traits)
+        if label:
+            if label == '-':
+                label = None
+            attrs['label'] = label
 
         if attrs:
             try:
@@ -53,21 +58,23 @@ def server_group(parent):
 
     @server.command(name='list')
     @click.option('-c', '--cell', help='Treadmll cell.')
-    @click.option('-f', '--features', help='List of server features',
+    @click.option('-t', '--traits', help='List of server traits',
                   multiple=True, default=[])
+    @click.option('-l', '--label', help='Server label')
     @cli.admin.ON_EXCEPTIONS
-    def _list(cell, features):
-        """Displays servers list."""
+    def _list(cell, traits, label):
+        """List servers"""
         admin_srv = admin.Server(context.GLOBAL.ldap.conn)
         servers = admin_srv.list({'cell': cell,
-                                  'features': cli.combine(features)})
+                                  'traits': cli.combine(traits),
+                                  'label': label})
         cli.out(formatter(servers))
 
     @server.command()
     @click.argument('servers', nargs=-1)
     @cli.admin.ON_EXCEPTIONS
     def delete(servers):
-        """Delete server(s)."""
+        """Delete server(s)"""
         admin_srv = admin.Server(context.GLOBAL.ldap.conn)
         for server in servers:
             admin_srv.delete(server)
@@ -78,14 +85,14 @@ def server_group(parent):
 
 
 def dns_group(parent):  # pylint: disable=R0912
-    """Configures Critical DNS CLI group."""
+    """Configures Critical DNS CLI group"""
     formatter = cli.make_formatter(cli.DNSPrettyFormatter)
 
     _default_nameservers = ['localhost']
 
     @parent.group()
     def dns():
-        """Manage Treadmill Critical DNS server configuration"""
+        """Manage Critical DNS server configuration"""
         pass
 
     @dns.command()
@@ -96,7 +103,7 @@ def dns_group(parent):  # pylint: disable=R0912
                   type=click.File('rb'), required=True)
     @cli.admin.ON_EXCEPTIONS
     def configure(name, server, manifest):
-        """Get or modify Treadmill Critical DNS server configuration"""
+        """Create, get or modify Critical DNS quorum"""
         admin_dns = admin.DNS(context.GLOBAL.ldap.conn)
 
         data = yaml.load(manifest.read())
@@ -142,7 +149,7 @@ def dns_group(parent):  # pylint: disable=R0912
     @click.argument('name', nargs=1, required=True)
     @cli.admin.ON_EXCEPTIONS
     def delete(name):
-        """Delete Treadmill Critical DNS server"""
+        """Delete Critical DNS server"""
         admin_dns = admin.DNS(context.GLOBAL.ldap.conn)
         admin_dns.delete(name)
 
@@ -157,7 +164,7 @@ def app_groups_group(parent):  # pylint: disable=R0912
 
     @parent.group(name='app-group')
     def app_group():  # pylint: disable=W0621
-        """Manage Treadmill App Groups configuration"""
+        """Manage App Groups"""
         pass
 
     @app_group.command()
@@ -173,7 +180,7 @@ def app_groups_group(parent):  # pylint: disable=R0912
     @click.option('--data', help='App group specific data as key=value '
                   'comma separated list', type=cli.LIST)
     def configure(name, group_type, cell, pattern, endpoints, data):
-        """Create or modify Treadmill App Group entry"""
+        """Create, get or modify an App Group"""
         admin_app_group = admin.AppGroup(context.GLOBAL.ldap.conn)
 
         data_struct = {}
@@ -207,7 +214,7 @@ def app_groups_group(parent):  # pylint: disable=R0912
     @click.option('--remove', help='Cells to to remove.', type=cli.LIST)
     @cli.admin.ON_EXCEPTIONS
     def cells(add, remove, name):
-        """Add or remove cells from the app-group."""
+        """Add or remove cells from the app-group"""
         admin_app_group = admin.AppGroup(context.GLOBAL.ldap.conn)
         existing = admin_app_group.get(name)
         group_cells = set(existing['cells'])
@@ -224,7 +231,7 @@ def app_groups_group(parent):  # pylint: disable=R0912
     @click.argument('name', nargs=1, required=True)
     @cli.admin.ON_EXCEPTIONS
     def get(name):
-        """Get a Treadmill App Group entry"""
+        """Get an App Group entry"""
         try:
             admin_app_group = admin.AppGroup(context.GLOBAL.ldap.conn)
             cli.out(formatter(admin_app_group.get(name)))
@@ -234,7 +241,7 @@ def app_groups_group(parent):  # pylint: disable=R0912
     @app_group.command(name='list')
     @cli.admin.ON_EXCEPTIONS
     def _list():
-        """List out App Group entries"""
+        """List App Group entries"""
         admin_app_group = admin.AppGroup(context.GLOBAL.ldap.conn)
         app_group_entries = admin_app_group.list({})
         cli.out(formatter(app_group_entries))
@@ -243,7 +250,7 @@ def app_groups_group(parent):  # pylint: disable=R0912
     @click.argument('name', nargs=1, required=True)
     @cli.admin.ON_EXCEPTIONS
     def delete(name):
-        """Delete Treadmill App Group entry"""
+        """Delete an App Group entry"""
         admin_app_group = admin.AppGroup(context.GLOBAL.ldap.conn)
         admin_app_group.delete(name)
 
@@ -255,7 +262,7 @@ def app_groups_group(parent):  # pylint: disable=R0912
 
 
 def app_group(parent):
-    """Configures app CLI group."""
+    """Configures app CLI group"""
     # Disable too many branches.
     #
     # pylint: disable=R0912
@@ -263,7 +270,7 @@ def app_group(parent):
 
     @parent.group()
     def app():
-        """Manage treadmill applications."""
+        """Manage applications"""
         pass
 
     @app.command()
@@ -272,7 +279,7 @@ def app_group(parent):
     @click.argument('app')
     @cli.admin.ON_EXCEPTIONS
     def configure(app, manifest):
-        """Get or modify app configuration."""
+        """Create, get or modify an app configuration"""
         admin_app = admin.Application(context.GLOBAL.ldap.conn)
         if manifest:
             data = yaml.load(manifest.read())
@@ -289,7 +296,7 @@ def app_group(parent):
     @app.command(name='list')
     @cli.admin.ON_EXCEPTIONS
     def _list():
-        """List configured applicaitons."""
+        """List configured applicaitons"""
         admin_app = admin.Application(context.GLOBAL.ldap.conn)
         cli.out(formatter(admin_app.list({})))
 
@@ -297,7 +304,7 @@ def app_group(parent):
     @click.argument('app')
     @cli.admin.ON_EXCEPTIONS
     def delete(app):
-        """Delete applicaiton."""
+        """Delete applicaiton"""
         admin_app = admin.Application(context.GLOBAL.ldap.conn)
         try:
             admin_app.delete(app)
@@ -310,7 +317,7 @@ def app_group(parent):
 
 
 def schema_group(parent):
-    """Schema CLI group."""
+    """Schema CLI group"""
 
     formatter = cli.make_formatter(cli.LdapSchemaPrettyFormatter)
 
@@ -319,7 +326,7 @@ def schema_group(parent):
                   type=click.File('rb'))
     @cli.admin.ON_EXCEPTIONS
     def schema(load):
-        """View or update LDAP schema."""
+        """View or update LDAP schema"""
         if load:
             schema = yaml.load(load.read())
             context.GLOBAL.ldap.conn.update_schema(schema)
@@ -342,11 +349,11 @@ def schema_group(parent):
 
 
 def direct_group(parent):
-    """Direct ldap access CLI group."""
+    """Direct ldap access CLI group"""
 
     @parent.group()
     def direct():
-        """Direct access to LDAP data."""
+        """Direct access to LDAP data"""
         pass
 
     @direct.command()
@@ -356,7 +363,7 @@ def direct_group(parent):
     @click.argument('rec_dn')
     @cli.admin.ON_EXCEPTIONS
     def get(rec_dn, cls, attrs):
-        """List all defined DNs."""
+        """List all defined DNs"""
         if not attrs:
             attrs = []
         try:
@@ -376,16 +383,16 @@ def direct_group(parent):
     @click.option('--root', help='Search root.')
     @cli.admin.ON_EXCEPTIONS
     def _list(root):
-        """List all defined DNs."""
+        """List all defined DNs"""
         dns = context.GLOBAL.ldap.conn.list(root)
         for rec_dn in dns:
-            print rec_dn
+            cli.out(rec_dn)
 
     @direct.command()
     @cli.admin.ON_EXCEPTIONS
     @click.argument('rec_dn', required=True)
     def delete(rec_dn):
-        """Delete LDAP object by DN."""
+        """Delete LDAP object by DN"""
         context.GLOBAL.ldap.conn.delete(rec_dn)
 
     del get
@@ -395,7 +402,7 @@ def direct_group(parent):
 
 
 def init_group(parent):
-    """Init LDAP CLI group."""
+    """Init LDAP CLI group"""
 
     # Disable redeginig name 'init' warning.
     #
@@ -404,14 +411,14 @@ def init_group(parent):
     @click.argument('domain')
     @cli.admin.ON_EXCEPTIONS
     def init(domain):
-        """Initializes the LDAP directory structure."""
+        """Initializes the LDAP directory structure"""
         return context.GLOBAL.ldap.conn.init(domain)
 
     del init
 
 
 def cell_group(parent):
-    """Configures server CLI group."""
+    """Configures server CLI group"""
     # Disable too many branches warning.
     #
     # pylint: disable=R0912
@@ -420,7 +427,7 @@ def cell_group(parent):
     @parent.group()
     @cli.admin.ON_EXCEPTIONS
     def cell():
-        """Manage Treadmill cell configuration."""
+        """Manage cell configuration"""
         pass
 
     @cell.command()
@@ -435,7 +442,7 @@ def cell_group(parent):
     @cli.admin.ON_EXCEPTIONS
     def configure(cell, version, root, location, username, archive_server,
                   archive_username, ssq_namespace):
-        """Get or modify server configuration."""
+        """Create, get or modify cell configuration"""
         admin_cell = admin.Cell(context.GLOBAL.ldap.conn)
         attrs = {}
         if version:
@@ -489,7 +496,7 @@ def cell_group(parent):
     @cli.admin.ON_EXCEPTIONS
     def insert(cell, idx, hostname, client_port, jmx_port, followers_port,
                election_port, kafka_client_port):
-        """Add master hostname."""
+        """Add master server to a cell"""
         admin_cell = admin.Cell(context.GLOBAL.ldap.conn)
         data = {
             'idx': int(idx),
@@ -519,7 +526,7 @@ def cell_group(parent):
     @click.argument('cell')
     @cli.admin.ON_EXCEPTIONS
     def remove(cell, idx):
-        """Remove master hostname."""
+        """Remove master server from a cell"""
         admin_cell = admin.Cell(context.GLOBAL.ldap.conn)
         attrs = {
             'masters': [{
@@ -541,7 +548,7 @@ def cell_group(parent):
     @cell.command(name='list')
     @cli.admin.ON_EXCEPTIONS
     def _list():
-        """Displays servers list."""
+        """Displays master servers"""
         admin_cell = admin.Cell(context.GLOBAL.ldap.conn)
         cells = admin_cell.list({})
         cli.out(formatter(cells))
@@ -550,7 +557,7 @@ def cell_group(parent):
     @click.argument('cell')
     @cli.admin.ON_EXCEPTIONS
     def delete(cell):
-        """Delete server."""
+        """Delete a cell"""
         admin_cell = admin.Cell(context.GLOBAL.ldap.conn)
 
         try:
@@ -566,12 +573,12 @@ def cell_group(parent):
 
 
 def ldap_tenant_group(parent):
-    """Configures tenant CLI group."""
+    """Configures tenant CLI group"""
     formatter = cli.make_formatter(cli.TenantPrettyFormatter)
 
     @parent.group()
     def tenant():
-        """Manage Treadmill tenants."""
+        """Manage tenants"""
         pass
 
     @tenant.command()
@@ -580,7 +587,7 @@ def ldap_tenant_group(parent):
     @click.argument('tenant')
     @cli.admin.ON_EXCEPTIONS
     def configure(system, tenant):
-        """Get or modify tenant configuration."""
+        """Create, get or modify tenant configuration"""
         admin_tnt = admin.Tenant(context.GLOBAL.ldap.conn)
 
         attrs = {}
@@ -594,14 +601,16 @@ def ldap_tenant_group(parent):
                 admin_tnt.update(tenant, attrs)
 
         try:
-            cli.out(formatter(admin_tnt.get(tenant)))
+            tenant_obj = admin_tnt.get(tenant)
+            tenant_obj['allocations'] = admin_tnt.allocations(tenant)
+            cli.out(formatter(tenant_obj))
         except ldap3.LDAPNoSuchObjectResult:
             click.echo('Tenant does not exist: %s' % tenant, err=True)
 
     @tenant.command(name='list')
     @cli.admin.ON_EXCEPTIONS
     def _list():
-        """List configured tenants."""
+        """List configured tenants"""
         admin_tnt = admin.Tenant(context.GLOBAL.ldap.conn)
         cli.out(formatter(admin_tnt.list({})))
 
@@ -609,7 +618,7 @@ def ldap_tenant_group(parent):
     @click.argument('tenant')
     @cli.admin.ON_EXCEPTIONS
     def delete(tenant):
-        """Delete tenant."""
+        """Delete a tenant"""
         admin_tnt = admin.Tenant(context.GLOBAL.ldap.conn)
         try:
             admin_tnt.delete(tenant)
@@ -622,7 +631,7 @@ def ldap_tenant_group(parent):
 
 
 def ldap_allocations_group(parent):
-    """Configures allocations CLI group."""
+    """Configures allocations CLI group"""
     # "too many branches" pylint warning.
     #
     # pylint: disable=R0912
@@ -630,7 +639,7 @@ def ldap_allocations_group(parent):
 
     @parent.group()
     def allocation():
-        """Manage Treadmill tenants."""
+        """Manage allocations"""
         pass
 
     @allocation.command()
@@ -639,7 +648,7 @@ def ldap_allocations_group(parent):
     @click.argument('allocation')
     @cli.admin.ON_EXCEPTIONS
     def configure(environment, allocation):
-        """Get or modify allocation configuration."""
+        """Create, get or modify allocation configuration"""
         admin_alloc = admin.Allocation(context.GLOBAL.ldap.conn)
 
         attrs = {}
@@ -667,13 +676,14 @@ def ldap_allocations_group(parent):
     @click.option('-r', '--rank', help='Rank.', type=int, default=100)
     @click.option('-u', '--max-utilization',
                   help='Max utilization.', type=float)
-    @click.option('--features', help='Allocation features', type=cli.LIST)
+    @click.option('-t', '--traits', help='Allocation traits', type=cli.LIST)
+    @click.option('-l', '--label', help='Allocation label')
     @click.option('--cell', help='Cell.', required=True)
     @click.argument('allocation')
     @cli.admin.ON_EXCEPTIONS
     def reserve(allocation, cell, memory, cpu, disk, rank, max_utilization,
-                features):
-        """Reserve capacity on a given cell."""
+                traits, label):
+        """Reserve capacity on a given cell"""
         admin_cell_alloc = admin.CellAllocation(context.GLOBAL.ldap.conn)
         data = {}
         if memory:
@@ -686,8 +696,12 @@ def ldap_allocations_group(parent):
             data['rank'] = rank
         if max_utilization is not None:
             data['max_utilization'] = max_utilization
-        if features:
-            data['features'] = features
+        if traits:
+            data['traits'] = cli.combine(traits)
+        if label:
+            if label == '-':
+                label = None
+            data['label'] = label
 
         try:
             admin_cell_alloc.create([cell, allocation], data)
@@ -711,7 +725,7 @@ def ldap_allocations_group(parent):
     @click.argument('allocation')
     @cli.admin.ON_EXCEPTIONS
     def assign(allocation, cell, priority, pattern, delete):
-        """Manage application assignments."""
+        """Manage application assignments"""
         admin_cell_alloc = admin.CellAllocation(context.GLOBAL.ldap.conn)
         assignment = {'pattern': pattern, 'priority': priority}
         if delete:
@@ -735,7 +749,7 @@ def ldap_allocations_group(parent):
     @allocation.command(name='list')
     @cli.admin.ON_EXCEPTIONS
     def _list():
-        """List configured allocations."""
+        """List configured allocations"""
         admin_alloc = admin.Allocation(context.GLOBAL.ldap.conn)
         cli.out(formatter(admin_alloc.list({})))
 
@@ -743,7 +757,7 @@ def ldap_allocations_group(parent):
     @click.argument('allocation')
     @cli.admin.ON_EXCEPTIONS
     def delete(allocation):
-        """Delete allocation."""
+        """Delete an allocation"""
         admin_alloc = admin.Allocation(context.GLOBAL.ldap.conn)
         try:
             admin_alloc.delete(allocation)
@@ -758,11 +772,11 @@ def ldap_allocations_group(parent):
 
 
 def init():
-    """Return top level command handler."""
+    """Return top level command handler"""
 
     @click.group()
     def ldap_group():
-        """Manage Treadmill LDAP data."""
+        """Manage Treadmill LDAP data"""
         pass
 
     cell_group(ldap_group)

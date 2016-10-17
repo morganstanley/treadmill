@@ -25,6 +25,7 @@ def servers(cell):
             'memory': server.init_capacity[0],
             'cpu': server.init_capacity[1],
             'disk': server.init_capacity[2],
+            'traits': server.traits.traits,
             'free.memory': server.free_capacity[0],
             'free.cpu': server.free_capacity[1],
             'free.disk': server.free_capacity[2],
@@ -50,27 +51,6 @@ def servers(cell):
     return frame.set_index('name')
 
 
-def node_features(cell):
-    """Return nodes and features as dataframe."""
-    # Current concrete model assume features for servers only.
-
-    def _server_features_row(server):
-        """Convert server features to dict."""
-        row = {
-            'name': server.name
-        }
-        for feature in server.features:
-            row[feature] = True
-        return row
-
-    frame = pd.DataFrame.from_dict([_server_features_row(server)
-                                    for server in cell.members().values()])
-    if frame.empty:
-        return frame
-
-    return frame.set_index('name')
-
-
 def allocations(cell):
     """Converts cell allocations into dataframe row."""
 
@@ -86,28 +66,32 @@ def allocations(cell):
 
             return reduce(_chain, alloc.sub_allocations.iteritems(), [])
 
-    def _allocation_row(name, alloc):
+    def _alloc_row(label, name, alloc):
         """Converts allocation to dict/dataframe row."""
         if not name:
             name = 'root'
+        if not label:
+            label = '-'
+
         return {
+            'label': label,
             'name': name,
             'memory': alloc.reserved[0],
             'cpu': alloc.reserved[1],
             'disk': alloc.reserved[2],
             'rank': alloc.rank,
+            'traits': alloc.traits,
             'max_utilization': alloc.max_utilization,
         }
 
-    return pd.DataFrame.from_dict(
-        [_allocation_row(name, alloc)
-         for name, alloc in _leafs([], cell.allocation)]).set_index('name')
-
-
-def allocation_features(cell):
-    """Returns dataframe for allocation features."""
-    del cell
-    return pd.DataFrame()
+    all_allocs = []
+    for label, allocation in cell.allocations.iteritems():
+        leaf_allocs = _leafs([], allocation)
+        alloc_df = pd.DataFrame.from_dict(
+            [_alloc_row(label, name, alloc) for name, alloc in leaf_allocs]
+        ).set_index(['label', 'name'])
+        all_allocs.append(alloc_df)
+    return pd.concat(all_allocs)
 
 
 def apps(cell):
@@ -121,6 +105,7 @@ def apps(cell):
             'affinity': app.affinity.name,
             'allocation': app.allocation.name,
             'rank': rank,
+            'label': app.allocation.label,
             'util': util,
             'pending': pending,
             'order': order,
@@ -134,9 +119,11 @@ def apps(cell):
             'server': app.server
         }
 
-    queue = cell.allocation.utilization_queue(cell.size())
-    frame = pd.DataFrame.from_dict([_app_row(item) for item in queue])
+    queue = []
+    for allocation in cell.allocations.values():
+        queue += allocation.utilization_queue(cell.size(allocation.label))
 
+    frame = pd.DataFrame.from_dict([_app_row(item) for item in queue])
     if frame.empty:
         return frame
 

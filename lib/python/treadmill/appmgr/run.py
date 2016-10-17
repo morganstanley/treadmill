@@ -36,7 +36,7 @@ _STATE_YML = 'state.yml'
 
 def create_watchdog(tm_env, container_dir):
     """Creates watchodog for this app container."""
-    watchdog_name = 'app_run:%s' % os.path.basename(container_dir)
+    watchdog_name = 'app_run-%s' % os.path.basename(container_dir)
     return tm_env.watchdogs.create(watchdog_name, '60s',
                                    'Run of %r stalled' % container_dir)
 

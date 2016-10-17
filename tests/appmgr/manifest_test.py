@@ -128,7 +128,7 @@ class AppMgrManifestTest(unittest.TestCase):
                 'name': 'webauthd',
                 'proid': None,
                 'restart_count': -1,
-                'command': '/treadmill/sbin/run_webauthd'
+                'command': '${TREADMILL}/sbin/run_webauthd'
             },
             manifest['system_services']
         )

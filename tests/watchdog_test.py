@@ -162,9 +162,9 @@ class WatchdogTest(unittest.TestCase):
     def test_names(self):
         """Tests watchdog name patterns."""
         self.watchdog.create('test', '5s', 'test')
-        self.watchdog.create('app_run:test', '5s', 'test')
-        self.watchdog.create('app_run:foo.bar#1234567890', '5s', 'test')
-        self.watchdog.create('app_run:foo@a-b.bar#1234567890', '5s', 'test')
+        self.watchdog.create('app_run-test', '5s', 'test')
+        self.watchdog.create('app_run-foo.bar#1234567890', '5s', 'test')
+        self.watchdog.create('app_run-foo@a-b.bar#1234567890', '5s', 'test')
 
 
 if __name__ == '__main__':

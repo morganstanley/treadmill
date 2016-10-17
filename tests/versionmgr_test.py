@@ -11,7 +11,6 @@ import shutil
 import tests.treadmill_test_deps  # pylint: disable=W0611
 
 import kazoo
-import kazoo.zkutils
 import kazoo.client
 import mock
 

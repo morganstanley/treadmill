@@ -1,0 +1,123 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "resource_id": { "$ref": "common.json#/app_id" },
+    "service": {
+        "type": "object",
+        "properties": {
+            "name": {
+                "type": "string",
+                "maxLength": 60,
+                "pattern": "^[\\w\\-\\.]+$"
+            },
+            "command": { "type": "string" },
+            "restart_count": {
+                "type": "integer",
+                "minimum": -1,
+                "maximum": 65535
+            }
+        },
+        "required": [ "name", "command" ],
+        "additionalProperties": false
+    },
+    "endpoint": {
+        "type": "object",
+        "properties": {
+            "name": { "$ref": "common.json#/endpoint" },
+            "port": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 65535 },
+            "type": {
+                "type": "string",
+                "pattern": "^infra$"
+            }
+        },
+        "required": [ "name", "port" ],
+        "additionalProperties": false
+    },
+    "vring_rule": {
+        "type": "object",
+        "properties": {
+            "endpoints": {
+                "type": "array",
+                "items": { "$ref": "#/endpoint/properties/name" },
+                "minItems": 1
+            },
+            "pattern": {
+                "type": "string"
+            }
+        },
+        "required": ["endpoints", "pattern"]
+    },
+    "resource": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+            "memory": { "$ref": "common.json#/memory" },
+            "cpu": { "$ref": "common.json#/cpu" },
+            "disk": { "$ref": "common.json#/disk" },
+            "services": {
+                "type": "array",
+                "items": { "$ref": "#/service" }
+            },
+            "endpoints": {
+                "type": "array",
+                "items": { "$ref": "#/endpoint" }
+            },
+            "ephemeral_ports": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 250
+            },
+            "tickets": {
+                "type": "array",
+                "items": { "$ref": "common.json#/ticket" }
+            },
+            "features": {
+                "type": "array",
+                "pattern": "^[\\w\\-]+$"
+            },
+            "shared_ip": { "type": "boolean" },
+            "shared_network": { "type": "boolean" },
+            "passthrough":  {
+                "type": "array",
+                "items": {
+                    "anyOf": [
+                        { "type": "string", "format": "hostname" },
+                        { "type": "string", "format": "ipv4" }
+                    ]
+                }
+            },
+            "archive": {
+                "type": "array",
+                "items": { "type": "string" }
+            },
+            "vring": {
+                "type": "object",
+                "properties": {
+                    "cells": {
+                        "type": "array",
+                        "items": { "$ref": "common.json#/cell" }
+                    },
+                    "rules": {
+                        "type": "array",
+                        "items": { "$ref": "#/vring_rule" },
+                        "minItems": 1
+                    }
+                }
+            },
+            "identity_group": {
+                "$ref": "common.json#/identity_group_id"
+            },
+            "schedule_once": { "type": "boolean" }
+        }
+    },
+    "verbs": {
+        "create": {
+            "required": ["memory", "cpu", "disk", "services"]
+        },
+        "update": {
+            "required": []
+        }
+    }
+}

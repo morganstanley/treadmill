@@ -6,9 +6,9 @@ import prettytable
 
 import click
 
-from .. import psmem
-from .. import cgutils
-from .. import utils
+from treadmill import psmem
+from treadmill import cgutils
+from treadmill import utils
 
 
 def init():

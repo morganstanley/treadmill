@@ -8,11 +8,11 @@ import kazoo
 
 import pandas as pd
 
-from .. import cli
-from .. import context
-from .. import master
-from .. import scheduler as treadmill_sched
-from .. import reports
+from treadmill import cli
+from treadmill import context
+from treadmill import master
+from treadmill import scheduler as treadmill_sched
+from treadmill import reports
 
 
 def view_group(parent):
@@ -67,7 +67,7 @@ def view_group(parent):
     @click.option('--features/--no-features', is_flag=True, default=False)
     @on_exceptions
     def servers(features):
-        """View servers report."""
+        """View servers report"""
         cell_master = _load()
         output = reports.servers(cell_master.cell)
         if features:
@@ -79,7 +79,7 @@ def view_group(parent):
     @view.command()
     @on_exceptions
     def apps():
-        """View apps report."""
+        """View apps report"""
         cell_master = _load()
         output = reports.apps(cell_master.cell)
         _print_frame(output)
@@ -87,17 +87,15 @@ def view_group(parent):
     @view.command()
     @on_exceptions
     def allocs():
-        """View apps report."""
+        """View allocation report"""
         cell_master = _load()
         allocs = reports.allocations(cell_master.cell)
-        features = reports.allocation_features(cell_master.cell)
-        output = pd.concat([allocs, features], axis=1)
-        _print_frame(output)
+        _print_frame(allocs)
 
     @view.command()
     @on_exceptions
     def queue():
-        """View utilization queue."""
+        """View utilization queue"""
         cell_master = _load()
         apps = reports.apps(cell_master.cell)
         output = reports.utilization(None, apps)

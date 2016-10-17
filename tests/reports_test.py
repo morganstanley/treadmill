@@ -9,7 +9,6 @@ import unittest
 import tests.treadmill_test_deps  # pylint: disable=W0611
 
 import mock
-import numpy as np
 import pandas as pd
 
 from treadmill import scheduler
@@ -19,19 +18,19 @@ from treadmill import reports
 def _construct_cell():
     """Constructs a test cell."""
     cell = scheduler.Cell('top')
-    rack1 = scheduler.Bucket('rack:rack1', features=[], level='rack')
-    rack2 = scheduler.Bucket('rack:rack2', features=[], level='rack')
+    rack1 = scheduler.Bucket('rack:rack1', traits=0, level='rack')
+    rack2 = scheduler.Bucket('rack:rack2', traits=0, level='rack')
 
     cell.add_node(rack1)
     cell.add_node(rack2)
 
-    srv1 = scheduler.Server('srv1', [10, 20, 30], features=['aaa', 'bbb'],
+    srv1 = scheduler.Server('srv1', [10, 20, 30], traits=3,
                             valid_until=1000)
-    srv2 = scheduler.Server('srv2', [10, 20, 30], features=['ccc'],
+    srv2 = scheduler.Server('srv2', [10, 20, 30], traits=7,
                             valid_until=2000)
-    srv3 = scheduler.Server('srv3', [10, 20, 30], features=[],
+    srv3 = scheduler.Server('srv3', [10, 20, 30], traits=0,
                             valid_until=3000)
-    srv4 = scheduler.Server('srv4', [10, 20, 30], features=[],
+    srv4 = scheduler.Server('srv4', [10, 20, 30], traits=0,
                             valid_until=4000)
 
     rack1.add_node(srv1)
@@ -42,11 +41,11 @@ def _construct_cell():
     tenant1 = scheduler.Allocation()
     tenant2 = scheduler.Allocation()
     tenant3 = scheduler.Allocation()
-    alloc1 = scheduler.Allocation([10, 10, 10], rank=100, features=[])
-    alloc2 = scheduler.Allocation([10, 10, 10], rank=100, features=['aaa'])
+    alloc1 = scheduler.Allocation([10, 10, 10], rank=100, traits=0)
+    alloc2 = scheduler.Allocation([10, 10, 10], rank=100, traits=3)
 
-    cell.allocation.add_sub_alloc('t1', tenant1)
-    cell.allocation.add_sub_alloc('t2', tenant2)
+    cell.allocations[None].add_sub_alloc('t1', tenant1)
+    cell.allocations[None].add_sub_alloc('t2', tenant2)
     tenant1.add_sub_alloc('t3', tenant3)
     tenant2.add_sub_alloc('a1', alloc1)
     tenant3.add_sub_alloc('a2', alloc2)
@@ -71,12 +70,6 @@ class ReportsTest(unittest.TestCase):
         self.assertEquals(df.ix['srv1']['memory'], 10)
         self.assertEquals(df.ix['srv2']['rack'], 'rack:rack1')
 
-        df_features = reports.node_features(self.cell)
-        # print df_features
-        self.assertTrue(df_features.ix['srv1']['aaa'])
-        self.assertTrue(df_features.ix['srv2']['ccc'])
-        self.assertIs(df_features.ix['srv3']['ccc'], np.nan)
-
         # check valid until
         # XXX(boysson): There is a timezone bug here.
         # XXX(boysson): self.assertEquals(str(df.ix['srv1']['valid_until']),
@@ -92,11 +85,11 @@ class ReportsTest(unittest.TestCase):
         # name
         # t2/a1      10    10              inf      10   100
         # t1/t3/a2   10    10              inf      10   100
-        self.assertEquals(df.ix['t2/a1']['cpu'], 10)
-        self.assertEquals(df.ix['t1/t3/a2']['cpu'], 10)
+        self.assertEquals(df.ix['-', 't2/a1']['cpu'], 10)
+        self.assertEquals(df.ix['-', 't1/t3/a2']['cpu'], 10)
 
         # TODO: not implemented.
-        # df_features = reports.allocation_features(self.cell)
+        # df_traits = reports.allocation_traits(self.cell)
 
     @mock.patch('time.time', mock.Mock(return_value=100))
     def test_applications(self):
@@ -111,17 +104,17 @@ class ReportsTest(unittest.TestCase):
                                      demand=[1, 1, 1],
                                      affinity='bla.xxx')
 
-        (self.cell.allocation
+        (self.cell.allocations[None]
          .get_sub_alloc('t1')
          .get_sub_alloc('t3')
          .get_sub_alloc('a2').add(app1))
 
-        (self.cell.allocation
+        (self.cell.allocations[None]
          .get_sub_alloc('t1')
          .get_sub_alloc('t3')
          .get_sub_alloc('a2').add(app2))
 
-        (self.cell.allocation
+        (self.cell.allocations[None]
          .get_sub_alloc('t2')
          .get_sub_alloc('a1').add(app3))
 

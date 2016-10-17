@@ -16,11 +16,13 @@ import time
 import click
 import kazoo
 
+if os.name == 'posix':
+    from .. import netdev
+    from .. import subproc
+
 from .. import appmgr
 from .. import context
 from .. import exc
-from .. import netdev
-from .. import subproc
 from .. import sysinfo
 from .. import utils
 from .. import zknamespace as z
@@ -108,8 +110,7 @@ def init():
             # Cleanup the watchdog directory
             app_env.watchdogs.initialize()
 
-            # (Re)Enable IP forwarding
-            netdev.dev_conf_forwarding_set('tm0', True)
+            _init_network()
 
             _LOGGER.info('Ready.')
 
@@ -157,8 +158,7 @@ def init():
         zkclient.stop()
         zkclient.close()
 
-        # Disable network traffic from and to the containers.
-        netdev.dev_conf_forwarding_set('tm0', False)
+        _cleanup_network()
 
         # to ternminate all the running apps
         _blackout_terminate(app_env)
@@ -191,3 +191,26 @@ def _blackout_terminate(app_env):
         # shutdown all the applications by shutting down supervisor
         _LOGGER.info('try to shutdown supervisor')
         subproc.check_call(['s6-svc', '-d', supervisor_dir])
+    else:
+        # TODO(karoly): Implement terminating containers on windows
+        pass
+
+
+def _init_network():
+    """Initialize network.
+    """
+    if os.name == 'nt':
+        return
+
+    # (Re)Enable IP forwarding
+    netdev.dev_conf_forwarding_set('tm0', True)
+
+
+def _cleanup_network():
+    """Cleanup network.
+    """
+    if os.name == 'nt':
+        return
+
+    # Disable network traffic from and to the containers.
+    netdev.dev_conf_forwarding_set('tm0', False)

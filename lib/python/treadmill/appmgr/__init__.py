@@ -10,7 +10,10 @@ import logging
 import os
 import string
 
-import netifaces
+if os.name == 'nt':
+    import socket
+else:
+    import netifaces
 
 from .. import fs
 from .. import rulefile
@@ -33,6 +36,7 @@ class AppEnvironment(object):
 
     __slots__ = (
         'apps_dir',
+        'archives_dir',
         'cache_dir',
         'cleanup_dir',
         'init_dir',
@@ -56,6 +60,7 @@ class AppEnvironment(object):
     )
 
     APPS_DIR = 'apps'
+    ARCHIVES_DIR = 'archives'
     CACHE_DIR = 'cache'
     CLEANUP_DIR = 'cleanup'
     INIT_DIR = 'init'
@@ -73,58 +78,73 @@ class AppEnvironment(object):
     def __init__(self, root):
         self.root = root
 
-        self.init_dir = os.path.join(self.root, self.INIT_DIR)
         self.apps_dir = os.path.join(self.root, self.APPS_DIR)
+        self.watchdog_dir = os.path.join(self.root, self.WATCHDOG_DIR)
+        self.running_dir = os.path.join(self.root, self.RUNNING_DIR)
         self.cache_dir = os.path.join(self.root, self.CACHE_DIR)
         self.cleanup_dir = os.path.join(self.root, self.CLEANUP_DIR)
+        self.app_events_dir = os.path.join(self.root, self.APP_EVENTS_DIR)
+        self.metrics_dir = os.path.join(self.root, self.METRICS_DIR)
+        self.archives_dir = os.path.join(self.root, self.ARCHIVES_DIR)
+        self.rules_dir = os.path.join(self.root, self.RULES_DIR)
+        self.init_dir = os.path.join(self.root, self.INIT_DIR)
         self.pending_cleanup_dir = os.path.join(self.root,
                                                 self.PENDING_CLEANUP_DIR)
-        self.rules_dir = os.path.join(self.root, self.RULES_DIR)
-        self.running_dir = os.path.join(self.root, self.RUNNING_DIR)
-        self.watchdog_dir = os.path.join(self.root, self.WATCHDOG_DIR)
-        self.metrics_dir = os.path.join(self.root, self.METRICS_DIR)
-        self.svc_cgroup_dir = os.path.join(self.root, self.SVC_CGROUP_DIR)
-        self.svc_localdisk_dir = os.path.join(self.root,
-                                              self.SVC_LOCALDISK_DIR)
-        self.svc_network_dir = os.path.join(self.root, self.SVC_NETWORK_DIR)
-        self.app_events_dir = os.path.join(self.root, self.APP_EVENTS_DIR)
 
-        # Make sure our directories exists.
         fs.mkdir_safe(self.apps_dir)
+        fs.mkdir_safe(self.watchdog_dir)
+        fs.mkdir_safe(self.running_dir)
         fs.mkdir_safe(self.cache_dir)
         fs.mkdir_safe(self.cleanup_dir)
-        fs.mkdir_safe(self.rules_dir)
-        fs.mkdir_safe(self.running_dir)
-        fs.mkdir_safe(self.watchdog_dir)
-        fs.mkdir_safe(self.metrics_dir)
-        fs.mkdir_safe(self.svc_cgroup_dir)
-        fs.mkdir_safe(self.svc_localdisk_dir)
-        fs.mkdir_safe(self.svc_network_dir)
         fs.mkdir_safe(self.app_events_dir)
+        fs.mkdir_safe(self.metrics_dir)
+        fs.mkdir_safe(self.archives_dir)
+        fs.mkdir_safe(self.rules_dir)
 
-        # XXX(boysson): This is hardcoded right now. Should we make this a
-        # config option?
-        self.host_if = 'eth0'
+        if os.name == 'posix':
+            self.svc_cgroup_dir = os.path.join(self.root, self.SVC_CGROUP_DIR)
+            self.svc_localdisk_dir = os.path.join(self.root,
+                                                  self.SVC_LOCALDISK_DIR)
+            self.svc_network_dir = os.path.join(self.root,
+                                                self.SVC_NETWORK_DIR)
 
-        ifaddresses = netifaces.ifaddresses(self.host_if)
-        # XXX: (boysson) We are taking the first IPv4 assigned to the host_if.
-        self.host_ip = ifaddresses[netifaces.AF_INET][0]['addr']
+            # Make sure our directories exists.
+            fs.mkdir_safe(self.svc_cgroup_dir)
+            fs.mkdir_safe(self.svc_localdisk_dir)
+            fs.mkdir_safe(self.svc_network_dir)
 
-        self.rules = rulefile.RuleMgr(self.rules_dir, self.apps_dir)
+            self.rules = rulefile.RuleMgr(self.rules_dir, self.apps_dir)
+            # Services
+            self.svc_cgroup = services.ResourceService(
+                service_dir=self.svc_cgroup_dir,
+                impl=('treadmill.services.cgroup_service.'
+                      'CgroupResourceService'),
+            )
+            self.svc_localdisk = services.ResourceService(
+                service_dir=self.svc_localdisk_dir,
+                impl=('treadmill.services.cgroup_service.'
+                      'LocalDiskResourceService'),
+            )
+
+            self.svc_network = services.ResourceService(
+                service_dir=self.svc_network_dir,
+                impl=('treadmill.services.cgroup_service.'
+                      'NetworkResourceService'),
+            )
+
+        self.host_ip = self._get_host_ip_address()
+
         self.watchdogs = watchdog.Watchdog(self.watchdog_dir)
-        # Services
-        self.svc_cgroup = services.ResourceService(
-            service_dir=self.svc_cgroup_dir,
-            impl='treadmill.services.cgroup_service.CgroupResourceService',
-        )
-        self.svc_localdisk = services.ResourceService(
-            service_dir=self.svc_localdisk_dir,
-            impl='treadmill.services.cgroup_service.LocalDiskResourceService',
-        )
-        self.svc_network = services.ResourceService(
-            service_dir=self.svc_network_dir,
-            impl='treadmill.services.cgroup_service.NetworkResourceService',
-        )
+
+    def _get_host_ip_address(self):
+        if os.name == 'nt':
+            hostname = socket.gethostname()
+            return socket.gethostbyname(hostname)
+        else:
+            ifaddresses = netifaces.ifaddresses('eth0')
+            # XXX: (boysson) We are taking the first IPv4 assigned to
+            # the host_if.
+            return ifaddresses[netifaces.AF_INET][0]['addr']
 
 
 def gen_uniqueid(event_file):

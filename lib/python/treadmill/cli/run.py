@@ -48,13 +48,6 @@ def _run(apis,
     if manifest:
         app = yaml.load(manifest.read())
 
-    if memory:
-        app['memory'] = memory
-    if disk:
-        app['disk'] = disk
-    if cpu:
-        app['cpu'] = cpu
-
     if endpoint:
         app['endpoints'] = [{'name': name, 'port': port}
                             for name, port in endpoint]
@@ -83,7 +76,15 @@ def _run(apis,
     if services_dict:
         app['services'] = services_dict.values()
 
-    url = '/v3/instance/' + appname
+    if app:
+        if memory:
+            app['memory'] = memory
+        if disk:
+            app['disk'] = disk
+        if cpu:
+            app['cpu'] = cpu
+
+    url = '/instance/' + appname
     if count:
         url += '?count=%d' % count
 
@@ -105,16 +106,19 @@ def init():
                   envvar='TREADMILL_RESTAPI')
     @click.option('--count', help='Number of instances to start',
                   default=1)
-    @click.option('--manifest', help='App manifest file (stream)',
+    @click.option('-m', '--manifest', help='App manifest file (stream)',
                   type=click.File(mode='rb'))
     @click.option('--memory', help='Memory demand.',
-                  metavar='GB|MB',
+                  metavar='G|M',
+                  default='200M',
                   callback=cli.validate_memory)
     @click.option('--cpu', help='CPU demand, %.',
                   metavar='XX%',
+                  default='10%',
                   callback=cli.validate_cpu)
     @click.option('--disk', help='Disk demand.',
-                  metavar='GB|MB',
+                  metavar='G|M',
+                  default='200M',
                   callback=cli.validate_disk)
     @click.option('--tickets', help='Tickets.',
                   type=cli.LIST)

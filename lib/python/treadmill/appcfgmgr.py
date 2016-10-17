@@ -34,13 +34,14 @@ import time
 from . import appmgr
 from . import fs
 from . import idirwatch
+from . import logcontext as lc
 from . import subproc
 
 from .appmgr import configure as app_cfg
 from .appmgr import abort as app_abort
 
+_LOGGER = lc.Adapter(logging.getLogger(__name__))
 
-_LOGGER = logging.getLogger(__name__)
 
 _HEARTBEAT_SEC = 30
 _WATCHDOG_TIMEOUT_SEC = _HEARTBEAT_SEC * 4
@@ -73,7 +74,7 @@ class AppCfgMgr(object):
 
         # Setup the watchdog
         watchdog_lease = self.tm_env.watchdogs.create(
-            name='svc:{svc_name}'.format(svc_name=self.name),
+            name='svc-{svc_name}'.format(svc_name=self.name),
             timeout='{hb:d}s'.format(hb=_WATCHDOG_TIMEOUT_SEC),
             content='Service %r failed' % self.name
         )
@@ -318,19 +319,19 @@ class AppCfgMgr(object):
             instance_name
         )
 
-        try:
-            _LOGGER.info('Configuring: %r', instance_name)
-            container_dir = app_cfg.configure(self.tm_env, event_file)
-            app_cfg.schedule(
-                container_dir,
-                os.path.join(self.tm_env.running_dir, instance_name)
-            )
+        with lc.LogContext(_LOGGER, instance_name):
+            try:
+                _LOGGER.info('Configuring')
+                container_dir = app_cfg.configure(self.tm_env, event_file)
+                app_cfg.schedule(
+                    container_dir,
+                    os.path.join(self.tm_env.running_dir, instance_name)
+                )
 
-        except Exception as err:  # pylint: disable=W0703
-            _LOGGER.exception('Error configuring %r (%r)',
-                              instance_name, event_file)
-            app_abort.abort(self.tm_env, event_file, err)
-            fs.rm_safe(event_file)
+            except Exception as err:  # pylint: disable=W0703
+                _LOGGER.exception('Error configuring (%r)', event_file)
+                app_abort.abort(self.tm_env, event_file, err)
+                fs.rm_safe(event_file)
 
     def _terminate(self, instance_name):
         """Removes application from the supervised running list.
@@ -387,33 +388,33 @@ class AppCfgMgr(object):
             ]
         )
         for instance_name in instance_names:
-            _LOGGER.info('Starting %r', instance_name)
-            instance_run_link = os.path.join(
-                self.tm_env.running_dir,
-                instance_name
-            )
-            # Wait for the supervisor to pick up the new instance.
-            for _ in range(10):
-                res = subproc.call(
+            with lc.LogContext(_LOGGER, instance_name):
+                _LOGGER.info('Starting')
+                instance_run_link = os.path.join(
+                    self.tm_env.running_dir,
+                    instance_name
+                )
+                # Wait for the supervisor to pick up the new instance.
+                for _ in range(10):
+                    res = subproc.call(
+                        [
+                            's6-svok',
+                            instance_run_link,
+                        ]
+                    )
+                    if res == 0:
+                        break
+                    else:
+                        _LOGGER.warning('Supervisor has not picked up it yet')
+                        time.sleep(0.5)
+                # Bring the instance up.
+                subproc.check_call(
                     [
-                        's6-svok',
+                        's6-svc',
+                        '-uO',
                         instance_run_link,
                     ]
                 )
-                if res == 0:
-                    break
-                else:
-                    _LOGGER.warn('Supervisor has not picked up %r yet',
-                                 instance_name)
-                    time.sleep(0.5)
-            # Bring the instance up.
-            subproc.check_call(
-                [
-                    's6-svc',
-                    '-uO',
-                    instance_run_link,
-                ]
-            )
 
     @staticmethod
     def _resolve_running_link(running_link):

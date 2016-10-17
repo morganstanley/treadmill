@@ -35,7 +35,7 @@ class AdminTest(unittest.TestCase):
         # pylint: disable=W0212
         schema = [
             ('a', 'a', str),
-            ('b', 'b', list),
+            ('b', 'b', [str]),
             ('c', 'C', int),
         ]
 
@@ -76,6 +76,16 @@ class AdminTest(unittest.TestCase):
                 'tm-ep-',
                 [('name', 'name', str), ('port', 'port', int)]))
 
+    def test_remove_empty(self):
+        """Test removal of empty values from entry."""
+        # Access to protected member.
+        #
+        # pylint: disable=W0212
+        self.assertEquals(
+            {'aaa': ['a']},
+            admin._remove_empty({'aaa': ['a'], 'b': [], 'c': {'a': []}})
+        )
+
     def test_app_to_entry(self):
         """Tests convertion of app dictionary to ldap entry."""
         app = {
@@ -83,15 +93,15 @@ class AdminTest(unittest.TestCase):
             'cpu': '100%',
             'memory': '1G',
             'disk': '1G',
-            'tickets': ['a', 'b'],
+            'tickets': [u'a', None, 'b'],
             'features': [],
             'services': [
                 {'name': 'a', 'restart_count': 1, 'command': '/a'},
                 {'name': 'b', 'restart_count': 2, 'command': '/b'},
             ],
             'endpoints': [
-                {'name': 'x', 'port': 1},
-                {'name': 'y', 'port': 2},
+                {'name': 'x', 'port': 1, 'type': 'infra'},
+                {'name': 'y', 'port': 2, 'type': 'infra'},
             ],
         }
 
@@ -116,9 +126,17 @@ class AdminTest(unittest.TestCase):
             'endpoint-name;tm-endpoint-' + md5_y: ['y'],
             'endpoint-port;tm-endpoint-' + md5_x: ['1'],
             'endpoint-port;tm-endpoint-' + md5_y: ['2'],
+            'endpoint-type;tm-endpoint-' + md5_x: ['infra'],
+            'endpoint-type;tm-endpoint-' + md5_y: ['infra'],
         }
 
         self.assertEquals(ldap_entry, admin.Application(None).to_entry(app))
+
+        # When converting to entry, None are skipped, and unicode is converted
+        # to str.
+        #
+        # Adjuest app['tickets'] accordingly.
+        app['tickets'] = ['a', 'b']
         self.assertEquals(app, admin.Application(None).from_entry(ldap_entry))
 
     def test_server_to_entry(self):
@@ -126,13 +144,13 @@ class AdminTest(unittest.TestCase):
         srv = {
             '_id': 'xxx',
             'cell': 'yyy',
-            'features': ['a', 'b', 'c'],
+            'traits': ['a', 'b', 'c'],
         }
 
         ldap_entry = {
             'server': ['xxx'],
             'cell': ['yyy'],
-            'feature': ['a', 'b', 'c'],
+            'trait': ['a', 'b', 'c'],
         }
 
         self.assertEquals(ldap_entry, admin.Server(None).to_entry(srv))
@@ -249,7 +267,7 @@ class TenantTest(unittest.TestCase):
 
     def test_to_entry(self):
         """Tests convertion of tenant dictionary to ldap entry."""
-        tenant = {'tenant': 'foo', 'systems': ['3032']}
+        tenant = {'tenant': 'foo', 'systems': [3032]}
         ldap_entry = {
             'tenant': ['foo'],
             'system': ['3032'],
@@ -258,7 +276,7 @@ class TenantTest(unittest.TestCase):
         self.assertEquals(ldap_entry, self.tnt.to_entry(tenant))
         self.assertEquals(tenant, self.tnt.from_entry(ldap_entry))
 
-        tenant = {'tenant': 'foo:bar', 'systems': ['3032']}
+        tenant = {'tenant': 'foo:bar', 'systems': [3032]}
         ldap_entry = {
             'tenant': ['foo:bar'],
             'system': ['3032'],
@@ -279,7 +297,7 @@ class AllocationTest(unittest.TestCase):
     def test_dn(self):
         """Tests allocation identity to dn mapping."""
         self.assertTrue(
-            self.alloc.dn('foo:bar-prod1').startswith(
+            self.alloc.dn('foo:bar/prod1').startswith(
                 'allocation=prod1,tenant=bar,tenant=foo,ou=allocations,'))
 
     def test_to_entry(self):
@@ -301,26 +319,26 @@ class AllocationTest(unittest.TestCase):
               'cpu': ['100%'],
               'disk': ['2G'],
               'rank': [100],
-              'feature': ['a', 'b'],
+              'trait': ['a', 'b'],
               'priority;tm-alloc-assignment-123': [80],
               'pattern;tm-alloc-assignment-123': ['ppp.ttt'],
               'priority;tm-alloc-assignment-345': [60],
               'pattern;tm-alloc-assignment-345': ['ppp.ddd']})
         ]
-        obj = self.alloc.get('foo:bar-prod1')
+        obj = self.alloc.get('foo:bar/prod1')
         treadmill.admin.Admin.search.assert_called_with(
             search_base='allocation=prod1,tenant=bar,tenant=foo,'
                         'ou=allocations,ou=treadmill,dc=xx,dc=com',
             search_filter='(objectclass=tmCellAllocation)',
             attributes=mock.ANY
         )
-        self.assertEquals(obj['cells'][0]['_id'], 'xxx')
-        self.assertEquals(obj['cells'][0]['disk'], '2G')
-        self.assertEquals(obj['cells'][0]['rank'], 100)
-        self.assertEquals(obj['cells'][0]['features'], ['a', 'b'])
+        self.assertEquals(obj['reservations'][0]['cell'], 'xxx')
+        self.assertEquals(obj['reservations'][0]['disk'], '2G')
+        self.assertEquals(obj['reservations'][0]['rank'], 100)
+        self.assertEquals(obj['reservations'][0]['traits'], ['a', 'b'])
         self.assertIn(
             {'pattern': 'ppp.ttt', 'priority': 80},
-            obj['cells'][0]['assignments'])
+            obj['reservations'][0]['assignments'])
 
 
 if __name__ == '__main__':

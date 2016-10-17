@@ -97,7 +97,7 @@ def _watcher(root_dir, rules_dir, containers_dir, watchdogs_dir):
     # Setup the watchdog
     watchdogs = watchdog.Watchdog(watchdogs_dir)
     wd = watchdogs.create(
-        'svc:{svc_name}'.format(svc_name='firewall_watcher'),
+        'svc-{svc_name}'.format(svc_name='firewall_watcher'),
         '{hb:d}s'.format(hb=_FW_WATCHER_HEARTBEAT*2),
         'Service firewall watcher failed'
     )

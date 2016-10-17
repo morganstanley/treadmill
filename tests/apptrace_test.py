@@ -10,7 +10,6 @@ import tests.treadmill_test_deps  # pylint: disable=W0611
 
 import mock
 import kazoo
-import kazoo.zkutils
 import kazoo.client
 
 from treadmill import apptrace

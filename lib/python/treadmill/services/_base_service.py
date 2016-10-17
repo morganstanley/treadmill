@@ -392,7 +392,7 @@ class ResourceService(object):
         # Setup the watchdog
         watchdogs = watchdog.Watchdog(os.path.realpath(watchdogs_dir))
         watchdog_lease = watchdogs.create(
-            name='svc:{svc_name}'.format(svc_name=self.name),
+            name='svc-{svc_name}'.format(svc_name=self.name),
             timeout='{hb:d}s'.format(hb=impl.WATCHDOG_HEARTBEAT_SEC),
             content='Service %r failed' % self.name
         )

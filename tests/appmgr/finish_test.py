@@ -6,6 +6,8 @@ import datetime
 import os
 import shutil
 import tempfile
+import tarfile
+import time
 import unittest
 
 # Disable W0611: Unused import
@@ -35,6 +37,7 @@ class AppMgrFinishTest(unittest.TestCase):
             host_ip='172.31.81.67',
             # nfs_dir=os.path.join(self.root, 'mnt', 'nfs'),
             apps_dir=os.path.join(self.root, 'apps'),
+            archives_dir=os.path.join(self.root, 'archives'),
             metrics_dir=os.path.join(self.root, 'metrics'),
             svc_cgroup=mock.Mock(
                 spec_set=treadmill.services._base_service.ResourceService,
@@ -158,7 +161,7 @@ class AppMgrFinishTest(unittest.TestCase):
         app_finish.finish(self.app_env, zkclient, app_dir)
 
         self.app_env.watchdogs.create.assert_called_with(
-            'treadmill.appmgr.finish:' + app_unique_name,
+            'treadmill.appmgr.finish-' + app_unique_name,
             '5m',
             mock.ANY
         )
@@ -470,6 +473,92 @@ class AppMgrFinishTest(unittest.TestCase):
                                  self.root)
         self.assertFalse(
             os.path.exists(os.path.join(self.root, 'metrics.rrd')))
+
+    def test__archive_logs(self):
+        """Tests archiving local logs."""
+        # Access protected module _archive_logs
+        #
+        # pylint: disable=W0212
+        app_env = appmgr.AppEnvironment(root=self.root)
+        container_dir = os.path.join(self.root, 'xxx.yyy-1234-qwerty')
+        fs.mkdir_safe(container_dir)
+        sys_archive = os.path.join(self.root, 'archives',
+                                   'xxx.yyy-1234-qwerty.sys.tar.gz')
+        app_archive = os.path.join(self.root, 'archives',
+                                   'xxx.yyy-1234-qwerty.app.tar.gz')
+        app_finish._archive_logs(app_env, container_dir)
+
+        self.assertTrue(os.path.exists(sys_archive))
+        self.assertTrue(os.path.exists(app_archive))
+        os.unlink(sys_archive)
+        os.unlink(app_archive)
+
+        def _touch_file(path):
+            """Touch file, appending path to container_dir."""
+            fpath = os.path.join(container_dir, path)
+            fs.mkdir_safe(os.path.dirname(fpath))
+            open(fpath, 'w+').close()
+
+        _touch_file('sys/foo/log/current')
+        _touch_file('sys/bla/log/current')
+        _touch_file('sys/bla/log/xxx')
+        _touch_file('services/xxx/log/current')
+        _touch_file('services/xxx/log/whatever')
+        _touch_file('a.yml')
+        _touch_file('a.rrd')
+        _touch_file('run.out')
+        _touch_file('whatever')
+
+        app_finish._archive_logs(app_env, container_dir)
+
+        tar = tarfile.open(sys_archive)
+        files = sorted([member.name for member in tar.getmembers()])
+        self.assertEquals(
+            files,
+            ['a.rrd', 'a.yml', 'run.out',
+             'sys/bla/log/current', 'sys/foo/log/current']
+        )
+        tar.close()
+
+        tar = tarfile.open(app_archive)
+        files = sorted([member.name for member in tar.getmembers()])
+        self.assertEquals(
+            files,
+            ['services/xxx/log/current']
+        )
+        tar.close()
+
+    def test__archive_cleanup(self):
+        """Tests cleanup of local logs."""
+        # Access protected module _cleanup_archive_dir
+        #
+        # pylint: disable=W0212
+        app_env = appmgr.AppEnvironment(root=self.root)
+        fs.mkdir_safe(app_env.archives_dir)
+
+        # Cleanup does not care about file extensions, it will cleanup
+        # oldest file if threshold is exceeded.
+        app_finish._ARCHIVE_LIMIT = 20
+        file1 = os.path.join(app_env.archives_dir, '1')
+        with open(file1, 'w+') as f:
+            f.write('x' * 10)
+
+        app_finish._cleanup_archive_dir(app_env)
+        self.assertTrue(os.path.exists(file1))
+
+        os.utime(file1, (time.time() - 1, time.time() - 1))
+        file2 = os.path.join(app_env.archives_dir, '2')
+        with open(file2, 'w+') as f:
+            f.write('x' * 10)
+
+        app_finish._cleanup_archive_dir(app_env)
+        self.assertTrue(os.path.exists(file1))
+
+        with open(os.path.join(app_env.archives_dir, '2'), 'w+') as f:
+            f.write('x' * 15)
+        app_finish._cleanup_archive_dir(app_env)
+        self.assertFalse(os.path.exists(file1))
+        self.assertTrue(os.path.exists(file2))
 
 
 if __name__ == '__main__':

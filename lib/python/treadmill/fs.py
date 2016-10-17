@@ -8,6 +8,7 @@ import logging
 import os
 import stat
 import tarfile
+import tempfile
 
 if os.name != 'nt':
     import pwd
@@ -71,6 +72,13 @@ def norm_safe(path):
         raise exc.InvalidInputError(path, 'Not absolute path: %r' % path)
 
     return os.path.normpath(path)
+
+
+def symlink_safe(link, target):
+    """Create symlink to target. Atomically rename if link already exists."""
+    tmp_link = tempfile.mktemp(dir=os.path.dirname(link))
+    os.symlink(target, tmp_link)
+    os.rename(tmp_link, link)
 
 
 def create_excl(filename, size=0, mode=(stat.S_IRUSR | stat.S_IWUSR)):

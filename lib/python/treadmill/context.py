@@ -98,6 +98,7 @@ class Context(object):
         'dns_domain',
         'admin_api_scope',
         'ctx_plugin',
+        'resolvers',
     )
 
     def __init__(self):
@@ -117,6 +118,12 @@ class Context(object):
         except Exception as err:  # pylint: disable=W0703
             _LOGGER.debug('Unable to load context plugin: %s.', err)
 
+        self.resolvers = [
+            lambda _: self.zk.url,
+            self._resolve_cell_from_dns,
+            self._resolve_cell_from_ldap,
+        ]
+
     def scopes(self):
         """Returns supported scopes."""
         scopes = ['cell']
@@ -127,10 +134,12 @@ class Context(object):
 
     def _resolve_srv(self, srv_rec):
         """Returns list of host, port tuples for given srv record."""
+        _LOGGER.debug('Query DNS -t SRV %s', srv_rec)
         if not self.dns_domain:
             raise ContextError('Treadmill DNS domain not specified.')
 
         result = dnsutils.srv(srv_rec + '.' + self.dns_domain)
+        _LOGGER.debug('Result: %r', result)
         if result:
             return ['http://%s:%s' % (host, port)
                     for host, port, _prio, _weight in result]
@@ -168,7 +177,7 @@ class Context(object):
         return self._resolve_srv(
             '_http._tcp.adminapi.' + self.admin_api_scope)
 
-    def resolve(self, cellname=None, useldap=False):
+    def resolve(self, cellname=None):
         """Resolve Zookeeper connection string by cell name."""
         # TODO: LDAPs should be a list, and admin object shuld accept
         #                list of host:port as connection arguments rather than
@@ -186,16 +195,8 @@ class Context(object):
                 ldap_host, ldap_port, _prio, _weight = ldap_srv_rec[0]
                 self.ldap.url = 'ldap://%s:%s' % (ldap_host, ldap_port)
 
-        resolvers = [
-            lambda _: self.zk.url,
-            self._resolve_cell_from_dns,
-            self._resolve_cell_from_ldap,
-        ]
-
-        if useldap:
-            resolvers.append(self._resolve_cell_from_ldap)
-
-        for resolver in resolvers:
+        while self.resolvers:
+            resolver = self.resolvers.pop(0)
             resolver(cellname)
             if self.zk.url:
                 break

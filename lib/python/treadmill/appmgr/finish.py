@@ -11,6 +11,7 @@ import shutil
 import signal
 import socket
 import subprocess
+import tarfile
 
 import yaml
 import kazoo
@@ -36,6 +37,7 @@ _LOGGER = logging.getLogger(__name__)
 
 _APP_YML = 'app.yml'
 _STATE_YML = 'state.yml'
+_ARCHIVE_LIMIT = utils.size_to_bytes('1G')
 
 
 def finish(tm_env, zkclient, container_dir):
@@ -50,21 +52,90 @@ def finish(tm_env, zkclient, container_dir):
     :type container_dir:
         ``str``
     """
-    # R0915: Need to refactor long function into smaller pieces.
-    # R0912: Too many branches
-    #
-    # pylint: disable=R0915,R0912
     _LOGGER.info('finishing %r', container_dir)
 
     # FIXME(boysson): Clean should be done inside the container. The watchdog
     #                 value below is inflated to account for the extra
     #                 archiving time.
     name_dir = os.path.basename(container_dir)
-    watchdog_name = '{name}:{app}'.format(name=__name__,
+    watchdog_name = '{name}-{app}'.format(name=__name__,
                                           app=name_dir)
     watchdog = tm_env.watchdogs.create(watchdog_name, '5m',
                                        'Cleanup of %r stalled' % container_dir)
 
+    _stop_container(container_dir)
+
+    # Check if application reached restart limit inside the container.
+    #
+    # The container directory will be moved, this check is done first.
+    #
+    # If restart limit was reached, application node will be removed from
+    # Zookeeper at the end of the cleanup process, indicating to the
+    # scheduler that the server is ready to accept new load.
+    exitinfo, aborted, aborted_reason = _collect_exit_info(container_dir)
+
+    app = _load_app(container_dir, _STATE_YML)
+    if app:
+        _cleanup(tm_env, zkclient, container_dir, app)
+    else:
+        app = _load_app(container_dir, _APP_YML)
+
+    if app:
+        # All resources are cleaned up. If the app terminated inside the
+        # container, remove the node from Zookeeper, which will notify the
+        # scheduler that it is safe to reuse the host for other load.
+        if aborted:
+            appevents.post(tm_env.app_events_dir, app.name, 'aborted', None,
+                           aborted_reason)
+
+        if exitinfo:
+            _post_exit_event(tm_env, app.name, exitinfo)
+
+    # Delete the app directory (this includes the tarball, if any)
+    shutil.rmtree(container_dir)
+
+    # cleanup was succesful, remove the watchdog
+    watchdog.remove()
+    _LOGGER.info('Finished cleanup: %s', container_dir)
+
+
+def _collect_exit_info(container_dir):
+    """Read exitinfo, check if app was aborted and why."""
+    exitinfo_file = os.path.join(container_dir, 'exitinfo')
+    exitinfo = _read_exitinfo(exitinfo_file)
+    _LOGGER.info('check for exitinfo file %r: %r', exitinfo_file, exitinfo)
+
+    aborted_file = os.path.join(container_dir, 'aborted')
+    aborted = os.path.exists(aborted_file)
+    _LOGGER.info('check for aborted file: %s, %s', aborted_file, aborted)
+
+    aborted_reason = None
+    if aborted:
+        with open(aborted_file) as f:
+            aborted_reason = f.read()
+
+    return exitinfo, aborted, aborted_reason
+
+
+def _load_app(container_dir, app_yml):
+    """Load app from original manifest, pre-configured."""
+    manifest_file = os.path.join(container_dir, app_yml)
+
+    try:
+        manifest = app_manifest.read(manifest_file)
+        _LOGGER.debug('Manifest: %r', manifest)
+        return utils.to_obj(manifest)
+
+    except IOError as err:
+        if err.errno != errno.ENOENT:
+            raise
+
+        _LOGGER.critical('Manifest file does not exit: %r', manifest_file)
+        return None
+
+
+def _stop_container(container_dir):
+    """Stop container, remove from supervision tree."""
     try:
         subproc.check_call(['s6-svc', '-d', container_dir])
         subproc.check_call(['s6-svwait', '-d', container_dir])
@@ -79,97 +150,30 @@ def finish(tm_env, zkclient, container_dir):
         else:
             raise
 
-    app = None
-    has_state = False
 
-    try:
-        state_file = os.path.join(container_dir, _STATE_YML)
-        state = app_manifest.read(state_file)
-        _LOGGER.debug('State: %r', state)
-        app = utils.to_obj(state)
-        has_state = True
+def _post_exit_event(tm_env, name, exitinfo):
+    """Post exit event based on exit reason."""
+    if exitinfo.get('killed'):
+        event = 'killed'
+        if exitinfo.get('oom'):
+            eventmsg = 'oom'
+    else:
+        rc = exitinfo.get('rc', 256)
+        sig = exitinfo.get('sig', 256)
+        event = 'finished'
+        eventmsg = '%s.%s' % (rc, sig)
 
-    except IOError as err:
-        if err.errno == errno.ENOENT:
-            _LOGGER.warn('State file does not exit: %r', state_file)
-        else:
-            raise
-
-    if app is None:
-        try:
-            manifest_file = os.path.join(container_dir, _APP_YML)
-            manifest = app_manifest.read(manifest_file)
-            _LOGGER.debug('Manifest: %r', manifest)
-            app = utils.to_obj(manifest)
-
-        except IOError as err:
-            if err.errno == errno.ENOENT:
-                _LOGGER.critical('Manifest file does not exit: %r',
-                                 manifest_file)
-                watchdog.remove()
-                shutil.rmtree(container_dir)
-                return
-            else:
-                raise
-
-    # Check if application reached restart limit inside the container.
-    #
-    # The container directory will be moved, this check is done first.
-    #
-    # If restart limit was reached, application node will be removed from
-    # Zookeeper at the end of the cleanup process, indicating to the
-    # scheduler that the server is ready to accept new load.
-    #
-    exitinfo_file = os.path.join(container_dir, 'exitinfo')
-    exitinfo = _read_exitinfo(exitinfo_file)
-    _LOGGER.info('check for exitinfo file %r: %r', exitinfo_file, exitinfo)
-
-    aborted_file = os.path.join(container_dir, 'aborted')
-    aborted = os.path.exists(aborted_file)
-    _LOGGER.info('check for aborted file: %s, %s', aborted_file, aborted)
-
-    aborted_reason = None
-    if aborted:
-        with open(aborted_file) as f:
-            aborted_reason = f.read()
-
-    if has_state:
-        _cleanup(tm_env, zkclient, container_dir, app)
-
-    # Delete the app directory (this includes the tarball, if any)
-    shutil.rmtree(container_dir)
-
-    # cleanup was succesful, remove the watchdog
-    watchdog.remove()
-
-    # All resources are cleaned up. If the app terminated inside the
-    # container, remove the node from Zookeeper, which will notify the
-    # scheduler that it is safe to reuse the host for other load.
-    eventmsg = None
-    if aborted:
-        appevents.post(tm_env.app_events_dir, app.name, 'aborted', eventmsg,
-                       aborted_reason)
-
-    if exitinfo:
-        if exitinfo.get('killed'):
-            event = 'killed'
-            if exitinfo.get('oom'):
-                eventmsg = 'oom'
-        else:
-            rc = exitinfo.get('rc', 256)
-            sig = exitinfo.get('sig', 256)
-            event = 'finished'
-            eventmsg = '%s.%s' % (rc, sig)
-
-        appevents.post(tm_env.app_events_dir,
-                       app.name, event, eventmsg, exitinfo)
-
-    _LOGGER.info('Finished cleanup: %s', app.name)
+    appevents.post(tm_env.app_events_dir,
+                   name, event, eventmsg, exitinfo)
 
 
 def _cleanup(tm_env, zkclient, container_dir, app):
     """Cleanup a container that actually ran.
     """
+    # Too many branches.
+    #
+    # pylint: disable=R0912
+
     rootdir = os.path.join(container_dir, 'root')
     # Generate a unique name for the app
     unique_name = appmgr.app_unique_name(app)
@@ -251,6 +255,11 @@ def _cleanup(tm_env, zkclient, container_dir, app):
             pass
         else:
             raise
+
+    try:
+        _archive_logs(tm_env, container_dir)
+    except Exception:  # pylint: disable=W0703
+        _LOGGER.exception('Unexpected exception storing local logs.')
 
     # Append or create the tarball with folders outside of container
     # Compress and send the tarball to HCP
@@ -403,3 +412,70 @@ def _copy_metrics(metrics_file, container_dir):
             _LOGGER.info('metrics file not found: %s.', metrics_file)
         else:
             raise
+
+
+def _cleanup_archive_dir(tm_env):
+    """Delete old files from archive directory if space exceeds the threshold.
+    """
+    archives = glob.glob(os.path.join(tm_env.archives_dir, '*'))
+    infos = []
+    dir_size = 0
+    for archive in archives:
+        stat = os.stat(archive)
+        dir_size += stat.st_size
+        infos.append((stat.st_mtime, stat.st_size, archive))
+
+    if dir_size <= _ARCHIVE_LIMIT:
+        _LOGGER.info('Archive directory below threshold: %s', dir_size)
+        return
+
+    _LOGGER.info('Archive directory above threshold: %s gt %s',
+                 dir_size, _ARCHIVE_LIMIT)
+    infos.sort()
+    while dir_size > _ARCHIVE_LIMIT:
+        ctime, size, archive = infos.pop(0)
+        dir_size -= size
+        _LOGGER.info('Unlink old archive %s: ctime: %s, size: %s',
+                     archive, ctime, size)
+        fs.rm_safe(archive)
+
+
+def _archive_logs(tm_env, container_dir):
+    """Archive latest sys and services logs."""
+    _cleanup_archive_dir(tm_env)
+
+    name = os.path.basename(container_dir)
+    sys_archive_name = os.path.join(tm_env.archives_dir, name + '.sys.tar.gz')
+    app_archive_name = os.path.join(tm_env.archives_dir, name + '.app.tar.gz')
+
+    def _add(archive, filename):
+        """Safely add file to archive."""
+        try:
+            archive.add(filename, filename[len(container_dir) + 1:])
+        except OSError as err:
+            if err.errno == errno.ENOENT:
+                _LOGGER.warn('File not found: %s', filename)
+            else:
+                raise
+
+    with tarfile.open(sys_archive_name, 'w:gz') as f:
+        logs = glob.glob(
+            os.path.join(container_dir, 'sys', '*', 'log', 'current'))
+        for log in logs:
+            _add(f, log)
+
+        metrics = glob.glob(os.path.join(container_dir, '*.rrd'))
+        for metric in metrics:
+            _add(f, metric)
+
+        cfgs = glob.glob(os.path.join(container_dir, '*.yml'))
+        for cfg in cfgs:
+            _add(f, cfg)
+
+        _add(f, os.path.join(container_dir, 'run.out'))
+
+    with tarfile.open(app_archive_name, 'w:gz') as f:
+        logs = glob.glob(
+            os.path.join(container_dir, 'services', '*', 'log', 'current'))
+        for log in logs:
+            _add(f, log)

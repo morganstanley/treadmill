@@ -139,7 +139,7 @@ class Watchdog(object):
                 with tempfile.NamedTemporaryFile(dir=dirname,
                                                  prefix='.' + filename,
                                                  delete=False) as tmpfile:
-                    os.fchmod(tmpfile.fileno(), 0o600)
+                    os.chmod(tmpfile.name, 0o600)
                     tmpfile.write(self.content)
                     # We have to flush now to make sure utime is the last
                     # operation we do on the file.

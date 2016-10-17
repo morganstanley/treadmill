@@ -12,6 +12,7 @@ import yaml
 import click
 import dns.exception  # pylint: disable=E0611
 import kazoo
+import kazoo.exceptions
 import ldap3
 
 import treadmill

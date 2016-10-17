@@ -150,7 +150,7 @@ class ApiSchemaTest(unittest.TestCase):
               _patch(good, '/endpoints/0/port', '1234'))
 
         # Tickets.
-        good.update({'tickets': ['myproid']})
+        good.update({'tickets': ['myproid@krb.realm']})
         _ok(api.create, 'foo.bla', good)
         _fail(api.create, 'foo.bla',
               _patch(good, '/tickets/0', 'ddd:d'))
@@ -215,12 +215,12 @@ class ApiSchemaTest(unittest.TestCase):
         _ok(api.create, 'xxx.xx.com', good)
         _fail(api.create, 'x(xx.xx.com', good)
 
-        good.update({'features': []})
+        good.update({'label': None})
         _ok(api.create, 'xxx.xx.com', good)
 
-        good.update({'features': ['ssd']})
+        good.update({'label': 'xxx'})
         _ok(api.create, 'xxx.xx.com', good)
-        _fail(api.create, 'xxx.xx.com', _patch(good, '/features/0', 1))
+        _fail(api.create, 'xxx.xx.com', _patch(good, '/label', 1))
 
         good.update({'cell': 'my-001-cell'})
         _ok(api.create, 'xxx.xx.com', good)
@@ -236,12 +236,12 @@ class ApiSchemaTest(unittest.TestCase):
         """Test server list input validation."""
         api = server.API()
 
-        _ok(api.list, None, [])
-        _ok(api.list, 'my-001-cell', [])
-        _ok(api.list, 'my-001-cell', ['ccc'])
+        _ok(api.list, None, None)
+        _ok(api.list, 'my-001-cell', None)
+        _ok(api.list, 'my-001-cell', 'ccc')
 
-        _fail(api.list, 'my-(001-cell', [])
-        _fail(api.list, 'my-001-cell', [1])
+        _fail(api.list, 'my-(001-cell', None)
+        _fail(api.list, 'my-001-cell', 'xxx')
 
     @mock.patch('treadmill.context.AdminContext.conn',
                 mock.Mock(return_value=None))
@@ -285,38 +285,41 @@ class ApiSchemaTest(unittest.TestCase):
         good = {
             'environment': 'prod'
         }
-        _ok(api.create, ['aaa-prod'], good)
-        _ok(api.create, ['aaa:bbb-xxx'], good)
-        _fail(api.create, ['aaa:bbb--xxx'], good)
-        _fail(api.create, ['aaa:b-bb-xxx'], good)
+        _ok(api.create, 'aaa/prod', good)
 
-        good.update({
-            'features': ['xxx']
-        })
+        _ok(api.create, 'aaa/prod', _patch(good, '/environment', 'qa'))
+        _ok(api.create, 'aaa/prod', _patch(good, '/environment', 'dev'))
+        _ok(api.create, 'aaa/prod', _patch(good, '/environment', 'uat'))
+        _fail(api.create, 'aaa/prod', _patch(good, '/environment', 'x'))
 
-        _ok(api.create, ['aaa-prod'], good)
-        good.update({
+    @mock.patch('treadmill.context.AdminContext.conn',
+                mock.Mock(return_value=None))
+    def test_reservation(self):
+        """Test allocation input validation."""
+        api = allocation.API().reservation
+
+        good = {
             'memory': '1G',
             'cpu': '100%',
             'disk': '1G',
-            'features': []
-        })
-        _ok(api.create, ['aaa-prod'], good)
+        }
+        _ok(api.create, 'aaa/prod/cell', good)
 
-        _ok(api.create, ['aaa-prod'], _patch(good, '/environment', 'qa'))
-        _ok(api.create, ['aaa-prod'], _patch(good, '/environment', 'dev'))
-        _ok(api.create, ['aaa-prod'], _patch(good, '/environment', 'uat'))
-        _fail(api.create, ['aaa-prod'], _patch(good, '/environment', 'x'))
+        good.update({
+            'label': 'xxx'
+        })
+        _ok(api.create, 'aaa/prod/cell', good)
 
         # Update
         good = {'cpu': '77%'}
-        _ok(api.update, ['aaa-prod'], good)
+        _fail(api.update, 'aaa/prod/cell', good)
 
         good['memory'] = '2G'
         good['disk'] = '1G'
-        good['features'] = ['ssd']
-        _ok(api.update, ['aaa-prod'], good)
-        _fail(api.update, ['aaa-prod'], _patch(good, '/environment', 'qa'))
+        good['label'] = 'yyy'
+
+        _ok(api.update, 'aaa/prod/cell', good)
+        _fail(api.update, 'aaa/prod/cell', _patch(good, '/environment', 'qa'))
 
     @mock.patch('treadmill.context.AdminContext.conn',
                 mock.Mock(return_value=None))

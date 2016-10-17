@@ -8,6 +8,7 @@ from __future__ import absolute_import
 import sys
 
 import collections
+import copy
 import hashlib
 import itertools
 import logging
@@ -68,21 +69,21 @@ def _entry_2_dict(entry, schema):
             continue
 
         if ldap_field not in entry:
-            if field_type == list:
+            if isinstance(field_type, list):
                 obj[obj_field] = []
             else:
                 obj[obj_field] = None
             continue
 
         value = entry[ldap_field]
-        if field_type == list:
-            obj[obj_field] = value
+        if isinstance(field_type, list):
+            obj[obj_field] = map(field_type[0], value)
         elif field_type == bool:
             obj[obj_field] = bool(util.strtobool(value[0].lower()))
         else:
             obj[obj_field] = field_type(value[0])
 
-    return obj
+    return {k: v for k, v in obj.iteritems() if v is not None}
 
 
 def _dict_2_entry(obj, schema, option=None, option_value=None):
@@ -109,15 +110,38 @@ def _dict_2_entry(obj, schema, option=None, option_value=None):
         if value is None:
             entry[ldap_field] = []
         else:
-            if field_type == list:
+            if isinstance(field_type, list):
+                # TODO: we need to check that all values are of specified type.
+                elem_type = field_type[0]
+                if elem_type == str:
+                    elem_type = (str, unicode)
                 if value:
-                    entry[ldap_field] = map(str, value)
+                    filtered = [str(v) for v in value
+                                if isinstance(v, elem_type)]
+                    if len(filtered) < len(value):
+                        _LOGGER.critical('Exptected %r, got %r',
+                                         field_type, value)
+                    entry[ldap_field] = filtered
             elif field_type == bool:
                 entry[ldap_field] = [str(value).upper()]
             else:
                 entry[ldap_field] = [str(value)]
 
     return entry
+
+
+def _remove_empty(entry):
+    """Remove any empty values and empty lists from entry."""
+    new_entry = copy.deepcopy(entry)
+    for k, v in new_entry.iteritems():
+        if isinstance(v, dict):
+            new_entry[k] = _remove_empty(v)
+
+    emptykeys = [k for k, v in new_entry.iteritems() if not v]
+    for k in emptykeys:
+        del new_entry[k]
+
+    return new_entry
 
 
 def _attrtype_2_abstract(attrtype):
@@ -728,6 +752,7 @@ class Admin(object):
         _LOGGER.debug('update: %s - %s', dn, new_entry)
         old_entry = self.get(dn, '(objectClass=*)', new_entry.keys())
         diff = _diff_entries(old_entry, new_entry)
+
         self.modify(dn, diff)
 
     def remove(self, dn, entry):
@@ -742,7 +767,7 @@ class LdapObject(object):
     def __init__(self, admin):
         self.admin = admin
 
-    def from_entry(self, entry):
+    def from_entry(self, entry, _dn=None):
         """Converts ldap entry to dict."""
         return _entry_2_dict(entry, self.schema())
 
@@ -774,13 +799,13 @@ class LdapObject(object):
                                self._query(),
                                self.attrs())
         if entry:
-            return self.from_entry(entry)
+            return self.from_entry(entry, self.dn(ident))
         else:
             return None
 
     def create(self, ident, attrs):
         """Create new ldap record."""
-        entry = self.to_entry(attrs)
+        entry = _remove_empty(self.to_entry(attrs))
         if isinstance(ident, list):
             ident_attr = ident
         else:
@@ -813,7 +838,7 @@ class LdapObject(object):
                                    search_filter=query.to_str(),
                                    search_scope=ldap3.SUBTREE,
                                    attributes=self.attrs())
-        return [self.from_entry(entry) for _dn, entry in result]
+        return [self.from_entry(entry, dn) for dn, entry in result]
 
     def update(self, ident, attrs):
         """Updates LDAP record."""
@@ -837,13 +862,30 @@ class LdapObject(object):
         assert ident is not None
         self.admin.delete(self.dn(ident))
 
+    def children(self, ident, clazz):
+        """Selects all children given the children type."""
+        dn = self.dn(ident)
+
+        children_admin = clazz(self.admin)
+        attrs = [elem[0] for elem in children_admin.schema()]
+        search = self.admin.search(
+            search_base=dn,
+            search_filter='(objectclass=%s)' % clazz.oc(),
+            attributes=attrs
+        )
+        return [children_admin.from_entry(entry, dn)
+                for dn, entry in search]
+
 
 class Server(LdapObject):
     """Server object."""
 
-    _schema = [('server', '_id', str),
-               ('cell', 'cell', str),
-               ('feature', 'features', list)]
+    _schema = [
+        ('server', '_id', str),
+        ('cell', 'cell', str),
+        ('trait', 'traits', [str]),
+        ('label', 'label', str),
+    ]
 
     _oc = 'tmServer'
     _ou = 'servers'
@@ -860,13 +902,13 @@ class DNS(LdapObject):
     """DNS object."""
 
     _schema = [('dns', '_id', str),
-               ('server', 'server', list),
+               ('server', 'server', [str]),
                ('location', 'location', str),
-               ('rest-server', 'rest-server', list),
+               ('rest-server', 'rest-server', [str]),
                ('zkurl', 'zkurl', str),
                ('fqdn', 'fqdn', str),
                ('ttl', 'ttl', str),
-               ('nameservers', 'nameservers', list)]
+               ('nameservers', 'nameservers', [str])]
 
     _oc = 'tmDNS'
     _ou = 'dns-servers'
@@ -883,10 +925,10 @@ class AppGroup(LdapObject):
 
     _schema = [('app-group', '_id', str),
                ('group-type', 'group-type', str),
-               ('cell', 'cells', list),
+               ('cell', 'cells', [str]),
                ('pattern', 'pattern', str),
-               ('endpoint-name', 'endpoints', list),
-               ('data', 'data', list)]
+               ('endpoint-name', 'endpoints', [str]),
+               ('data', 'data', [str])]
 
     _oc = 'tmAppGroup'
     _ou = 'app-groups'
@@ -910,8 +952,8 @@ class Application(LdapObject):
         ('cpu', 'cpu', str),
         ('memory', 'memory', str),
         ('disk', 'disk', str),
-        ('ticket', 'tickets', list),
-        ('feature', 'features', list),
+        ('ticket', 'tickets', [str]),
+        ('feature', 'features', [str]),
     ]
 
     _svc_schema = [
@@ -923,6 +965,7 @@ class Application(LdapObject):
     _endpoint_schema = [
         ('endpoint-name', 'name', str),
         ('endpoint-port', 'port', int),
+        ('endpoint-type', 'type', str),
     ]
 
     _oc = 'tmApp'
@@ -937,9 +980,9 @@ class Application(LdapObject):
                 map(name_only, Application._svc_schema) +
                 map(name_only, Application._endpoint_schema))
 
-    def from_entry(self, entry):
+    def from_entry(self, entry, dn=None):
         """Converts LDAP app object to dict."""
-        obj = super(Application, self).from_entry(entry)
+        obj = super(Application, self).from_entry(entry, dn)
         grouped = _group_entry_by_opt(entry)
         services = _grouped_to_list_of_dict(
             grouped, 'tm-service-', Application._svc_schema)
@@ -1010,9 +1053,9 @@ class Cell(LdapObject):
         return (Cell._schema +
                 map(name_only, Cell._master_host_schema))
 
-    def from_entry(self, entry):
+    def from_entry(self, entry, dn=None):
         """Converts LDAP app object to dict."""
-        obj = super(Cell, self).from_entry(entry)
+        obj = super(Cell, self).from_entry(entry, dn)
         grouped = _group_entry_by_opt(entry)
         masters = _grouped_to_list_of_dict(
             grouped, 'tm-master-', Cell._master_host_schema)
@@ -1044,7 +1087,7 @@ Cell.entity = staticmethod(lambda: Cell._entity)
 class Tenant(LdapObject):
     """Tenant object."""
     _schema = [('tenant', 'tenant', str),
-               ('system', 'systems', list)]
+               ('system', 'systems', [int])]
 
     _oc = 'tmTenant'
     _ou = 'allocations'
@@ -1065,16 +1108,24 @@ class Tenant(LdapObject):
         """Returns combined schema for retrieval."""
         return Tenant._schema
 
-    def from_entry(self, entry):
+    def from_entry(self, entry, dn=None):
         """Converts LDAP app object to dict."""
-        obj = super(Tenant, self).from_entry(entry)
-
+        obj = super(Tenant, self).from_entry(entry, dn)
         return obj
 
     def to_entry(self, obj):
         """Converts tenant dictionary to LDAP entry."""
         entry = super(Tenant, self).to_entry(obj)
         return entry
+
+    def allocations(self, ident):
+        """Return all tenant's allocations."""
+        return self.children(ident, Allocation)
+
+    def reservations(self, ident):
+        """Return all tenant's reservations."""
+        return self.children(ident, CellAllocation)
+
 
 Tenant.oc = staticmethod(lambda: Tenant._oc)
 Tenant.ou = staticmethod(lambda: Tenant._ou)
@@ -1083,7 +1134,7 @@ Tenant.entity = staticmethod(lambda: Tenant._entity)
 
 def _allocation_dn_parts(ident):
     """Construct allocation dn parts."""
-    tenant_id, allocation_name = ident.split('-')
+    tenant_id, allocation_name = tuple(ident.split('/')[:2])
     parts = ['%s=%s' % (Allocation.entity(), allocation_name)]
     parts.extend(['%s=%s' % (Tenant.entity(), part)
                   for part in reversed(tenant_id.split(':'))])
@@ -1091,17 +1142,32 @@ def _allocation_dn_parts(ident):
     return parts
 
 
+def _dn2cellalloc_id(dn):
+    """Converts cell allocation dn to full id."""
+    if not dn.startswith('cell='):
+        return None
+
+    parts = dn.split(',')
+    cell = parts.pop(0).split('=')[1]
+    allocation = parts.pop(0).split('=')[1]
+
+    tenants = ':'.join(reversed([part.split('=')[1] for part in parts
+                                 if part.startswith('tenant=')]))
+    return '%s/%s/%s' % (tenants, allocation, cell)
+
+
 class CellAllocation(LdapObject):
     """Models allocation reservation in a given cell."""
 
     _schema = [
-        ('cell', '_id', str),
+        ('cell', 'cell', str),
         ('cpu', 'cpu', str),
         ('memory', 'memory', str),
         ('disk', 'disk', str),
         ('max-utilization', 'max-utilization', str),
         ('rank', 'rank', int),
-        ('feature', 'features', list),
+        ('trait', 'traits', [str]),
+        ('label', 'label', str),
     ]
 
     _assign_schema = [
@@ -1132,9 +1198,14 @@ class CellAllocation(LdapObject):
         parts.extend(_allocation_dn_parts(alloc_id))
         return self.admin.dn(parts)
 
-    def from_entry(self, entry):
+    def from_entry(self, entry, dn=None):
         """Converts cell allocation object to dict."""
-        obj = super(CellAllocation, self).from_entry(entry)
+        obj = super(CellAllocation, self).from_entry(entry, dn)
+
+        ident = _dn2cellalloc_id(dn)
+        if ident:
+            obj['_id'] = ident
+
         grouped = _group_entry_by_opt(entry)
         assignments = _grouped_to_list_of_dict(
             grouped, 'tm-alloc-assignment-', CellAllocation._assign_schema)
@@ -1148,8 +1219,9 @@ class CellAllocation(LdapObject):
     def to_entry(self, obj):
         """Converts app dictionary to LDAP entry."""
         entry = super(CellAllocation, self).to_entry(obj)
-
+        print obj
         for assignment in obj.get('assignments', []):
+            print assignment
             assign_entry = _dict_2_entry(assignment,
                                          CellAllocation._assign_schema,
                                          'tm-alloc-assignment',
@@ -1190,26 +1262,28 @@ class Allocation(LdapObject):
     def get(self, ident):
         """Gets allocation given primary key."""
         obj = super(Allocation, self).get(ident)
-        dn = self.dn(ident)
-
-        cell_alloc_admin = CellAllocation(self.admin)
-        cell_alloc_attrs = [elem[0] for elem in cell_alloc_admin.schema()]
-        cell_allocs_search = self.admin.search(
-            search_base=dn,
-            search_filter='(objectclass=tmCellAllocation)',
-            attributes=cell_alloc_attrs
-        )
-        obj['cells'] = []
-        for _dn, entry in cell_allocs_search:
-            cell_alloc = cell_alloc_admin.from_entry(entry)
-            obj['cells'].append(cell_alloc)
-
+        obj['reservations'] = self.reservations(ident)
         return obj
 
     def delete(self, ident):
         """Deletes LDAP record."""
         # TODO: need to delete cell allocations as well.
+        dn = self.dn(ident)
+        cell_allocs_search = self.admin.search(
+            search_base=dn,
+            search_filter='(objectclass=tmCellAllocation)',
+            attributes=[]
+        )
+
+        for dn, _entry in cell_allocs_search:
+            self.admin.delete(dn)
+
         return super(Allocation, self).delete(ident)
+
+    def reservations(self, ident):
+        """Retrieves all reservations for given allocation."""
+        return self.children(ident, CellAllocation)
+
 
 Allocation.oc = staticmethod(lambda: Allocation._oc)
 Allocation.ou = staticmethod(lambda: Allocation._ou)

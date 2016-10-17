@@ -22,7 +22,7 @@ _APP_FORMATTER = cli.make_formatter(cli.AppPrettyFormatter)
 
 def _show_state(apis, match):
     """Show cell state."""
-    url = '/v3/state/'
+    url = '/state/'
     if match:
         url += '?' + urllib.urlencode([('match', match)])
 
@@ -32,7 +32,7 @@ def _show_state(apis, match):
 
 def _show_list(apis, match, states):
     """Show list of instnces in given state."""
-    url = '/v3/state/'
+    url = '/state/'
     if match:
         url += '?' + urllib.urlencode([('match', match)])
 
@@ -45,7 +45,7 @@ def _show_list(apis, match, states):
 
 def _show_endpoints(apis, pattern, endpoint):
     """Show cell endpoints."""
-    url = '/v3/endpoint/%s' % urllib.quote(pattern)
+    url = '/endpoint/%s' % urllib.quote(pattern)
     if endpoint:
         url += '/' + endpoint
 
@@ -55,7 +55,7 @@ def _show_endpoints(apis, pattern, endpoint):
 
 def _show_instance(apis, instance_id):
     """Show instance manifest."""
-    url = '/v3/instance/%s' % urllib.quote(instance_id)
+    url = '/instance/%s' % urllib.quote(instance_id)
 
     response = restclient.get(apis, url)
     cli.out(_APP_FORMATTER(response.json()))

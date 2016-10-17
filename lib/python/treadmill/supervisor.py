@@ -266,5 +266,5 @@ def create_environ_dir(env_dir, env):
 
     for key, value in env.iteritems():
         with open(os.path.join(env_dir, key), 'w+') as f:
-            if value:
+            if value is not None:
                 f.write(str(value))

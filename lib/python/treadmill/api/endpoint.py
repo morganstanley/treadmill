@@ -22,6 +22,7 @@ def make_endpoint_watcher(zkclient, state, proid):
     @zkclient.ChildrenWatch(proid_instances)
     def _watch_instances(children):
         """Watch for proid instances."""
+
         current = set(state[proid].keys())
         target = set(children)
 
@@ -37,7 +38,7 @@ def make_endpoint_watcher(zkclient, state, proid):
             except kazoo.client.NoNodeError:
                 pass
 
-        state[proid] = endpoints
+        state[proid].update(endpoints)
         return True
 
     return _watch_instances
@@ -64,7 +65,8 @@ class API(object):
                 del cell_state[proid]
 
             for proid in target - current:
-                cell_state[proid] = {}
+                if proid not in cell_state:
+                    cell_state[proid] = {}
                 make_endpoint_watcher(zkclient, cell_state, proid)
 
             return True
@@ -85,7 +87,7 @@ class API(object):
                 instance_name, endpoint_name = name.split(':')
                 return (
                     fnmatch.fnmatch(instance_name, match) and
-                    endpoint is None or endpoint_name == endpoint
+                    (endpoint is None or endpoint_name == endpoint)
                 )
 
             filtered = [

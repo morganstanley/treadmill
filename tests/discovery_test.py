@@ -8,7 +8,6 @@ import unittest
 import tests.treadmill_test_deps  # pylint: disable=W0611
 
 import kazoo
-import kazoo.zkutils
 import mock
 
 from treadmill import discovery

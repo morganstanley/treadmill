@@ -31,7 +31,8 @@ import jinja2
 
 import treadmill
 
-from . import subproc
+# E0611: No name 'subproc' in module 'treadmill'
+from . import subproc  # pylint: disable=E0611
 
 
 threading._DummyThread._Thread__stop = lambda x: 0  # pylint: disable=W0212
@@ -70,11 +71,6 @@ def create_script(path, templatename, mode=EXEC_MODE, *args, **kwargs):
         f.write(template.render(*args, **all_kwargs))
     # cast to int required in order for default EXEC_MODE to work
     os.chmod(path, int(mode))
-
-
-def is_root():
-    """Checks if process running with effective uid root."""
-    return os.geteuid() == 0
 
 
 def ip2int(ip_addr):
@@ -546,3 +542,8 @@ def modules_in_pkg(pkg):
         modules.append(modname)
 
     return modules
+
+
+def equals_list2dict(equals_list):
+    """Converts an array of key/values seperated by = to dict"""
+    return dict(entry.split('=') for entry in equals_list)

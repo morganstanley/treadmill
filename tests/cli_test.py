@@ -72,6 +72,9 @@ class CliTest(unittest.TestCase):
         _raise_b()
         click.echo.assert_called_with('b', err=True)
 
+    def test_combine(self):
+        """Test combining lists."""
+        self.assertEquals(None, cli.combine(['-']))
 
 if __name__ == '__main__':
     unittest.main()

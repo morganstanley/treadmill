@@ -9,14 +9,14 @@ import select
 
 from .. import cgroups
 from .. import cgutils
+from .. import logcontext as lc
 from .. import sysinfo
 from .. import utils
 from .. import supervisor
 
 from ._base_service import BaseResourceServiceImpl
 
-
-_LOGGER = logging.getLogger(__name__)
+_LOGGER = lc.ContainerAdapter(logging.getLogger(__name__))
 
 
 class CgroupResourceService(BaseResourceServiceImpl):
@@ -70,52 +70,54 @@ class CgroupResourceService(BaseResourceServiceImpl):
 
         cgrp = os.path.join('treadmill', 'apps', instance_id)
 
-        _LOGGER.info('Creating cgroups: %s:%s', self.SUBSYSTEMS, cgrp)
-        for subsystem in self.SUBSYSTEMS:
-            cgroups.create(subsystem, cgrp)
+        with lc.LogContext(_LOGGER, rsrc_id):
+            _LOGGER.info('Creating cgroups: %s:%s', self.SUBSYSTEMS, cgrp)
+            for subsystem in self.SUBSYSTEMS:
+                cgroups.create(subsystem, cgrp)
 
-        # blkio settings
-        #
-        cgroups.set_value('blkio', cgrp,
-                          'blkio.weight', 100)
+            # blkio settings
+            #
+            cgroups.set_value('blkio', cgrp, 'blkio.weight', 100)
 
-        # memory settings
-        #
-        self._register_oom_handler(cgrp, instance_id)
+            # memory settings
+            #
+            self._register_oom_handler(cgrp, instance_id)
 
-        cgroups.set_value('memory', cgrp,
-                          'memory.soft_limit_in_bytes', memory_limit)
+            cgroups.set_value('memory', cgrp,
+                              'memory.soft_limit_in_bytes', memory_limit)
 
-        # TODO: set hardlimit to app.memory and comment the
-        #                reset_memory block until proper solution for cgroup
-        #                race condition is implemented.
-        cgutils.set_memory_hardlimit(cgrp, memory_limit)
+            # TODO: set hardlimit to app.memory and comment the
+            #                reset_memory block until proper solution for
+            #                cgroup race condition is implemented.
+            cgutils.set_memory_hardlimit(cgrp, memory_limit)
 
-        # expunged = cgutils.reset_memory_limit_in_bytes()
-        # for expunged_uniq_name in expunged:
-        #     exp_app_dir = os.path.join(tm_env.apps_dir, expunged_uniq_name)
-        #     with open(os.path.join(exp_app_dir,
-        #                            'services', 'finished'), 'w') as f:
-        #         f.write('oom')
-        #     exp_cgrp = os.path.join('treadmill', 'apps', expunged_uniq_name)
-        #     cgutils.kill_apps_in_cgroup('memory', exp_cgrp, delete=False)
+            # expunged = cgutils.reset_memory_limit_in_bytes()
+            # for expunged_uniq_name in expunged:
+            #     exp_app_dir = os.path.join(tm_env.apps_dir,
+            #                                expunged_uniq_name)
+            #     with open(os.path.join(exp_app_dir,
+            #                            'services', 'finished'), 'w') as f:
+            #         f.write('oom')
+            #     exp_cgrp = os.path.join('treadmill', 'apps',
+            #                             expunged_uniq_name)
+            #     cgutils.kill_apps_in_cgroup('memory', exp_cgrp, delete=False)
 
-        # cpu settings
-        #
+            # cpu settings
+            #
 
-        # Calculate the value of cpu shares for the app.
-        #
-        # [treadmill/apps/cpu.shares] = <total bogomips allocated to TM>
-        #
-        # [treadmill/apps/<app>/cpu.shares] = app.cpu * BMIPS_PER_CPU
-        #
-        app_cpu_pcnt = utils.cpu_units(cpu_limit) / 100.
-        app_bogomips = app_cpu_pcnt * sysinfo.BMIPS_PER_CPU
-        app_cpu_shares = int(app_bogomips)
+            # Calculate the value of cpu shares for the app.
+            #
+            # [treadmill/apps/cpu.shares] = <total bogomips allocated to TM>
+            #
+            # [treadmill/apps/<app>/cpu.shares] = app.cpu * BMIPS_PER_CPU
+            #
+            app_cpu_pcnt = utils.cpu_units(cpu_limit) / 100.
+            app_bogomips = app_cpu_pcnt * sysinfo.BMIPS_PER_CPU
+            app_cpu_shares = int(app_bogomips)
 
-        _LOGGER.info('%r created in cpu:%s with %s shares',
-                     instance_id, cgrp, app_cpu_shares)
-        cgroups.set_cpu_shares(cgrp, app_cpu_shares)
+            _LOGGER.info('created in cpu:%s with %s shares',
+                         cgrp, app_cpu_shares)
+            cgroups.set_cpu_shares(cgrp, app_cpu_shares)
 
         return {
             subsystem: cgrp
@@ -126,11 +128,12 @@ class CgroupResourceService(BaseResourceServiceImpl):
         instance_id = rsrc_id
         cgrp = os.path.join('treadmill/apps', instance_id)
 
-        self._unregister_oom_handler(cgrp)
+        with lc.LogContext(_LOGGER, rsrc_id):
+            self._unregister_oom_handler(cgrp)
 
-        _LOGGER.info('Deleting cgroups: %s:%s', self.SUBSYSTEMS, cgrp)
-        for subsystem in self.SUBSYSTEMS:
-            cgroups.delete(subsystem, cgrp)
+            _LOGGER.info('Deleting cgroups: %s:%s', self.SUBSYSTEMS, cgrp)
+            for subsystem in self.SUBSYSTEMS:
+                cgroups.delete(subsystem, cgrp)
 
         # Recalculate the cgroup hard limits on remaining apps
         #

@@ -7,14 +7,14 @@ import logging
 import os
 import subprocess
 
+from .. import logcontext as lc
 from .. import netdev
 from .. import vipfile
 from .. import iptables
 
 from ._base_service import BaseResourceServiceImpl
 
-
-_LOGGER = logging.getLogger(__name__)
+_LOGGER = lc.ContainerAdapter(logging.getLogger(__name__))
 
 
 class NetworkResourceService(BaseResourceServiceImpl):
@@ -146,48 +146,49 @@ class NetworkResourceService(BaseResourceServiceImpl):
         :returns ``dict``:
             Network IP `vip`, network device `veth`, IP gateway `gateway`.
         """
-        _LOGGER.debug('req %s: %r', rsrc_id, rsrc_data)
+        with lc.LogContext(_LOGGER, rsrc_id):
+            _LOGGER.debug('req: %r', rsrc_data)
 
-        app_unique_name = rsrc_id
-        environment = rsrc_data['environment']
+            app_unique_name = rsrc_id
+            environment = rsrc_data['environment']
 
-        assert environment in set(['dev', 'qa', 'uat', 'prod']), \
-            'Unknown environment: %r' % environment
+            assert environment in set(['dev', 'qa', 'uat', 'prod']), \
+                'Unknown environment: %r' % environment
 
-        veth0, veth1 = _devive_from_rsrc_id(app_unique_name)
+            veth0, veth1 = _devive_from_rsrc_id(app_unique_name)
 
-        if app_unique_name not in self._devices:
-            # VIPs allocation (the owner is the resource link)
-            ip = self._vips.alloc(rsrc_id)
+            if app_unique_name not in self._devices:
+                # VIPs allocation (the owner is the resource link)
+                ip = self._vips.alloc(rsrc_id)
 
-            # We can now mark ip traffic as belonging to the requested
-            # environment.
-            iptables.add_mark_rule(ip, environment)
+                # We can now mark ip traffic as belonging to the requested
+                # environment.
+                iptables.add_mark_rule(ip, environment)
 
-            # Create the interface pair
-            netdev.link_add_veth(veth0, veth1)
-            # Configure the links
-            netdev.link_set_mtu(veth0, self.ext_mtu)
-            netdev.link_set_mtu(veth1, self.ext_mtu)
-            # Tag the interfaces
-            netdev.link_set_alias(veth0, rsrc_id)
-            netdev.link_set_alias(veth1, rsrc_id)
-            # Add interface to the bridge
-            netdev.bridge_addif(self._TMBR_DEV, veth0)
-            netdev.link_set_up(veth0)
-            # We keep veth1 down until inside the container
-        else:
-            # Re-read what IP we assigned before
-            ip = self._devices[app_unique_name]['ip']
+                # Create the interface pair
+                netdev.link_add_veth(veth0, veth1)
+                # Configure the links
+                netdev.link_set_mtu(veth0, self.ext_mtu)
+                netdev.link_set_mtu(veth1, self.ext_mtu)
+                # Tag the interfaces
+                netdev.link_set_alias(veth0, rsrc_id)
+                netdev.link_set_alias(veth1, rsrc_id)
+                # Add interface to the bridge
+                netdev.bridge_addif(self._TMBR_DEV, veth0)
+                netdev.link_set_up(veth0)
+                # We keep veth1 down until inside the container
+            else:
+                # Re-read what IP we assigned before
+                ip = self._devices[app_unique_name]['ip']
 
-        # Record the new device in our state
-        self._devices[app_unique_name] = _device_info(veth0)
-        self._devices[app_unique_name].update(
-            {
-                'ip': ip,
-                'environment': environment,
-            }
-        )
+            # Record the new device in our state
+            self._devices[app_unique_name] = _device_info(veth0)
+            self._devices[app_unique_name].update(
+                {
+                    'ip': ip,
+                    'environment': environment,
+                }
+            )
 
         result = {
             'vip': ip,
@@ -197,29 +198,29 @@ class NetworkResourceService(BaseResourceServiceImpl):
         return result
 
     def on_delete_request(self, rsrc_id):
-
         app_unique_name = rsrc_id
 
-        veth, _ = _devive_from_rsrc_id(app_unique_name)
+        with lc.LogContext(_LOGGER, rsrc_id):
+            veth, _ = _devive_from_rsrc_id(app_unique_name)
 
-        try:
-            netdev.dev_state(veth)
-            netdev.link_del_veth(veth)
+            try:
+                netdev.dev_state(veth)
+                netdev.link_del_veth(veth)
 
-        except (OSError, IOError) as err:
-            if err.errno != errno.ENOENT:
-                raise
+            except (OSError, IOError) as err:
+                if err.errno != errno.ENOENT:
+                    raise
 
-        # Remove it from our state (if present)
-        dev_info = self._devices.pop(app_unique_name, None)
-        if dev_info is not None and 'ip' in dev_info:
-            # Remove the environment mark on the IP
-            iptables.delete_mark_rule(
-                dev_info['ip'],
-                dev_info['environment']
-            )
-            # VIPs deallocation (the owner is the resource link)
-            self._vips.free(app_unique_name, dev_info['ip'])
+            # Remove it from our state (if present)
+            dev_info = self._devices.pop(app_unique_name, None)
+            if dev_info is not None and 'ip' in dev_info:
+                # Remove the environment mark on the IP
+                iptables.delete_mark_rule(
+                    dev_info['ip'],
+                    dev_info['environment']
+                )
+                # VIPs deallocation (the owner is the resource link)
+                self._vips.free(app_unique_name, dev_info['ip'])
 
         return True
 

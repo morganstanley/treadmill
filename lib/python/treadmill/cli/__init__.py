@@ -51,24 +51,24 @@ def make_multi_command(module_name):
 
         def list_commands(self, ctx):
             climod = importlib.import_module(module_name)
-            commands = []
+            commands = set()
             for path in climod.__path__:
                 for filename in os.listdir(path):
                     if filename == '__init__.py':
                         continue
 
                     if filename.endswith('.py'):
-                        commands.append(filename[:-3])
+                        commands.add(filename[:-3])
 
                     if os.path.isdir(os.path.join(path, filename)):
-                        commands.append(filename)
+                        commands.add(filename)
 
-            commands.sort()
-            return commands
+            return sorted([cmd.replace('_', '-') for cmd in commands])
 
         def get_command(self, ctx, name):
             try:
-                mod = importlib.import_module('.'.join([module_name, name]))
+                full_name = '.'.join([module_name, name.replace('-', '_')])
+                mod = importlib.import_module(full_name)
                 return mod.init()
             except Exception:  # pylint: disable=W0703
                 with tempfile.NamedTemporaryFile(delete=False) as f:
@@ -225,7 +225,18 @@ def _cell(item, column, key, fmt):
     if key is None:
         key = column
 
-    raw_value = item.get(key)
+    if isinstance(key, str):
+        keys = [key]
+    else:
+        keys = key
+
+    raw_value = None
+    while keys:
+        key = keys.pop(0)
+        if key in item:
+            raw_value = item[key]
+            break
+
     if raw_value is None:
         value = '-'
     else:
@@ -274,7 +285,15 @@ def make_list_to_table(schema, header=True):
 
 def combine(list_of_values, sep=','):
     """Split and sum list of sep string into one list."""
-    return sum([str(values).split(sep) for values in list(list_of_values)], [])
+    combined = sum(
+        [str(values).split(sep) for values in list(list_of_values)],
+        []
+    )
+
+    if combined == ['-']:
+        combined = None
+
+    return combined
 
 
 def out(string, *args):
@@ -330,7 +349,7 @@ def handle_exceptions(exclist):
 OUTPUT_FORMAT = 'pretty'
 
 
-def make_formatter(pretty_formatter_cls):
+def make_formatter(pretty_formatter):
     """Makes a formatter."""
 
     def _format(item, how=None):
@@ -343,8 +362,11 @@ def make_formatter(pretty_formatter_cls):
             'yaml': utils.dump_yaml,
         }
 
-        if pretty_formatter_cls is not None:
-            formatters['pretty'] = pretty_formatter_cls.format
+        if pretty_formatter is not None:
+            try:
+                formatters['pretty'] = pretty_formatter.format
+            except AttributeError:
+                formatters['pretty'] = pretty_formatter
 
         if how in formatters:
             return formatters[how](item)
@@ -369,7 +391,8 @@ class AppPrettyFormatter(object):
 
         endpoints_tbl = make_list_to_table([
             ('name', None, None),
-            ('port', None, None)
+            ('port', None, None),
+            ('type', None, None),
         ])
 
         schema = [
@@ -442,9 +465,12 @@ class ServerPrettyFormatter(object):
     def format(item):
         """Return pretty-formatted item."""
 
-        schema = [('name', '_id', None),
-                  ('cell', None, None),
-                  ('features', None, None)]
+        schema = [
+            ('name', '_id', None),
+            ('cell', None, None),
+            ('traits', None, None),
+            ('label', None, None),
+        ]
 
         format_item = make_dict_to_table(schema)
         format_list = make_list_to_table(schema)
@@ -466,7 +492,7 @@ class ServerNodePrettyFormatter(object):
                   ('cpu', None, None),
                   ('disk', None, None),
                   ('parent', None, None),
-                  ('features', None, None),
+                  ('traits', None, None),
                   ('valid_until', None, None)]
 
         format_item = make_dict_to_table(schema)
@@ -515,7 +541,7 @@ class BucketPrettyFormatter(object):
         """Return pretty-formatted item."""
         schema = [('name', None, None),
                   ('parent', None, None),
-                  ('features', None, None)]
+                  ('traits', None, None)]
 
         format_item = make_dict_to_table(schema)
         format_list = make_list_to_table(schema)
@@ -626,8 +652,11 @@ class TenantPrettyFormatter(object):
     @staticmethod
     def format(item):
         """Return pretty-formatted item."""
-        schema = [('tenant', None, None),
-                  ('system', 'systems', None)]
+        schema = [
+            ('tenant', ['tenant', '_id'], None),
+            ('system', 'systems', None),
+            ('allocations', 'allocations', AllocationPrettyFormatter.format),
+        ]
 
         format_item = make_dict_to_table(schema)
         format_list = make_list_to_table(schema)
@@ -650,20 +679,21 @@ class AllocationPrettyFormatter(object):
         ])
 
         cell_tbl = make_list_to_table([
-            ('name', '_id', None),
+            ('cell', 'cell', None),
+            ('label', None, None),
             ('rank', None, None),
             ('max-utilization', None, None),
             ('memory', None, None),
             ('cpu', None, None),
             ('disk', None, None),
-            ('features', None, '\n'.join),
+            ('traits', None, '\n'.join),
             ('assignments', None, assignments_table),
         ])
 
         schema = [
             ('name', '_id', None),
             ('environment', None, None),
-            ('cells', None, cell_tbl),
+            ('reservations', None, cell_tbl),
         ]
 
         format_item = make_dict_to_table(schema)
@@ -760,8 +790,10 @@ def handle_not_authorized(err):
 
 REST_EXCEPTIONS = [
     (restclient.NotFoundError, 'Resource not found'),
+    (restclient.AlreadyExistsError, 'Resource already exists'),
     (restclient.ValidationError, None),
     (restclient.NotAuthorizedError, handle_not_authorized),
+    (restclient.BadRequestError, None),
     (restclient.MaxRequestRetriesError, None)
 ]
 

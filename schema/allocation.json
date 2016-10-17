@@ -1,0 +1,21 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "resource_id": {
+        "type": "string"
+    },
+    "resource": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+            "environment": { "$ref": "common.json#/environment" }
+        }
+    },
+    "verbs": {
+        "create": {
+            "required": [ "environment" ]
+        },
+        "update": {
+            "required": [ "environment" ]
+        }
+    }
+}

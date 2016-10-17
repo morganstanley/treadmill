@@ -20,10 +20,7 @@ from . import utils
 
 
 def add_dependencies():
-    """Load (imports) flask dependencies.
-
-    The function is noop, as importing webutils will call required ms.versions.
-    """
+    """Load (imports) flask dependencies."""
     pass
 
 
