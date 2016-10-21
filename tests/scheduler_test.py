@@ -8,9 +8,6 @@ import unittest
 #
 # pylint: disable=C0302
 
-# Disable W0611: Unused import
-import tests.treadmill_test_deps  # pylint: disable=W0611
-
 import mock
 import numpy as np
 

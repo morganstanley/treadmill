@@ -18,6 +18,7 @@
 !.perlcriticrc
 
 # Ignore generated files
+Treadmill.egg-info
 lib/python/treadmill/version.py
 lint.log
 pep8.log

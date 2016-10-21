@@ -10,9 +10,6 @@ import tarfile
 import tempfile
 import unittest
 
-# Disable W0611: Unused import
-import tests.treadmill_test_deps  # pylint: disable=W0611
-
 import mock
 
 import treadmill
@@ -88,7 +85,6 @@ class FsTest(unittest.TestCase):
         container_dir = os.path.join(self.root, 'container')
         os.makedirs(container_dir)
 
-        # test binding directory in /
         foo_dir = os.path.join(self.root, 'foo')
         os.makedirs(foo_dir)
         fs.mount_bind(container_dir, foo_dir)
@@ -105,6 +101,7 @@ class FsTest(unittest.TestCase):
             os.path.isdir(os.path.join(container_dir, foo_dir[1:]))
         )
         treadmill.subproc.check_call.reset_mock()
+        self.assertTrue(os.path.isdir(os.path.join(container_dir, foo_dir[1:])))
 
         # test binding directory with subdirs
         bar_dir = os.path.join(self.root, 'bar')
@@ -132,7 +129,7 @@ class FsTest(unittest.TestCase):
 
         # test binding a file
         foo_file = os.path.join(self.root, 'foo')
-        with open(os.path.join(self.root, 'foo'), 'w'):
+        with open(foo_file, 'w'):
             pass
         fs.mount_bind(container_dir, foo_file)
         treadmill.subproc.check_call.assert_called_with(

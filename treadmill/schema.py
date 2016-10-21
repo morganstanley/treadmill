@@ -9,7 +9,7 @@ import jsonschema
 
 
 _SCHEMA_DIR = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), '..', '..', '..', 'schema'))
+    os.path.join(os.path.dirname(__file__), 'schemas'))
 
 _TEST_MODE = False
 

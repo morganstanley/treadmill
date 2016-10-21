@@ -1,6 +1,5 @@
 """Allocation API tests."""
 import unittest
-import tests.treadmill_test_deps  # pylint: disable=W0611
 
 import mock
 
