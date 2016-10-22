@@ -203,7 +203,7 @@ class AppMgrRunTest(unittest.TestCase):
     def test__create_supervision_tree(self):
         """Test creation of the supervision tree."""
         # pylint: disable=W0212
-        treadmill.subproc.BINARIES = {
+        treadmill.subproc.EXECUTABLES = {
             'chroot': '/bin/ls',
             'pid1': '/bin/ls',
         }
@@ -219,22 +219,34 @@ class AppMgrRunTest(unittest.TestCase):
                     {
                         'name': 'command1',
                         'command': '/path/to/command',
-                        'restart_count': 3,
+                        'restart': {
+                            'limit': 3,
+                            'interval': 60,
+                        },
                     }, {
                         'name': 'command2',
                         'command': '/path/to/other/command',
-                        'restart_count': -1,
+                        'restart': {
+                            'limit': 3,
+                            'interval': 60,
+                        },
                     }
                 ],
                 'system_services': [
                     {
                         'name': 'command3',
                         'command': '/path/to/sbin/command',
-                        'restart_count': 1,
+                        'restart': {
+                            'limit': 5,
+                            'interval': 60,
+                        },
                     }, {
                         'name': 'command4',
                         'command': '/path/to/other/sbin/command',
-                        'restart_count': -1,
+                        'restart': {
+                            'limit': 5,
+                            'interval': 60,
+                        },
                     }
                 ],
                 'vring': {
@@ -592,9 +604,12 @@ class AppMgrRunTest(unittest.TestCase):
             'uniqueid': 'ID1234',
             'services': [
                 {
+                    'name': 'web_server',
                     'command': '/bin/true',
-                    'restart_count': 3,
-                    'name': 'web_server'
+                    'restart': {
+                        'limit': 3,
+                        'interval': 60,
+                    },
                 }
             ],
             'disk': '100G',
@@ -641,7 +656,7 @@ class AppMgrRunTest(unittest.TestCase):
             _fake_allocate_network_ports
         mock_watchdog = mock.Mock()
 
-        treadmill.subproc.BINARIES['treadmill_bind_preload.so'] = (
+        treadmill.subproc.EXECUTABLES['treadmill_bind_preload.so'] = (
             '/some/$LIB/treadmill_bind_preload.so')
 
         app_run.run(
@@ -765,9 +780,12 @@ class AppMgrRunTest(unittest.TestCase):
             'proid': 'foo',
             'services': [
                 {
+                    'name': 'web_server',
                     'command': '/bin/true',
-                    'restart_count': 3,
-                    'name': 'web_server'
+                    'restart': {
+                        'limit': 3,
+                        'interval': 60,
+                    },
                 }
             ],
             'endpoints': [
@@ -849,9 +867,12 @@ class AppMgrRunTest(unittest.TestCase):
             'proid': 'foo',
             'services': [
                 {
+                    'name': 'web_server',
                     'command': '/bin/true',
-                    'restart_count': 3,
-                    'name': 'web_server'
+                    'restart': {
+                        'limit': 3,
+                        'interval': 60,
+                    },
                 }
             ],
             'endpoints': [
@@ -930,22 +951,34 @@ class AppMgrRunTest(unittest.TestCase):
                     {
                         'name': 'command1',
                         'command': '/path/to/command',
-                        'restart_count': 3,
+                        'restart': {
+                            'limit': 3,
+                            'interval': 60,
+                        },
                     }, {
                         'name': 'command2',
                         'command': '/path/to/other/command',
-                        'restart_count': -1,
+                        'restart': {
+                            'limit': 3,
+                            'interval': 60,
+                        },
                     }
                 ],
                 'system_services': [
                     {
                         'name': 'command3',
                         'command': '/path/to/sbin/command',
-                        'restart_count': 1,
+                        'restart': {
+                            'limit': 3,
+                            'interval': 60,
+                        },
                     }, {
                         'name': 'command4',
                         'command': '/path/to/other/sbin/command',
-                        'restart_count': -1,
+                        'restart': {
+                            'limit': 3,
+                            'interval': 60,
+                        },
                     }
                 ],
                 'vring': {

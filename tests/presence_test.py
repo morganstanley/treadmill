@@ -49,7 +49,9 @@ proid: andreik
 services:
 - command: /usr/bin/python -m SimpleHTTPServer
   name: web_server
-  restart_count: 3
+  restart:
+    limit: 3
+    interval: 60
 - command: /usr/bin/python -m SimpleHTTPServer
   name: another_server
 - command: sshd -D -f /etc/ssh/sshd_config
@@ -65,10 +67,10 @@ task: t-0001
         app_presence = presence.EndpointPresence(self.zkclient, manifest)
         app_presence.register_endpoints()
         kazoo.client.KazooClient.create.assert_has_calls([
-            mock.call('/endpoints/foo/test1:ssh', 'myhostname:5001',
+            mock.call('/endpoints/foo/test1:tcp:ssh', 'myhostname:5001',
                       ephemeral=True, makepath=True, acl=mock.ANY,
                       sequence=False),
-            mock.call('/endpoints/foo/test1:http', 'myhostname:5000',
+            mock.call('/endpoints/foo/test1:tcp:http', 'myhostname:5000',
                       ephemeral=True, makepath=True, acl=mock.ANY,
                       sequence=False),
 
@@ -90,10 +92,10 @@ task: t-0001
         self.assertTrue(retry_happened)
         self.assertTrue(time.sleep.called)
         kazoo.client.KazooClient.create.assert_has_calls([
-            mock.call('/endpoints/foo/test1:ssh', 'myhostname:5001',
+            mock.call('/endpoints/foo/test1:tcp:ssh', 'myhostname:5001',
                       ephemeral=True, makepath=True, acl=mock.ANY,
                       sequence=False),
-            mock.call('/endpoints/foo/test1:http', 'myhostname:5000',
+            mock.call('/endpoints/foo/test1:tcp:http', 'myhostname:5000',
                       ephemeral=True, makepath=True, acl=mock.ANY,
                       sequence=False),
 
@@ -111,8 +113,8 @@ task: t-0001
             },
             'endpoints': {
                 'myproid': {
-                    'aaa:tcp': 'xxx.xx.com:1234',
-                    'bbb:tcp': 'yyy.xx.com:1234',
+                    'aaa:tcp:http': 'xxx.xx.com:1234',
+                    'bbb:tcp:http': 'yyy.xx.com:1234',
                 },
             },
             'servers': {
@@ -129,10 +131,10 @@ task: t-0001
             },
             'scheduled': {
                 'myproid.aaa': {
-                    'endpoints': [{'name': 'tcp', 'port': 8888}],
+                    'endpoints': [{'name': 'http', 'port': 8888}],
                 },
                 'myproid.bbb': {
-                    'endpoints': [{'name': 'tcp', 'port': 8888}],
+                    'endpoints': [{'name': 'http', 'port': 8888}],
                 },
             }
         }
@@ -145,8 +147,8 @@ task: t-0001
         self.assertIn('myproid.bbb', zk_content['running'])
 
         # Same for endpoints - aaa is removed, bbb is not.
-        self.assertNotIn('aaa:tcp', zk_content['endpoints']['myproid'])
-        self.assertIn('bbb:tcp', zk_content['endpoints']['myproid'])
+        self.assertNotIn('aaa:tcp:http', zk_content['endpoints']['myproid'])
+        self.assertIn('bbb:tcp:http', zk_content['endpoints']['myproid'])
 
         self.assertNotIn('xxx.xx.com', zk_content['server.presence'])
 
@@ -154,6 +156,7 @@ task: t-0001
     @mock.patch('treadmill.subproc.check_call', mock.Mock())
     @mock.patch('treadmill.presence.ServicePresence.report_running',
                 mock.Mock())
+    @mock.patch('time.time', mock.Mock(return_value=0))
     def test_start_service(self):
         """Verifies restart/finish file interaction."""
         manifest = yaml.load("""
@@ -163,11 +166,16 @@ proid: andreik
 services:
 - command: /usr/bin/python -m SimpleHTTPServer
   name: web_server
-  restart_count: 3
+  restart:
+    limit: 3
+    interval: 60
 - command: sshd -D -f /etc/ssh/sshd_config
   endpoints:
   name: sshd
   proid: ~
+  restart:
+    limit: 3
+    interval: 60
 endpoints:
 - {name: ssh,  port: 22,   real_port: 5001}
 - {name: http, port: 8000, real_port: 5000}
@@ -185,61 +193,26 @@ task: t-0001
         os.mkdir(os.path.join(self.root, 'services', 'web_server'))
         finished_file = os.path.join(self.root, 'services', 'web_server',
                                      'finished')
-        # App will be restarted 3 times, then fail.
+        # App will be restarted, since it exits outside of its interval.
+        time.time.return_value = 1001
         with open(finished_file, 'a+') as f:
             f.write('1000 1 0\n')
         self.assertTrue(app_presence.start_service('web_server'))
 
+        time.time.return_value = 2001
         with open(finished_file, 'a+') as f:
             f.write('2000 1 0\n')
         self.assertTrue(app_presence.start_service('web_server'))
 
+        time.time.return_value = 3001
         with open(finished_file, 'a+') as f:
             f.write('3000 1 0\n')
-        self.assertFalse(app_presence.start_service('web_server'))
+        self.assertTrue(app_presence.start_service('web_server'))
 
+        time.time.return_value = 4001
         with open(finished_file, 'a+') as f:
             f.write('4000 1 0\n')
-        self.assertFalse(app_presence.start_service('web_server'))
-
-    @mock.patch('kazoo.client.KazooClient.create', mock.Mock())
-    @mock.patch('treadmill.subproc.check_call', mock.Mock())
-    @mock.patch('treadmill.presence.ServicePresence.report_running',
-                mock.Mock())
-    def test_default_restart_count(self):
-        """Verifies restart/finish file interaction."""
-        manifest = yaml.load("""
----
-name: foo.test1
-proid: andreik
-services:
-- command: /usr/bin/python -m SimpleHTTPServer
-  name: web_server
-- command: sshd -D -f /etc/ssh/sshd_config
-  endpoints:
-  name: sshd
-  proid: ~
-endpoints:
-- {name: ssh,  port: 22,   real_port: 5001}
-- {name: http, port: 8000, real_port: 5000}
-vip: {ip0: 192.168.0.1, ip1: 192.168.0.2}
-task: t-0001
-""")
-        app_presence = presence.ServicePresence(
-            manifest,
-            container_dir=self.root,
-            appevents_dir=self.events_dir
-        )
-
         self.assertTrue(app_presence.start_service('web_server'))
-        os.mkdir(os.path.join(self.root, 'services'))
-        os.mkdir(os.path.join(self.root, 'services', 'web_server'))
-        finished_file = os.path.join(self.root, 'services', 'web_server',
-                                     'finished')
-        # App will run once.
-        with open(finished_file, 'a+') as f:
-            f.write('1000 1 0\n')
-        self.assertFalse(app_presence.start_service('web_server'))
 
     @mock.patch('kazoo.client.KazooClient.create', mock.Mock())
     @mock.patch('kazoo.client.KazooClient.exists', mock.Mock())
@@ -255,7 +228,9 @@ proid: andreik
 services:
 - command: /usr/bin/python -m SimpleHTTPServer
   name: web_server
-  restart_count: 3
+  restart:
+    limit: 3
+    interval: 60
 - command: sshd -D -f /etc/ssh/sshd_config
   endpoints:
   name: sshd
@@ -299,7 +274,9 @@ proid: andreik
 services:
 - command: /usr/bin/python -m SimpleHTTPServer
   name: web_server
-  restart_count: 3
+  restart:
+    limit: 3
+    interval: 60
 - command: sshd -D -f /etc/ssh/sshd_config
   endpoints:
   name: sshd
@@ -358,7 +335,9 @@ proid: andreik
 services:
 - command: /usr/bin/python -m SimpleHTTPServer
   name: web_server
-  restart_count: 3
+  restart:
+    limit: 3
+    interval: 60
 - command: sshd -D -f /etc/ssh/sshd_config
   endpoints:
   name: sshd
@@ -407,7 +386,7 @@ task: t-0001
     @mock.patch('treadmill.subproc.check_call', mock.Mock())
     @mock.patch('treadmill.presence.ServicePresence.report_running',
                 mock.Mock())
-    @mock.patch('time.time', mock.Mock())
+    @mock.patch('time.time', mock.Mock(return_value=100))
     def test_restart_rate(self):
         """Verifies reading the finished file and updating task status."""
         manifest = yaml.load("""
@@ -417,7 +396,9 @@ proid: andreik
 services:
 - command: /usr/bin/python -m SimpleHTTPServer
   name: web_server
-  restart_count: 10000
+  restart:
+    limit: 5
+    interval: 60
 - command: sshd -D -f /etc/ssh/sshd_config
   endpoints:
   name: sshd
@@ -476,7 +457,9 @@ proid: andreik
 services:
 - command: /usr/bin/python -m SimpleHTTPServer
   name: web_server
-  restart_count: 10000
+  restart:
+    limit: 3
+    interval: 60
 - command: sshd -D -f /etc/ssh/sshd_config
   endpoints:
   name: sshd

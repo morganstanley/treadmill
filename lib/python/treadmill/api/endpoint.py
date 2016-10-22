@@ -71,7 +71,7 @@ class API(object):
 
             return True
 
-        def _list(pattern, endpoint):
+        def _list(pattern, proto, endpoint):
             """List endpoints state."""
             proid, match = pattern.split('.', 1)
 
@@ -80,20 +80,25 @@ class API(object):
             if match.find('#') == -1:
                 match += '#*'
 
+            if endpoint is None:
+                endpoints = '*'
+
+            if proto is None:
+                proto = '*'
+
+            full_pattern = ':'.join([match, proto, endpoint])
+
             endpoints = cell_state.get(proid, {})
 
-            def is_match(name):
-                """Check if name is a match."""
-                instance_name, endpoint_name = name.split(':')
-                return (
-                    fnmatch.fnmatch(instance_name, match) and
-                    (endpoint is None or endpoint_name == endpoint)
-                )
+            filtered = []
+            for name, hostport in endpoints.iteritems():
+                if not fnmatch.fnmatch(name, full_pattern):
+                    continue
+                appname, proto, endpoint = name.split(':')
+                filtered.append({'name': proid + '.' + appname,
+                                 'proto': proto,
+                                 'endpoint': hostport})
 
-            filtered = [
-                {'name': proid + '.' + name, 'endpoint': hostport}
-                for name, hostport in endpoints.iteritems() if is_match(name)
-            ]
             return sorted(filtered, key=lambda item: item['name'])
 
         self.list = _list

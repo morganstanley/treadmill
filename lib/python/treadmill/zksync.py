@@ -62,6 +62,7 @@ class Zk2Fs(object):
                                              delete=False,
                                              prefix='.tmp') as temp:
                 temp.write(data)
+                os.fchmod(temp.fileno(), 0o644)
                 os.rename(temp.name, fpath)
 
         # Returning False will not renew the watch.

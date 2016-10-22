@@ -1,0 +1,8 @@
+#!/bin/sh
+#
+# Generate and refresh host tickets.
+#
+
+exec 2>&1
+
+exec {{ treadmill }}/sbin/host_tickets.sh -r /treadmill/spool/krb5cc_host

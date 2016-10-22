@@ -11,7 +11,7 @@ except ImportError:
 
 from enum import Enum
 
-from . import zkutils
+from . import zknamespace as z
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -22,7 +22,6 @@ class StateEnum(Enum):
     """
     Enum for the different state names
     """
-    CONFIGURED = 'configured'
     SCHEDULED = 'scheduled'
     RUNNING = 'running'
     PENDING = 'pending'
@@ -31,9 +30,8 @@ class StateEnum(Enum):
 
 
 STATE_NODE_MAP = {
-    StateEnum.CONFIGURED.value: zkutils.CONFIG,
-    StateEnum.SCHEDULED.value:  zkutils.SCHEDULED,
-    StateEnum.RUNNING.value:    zkutils.RUNNING,
+    StateEnum.SCHEDULED.value:  z.SCHEDULED,
+    StateEnum.RUNNING.value:    z.RUNNING,
     StateEnum.PENDING.value:    None,
     StateEnum.STOPPED.value:    None,
 }
@@ -66,9 +64,6 @@ class State(object):
         self.zkclient = zkclient
 
         # Lazy optimization - enumerate collection only when asked for.
-        self.configured = lambda: set(
-            self.zkclient.get_children(STATE_NODE_MAP[
-                StateEnum.CONFIGURED.value]))
         self.scheduled = lambda: set(
             self.zkclient.get_children(STATE_NODE_MAP[
                 StateEnum.SCHEDULED.value]))
@@ -112,7 +107,6 @@ class State(object):
         """List various application states for the provided cell"""
 
         handlers = {
-            StateEnum.CONFIGURED.value: lambda: sorted(self.configured()),
             StateEnum.SCHEDULED.value: lambda: sorted(self.scheduled()),
             StateEnum.RUNNING.value: lambda: sorted(self.running()),
             StateEnum.PENDING.value: lambda: sorted(self.scheduled() -

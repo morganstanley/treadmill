@@ -15,7 +15,6 @@ _LOGGER = logging.getLogger(__name__)
 _DEFAULT_MEM = '100M'
 _DEFAULT_DISK = '100M'
 _DEFAULT_CPU = '10%'
-_DEFAULT_RESTART_COUNT = 1
 
 
 def _set_defaults(app, memory, cpu, disk):
@@ -36,7 +35,8 @@ def _run(apis,
          disk,
          tickets,
          service,
-         restart_count,
+         restart_limit,
+         restart_interval,
          endpoint,
          appname,
          command):
@@ -65,13 +65,14 @@ def _run(apis,
         if service not in services_dict:
             services_dict[service] = {
                 'name': service,
-                'restart_count': _DEFAULT_RESTART_COUNT
+                'restart': {
+                    'limit': restart_limit,
+                    'interval': restart_interval,
+                }
             }
 
         if command:
             services_dict[service]['command'] = ' '.join(list(command))
-        if restart_count:
-            services_dict[service]['restart_count'] = restart_count
 
     if services_dict:
         app['services'] = services_dict.values()
@@ -123,7 +124,10 @@ def init():
     @click.option('--tickets', help='Tickets.',
                   type=cli.LIST)
     @click.option('--service', help='Service name.', type=str)
-    @click.option('--restart-count', help='Service restart count.', type=int)
+    @click.option('--restart-limit', type=int, default=5,
+                  help='Service restart limit.')
+    @click.option('--restart-interval', type=int, default=60,
+                  help='Service restart limit interval.')
     @click.option('--endpoint', help='Network endpoint.',
                   type=(str, int), multiple=True)
     @click.argument('appname')
@@ -137,7 +141,8 @@ def init():
             disk,
             tickets,
             service,
-            restart_count,
+            restart_limit,
+            restart_interval,
             endpoint,
             appname,
             command):
@@ -152,6 +157,7 @@ def init():
         apis = context.GLOBAL.cell_api(api)
         return _run(
             apis, count, manifest, memory, cpu, disk, tickets,
-            service, restart_count, endpoint, appname, command)
+            service, restart_limit, restart_interval, endpoint,
+            appname, command)
 
     return run

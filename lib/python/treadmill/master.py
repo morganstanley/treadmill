@@ -910,7 +910,7 @@ def list_buckets(zkclient):
 def create_server(zkclient, server_id, parent_id):
     """Creates server definition in Zookeeper."""
     server_node = z.path.server(server_id)
-    server_acl = zkutils.make_host_acl('rwcd', server_id)
+    server_acl = zkutils.make_host_acl(server_id, 'rwcd')
 
     zkutils.ensure_exists(zkclient, server_node, acl=[server_acl])
 

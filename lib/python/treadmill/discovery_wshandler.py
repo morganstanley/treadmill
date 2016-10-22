@@ -14,7 +14,7 @@ from treadmill import exc
 from treadmill import discovery
 from treadmill import utils
 from treadmill import websocket
-from treadmill import zkutils
+from treadmill import zknamespace as z
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -85,7 +85,7 @@ class DiscoveryWebSocketHandler(websocket.WebSocketHandlerBase):
 
     def get_node_path(self):
         """Return the node path for endpoints"""
-        return os.path.join(zkutils.ENDPOINTS, self.pattern.split('.', 1)[0])
+        return os.path.join(z.ENDPOINTS, self.pattern.split('.', 1)[0])
 
     def endpoint_watcher(self, event):
         """Watches changes to event.path

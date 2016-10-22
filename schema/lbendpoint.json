@@ -22,8 +22,8 @@
             "lbenv": {
                 "type": "string",
                 "pattern": "^qa|prod$"
-            }
-            "port": { "$ref": "common.json#/port" },
+            },
+            "port": { "$ref": "common.json#/port" }
         }
     },
     "verbs": {

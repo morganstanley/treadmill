@@ -11,8 +11,7 @@ import treadmill
 
 _LOGGER = logging.getLogger(__name__)
 
-
-BINARIES = None
+EXECUTABLES = None
 
 
 class CommandWhitelistError(Exception):
@@ -22,18 +21,27 @@ class CommandWhitelistError(Exception):
 
 def _load():
     """Load whitelist of external binaries that can invoked."""
-    bin_whitelist = os.environ.get('TREADMILL_EXE_WHITELIST')
-    assert bin_whitelist is not None
+    bin_whitelists = os.environ.get('TREADMILL_EXE_WHITELIST')
+    assert bin_whitelists is not None
     # TODO: need to check that file is either owned by running proc
     #                or root.
-    _LOGGER.info('Loading whitelist: %s', bin_whitelist)
-    with open(bin_whitelist) as f:
-        global BINARIES  # pylint: disable=W0603
-        BINARIES = yaml.load(f.read())
+    _LOGGER.debug('Loading whitelist: %s', bin_whitelists)
+
+    exes = {}
+    for bin_whitelist in bin_whitelists.split(':'):
+        _LOGGER.debug('Loading whitelist: %s', bin_whitelist)
+        with open(bin_whitelist) as f:
+            exes.update(yaml.load(f.read()))
+
+    global EXECUTABLES  # pylint: disable=W0603
+    EXECUTABLES = exes
 
 
 def _check(path):
     """Check that path exists and is executable."""
+    if path is None:
+        return False
+
     if path.endswith('.so') and (path.find('$ISA') >= 0 or
                                  path.find('$LIB') >= 0):
         # TODO: not sure how to handle $LIB and $ISA for now.
@@ -48,14 +56,14 @@ def resolve(exe):
     if exe.startswith(treadmill.TREADMILL):
         return exe
 
-    if BINARIES is None:
+    if EXECUTABLES is None:
         _load()
 
-    if exe not in BINARIES:
+    if exe not in EXECUTABLES:
         _LOGGER.critical('Not in whitelist: %s', exe)
         raise CommandWhitelistError()
 
-    safe_exe = BINARIES[exe]
+    safe_exe = EXECUTABLES[exe]
     if isinstance(safe_exe, list):
         for choice in safe_exe:
             if _check(choice):
@@ -64,6 +72,7 @@ def resolve(exe):
         raise CommandWhitelistError()
     else:
         if not _check(safe_exe):
+            print 'Not found: ', exe, safe_exe
             _LOGGER.critical('Command not found: %s, %s', exe, safe_exe)
             raise CommandWhitelistError()
 

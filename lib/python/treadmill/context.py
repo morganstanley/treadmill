@@ -23,17 +23,28 @@ class ContextError(Exception):
 class AdminContext(object):
     """Ldap context."""
     __slots__ = (
-        'url',
         'search_base',
+        '_url',
         '_conn',
         '_resolve',
     )
 
     def __init__(self, resolve=None):
-        self.url = None
         self.search_base = None
+        self._url = None
         self._conn = None
         self._resolve = resolve
+
+    @property
+    def url(self):
+        """URL, getter"""
+        return self._url
+
+    @url.setter
+    def url(self, value):
+        """Set URL, then nullify the connection"""
+        self._url = value
+        self._conn = None
 
     @property
     def conn(self):

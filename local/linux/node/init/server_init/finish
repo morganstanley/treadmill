@@ -1,0 +1,34 @@
+#!/bin/sh
+
+# Shuts down the node once connection to Zookeeper is lost.
+#
+# If the monitored process was terminated with sighup, do not shut down the
+# node, rather do nothing, so that the treadmill_init process will restart.
+#
+
+ECHO={{ echo }}
+RM={{ rm }}
+
+EXIT_CODE=$1
+SIGNAL=$2
+
+exec 1>> finish.log
+
+$ECHO ==================================
+$ECHO `date`: terminated:
+$ECHO ........... rc   = $EXIT_CODE
+$ECHO ........... sig  = $SIGNAL
+$ECHO
+
+
+if [ $EXIT_CODE == 256 ] && [ $SIGNAL == 1 ]; then
+    $ECHO SIGHUP received, reloading...
+else
+    $ECHO removing zookeeper session id.
+    $RM -f zkid.pickle
+
+    $ECHO {{ s6 }}/bin/s6-svscanctl -pt {{ dir }}/running
+    {{ s6 }}/bin/s6-svscanctl -pt {{ dir }}/running
+
+    $ECHO done.
+fi

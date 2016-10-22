@@ -126,9 +126,12 @@ class AppMgrFinishTest(unittest.TestCase):
             ],
             'services': [
                 {
+                    'name': 'web_server',
                     'command': '/bin/false',
-                    'restart_count': 3,
-                    'name': 'web_server'
+                    'restart': {
+                        'limit': 3,
+                        'interval': 60,
+                    },
                 }
             ],
         }
@@ -304,9 +307,12 @@ class AppMgrFinishTest(unittest.TestCase):
             ],
             'services': [
                 {
+                    'name': 'web_server',
                     'command': '/bin/false',
-                    'restart_count': 3,
-                    'name': 'web_server'
+                    'restart': {
+                        'limit': 3,
+                        'interval': 60,
+                    },
                 }
             ],
         }
@@ -400,9 +406,12 @@ class AppMgrFinishTest(unittest.TestCase):
             ],
             'services': [
                 {
+                    'name': 'web_server',
                     'command': '/bin/false',
-                    'restart_count': 3,
-                    'name': 'web_server'
+                    'restart': {
+                        'limit': 3,
+                        'interval': 60,
+                    },
                 }
             ],
         }

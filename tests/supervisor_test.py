@@ -1,6 +1,7 @@
 """Unit test for supervisor
 """
 
+import glob
 import os
 import re
 import shutil
@@ -15,6 +16,7 @@ import mock
 import treadmill
 from treadmill import fs
 from treadmill import supervisor
+from treadmill import subproc
 
 
 def _strip(content):
@@ -178,6 +180,11 @@ class SupervisorTest(unittest.TestCase):
 
 
 if __name__ == '__main__':
+    CONFIG_PATTERN = os.path.abspath(
+        os.path.join(os.path.dirname(__file__), '..', 'etc', '*.config')
+    )
+    EXE_CONFIGS = glob.glob(CONFIG_PATTERN)
+    os.environ['TREADMILL_EXE_WHITELIST'] = ':'.join(EXE_CONFIGS)
     os.environ['PATH'] = ':'.join(os.environ['PATH'].split(':') +
-                                  ['/ms/dist/cloud/PROJ/s6/2.2.4.3-ms0/bin'])
+                                  [os.path.join(subproc.resolve('s6'), 'bin')])
     unittest.main()

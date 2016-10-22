@@ -1,0 +1,31 @@
+#!/bin/sh
+#
+# Starts Treadmill localdisk management service
+# Runs as root.
+#
+
+exec 2>&1
+
+exec {{ treadmill }}/bin/treadmill sproc --cgroup . \
+    service --root-dir {{ dir }} localdisk \
+{%- if localdisk_img_location %}
+    --img-location {{ localdisk_img_location }} \
+{%- endif %}
+{%- if localdisk_reserve %}
+    --reserve {{ localdisk_reserve }} \
+{%- endif %}
+{%-if localdisk_block_dev %}
+    --block-dev {{ localdisk_block_dev }} \
+{%- endif %}
+{%- if localdisk_default_read_bps %}
+    --default-read-bps {{ localdisk_default_read_bps }} \
+{%- endif %}
+{%- if localdisk_default_write_bps %}
+    --default-write-bps {{ localdisk_default_write_bps }} \
+{%- endif %}
+{%- if localdisk_default_read_iops %}
+    --default-read-iops {{ localdisk_default_read_iops }} \
+{%- endif %}
+{%- if localdisk_default_write_iops %}
+    --default-write-iops {{ localdisk_default_write_iops }} \
+{%- endif %}

@@ -6,13 +6,16 @@ import sys
 import os
 
 import fnmatch
+import importlib
 import logging
 import pickle
 import threading
 import types
 
-import kazoo.zkutils
 import kazoo
+import kazoo.client
+import kazoo.exceptions
+import kazoo.security
 from kazoo.protocol import states
 import yaml
 
@@ -23,21 +26,23 @@ from . import trace
 
 _LOGGER = logging.getLogger(__name__)
 
-SERVERS = '/servers'
-SERVER_PRESENCE = '/server.presence'
-SCHEDULED = '/scheduled'
-RUNNING = '/running'
-CONFIG = '/apps'
-ALLOCATIONS = '/allocations'
-TASKS = '/tasks'
-ENDPOINTS = '/endpoints'
-APP_EVENTS = '/app_events'
-BLACKED_OUT = '/blacked_out'
-VERSION = '/version'
-APP_BLACKLIST = '/app_blacklist'
+logging.getLogger('kazoo.client').setLevel(logging.WARNING)
 
 # This is the maximum time the start will try to connect for, i.e. 1 day
 ZK_MAX_CONNECTION_START_TIMEOUT = 3600
+
+try:
+    _ZK_PLUGIN_MOD = importlib.import_module('treadmill.plugins.zookeeper')
+except ImportError:
+    _ZK_PLUGIN_MOD = None
+
+
+def _is_valid_perm(perm):
+    """Check string to be valid permission spec."""
+    for char in perm:
+        if char not in 'rwcda':
+            return False
+    return True
 
 
 def make_user_acl(user, perm):
@@ -47,47 +52,11 @@ def make_user_acl(user, perm):
      - schema: kerberos
      - principal: user://<user>
     """
-    return kazoo.security.make_acl('kerberos', 'user://%s' % user,
-                                   read='r' in perm,
-                                   write='w' in perm,
-                                   create='c' in perm,
-                                   delete='d' in perm,
-                                   admin='a' in perm)
-
-
-def make_host_acl(perm, host):
-    """Constucts acl for the current user.
-
-    Given the host as the principal.
-    """
-    return make_user_acl('host/{0}'.format(host), perm)
-
-
-def make_self_acl(perm):
-    """Constucts acl for the current user.
-
-    If the user is root, use host/<hostname> principal.
-    """
-    if userutil.is_root():
-        return make_host_acl(perm, sysinfo.hostname())
-
-    user = userutil.get_current_username()
-    return make_user_acl(user, perm)
-
-
-def make_file_acl(filename, perm):
-    """Constructs an ACL based file with the list of principals.
-
-    ACL properties:
-     - schema: kerberos
-     - principal: file://<filename>
-    """
-    return kazoo.security.make_acl('kerberos', 'file://%s' % filename,
-                                   read='r' in perm,
-                                   write='w' in perm,
-                                   create='c' in perm,
-                                   delete='d' in perm,
-                                   admin='a' in perm)
+    assert _is_valid_perm(perm)
+    if _ZK_PLUGIN_MOD and hasattr(_ZK_PLUGIN_MOD, 'make_user_acl'):
+        return _ZK_PLUGIN_MOD.make_user_acl(user, perm)
+    else:
+        return make_anonymous_acl(perm)
 
 
 def make_role_acl(role, perm):
@@ -98,8 +67,36 @@ def make_role_acl(role, perm):
     Treadmill master runs in chrooted environment, so path to roles files
     is hardcoded.
     """
-    filename = '/'.join(['/treadmill/roles', role])
-    return make_file_acl(filename, perm)
+    assert _is_valid_perm(perm)
+    if _ZK_PLUGIN_MOD and hasattr(_ZK_PLUGIN_MOD, 'make_role_acl'):
+        return _ZK_PLUGIN_MOD.make_role_acl(role, perm)
+    else:
+        return make_anonymous_acl(perm)
+
+
+def make_host_acl(host, perm):
+    """Constucts acl for the current user.
+
+    Given the host as the principal.
+    """
+    assert _is_valid_perm(perm)
+    if _ZK_PLUGIN_MOD and hasattr(_ZK_PLUGIN_MOD, 'make_host_acl'):
+        return _ZK_PLUGIN_MOD.make_host_acl(host, perm)
+    else:
+        return make_user_acl('host/{0}'.format(host), perm)
+
+
+def make_self_acl(perm):
+    """Constucts acl for the current user.
+
+    If the user is root, use host/<hostname> principal.
+    """
+    assert _is_valid_perm(perm)
+    if userutil.is_root():
+        return make_host_acl(sysinfo.hostname(), perm)
+
+    user = userutil.get_current_username()
+    return make_user_acl(user, perm)
 
 
 def make_anonymous_acl(perm):
@@ -107,6 +104,7 @@ def make_anonymous_acl(perm):
     if not perm:
         perm = 'r'
 
+    assert _is_valid_perm(perm)
     return kazoo.security.make_acl('world', 'anyone',
                                    read='r' in perm,
                                    write='w' in perm,
@@ -240,19 +238,27 @@ def connect_native(zkurl, client_id=None, listener=None, max_tries=-1,
     """Establish connection with Zk and return KazooClient."""
     _LOGGER.debug('Connecting to %s', zkurl)
 
-    zkproid, zkconnstr = zkurl[len('zookeeper://'):].split('@')
+    zkconnstr = zkurl[len('zookeeper://'):]
     if zkconnstr.find('/') != -1:
         # Chroot specified in connection.
         assert chroot is None
         chroot = zkconnstr[zkconnstr.find('/'):]
         zkconnstr = zkconnstr[:zkconnstr.find('/')]
 
-    zkclient = kazoo.zkutils.getKazooClient_connstring(
-        zkconnstr, zkproid, client_id=client_id,
-        connection_retry={'max_tries': max_tries,
-                          'delay': 0.2,
-                          'max_delay': 1}
-    )
+    connargs = {
+        'client_id': client_id,
+        'auth_data': [],
+        'connection_retry': {'max_tries': max_tries,
+                             'delay': 0.2,
+                             'max_delay': 1}
+    }
+    if _ZK_PLUGIN_MOD:
+        zkclient = _ZK_PLUGIN_MOD.connect(zkurl, connargs)
+    else:
+        connargs['hosts'] = zkconnstr
+        _LOGGER.debug('Connecting to zookeeper: %r', connargs)
+        zkclient = kazoo.KazooClient(**connargs)
+
     if listener is None:
         listener = exit_on_disconnect
 
@@ -280,51 +286,6 @@ def connect_native(zkurl, client_id=None, listener=None, max_tries=-1,
         zkclient.chroot = chroot
 
     return zkclient
-
-
-def path_config(name):
-    """Returns path to Zk app config node by name."""
-    return os.path.join(CONFIG, name)
-
-
-def path_scheduled(name):
-    """Returns path to Zk app scheduled node by name."""
-    return os.path.join(SCHEDULED, name)
-
-
-def path_running(name):
-    """Returns path to Zk app running node by name."""
-    return os.path.join(RUNNING, name)
-
-
-def path_endpoint(name, endpoint):
-    """Returns path to Zk app endpoint node by name.
-
-    The name is assumed to be <proid>.<xxx> which will result in the path:
-    /endpoints/<proid>/<xxx>:<endpoint>
-    """
-    prefix, _sep, rest = name.partition('.')
-    return os.path.join(ENDPOINTS, prefix, ':'.join([rest, str(endpoint)]))
-
-
-def path_server(name):
-    """Returns path to Zk server node by name."""
-    return os.path.join(SERVERS, name)
-
-
-def path_allocation(name):
-    """Returns path to Zk allocation node by name."""
-    return os.path.join(ALLOCATIONS, name)
-
-
-def path_task(instancename):
-    """Returns path of a task object for given app instance."""
-    return '/'.join([TASKS] + instancename.split('#'))
-
-
-def path_blackout(node):
-    """Returns path to blackedout node."""
-    return os.path.join(BLACKED_OUT, node)
 
 
 class SequenceNodeWatch(object):

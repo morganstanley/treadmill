@@ -1,0 +1,15 @@
+#!/bin/sh
+#
+# Starts Treadmill event daemon.
+# Runs as root with host principal creds.
+#
+
+exec 2>&1
+
+CHOWN={{ chown }}
+$CHOWN {{ treadmillid }} /treadmill/appevents
+
+export KRB5CCNAME=FILE:/var/spool/tickets/{{ treadmillid }}
+exec {{ s6 }}/bin/s6-setuidgid {{ treadmillid }} \
+    {{ treadmill }}/bin/treadmill \
+        sproc appevents /treadmill/appevents

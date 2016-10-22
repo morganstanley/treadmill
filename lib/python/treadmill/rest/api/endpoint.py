@@ -34,11 +34,11 @@ def init(api, cors, impl):
             """Return all state."""
             return impl.list(pattern, None)
 
-    @namespace.route('/<pattern>/<endpoint>')
+    @namespace.route('/<pattern>/<proto>/<endpoint>')
     class _EndpointResource(restplus.Resource):
         """Treadmill State resource."""
 
         @webutils.get_api(api, cors)
-        def get(self, pattern, endpoint):
+        def get(self, pattern, proto, endpoint):
             """Return Treadmill instance state."""
-            return impl.list(pattern, endpoint)
+            return impl.list(pattern, proto, endpoint)

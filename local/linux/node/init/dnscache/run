@@ -1,0 +1,43 @@
+#!/bin/sh
+#
+# Script to start dnscache.
+# Runs as nobody
+#
+
+exec 2>&1
+
+AWK={{ awk }}
+CAT={{ cat }}
+CP={{ cp }}
+GREP={{ grep }}
+IFCONFIG={{ ifconfig }}
+LN={{ ln }}
+MKDIR={{ mkdir }}
+TOUCH={{ touch }}
+DNSCACHE={{ dnscache }}
+
+# It is ok to run it twice and fail silently
+${IFCONFIG} lo:1 inet 192.168.10.10 netmask 255.255.255.255 up
+
+ROOT="{{ dir }}/var/spool/dnscache"; export ROOT
+
+${MKDIR} -p ${ROOT}/ip
+${TOUCH} ${ROOT}/ip/192.168
+${MKDIR} -p ${ROOT}/servers
+${MKDIR} -p ${ROOT}/log
+
+if [ -f /var/spool/dnscache/servers/@ ]; then
+    ${CP} /var/spool/dnscache/servers/@ ${ROOT}/servers/@
+else
+    ${CAT} /etc/resolv.conf | ${GREP} nameserver | ${AWK} '{print $2}' > \
+        ${ROOT}/servers/@
+fi
+
+LOG=${ROOT}/log; export LOG
+IP=192.168.10.10; export IP
+IPSEND=0.0.0.0; export IPSEND
+FORWARDONLY=1; export FORWARDONLY
+CACHESIZE=1000000; export CACHESIZE
+
+exec </dev/random
+exec {{ s6 }}/bin/s6-envuidgid nobody ${DNSCACHE} > /dev/null 2> /dev/null

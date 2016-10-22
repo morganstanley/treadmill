@@ -8,6 +8,7 @@ import unittest
 import tests.treadmill_test_deps  # pylint: disable=W0611
 
 import kazoo
+import kazoo.client
 import mock
 
 from treadmill import discovery
@@ -36,10 +37,10 @@ class DiscoveryTest(mockzk.MockZookeeperTestCase):
         app_discovery = discovery.Discovery(zkclient, 'appproid.foo.*', 'http')
 
         kazoo.client.KazooClient.get_children.return_value = [
-            'foo.1#0:http',
-            'foo.2#0:http',
-            'foo.2#0:tcp',
-            'bar.1#0:http'
+            'foo.1#0:tcp:http',
+            'foo.2#0:tcp:http',
+            'foo.2#0:tcp:tcp',
+            'bar.1#0:tcp:http'
         ]
 
         kazoo.client.KazooClient.get.return_value = ('xxx:123', None)
@@ -57,8 +58,8 @@ class DiscoveryTest(mockzk.MockZookeeperTestCase):
         for (endpoint, hostport) in app_discovery.iteritems():
             expected[endpoint] = hostport
 
-        self.assertEquals(expected, {'appproid.foo.1#0:http': 'xxx:123',
-                                     'appproid.foo.2#0:http': 'xxx:123'})
+        self.assertEquals(expected, {'appproid.foo.1#0:tcp:http': 'xxx:123',
+                                     'appproid.foo.2#0:tcp:http': 'xxx:123'})
 
     @mock.patch('treadmill.zkutils.connect', mock.Mock(
         return_value=kazoo.client.KazooClient()))

@@ -21,21 +21,6 @@ class ZkTest(unittest.TestCase):
     def setUp(self):
         os.environ['TREADMILL_MASTER_ROOT'] = '/'
 
-    def test_path(self):
-        """Test path construction for various entities."""
-        self.assertEquals('/scheduled/foo',
-                          zkutils.path_scheduled('foo'))
-        self.assertEquals('/running/foo',
-                          zkutils.path_running('foo'))
-        self.assertEquals('/apps/foo',
-                          zkutils.path_config('foo'))
-        self.assertEquals('/servers/foo',
-                          zkutils.path_server('foo'))
-        self.assertEquals('/allocations/foo',
-                          zkutils.path_allocation('foo'))
-        self.assertEquals('/tasks/foo/0001',
-                          zkutils.path_task('foo#0001'))
-
     def test_sequence_watch(self):
         """Tests sequence watch."""
         events = []
@@ -80,44 +65,6 @@ class ZkTest(unittest.TestCase):
         for node in watcher.nodes(['aaa', 'bbb', 'foo-1']):
             watcher.invoke_callback('/xxx', node)
         self.assertEquals(1, len(events))
-
-    def test_construct_acl(self):
-        """Verifies make_acl helper functions."""
-        acl = zkutils.make_user_acl('foo', 'crwd')
-        self.assertEquals('user://foo', acl.id.id)
-        self.assertEquals('kerberos', acl.id.scheme)
-        self.assertIn('READ', acl.acl_list)
-        self.assertIn('WRITE', acl.acl_list)
-        self.assertIn('CREATE', acl.acl_list)
-        self.assertIn('DELETE', acl.acl_list)
-        self.assertNotIn('ADMIN', acl.acl_list)
-
-        acl = zkutils.make_host_acl('crwd', 'host.foo.com')
-        self.assertEquals('user://host/host.foo.com', acl.id.id)
-        self.assertEquals('kerberos', acl.id.scheme)
-        self.assertIn('READ', acl.acl_list)
-        self.assertIn('WRITE', acl.acl_list)
-        self.assertIn('CREATE', acl.acl_list)
-        self.assertIn('DELETE', acl.acl_list)
-        self.assertNotIn('ADMIN', acl.acl_list)
-
-        acl = zkutils.make_file_acl('/var/tmp/xxx', 'r')
-        self.assertEquals('file:///var/tmp/xxx', acl.id.id)
-        self.assertEquals('kerberos', acl.id.scheme)
-        self.assertIn('READ', acl.acl_list)
-        self.assertNotIn('WRITE', acl.acl_list)
-        self.assertNotIn('CREATE', acl.acl_list)
-        self.assertNotIn('DELETE', acl.acl_list)
-        self.assertNotIn('ADMIN', acl.acl_list)
-
-        acl = zkutils.make_anonymous_acl('r')
-        self.assertEquals('anyone', acl.id.id)
-        self.assertEquals('world', acl.id.scheme)
-        self.assertIn('READ', acl.acl_list)
-        self.assertNotIn('WRITE', acl.acl_list)
-        self.assertNotIn('CREATE', acl.acl_list)
-        self.assertNotIn('DELETE', acl.acl_list)
-        self.assertNotIn('ADMIN', acl.acl_list)
 
     @mock.patch('kazoo.client.KazooClient.create', mock.Mock())
     def test_put(self):

@@ -7,6 +7,7 @@ import os
 import kazoo
 
 from . import zkutils
+from . import zknamespace as z
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -71,10 +72,10 @@ def verify(zkclient, expected, servers):
     """Verifies that version info is up to date."""
     not_up_to_date = []
     for server in servers:
-        if not zkclient.exists(zkutils.path_server(server)):
+        if not zkclient.exists(z.path.server(server)):
             continue
 
-        version_path = os.path.join(zkutils.VERSION, server)
+        version_path = z.path.version(server)
         try:
             version_info = zkutils.get(zkclient, version_path)
             if version_info.get('digest') != expected:
@@ -96,14 +97,14 @@ def upgrade(zkclient, expected, servers, batch_size, timeout,
 
     def _is_alive(server):
         """Check if server is alive."""
-        return zkclient.exists(zkutils.path_server(server))
+        return zkclient.exists(z.path.server(server))
 
     def _version_ok(server):
         """Check that the version is up to date."""
         if force_upgrade:
             return False
 
-        version_path = os.path.join(zkutils.VERSION, server)
+        version_path = z.path.version(server)
         try:
             version_info = zkutils.get(zkclient, version_path)
             version_ok = version_info.get('digest') == expected
@@ -113,7 +114,7 @@ def upgrade(zkclient, expected, servers, batch_size, timeout,
 
     def _upgrade_ok(server):
         """Check that upgrade succeeded."""
-        version_path = os.path.join(zkutils.VERSION, server)
+        version_path = z.path.version(server)
         exists = zkutils.exists(zkclient,
                                 version_path,
                                 timeout)
@@ -137,7 +138,7 @@ def upgrade(zkclient, expected, servers, batch_size, timeout,
         _LOGGER.info('Up to date: %r', list(up_to_date))
 
         for server in batch - up_to_date:
-            version_path = os.path.join(zkutils.VERSION, server)
+            version_path = z.path.version(server)
             _LOGGER.info('Upgrading: %s', server)
             zkutils.ensure_deleted(zkclient, version_path)
 

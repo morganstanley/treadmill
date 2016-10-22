@@ -48,8 +48,6 @@ class EventMgrTest(mockzk.MockZookeeperTestCase):
     """Mock test for treadmill.eventmgr.EventMgr."""
 
     @mock.patch('treadmill.watchdog.Watchdog', mock.Mock(autospec=True))
-    @mock.patch('treadmill.zkutils.path_server',
-                mock.Mock(return_value='/some/path'))
     def setUp(self):
         self.root = tempfile.mkdtemp()
         self.cache = os.path.join(self.root, 'cache')

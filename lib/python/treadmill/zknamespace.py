@@ -49,14 +49,16 @@ def _path_task(instancename, *components):
 
 
 @staticmethod
-def _path_endpoint(name, endpoint):
+def _path_endpoint(name, proto, endpoint):
     """Returns path to Zk app endpoint node by name.
 
     The name is assumed to be <proid>.<xxx> which will result in the path:
-    /endpoints/<proid>/<xxx>:<endpoint>
+    /endpoints/<proid>/<xxx>:<proto>:<endpoint>
     """
     prefix, _sep, rest = name.partition('.')
-    return '/'.join([ENDPOINTS, prefix, ':'.join([rest, str(endpoint)])])
+    return '/'.join(
+        [ENDPOINTS, prefix, ':'.join([rest, proto, str(endpoint)])]
+    )
 
 
 @staticmethod

@@ -1,0 +1,12 @@
+---
+treadmill_host_ticket: '{{ dir }}/spool/krb5cc_host'
+treadmill_cpu: 90%
+treadmill_mem: -2G
+treadmill_core_mem: 2G
+localdisk_img_location: '{{ dir }}'
+localdisk_reserve: 2G
+localdisk_block_dev: ~
+localdisk_default_read_bps: 20M
+localdisk_default_read_iops: 100
+localdisk_default_write_bps: 20M
+localdisk_default_write_iops: 100

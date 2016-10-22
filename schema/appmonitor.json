@@ -3,11 +3,14 @@
     "resource_id": { "$ref": "common.json#/app_id" },
     "resource": {
         "type": "object",
-        "additionalProperties": false,
         "properties": {
-            "count": { "type": "integer" },
-            "minimum": 0,
-            "maximum": 1000
+            "count": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 1000
+            },
+            "required": [ "count" ],
+            "additionalProperties": false
         }
     },
     "verbs": {

@@ -10,10 +10,22 @@
                 "pattern": "^[\\w\\-\\.]+$"
             },
             "command": { "type": "string" },
-            "restart_count": {
-                "type": "integer",
-                "minimum": -1,
-                "maximum": 65535
+            "restart": {
+                "type": "object",
+                "properties": {
+                    "limit": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 10
+                    },
+                    "interval": {
+                        "type": "integer",
+                        "minimum": 30,
+                        "maximum": 600
+                    }
+                },
+                "required": [ "limit" ],
+                "additionalProperties": false
             }
         },
         "required": [ "name", "command" ],
@@ -30,6 +42,10 @@
             "type": {
                 "type": "string",
                 "pattern": "^infra$"
+            },
+            "proto": {
+                "type": "string",
+                "pattern": "tcp|udp"
             }
         },
         "required": [ "name", "port" ],
@@ -75,7 +91,10 @@
             },
             "features": {
                 "type": "array",
-                "pattern": "^[\\w\\-]+$"
+                "items": {
+                    "type": "string",
+                    "pattern": "^[\\w\\-]+$"
+                }
             },
             "shared_ip": { "type": "boolean" },
             "shared_network": { "type": "boolean" },
@@ -103,7 +122,9 @@
                         "type": "array",
                         "items": { "$ref": "#/vring_rule" },
                         "minItems": 1
-                    }
+                    },
+                    "required": [ "cells", "rules" ],
+                    "additionalProperties": false
                 }
             },
             "identity_group": {

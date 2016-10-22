@@ -814,7 +814,7 @@ class CellTest(unittest.TestCase):
         self.assertIsNotNone(apps[2].server)
         self.assertIsNone(apps[3].server)
 
-    @mock.patch('time.time', mock.Mock())
+    @mock.patch('time.time', mock.Mock(return_value=0))
     def test_data_retention(self):
         """Tests data retention."""
         # Disable pylint's too many statements warning.

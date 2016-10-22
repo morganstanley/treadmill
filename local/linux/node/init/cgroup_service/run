@@ -1,0 +1,10 @@
+#!/bin/sh
+#
+# Starts Treadmill cgroup management service
+# Runs as root.
+#
+
+exec 2>&1
+
+exec {{ treadmill }}/bin/treadmill sproc --cgroup . \
+    service --root-dir {{ dir }} cgroup

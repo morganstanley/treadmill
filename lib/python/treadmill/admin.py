@@ -362,6 +362,8 @@ class Admin(object):
 
     def __init__(self, uri, root_ou):
         self.uri = uri
+        if uri and not isinstance(uri, list):
+            self.uri = uri.split(',')
         self.root_ou = root_ou
         self.ldap = None
 
@@ -386,14 +388,26 @@ class Admin(object):
     def connect(self):
         """Connects (binds) to LDAP server."""
         ldap3.set_config_parameter('RESTARTABLE_TRIES', 3)
-        server = ldap3.Server(self.uri)
-        self.ldap = ldap3.Connection(
-            server,
-            authentication=ldap3.SASL,
-            sasl_mechanism='GSSAPI',
-            client_strategy=ldap3.STRATEGY_SYNC_RESTARTABLE,
-            auto_bind=True
-        )
+        for uri in self.uri:
+            try:
+                server = ldap3.Server(uri)
+                self.ldap = ldap3.Connection(
+                    server,
+                    authentication=ldap3.SASL,
+                    sasl_mechanism='GSSAPI',
+                    client_strategy=ldap3.STRATEGY_SYNC_RESTARTABLE,
+                    auto_bind=True
+                )
+            except (ldap3.LDAPSocketOpenError,
+                    ldap3.LDAPBindError,
+                    ldap3.LDAPMaximumRetriesError):
+                _LOGGER.exception('Could not connect to %s', uri)
+            else:
+                break
+
+        # E0704: The raise statement is not inside an except clause
+        if not self.ldap:
+            raise  # pylint: disable=E0704
 
     def search(self, search_base, search_filter, search_scope=ldap3.SUBTREE,
                attributes=None):
@@ -959,12 +973,22 @@ class Application(LdapObject):
     _svc_schema = [
         ('service-name', 'name', str),
         ('service-command', 'command', str),
-        ('service-restart-count', 'restart_count', int)
     ]
+
+    _svc_restart_schema = [
+        ('service-name', 'name', str),
+        ('service-restart-limit', 'limit', int),
+        ('service-restart-interval', 'interval', int),
+    ]
+
+    _default_svc_restart = {
+        'limit': 5, 'interval': 60,
+    }
 
     _endpoint_schema = [
         ('endpoint-name', 'name', str),
         ('endpoint-port', 'port', int),
+        ('endpoint-proto', 'proto', str),
         ('endpoint-type', 'type', str),
     ]
 
@@ -978,6 +1002,7 @@ class Application(LdapObject):
         name_only = lambda schema_rec: (schema_rec[0], None, None)
         return (Application._schema +
                 map(name_only, Application._svc_schema) +
+                map(name_only, Application._svc_restart_schema) +
                 map(name_only, Application._endpoint_schema))
 
     def from_entry(self, entry, dn=None):
@@ -986,8 +1011,19 @@ class Application(LdapObject):
         grouped = _group_entry_by_opt(entry)
         services = _grouped_to_list_of_dict(
             grouped, 'tm-service-', Application._svc_schema)
+        service_restarts = _grouped_to_list_of_dict(
+            grouped, 'tm-service-', Application._svc_restart_schema)
         endpoints = _grouped_to_list_of_dict(
             grouped, 'tm-endpoint-', Application._endpoint_schema)
+
+        # Merge services and services restarts
+        for service in services:
+            for service_restart in service_restarts:
+                if service_restart['name'] == service['name']:
+                    service['restart'] = {
+                        'limit': service_restart['limit'],
+                        'interval': service_restart['interval'],
+                    }
 
         obj.update({
             'services': services,
@@ -1001,10 +1037,25 @@ class Application(LdapObject):
         entry = super(Application, self).to_entry(obj)
 
         for service in obj.get('services', []):
-            service_entry = _dict_2_entry(service,
-                                          Application._svc_schema,
-                                          'tm-service',
-                                          service['name'])
+            service_entry = _dict_2_entry(
+                service,
+                Application._svc_schema,
+                'tm-service',
+                service['name']
+            )
+            # Account for default restart settings
+            service_restart = self._default_svc_restart.copy()
+            service_restart.update(
+                service.get('restart', {})
+            )
+            service_entry.update(
+                _dict_2_entry(
+                    service_restart,
+                    Application._svc_restart_schema,
+                    'tm-service',
+                    service['name']
+                )
+            )
             entry.update(service_entry)
 
         for endpoint in obj.get('endpoints', []):
@@ -1219,9 +1270,7 @@ class CellAllocation(LdapObject):
     def to_entry(self, obj):
         """Converts app dictionary to LDAP entry."""
         entry = super(CellAllocation, self).to_entry(obj)
-        print obj
         for assignment in obj.get('assignments', []):
-            print assignment
             assign_entry = _dict_2_entry(assignment,
                                          CellAllocation._assign_schema,
                                          'tm-alloc-assignment',

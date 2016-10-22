@@ -42,9 +42,12 @@ class AppMgrManifestTest(unittest.TestCase):
         manifest = {
             'services': [
                 {
+                    'name': 'web_server',
                     'command': '/bin/sleep 5',
-                    'restart_count': 3,
-                    'name': 'web_server'
+                    'restart': {
+                        'limit': 3,
+                        'interval': 60,
+                    }
                 }
             ],
             'proid': 'foo',
@@ -53,7 +56,7 @@ class AppMgrManifestTest(unittest.TestCase):
             'memory': '100M'
         }
 
-        treadmill.subproc.BINARIES = {
+        treadmill.subproc.EXECUTABLES = {
             'sshd': '/path/to/sshd',
         }
 
@@ -75,9 +78,12 @@ class AppMgrManifestTest(unittest.TestCase):
             app0['services'],
             [
                 {
-                    'command': '/bin/sleep 5',
                     'name': 'web_server',
-                    'restart_count': 3,
+                    'command': '/bin/sleep 5',
+                    'restart': {
+                        'limit': 3,
+                        'interval': 60,
+                    },
                 }
             ]
         )
@@ -92,7 +98,10 @@ class AppMgrManifestTest(unittest.TestCase):
                     ),
                     'name': 'sshd',
                     'proid': None,
-                    'restart_count': -1
+                    'restart': {
+                        'limit': 5,
+                        'interval': 60,
+                    },
                 }
             ]
         )
@@ -127,8 +136,11 @@ class AppMgrManifestTest(unittest.TestCase):
             {
                 'name': 'webauthd',
                 'proid': None,
-                'restart_count': -1,
-                'command': '${TREADMILL}/sbin/run_webauthd'
+                'command': '${TREADMILL}/sbin/run_webauthd',
+                'restart': {
+                    'limit': 5,
+                    'interval': 60,
+                },
             },
             manifest['system_services']
         )

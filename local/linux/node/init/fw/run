@@ -1,0 +1,12 @@
+#!/bin/sh
+#
+# Script to start the DNAT watcher in the same pid/mount namespace as treamill
+# node.
+# Runs as root
+#
+
+exec 2>&1
+
+# FIXME(boysson): The location of all this dirs should be in a config somewhere
+exec {{ treadmill }}/bin/treadmill sproc --cgroup . \
+    firewall watcher --root-dir {{ dir }}

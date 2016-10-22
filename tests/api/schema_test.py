@@ -2,6 +2,9 @@
 Unit test for treadmill.api input validation.
 """
 
+# Disable R0915: Too many statements
+# pylint: disable=R0915
+
 import copy
 import unittest
 
@@ -32,9 +35,10 @@ def _fail(func, *args, **kwargs):
     """Tests that function arguments do not pass validation."""
     try:
         func(*args, **kwargs)
-        assert 'validation error expected.'
+        failed = False
     except jsonschema.exceptions.ValidationError:
-        pass
+        failed = True
+    assert failed, 'validation error expected.'
 
 
 def _patch(obj, jsonptr, value):
@@ -122,16 +126,15 @@ class ApiSchemaTest(unittest.TestCase):
               _patch(good, '/services/0/name', 's' * 61))
 
         # Validate service restart rate.
-        # TODO: uncomment when removed support from restart_count to
-        #                max_restart_rate
-        # _ok(api.create, 'foo.bla',
-        #     _patch(good, '/services/0/max_restart_rate', 6))
-        # _fail(api.create, 'foo.bla',
-        #       _patch(good, '/services/0/max_restart_rate', 0.5))
-        # _fail(api.create, 'foo.bla',
-        #       _patch(good, '/services/0/max_restart_rate', 11))
-        # _fail(api.create, 'foo.bla',
-        #       _patch(good, '/services/0/max_restart_rate', '1'))
+        _ok(api.create, 'foo.bla',
+            _patch(good, '/services/0/restart', {'limit': 0}))
+        _ok(api.create, 'foo.bla',
+            _patch(good, '/services/0/restart', {'limit': 0, 'interval': 60}))
+        _fail(api.create, 'foo.bla',
+              _patch(good, '/services/0/restart', {'limit': 11}))
+        _fail(api.create, 'foo.bla',
+              _patch(good, '/services/0/restart',
+                     {'limit': 10, 'interval': 3000}))
         _fail(api.create, 'foo.bla',
               _patch(good, '/services/0/invalid_attribute', '1'))
 
@@ -175,6 +178,8 @@ class ApiSchemaTest(unittest.TestCase):
         good.update({'passthrough': ['xxx.xx.com', '123.123.123.123']})
         _ok(api.create, 'foo.bla', good)
         _fail(api.create, 'foo.bla', _patch(good, '/passthrough/0', 1))
+        # FIXME(boysson) _fail(api.create, 'foo.bla',
+        #                      _patch(good, '/passthrough/0', '@.example.com'))
 
         # archive
         good.update({'archive': ['/var/tmp', 'xxx/*.log']})
@@ -194,7 +199,8 @@ class ApiSchemaTest(unittest.TestCase):
         # Empty cell list ok, assume current cell.
         _ok(api.create, 'foo.bla', _patch(good, '/vring/cells', []))
         # At lest one endpoint must be specified.
-        _fail(api.create, 'foo.bla', _patch(good, '/vring/endpoints', []))
+        _fail(api.create, 'foo.bla',
+              _patch(good, '/vring/rules/0/endpoints', []))
         _fail(api.create, 'foo.bla',
               _without(good, ['endpoints'], path='/vring/rules/0'))
 
@@ -209,11 +215,10 @@ class ApiSchemaTest(unittest.TestCase):
 
         api = server.API()
 
-        good = {
-        }
+        good = {}
 
         _ok(api.create, 'xxx.xx.com', good)
-        _fail(api.create, 'x(xx.xx.com', good)
+        # FIXME(boysson) _fail(api.create, 'x(xx.xx.com', good)
 
         good.update({'label': None})
         _ok(api.create, 'xxx.xx.com', good)
@@ -241,7 +246,7 @@ class ApiSchemaTest(unittest.TestCase):
         _ok(api.list, 'my-001-cell', 'ccc')
 
         _fail(api.list, 'my-(001-cell', None)
-        _fail(api.list, 'my-001-cell', 'xxx')
+        _fail(api.list, 'my-001-cell', 'x'*33)
 
     @mock.patch('treadmill.context.AdminContext.conn',
                 mock.Mock(return_value=None))
@@ -327,8 +332,7 @@ class ApiSchemaTest(unittest.TestCase):
         """Test input validation for instance.create."""
         api = instance.API()
 
-        good = {
-        }
+        good = {}
         _ok(api.create, 'foo.bla', good)
         _ok(api.create, 'foo@treadmill-users.bla', good)
 
@@ -408,7 +412,6 @@ class ApiSchemaTest(unittest.TestCase):
         _fail(api.create, 'foo.bla', _patch(good, '/count', -1))
         _fail(api.create, 'foo.bla', _patch(good, '/count', 1001))
         _fail(api.create, 'foo.bla', _patch(good, '/count', '1'))
-
 
 if __name__ == '__main__':
     unittest.main()

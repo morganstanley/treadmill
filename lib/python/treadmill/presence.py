@@ -94,9 +94,10 @@ class EndpointPresence(object):
             internal_port = endpoint['port']
             ep_name = endpoint.get('name', str(internal_port))
             ep_port = endpoint['real_port']
+            ep_proto = endpoint.get('proto', 'tcp')
 
             hostport = self.hostname + ':' + str(ep_port)
-            path = z.path.endpoint(self.appname, ep_name)
+            path = z.path.endpoint(self.appname, ep_proto, ep_name)
             _LOGGER.info('register endpoint: %s %s', path, hostport)
 
             # Endpoint node is created with default acl. It is ephemeral
@@ -111,13 +112,14 @@ class EndpointPresence(object):
         for endpoint in endpoints:
             port = endpoint.get('port', '')
             ep_name = endpoint.get('name', str(port))
+            ep_proto = endpoint.get('proto', 'tcp')
 
             if not ep_name:
                 logging.critical('Logic error, no endpoint info: %s',
                                  self.manifest)
                 return
 
-            path = z.path.endpoint(self.appname, ep_name)
+            path = z.path.endpoint(self.appname, ep_proto, ep_name)
             _LOGGER.info('un-register endpoint: %s', path)
             try:
                 data, _metadata = self.zkclient.get(path)
@@ -235,7 +237,7 @@ class ServicePresence(object):
                              service)
                 time.sleep(0.5)
 
-    def _actual_restarts(self, service_name):
+    def _actual_restarts(self, service_name, restart_data):
         """Returns the number of restarts for the given service."""
         actual_restarts = 0
 
@@ -243,12 +245,13 @@ class ServicePresence(object):
 
         restart_rate_exceeded = False
         if os.path.exists(finished):
+            limit, interval = restart_data['limit'], restart_data['interval']
             with open(finished) as f:
                 lines = f.readlines()
                 actual_restarts = len(lines)
-                if len(lines) >= _MAX_RESTART_RATE:
-                    timestamp, _rc, _sig = lines[-_MAX_RESTART_RATE].split()
-                    if int(timestamp) + _RESTART_RATE_INTERVAL > time.time():
+                if len(lines) >= limit:
+                    timestamp, _rc, _sig = lines[-limit].split()
+                    if int(timestamp) + interval > time.time():
                         restart_rate_exceeded = True
         return restart_rate_exceeded, actual_restarts
 
@@ -262,23 +265,24 @@ class ServicePresence(object):
 
     def start_service(self, service_name):
         """Instructs the supervisor to start the service if it is down."""
+        # TODO(boysson): remove this. There is no reason why a manifest should
+        #                lack restart_data.
         try:
-            restart_count = int(
-                self.services[service_name].get('restart_count', 1))
+            restart_data = self.services[service_name]['restart']
         except TypeError:
-            _LOGGER.info('Incorrect value for restart_count')
-            restart_count = 1
+            _LOGGER.error('Incorrect settings for restart')
+            restart_data = {
+                'limit': _MAX_RESTART_RATE,
+                'interval': _RESTART_RATE_INTERVAL,
+            }
 
-        # TODO: this is for backward compatibility with manifests that
-        #                defined restart_count = 0
-        if restart_count == 0:
-            restart_count = 1
         svc_dir = os.path.join(self.services_dir, service_name)
 
         restart_rate_exceeded, actual_restarts = (
-            self._actual_restarts(service_name))
-        _LOGGER.info('starting %s, retries %s/%s', service_name,
-                     actual_restarts, restart_count)
+            self._actual_restarts(service_name, restart_data))
+        _LOGGER.info('starting %s, retries %s/%s in %s',
+                     service_name, actual_restarts,
+                     restart_data['limit'], restart_data['interval'])
 
         # If for whatever reason presence exited before reporting last exit
         # status, do it now. The method is no-op if last status was reported
@@ -289,19 +293,15 @@ class ServicePresence(object):
             _LOGGER.info('Exceeded number of restarts per interval')
             return False
 
-        if restart_count == -1 or restart_count > actual_restarts:
-            if is_down(svc_dir):
-                if os.path.exists(os.path.join(svc_dir, 'down')):
-                    subproc.check_call(['s6-svc', '-o', svc_dir])
-                self.report_running(service_name)
-            else:
-                _LOGGER.info('Service %s already running', service_name)
-
-            subproc.check_call(['s6-svwait', '-u', svc_dir])
-            return True
+        if is_down(svc_dir):
+            if os.path.exists(os.path.join(svc_dir, 'down')):
+                subproc.check_call(['s6-svc', '-o', svc_dir])
+            self.report_running(service_name)
         else:
-            _LOGGER.info('Exceeded number of retries.')
-            return False
+            _LOGGER.info('Service %s already running', service_name)
+
+        subproc.check_call(['s6-svwait', '-u', svc_dir])
+        return True
 
     def wait_for_exit(self, container_svc_dir):
         """Waits for service to be down, reports status to zk."""

@@ -123,11 +123,18 @@ def _add_system_services(manifest):
     Current system services:
      - sshd
     """
+    if os.name == 'nt':
+        # TODO: implement this
+        return
+
     # Configures sshd services in the container.
     sshd_svc = {
         'name': 'sshd',
         'proid': None,
-        'restart_count': -1,
+        'restart': {
+            'limit': 5,
+            'interval': 60,
+        },
         'command': '%s -D -f /etc/ssh/sshd_config '
                    '-p $TREADMILL_ENDPOINT_SSH' % (subproc.resolve('sshd'))
     }
@@ -143,6 +150,10 @@ def _add_system_services(manifest):
 
 def _add_features(manifest):
     """Configure optional container features."""
+    if os.name == 'nt':
+        # TODO: implement this
+        return
+
     for feature in manifest.get('features', []):
         try:
             feature_mod = importlib.import_module(

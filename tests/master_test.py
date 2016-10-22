@@ -142,7 +142,7 @@ class MasterTest(mockzk.MockZookeeperTestCase):
     @mock.patch('kazoo.client.KazooClient.set', mock.Mock())
     @mock.patch('kazoo.client.KazooClient.create', mock.Mock())
     @mock.patch('kazoo.client.KazooClient.exists', mock.Mock())
-    @mock.patch('time.time', mock.Mock())
+    @mock.patch('time.time', mock.Mock(return_value=0))
     def test_adjust_server_state(self):
         """Tests load of server and bucket data."""
         zk_content = {

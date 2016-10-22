@@ -2,13 +2,13 @@
 
 from __future__ import absolute_import
 
-import os
-
 import Queue
 import fnmatch
 import logging
 
 import kazoo
+
+from treadmill import zknamespace as z
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -88,8 +88,8 @@ class Discovery(object):
 
     def get_endpoints_zk(self, watch_cb=None):
         """Returns the current list of endpoints."""
-        endpoints_path = os.path.join('/endpoints', self.prefix)
-        full_pattern = ':'.join([self.pattern, self.endpoint])
+        endpoints_path = z.join_zookeeper_path(z.ENDPOINTS, self.prefix)
+        full_pattern = ':'.join([self.pattern, '*', self.endpoint])
         try:
             endpoints = self.zkclient.get_children(
                 endpoints_path, watch=watch_cb
@@ -105,7 +105,7 @@ class Discovery(object):
 
     def resolve_endpoint(self, endpoint):
         """Resolves a endpoint to a hostport"""
-        fullpath = os.path.join('/endpoints', self.prefix, endpoint)
+        fullpath = z.join_zookeeper_path(z.ENDPOINTS, self.prefix, endpoint)
         try:
             hostport, _metadata = self.zkclient.get(fullpath)
         except kazoo.exceptions.NoNodeError:

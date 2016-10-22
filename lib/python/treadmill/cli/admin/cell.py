@@ -11,6 +11,7 @@ from treadmill import context
 from treadmill import utils
 from treadmill import versionmgr
 from treadmill import zkutils
+from treadmill import zknamespace as z
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -65,7 +66,7 @@ def init():
 
         if not servers:
             # pylint: disable=R0204
-            servers = zkutils.get(zkclient, zkutils.SERVERS)
+            servers = zkutils.get(zkclient, z.SERVERS)
 
         if dry_run:
             failed = versionmgr.verify(zkclient, digest, servers)

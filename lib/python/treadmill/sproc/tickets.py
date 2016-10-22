@@ -68,7 +68,7 @@ def init():
         zkutils.ensure_exists(context.GLOBAL.zk.conn, endpoint_proid_path,
                               acl=[_SERVERS_ACL])
 
-        endpoint_path = z.path.endpoint(appname, endpoint)
+        endpoint_path = z.path.endpoint(appname, 'tcp', endpoint)
         _LOGGER.info('Registering %s %s', endpoint_path, hostport)
         zkutils.put(context.GLOBAL.zk.conn, endpoint_path, hostport)
         context.GLOBAL.zk.conn.stop()

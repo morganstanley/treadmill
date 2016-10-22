@@ -26,6 +26,7 @@ from .. import utils
 from .. import versionmgr
 from .. import watchdog
 from .. import zkutils
+from .. import zknamespace as z
 
 
 def init():
@@ -52,13 +53,13 @@ def init():
 
         context.GLOBAL.zk.conn.add_listener(zkutils.exit_on_lost)
 
-        while not context.GLOBAL.zk.conn.exists(zkutils.VERSION):
+        while not context.GLOBAL.zk.conn.exists(z.VERSION):
             logging.warn('%r node not created yet. Cell masters running?',
-                         zkutils.VERSION)
+                         z.VERSION)
             time.sleep(30)
 
         hostname = sysinfo.hostname()
-        version_path = os.path.join(zkutils.VERSION, hostname)
+        version_path = z.path.version(hostname)
 
         codepath = os.path.realpath(utils.rootdir())
         digest = versionmgr.checksum_dir(codepath).hexdigest()

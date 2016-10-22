@@ -237,16 +237,22 @@ def _cell(item, column, key, fmt):
             raw_value = item[key]
             break
 
-    if raw_value is None:
-        value = '-'
+    if callable(fmt):
+        try:
+            value = fmt(raw_value)
+        except Exception:  # pylint: disable=W0703
+            if raw_value is None:
+                value = '-'
+            else:
+                raise
     else:
-        if fmt is None:
+        if raw_value is None:
+            value = '-'
+        else:
             if isinstance(raw_value, list):
                 value = ','.join(map(str, raw_value))
             else:
                 value = raw_value
-        else:
-            value = fmt(raw_value)
     return value
 
 
@@ -383,15 +389,21 @@ class AppPrettyFormatter(object):
     def format(item):
         """Return pretty-formatted item."""
 
+        services_restart_tbl = make_dict_to_table([
+            ('limit', None, None),
+            ('interval', None, None),
+        ])
+
         services_tbl = make_list_to_table([
             ('name', None, None),
-            ('restart_count', None, None),
+            ('restart', None, services_restart_tbl),
             ('command', None, None),
         ])
 
         endpoints_tbl = make_list_to_table([
             ('name', None, None),
             ('port', None, None),
+            ('proto', None, lambda proto: proto if proto else 'tcp'),
             ('type', None, None),
         ])
 

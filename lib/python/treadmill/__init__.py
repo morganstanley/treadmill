@@ -20,6 +20,11 @@ def __root_join(*path):
 # TODO: how will it work if packaged as single zip file?
 TREADMILL = __root_join('..', '..', '..')
 
-TREADMILL_BIN = os.path.join(TREADMILL, 'bin', 'treadmill')
+if os.name == 'nt':
+    _TREADMILL_SCRIPT = 'treadmill.cmd'
+else:
+    _TREADMILL_SCRIPT = 'treadmill'
+
+TREADMILL_BIN = os.path.join(TREADMILL, 'bin', _TREADMILL_SCRIPT)
 
 TREADMILL_LDAP = os.environ.get('TREADMILL_LDAP')

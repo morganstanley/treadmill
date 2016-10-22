@@ -1,0 +1,24 @@
+#!/bin/sh
+#
+# Starts Treadmill init process and register node in Zk.
+# Runs as root with host principal creds.
+#
+# Always start with clean environment. In case of restart, the server
+# ephemeral node will be gone, and all apps will be rescheduled.
+#
+# treadmill_init always assume clean environment and nothing running.
+#
+
+exec 2>&1
+
+if [ ! -f zkid.pickle ]; then
+    echo `date`: clean start, zkid.pickle not found.
+
+else
+    echo `date`: reset detected, reconnect using existing session.
+fi
+
+# This service needs host tickets
+export KRB5CCNAME="FILE:$TREADMILL_HOST_TICKET"
+
+exec {{ treadmill }}/bin/treadmill sproc --cgroup . init --zkid zkid.pickle

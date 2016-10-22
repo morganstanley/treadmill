@@ -1,0 +1,12 @@
+#!/bin/sh
+#
+# Starts Treadmill event daemon.
+# Runs as root with host principal creds.
+#
+
+exec 2>&1
+
+# This service needs host tickets
+export KRB5CCNAME="FILE:$TREADMILL_HOST_TICKET"
+
+exec {{ treadmill }}/bin/treadmill sproc --cgroup . eventdaemon

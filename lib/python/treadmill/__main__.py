@@ -38,6 +38,7 @@ from treadmill import cli
               is_eager=True,
               expose_value=False)
 @click.option('--ldap', required=False, envvar='TREADMILL_LDAP',
+              type=cli.LIST,
               callback=cli.handle_context_opt,
               is_eager=True,
               expose_value=False)

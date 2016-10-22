@@ -11,7 +11,7 @@ import threading
 import kazoo
 
 from . import exc
-from . import zkutils
+from . import zknamespace as z
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -101,7 +101,7 @@ class AppTrace(object):
         if not snapshot:
             self.done = threading.Event()
 
-        scheduled_node = zkutils.path_scheduled(self.appname)
+        scheduled_node = z.path.scheduled(self.appname)
 
         @self.zk.DataWatch(scheduled_node)
         @exc.exit_on_unhandled
@@ -124,7 +124,7 @@ class AppTrace(object):
                 self.exitinfo['scheduled'] = True
                 return not snapshot
 
-        running_node = zkutils.path_running(self.appname)
+        running_node = z.path.running(self.appname)
 
         @self.zk.DataWatch(running_node)
         @exc.exit_on_unhandled
@@ -140,7 +140,7 @@ class AppTrace(object):
 
             return not snapshot and self.exitinfo['scheduled']
 
-        task_node = zkutils.path_task(self.appname)
+        task_node = z.path.task(self.appname)
 
         @self.zk.DataWatch(task_node)
         @exc.exit_on_unhandled

@@ -66,11 +66,9 @@ def init():
         """Admin commands."""
         cli.init_logger('admin.yml')
 
-        log_level = None
+        log_level = logging.WARN
         if ctx.obj.get('logging.debug'):
             log_level = logging.DEBUG
-        else:
-            log_level = logging.INFO
 
         logging.getLogger('treadmill').setLevel(log_level)
         logging.getLogger().setLevel(log_level)

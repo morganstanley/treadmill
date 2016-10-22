@@ -114,7 +114,12 @@ class RRDClient(object):
 
     def forget(self, rrdfile, oneway=False):
         """Send forget request to the rrd cache daemon."""
-        self.command('FORGET ' + rrdfile, oneway)
+        try:
+            self.command('FORGET ' + rrdfile, oneway)
+        except RRDError:
+            # File does not exist, ignore.
+            if not os.path.exists(os.path.realpath(rrdfile)):
+                pass
 
 
 def flush_noexc(rrdfile, rrd_socket='/tmp/treadmill.rrd'):

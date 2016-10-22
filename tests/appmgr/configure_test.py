@@ -61,7 +61,10 @@ class AppMgrConfigureTest(unittest.TestCase):
                 {
                     'name': 'web_server',
                     'command': '/bin/true',
-                    'restart_count': 3,
+                    'restart': {
+                        'limit': 5,
+                        'interval': 60,
+                    },
                 },
             ],
             'endpoints': [
@@ -155,7 +158,10 @@ class AppMgrConfigureTest(unittest.TestCase):
                 {
                     'name': 'web_server',
                     'command': '/bin/true',
-                    'restart_count': 3,
+                    'restart': {
+                        'limit': 5,
+                        'interval': 60,
+                    },
                 },
             ],
             'endpoints': [

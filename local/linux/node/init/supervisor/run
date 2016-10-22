@@ -1,0 +1,13 @@
+#!/bin/sh
+#
+# Starts the svscan process for the supervised apps.
+# Runs as root
+#
+
+exec 2>&1
+
+# Supervised apps will change ionice priority to 5/6 depending on app
+# environment.
+#
+# THe root svscan will continue to run with ionice 0.
+exec {{ s6 }}/bin/s6-svscan {{ dir }}/running
