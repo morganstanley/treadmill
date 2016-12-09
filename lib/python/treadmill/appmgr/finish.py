@@ -21,19 +21,20 @@ from .. import appmgr
 from .. import firewall
 from .. import fs
 from .. import iptables
+from .. import logcontext as lc
+from .. import rrdutils
 from .. import services
 from .. import subproc
 from .. import supervisor
 from .. import sysinfo
 from .. import utils
-from .. import zkutils
-from .. import rrdutils
 from .. import zknamespace as z
+from .. import zkutils
 
 from . import manifest as app_manifest
 
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER = lc.ContainerAdapter(logging.getLogger(__name__))
 
 _APP_YML = 'app.yml'
 _STATE_YML = 'state.yml'
@@ -52,51 +53,52 @@ def finish(tm_env, zkclient, container_dir):
     :type container_dir:
         ``str``
     """
-    _LOGGER.info('finishing %r', container_dir)
 
     # FIXME(boysson): Clean should be done inside the container. The watchdog
     #                 value below is inflated to account for the extra
     #                 archiving time.
     name_dir = os.path.basename(container_dir)
-    watchdog_name = '{name}-{app}'.format(name=__name__,
-                                          app=name_dir)
-    watchdog = tm_env.watchdogs.create(watchdog_name, '5m',
-                                       'Cleanup of %r stalled' % container_dir)
+    with lc.LogContext(_LOGGER, name_dir, lc.ContainerAdapter) as log:
+        log.info('finishing %r', container_dir)
+        watchdog_name = '{name}-{app}'.format(name=__name__,
+                                              app=name_dir)
+        watchdog = tm_env.watchdogs.create(watchdog_name, '5m', 'Cleanup of '
+                                           '%r stalled' % container_dir)
 
-    _stop_container(container_dir)
+        _stop_container(container_dir)
 
-    # Check if application reached restart limit inside the container.
-    #
-    # The container directory will be moved, this check is done first.
-    #
-    # If restart limit was reached, application node will be removed from
-    # Zookeeper at the end of the cleanup process, indicating to the
-    # scheduler that the server is ready to accept new load.
-    exitinfo, aborted, aborted_reason = _collect_exit_info(container_dir)
+        # Check if application reached restart limit inside the container.
+        #
+        # The container directory will be moved, this check is done first.
+        #
+        # If restart limit was reached, application node will be removed from
+        # Zookeeper at the end of the cleanup process, indicating to the
+        # scheduler that the server is ready to accept new load.
+        exitinfo, aborted, aborted_reason = _collect_exit_info(container_dir)
 
-    app = _load_app(container_dir, _STATE_YML)
-    if app:
-        _cleanup(tm_env, zkclient, container_dir, app)
-    else:
-        app = _load_app(container_dir, _APP_YML)
+        app = _load_app(container_dir, _STATE_YML)
+        if app:
+            _cleanup(tm_env, zkclient, container_dir, app)
+        else:
+            app = _load_app(container_dir, _APP_YML)
 
-    if app:
-        # All resources are cleaned up. If the app terminated inside the
-        # container, remove the node from Zookeeper, which will notify the
-        # scheduler that it is safe to reuse the host for other load.
-        if aborted:
-            appevents.post(tm_env.app_events_dir, app.name, 'aborted', None,
-                           aborted_reason)
+        if app:
+            # All resources are cleaned up. If the app terminated inside the
+            # container, remove the node from Zookeeper, which will notify the
+            # scheduler that it is safe to reuse the host for other load.
+            if aborted:
+                appevents.post(tm_env.app_events_dir, app.name, 'aborted',
+                               None, aborted_reason)
 
-        if exitinfo:
-            _post_exit_event(tm_env, app.name, exitinfo)
+            if exitinfo:
+                _post_exit_event(tm_env, app.name, exitinfo)
 
-    # Delete the app directory (this includes the tarball, if any)
-    shutil.rmtree(container_dir)
+        # Delete the app directory (this includes the tarball, if any)
+        shutil.rmtree(container_dir)
 
-    # cleanup was succesful, remove the watchdog
-    watchdog.remove()
-    _LOGGER.info('Finished cleanup: %s', container_dir)
+        # cleanup was succesful, remove the watchdog
+        watchdog.remove()
+        log.info('Finished cleanup: %s', container_dir)
 
 
 def _collect_exit_info(container_dir):
@@ -303,7 +305,8 @@ def _cleanup_network(tm_env, app, network_client):
 
     for endpoint in app.endpoints:
         tm_env.rules.unlink_rule(
-            rule=firewall.DNATRule(orig_ip=app.host_ip,
+            rule=firewall.DNATRule(proto=endpoint.proto,
+                                   orig_ip=app.host_ip,
                                    orig_port=endpoint.real_port,
                                    new_ip=app_network['vip'],
                                    new_port=endpoint.port),
@@ -316,8 +319,11 @@ def _cleanup_network(tm_env, app, network_client):
                           app_network['vip'], endpoint.port)
             iptables.rm_ip_set(
                 iptables.SET_INFRA_SVC,
-                '{ip},tcp:{port}'.format(ip=app_network['vip'],
-                                         port=endpoint.port)
+                '{ip},{proto}:{port}'.format(
+                    ip=app_network['vip'],
+                    proto=endpoint.proto,
+                    port=endpoint.port,
+                )
             )
 
     if hasattr(app, 'ephemeral_ports'):
@@ -329,13 +335,16 @@ def _cleanup_network(tm_env, app, network_client):
                 '{ip},tcp:{port}'.format(ip=app_network['vip'],
                                          port=port)
             )
-            dnatrule = firewall.DNATRule(orig_ip=tm_env.host_ip,
+            dnatrule = firewall.DNATRule(proto='tcp',
+                                         orig_ip=tm_env.host_ip,
                                          orig_port=port,
                                          new_ip=app_network['vip'],
                                          new_port=port)
             tm_env.rules.unlink_rule(rule=dnatrule,
                                      owner=unique_name)
 
+    # Terminate any entries in the conntrack table
+    iptables.flush_conntrack_table(app_network['vip'])
     # Cleanup network resources
     network_client.delete(unique_name)
 
@@ -454,7 +463,7 @@ def _archive_logs(tm_env, container_dir):
             archive.add(filename, filename[len(container_dir) + 1:])
         except OSError as err:
             if err.errno == errno.ENOENT:
-                _LOGGER.warn('File not found: %s', filename)
+                _LOGGER.warning('File not found: %s', filename)
             else:
                 raise
 

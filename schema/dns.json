@@ -1,0 +1,32 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "resource_id": { "$ref": "common.json#/label" },
+    "resource": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+            "location": { "$ref": "common.json#/location" },
+            "server": {
+                "type": "array",
+                "items": { "$ref": "common.json#/hostport" }
+            },
+            "nameservers": {
+                "type": "array",
+                "items": {
+                    "type": "string",
+                    "format": "hostname"
+                }
+            },
+            "rest-server": {
+                "type": "array",
+                "items": { "$ref": "common.json#/hostport" }
+            },
+            "zkurl": { "type": "string" },
+            "fqdn": { "type": "string", "format": "hostname" },
+            "ttl": {
+                "type": "integer",
+                "minimum": 0
+            }
+        }
+    }
+}

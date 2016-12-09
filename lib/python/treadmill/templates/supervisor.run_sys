@@ -8,4 +8,5 @@ ECHO={{ echo }}
 DATE={{ date }}
 
 $ECHO $($DATE) - $$ >> self.pid
+
 exec {{ cmd }}

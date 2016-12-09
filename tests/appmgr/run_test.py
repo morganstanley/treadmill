@@ -68,6 +68,7 @@ class AppMgrRunTest(unittest.TestCase):
     @mock.patch('treadmill.subproc.check_call', mock.Mock())
     @mock.patch('treadmill.utils.rootdir',
                 mock.Mock(return_value='/test_treadmill'))
+    @mock.patch('shutil.copytree', mock.Mock())
     @mock.patch('shutil.copyfile', mock.Mock())
     def test__create_root_dir(self):
         """Test creation on the container root directory."""
@@ -104,16 +105,15 @@ class AppMgrRunTest(unittest.TestCase):
             '/some/root_dir',
             app
         )
-        treadmill.fs.mkdir_safe.assert_called_with('/some/root_dir/.etc')
-        treadmill.fs.mount_bind.assert_called_with(
-            '/some/root_dir',
-            '/treadmill',
-            '/test_treadmill',
+        shutil.copytree.assert_called_with(
+            os.path.join(self.app_env.root, 'etc'),
+            '/some/root_dir/.etc'
         )
-        shutil.copyfile.assert_call_with(
-            os.path.join(self.app_env.root, 'etc/resolv.conf'),
-            '/some/root_dir/.etc/resolve.conf'
+        shutil.copyfile.assert_called_with(
+            '/etc/hosts',
+            '/some/root_dir/.etc/hosts'
         )
+
         treadmill.subproc.check_call.assert_has_calls([
             mock.call(
                 [
@@ -302,7 +302,7 @@ class AppMgrRunTest(unittest.TestCase):
                       '/path/to/command',
                       as_root=True,
                       down=True,
-                      envdir='/environ',
+                      envdirs=['/environ/app', '/environ/sys'],
                       env='prod'),
             mock.call('/some/dir/services',
                       'myproid',
@@ -311,7 +311,7 @@ class AppMgrRunTest(unittest.TestCase):
                       '/path/to/other/command',
                       as_root=True,
                       down=True,
-                      envdir='/environ',
+                      envdirs=['/environ/app', '/environ/sys'],
                       env='prod'),
             # system services
             mock.call('/some/dir/services',
@@ -321,7 +321,7 @@ class AppMgrRunTest(unittest.TestCase):
                       '/path/to/sbin/command',
                       as_root=True,
                       down=False,
-                      envdir='/environ',
+                      envdirs=['/environ/sys'],
                       env='prod'),
             mock.call('/some/dir/services',
                       'root',
@@ -330,7 +330,7 @@ class AppMgrRunTest(unittest.TestCase):
                       '/path/to/other/sbin/command',
                       as_root=True,
                       down=False,
-                      envdir='/environ',
+                      envdirs=['/environ/sys'],
                       env='prod')
         ])
 
@@ -372,36 +372,46 @@ class AppMgrRunTest(unittest.TestCase):
             mock.call('/some/dir/sys/start_container/down'),
         ])
 
-    @mock.patch('socket._socketobject.bind', mock.Mock())
-    @mock.patch('socket._socketobject.getsockname', mock.Mock())
+    @mock.patch('socket.socket', mock.Mock(autospec=True))
+    @mock.patch('treadmill.appmgr.run._allocate_sockets', mock.Mock())
     def test__allocate_network_ports(self):
         """Test network port allocation.
         """
         # access protected module _allocate_network_ports
         # pylint: disable=w0212
-        socket._socketobject.getsockname.side_effect = [
+        treadmill.appmgr.run._allocate_sockets.side_effect = \
+            lambda _x, _y, _z, count: [socket.socket()] * count
+        mock_socket = socket.socket.return_value
+        mock_socket.getsockname.side_effect = [
             ('unused', 50001),
             ('unused', 60001),
-            ('unused', 54321),
             ('unused', 10000),
             ('unused', 10001),
             ('unused', 10002),
-            ('unused', 10000),
-            ('unused', 10001),
-            ('unused', 10002)
+            ('unused', 12345),
+            ('unused', 54321),
         ]
         manifest = {
-            'endpoints': [{
-                'name': 'http',
-                'port': 8000,
-            }, {
-                'name': 'port0',
-                'port': 0,
-            }, {
-                'name': 'ssh',
-                'port': 0,
-                'type': 'infra',
-            }],
+            'environment': 'dev',
+            'endpoints': [
+                {
+                    'name': 'http',
+                    'port': 8000,
+                    'proto': 'tcp',
+                }, {
+                    'name': 'ssh',
+                    'port': 0,
+                    'proto': 'tcp',
+                }, {
+                    'name': 'dns',
+                    'port': 5353,
+                    'proto': 'udp',
+                }, {
+                    'name': 'port0',
+                    'port': 0,
+                    'proto': 'udp',
+                }
+            ],
             'ephemeral_ports': 3,
         }
 
@@ -422,10 +432,15 @@ class AppMgrRunTest(unittest.TestCase):
         self.assertEquals(60001,
                           manifest['endpoints'][1]['real_port'])
 
-        self.assertEquals(54321,
+        self.assertEquals(5353,
                           manifest['endpoints'][2]['port'])
-        self.assertEquals(54321,
+        self.assertEquals(12345,
                           manifest['endpoints'][2]['real_port'])
+
+        self.assertEquals(54321,
+                          manifest['endpoints'][3]['port'])
+        self.assertEquals(54321,
+                          manifest['endpoints'][3]['real_port'])
 
         self.assertEquals([10000, 10001, 10002],
                           manifest['ephemeral_ports'])
@@ -451,8 +466,17 @@ class AppMgrRunTest(unittest.TestCase):
                 'shared_ip': True,
                 'ephemeral_ports': [],
                 'endpoints': [
-                    {'real_port': '5007', 'port': '22', 'type': 'infra'},
-                    {'real_port': '5013', 'port': '12345'}
+                    {
+                        'real_port': '5007',
+                        'proto': 'tcp',
+                        'port': '22',
+                        'type': 'infra'
+                    },
+                    {
+                        'real_port': '5013',
+                        'proto': 'udp',
+                        'port': '12345'
+                    }
                 ],
             }
         )
@@ -465,14 +489,19 @@ class AppMgrRunTest(unittest.TestCase):
                       '192.168.1.1,tcp:22'),
         ])
 
-        self.app_env.rules.create_rule.assert_has_calls([
-            mock.call(rule=firewall.DNATRule('172.31.81.67', '5007',
-                                             '192.168.1.1', '22'),
-                      owner=app_unique_name),
-            mock.call(rule=firewall.DNATRule('172.31.81.67', '5013',
-                                             '192.168.1.1', '12345'),
-                      owner=app_unique_name)
-        ])
+        self.app_env.rules.create_rule.assert_has_calls(
+            [
+                mock.call(rule=firewall.DNATRule('tcp',
+                                                 '172.31.81.67', '5007',
+                                                 '192.168.1.1', '22'),
+                          owner=app_unique_name),
+                mock.call(rule=firewall.DNATRule('udp',
+                                                 '172.31.81.67', '5013',
+                                                 '192.168.1.1', '12345'),
+                          owner=app_unique_name)
+            ],
+            any_order=True
+        )
         treadmill.newnet.create_newnet.assert_called_with(
             'id1234.0',
             '192.168.1.1',
@@ -504,6 +533,13 @@ class AppMgrRunTest(unittest.TestCase):
                         'port': 54321,
                         'real_port': 54321,
                         'type': 'infra',
+                        'proto': 'tcp',
+                    },
+                    {
+                        'name': 'test2',
+                        'port': 54322,
+                        'real_port': 54322,
+                        'proto': 'udp',
                     }
                 ],
                 'ephemeral_ports': [
@@ -532,26 +568,37 @@ class AppMgrRunTest(unittest.TestCase):
             app
         )
 
-        self.app_env.rules.create_rule.assert_has_calls([
-            mock.call(rule=firewall.DNATRule('172.31.81.67', 54321,
-                                             '192.168.0.2', 54321),
-                      owner=app_unique_name),
-            mock.call(rule=firewall.DNATRule('172.31.81.67', 10000,
-                                             '192.168.0.2', 10000),
-                      owner=app_unique_name),
-            mock.call(rule=firewall.DNATRule('172.31.81.67', 10001,
-                                             '192.168.0.2', 10001),
-                      owner=app_unique_name),
-            mock.call(rule=firewall.DNATRule('172.31.81.67', 10002,
-                                             '192.168.0.2', 10002),
-                      owner=app_unique_name),
-            mock.call(rule=firewall.PassThroughRule('4.4.4.4',
-                                                    '192.168.0.2'),
-                      owner=app_unique_name),
-            mock.call(rule=firewall.PassThroughRule('5.5.5.5',
-                                                    '192.168.0.2'),
-                      owner=app_unique_name),
-        ])
+        self.app_env.rules.create_rule.assert_has_calls(
+            [
+                mock.call(rule=firewall.DNATRule('tcp',
+                                                 '172.31.81.67', 54321,
+                                                 '192.168.0.2', 54321),
+                          owner=app_unique_name),
+                mock.call(rule=firewall.DNATRule('udp',
+                                                 '172.31.81.67', 54322,
+                                                 '192.168.0.2', 54322),
+                          owner=app_unique_name),
+                mock.call(rule=firewall.DNATRule('tcp',
+                                                 '172.31.81.67', 10000,
+                                                 '192.168.0.2', 10000),
+                          owner=app_unique_name),
+                mock.call(rule=firewall.DNATRule('tcp',
+                                                 '172.31.81.67', 10001,
+                                                 '192.168.0.2', 10001),
+                          owner=app_unique_name),
+                mock.call(rule=firewall.DNATRule('tcp',
+                                                 '172.31.81.67', 10002,
+                                                 '192.168.0.2', 10002),
+                          owner=app_unique_name),
+                mock.call(rule=firewall.PassThroughRule('4.4.4.4',
+                                                        '192.168.0.2'),
+                          owner=app_unique_name),
+                mock.call(rule=firewall.PassThroughRule('5.5.5.5',
+                                                        '192.168.0.2'),
+                          owner=app_unique_name),
+            ],
+            any_order=True
+        )
 
         # Check that infra services + ephemeral ports are in the same set.
         treadmill.iptables.add_ip_set.assert_has_calls([
@@ -728,6 +775,12 @@ class AppMgrRunTest(unittest.TestCase):
             ),
             mock.call(
                 os.path.join(app_dir, 'root'),
+                '/etc/hosts',
+                bind_opt='--bind',
+                target=os.path.join(app_dir, 'root/.etc/hosts')
+            ),
+            mock.call(
+                os.path.join(app_dir, 'root'),
                 '/etc/ld.so.preload',
                 bind_opt='--bind',
                 target=os.path.join(app_dir, 'root/.etc/ld.so.preload')
@@ -736,7 +789,7 @@ class AppMgrRunTest(unittest.TestCase):
                 os.path.join(app_dir, 'root'),
                 '/etc/pam.d/sshd',
                 bind_opt='--bind',
-                target=os.path.join(app_dir, 'root/treadmill/etc/pam.d/sshd')
+                target=os.path.join(app_dir, 'root/.etc/pam.d/sshd')
             ),
         ])
 

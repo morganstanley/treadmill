@@ -67,7 +67,7 @@ def init():
         sys_svcs_no_metrics = set()
 
         sys_maj_min = '%s:0' % os.major(os.stat(approot).st_dev)
-        logging.info('Device maj:min = %s for approot: %s', sys_maj_min,
+        _LOGGER.info('Device maj:min = %s for approot: %s', sys_maj_min,
                      approot)
 
         core_rrds = ['treadmill.apps.rrd',
@@ -133,7 +133,7 @@ def init():
                 # Removed metrics for apps that are not present anymore
                 rrd_file = os.path.join(
                     app_metrics_dir, '{app}.rrd'.format(app=app_unique_name))
-                logging.info('removing %r', rrd_file)
+                _LOGGER.info('removing %r', rrd_file)
                 rrdclient.forget(rrd_file)
                 os.unlink(rrd_file)
 
@@ -141,6 +141,6 @@ def init():
             time.sleep(step)
 
         # Gracefull shutdown.
-        logging.info('service shutdown.')
+        _LOGGER.info('service shutdown.')
 
     return metrics

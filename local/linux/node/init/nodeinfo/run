@@ -10,4 +10,4 @@ exec 2>&1
 export KRB5CCNAME="FILE:$TREADMILL_HOST_TICKET"
 
 exec {{ treadmill }}/bin/treadmill sproc --cgroup . \
-    nodeinfo server --register --cors-origin='.*' {{ dir }}
+    nodeinfo server --register --cors-origin='.*' -m local

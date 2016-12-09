@@ -33,7 +33,7 @@
     },
     "verbs": {
         "create": {
-            "required": ["scope", "pattern"]
+            "required": ["scope", "pattern", "alias"]
         },
         "update": {
             "required": []

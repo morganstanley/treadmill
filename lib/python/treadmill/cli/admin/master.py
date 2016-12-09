@@ -2,14 +2,11 @@
 from __future__ import absolute_import
 
 import click
-import pandas as pd
 import yaml
 
 from treadmill import cli
 from treadmill import context
 from treadmill import master
-from treadmill import reports
-from treadmill import scheduler as treadmill_sched
 
 
 def server_group(parent):
@@ -284,61 +281,6 @@ def bucket_group(parent):
     del delete
 
 
-def scheduler_group(parent):
-    """Scheduler CLI group"""
-
-    @parent.command()
-    @click.option('--reschedule', default=False)
-    @click.option('--csv', default=False)
-    @click.option(
-        '--view',
-        type=click.Choice(
-            ['servers', 'features', 'apps', 'allocs', 'util']
-        )
-    )
-    @cli.admin.ON_EXCEPTIONS
-    def scheduler(view, reschedule, csv):
-        """View scheduler details"""
-        treadmill_sched.DIMENSION_COUNT = 3
-
-        cell_master = master.Master(context.GLOBAL.zk.conn,
-                                    context.GLOBAL.cell)
-        cell_master.load_buckets()
-        cell_master.load_cell()
-        cell_master.load_servers(readonly=True)
-        cell_master.load_allocations()
-        cell_master.load_strategies()
-        cell_master.load_apps()
-
-        if reschedule:
-            cell_master.cell.schedule()
-
-        output = None
-        if view == 'servers':
-            output = reports.servers(cell_master.cell)
-        if view == 'features':
-            output = reports.node_features(cell_master.cell)
-        if view == 'allocs':
-            allocs = reports.allocations(cell_master.cell)
-            features = reports.allocation_features(cell_master.cell)
-            # TODO: investigate why pd.concat returns series not df.
-            # pylint: disable=R0204
-            output = pd.concat([allocs, features], axis=1)
-        if view == 'apps':
-            output = reports.apps(cell_master.cell)
-        if view == 'util':
-            apps = reports.apps(cell_master.cell)
-            output = reports.utilization(None, apps)
-
-        if output is not None and len(output):
-            if csv:
-                print output.to_csv()
-            else:
-                print output
-
-    del scheduler
-
-
 def identity_group_group(parent):
     """App monitor CLI group"""
     formatter = cli.make_formatter(cli.IdentityGroupPrettyFormatter)
@@ -399,7 +341,6 @@ def init():
     bucket_group(master_group)
     server_group(master_group)
     app_group(master_group)
-    scheduler_group(master_group)
     monitor_group(master_group)
     identity_group_group(master_group)
 

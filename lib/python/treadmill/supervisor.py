@@ -74,7 +74,7 @@ ERR_NO_SUP = 100
 
 
 def create_service(app_root, user, home, shell, service, runcmd,
-                   env=None, down=True, envdir=None, as_root=True,
+                   env=None, down=True, envdirs=None, as_root=True,
                    template=None):
     """Initializes service directory.
 
@@ -91,6 +91,10 @@ def create_service(app_root, user, home, shell, service, runcmd,
         template = 'supervisor.run'
 
     cmd = '/services/{0}/app_start'.format(service)
+
+    if envdirs is None:
+        envdirs = []
+
     utils.create_script(os.path.join(real_svc_dir, 'run'),
                         template,
                         service=service,
@@ -99,7 +103,7 @@ def create_service(app_root, user, home, shell, service, runcmd,
                         shell=shell,
                         cmd=cmd,
                         env=env,
-                        envdir=envdir,
+                        envdirs=envdirs,
                         as_root=as_root)
 
     utils.create_script(os.path.join(real_svc_dir, 'finish'),

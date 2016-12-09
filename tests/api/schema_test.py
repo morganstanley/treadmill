@@ -152,6 +152,14 @@ class ApiSchemaTest(unittest.TestCase):
         _fail(api.create, 'foo.bla',
               _patch(good, '/endpoints/0/port', '1234'))
 
+        # Environ
+        good.update({'environ': [
+            {'name': 'XXX', 'value': 'YYY'}
+        ]})
+        _ok(api.create, 'foo.bla', good)
+        _fail(api.create, 'foo.bla',
+              _patch(good, '/environ/0/name', 1))
+
         # Tickets.
         good.update({'tickets': ['myproid@krb.realm']})
         _ok(api.create, 'foo.bla', good)
@@ -207,6 +215,21 @@ class ApiSchemaTest(unittest.TestCase):
         _ok(api.create, 'foo.bla', good)
         _ok(api.create, 'foo.bla', _patch(good, '/identity_group', 'bar.baz'))
         _fail(api.create, 'foo.bla', _patch(good, '/identity_group', 'bar'))
+
+        # affinity_limits
+        good.update({'affinity_limits': {}})
+        _ok(api.create, 'foo.bla', good)
+        _ok(api.create, 'foo.bla', _patch(good, '/affinity_limits/rack', 2))
+        _ok(api.create, 'foo.bla',
+            _patch(_patch(good,
+                          '/affinity_limits/rack',
+                          2),
+                   '/affinity_limits/pod', 4))
+        _fail(api.create, 'foo.bla', _patch(good, '/affinity_limits/rack', 0))
+        _fail(api.create, 'foo.bla', _patch(good,
+                                            '/affinity_limits/rack',
+                                            'foo'))
+        _fail(api.create, 'foo.bla', _patch(good, '/affinity_limits/foo', 1))
 
     @mock.patch('treadmill.context.AdminContext.conn',
                 mock.Mock(return_value=None))

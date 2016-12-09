@@ -2,10 +2,10 @@
 from __future__ import absolute_import
 
 import errno
-import pwd
-
 import logging
 import os
+import pwd
+import random
 import shutil
 import socket
 import stat
@@ -20,6 +20,7 @@ from .. import cgroups
 from .. import firewall
 from .. import fs
 from .. import iptables
+from .. import logcontext as lc
 from .. import newnet
 from .. import subproc
 from .. import supervisor
@@ -28,7 +29,7 @@ from .. import utils
 from . import manifest as app_manifest
 
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER = lc.ContainerAdapter(logging.getLogger(__name__))
 
 _APP_YML = 'app.yml'
 _STATE_YML = 'state.yml'
@@ -95,124 +96,128 @@ def run(tm_env, container_dir, watchdog, terminated):
     :returns:
         This function never returns
     """
-    # R0915: Need to refactor long function into smaller pieces.
-    # R0912: Too many branches
-    #
-    # pylint: disable=R0915,R0912
-    _LOGGER.info('Running %r', container_dir)
+    with lc.LogContext(_LOGGER, os.path.basename(container_dir),
+                       lc.ContainerAdapter) as log:
+        # R0915: Need to refactor long function into smaller pieces.
+        # R0912: Too many branches
+        #
+        # pylint: disable=R0915,R0912
+        log.info('Running %r', container_dir)
 
-    manifest_file = os.path.join(container_dir, _APP_YML)
-    manifest = app_manifest.read(manifest_file)
+        manifest_file = os.path.join(container_dir, _APP_YML)
+        manifest = app_manifest.read(manifest_file)
 
-    # Allocate dynamic ports
-    #
-    # Ports are taken from ephemeral range, by binding to socket to port 0.
-    #
-    # Sockets are then put into global list, so that they are not closed
-    # at gc time, and address remains in use for the lifetime of the
-    # supervisor.
-    sockets = _allocate_network_ports(
-        tm_env.host_ip, manifest
-    )
-
-    unique_name = appmgr.manifest_unique_name(manifest)
-    # First wait for the network device to be ready
-    network_client = tm_env.svc_network.make_client(
-        os.path.join(container_dir, 'network')
-    )
-    app_network = network_client.wait(unique_name)
-
-    manifest['network'] = app_network
-    # FIXME(boysson): backward compatibility for TM 2.0. Remove in 3.0
-    manifest['vip'] = {
-        'ip0': app_network['gateway'],
-        'ip1': app_network['vip'],
-    }
-
-    # Save the manifest with allocated vip and ports in the state
-    state_file = os.path.join(container_dir, _STATE_YML)
-    with tempfile.NamedTemporaryFile(dir=container_dir,
-                                     delete=False) as temp_file:
-        yaml.dump(manifest, stream=temp_file)
-        # chmod for the file to be world readable.
-        os.fchmod(
-            temp_file.fileno(),
-            stat.S_IWUSR | stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH
+        # Allocate dynamic ports
+        #
+        # Ports are taken from ephemeral range, by binding to socket to port 0.
+        #
+        # Sockets are then put into global list, so that they are not closed
+        # at gc time, and address remains in use for the lifetime of the
+        # supervisor.
+        sockets = _allocate_network_ports(
+            tm_env.host_ip, manifest
         )
-    os.rename(temp_file.name, state_file)
 
-    # Freeze the app data into a namedtuple object
-    app = utils.to_obj(manifest)
+        unique_name = appmgr.manifest_unique_name(manifest)
+        # First wait for the network device to be ready
+        network_client = tm_env.svc_network.make_client(
+            os.path.join(container_dir, 'network')
+        )
+        app_network = network_client.wait(unique_name)
 
-    if not app.shared_network:
-        _unshare_network(tm_env, app)
+        manifest['network'] = app_network
+        # FIXME(boysson): backward compatibility for TM 2.0. Remove in 3.0
+        manifest['vip'] = {
+            'ip0': app_network['gateway'],
+            'ip1': app_network['vip'],
+        }
 
-    # Create root directory structure (chroot base).
-    # container_dir/<subdir>
-    root_dir = os.path.join(container_dir, 'root')
+        # Save the manifest with allocated vip and ports in the state
+        state_file = os.path.join(container_dir, _STATE_YML)
+        with tempfile.NamedTemporaryFile(dir=container_dir,
+                                         delete=False) as temp_file:
+            yaml.dump(manifest, stream=temp_file)
+            # chmod for the file to be world readable.
+            os.fchmod(
+                temp_file.fileno(),
+                stat.S_IWUSR | stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH
+            )
+        os.rename(temp_file.name, state_file)
 
-    # chroot_dir/<subdir>
-    # FIXME(boysson): env_dir should be in a well defined location (part of the
-    #                 container "API").
-    env_dir = os.path.join(root_dir, 'environ')
+        # Freeze the app data into a namedtuple object
+        app = utils.to_obj(manifest)
 
-    # Create and format the container root volumne
-    _create_root_dir(tm_env, container_dir, root_dir, app)
+        if not app.shared_network:
+            _unshare_network(tm_env, app)
 
-    # NOTE: below here, MOUNT namespace is private
+        # Create root directory structure (chroot base).
+        # container_dir/<subdir>
+        root_dir = os.path.join(container_dir, 'root')
 
-    # FIXME(boysson): Lots of things are still reading this file.
-    #                 Copy updated state manifest as app.yml in the
-    #                 container_dir so it is visible in chrooted environment.
-    shutil.copy(state_file, os.path.join(root_dir, _APP_YML))
-    _create_environ_dir(env_dir, app)
-    # Create the supervision tree
-    _create_supervision_tree(container_dir, tm_env.app_events_dir, app)
+        # chroot_dir/<subdir>
+        # FIXME(boysson): env_dir should be in a well defined location (part
+        #                 of the container "API").
+        env_dir = os.path.join(root_dir, 'environ')
 
-    # Set app limits before chroot.
-    _share_cgroup_info(app, root_dir)
+        # Create and format the container root volumne
+        _create_root_dir(tm_env, container_dir, root_dir, app)
 
-    ldpreloads = []
-    if app.ephemeral_ports:
-        treadmill_bind_preload = subproc.resolve('treadmill_bind_preload.so')
-        ldpreloads.append(treadmill_bind_preload)
+        # NOTE: below here, MOUNT namespace is private
 
-    _prepare_ldpreload(root_dir, ldpreloads)
+        # FIXME(boysson): Lots of things are still reading this file.
+        #                 Copy updated state manifest as app.yml in the
+        #                 container_dir so it is visible in chrooted env.
+        shutil.copy(state_file, os.path.join(root_dir, _APP_YML))
+        _create_environ_dir(env_dir, app)
+        # Create the supervision tree
+        _create_supervision_tree(container_dir, tm_env.app_events_dir, app)
 
-    def _bind(src, tgt):
-        """Helper function to bind source to target in the same root"""
-        # FIXME(boysson): This name mount_bind() have conter-intuitive
-        #                 arguments ordering.
-        fs.mount_bind(root_dir, tgt,
-                      target='%s/%s' % (root_dir, src),
-                      bind_opt='--bind')
+        # Set app limits before chroot.
+        _share_cgroup_info(app, root_dir)
 
-    # Override the /etc/resolv.conf, so that container always uses
-    # dnscache.
-    _bind('.etc/resolv.conf', '/etc/resolv.conf')
+        ldpreloads = []
+        if app.ephemeral_ports:
+            treadmill_bind_preload = subproc.resolve(
+                'treadmill_bind_preload.so')
+            ldpreloads.append(treadmill_bind_preload)
 
-    if ldpreloads:
-        # Override /etc/ld.so.preload to enforce necessary system hooks
-        _bind('.etc/ld.so.preload', '/etc/ld.so.preload')
+        _prepare_ldpreload(root_dir, ldpreloads)
 
-    # If network is shared, close ephermal sockets before starting the
-    # supervisor, as these ports will be use be container apps.
-    if app.shared_network:
-        for socket_ in sockets:
-            socket_.close()
+        def _bind(src, tgt):
+            """Helper function to bind source to target in the same root"""
+            # FIXME(boysson): This name mount_bind() have conter-intuitive
+            #                 arguments ordering.
+            fs.mount_bind(root_dir, tgt,
+                          target='%s/%s' % (root_dir, src),
+                          bind_opt='--bind')
 
-        # Override pam.d sshd stack with special sshd pam that unshares
-        # network.
-        _bind('/treadmill/etc/pam.d/sshd.shared_network', '/etc/pam.d/sshd')
-    else:
-        # Override pam.d sshd stack.
-        _bind('treadmill/etc/pam.d/sshd', '/etc/pam.d/sshd')
+        # Override the /etc/resolv.conf, so that container always uses
+        # dnscache.
+        _bind('.etc/resolv.conf', '/etc/resolv.conf')
+        _bind('.etc/hosts', '/etc/hosts')
 
-    watchdog.remove()
+        if ldpreloads:
+            # Override /etc/ld.so.preload to enforce necessary system hooks
+            _bind('.etc/ld.so.preload', '/etc/ld.so.preload')
 
-    if not terminated:
-        sys_dir = os.path.join(container_dir, 'sys')
-        supervisor.exec_root_supervisor(sys_dir)
+        # If network is shared, close ephermal sockets before starting the
+        # supervisor, as these ports will be use be container apps.
+        if app.shared_network:
+            for socket_ in sockets:
+                socket_.close()
+
+            # Override pam.d sshd stack with special sshd pam that unshares
+            # network.
+            _bind('.etc/pam.d/sshd.shared_network', '/etc/pam.d/sshd')
+        else:
+            # Override pam.d sshd stack.
+            _bind('.etc/pam.d/sshd', '/etc/pam.d/sshd')
+
+        watchdog.remove()
+
+        if not terminated:
+            sys_dir = os.path.join(container_dir, 'sys')
+            supervisor.exec_root_supervisor(sys_dir)
 
 
 def _unshare_network(tm_env, app):
@@ -229,7 +234,8 @@ def _unshare_network(tm_env, app):
                      endpoint.real_port,
                      app.network.vip,
                      endpoint.port)
-        dnatrule = firewall.DNATRule(orig_ip=tm_env.host_ip,
+        dnatrule = firewall.DNATRule(proto=endpoint.proto,
+                                     orig_ip=tm_env.host_ip,
                                      orig_port=endpoint.real_port,
                                      new_ip=app.network.vip,
                                      new_port=endpoint.port)
@@ -243,8 +249,9 @@ def _unshare_network(tm_env, app):
                           app.network.vip, endpoint.port)
             iptables.add_ip_set(
                 iptables.SET_INFRA_SVC,
-                '{ip},tcp:{port}'.format(
+                '{ip},{proto}:{port}'.format(
                     ip=app.network.vip,
+                    proto=endpoint.proto,
                     port=endpoint.port,
                 )
             )
@@ -253,7 +260,8 @@ def _unshare_network(tm_env, app):
         _LOGGER.info('Creating ephemeral DNAT rule: %s:%s -> %s:%s',
                      tm_env.host_ip, port,
                      app.network.vip, port)
-        dnatrule = firewall.DNATRule(orig_ip=tm_env.host_ip,
+        dnatrule = firewall.DNATRule(proto='tcp',
+                                     orig_ip=tm_env.host_ip,
                                      orig_port=port,
                                      new_ip=app.network.vip,
                                      new_port=port)
@@ -297,6 +305,11 @@ def _unshare_network(tm_env, app):
 
 def _create_environ_dir(env_dir, app):
     """Creates environ dir for s6-envdir."""
+    appenv = {envvar.name: envvar.value for envvar in app.environ}
+    supervisor.create_environ_dir(
+        os.path.join(env_dir, 'app'),
+        appenv
+    )
 
     env = {
         'TREADMILL_CPU': app.cpu,
@@ -308,6 +321,7 @@ def _create_environ_dir(env_dir, app):
         'TREADMILL_HOST_IP': app.host_ip,
         'TREADMILL_IDENTITY': app.identity,
         'TREADMILL_IDENTITY_GROUP': app.identity_group,
+        'TREADMILL_PROID': app.proid,
     }
 
     for endpoint in app.endpoints:
@@ -320,15 +334,11 @@ def _create_environ_dir(env_dir, app):
 
     env['TREADMILL_CONTAINER_IP'] = app.vip.ip1
 
-    # FIXME(boysson): Everything below is for backward compatibility. Remove
-    #                 for Treadmill 3.0
-    env['TREADMILL_IP_0'] = app.vip.ip0
-    env['TREADMILL_IP_1'] = app.vip.ip1
-    env['TREADMILL_PROID'] = app.proid
-    env['TREADMILL_TASK'] = app.task
-    env['TREADMILL_NAME'] = app.name
-
-    supervisor.create_environ_dir(env_dir, env)
+    # Override appenv with mandatory treadmill environment.
+    supervisor.create_environ_dir(
+        os.path.join(env_dir, 'sys'),
+        env
+    )
 
 
 def _create_logrun(directory):
@@ -382,8 +392,10 @@ def _create_supervision_tree(container_dir, app_events_dir, app):
             svc_shell = proid_pw.pw_shell
 
         supervisor.create_service(
-            services_dir, svc_user, svc_home, svc_shell, svc.name, svc.command,
-            env=app.environment, down=True, envdir='/environ', as_root=True,
+            services_dir, svc_user, svc_home, svc_shell,
+            svc.name, svc.command,
+            env=app.environment, down=True,
+            envdirs=['/environ/app', '/environ/sys'], as_root=True,
         )
         _create_logrun(os.path.join(services_dir, svc.name))
 
@@ -391,7 +403,8 @@ def _create_supervision_tree(container_dir, app_events_dir, app):
         supervisor.create_service(
             services_dir, 'root', root_pw.pw_dir, root_pw.pw_shell,
             svc.name, svc.command,
-            env=app.environment, down=False, envdir='/environ', as_root=True,
+            env=app.environment, down=False,
+            envdirs=['/environ/sys'], as_root=True,
         )
         _create_logrun(os.path.join(services_dir, svc.name))
 
@@ -479,16 +492,15 @@ def _create_root_dir(tm_env, container_dir, root_dir, app):
 
     fs.configure_plugins(tm_env.root, root_dir, app)
 
-    # Rather hairy setup of /etc/resolv.conf inside the container.
-    fs.mkdir_safe(os.path.join(root_dir, '.etc'))
-    shutil.copyfile(
-        os.path.join(tm_env.root, 'etc/resolv.conf'),
-        os.path.join(root_dir, '.etc/resolv.conf')
+    shutil.copytree(
+        os.path.join(tm_env.root, 'etc'),
+        os.path.join(root_dir, '.etc')
     )
 
-    # fixme(boysson): change the way the treadmill install appears inside the
-    #                 container (zero afs inside).
-    fs.mount_bind(root_dir, '/treadmill', utils.rootdir())
+    shutil.copyfile(
+        '/etc/hosts',
+        os.path.join(root_dir, '.etc/hosts')
+    )
 
     # Always use our own resolv.conf. Safe to rbind, as we are running in
     # private mount subsystem by now.
@@ -522,50 +534,36 @@ def _share_cgroup_info(app, root_dir):
 
 ###############################################################################
 # Port/socket allocations
-def _allocate_sockets(host_ip, count):
+
+def _allocate_sockets(environment, host_ip, sock_type, count):
     """Return a list of `count` socket bound to an ephemeral port.
     """
+    # TODO(boysson): this should probably be abstracted away
+    if environment == 'prod':
+        port_pool = xrange(iptables.PROD_PORT_LOW,
+                           iptables.PROD_PORT_HIGH + 1)
+    else:
+        port_pool = xrange(iptables.NONPROD_PORT_LOW,
+                           iptables.NONPROD_PORT_HIGH + 1)
+
+    port_pool = random.sample(port_pool, iptables.PORT_SPAN)
+
     # socket objects are closed on GC so we need to return
     # them and expect the caller to keep them around while needed
     sockets = []
 
+    port_pool_iter = iter(port_pool)
     for _ in xrange(count):
-        socket_ = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        socket_.bind((host_ip, 0))
+        socket_ = socket.socket(socket.AF_INET, sock_type)
+        real_port = port_pool_iter.next()
+        try:
+            socket_.bind((host_ip, real_port))
+        except socket.error as err:
+            if err.errno == errno.EADDRINUSE:
+                continue
+            raise
+        socket_.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         sockets.append(socket_)
-
-    return sockets
-
-
-def _allocate_endpoint_ports(host_ip, endpoints):
-    """Allocate an ephemeral_port for each of the endpoints.
-    """
-    sockets = _allocate_sockets(host_ip, len(endpoints))
-
-    for (endpoint, socket_) in zip(endpoints, sockets):
-        endpoint['real_port'] = socket_.getsockname()[1]
-
-        # Specifying port 0 tells appmgr that application wants to
-        # have same numeric port value in the container and in
-        # the public interface.
-        #
-        # This is needed for applications that advertise ports they
-        # listen on to other members of the app/cluster.
-        if endpoint['port'] == 0:
-            endpoint['port'] = endpoint['real_port']
-
-    return sockets
-
-
-def _allocate_ephemeral_ports(host_ip, ephemeral_ports):
-    """Allocate the requested number of ephemeral_ports.
-    """
-    sockets = _allocate_sockets(host_ip, len(ephemeral_ports))
-
-    ephemeral_ports[:] = [
-        socket_.getsockname()[1]
-        for socket_ in sockets
-    ]
 
     return sockets
 
@@ -579,21 +577,79 @@ def _allocate_network_ports(host_ip, manifest):
     # Ephemeral_ports needs to be a list
     ephemeral_count = manifest.get('ephemeral_ports', 0)
     # FIXME(boysson): Hack to work around the fact that we change the type of
-    #                 'ephemeral_ports' from integer to list
+    #                 'ephemeral_ports' from integer to list below
     if isinstance(ephemeral_count, list):
         ephemeral_count = len(ephemeral_count)
-    manifest['ephemeral_ports'] = [0] * ephemeral_count
 
-    endpoint_sockets = _allocate_endpoint_ports(
-        host_ip,
-        manifest['endpoints'],
+    udp_port_count = len(
+        [
+            ep
+            for ep in manifest['endpoints']
+            if ep.get('proto', 'tcp') == 'udp'
+        ]
     )
-    ephemeral_sockets = _allocate_ephemeral_ports(
-        host_ip,
-        manifest['ephemeral_ports'],
+    tcp_port_count = (
+        len(manifest['endpoints']) - udp_port_count
+        + ephemeral_count
     )
 
-    return endpoint_sockets + ephemeral_sockets
+    tcp_sockets = _allocate_sockets(
+        manifest['environment'],
+        host_ip,
+        socket.SOCK_STREAM,
+        tcp_port_count
+    )
+    udp_sockets = _allocate_sockets(
+        manifest['environment'],
+        host_ip,
+        socket.SOCK_DGRAM,
+        udp_port_count
+    )
+
+    # Assign the TCP sockets
+    #
+    tcp_sock_iter = iter(tcp_sockets)
+    for endpoint in manifest['endpoints']:
+        if endpoint.get('proto', 'tcp') != 'tcp':
+            continue
+
+        tcp_sock = tcp_sock_iter.next()
+        endpoint['real_port'] = tcp_sock.getsockname()[1]
+
+        # Specifying port 0 tells appmgr that application wants to
+        # have same numeric port value in the container and in
+        # the public interface.
+        #
+        # This is needed for applications that advertise ports they
+        # listen on to other members of the app/cluster.
+        if endpoint['port'] == 0:
+            endpoint['port'] = endpoint['real_port']
+
+    # Ephemeral port are the rest of the TCP ports
+    manifest['ephemeral_ports'] = [
+        tcp_sock.getsockname()[1]
+        for tcp_sock in tcp_sock_iter
+    ]
+
+    # Assign UDP sockets
+    #
+    udp_sock_iter = iter(udp_sockets)
+    for endpoint in manifest['endpoints']:
+        if endpoint.get('proto', 'tcp') != 'udp':
+            continue
+
+        endpoint['real_port'] = udp_sock_iter.next().getsockname()[1]
+
+        # Specifying port 0 tells appmgr that application wants to
+        # have same numeric port value in the container and in
+        # the public interface.
+        #
+        # This is needed for applications that advertise ports they
+        # listen on to other members of the app/cluster.
+        if endpoint['port'] == 0:
+            endpoint['port'] = endpoint['real_port']
+
+    return tcp_sockets + udp_sockets
 
 
 ###############################################################################

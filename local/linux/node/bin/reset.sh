@@ -22,3 +22,4 @@ $ECHO "Re-apply Treadmill template"
             node --install-dir {{ dir }}
 
 exec "{{ dir }}/bin/upgrade.sh"
+

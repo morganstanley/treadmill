@@ -1,8 +1,11 @@
 """Unit test for websocket.
 """
 
-import json
 import unittest
+import tempfile
+import os
+import shutil
+import time
 
 # Disable W0611: Unused import
 import tests.treadmill_test_deps  # pylint: disable=W0611
@@ -11,47 +14,122 @@ import mock
 from tornado import gen
 from tornado import web
 from tornado.concurrent import Future
-from tornado.httpclient import HTTPError, HTTPRequest
 from tornado.testing import AsyncHTTPTestCase
 from tornado.testing import gen_test
 from tornado.websocket import websocket_connect
 
-from treadmill import context
 from treadmill import websocket
 
 
-class EchoHandlerTest(websocket.WebSocketHandlerBase):
-    """Test WebSocketHandlerBase with a simple Echo server"""
-    def on_message(self, message):
-        """Simple echo/return same message"""
-        self.write_message(message)
+class DummyHandler(object):
+    """Dummy handler to test pubsub functionality."""
+
+    def __init__(self, *_args, **_kwargs):
+        # Explicitely do not call __init__ of the base.
+        #
+        # pylint: disable=W0231
+        self.events = []
+
+    def subscribe(self, _message):
+        """noop."""
+        return []
+
+    def on_event(self, filename, operation, content):
+        """Append event for further validation."""
+        self.events.append((filename, operation, content))
 
 
-class ErrorHandlerTest(websocket.WebSocketHandlerBase):
-    """Test WebSocketHandlerBase with an error response"""
-    def on_message(self, message):
-        """Simple echo/return same message"""
-        self.send_error_msg("Bad request")
+class PubSubTest(unittest.TestCase):
+    """Test Websocket dirwatch pubsub."""
+
+    def setUp(self):
+        self.root = tempfile.mkdtemp()
+
+    def tearDown(self):
+        if self.root and os.path.isdir(self.root):
+            shutil.rmtree(self.root)
+
+    def test_pubsub(self):
+        """Tests subscription."""
+        pubsub = websocket.DirWatchPubSub(self.root)
+        handler1 = DummyHandler()
+        handler2 = DummyHandler()
+
+        open(os.path.join(self.root, 'xxx'), 'w+').close()
+        open(os.path.join(self.root, 'aaa'), 'w+').close()
+
+        ws1 = mock.Mock()
+        ws2 = mock.Mock()
+
+        ws1.active.return_value = True
+        ws2.active.return_value = True
+
+        pubsub.register('/', '*', ws1, handler1, True)
+        pubsub.register('/', 'a*', ws2, handler2, True)
+
+        self.assertEquals(2, len(pubsub.handlers[self.root]))
+
+        self.assertIn(('/aaa', None, ''), handler1.events)
+        self.assertIn(('/xxx', None, ''), handler1.events)
+        self.assertEquals(
+            [('/aaa', None, '')],
+            handler2.events
+        )
+
+        with open(os.path.join(self.root, 'abc'), 'w+') as f:
+            f.write('x')
+
+        pubsub.run(once=True)
+
+        self.assertIn(('/abc', 'c', 'x'), handler1.events)
+        self.assertIn(('/abc', 'm', 'x'), handler1.events)
+        self.assertIn(('/abc', 'c', 'x'), handler2.events)
+        self.assertIn(('/abc', 'm', 'x'), handler2.events)
+
+        # Simulate connection close.
+        ws1.active.return_value = False
+
+        pubsub.run(once=True)
+        self.assertEquals(1, len(pubsub.handlers[self.root]))
+
+    def test_sow_since(self):
+        """Tests sow since handling."""
+        # Access to protected member: _sow
+        #
+        # pylint: disable=W0212
+        pubsub = websocket.DirWatchPubSub(self.root)
+        handler = mock.Mock()
+        impl = mock.Mock()
+        impl.on_event.return_value = {'echo': 1}
+        open(os.path.join(self.root, 'xxx'), 'w+').close()
+        pubsub._sow(self.root, '*', 0, handler, impl)
+
+        handler.write_message.assert_called_with('{"echo": 1}')
+        handler.write_message.reset_mock()
+
+        pubsub._sow(self.root, '*', time.time() + 1, handler, impl)
+        self.assertFalse(handler.write_message.called)
+        handler.write_message.reset_mock()
+
+        pubsub._sow(self.root, '*', time.time() - 1, handler, impl)
+        handler.write_message.assert_called_with('{"echo": 1}')
+        handler.write_message.reset_mock()
 
 
-class MisConfiguredHandlerTest(websocket.WebSocketHandlerBase):
-    """Test WebSocketHandlerBase with an error response"""
-
-
-class WebSocketBaseTestCase(AsyncHTTPTestCase):
+class WebSocketTest(AsyncHTTPTestCase):
     """Base class for all unit test classes below, basically wraps up the
     websocket_connect and the close"""
 
     def setUp(self):
         """Setup test"""
-        context.GLOBAL.cell = 'test'
-        context.GLOBAL.zk.url = 'zookeeper://xxx@yyy:123'
-
-        zkclient_mock = mock.Mock()
-        # zkclient_mock.get_children = mock.MagicMock(return_value=ALL_NODES)
-        context.ZkContext.conn = zkclient_mock
-
+        self.root = tempfile.mkdtemp()
+        self.pubsub = websocket.DirWatchPubSub(self.root)
         AsyncHTTPTestCase.setUp(self)
+
+    def tearDown(self):
+        AsyncHTTPTestCase.tearDown(self)
+        if self.root and os.path.isdir(self.root):
+            shutil.rmtree(self.root)
 
     @gen.coroutine
     def ws_connect(self, path):
@@ -71,71 +149,47 @@ class WebSocketBaseTestCase(AsyncHTTPTestCase):
 
     def get_app(self):
         """Set up all the servers and their paths"""
-        # pylint: disable=W0201
         self.close_future = Future()
+
         return web.Application([
-            ('/echo', EchoHandlerTest),
-            ('/error', ErrorHandlerTest),
-            ('/misconfigured', MisConfiguredHandlerTest),
-            ])
-
-
-class WebSocketServerTests(WebSocketBaseTestCase):
-    """Test cases for Echo server"""
-    @gen_test
-    def test_websocket_http_fail(self):
-        """Test failure to get the correct path"""
-        with self.assertRaises(HTTPError) as cm:
-            yield self.ws_connect('/notfound')
-            self.assertEqual(cm.exception.code, 404)
+            (r'/', self.pubsub.ws),
+        ])
 
     @gen_test
     def test_echo(self):
         """Test return of the same value sent, i.e. echo server"""
-        ws = yield self.ws_connect('/echo')
-        test_str = 'test error'
-        ws.write_message(test_str)
+        open(os.path.join(self.root, 'xxx'), 'w+').close()
+
+        echo_impl = mock.Mock()
+        echo_impl.subscribe.return_value = [('/', '*')]
+        echo_impl.on_event.return_value = {'echo': 1}
+        self.pubsub.impl['echo'] = echo_impl
+
+        ws = yield self.ws_connect('/')
+        echo_msg = '{"topic": "echo"}'
+        ws.write_message(echo_msg)
+        self.pubsub.run(once=True)
         response = yield ws.read_message()
-        self.assertEqual(test_str, response,
-                         "Server did not send {0}, instead sent: {1}"
-                         .format(test_str, response))
+        self.assertEquals('{"echo": 1}', response)
 
     @gen_test
-    def test_good_check_origin(self):
-        """Test good check_origin"""
-        port = self.get_http_port()
-        url = 'ws://127.0.0.1:%d/echo' % port
-        headers = {'Origin': 'http://foo.xx.com'}
-        ws = yield websocket_connect(HTTPRequest(url, headers=headers),
-                                     io_loop=self.io_loop)
-        test_str = 'test error'
-        ws.write_message(test_str)
+    def test_snapshot(self):
+        """Test return of the same value sent, i.e. echo server"""
+        open(os.path.join(self.root, 'xxx'), 'w+').close()
+
+        echo_impl = mock.Mock()
+        echo_impl.subscribe.return_value = [('/', '*')]
+        echo_impl.on_event.return_value = {'echo': 1}
+        self.pubsub.impl['echo'] = echo_impl
+
+        ws = yield self.ws_connect('/')
+        echo_msg = '{"topic": "echo", "snapshot": 1}'
+        ws.write_message(echo_msg)
+        self.pubsub.run(once=True)
         response = yield ws.read_message()
-        self.assertEqual(test_str, response,
-                         "Server did not send {0}, instead sent: {1}"
-                         .format(test_str, response))
-
-    @gen_test
-    def test_error(self):
-        """Test the self.send_error_msg back to the client"""
-        ws = yield self.ws_connect('/error')
-        test_str = 'Bad request'
-        ws.write_message(test_str)
-        response_str = yield ws.read_message()
-        response = json.loads(response_str)
-        self.assertEqual(test_str, response['_error'],
-                         "Server did not send {0}, instead sent: {1}"
-                         .format(test_str, response))
-        self.assertIsNotNone(response['when'],
-                             "Server did not send 'when' key")
-
-    @gen_test
-    def test_misconfigured_class(self):
-        """This test verifies that the BaseException is thrown when you do not
-        override"""
-        with self.assertRaises(BaseException) as cm:
-            yield self.ws_connect('/misconfigured')
-            self.assertEqual(cm.exception.code, 500)
+        self.assertEquals('{"echo": 1}', response)
+        response = yield ws.read_message()
+        self.assertIsNone(response)
 
 
 if __name__ == '__main__':

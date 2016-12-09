@@ -45,7 +45,7 @@ def exit_on_unhandled(func):
         try:
             return func(*args, **kwargs)
         except Exception:  # pylint: disable=W0703
-            logging.exception('Unhandled exception - exiting.')
+            _LOGGER.exception('Unhandled exception - exiting.')
             utils.sys_exit(-1)
 
     return _wrap

@@ -10,11 +10,12 @@ import click
 
 from .. import appmgr
 from .. import idirwatch
+from .. import logcontext as lc
 from .. import subproc
 
 import treadmill
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER = lc.ContainerAdapter(logging.getLogger(__name__))
 
 # FIXME(boysson): This extremely high timeout value comes from the fact that we
 #                 have a very high watchdog value in appmgr.finish.
@@ -48,40 +49,41 @@ def init():
         def _on_created(path):
             """Callback invoked with new cleanup file appears."""
             fullpath = os.path.join(app_env.cleanup_dir, path)
-            if not os.path.islink(fullpath):
-                _LOGGER.info('Ignore - not a link: %s', fullpath)
-                return
+            with lc.LogContext(_LOGGER, os.path.basename(path),
+                               lc.ContainerAdapter) as log:
+                if not os.path.islink(fullpath):
+                    log.info('Ignore - not a link: %s', fullpath)
+                    return
 
-            container_dir = os.readlink(fullpath)
-            _LOGGER.info('Cleanup: %s => %s', path, container_dir)
-            if os.path.exists(container_dir):
+                container_dir = os.readlink(fullpath)
+                log.info('Cleanup: %s => %s', path, container_dir)
+                if os.path.exists(container_dir):
 
-                treadmill_bin = os.path.join(
-                    treadmill.TREADMILL,
-                    'bin',
-                    'treadmill'
-                )
-
-                try:
-                    _LOGGER.info('invoking treadmill_bin script: %r',
-                                 treadmill_bin)
-                    subproc.check_call(
-                        [
-                            treadmill_bin,
-                            'sproc',
-                            'finish',
-                            container_dir
-                        ]
+                    treadmill_bin = os.path.join(
+                        treadmill.TREADMILL,
+                        'bin',
+                        'treadmill'
                     )
-                except subprocess.CalledProcessError as _err:
-                    _LOGGER.exception('Fatal error running %r.',
-                                      treadmill_bin)
-                    raise
 
-            else:
-                _LOGGER.info('Container dir does not exist: %r', container_dir)
+                    try:
+                        log.info('invoking treadmill_bin script: %r',
+                                 treadmill_bin)
+                        subproc.check_call(
+                            [
+                                treadmill_bin,
+                                'sproc',
+                                'finish',
+                                container_dir
+                            ]
+                        )
+                    except subprocess.CalledProcessError as _err:
+                        log.exception('Fatal error running %r.', treadmill_bin)
+                        raise
 
-            os.unlink(fullpath)
+                else:
+                    log.info('Container dir does not exist: %r', container_dir)
+
+                os.unlink(fullpath)
 
         watcher = idirwatch.DirWatcher(app_env.cleanup_dir)
         watcher.on_created = _on_created
@@ -100,7 +102,7 @@ def init():
             # Heartbeat
             watchdog_lease.heartbeat()
 
-        logging.info('Cleanup service shutdown.')
+        _LOGGER.info('Cleanup service shutdown.')
         watchdog_lease.remove()
 
     return top

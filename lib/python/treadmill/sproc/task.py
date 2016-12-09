@@ -35,7 +35,7 @@ def init():
         with lock:
             while True:
                 apptrace.cleanup(context.GLOBAL.zk.conn, TASK_EXPIRATION_TIME)
-                logging.info('Finished cleanup, sleep %s sec',
+                _LOGGER.info('Finished cleanup, sleep %s sec',
                              TASK_EXPIRATION_TIME)
                 time.sleep(TASK_EXPIRATION_TIME)
 

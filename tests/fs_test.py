@@ -85,61 +85,69 @@ class FsTest(unittest.TestCase):
     def test_mount_bind_dir(self):
         """Tests fs.mount_bind directory binding behavior"""
         # test binding directory in /
-        fs.mount_bind(self.root, '/bin')
+        container_dir = os.path.join(self.root, 'container')
+        os.makedirs(container_dir)
+
+        # test binding directory in /
+        foo_dir = os.path.join(self.root, 'foo')
+        os.makedirs(foo_dir)
+        fs.mount_bind(container_dir, foo_dir)
         treadmill.subproc.check_call.assert_called_with(
             [
                 'mount',
                 '-n',
                 '--rbind',
-                '/bin',
-                os.path.join(self.root, 'bin'),
+                foo_dir,
+                os.path.join(container_dir, foo_dir[1:]),
             ]
         )
+        self.assertTrue(
+            os.path.isdir(os.path.join(container_dir, foo_dir[1:]))
+        )
         treadmill.subproc.check_call.reset_mock()
-        self.assertTrue(os.path.isdir('%s/bin' % (self.root)))
 
         # test binding directory with subdirs
-        fs.mount_bind(self.root, '/var/spool/tickets')
+        bar_dir = os.path.join(self.root, 'bar')
+        os.makedirs(os.path.join(bar_dir, 'baz'))
+        fs.mount_bind(container_dir, bar_dir)
         treadmill.subproc.check_call.assert_called_with(
             [
                 'mount',
                 '-n',
                 '--rbind',
-                '/var/spool/tickets',
-                os.path.join(self.root, 'var/spool/tickets'),
+                bar_dir,
+                os.path.join(container_dir, bar_dir[1:])
             ]
         )
+        self.assertTrue(
+            os.path.isdir(os.path.join(container_dir, bar_dir[1:]))
+        )
         treadmill.subproc.check_call.reset_mock()
-        self.assertTrue(os.path.isdir('%s/var/spool/tickets' % (self.root)))
 
     @mock.patch('treadmill.subproc.check_call', mock.Mock())
     def test_mount_bind_file(self):
         """Verifies correct mount options for files vs dirs."""
-        fs.mount_bind(self.root, '/bin/ls')
-        treadmill.subproc.check_call.assert_called_with(
-            [
-                'mount',
-                '-n',
-                '--bind',
-                '/bin/ls',
-                os.path.join(self.root, 'bin/ls'),
-            ]
-        )
-        treadmill.subproc.check_call.reset_mock()
-        self.assertTrue(os.path.isfile('%s/bin/ls' % (self.root)))
+        container_dir = os.path.join(self.root, 'container')
+        os.makedirs(container_dir)
 
-        fs.mount_bind(self.root, '/lib/libc.so.6')
+        # test binding a file
+        foo_file = os.path.join(self.root, 'foo')
+        with open(os.path.join(self.root, 'foo'), 'w'):
+            pass
+        fs.mount_bind(container_dir, foo_file)
         treadmill.subproc.check_call.assert_called_with(
             [
                 'mount',
                 '-n',
                 '--bind',
-                '/lib/libc.so.6',
-                os.path.join(self.root, 'lib/libc.so.6'),
+                foo_file,
+                os.path.join(container_dir, foo_file[1:])
             ]
         )
+        self.assertTrue(
+            os.path.isfile(os.path.join(container_dir, foo_file[1:]))
+        )
         treadmill.subproc.check_call.reset_mock()
-        self.assertTrue(os.path.isfile('%s/lib/libc.so.6' % (self.root)))
 
     @mock.patch('treadmill.subproc.check_call', mock.Mock())
     def test_mount_bind_failures(self):

@@ -47,6 +47,7 @@ class MockStat(object):
 class EventMgrTest(mockzk.MockZookeeperTestCase):
     """Mock test for treadmill.eventmgr.EventMgr."""
 
+    @mock.patch('treadmill.appmgr.AppEnvironment', mock.Mock(autospec=True))
     @mock.patch('treadmill.watchdog.Watchdog', mock.Mock(autospec=True))
     def setUp(self):
         self.root = tempfile.mkdtemp()
@@ -55,10 +56,10 @@ class EventMgrTest(mockzk.MockZookeeperTestCase):
 
         context.GLOBAL.cell = 'test'
         context.GLOBAL.zk.url = 'zookeeper://xxx@yyy:123'
+
         self.evmgr = eventmgr.EventMgr(root=self.root)
-        treadmill.watchdog.Watchdog.assert_called_with(
-            os.path.join(self.root, 'watchdogs'),
-        )
+        self.evmgr.tm_env.root = self.root
+        self.evmgr.tm_env.cache_dir = self.cache
 
     def tearDown(self):
         if self.root and os.path.isdir(self.root):

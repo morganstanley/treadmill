@@ -5,6 +5,9 @@ from __future__ import absolute_import
 
 import logging
 import importlib
+import tornado.httpserver
+import tornado.ioloop
+import tornado.web
 
 import flask
 
@@ -12,7 +15,7 @@ import flask
 FLASK_APP = flask.Flask(__name__)
 FLASK_APP.config['BUNDLE_ERRORS'] = True
 
-_LOGGER = logging.getLogger()
+_LOGGER = logging.getLogger(__name__)
 
 
 class RestServer(object):
@@ -40,5 +43,8 @@ class RestServer(object):
                          self.host, self.port)
 
         FLASK_APP.config['REST_SERVER'] = self
-        FLASK_APP.run(debug=True, use_reloader=False, use_evalex=False,
-                      port=self.port, host=self.host)
+
+        container = tornado.wsgi.WSGIContainer(FLASK_APP)
+        http_server = tornado.httpserver.HTTPServer(container)
+        http_server.listen(self.port)
+        tornado.ioloop.IOLoop.current().start()

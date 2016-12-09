@@ -50,7 +50,7 @@ class API(object):
 
             updated_placement = {}
             for row in yaml.load(placement):
-                instance, _before, after = tuple(row)
+                instance, _before, _exp_before, after, expires = tuple(row)
                 if after is None:
                     state = 'pending'
                 else:
@@ -60,6 +60,7 @@ class API(object):
                 updated_placement[instance] = {
                     'state': state,
                     'host': after,
+                    'expires': expires,
                 }
             cell_state['placement'] = updated_placement
             return True

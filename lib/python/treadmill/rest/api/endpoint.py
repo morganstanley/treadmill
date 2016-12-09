@@ -3,12 +3,11 @@ Treadmill Endpoint REST api.
 """
 from __future__ import absolute_import
 
-# For some reason pylint complains about restplus not being able to import.
-#
-# pylint: disable=E0611,F0401
-import flask.ext.restplus as restplus
+import flask_restplus as restplus
+from flask_restplus import fields
 
-from treadmill import webutils
+# Disable E0611: No 'name' in module
+from treadmill import webutils  # pylint: disable=E0611
 
 
 # Old style classes, no init method.
@@ -20,25 +19,51 @@ def init(api, cors, impl):
     #
     # pylint: disable=R0912
     namespace = webutils.namespace(
-        api, __name__, 'State REST operations'
+        api, __name__, 'Endpoint state REST operations'
+    )
+
+    dns_model = {
+        'endpoint': fields.String(description='Endpoint name'),
+        'name': fields.String(description='Application name'),
+        'port': fields.Integer(description='Endpoint port'),
+        'proto': fields.String(description='Application endpoint protocol'),
+        'host': fields.String(description='Endpoint host'),
+    }
+
+    response_model = api.model(
+        'RespDNS', dns_model
     )
 
     @namespace.route(
         '/<pattern>',
     )
+    @api.doc(params={'pattern': 'Application pattern'})
     class _EndpointList(restplus.Resource):
-        """Treadmill State resource"""
+        """Treadmill Endpoint resource"""
 
-        @webutils.get_api(api, cors)
+        @webutils.get_api(api, cors,
+                          marshal=api.marshal_list_with,
+                          resp_model=response_model)
         def get(self, pattern):
-            """Return all state."""
-            return impl.list(pattern, None)
+            """Return all endpoints"""
+            ret = impl.list(pattern, None, None)
+            print ret
+            return ret
 
     @namespace.route('/<pattern>/<proto>/<endpoint>')
+    @api.doc(params={
+        'pattern': 'Application pattern',
+        'proto': 'Application endpoint protocol',
+        'endpoint': 'Application endpoint name',
+    })
     class _EndpointResource(restplus.Resource):
-        """Treadmill State resource."""
+        """Treadmill Endpoint resource"""
 
-        @webutils.get_api(api, cors)
+        @webutils.get_api(api, cors,
+                          marshal=api.marshal_list_with,
+                          resp_model=response_model)
         def get(self, pattern, proto, endpoint):
-            """Return Treadmill instance state."""
-            return impl.list(pattern, proto, endpoint)
+            """Return Treadmill app endpoint state"""
+            ret = impl.list(pattern, proto, endpoint)
+            print ret
+            return ret

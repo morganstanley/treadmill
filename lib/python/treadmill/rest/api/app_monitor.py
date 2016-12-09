@@ -3,13 +3,12 @@ Treadmill App monitor REST api.
 """
 from __future__ import absolute_import
 
-# For some reason pylint complains about restplus not being able to import.
-#
-# pylint: disable=E0611,F0401
-import flask.ext.restplus as restplus
 import flask
+import flask_restplus as restplus
+from flask_restplus import fields
 
-from treadmill import webutils
+# Disable E0611: No 'name' in module
+from treadmill import webutils  # pylint: disable=E0611
 
 
 # Old style classes, no init method.
@@ -22,37 +21,66 @@ def init(api, cors, impl):
         api, __name__, 'Application monitor REST operations'
     )
 
+    app_monitor_model = {
+        '_id': fields.String(
+            description='Name',
+            max_length=60,
+            pattern=(
+                r'/^([\w\-]+(\.[\w\-]+)+)|'
+                r'(([\w\-]+)@([\w\-]+)(\.[\w\-]+)+)$/')),
+        'count': fields.Integer(
+            description='Count',
+            min=0, max=1000,
+            required=True),
+    }
+
+    request_model = api.model(
+        'ReqAppMonitor', app_monitor_model
+    )
+    response_model = api.model(
+        'RespAppMonitor', app_monitor_model
+    )
+
     @namespace.route(
         '/',
     )
     class _AppMonitorList(restplus.Resource):
         """Treadmill App monitor resource"""
 
-        @webutils.get_api(api, cors)
+        @webutils.get_api(api, cors,
+                          marshal=api.marshal_list_with,
+                          resp_model=response_model)
         def get(self):
             """Returns list of configured app monitors."""
             return impl.list()
 
-    @namespace.route('/<app_id>')
+    @namespace.route('/<app_monitor>')
+    @api.doc(params={'app_monitor': 'Application Monitor ID/name'})
     class _AppMonitorResource(restplus.Resource):
         """Treadmill App monitor resource."""
 
-        @webutils.get_api(api, cors)
-        def get(self, app_id):
+        @webutils.get_api(api, cors,
+                          marshal=api.marshal_with,
+                          resp_model=response_model)
+        def get(self, app_monitor):
             """Return Treadmill application monitor configuration."""
-            return impl.get(app_id)
+            return impl.get(app_monitor)
+
+        @webutils.post_api(api, cors,
+                           req_model=request_model,
+                           resp_model=response_model)
+        def post(self, app_monitor):
+            """Creates Treadmill application."""
+            return impl.create(app_monitor, flask.request.json)
+
+        @webutils.put_api(api, cors,
+                          req_model=request_model,
+                          resp_model=response_model)
+        def put(self, app_monitor):
+            """Updates Treadmill application configuration."""
+            return impl.update(app_monitor, flask.request.json)
 
         @webutils.delete_api(api, cors)
-        def delete(self, app_id):
+        def delete(self, app_monitor):
             """Deletes Treadmill application monitor."""
-            return impl.delete(app_id)
-
-        @webutils.put_api(api, cors)
-        def put(self, app_id):
-            """Updates Treadmill application configuration."""
-            return impl.update(app_id, flask.request.json)
-
-        @webutils.post_api(api, cors)
-        def post(self, app_id):
-            """Creates Treadmill application."""
-            return impl.create(app_id, flask.request.json)
+            return impl.delete(app_monitor)

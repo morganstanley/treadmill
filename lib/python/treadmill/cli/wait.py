@@ -18,6 +18,8 @@ from .. import zknamespace as z
 
 from treadmill import cli
 
+_LOGGER = logging.getLogger(__name__)
+
 
 def print_yaml(obj):
     """Print yaml wih correct options."""
@@ -103,9 +105,9 @@ def init():
         rc = 0
         for info in finished:
             if 'exit_code' in info and info['exit_code'] == 0:
-                logging.info('%s: ok', info['instance'])
+                _LOGGER.info('%s: ok', info['instance'])
             else:
-                logging.info('%s: failure', info['instance'])
+                _LOGGER.info('%s: failure', info['instance'])
                 rc = 1
 
         sys.exit(rc)

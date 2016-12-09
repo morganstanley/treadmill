@@ -12,6 +12,7 @@ import treadmill
 _LOGGER = logging.getLogger(__name__)
 
 EXECUTABLES = None
+_CLOSE_FDS = os.name != 'nt'
 
 
 class CommandWhitelistError(Exception):
@@ -115,7 +116,7 @@ def check_call(cmdline, environ=(), runas=None, **kwargs):
     cmd_environ.update(environ)
 
     try:
-        rc = subprocess.check_call(args, close_fds=True, env=cmd_environ,
+        rc = subprocess.check_call(args, close_fds=_CLOSE_FDS, env=cmd_environ,
                                    **kwargs)
         _LOGGER.debug('Finished, rc: %d', rc)
         return rc
@@ -145,7 +146,7 @@ def check_output(cmdline, environ=(), **kwargs):
 
     try:
         res = subprocess.check_output(args,
-                                      close_fds=True,
+                                      close_fds=_CLOSE_FDS,
                                       env=cmd_environ,
                                       **kwargs)
 
@@ -176,7 +177,7 @@ def call(cmdline, environ=(), **kwargs):
     cmd_environ = dict(os.environ.items())
     cmd_environ.update(environ)
 
-    rc = subprocess.call(args, close_fds=True, env=cmd_environ, **kwargs)
+    rc = subprocess.call(args, close_fds=_CLOSE_FDS, env=cmd_environ, **kwargs)
 
     _LOGGER.debug('Finished, rc: %d', rc)
     return rc
@@ -214,7 +215,7 @@ def invoke(cmd, cmd_input=None, use_except=False, **environ):
 
     try:
         proc = subprocess.Popen(args,
-                                close_fds=True, shell=False,
+                                close_fds=_CLOSE_FDS, shell=False,
                                 stdin=subprocess.PIPE,
                                 stdout=subprocess.PIPE,
                                 stderr=subprocess.STDOUT,
@@ -273,7 +274,7 @@ def invoke_return(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
 
     try:
         return subprocess.Popen(args,
-                                close_fds=True, shell=False,
+                                close_fds=_CLOSE_FDS, shell=False,
                                 stdin=stdin,
                                 stdout=stdout,
                                 stderr=stderr,

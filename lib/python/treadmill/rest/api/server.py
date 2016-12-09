@@ -3,9 +3,8 @@ Treadmill Server REST api.
 """
 from __future__ import absolute_import
 
-# pylint: disable=E0611,F0401
-import flask.ext.restplus as restplus
 import flask
+import flask_restplus as restplus
 
 from treadmill import webutils
 

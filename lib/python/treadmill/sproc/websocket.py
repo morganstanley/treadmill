@@ -1,9 +1,5 @@
 """
-Treadmill Websocket
-
-Runs Treadmill WebSocket: this script will provide updates of application
-statuses via WebSocket technology. Currently only the "state" module is
-supported, i.e. "configured", "running" and "scheduled".
+Treadmill Websocket server.
 """
 from __future__ import absolute_import
 
@@ -14,8 +10,10 @@ import tornado.web
 
 import click
 
-from .. import discovery_wshandler
-from .. import state_wshandler
+from treadmill import cli
+from treadmill import websocket as ws
+from treadmill.websocket import api
+
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -23,28 +21,28 @@ _LOGGER = logging.getLogger(__name__)
 def init():
     """Treadmill Websocket"""
 
-    @click.group()
-    def websocket():
-        """Treadmill Websocket"""
-        pass
-
-    @websocket.command()
+    @click.command()
+    @click.option('--fs-root',
+                  help='Root file system directory to zk2fs',
+                  required=True)
+    @click.option('-m', '--modules', help='API modules to load.',
+                  required=True, type=cli.LIST)
     @click.option('--port',
                   help='Websocket HTTP port',
                   required=True, default=8080)
-    def start(port):
+    def websocket(fs_root, modules, port):
         """Treadmill Websocket"""
         _LOGGER.debug('port: %s', port)
 
-        application = tornado.web.Application([
-            (r'/discovery', discovery_wshandler.DiscoveryWebSocketHandler),
-            (r'/state', state_wshandler.StateWebSocketHandler),
-        ])
+        pubsub = ws.DirWatchPubSub(fs_root)
+        for topic, impl in api.init(modules):
+            pubsub.impl[topic] = impl
+
+        pubsub.run_detached()
+        application = tornado.web.Application([(r'/', pubsub.ws)])
 
         http_server = tornado.httpserver.HTTPServer(application)
         http_server.listen(port)
         tornado.ioloop.IOLoop.instance().start()
-
-    del start
 
     return websocket

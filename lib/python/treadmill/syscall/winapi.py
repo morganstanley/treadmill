@@ -10,6 +10,29 @@ import ctypes.wintypes
 assert os.name == 'nt'
 
 
+class MEMORYSTATUSEX(ctypes.Structure):
+    """Contains information about the current state of both
+    physical and virtual memory, including extended memory"""
+    _fields_ = [
+        ("dwLength", ctypes.c_ulong),
+        ("dwMemoryLoad", ctypes.c_ulong),
+        ("ullTotalPhys", ctypes.c_ulonglong),
+        ("ullAvailPhys", ctypes.c_ulonglong),
+        ("ullTotalPageFile", ctypes.c_ulonglong),
+        ("ullAvailPageFile", ctypes.c_ulonglong),
+        ("ullTotalVirtual", ctypes.c_ulonglong),
+        ("ullAvailVirtual", ctypes.c_ulonglong),
+        ("sullAvailExtendedVirtual", ctypes.c_ulonglong),
+    ]
+
+    def __init__(self):
+        # have to initialize this to the size of MEMORYSTATUSEX
+        # C0103: Invalid name "dwLength"
+        # pylint: disable=C0103
+        self.dwLength = ctypes.sizeof(self)
+        super(MEMORYSTATUSEX, self).__init__()
+
+
 class SID_IDENTIFIER_AUTHORITY(ctypes.Structure):  # pylint: disable=C0103
     """The SID_IDENTIFIER_AUTHORITY structure represents the top-level
     authority of a security identifier (SID)."""
@@ -119,3 +142,33 @@ def is_user_admin():
         return CheckTokenMembership(0, sid)
     finally:
         FreeSid(sid)
+
+
+def GetDiskFreeSpaceExW(path):  # pylint: disable=C0103
+    """Retrieves information about the amount of space that is available
+    on a disk volume, which is the total amount of space, the total amount
+    of free space, and the total amount of free space available to the user
+    that is associated with the calling thread."""
+    free = ctypes.c_ulonglong(0)
+    total = ctypes.c_ulonglong(0)
+
+    ctypes.windll.kernel32.GetDiskFreeSpaceExW(ctypes.c_wchar_p(path),
+                                               None,
+                                               ctypes.pointer(total),
+                                               ctypes.pointer(free))
+    return total.value, free.value
+
+
+def GetTickCount64():  # pylint: disable=C0103
+    """Retrieves the number of milliseconds that have elapsed
+    since the system was started."""
+    return ctypes.windll.kernel32.GetTickCount64()
+
+
+def GlobalMemoryStatusEx():  # pylint: disable=C0103
+    """Retrieves information about the system's current usage of
+    both physical and virtual memory."""
+    memory = MEMORYSTATUSEX()
+    ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(memory))
+
+    return memory

@@ -11,13 +11,13 @@ import flask
 # F0401: Used when PyLint has been unable to import a module.
 #
 # pylint: disable=E0611,F0401
-import flask.ext.restplus as restplus
-
-from ... import rest
-from ... import webutils
+import flask_restplus as restplus
 
 from treadmill import authz
+from treadmill.rest import error_handlers
+from treadmill import rest
 from treadmill import utils
+from treadmill import webutils
 
 
 __path__ = pkgutil.extend_path(__path__, __name__)
@@ -30,9 +30,11 @@ def init(apis, title=None, cors_origin=None):
 
     blueprint = flask.Blueprint('v1', __name__)
 
-    api = restplus.Api(blueprint, version='1.0', ui=False,
+    api = restplus.Api(blueprint, version='1.0',
                        title=title,
                        description="Treadmill REST API Documentation")
+
+    error_handlers.register(api)
 
     @blueprint.route('/docs/', endpoint='docs')
     def _swagger_ui():

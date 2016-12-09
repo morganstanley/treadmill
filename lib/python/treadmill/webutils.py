@@ -18,6 +18,8 @@ except ImportError:
 
 from . import utils
 
+_LOGGER = logging.getLogger(__name__)
+
 
 def add_dependencies():
     """Load (imports) flask dependencies."""
@@ -141,10 +143,10 @@ def log_header(header=None):
 
             headers = flask.request.headers
             if header is not None:
-                logging.info('header: %s: %r', header, headers.get(header))
+                _LOGGER.info('header: %s: %r', header, headers.get(header))
                 return resp
 
-            logging.info('headers: %r', headers)
+            _LOGGER.info('headers: %r', headers)
             return resp
 
         func.provide_automatic_options = False
@@ -182,49 +184,90 @@ def run_wsgi(wsgi_app, port):
     tornado.ioloop.IOLoop.instance().start()
 
 
-def get_api(api, cors_handler):
-    """Returns default API decorator for GET request."""
-    return utils.compose(
-        api.response(200, 'Success.'),
-        api.response(410, 'Resource does not exist.'),
+def get_api(api, cors_handler, marshal=None, resp_model=None):
+    """Returns default API decorator for GET request.
+
+    :param api: Flask rest_plus API
+    :param cors_handler: CORS handler
+    :param marshal: The API marshaller, e.g. api.marshal_list_with
+    :param resp_model: The API response model
+    """
+    funcs = [
         cors_handler,
         no_cache,
         log_header(),
-        as_json
-    )
+        as_json,
+        api.doc(responses={
+            404: 'Resource does not exist',
+        }),
+    ]
+
+    if marshal and resp_model:
+        funcs.insert(-1, marshal(resp_model))
+
+    return utils.compose(*funcs)
 
 
-def post_api(api, cors_handler):
+def post_api(api, cors_handler, req_model=None, resp_model=None):
     """Returns default API decorator for POST request."""
-    # TODO: add reasonable set of api.responce decorators for docs.
-    return utils.compose(
-        api.response(201, 'Success.'),
+    funcs = [
         cors_handler,
+        no_cache,
         log_header(),
-        as_json
-    )
+        as_json,
+        api.doc(responses={
+            403: 'Not Authorized',
+            404: 'Resource does not exist',
+        }),
+    ]
+
+    if req_model:
+        funcs.insert(-1, api.doc(body=req_model))
+    if resp_model:
+        funcs.insert(-1, api.marshal_with(resp_model))
+
+    return utils.compose(*funcs)
 
 
-def put_api(api, cors_handler):
+def put_api(api, cors_handler, req_model=None, resp_model=None):
     """Returns default API decorator for PUT request."""
-    # TODO: add reasonable set of api.responce decorators for docs.
-    return utils.compose(
-        api.response(200, 'Success.'),
+    funcs = [
         cors_handler,
         log_header(),
-        as_json
-    )
+        as_json,
+        api.doc(responses={
+            403: 'Not Authorized',
+            404: 'Resource does not exist',
+        }),
+    ]
+
+    if req_model:
+        funcs.insert(-1, api.doc(body=req_model))
+    if resp_model:
+        funcs.insert(-1, api.marshal_with(resp_model))
+
+    return utils.compose(*funcs)
 
 
-def delete_api(api, cors_handler):
+def delete_api(api, cors_handler, req_model=None, resp_model=None):
     """Returns default API decorator for DELETE request."""
-    return utils.compose(
-        api.response(200, 'Success.'),
-        api.response(410, 'Resource does not exist.'),
+    funcs = [
         cors_handler,
+        no_cache,
         log_header(),
-        as_json
-    )
+        as_json,
+        api.doc(responses={
+            403: 'Not Authorized',
+            404: 'Resource does not exist',
+        }),
+    ]
+
+    if req_model:
+        funcs.insert(-1, api.doc(body=req_model))
+    if resp_model:
+        funcs.insert(-1, api.marshal_with(resp_model))
+
+    return utils.compose(*funcs)
 
 
 def namespace(api, name, description):

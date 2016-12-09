@@ -48,7 +48,8 @@ def view_group(parent):
         cell_master.load_allocations()
         cell_master.load_strategies()
         cell_master.load_apps(readonly=True)
-        cell_master.load_identity_groups(restore=True)
+        cell_master.load_identity_groups()
+        cell_master.load_placement_data()
 
         if do_reschedule:
             cell_master.cell.schedule()

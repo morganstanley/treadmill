@@ -81,23 +81,29 @@ class API(object):
                 match += '#*'
 
             if endpoint is None:
-                endpoints = '*'
+                endpoint = '*'
 
             if proto is None:
                 proto = '*'
 
+            _LOGGER.debug('match: %r, proto: %r, endpoint: %r',
+                          match, proto, endpoint)
             full_pattern = ':'.join([match, proto, endpoint])
 
             endpoints = cell_state.get(proid, {})
+            _LOGGER.debug('endpoints: %r', endpoints)
 
             filtered = []
             for name, hostport in endpoints.iteritems():
                 if not fnmatch.fnmatch(name, full_pattern):
                     continue
                 appname, proto, endpoint = name.split(':')
+                host, port = hostport.split(':')
                 filtered.append({'name': proid + '.' + appname,
                                  'proto': proto,
-                                 'endpoint': hostport})
+                                 'endpoint': endpoint,
+                                 'host': host,
+                                 'port': port})
 
             return sorted(filtered, key=lambda item: item['name'])
 

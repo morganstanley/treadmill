@@ -2,15 +2,17 @@
 from __future__ import absolute_import
 
 import logging
+import os
 
 import click
 
 from .. import appmgr
 from .. import context
+from .. import logcontext as lc
 from ..appmgr import finish as app_finish
 
 
-_LOGGER = logging.getLogger()
+_LOGGER = logging.getLogger(__name__)
 
 
 def init():
@@ -22,8 +24,10 @@ def init():
     @click.argument('container_dir', type=click.Path(exists=True))
     def finish(approot, container_dir):
         """Finish treadmill application on the node."""
-        _LOGGER.info('finish %s %s', approot, container_dir)
-        app_env = appmgr.AppEnvironment(approot)
-        app_finish.finish(app_env, context.GLOBAL.zk.conn, container_dir)
+        with lc.LogContext(_LOGGER, os.path.basename(container_dir),
+                           lc.ContainerAdapter) as log:
+            log.info('finish (approot %s)', approot)
+            app_env = appmgr.AppEnvironment(approot)
+            app_finish.finish(app_env, context.GLOBAL.zk.conn, container_dir)
 
     return finish
