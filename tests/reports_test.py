@@ -44,8 +44,8 @@ def _construct_cell():
     alloc1 = scheduler.Allocation([10, 10, 10], rank=100, traits=0)
     alloc2 = scheduler.Allocation([10, 10, 10], rank=100, traits=3)
 
-    cell.allocations[None].add_sub_alloc('t1', tenant1)
-    cell.allocations[None].add_sub_alloc('t2', tenant2)
+    cell.partitions[None].allocation.add_sub_alloc('t1', tenant1)
+    cell.partitions[None].allocation.add_sub_alloc('t2', tenant2)
     tenant1.add_sub_alloc('t3', tenant3)
     tenant2.add_sub_alloc('a1', alloc1)
     tenant3.add_sub_alloc('a2', alloc2)
@@ -104,17 +104,17 @@ class ReportsTest(unittest.TestCase):
                                      demand=[1, 1, 1],
                                      affinity='bla.xxx')
 
-        (self.cell.allocations[None]
+        (self.cell.partitions[None].allocation
          .get_sub_alloc('t1')
          .get_sub_alloc('t3')
          .get_sub_alloc('a2').add(app1))
 
-        (self.cell.allocations[None]
+        (self.cell.partitions[None].allocation
          .get_sub_alloc('t1')
          .get_sub_alloc('t3')
          .get_sub_alloc('a2').add(app2))
 
-        (self.cell.allocations[None]
+        (self.cell.partitions[None].allocation
          .get_sub_alloc('t2')
          .get_sub_alloc('a1').add(app3))
 

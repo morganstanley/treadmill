@@ -30,7 +30,7 @@ from .. import zkutils
 from ..appmgr import initialize as app_initialize
 
 
-_LOGGER = logging.getLogger()
+_LOGGER = logging.getLogger(__name__)
 
 
 _WATCHDOG_CHECK_INTERVAL = 30
@@ -42,12 +42,10 @@ def init():
     # pylint: disable=R0912
     @click.command()
     @click.option('--exit-on-fail', is_flag=True, default=False)
-    @click.option('--lifetime', help='The interval server is up until reboot.',
-                  default='21d')
     @click.option('--zkid', help='Zookeeper session ID file.')
     @click.option('--approot', type=click.Path(exists=True),
                   envvar='TREADMILL_APPROOT', required=True)
-    def top(exit_on_fail, lifetime, zkid, approot):
+    def top(exit_on_fail, zkid, approot):
         """Run treadmill init process."""
         _LOGGER.info('Initializing Treadmill: %s', approot)
 
@@ -63,7 +61,7 @@ def init():
             time.sleep(30)
 
         hostname = sysinfo.hostname()
-        new_node_info = sysinfo.node_info(app_env, lifetime)
+        new_node_info = sysinfo.node_info(app_env)
 
         zk_blackout_path = z.path.blackedout_server(hostname)
         zk_presence_path = z.path.server_presence(hostname)

@@ -207,7 +207,7 @@ power management: [8]
         # total     : 25539.659999999996
         self.assertEquals(25539, bogomips)
 
-    @mock.patch('time.time', mock.Mock(return_value=0))
+    @mock.patch('time.time', mock.Mock(return_value=50))
     @mock.patch('treadmill.cgroups.get_value',
                 mock.Mock(return_value=42*1024**2))
     @mock.patch('treadmill.sysinfo.BMIPS_PER_CPU', 1)
@@ -238,7 +238,7 @@ power management: [8]
             'size': 100*1024**2,
         }
 
-        res = sysinfo.node_info(mock_tm_env, '7d')
+        res = sysinfo.node_info(mock_tm_env)
 
         mock_tm_env.svc_localdisk.status.assert_called_with(timeout=30)
         mock_tm_env.svc_cgroup.status.assert_called_with(timeout=30)
@@ -248,7 +248,7 @@ power management: [8]
                 'cpu': '200%',    # 100% of 2 cores is available
                 'memory': '42M',  # As read from cgroup
                 'disk': '100M',   # As returned by localdisk service
-                'valid_until': 7*24*60*60 - 42,
+                'up_since': 8,
             }
         )
 

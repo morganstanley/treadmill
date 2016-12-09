@@ -95,6 +95,7 @@ class AdminTest(unittest.TestCase):
             'disk': '1G',
             'tickets': [u'a', None, 'b'],
             'features': [],
+            'environ': [{'name': 'a', 'value': 'b'}],
             'services': [
                 {
                     'name': 'a',
@@ -108,17 +109,28 @@ class AdminTest(unittest.TestCase):
                     'name': 'b',
                     'command': '/b',
                 },
+                {
+                    'name': 'c',
+                    'command': '/c',
+                    'restart': {
+                        'limit': 0,
+                    },
+                },
             ],
             'endpoints': [
                 {'name': 'y', 'port': 2, 'type': 'infra'},
                 {'name': 'x', 'port': 1, 'type': 'infra', 'proto': 'udp'},
             ],
+            'affinity_limits': {'server': 1, 'rack': 2},
         }
 
         md5_a = hashlib.md5('a').hexdigest()
         md5_b = hashlib.md5('b').hexdigest()
+        md5_c = hashlib.md5('c').hexdigest()
         md5_x = hashlib.md5('x').hexdigest()
         md5_y = hashlib.md5('y').hexdigest()
+        md5_srv = hashlib.md5('server').hexdigest()
+        md5_rack = hashlib.md5('rack').hexdigest()
 
         ldap_entry = {
             'app': ['xxx'],
@@ -128,12 +140,16 @@ class AdminTest(unittest.TestCase):
             'ticket': ['a', 'b'],
             'service-name;tm-service-' + md5_a: ['a'],
             'service-name;tm-service-' + md5_b: ['b'],
+            'service-name;tm-service-' + md5_c: ['c'],
             'service-restart-limit;tm-service-' + md5_a: ['3'],
             'service-restart-limit;tm-service-' + md5_b: ['5'],
+            'service-restart-limit;tm-service-' + md5_c: ['0'],
             'service-restart-interval;tm-service-' + md5_a: ['30'],
             'service-restart-interval;tm-service-' + md5_b: ['60'],
+            'service-restart-interval;tm-service-' + md5_c: ['60'],
             'service-command;tm-service-' + md5_a: ['/a'],
             'service-command;tm-service-' + md5_b: ['/b'],
+            'service-command;tm-service-' + md5_c: ['/c'],
             'endpoint-name;tm-endpoint-' + md5_x: ['x'],
             'endpoint-name;tm-endpoint-' + md5_y: ['y'],
             'endpoint-port;tm-endpoint-' + md5_x: ['1'],
@@ -141,6 +157,12 @@ class AdminTest(unittest.TestCase):
             'endpoint-type;tm-endpoint-' + md5_x: ['infra'],
             'endpoint-type;tm-endpoint-' + md5_y: ['infra'],
             'endpoint-proto;tm-endpoint-' + md5_x: ['udp'],
+            'envvar-name;tm-envvar-' + md5_a: ['a'],
+            'envvar-value;tm-envvar-' + md5_a: ['b'],
+            'affinity-level;tm-affinity-' + md5_srv: ['server'],
+            'affinity-limit;tm-affinity-' + md5_srv: ['1'],
+            'affinity-level;tm-affinity-' + md5_rack: ['rack'],
+            'affinity-limit;tm-affinity-' + md5_rack: ['2'],
         }
 
         self.assertEquals(ldap_entry, admin.Application(None).to_entry(app))
@@ -152,6 +174,7 @@ class AdminTest(unittest.TestCase):
         app['tickets'] = ['a', 'b']
         # Account for default restart values
         app['services'][1]['restart'] = {'limit': 5, 'interval': 60}
+        app['services'][2]['restart']['interval'] = 60
         self.assertEquals(app, admin.Application(None).from_entry(ldap_entry))
 
     def test_server_to_entry(self):

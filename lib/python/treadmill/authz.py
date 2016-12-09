@@ -8,7 +8,7 @@ import importlib
 import decorator
 
 
-_LOGGER = logging.getLogger()
+_LOGGER = logging.getLogger(__name__)
 
 
 class AuthorizationError(Exception):

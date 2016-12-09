@@ -22,6 +22,7 @@ import yaml
 
 from .. import exc
 from .. import fs
+from .. import logcontext as lc
 from .. import idirwatch
 from .. import utils
 from .. import watchdog
@@ -29,7 +30,7 @@ from .. import watchdog
 from ..syscall import eventfd
 
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER = lc.ContainerAdapter(logging.getLogger(__name__))
 
 #: Name of the directory holding the resources requests
 _RSRC_DIR = 'resources'
@@ -139,17 +140,19 @@ class ResourceServiceClient(object):
                       default_flow_style=False,
                       stream=f)
 
-        try:
-            svc_req_uuid = self._serviceinst.clt_new_request(rsrc_id, req_dir)
+        with lc.LogContext(_LOGGER, rsrc_id):
+            try:
+                svc_req_uuid = self._serviceinst.clt_new_request(rsrc_id,
+                                                                 req_dir)
 
-        except OSError as _err:
-            # Error registration failed, delete the request.
-            _LOGGER.exception('Unable to submit request')
-            shutil.rmtree(req_dir)
+            except OSError as _err:
+                # Error registration failed, delete the request.
+                _LOGGER.exception('Unable to submit request')
+                shutil.rmtree(req_dir)
 
-        with open(os.path.join(req_dir, self._REQ_UID_FILE), 'w') as f:
-            os.fchmod(f.fileno(), 0o644)
-            f.write(svc_req_uuid)
+            with open(os.path.join(req_dir, self._REQ_UID_FILE), 'w') as f:
+                os.fchmod(f.fileno(), 0o644)
+                f.write(svc_req_uuid)
 
     def update(self, rsrc_id, rsrc_data):
         """Update an existing resource.
@@ -171,7 +174,8 @@ class ResourceServiceClient(object):
                       default_flow_style=False,
                       stream=f)
 
-        self._serviceinst.clt_update_request(svc_req_uuid)
+        with lc.LogContext(_LOGGER, rsrc_id):
+            self._serviceinst.clt_update_request(svc_req_uuid)
 
     def delete(self, rsrc_id):
         """Delete an existing resource.
@@ -179,20 +183,21 @@ class ResourceServiceClient(object):
         :param `str` rsrc_id:
             Unique identifier for the requested resource.
         """
-        req_dir = self._req_dirname(rsrc_id)
-        try:
-            with open(os.path.join(req_dir, self._REQ_UID_FILE)) as f:
-                svc_req_uuid = f.read().strip()
-        except IOError as err:
-            if err.errno == errno.ENOENT:
-                _LOGGER.warn('Resource %r does not exist', rsrc_id)
-                return
-            raise
-        self._serviceinst.clt_del_request(svc_req_uuid)
-        os.rename(
-            req_dir,
-            self._bck_dirname(svc_req_uuid)
-        )
+        with lc.LogContext(_LOGGER, rsrc_id) as log:
+            req_dir = self._req_dirname(rsrc_id)
+            try:
+                with open(os.path.join(req_dir, self._REQ_UID_FILE)) as f:
+                    svc_req_uuid = f.read().strip()
+            except IOError as err:
+                if err.errno == errno.ENOENT:
+                    log.warning('Resource %r does not exist', rsrc_id)
+                    return
+                raise
+            self._serviceinst.clt_del_request(svc_req_uuid)
+            os.rename(
+                req_dir,
+                self._bck_dirname(svc_req_uuid)
+            )
 
     def get(self, rsrc_id):
         """Get the result of a resource request.

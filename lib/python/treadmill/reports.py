@@ -30,8 +30,7 @@ def servers(cell):
             'free.cpu': server.free_capacity[1],
             'free.disk': server.free_capacity[2],
             'state': server.state.value,
-            'valid_until': np.datetime64(
-                datetime.datetime.fromtimestamp(server.valid_until)),
+            'valid_until': server.valid_until
         }
 
         node = server.parent
@@ -47,6 +46,8 @@ def servers(cell):
         frame = pd.DataFrame(columns=['name', 'memory', 'cpu', 'disk',
                                       'free.memory', 'free.cpu', 'free.disk',
                                       'state'])
+    for col in ['valid_until']:
+        frame[col] = pd.to_datetime(frame[col], unit='s')
 
     return frame.set_index('name')
 
@@ -85,7 +86,8 @@ def allocations(cell):
         }
 
     all_allocs = []
-    for label, allocation in cell.allocations.iteritems():
+    for label, partition in cell.partitions.iteritems():
+        allocation = partition.allocation
         leaf_allocs = _leafs([], allocation)
         alloc_df = pd.DataFrame.from_dict(
             [_alloc_row(label, name, alloc) for name, alloc in leaf_allocs]
@@ -114,18 +116,25 @@ def apps(cell):
             'memory': app.demand[0],
             'cpu': app.demand[1],
             'disk': app.demand[2],
-            'duration': app.duration,
+            'lease': app.lease,
+            'expires': app.placement_expiry,
             'data_retention_timeout': app.data_retention_timeout,
             'server': app.server
         }
 
     queue = []
-    for allocation in cell.allocations.values():
+    for partition in cell.partitions.values():
+        allocation = partition.allocation
         queue += allocation.utilization_queue(cell.size(allocation.label))
 
     frame = pd.DataFrame.from_dict([_app_row(item) for item in queue])
     if frame.empty:
         return frame
+
+    for col in ['expires']:
+        frame[col] = pd.to_datetime(frame[col], unit='s')
+    for col in ['lease', 'data_retention_timeout']:
+        frame[col] = pd.to_timedelta(frame[col], unit='s')
 
     return frame.set_index('instance')
 
@@ -136,9 +145,11 @@ def utilization(prev_utilization, apps_df):
     prev_utilization - utilization dataframe before current.
     apps - app queue dataframe.
     """
-
     # Passed by ref.
     row = apps_df.reset_index()
+    if row.empty:
+        return row
+
     row['count'] = 1
     row['name'] = row['instance'].apply(lambda x: x.split('#')[0])
     row = row.groupby('name').agg({'cpu': np.sum,

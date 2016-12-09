@@ -49,6 +49,7 @@ def load(tm_env, event):
         ('proid', True, str),
         ('services', True, list),
         ('endpoints', False, list),
+        ('environ', False, list),
         ('cpu', True, str),
         ('memory', True, str),
         ('disk', True, str),
@@ -96,23 +97,45 @@ def load(tm_env, event):
 
     manifest['host_ip'] = tm_env.host_ip
 
-    if 'endpoints' not in manifest:
-        manifest['endpoints'] = []
+    def _set_default(attr, value, obj=None):
+        """Set default manifest attribute if it is not present."""
+        if obj is None:
+            obj = manifest
+        if attr not in obj:
+            obj[attr] = value
 
-    if 'ephemeral_ports' not in manifest:
-        manifest['ephemeral_ports'] = 0
+    _set_default('environ', [])
+    _set_default('passthrough', [])
+    _set_default('vring', {})
+    _set_default('cells', [], manifest['vring'])
+    _set_default('identity_group', None)
+    _set_default('identity', None)
 
-    if 'passthrough' not in manifest:
-        manifest['passthrough'] = []
+    # Normalize restart count
+    manifest['services'] = [
+        {
+            'name': service['name'],
+            'command': service['command'],
+            'restart': {
+                'limit': int(service['restart']['limit']),
+                'interval': int(service['restart']['interval']),
+            },
+            'root': service.get('root', False),
+        }
+        for service in manifest.get('services', [])
+    ]
+    # Normalize optional and port information
+    manifest['endpoints'] = [
+        {
+            'name': endpoint['name'],
+            'port': int(endpoint['port']),
+            'type': endpoint.get('type', None),
+            'proto': endpoint.get('proto', 'tcp'),
+        }
+        for endpoint in manifest.get('endpoints', [])
+    ]
 
-    if 'vring' not in manifest:
-        manifest['vring'] = {}
-    if 'cells' not in manifest['vring']:
-        manifest['vring']['cells'] = []
-    if 'identity_group' not in manifest:
-        manifest['identity_group'] = None
-    if 'identity' not in manifest:
-        manifest['identity'] = None
+    manifest['ephemeral_ports'] = int(manifest.get('ephemeral_ports', 0))
 
     return manifest
 

@@ -8,113 +8,113 @@ from __future__ import absolute_import
 
 import logging
 import httplib
+import sys
 
 import ldap3
 import jsonschema
-import flask
 import kazoo.exceptions
-import kazoo
 
 from treadmill import authz
-from treadmill import rest
 from treadmill import exc
+from treadmill import rest
 
 
 _LOGGER = logging.getLogger(__name__)
 
 
-@rest.FLASK_APP.errorhandler(authz.AuthorizationError)
-def authorization_exc(err):
-    """Authorization exception handler."""
-    _LOGGER.error('exception: %r', err)
-    response = flask.jsonify({'message': err.message,
-                              'status': httplib.UNAUTHORIZED})
+def register(api):
+    """Register all of the error handlers"""
 
-    response.status_code = httplib.UNAUTHORIZED
-    return response
+    @api.errorhandler(authz.AuthorizationError)
+    def authorization_exc(err):
+        """Authorization exception handler."""
+        _LOGGER.exception('exception: %r', err)
+        return {'message': err.message,
+                'status': httplib.UNAUTHORIZED}, httplib.UNAUTHORIZED
 
+    @api.errorhandler(kazoo.client.NoNodeError)
+    def zookeeper_notfound(err):
+        """Zookeeper nonode exception handler."""
+        _LOGGER.exception('exception: %r', err)
+        return {'message': err.message,
+                'status': httplib.NOT_FOUND}, httplib.NOT_FOUND
 
-@rest.FLASK_APP.errorhandler(kazoo.client.NoNodeError)
-def zookeeper_notfound(err):
-    """Zookeeper nonode exception handler."""
-    _LOGGER.error('exception: %r', err)
-    response = flask.jsonify({'message': err.message,
-                              'status': httplib.NOT_FOUND})
+    @api.errorhandler(kazoo.exceptions.KazooException)
+    def zookeeper_exc(err):
+        """Zookeeper exception handler."""
+        _LOGGER.exception('exception: %r', err)
+        return {
+            'message': err.message,
+            'status': httplib.INTERNAL_SERVER_ERROR
+        }, httplib.INTERNAL_SERVER_ERROR
 
-    response.status_code = httplib.NOT_FOUND
-    return response
+    # Flask.errorhandler() only captures exceptions thrown from the same thread
+    # in which it is started from; for us this is obviously MainThread so the
+    # kazoo exceptions, which are raised from a separate thread are not
+    # captured. The below handler intercepts all responses and checks to see if
+    # there is any exceptions, if there are and it is a Kazoo exception (at the
+    # moment, just NoNodeError), then, then explicitly call
+    # "zookeeper_notfound".
+    def _handle_threaded_exceptions(resp):
+        """Handle Kazoo threaded exceptions"""
+        exc_info = sys.exc_info()
+        err = exc_info[1]
 
+        if not err:
+            return resp
 
-@rest.FLASK_APP.errorhandler(kazoo.exceptions.KazooException)
-def zookeeper_exc(err):
-    """Zookeeper exception handler."""
-    _LOGGER.error('exception: %r', err)
-    response = flask.jsonify({'message': err.message,
-                              'status': httplib.INTERNAL_SERVER_ERROR})
-    response.status_code = httplib.INTERNAL_SERVER_ERROR
-    return response
+        if err and isinstance(err, kazoo.exceptions.NoNodeError):
+            return zookeeper_notfound(err)
 
+        return resp
 
-@rest.FLASK_APP.errorhandler(ldap3.LDAPEntryAlreadyExistsResult)
-def ldap_found_exc(err):
-    """Zookeeper exception handler."""
-    _LOGGER.error('exception: %r', err)
-    response = flask.jsonify({'message': err.message,
-                              'status': httplib.FOUND})
+    rest.FLASK_APP.after_request(_handle_threaded_exceptions)
 
-    response.status_code = httplib.FOUND
-    return response
+    @api.errorhandler(ldap3.LDAPEntryAlreadyExistsResult)
+    def ldap_found_exc(err):
+        """LDAP exception handler."""
+        _LOGGER.exception('exception: %r', err)
+        return {'message': err.result,
+                'status': httplib.NOT_FOUND}, httplib.FOUND
 
+    @api.errorhandler(ldap3.LDAPNoSuchObjectResult)
+    def ldap_not_found_exc(err):
+        """LDAP exception handler."""
+        _LOGGER.exception('err: %r', err)
+        return {'message': err.result,
+                'status': httplib.NOT_FOUND}, httplib.NOT_FOUND
 
-@rest.FLASK_APP.errorhandler(ldap3.LDAPNoSuchObjectResult)
-def ldap_not_found_exc(err):
-    """Zookeeper exception handler."""
-    _LOGGER.error('exception: %r', err)
-    response = flask.jsonify({'message': err.message,
-                              'status': httplib.NOT_FOUND})
+    @api.errorhandler(jsonschema.exceptions.ValidationError)
+    def json_validation_error_exc(err):
+        """JSON Schema Validation error exception handler."""
+        _LOGGER.exception('exception: %r', err)
+        return {'message': err.result,
+                'status': httplib.FAILED_DEPENDENCY}, httplib.FAILED_DEPENDENCY
 
-    response.status_code = httplib.NOT_FOUND
-    return response
+    @api.errorhandler(exc.TreadmillError)
+    def treadmill_exc(err):
+        """Treadmill exception handler."""
+        _LOGGER.exception('exception: %r', err)
+        return {'message': err.message,
+                'status': httplib.BAD_REQUEST}, httplib.BAD_REQUEST
 
+    def internal_server_error(err):
+        """Unhandled exception handler."""
+        _LOGGER.exception('exception: %r', err)
+        return {
+            'message': err.message,
+            'status': httplib.INTERNAL_SERVER_ERROR
+        }, httplib.INTERNAL_SERVER_ERROR
 
-def failed_dependency(err):
-    """Generic failed dependency error handler"""
-    _LOGGER.error('exception: %r', err)
-    response = flask.jsonify({'message': err.message,
-                              'status': httplib.FAILED_DEPENDENCY})
+    @api.errorhandler(Exception)
+    def unhandled_exc(err):
+        """Unhandled exception handler."""
+        return internal_server_error(err)
 
-    response.status_code = httplib.FAILED_DEPENDENCY
-    return response
-
-
-@rest.FLASK_APP.errorhandler(jsonschema.exceptions.ValidationError)
-def json_validation_error_exc(err):
-    """JSON Schema Validation error exception handler."""
-    return failed_dependency(err)
-
-
-@rest.FLASK_APP.errorhandler(exc.TreadmillError)
-def treadmill_exc(err):
-    """Zookeeper exception handler."""
-    _LOGGER.error('exception: %r', err)
-    response = flask.jsonify({'message': err.message,
-                              'status': httplib.BAD_REQUEST})
-
-    response.status_code = httplib.BAD_REQUEST
-    return response
-
-
-def internal_server_error(err):
-    """Unhandled exception handler."""
-    _LOGGER.exception('exception: %r', err)
-    response = flask.jsonify({'message': err.message,
-                              'status': httplib.INTERNAL_SERVER_ERROR})
-
-    response.status_code = httplib.INTERNAL_SERVER_ERROR
-    return response
-
-
-@rest.FLASK_APP.errorhandler(Exception)
-def unhandled_exc(err):
-    """Unhandled exception handler."""
-    return internal_server_error(err)
+    del ldap_found_exc
+    del ldap_not_found_exc
+    del zookeeper_exc
+    del json_validation_error_exc
+    del authorization_exc
+    del unhandled_exc
+    del treadmill_exc

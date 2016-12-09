@@ -9,7 +9,7 @@ from treadmill import context
 from treadmill import zknamespace as z
 from treadmill import cli
 
-_LOGGER = logging.getLogger()
+_LOGGER = logging.getLogger(__name__)
 
 
 def init():

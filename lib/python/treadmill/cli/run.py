@@ -124,7 +124,7 @@ def init():
     @click.option('--tickets', help='Tickets.',
                   type=cli.LIST)
     @click.option('--service', help='Service name.', type=str)
-    @click.option('--restart-limit', type=int, default=5,
+    @click.option('--restart-limit', type=int, default=0,
                   help='Service restart limit.')
     @click.option('--restart-interval', type=int, default=60,
                   help='Service restart limit interval.')

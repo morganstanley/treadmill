@@ -948,6 +948,23 @@ class AppGroup(LdapObject):
     _ou = 'app-groups'
     _entity = 'app-group'
 
+    # W0221: Arguments number differs from overridden 'get'
+    def get(self, ident, group_type=None):  # pylint: disable=W0221
+        """Gets object given identity and group_type"""
+        search = {'_id': ident}
+        if group_type:
+            search['group-type'] = group_type
+
+        entries = self.list(search)
+        if not entries:
+            raise ldap3.LDAPNoSuchObjectResult(
+                'No entries for {0} and group-type {1}'.format(
+                    ident, group_type)
+            )
+
+        return entries[0]
+
+
 AppGroup.schema = staticmethod(lambda: AppGroup._schema)
 AppGroup.oc = staticmethod(lambda: AppGroup._oc)
 AppGroup.ou = staticmethod(lambda: AppGroup._ou)
@@ -968,6 +985,7 @@ class Application(LdapObject):
         ('disk', 'disk', str),
         ('ticket', 'tickets', [str]),
         ('feature', 'features', [str]),
+        ('identity-group', 'identity_group', str),
     ]
 
     _svc_schema = [
@@ -992,6 +1010,16 @@ class Application(LdapObject):
         ('endpoint-type', 'type', str),
     ]
 
+    _environ_schema = [
+        ('envvar-name', 'name', str),
+        ('envvar-value', 'value', str),
+    ]
+
+    _affinity_schema = [
+        ('affinity-level', 'level', str),
+        ('affinity-limit', 'limit', int),
+    ]
+
     _oc = 'tmApp'
     _ou = 'apps'
     _entity = 'app'
@@ -1000,10 +1028,12 @@ class Application(LdapObject):
     def schema():
         """Returns combined schema for retrieval."""
         name_only = lambda schema_rec: (schema_rec[0], None, None)
-        return (Application._schema +
-                map(name_only, Application._svc_schema) +
-                map(name_only, Application._svc_restart_schema) +
-                map(name_only, Application._endpoint_schema))
+        return sum([map(name_only, Application._svc_schema),
+                    map(name_only, Application._svc_restart_schema),
+                    map(name_only, Application._endpoint_schema),
+                    map(name_only, Application._environ_schema),
+                    map(name_only, Application._affinity_schema)],
+                   Application._schema)
 
     def from_entry(self, entry, dn=None):
         """Converts LDAP app object to dict."""
@@ -1015,6 +1045,10 @@ class Application(LdapObject):
             grouped, 'tm-service-', Application._svc_restart_schema)
         endpoints = _grouped_to_list_of_dict(
             grouped, 'tm-endpoint-', Application._endpoint_schema)
+        environ = _grouped_to_list_of_dict(
+            grouped, 'tm-envvar-', Application._environ_schema)
+        affinity_limits = _grouped_to_list_of_dict(
+            grouped, 'tm-affinity-', Application._affinity_schema)
 
         # Merge services and services restarts
         for service in services:
@@ -1025,9 +1059,14 @@ class Application(LdapObject):
                         'interval': service_restart['interval'],
                     }
 
+        affinity_limits = {affinity['level']: affinity['limit']
+                           for affinity in affinity_limits}
+
         obj.update({
             'services': services,
             'endpoints': endpoints,
+            'environ': environ,
+            'affinity_limits': affinity_limits,
         })
 
         return obj
@@ -1065,7 +1104,26 @@ class Application(LdapObject):
                                            endpoint['name'])
             entry.update(endpoint_entry)
 
+        for envvar in obj.get('environ', []):
+            environ_entry = _dict_2_entry(envvar,
+                                          Application._environ_schema,
+                                          'tm-envvar',
+                                          envvar['name'])
+            entry.update(environ_entry)
+
+        aff_lim = [{'level': aff, 'limit': obj['affinity_limits'][aff]}
+                   for aff in obj.get('affinity_limits', {})]
+
+        for limit in aff_lim:
+            aff_lim_entry = _dict_2_entry(limit,
+                                          Application._affinity_schema,
+                                          'tm-affinity',
+                                          limit['level'])
+
+            entry.update(aff_lim_entry)
+
         return entry
+
 
 Application.oc = staticmethod(lambda: Application._oc)
 Application.ou = staticmethod(lambda: Application._ou)

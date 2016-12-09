@@ -1,11 +1,12 @@
 """Unit test for webutils.
 """
 
+import unittest
+
 # Disable W0611: Unused import
 import tests.treadmill_test_deps  # pylint: disable=W0611
 
 import flask
-from flask import testsuite
 
 from treadmill import webutils
 
@@ -16,7 +17,7 @@ def trimall(string):
         string.splitlines()).strip().replace(' ', '').replace('\t', '')
 
 
-class WebUtilsTest(testsuite.FlaskTestCase):
+class WebUtilsTest(unittest.TestCase):
     """Tests for teadmill.webutils."""
 
     def test_jsonp(self):
@@ -56,3 +57,7 @@ class WebUtilsTest(testsuite.FlaskTestCase):
 
         self.assertIn('Access-Control-Allow-Origin', resp.headers)
         self.assertEquals('*', resp.headers['Access-Control-Allow-Origin'])
+
+
+if __name__ == '__main__':
+    unittest.main()

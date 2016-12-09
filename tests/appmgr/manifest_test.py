@@ -47,8 +47,8 @@ class AppMgrManifestTest(unittest.TestCase):
                     'restart': {
                         'limit': 3,
                         'interval': 60,
-                    }
-                }
+                    },
+                },
             ],
             'proid': 'foo',
             'disk': '100G',
@@ -84,7 +84,117 @@ class AppMgrManifestTest(unittest.TestCase):
                         'limit': 3,
                         'interval': 60,
                     },
-                }
+                    'root': False,
+                },
+            ]
+        )
+        self.assertEquals(
+            app0['system_services'],
+            [
+                {
+                    'command': (
+                        '/path/to/sshd -D -f /etc/ssh/sshd_config'
+                        ' -p $TREADMILL_ENDPOINT_SSH'
+                    ),
+                    'name': 'sshd',
+                    'proid': None,
+                    'restart': {
+                        'interval': 60,
+                        'limit': 5,
+                    },
+                },
+            ],
+        )
+        self.assertEquals(
+            app0['endpoints'],
+            [
+                {
+                    'name': 'ssh',
+                    'port': 0,
+                    'proto': 'tcp',
+                    'type': 'infra',
+                },
+            ]
+        )
+        self.assertEquals(app0['uniqueid'], '42')
+        self.assertEquals(app0['host_ip'], '1.2.3.4')
+        self.assertEquals(app0['cell'], 'testcell')
+        self.assertEquals(app0['zookeeper'], 'zookeeper://foo@foo:123')
+
+    @mock.patch('treadmill.appmgr.gen_uniqueid', mock.Mock(return_value='42'))
+    @mock.patch('treadmill.appmgr.manifest.read', mock.Mock())
+    @mock.patch('treadmill.proiddb.environment', mock.Mock(return_value='dev'))
+    @mock.patch('treadmill.subproc._check', mock.Mock(return_value=True))
+    def test_load_normalize(self):
+        """Test the normalization of manifests.
+        """
+        manifest = {
+            'services': [
+                {
+                    'name': 'test1',
+                    'command': '/bin/sleep 5',
+                    'restart': {
+                        'limit': 3,
+                        'interval': 60,
+                    }
+                },
+                {
+                    'name': 'test2',
+                    'command': '/bin/sleep 5',
+                    'restart': {
+                        'limit': 3,
+                        'interval': 60,
+                    }
+                },
+            ],
+            'endpoints': [
+                {
+                    'name': 'test1',
+                    'proto': 'udp',
+                    'port': 12345,
+                },
+                {
+                    'name': 'test2',
+                    'port': '0',
+                },
+                {
+                    'name': 'test3',
+                    'port': 32,
+                    'type': 'infra',
+                },
+            ],
+            'ephemeral_ports': '2',
+            'proid': 'foo',
+            'disk': '100G',
+            'cpu': '100%',
+            'memory': '100M'
+        }
+        treadmill.appmgr.manifest.read.return_value = manifest
+        event_filename0 = os.path.join(self.root, 'proid.myapp#0')
+
+        app0 = app_manifest.load(self.app_env, event_filename0)
+
+        self.assertEquals(
+            app0['services'],
+            [
+                {
+                    'name': 'test1',
+                    'command': '/bin/sleep 5',
+                    'restart': {
+                        'limit': 3,
+                        'interval': 60,
+                    },
+                    'root': False,
+                },
+                {
+                    'name': 'test2',
+                    'command': '/bin/sleep 5',
+                    'restart': {
+                        'limit': 3,
+                        'interval': 60,
+                    },
+                    'root': False,
+                },
             ]
         )
         self.assertEquals(
@@ -102,23 +212,46 @@ class AppMgrManifestTest(unittest.TestCase):
                         'limit': 5,
                         'interval': 60,
                     },
-                }
+                },
             ]
         )
         self.assertEquals(app0['shared_ip'], False)
         self.assertEquals(app0['shared_network'], False)
         self.assertEquals(
-            app0['endpoints'], [{'name': 'ssh', 'type': 'infra', 'port': 0}]
+            app0['endpoints'],
+            [
+                {
+                    'name': 'test1',
+                    'type': None,
+                    'port': 12345,
+                    'proto': 'udp',
+                },
+                {
+                    'name': 'test2',
+                    'type': None,
+                    'port': 0,
+                    'proto': 'tcp',
+                },
+                {
+                    'name': 'test3',
+                    'type': 'infra',
+                    'port': 32,
+                    'proto': 'tcp',
+                },
+                {
+                    'name': 'ssh',
+                    'type': 'infra',
+                    'port': 0,
+                    'proto': 'tcp',
+                },
+            ]
         )
-        self.assertEquals(app0['ephemeral_ports'], 0)
         self.assertEquals(app0['passthrough'], [])
-        self.assertEquals(app0['uniqueid'], '42')
-        self.assertEquals(app0['host_ip'], '1.2.3.4')
-        self.assertEquals(app0['cell'], 'testcell')
-        self.assertEquals(app0['zookeeper'], 'zookeeper://foo@foo:123')
         self.assertEquals(app0['vring']['cells'], [])
         self.assertEquals(app0['identity'], None)
         self.assertEquals(app0['identity_group'], None)
+        self.assertEquals(app0['environ'], [])
+        self.assertEquals(app0['ephemeral_ports'], 2)
 
     def test__add_features(self):
         """Tests optional container features."""
@@ -160,6 +293,41 @@ class AppMgrManifestTest(unittest.TestCase):
             treadmill.appmgr.manifest._add_features,
             manifest
         )
+
+    @mock.patch('treadmill.appmgr.gen_uniqueid', mock.Mock(return_value='42'))
+    @mock.patch('treadmill.appmgr.manifest.read', mock.Mock())
+    @mock.patch('treadmill.subproc._check', mock.Mock(return_value=True))
+    def test_load_with_env(self):
+        """Tests loading app manifest with resource allocation."""
+        manifest = {
+            'services': [
+                {
+                    'name': 'web_server',
+                    'command': '/bin/sleep 5',
+                    'restart': {
+                        'limit': 3,
+                        'interval': 60,
+                    }
+                }
+            ],
+            'proid': 'foo',
+            'disk': '100G',
+            'cpu': '100%',
+            'memory': '100M',
+            'environ': [
+                {'name': 'xxx', 'value': 'yyy'}
+            ],
+        }
+
+        treadmill.subproc.EXECUTABLES = {
+            'sshd': '/path/to/sshd',
+        }
+
+        treadmill.appmgr.manifest.read.return_value = manifest
+        event_filename0 = os.path.join(self.root, 'proid.myapp#0')
+
+        app0 = app_manifest.load(self.app_env, event_filename0)
+        self.assertEquals(app0['environ'], [{'name': 'xxx', 'value': 'yyy'}])
 
 
 if __name__ == '__main__':

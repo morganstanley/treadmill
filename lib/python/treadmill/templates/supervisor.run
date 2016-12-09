@@ -18,7 +18,7 @@ export HOME={{ home }}
 export KRB5CCNAME="FILE:${TREADMILL_HOST_TICKET}"
 exec {{ ionice }} -c 2 -n $IONICE_PRI \
   ${TREADMILL_S6}/bin/s6-setuidgid {{ user }} \
-  {% if envdir -%} ${TREADMILL_S6}/bin/s6-envdir {{ envdir }} {% endif -%} \
+  {% for envdir in envdirs %} ${TREADMILL_S6}/bin/s6-envdir {{ envdir }} {% endfor -%} \
   {{ shell }} -l '{{ cmd }}'
 
 {% else %}
@@ -30,7 +30,7 @@ ulimit -Hu 2048
 exec \
     {{ ionice }} -c 2 -n $IONICE_PRI \
     ${TREADMILL_S6}/bin/s6-setuidgid {{ user }} \
-    {% if envdir -%} ${TREADMILL_S6}/bin/s6-envdir {{ envdir }} {% endif -%} \
+    {% for envdir in envdirs %} ${TREADMILL_S6}/bin/s6-envdir {{ envdir }} {% endfor -%} \
     {{ shell }} -l '{{ cmd }}'
 
 {% endif %}
@@ -39,7 +39,7 @@ exec \
 # Running as current user
 
 exec {{ ionice }} -c 2 -n $IONICE_PRI \
-  {% if envdir -%} ${TREADMILL_S6}/bin/s6-envdir {{ envdir }} {% endif -%} \
+  {% for envdir in envdirs %} ${TREADMILL_S6}/bin/s6-envdir {{ envdir }} {% endfor -%} \
   {{ shell }} -l '{{ cmd }}'
 
 {% endif %}

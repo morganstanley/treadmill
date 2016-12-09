@@ -23,7 +23,7 @@ class API(object):
                 {'$ref': 'server.json#/resource/properties/label'}
             ]}
         )
-        # () will not pass validation, but it is indication for introspetion
+        # () will not pass validation, but it is indication for introspection
         # that the required type is list.
         def _list(cell=None, label=()):
             """List servers by cell and/or features."""

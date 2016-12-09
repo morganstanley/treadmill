@@ -45,6 +45,10 @@ def list_resource_types(api):
 
 def _import_resource_mod(resource_type, debug=False):
     """Safely import module for given resource type."""
+    # Ignore private variables.
+    if resource_type.startswith('_'):
+        return None
+
     try:
         return importlib.import_module('treadmill.api.' + resource_type)
     except ImportError:
@@ -124,6 +128,9 @@ def make_resource_group(ctx, parent, resource_type, api=None):
     """Make click group for a resource type."""
     if api is None:
         mod = _import_resource_mod(resource_type)
+        if not mod:
+            return
+
         api = getattr(mod, 'init')(ctx)
 
     @parent.group(name=resource_type, help=api.__doc__)

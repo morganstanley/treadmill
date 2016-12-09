@@ -407,6 +407,11 @@ class AppPrettyFormatter(object):
             ('type', None, None),
         ])
 
+        environ_tbl = make_list_to_table([
+            ('name', None, None),
+            ('value', None, None),
+        ])
+
         schema = [
             ('name', '_id', None),
             ('memory', None, None),
@@ -414,8 +419,11 @@ class AppPrettyFormatter(object):
             ('disk', None, None),
             ('tickets', None, None),
             ('features', None, None),
+            ('identity-group', 'identity_group', None),
             ('services', None, services_tbl),
-            ('endpoints', None, endpoints_tbl)]
+            ('endpoints', None, endpoints_tbl),
+            ('environ', None, environ_tbl),
+        ]
 
         format_item = make_dict_to_table(schema)
 
@@ -746,7 +754,9 @@ class EndpointPrettyFormatter(object):
         """Return pretty-formatted item."""
         schema = [
             ('name', None, None),
+            ('proto', None, None),
             ('endpoint', None, None),
+            ('hostport', None, None),
         ]
 
         format_item = make_dict_to_table(schema)

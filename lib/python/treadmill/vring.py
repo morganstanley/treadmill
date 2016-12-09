@@ -56,7 +56,8 @@ def run(ring, routing, endpoints, discovery):
         if hostport:
             host, public_port = hostport.split(':')
             ipaddr = socket.gethostbyname(host)
-            vring_route = firewall.DNATRule(orig_ip=ipaddr,
+            vring_route = firewall.DNATRule(proto='tcp',
+                                            orig_ip=ipaddr,
                                             orig_port=private_port,
                                             new_ip=ipaddr,
                                             new_port=public_port)

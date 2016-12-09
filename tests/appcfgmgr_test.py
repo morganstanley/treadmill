@@ -21,16 +21,25 @@ from treadmill import fs
 class AppCfgMgrTest(unittest.TestCase):
     """Mock test for treadmill.appcfgmgr.AppCfgMgr."""
 
+    @mock.patch('treadmill.appmgr.AppEnvironment', mock.Mock(autospec=True))
     @mock.patch('treadmill.watchdog.Watchdog', mock.Mock(autospec=True))
     def setUp(self):
         self.root = tempfile.mkdtemp()
 
-        self.appcfgmgr = appcfgmgr.AppCfgMgr(root=self.root)
+        self.cache = os.path.join(self.root, 'cache')
+        self.apps = os.path.join(self.root, 'apps')
+        self.running = os.path.join(self.root, 'running')
+        self.cleanup = os.path.join(self.root, 'cleanup')
 
-        self.cache = self.appcfgmgr.tm_env.cache_dir
-        self.apps = self.appcfgmgr.tm_env.apps_dir
-        self.running = self.appcfgmgr.tm_env.running_dir
-        self.cleanup = self.appcfgmgr.tm_env.cleanup_dir
+        for tmp_dir in [self.cache, self.apps, self.running, self.cleanup]:
+            os.mkdir(tmp_dir)
+
+        self.appcfgmgr = appcfgmgr.AppCfgMgr(root=self.root)
+        self.appcfgmgr.tm_env.root = self.root
+        self.appcfgmgr.tm_env.cache_dir = self.cache
+        self.appcfgmgr.tm_env.apps_dir = self.apps
+        self.appcfgmgr.tm_env.running_dir = self.running
+        self.appcfgmgr.tm_env.cleanup_dir = self.cleanup
 
     def tearDown(self):
         if self.root and os.path.isdir(self.root):

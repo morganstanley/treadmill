@@ -28,6 +28,18 @@ DIMENSION_COUNT = None
 _MAX_UTILIZATION = float('inf')
 _GLOBAL_ORDER_BASE = time.mktime((2014, 1, 1, 0, 0, 0, 0, 0, 0))
 
+# 21 day
+DEFAULT_SERVER_UPTIME = 21 * 24 * 60 * 60
+
+# 7 days
+DEFAULT_MAX_APP_LEASE = 7 * 24 * 60 * 60
+
+# 1 day
+DEFAULT_APP_LEASE = 24 * 60 * 60
+
+# Default partition threshold
+DEFAULT_THRESHOLD = 0.9
+
 
 def _bit_count(value):
     """Returns number of bits set."""
@@ -217,18 +229,20 @@ class Application(object):
         'allocation',
         'data_retention_timeout',
         'server',
-        'duration',
+        'lease',
         'identity',
         'identity_group',
         'identity_group_ref',
         'schedule_once',
         'evicted',
+        'placement_expiry',
+        'renew',
     )
 
     def __init__(self, name, priority, demand, affinity,
                  affinity_limits=None,
                  data_retention_timeout=0,
-                 duration=0,
+                 lease=0,
                  identity_group=None,
                  identity=None,
                  schedule_once=False):
@@ -242,12 +256,14 @@ class Application(object):
         self.priority = priority
         self.demand = np.array(demand, dtype=float)
         self.data_retention_timeout = data_retention_timeout
-        self.duration = duration
+        self.lease = lease
         self.identity_group = identity_group
         self.identity = identity
         self.identity_group_ref = None
         self.schedule_once = schedule_once
         self.evicted = False
+        self.placement_expiry = None
+        self.renew = False
 
     def acquire_identity(self):
         """Try to acquire identity if belong to the group.
@@ -271,9 +287,10 @@ class Application(object):
 
     def force_set_identity(self, identity):
         """Force identity of the app."""
-        assert self.identity_group_ref
-        self.identity = identity
-        self.identity_group_ref.available.discard(identity)
+        if identity is not None:
+            assert self.identity_group_ref
+            self.identity = identity
+            self.identity_group_ref.available.discard(identity)
 
     def has_identity(self):
         """Checks if app has identity if identity group is specified."""
@@ -307,40 +324,58 @@ class Strategy(object):
 class SpreadStrategy(Strategy):
     """Spread strategy will suggest new node for each subsequent placement."""
     __slots__ = (
-        'inodes',
+        'current_idx',
+        'node',
     )
 
-    def __init__(self, nodes):
-        self.inodes = itertools.cycle(nodes)
+    def __init__(self, node):
+        self.current_idx = 0
+        self.node = node
 
     def suggested_node(self):
         """Suggest next node from the cycle."""
-        return self.inodes.next()
+        for _ in xrange(0, len(self.node.children)):
+            if self.current_idx == len(self.node.children):
+                self.current_idx = 0
+
+            current = self.node.children[self.current_idx]
+            self.current_idx += 1
+            if current:
+                return current
+        # Not a single non-none node.
+        return None
 
     def next_node(self):
         """Suggest next node from the cycle."""
-        return self.inodes.next()
+        return self.suggested_node()
 
 
 class PackStrategy(Strategy):
     """Pack strategy will suggest same node until it is full."""
     __slots__ = (
-        'current',
-        'inodes',
+        'current_idx',
+        'node',
     )
 
-    def __init__(self, nodes):
-        self.inodes = itertools.cycle(nodes)
-        self.current = self.inodes.next()
+    def __init__(self, node):
+        self.current_idx = 0
+        self.node = node
 
     def suggested_node(self):
         """Suggest same node as previous placement."""
-        return self.current
+        for _ in xrange(0, len(self.node.children)):
+            if self.current_idx == len(self.node.children):
+                self.current_idx = 0
+            node = self.node.children[self.current_idx]
+            if node:
+                return node
+
+        return None
 
     def next_node(self):
         """Suggest next node from the cycle."""
-        self.current = self.inodes.next()
-        return self.current
+        self.current_idx += 1
+        return self.suggested_node()
 
 
 class TraitSet(object):
@@ -410,6 +445,7 @@ class Node(object):
         'free_capacity',
         'parent',
         'children',
+        'children_by_name',
         'traits',
         'labels',
         'affinity_counters',
@@ -423,13 +459,24 @@ class Node(object):
         self.level = level
         self.free_capacity = zero_capacity()
         self.parent = None
-        self.children = collections.OrderedDict()
+        self.children = list()
+        self.children_by_name = dict()
         self.traits = TraitSet(traits)
         self.labels = set()
         self.affinity_counters = collections.Counter()
         self.valid_until = valid_until
         self._state = State.up
         self._state_since = time.time()
+
+    def empty(self):
+        """Return true if there are no children."""
+        return not bool(self.children_by_name)
+
+    def children_iter(self):
+        """Iterate over active children."""
+        for child in self.children:
+            if child:
+                yield child
 
     def get_state(self):
         """Returns tuple of (state, since)."""
@@ -465,11 +512,11 @@ class Node(object):
         if child_valid_until:
             self.valid_until = max(self.valid_until, child_valid_until)
         else:
-            if self.children:
-                self.valid_until = max([node.valid_until
-                                        for node in self.children.values()])
-            else:
+            if self.empty():
                 self.valid_until = 0
+            else:
+                self.valid_until = max([node.valid_until
+                                        for node in self.children_iter()])
 
         if self.parent:
             self.parent.adjust_valid_until(child_valid_until)
@@ -483,17 +530,19 @@ class Node(object):
 
     def reset_children(self):
         """Reset children to empty list."""
-        for child in self.children.values():
+        for child in self.children_iter():
             child.parent = None
-        self.children = collections.OrderedDict()
+        self.children = list()
+        self.children_by_name = dict()
 
     def add_node(self, node):
         """Add child node, set the traits and propagate traits up."""
         assert node.parent is None
-        assert node.name not in self.children
+        assert node.name not in self.children_by_name
 
         node.parent = self
-        self.children[node.name] = node
+        self.children.append(node)
+        self.children_by_name[node.name] = node
 
         self.add_child_traits(node)
         self.increment_affinity(node.affinity_counters)
@@ -506,18 +555,26 @@ class Node(object):
         if self.parent:
             self.parent.add_labels(self.labels)
 
-    def remove_node(self, node_name):
+    def remove_node(self, node):
         """Remove child node and adjust the traits."""
-        assert node_name in self.children
-        node = self.children[node_name]
+        assert node.name in self.children_by_name
 
-        del self.children[node_name]
-        self.remove_child_traits(node_name)
+        del self.children_by_name[node.name]
+        for idx in xrange(0, len(self.children)):
+            if self.children[idx] == node:
+                self.children[idx] = None
+
+        self.remove_child_traits(node.name)
         self.decrement_affinity(node.affinity_counters)
         self.adjust_valid_until(None)
 
         node.parent = None
         return node
+
+    def remove_node_by_name(self, nodename):
+        """Removes node by name."""
+        assert nodename in self.children_by_name
+        return self.remove_node(self.children_by_name[nodename])
 
     def check_app_constraints(self, app):
         """Find app placement on the node."""
@@ -545,16 +602,16 @@ class Node(object):
 
     def size(self, label):
         """Returns total capacity of the children."""
-        if not self.children or label not in self.labels:
+        if self.empty() or label not in self.labels:
             return eps_capacity()
 
         return np.sum([
-            n.size(label) for n in self.children.values()], 0)
+            n.size(label) for n in self.children_iter()], 0)
 
     def members(self):
         """Return set of all leaf node names."""
         names = dict()
-        for node in self.children.values():
+        for node in self.children_iter():
             names.update(node.members())
 
         return names
@@ -589,7 +646,7 @@ class Bucket(Node):
 
     def set_affinity_strategy(self, affinity, strategy_t):
         """Initilaizes placement strategy for given affinity."""
-        self.affinity_strategies[affinity] = strategy_t(self.children.keys())
+        self.affinity_strategies[affinity] = strategy_t(self)
 
     def get_affinity_strategy(self, affinity):
         """Returns placement strategy for the affinity, defaults to spread."""
@@ -606,7 +663,7 @@ class Bucket(Node):
 
     def adjust_capacity_down(self, prev_capacity=None):
         """Called when capacity is decreased."""
-        if not self.children:
+        if self.empty():
             self.free_capacity = zero_capacity()
             if self.parent:
                 self.parent.adjust_capacity_down()
@@ -616,7 +673,7 @@ class Bucket(Node):
                 return
 
             free_capacity = zero_capacity()
-            for child_node in self.children.values():
+            for child_node in self.children_iter():
                 if child_node.state is not State.up:
                     continue
 
@@ -635,9 +692,9 @@ class Bucket(Node):
         super(Bucket, self).add_node(node)
         self.adjust_capacity_up(node.free_capacity)
 
-    def remove_node(self, node_name):
+    def remove_node(self, node):
         """Removes node from the bucket."""
-        node = super(Bucket, self).remove_node(node_name)
+        super(Bucket, self).remove_node(node)
         # if _any_isclose(self.free_capacity, node.free_capacity):
         self.adjust_capacity_down(node.free_capacity)
 
@@ -653,29 +710,30 @@ class Bucket(Node):
             return False
 
         strategy = self.get_affinity_strategy(app.affinity.name)
-        nodename0 = strategy.suggested_node()
-        nodename = nodename0
+        node = strategy.suggested_node()
+        if node is None:
+            _LOGGER.debug('All nodes in the bucket deleted.')
+            return False
+
+        nodename0 = node.name
         first = True
+
         while True:
             # End of iteration.
-            if not first and nodename == nodename0:
+            if not first and node.name == nodename0:
                 _LOGGER.debug('Finished iterating on: %s.', self.name)
                 break
             first = False
 
-            _LOGGER.debug('Trying node: %s:', nodename)
+            _LOGGER.debug('Trying node: %s:', node.name)
 
-            node = self.children.get(nodename)
-            if not node or node.state is not State.up:
-                if node is None:
-                    _LOGGER.debug('Node does not exist: %s', nodename)
-                else:
-                    _LOGGER.debug('Node not up: %s, %s', nodename, node.state)
+            if node.state is not State.up:
+                _LOGGER.debug('Node not up: %s, %s', node.name, node.state)
             else:
                 if node.put(app):
                     return True
 
-            nodename = strategy.next_node()
+            node = strategy.next_node()
 
         return False
 
@@ -714,9 +772,7 @@ class Server(Node):
         assert app.name not in self.apps
         _LOGGER.debug('server.put: %s => %s', app.name, self.name)
 
-        # app with 0 duration can be placed anywhere (ignore potentially
-        # expired servers)
-        if app.duration and time.time() + app.duration > self.valid_until:
+        if not self.check_app_lifetime(app):
             return False
 
         if not self.check_app_constraints(app):
@@ -731,7 +787,41 @@ class Server(Node):
         if self.parent:
             self.parent.adjust_capacity_down(prev_capacity)
 
+        if app.placement_expiry is None:
+            app.placement_expiry = time.time() + app.lease
         return True
+
+    def restore(self, app, placement_expiry=None):
+        """Put app back on the server, ignore app lifetime."""
+        lease = app.lease
+        # If not explicit
+        if placement_expiry is None:
+            placement_expiry = app.placement_expiry
+
+        app.lease = 0
+        rc = self.put(app)
+
+        app.lease = lease
+        app.placement_expiry = placement_expiry
+
+        return rc
+
+    def renew(self, app):
+        """Try to extend the placement for app lease."""
+        can_renew = self.check_app_lifetime(app)
+        if can_renew:
+            app.placement_expiry = time.time() + app.lease
+
+        return can_renew
+
+    def check_app_lifetime(self, app):
+        """Check if the app lease fits until server is rebooted."""
+        # app with 0 lease can be placed anywhere (ignore potentially
+        # expired servers)
+        if not app.lease:
+            return True
+
+        return time.time() + app.lease < self.valid_until
 
     def remove(self, app_name):
         """Removes app from the server."""
@@ -741,6 +831,8 @@ class Server(Node):
 
         app.server = None
         app.evicted = True
+        app.placement_expiry = None
+
         self.free_capacity += app.demand
         self.decrement_affinity([app.affinity.name])
 
@@ -778,6 +870,10 @@ class Server(Node):
                 self.parent.adjust_capacity_down(self.free_capacity)
         else:
             raise Exception('Invalid state: ' % state)
+
+    def latest_app_expiry(self):
+        """Return max expire time for all apps."""
+        return max([0] + [app.placement_expiry for app in self.apps.values()])
 
 
 class Allocation(object):
@@ -964,6 +1060,7 @@ class Allocation(object):
 
         acc_demand = zero_capacity()
         available = total_reserved + free_capacity + np.finfo(float).eps
+
         for item in heapq.merge(*queues):
             rank, _util, pending, order, app = item
             acc_demand = acc_demand + app.demand
@@ -1001,10 +1098,44 @@ class Allocation(object):
         return self.sub_allocations[name]
 
 
+class Partition(object):
+    """Cell partition."""
+
+    __slots__ = (
+        'allocation',
+        'max_server_uptime',
+        'max_lease',
+        'threshold',
+    )
+
+    def __init__(self, max_server_uptime=None, max_lease=None, threshold=None):
+        self.allocation = Allocation()
+        # Default -
+        if not max_server_uptime:
+            max_server_uptime = DEFAULT_SERVER_UPTIME
+        if not max_lease:
+            max_lease = DEFAULT_MAX_APP_LEASE
+        if not threshold:
+            threshold = DEFAULT_THRESHOLD
+
+        self.max_server_uptime = max_server_uptime
+        self.max_lease = max_lease
+        self.threshold = threshold
+
+    def valid_until(self, up_since):
+        """Calculates valid until time given reboot time."""
+        expires_local_tm = time.localtime(up_since +
+                                          self.max_server_uptime)
+        return time.mktime((expires_local_tm.tm_year,
+                            expires_local_tm.tm_mon,
+                            expires_local_tm.tm_mday,
+                            23, 59, 59, 0, 0, 0))
+
+
 class Cell(Bucket):
     """Top level node."""
     __slots__ = (
-        'allocations',
+        'partitions',
         'next_event_at',
         'apps',
         'identity_groups',
@@ -1017,7 +1148,7 @@ class Cell(Bucket):
             labels = set()
 
         assert isinstance(labels, set)
-        self.allocations = collections.defaultdict(Allocation)
+        self.partitions = collections.defaultdict(Partition)
 
         self.apps = dict()
         self.identity_groups = collections.defaultdict(IdentityGroup)
@@ -1062,7 +1193,7 @@ class Cell(Bucket):
         ident_group = self.identity_groups.get(name)
         if ident_group:
             in_use = False
-            for app in self.apps:
+            for app in self.apps.values():
                 if app.identity_group_ref == ident_group:
                     ident_group.adjust(0)
                     in_use = True
@@ -1122,14 +1253,45 @@ class Cell(Bucket):
 
     def _find_placements(self, queue, servers):
         """Run the queue and find placements."""
+        # Disable too many branches/statements warning
+        #
+        # TODO: refactor to get rid of warnings.
+        #
+        # pylint: disable=R0912
+        # pylint: disable=R0915
+        #
         # At this point, if app.server is defined, it points to attached
         # server.
         evicted = dict()
         reversed_queue = queue[::-1]
+
         for app in queue:
             _LOGGER.debug('scheduling %s', app.name)
+            restore = {}
+            if app.renew:
+                assert app.server
+                assert app.has_identity()
+                assert app.server in servers
+                server = servers[app.server]
+                if not server.renew(app):
+                    # Save information that will be used to restore placement
+                    # in case renewal fails.
+                    _LOGGER.debug('Cannot renew app %s on server %s',
+                                  app.name, app.server)
+                    restore['server'] = server
+                    restore['placement_expiry'] = app.placement_expiry
+                    server.remove(app.name)
+
+            # At this point app was either renewed on the same server, or
+            # temporarily removed from server if renew failed.
+            #
+            # If placement will be found, renew should remain False. If
+            # placement will not be found, renew will be set to True when
+            # placement is restored to the server it was running.
+            app.renew = False
 
             if app.server:
+                assert app.server in servers
                 assert app.has_identity()
                 continue
 
@@ -1146,7 +1308,7 @@ class Cell(Bucket):
 
                 evicted_from = evicted[app]
                 del evicted[app]
-                if evicted_from.put(app):
+                if evicted_from.restore(app):
                     app.evicted = False
                     continue
 
@@ -1180,7 +1342,13 @@ class Cell(Bucket):
 
             # Placement failed.
             if not app.server:
-                app.release_identity()
+                # If renewal attempt failed, restore previous placement and
+                # expiry date.
+                if restore:
+                    restore['server'].restore(app, restore['placement_expiry'])
+                    app.renew = True
+                else:
+                    app.release_identity()
 
     def schedule_alloc(self, allocation):
         """Run the scheduler for given allocation."""
@@ -1191,7 +1359,8 @@ class Cell(Bucket):
         size = self.size(allocation.label)
         queue = [item[-1] for item in allocation.utilization_queue(size)]
 
-        before = {app.name: app.server for app in queue}
+        before = [(app.name, app.server, app.placement_expiry)
+                  for app in queue]
 
         self._fix_invalid_placements(queue, servers)
         self._handle_inactive_servers(servers)
@@ -1199,28 +1368,39 @@ class Cell(Bucket):
         # self._restore(queue, servers)
         self._find_placements(queue, servers)
 
-        after = {app.name: app.server for app in queue}
+        after = [(app.server, app.placement_expiry)
+                 for app in queue]
+
         _LOGGER.info('Scheduled %d apps in %r',
                      len(queue),
                      time.time() - begin)
 
-        placement = [(app.name, before[app.name], after[app.name])
-                     for app in queue]
+        placement = [tuple(itertools.chain(b, a))
+                     for b, a in itertools.izip(before, after)]
 
-        for appname, s_before, s_after in placement:
+        for appname, s_before, exp_before, s_after, exp_after in placement:
             if s_before != s_after:
                 _LOGGER.info('New placement: %s - %s => %s',
                              appname, s_before, s_after)
+            else:
+                if exp_before != exp_after:
+                    _LOGGER.info('Renewed: %s [%s] - %s => %s',
+                                 appname, s_before, exp_before, exp_after)
 
         return placement
 
     def schedule(self):
         """Run the scheduler."""
         placement = []
-        for label, allocation in self.allocations.iteritems():
+        for label, partition in self.partitions.iteritems():
+            allocation = partition.allocation
             allocation.label = label
             placement.extend(self.schedule_alloc(allocation))
         return placement
+
+    def resolve_reboot_conflicts(self):
+        """Adjust server exipiration time to avoid conflicts."""
+        pass
 
 
 def dumps(cell):

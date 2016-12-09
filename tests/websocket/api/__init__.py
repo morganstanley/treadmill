@@ -1,0 +1,1 @@
+"""Websocket API tests."""

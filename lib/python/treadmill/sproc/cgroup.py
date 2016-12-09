@@ -38,7 +38,7 @@ def _read_mounted_cgroups():
         res = subproc.check_output(['lssubsys', '-M'])
     except subprocess.CalledProcessError as err:
         if err.returncode == 255:
-            logging.warn('old version of lssubsys.')
+            _LOGGER.warning('old version of lssubsys.')
             res = subproc.check_output(['lssubsys', '-m'])
         else:
             raise

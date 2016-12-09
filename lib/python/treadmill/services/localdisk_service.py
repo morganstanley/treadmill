@@ -168,8 +168,8 @@ class LocalDiskResourceService(BaseResourceServiceImpl):
         read_iops = self._default_read_iops
         write_iops = self._default_write_iops
 
-        with lc.LogContext(_LOGGER, rsrc_id):
-            _LOGGER.info('Processing request')
+        with lc.LogContext(_LOGGER, rsrc_id) as log:
+            log.info('Processing request')
 
             size_in_bytes = utils.size_to_bytes(size)
             # FIXME(boysson): This kind of manipulation should live elsewhere.
@@ -182,7 +182,7 @@ class LocalDiskResourceService(BaseResourceServiceImpl):
                 if needed > self._status['extent_free']:
                     # If we do not have enough space, delay the creation until
                     # another volume is deleted.
-                    _LOGGER.info(
+                    log.info(
                         'Delaying request %r until %d extents are free',
                         rsrc_id, needed)
                     self._pending.append(rsrc_id)

@@ -1,10 +1,12 @@
 """Syncronize Zookeeper with file system."""
 from __future__ import absolute_import
 
+import fnmatch
 import logging
 import os
-import time
+import re
 import shutil
+import time
 
 import click
 
@@ -15,6 +17,56 @@ from .. import zknamespace as z
 
 
 _LOGGER = logging.getLogger(__name__)
+
+
+def _on_add_proid(zk2fs_sync, zkpath):
+    """Invoked when new proid is added to endpoints."""
+    _LOGGER.info('Added proid: %s', zkpath)
+    # It is not clear if we need to watch data, as endpoints as
+    # ephemeral and are added/deleted, but never modified once
+    # ephemeral node is created.
+    zk2fs_sync.sync_children(zkpath)
+
+
+def _on_del_proid(zk2fs_sync, zkpath):
+    """Invoked when proid is removed from endpoints (never)."""
+    fpath = zk2fs_sync.fpath(zkpath)
+    _LOGGER.info('Removed proid: %s', os.path.basename(fpath))
+    shutil.rmtree(fpath)
+
+
+def _on_add_instance(zk2fs_sync, zkpath):
+    """Invoked when new instance is added to app."""
+    _LOGGER.info('Added instance: %s', zkpath)
+    zk2fs_sync.sync_children(zkpath)
+
+
+def _on_del_instance(zk2fs_sync, zkpath):
+    """Invoked when instance is removed from app."""
+    fpath = zk2fs_sync.fpath(zkpath)
+    _LOGGER.info('Removed instance: %s', os.path.basename(fpath))
+    shutil.rmtree(fpath)
+
+
+def _on_add_app(zk2fs_sync, zkpath, reobj):
+    """Invoked when new app is added to tasks."""
+    fpath = zk2fs_sync.fpath(zkpath)
+    app_name = os.path.basename(fpath)
+    if reobj.match(app_name):
+        _LOGGER.info('Added app: %s', app_name)
+        zk2fs_sync.sync_children(
+            zkpath,
+            on_add=lambda p: _on_add_instance(zk2fs_sync, p),
+            on_del=lambda p: _on_del_instance(zk2fs_sync, p))
+
+
+def _on_del_app(zk2fs_sync, zkpath, reobj):
+    """Invoked when app is removed from tasks."""
+    fpath = zk2fs_sync.fpath(zkpath)
+    app_name = os.path.basename(fpath)
+    if reobj.match(app_name):
+        _LOGGER.info('Removed app: %s', app_name)
+        shutil.rmtree(fpath)
 
 
 def init():
@@ -35,30 +87,19 @@ def init():
                   is_flag=True, default=False)
     @click.option('--placement', help='Sync placement.',
                   is_flag=True, default=False)
+    @click.option('--tasks', help='Sync trace with app pattern.')
     def zk2fs_cmd(root, endpoints, appgroups, running, scheduled, servers,
-                  placement):
+                  placement, tasks):
         """Starts appcfgmgr process."""
 
         fs.mkdir_safe(root)
         zk2fs_sync = zksync.Zk2Fs(context.GLOBAL.zk.conn, root)
 
         if endpoints:
-            def on_add(zknode):
-                """Invoked when new proid is added to endpoints."""
-                _LOGGER.info('Added proid: %s', zknode)
-                # It is not clear if we need to watch data, as endpoints as
-                # ephemeral and are added/deleted, but never modified once
-                # ephemeral node is created.
-                zk2fs_sync.sync_children(zknode)
-
-            def on_del(zkpath):
-                """Invoked when proid is removed from endpoints (never)."""
-                fpath = zk2fs_sync._fpath(zkpath)  # pylint: disable=W0212
-                _LOGGER.info('Removed proid: %s', os.path.basename(fpath))
-                shutil.rmtree(fpath)
-
-            zk2fs_sync.sync_children(z.ENDPOINTS,
-                                     on_add=on_add, on_del=on_del)
+            zk2fs_sync.sync_children(
+                z.ENDPOINTS,
+                on_add=lambda p: _on_add_proid(zk2fs_sync, p),
+                on_del=lambda p: _on_del_proid(zk2fs_sync, p))
 
         if running:
             # Running are ephemeral, and will be added/remove automatically.
@@ -75,6 +116,16 @@ def init():
 
         if placement:
             zk2fs_sync.sync_placement(z.path.placement(), watch_data=True)
+
+        if tasks:
+            regex = fnmatch.translate(tasks)
+            _LOGGER.info('Using pattern: %s', regex)
+            reobj = re.compile(regex)
+
+            zk2fs_sync.sync_children(
+                z.TASKS,
+                on_add=lambda p: _on_add_app(zk2fs_sync, p, reobj),
+                on_del=lambda p: _on_del_app(zk2fs_sync, p, reobj))
 
         while True:
             time.sleep(100000)

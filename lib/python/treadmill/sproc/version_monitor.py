@@ -28,6 +28,8 @@ from .. import watchdog
 from .. import zkutils
 from .. import zknamespace as z
 
+_LOGGER = logging.getLogger(__name__)
+
 
 def init():
     """Top level command handler."""
@@ -42,7 +44,7 @@ def init():
     def version_monitor(approot, command):
         """Runs node version monitor."""
         cli_cmd = list(command)
-        logging.info('Initializing code monitor: %r', cli_cmd)
+        _LOGGER.info('Initializing code monitor: %r', cli_cmd)
 
         watchdogs = watchdog.Watchdog(
             os.path.join(
@@ -54,7 +56,7 @@ def init():
         context.GLOBAL.zk.conn.add_listener(zkutils.exit_on_lost)
 
         while not context.GLOBAL.zk.conn.exists(z.VERSION):
-            logging.warn('%r node not created yet. Cell masters running?',
+            _LOGGER.warn('%r node not created yet. Cell masters running?',
                          z.VERSION)
             time.sleep(30)
 
@@ -63,7 +65,7 @@ def init():
 
         codepath = os.path.realpath(utils.rootdir())
         digest = versionmgr.checksum_dir(codepath).hexdigest()
-        logging.info('codepath: %s, digest: %s', codepath, digest)
+        _LOGGER.info('codepath: %s, digest: %s', codepath, digest)
 
         info = {
             'codepath': codepath,
@@ -82,14 +84,14 @@ def init():
             if event is not None and event.type == 'DELETED':
                 # The version info not present, restart services and register
                 # new checksum.
-                logging.info('Upgrade requested, running: %s', cli_cmd)
+                _LOGGER.info('Upgrade requested, running: %s', cli_cmd)
 
                 if cli_cmd:
                     try:
                         subproc.check_call(cli_cmd)
                         # Record successful upgrade.
                     except subprocess.CalledProcessError:
-                        logging.exception('Upgrade failed.')
+                        _LOGGER.exception('Upgrade failed.')
                         # Immediately trigger a watchdog timeout
                         watchdogs.create(
                             name='version_monitor',
@@ -101,7 +103,7 @@ def init():
                         ).heartbeat()
                         del info['digest']
 
-                logging.info('Upgrade complete.')
+                _LOGGER.info('Upgrade complete.')
                 utils.sys_exit(0)
 
             return True
@@ -109,6 +111,6 @@ def init():
         while True:
             time.sleep(100000)
 
-        logging.info('service shutdown.')
+        _LOGGER.info('service shutdown.')
 
     return version_monitor

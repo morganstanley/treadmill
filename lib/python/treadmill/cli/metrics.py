@@ -22,7 +22,7 @@ from .. import context
 from .. import admin
 
 
-_LOGGER = logging.getLogger()
+_LOGGER = logging.getLogger(__name__)
 
 # TODO: this list should be discoverable from the server rather than
 #                hardcoded. GET /metrics/core should return this list.
@@ -50,7 +50,7 @@ def _get_nodeinfo_url(cell):
     for (_app, hostport) in nodeinfo_iter:
         return 'http://%s' % hostport
 
-    logging.critical('%s: %s is not running.', cell, nodeinfo_app)
+    _LOGGER.critical('%s: %s is not running.', cell, nodeinfo_app)
     sys.exit(-1)
 
 
@@ -69,7 +69,7 @@ def _get_app_metrics(nodeinfo_url, outdir, appendpoint, hostport):
 
 def _get_server_metrics(nodeinfo_url, outdir, server, services):
     """Get core services metrics."""
-    logging.info('Processing %s.', server)
+    _LOGGER.info('Processing %s.', server)
     fs.mkdir_safe(outdir)
 
     for svc in services:
@@ -82,7 +82,7 @@ def _get_server_metrics(nodeinfo_url, outdir, server, services):
 
 def _download_rrd(metrics_url, rrdfile):
     """Get rrd file and store in output directory."""
-    logging.info('%s', metrics_url)
+    _LOGGER.info('%s', metrics_url)
     request = urllib2.Request(metrics_url)
     try:
         with open(rrdfile, 'w+') as f:
@@ -91,7 +91,7 @@ def _download_rrd(metrics_url, rrdfile):
         rrdutils.gen_graph(rrdfile, rrdutils.RRDTOOL,
                            show_mem_limit=False)
     except urllib2.HTTPError as err:
-        logging.warn('%s: %s, %s', metrics_url, err.code, err.reason)
+        _LOGGER.warning('%s: %s, %s', metrics_url, err.code, err.reason)
 
 
 def init():

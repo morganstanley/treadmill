@@ -151,8 +151,10 @@ class Context(object):
 
         result = dnsutils.srv(srv_rec + '.' + self.dns_domain)
         _LOGGER.debug('Result: %r', result)
+
+        protocol, _rest = srv_rec.split('.', 1)
         if result:
-            return ['http://%s:%s' % (host, port)
+            return ['%s://%s:%s' % (protocol[1:], host, port)
                     for host, port, _prio, _weight in result]
         else:
             raise ContextError('No srv records found: %s', srv_rec)
@@ -176,6 +178,16 @@ class Context(object):
             raise ContextError('Cell is not specified.')
 
         return self._resolve_srv('_http._tcp.stateapi.' + self.cell + '.cell')
+
+    def ws_api(self, wsapi=None):
+        """Resolve state API endpoints."""
+        if wsapi:
+            return [wsapi]
+
+        if not self.cell:
+            raise ContextError('Cell is not specified.')
+
+        return self._resolve_srv('_ws._tcp.wsapi.' + self.cell + '.cell')
 
     def admin_api(self, restapi=None):
         """Resolve Admin REST API endpoints."""

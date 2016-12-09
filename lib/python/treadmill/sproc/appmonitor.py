@@ -8,6 +8,7 @@ import itertools
 import collections
 
 import click
+import ldap3
 
 from treadmill import context
 from treadmill import sysinfo
@@ -40,7 +41,11 @@ def _run_sync():
                 _LOGGER.info('App monitor does not exist: %s', appname)
                 continue
 
-            count = data['count']
+            count = data.get('count')
+            if count is None:
+                _LOGGER.warn('Invalid monitor spec: %s', appname)
+                continue
+
             current_count = len(grouped[appname])
             _LOGGER.debug('App: %s current: %s, target %s',
                           appname, current_count, count)
@@ -50,12 +55,27 @@ def _run_sync():
             if count > current_count:
                 # need to start more.
                 needed = count - current_count
-                scheduled = instance_api.create(appname, {}, count=needed)
+                try:
+                    scheduled = instance_api.create(appname, {}, count=needed)
+                    # TODO: may need to rationalize this and not expose low
+                    #       level ldap exception from admin.py, and rather
+                    #       return None for non-existing entities.
+                except ldap3.LDAPNoSuchObjectResult:
+                    _LOGGER.warn('Application not configured: %s',
+                                 appname)
+                except Exception:  # pylint: disable=W0703
+                    _LOGGER.exception('Unable to create instances: %s: %s',
+                                      appname, needed)
 
             if count < current_count:
                 for extra in grouped[appname][:current_count - count]:
-                    instance_api.delete(extra)
+                    try:
+                        instance_api.delete(extra)
+                    except Exception:  # pylint: disable=W0703
+                        _LOGGER.exception('Unable to delete instance: %s',
+                                          extra)
 
+        # TODO: need to send alert that monitor failed.
         time.sleep(60)
 
 

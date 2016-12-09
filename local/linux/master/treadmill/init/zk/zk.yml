@@ -1,0 +1,50 @@
+# Kuula template for starting Zookeeper on the master.
+#
+# The file is generated in /init/zk/zk.[#].yml
+#
+# Variables are taken from treadmill master config. Generating kuula config
+# allows to have a single set of parameters in the config for all master
+# processes.
+#
+---
+use:
+    - kuula-templates/zookeeper/2.3.4
+
+kuula:
+    modules:
+        - msjava/oraclejdk/1.8.0_31
+        - kerberos
+    +env_vars:
+        JMX_ACL_PREFIX: ''
+        JVMFLAGS: >-
+            -Djava.security.auth.login.config=/treadmill/init/zk/jaas.conf
+            -Dzookeeper.sasl.client.username={{ treadmillid }}
+            -Xms4000m -Xmx4000m -XX:ParallelGCThreads=8 -XX:+UseConcMarkSweepGC
+
+config_mode: prod
+produser: {{ username }}
+dir: /treadmill/zookeeper
+
+# Workaround bug in 2.3.2 template
+msAuthorizers: user,ldap,file
+
+config:
+    msjava_rolling_release: 2016.06.16
+    ticktime: 10000
+    port: {{ me['zk-client-port'] }}
+    jmxport: {{ me['zk-jmx-port'] }}
+    initLimit: 5
+    syncLimit: 2
+    maxClientCnxns: 0
+    proid: root
+    kerberos: 1
+    maxSessionTimeout: 360000
+    msAuthorizers: |
+        user,ldap,file
+        authProvider.2=org.apache.zookeeper.server.auth.SASLAuthenticationProvider
+    sam_zkserver_ver: 1.2.11
+    autopurge_snapRetainCount: 3
+    myid: {{ me.idx }}
+    autopurge_purgeInterval: 12
+    servers: {% for master in masters %}
+        {{ master.idx }}: {{ master.hostname }}:{{ master['zk-followers-port'] }}:{{ master['zk-election-port'] }} {% endfor %}

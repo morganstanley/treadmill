@@ -133,6 +133,9 @@ def _call(url, method, payload=None, headers=None, auth=_KERBEROS_AUTH,
     _LOGGER.debug('response: %r', response)
 
     if response.status_code == httplib.OK:
+        if callable(getattr(response, 'json')):
+            _LOGGER.debug('response.json: %r', response.json())
+
         return True, response
 
     if _should_retry(response):

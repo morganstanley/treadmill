@@ -1,0 +1,15 @@
+#!/bin/sh
+#
+# Starts Treadmill reboot monitor.
+# Runs as root.
+#
+
+exec 2>&1
+
+# This service needs host tickets
+export KRB5CCNAME="FILE:$TREADMILL_HOST_TICKET"
+
+# TODO: For initial debugging, specify -noexec, so that actual reboot not done.
+#       Once reboot logic is verified, remove -noexec flag.
+exec {{ treadmill }}/bin/treadmill sproc --cgroup . \
+    reboot-monitor -- {{ dir }}/bin/reboot.sh

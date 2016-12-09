@@ -88,16 +88,19 @@ class AppTraceTest(mockzk.MockZookeeperTestCase):
 
         apptrace.cleanup(zkclient, 100, max_events=1)
 
-        kazoo.client.KazooClient.delete.assert_has_calls([
-            # 002 task has > 1 event, extra will be removed.
-            mock.call('/tasks/app1/002/xxx-001'),
-            # 001 task has > 1 event, extra will be removed.
-            mock.call('/tasks/app1/001/xxx-001'),
-            # 001 task is expired, recursive delete.
-            mock.call('/tasks/app1/001', recursive=True),
-            # try to delete (and fail as not empty)
-            mock.call('/tasks/app1'),
-        ])
+        kazoo.client.KazooClient.delete.assert_has_calls(
+            [
+                # 002 task has > 1 event, extra will be removed.
+                mock.call('/tasks/app1/002/xxx-001'),
+                # 001 task has > 1 event, extra will be removed.
+                mock.call('/tasks/app1/001/xxx-001'),
+                # 001 task is expired, recursive delete.
+                mock.call('/tasks/app1/001', recursive=True),
+                # try to delete (and fail as not empty)
+                mock.call('/tasks/app1'),
+            ],
+            any_order=True
+        )
 
     def test_wait_snapshot(self):
         """Tests that .wait() return True when not initialized."""

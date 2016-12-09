@@ -13,13 +13,15 @@ from . import fs
 
 _LOGGER = logging.getLogger(__name__)
 
-_DNAT_FILE_PATTERN = 'dnat:{orig_ip}:{orig_port}-{new_ip}:{new_port}'
+_DNAT_FILE_PATTERN = 'dnat:{proto}:{orig_ip}:{orig_port}-{new_ip}:{new_port}'
 
 _PASSTHROUGH_FILE_PATTERN = 'passthrough:{src_ip}-{dst_ip}'
 
 _DNAT_FILE_RE = re.compile((
     r'^' +
     _DNAT_FILE_PATTERN.format(
+        # Protocol
+        proto=r'(?P<proto>(?:tcp|udp))',
         # Original IP
         orig_ip=r'(?P<orig_ip>(?:\d{1,3}\.){3}\d{1,3})',
         # Original port
@@ -90,7 +92,8 @@ class RuleMgr(object):
         match = _DNAT_FILE_RE.match(rulespec)
         if match:
             data = match.groupdict()
-            return firewall.DNATRule(data['orig_ip'], int(data['orig_port']),
+            return firewall.DNATRule(data['proto'],
+                                     data['orig_ip'], int(data['orig_port']),
                                      data['new_ip'], int(data['new_port']))
 
         match = _PASSTHROUGH_FILE_RE.match(rulespec)
@@ -202,8 +205,17 @@ class RuleMgr(object):
             ``str`` -- Filename representation of the rule
         """
         if isinstance(rule, firewall.DNATRule):
-            return _DNAT_FILE_PATTERN.format(**vars(rule))
+            return _DNAT_FILE_PATTERN.format(
+                proto=rule.proto,
+                orig_ip=rule.orig_ip,
+                orig_port=rule.orig_port,
+                new_ip=rule.new_ip,
+                new_port=rule.new_port,
+            )
         elif isinstance(rule, firewall.PassThroughRule):
-            return _PASSTHROUGH_FILE_PATTERN.format(**vars(rule))
+            return _PASSTHROUGH_FILE_PATTERN.format(
+                src_ip=rule.src_ip,
+                dst_ip=rule.dst_ip,
+            )
         else:
             raise ValueError("Invalid rule: %r" % (rule, ))

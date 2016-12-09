@@ -51,6 +51,19 @@
         "required": [ "name", "port" ],
         "additionalProperties": false
     },
+    "environ": {
+        "type": "object",
+        "properties": {
+            "name": {
+                "type": "string"
+            },
+            "value": {
+                "type": "string"
+            }
+        },
+        "required": [ "name", "value" ],
+        "additionalProperties": false
+    },
     "vring_rule": {
         "type": "object",
         "properties": {
@@ -64,6 +77,10 @@
             }
         },
         "required": ["endpoints", "pattern"]
+    },
+    "limit": {
+        "type": "integer",
+        "minimum": 1
     },
     "resource": {
         "type": "object",
@@ -79,6 +96,10 @@
             "endpoints": {
                 "type": "array",
                 "items": { "$ref": "#/endpoint" }
+            },
+            "environ": {
+                "type": "array",
+                "items": { "$ref": "#/environ" }
             },
             "ephemeral_ports": {
                 "type": "integer",
@@ -130,7 +151,17 @@
             "identity_group": {
                 "$ref": "common.json#/identity_group_id"
             },
-            "schedule_once": { "type": "boolean" }
+            "schedule_once": { "type": "boolean" },
+            "affinity_limits" : {
+                "type" : "object",
+                "additionalProperties" : false,
+                "properties": {
+                    "pod": { "$ref": "#/limit" },
+                    "rack": { "$ref": "#/limit" },
+                    "server": { "$ref": "#/limit" },
+                    "required": []
+                }
+            }
         }
     },
     "verbs": {

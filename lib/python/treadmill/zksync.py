@@ -33,13 +33,9 @@ class Zk2Fs(object):
         utils.touch(modified_file)
         os.utime(modified_file, (time.time(), time.time()))
 
-    def _fpath(self, zkpath):
-        """Returns file path to given zk node."""
-        return os.path.join(self.fsroot, zkpath.lstrip('/'))
-
     def _default_on_del(self, zkpath):
         """Default callback invoked on node delete, remove file."""
-        fs.rm_safe(self._fpath(zkpath))
+        fs.rm_safe(self.fpath(zkpath))
 
     def _default_on_add(self, zknode):
         """Default callback invoked on node is added, default - sync data."""
@@ -47,7 +43,7 @@ class Zk2Fs(object):
 
     def _data_watch(self, zkpath, data, _stat, event):
         """Invoked when data changes."""
-        fpath = self._fpath(zkpath)
+        fpath = self.fpath(zkpath)
         if data is None and event is None:
             _LOGGER.info('Node does not exist: %s', zkpath)
             self.watches.discard(zkpath)
@@ -67,13 +63,13 @@ class Zk2Fs(object):
 
         # Returning False will not renew the watch.
         renew = zkpath in self.watches
-        _LOGGER.info('Renew wathch on %s - %s', zkpath, renew)
+        _LOGGER.info('Renew watch on %s - %s', zkpath, renew)
         return renew
 
     def _children_watch(self, zkpath, children, watch_data,
                         on_add, on_del):
         """Callback invoked on children watch."""
-        fpath = self._fpath(zkpath)
+        fpath = self.fpath(zkpath)
         filenames = set(map(os.path.basename,
                             glob.glob(os.path.join(fpath, '*'))))
         children = set(children)
@@ -105,6 +101,10 @@ class Zk2Fs(object):
 
         return True
 
+    def fpath(self, zkpath):
+        """Returns file path to given zk node."""
+        return os.path.join(self.fsroot, zkpath.lstrip('/'))
+
     def sync_data(self, zkpath):
         """Sync zk node data to file."""
 
@@ -124,7 +124,7 @@ class Zk2Fs(object):
                      zkpath,
                      watch_data)
 
-        fpath = self._fpath(zkpath)
+        fpath = self.fpath(zkpath)
         fs.mkdir_safe(fpath)
 
         if not on_del:

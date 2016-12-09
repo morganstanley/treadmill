@@ -37,6 +37,9 @@ from . import idirwatch
 from . import logcontext as lc
 from . import subproc
 
+if os.name == 'nt':
+    from .syscall import winsymlink  # pylint: disable=W0611
+
 from .appmgr import configure as app_cfg
 from .appmgr import abort as app_abort
 

@@ -10,7 +10,7 @@ from treadmill import appmgr
 from treadmill.appmgr import configure as app_cfg
 
 
-_LOGGER = logging.getLogger()
+_LOGGER = logging.getLogger(__name__)
 
 
 def init():

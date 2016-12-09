@@ -70,8 +70,8 @@ class CgroupResourceService(BaseResourceServiceImpl):
 
         cgrp = os.path.join('treadmill', 'apps', instance_id)
 
-        with lc.LogContext(_LOGGER, rsrc_id):
-            _LOGGER.info('Creating cgroups: %s:%s', self.SUBSYSTEMS, cgrp)
+        with lc.LogContext(_LOGGER, rsrc_id) as log:
+            log.info('Creating cgroups: %s:%s', self.SUBSYSTEMS, cgrp)
             for subsystem in self.SUBSYSTEMS:
                 cgroups.create(subsystem, cgrp)
 
@@ -115,8 +115,7 @@ class CgroupResourceService(BaseResourceServiceImpl):
             app_bogomips = app_cpu_pcnt * sysinfo.BMIPS_PER_CPU
             app_cpu_shares = int(app_bogomips)
 
-            _LOGGER.info('created in cpu:%s with %s shares',
-                         cgrp, app_cpu_shares)
+            log.info('created in cpu:%s with %s shares', cgrp, app_cpu_shares)
             cgroups.set_cpu_shares(cgrp, app_cpu_shares)
 
         return {
@@ -128,10 +127,10 @@ class CgroupResourceService(BaseResourceServiceImpl):
         instance_id = rsrc_id
         cgrp = os.path.join('treadmill/apps', instance_id)
 
-        with lc.LogContext(_LOGGER, rsrc_id):
+        with lc.LogContext(_LOGGER, rsrc_id) as log:
             self._unregister_oom_handler(cgrp)
 
-            _LOGGER.info('Deleting cgroups: %s:%s', self.SUBSYSTEMS, cgrp)
+            log.info('Deleting cgroups: %s:%s', self.SUBSYSTEMS, cgrp)
             for subsystem in self.SUBSYSTEMS:
                 cgroups.delete(subsystem, cgrp)
 

@@ -44,8 +44,22 @@ class VRingTest(unittest.TestCase):
         #
         # Ignore tcp2 as it is not listed in the port map.
         treadmill.iptables.add_dnat_rule.assert_has_calls([
-            mock.call(('1.1.1.1', 10000, '1.1.1.1', '12345'), chain='ring_0'),
-            mock.call(('2.2.2.2', 10000, '2.2.2.2', '54321'), chain='ring_0'),
+            mock.call(
+                treadmill.firewall.DNATRule(
+                    'tcp',
+                    '1.1.1.1', 10000,
+                    '1.1.1.1', '12345'
+                ),
+                chain='ring_0'
+            ),
+            mock.call(
+                treadmill.firewall.DNATRule(
+                    'tcp',
+                    '2.2.2.2', 10000,
+                    '2.2.2.2', '54321'
+                ),
+                chain='ring_0'
+            ),
         ])
 
         treadmill.iptables.add_dnat_rule.reset()
@@ -60,12 +74,33 @@ class VRingTest(unittest.TestCase):
                   mock_discovery)
 
         treadmill.iptables.add_dnat_rule.assert_has_calls([
-            mock.call(('1.1.1.1', 10000, '1.1.1.1', '12345'), chain='ring_0'),
-            mock.call(('2.2.2.2', 10000, '2.2.2.2', '54321'), chain='ring_0'),
+            mock.call(
+                treadmill.firewall.DNATRule(
+                    'tcp',
+                    '1.1.1.1', 10000,
+                    '1.1.1.1', '12345'
+                ),
+                chain='ring_0'
+            ),
+            mock.call(
+                treadmill.firewall.DNATRule(
+                    'tcp',
+                    '2.2.2.2', 10000,
+                    '2.2.2.2', '54321'
+                ),
+                chain='ring_0'
+            ),
         ])
         # Check the rule is removed for foo:tcp0 endpoint.
         treadmill.iptables.delete_dnat_rule.assert_has_calls([
-            mock.call(('1.1.1.1', 10000, '1.1.1.1', '12345'), chain='ring_0')
+            mock.call(
+                treadmill.firewall.DNATRule(
+                    'tcp',
+                    '1.1.1.1', 10000,
+                    '1.1.1.1', '12345'
+                ),
+                chain='ring_0'
+            )
         ])
 
 

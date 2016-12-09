@@ -43,14 +43,26 @@ def _show_list(apis, match, states):
         print name
 
 
-def _show_endpoints(apis, pattern, endpoint):
+def _show_endpoints(apis, pattern, endpoint, proto):
     """Show cell endpoints."""
     url = '/endpoint/%s' % urllib.quote(pattern)
     if endpoint:
+        if proto:
+            url += '/' + proto
+        else:
+            url += '/*'
+
         url += '/' + endpoint
 
     response = restclient.get(apis, url)
-    cli.out(_ENDPOINT_FORMATTER(response.json()))
+    endpoints = [{
+        'name': end['name'],
+        'proto': end['proto'],
+        'endpoint': end['endpoint'],
+        'hostport': '{0}:{1}'.format(end['host'], end['port'])
+    } for end in response.json()]
+
+    cli.out(_ENDPOINT_FORMATTER(endpoints))
 
 
 def _show_instance(apis, instance_id):
@@ -122,10 +134,11 @@ def init():
     @cli.ON_REST_EXCEPTIONS
     @click.argument('pattern')
     @click.argument('endpoint', required=False)
-    def endpoints(pattern, endpoint):
+    @click.argument('proto', required=False)
+    def endpoints(pattern, endpoint, proto):
         """Show application endpoints."""
         apis = context.GLOBAL.state_api(ctx['api'])
-        return _show_endpoints(apis, pattern, endpoint)
+        return _show_endpoints(apis, pattern, endpoint, proto)
 
     @show.command()
     @cli.ON_REST_EXCEPTIONS

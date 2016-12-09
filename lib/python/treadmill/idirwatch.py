@@ -58,17 +58,33 @@ class DirWatcher(object):
         'on_deleted',
         'on_modified',
         'poll',
-        'watch_dir',
+        '_watches',
     )
 
-    def __init__(self, watch_dir):
-        self.watch_dir = watch_dir
+    def __init__(self, watch_dir=None):
         if os.name == 'nt':
             self.inotify = readdirchange.ReadDirChange()
-            self.inotify.add_watch(watch_dir)
         else:
             self.inotify = inotify.Inotify(inotify.IN_CLOEXEC)
-            self.inotify.add_watch(
+        self._watches = {}
+        self.event_list = collections.deque()
+        self.poll = select.poll()
+        self.poll.register(self.inotify, select.POLLIN)
+        self.on_created = self._noop
+        self.on_deleted = self._noop
+        self.on_modified = self._noop
+
+        if watch_dir is not None:
+            self.add_dir(watch_dir)
+
+    def add_dir(self, directory):
+        """Add `directory` to the list of watched directories.
+        """
+        watch_dir = os.path.realpath(directory)
+        if os.name == 'nt':
+            wid = self.inotify.add_watch(watch_dir)
+        else:
+            wid = self.inotify.add_watch(
                 watch_dir,
                 event_mask=(
                     inotify.IN_ATTRIB |
@@ -79,16 +95,28 @@ class DirWatcher(object):
                     inotify.IN_MOVE
                 )
             )
-        self.event_list = collections.deque()
-        self.poll = select.poll()
-        self.poll.register(self.inotify, select.POLLIN)
-        self.on_created = self._noop
-        self.on_deleted = self._noop
-        self.on_modified = self._noop
+        _LOGGER.info('Watching directoy %r (id: %r)', watch_dir, wid)
+        self._watches[wid] = watch_dir
+
+    def remove_dir(self, directory):
+        """Remove `directory` from the list of watched directories.
+        """
+        watch_dir = os.path.realpath(directory)
+        for wid, w_dir in self._watches.items():
+            if w_dir == watch_dir:
+                break
+        else:
+            wid = None
+            _LOGGER.warn('Directoy %r not currently watched', watch_dir)
+            return
+
+        _LOGGER.info('Unwatching directoy %r (id: %r)', watch_dir, wid)
+        del self._watches[wid]
+        self.inotify.remove_watch(wid)
 
     def _noop(self, event_src):
         """Default NOOP callback"""
-        _LOGGER.debug('event on %r (watching %r)', event_src, self.watch_dir)
+        _LOGGER.debug('event on %r', event_src)
 
     def wait_for_events(self, timeout=-1):
         """Wait for directory change event for up to ``timeout`` seconds.
@@ -189,5 +217,9 @@ class DirWatcher(object):
                         res,
                     )
                 )
+
+            elif event.mask == inotify.IN_IGNORED:
+                if self._watches.pop(event.wd, None):
+                    _LOGGER.info('Watch on %r auto-removed', event.src_path)
 
         return results

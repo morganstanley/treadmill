@@ -28,8 +28,8 @@ _LOGGER = logging.getLogger(__name__)
 
 logging.getLogger('kazoo.client').setLevel(logging.WARNING)
 
-# This is the maximum time the start will try to connect for, i.e. 1 day
-ZK_MAX_CONNECTION_START_TIMEOUT = 3600
+# This is the maximum time the start will try to connect for, i.e. 30 sec
+ZK_MAX_CONNECTION_START_TIMEOUT = 30
 
 try:
     _ZK_PLUGIN_MOD = importlib.import_module('treadmill.plugins.zookeeper')
@@ -192,7 +192,7 @@ def disconnect(zkclient):
     zkclient.close()
 
 
-def connect(zkurl, idpath=None, listener=None, max_tries=-1,
+def connect(zkurl, idpath=None, listener=None, max_tries=30,
             timeout=ZK_MAX_CONNECTION_START_TIMEOUT, chroot=None):
     """Establish connection with Zk and return KazooClient.
 
@@ -202,7 +202,7 @@ def connect(zkurl, idpath=None, listener=None, max_tries=-1,
 
     :param max_tries:
         the maximum number of retries when trying to connect to the the
-        servers; default is -1, i.e. wait indefinitely.
+        servers; default is 10.
 
     :param timeout:
         the maximum timeout while trying to connect, that wait this much time
@@ -233,7 +233,7 @@ def connect(zkurl, idpath=None, listener=None, max_tries=-1,
     return zkclient
 
 
-def connect_native(zkurl, client_id=None, listener=None, max_tries=-1,
+def connect_native(zkurl, client_id=None, listener=None, max_tries=30,
                    timeout=ZK_MAX_CONNECTION_START_TIMEOUT, chroot=None):
     """Establish connection with Zk and return KazooClient."""
     _LOGGER.debug('Connecting to %s', zkurl)
@@ -245,19 +245,26 @@ def connect_native(zkurl, client_id=None, listener=None, max_tries=-1,
         chroot = zkconnstr[zkconnstr.find('/'):]
         zkconnstr = zkconnstr[:zkconnstr.find('/')]
 
+    zk_retry = {
+        'delay': 0.2,
+        'backoff': 2,
+        'max_jitter': 0.2,
+        'max_delay': 1,
+        'max_tries': max_tries,
+        'ignore_expire': False,
+    }
     connargs = {
         'client_id': client_id,
         'auth_data': [],
-        'connection_retry': {'max_tries': max_tries,
-                             'delay': 0.2,
-                             'max_delay': 1}
+        'connection_retry': zk_retry,
+        'command_retry': zk_retry,
     }
     if _ZK_PLUGIN_MOD:
         zkclient = _ZK_PLUGIN_MOD.connect(zkurl, connargs)
     else:
         connargs['hosts'] = zkconnstr
         _LOGGER.debug('Connecting to zookeeper: %r', connargs)
-        zkclient = kazoo.KazooClient(**connargs)
+        zkclient = kazoo.client.KazooClient(**connargs)
 
     if listener is None:
         listener = exit_on_disconnect

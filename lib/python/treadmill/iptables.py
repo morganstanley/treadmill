@@ -41,15 +41,15 @@ SET_INFRA_SVC = 'tm:infra-services'
 SET_PASSTHROUGHS = 'tm:passthroughs'
 
 #: Port span that will be allocated to outgoing PROD and NONPROD connections
-_PORT_SPAN = 8192
+PORT_SPAN = 8192
 #: Low boundary of the PROD port span
-_PROD_PORT_LOW = 32768
+PROD_PORT_LOW = 32768
 #: High boundary of the PROD port span
-_PROD_PORT_HIGH = _PROD_PORT_LOW + _PORT_SPAN - 1
+PROD_PORT_HIGH = PROD_PORT_LOW + PORT_SPAN - 1
 #: Low boundary of the NONPROD port span
-_NONPROD_PORT_LOW = 40960
+NONPROD_PORT_LOW = PROD_PORT_LOW + PORT_SPAN
 #: High boundary of the NONPROD port span
-_NONPROD_PORT_HIGH = _NONPROD_PORT_LOW + _PORT_SPAN - 1
+NONPROD_PORT_HIGH = NONPROD_PORT_LOW + PORT_SPAN - 1
 
 #: Mark to use on PROD traffic
 _CONNTRACK_PROD_MARK = '0x1/0xffffffff'
@@ -84,8 +84,8 @@ _IPTABLES_FILTER_TABLE = JINJA2_ENV.get_template(
 _IPTABLES_EMPTY_TABLES = JINJA2_ENV.get_template('iptables-empty-restore')
 
 #: String pattern forming DNAT rules for use with iptables
-_DNAT_RULE_PATTERN = ('-d {orig_ip} -p tcp -m tcp --dport {orig_port} '
-                      '-j DNAT --to-destination {new_ip}:{new_port}')
+_DNAT_RULE_PATTERN = ('-d {orig_ip} -p {proto} -m {_proto} --dport {orig_port}'
+                      ' -j DNAT --to-destination {new_ip}:{new_port}')
 
 #: Regular expression scrapping DNAT rules
 _DNAT_RULE_RE = re.compile((
@@ -94,6 +94,9 @@ _DNAT_RULE_RE = re.compile((
     _DNAT_RULE_PATTERN.format(
         # Original IP
         orig_ip=r'(?P<orig_ip>(?:\d{1,3}\.){3}\d{1,3})/32',
+        # Protocol
+        proto=r'(?P<proto>(?:tcp|udp))',
+        _proto=r'(?P=proto)',
         # Original Port
         orig_port=r'(?P<orig_port>\d{1,5})',
         # New IP
@@ -155,12 +158,12 @@ def initialize(external_ip):
         any_container=_SET_CONTAINERS,
         nodes=SET_TM_NODES,
         nonprod_containers=_SET_NONPROD_CONTAINERS,
-        nonprod_high=_NONPROD_PORT_HIGH,
-        nonprod_low=_NONPROD_PORT_LOW,
+        nonprod_high=NONPROD_PORT_HIGH,
+        nonprod_low=NONPROD_PORT_LOW,
         nonprod_mark=_CONNTRACK_NONPROD_MARK,
         prod_containers=_SET_PROD_CONTAINERS,
-        prod_high=_PROD_PORT_HIGH,
-        prod_low=_PROD_PORT_LOW,
+        prod_high=PROD_PORT_HIGH,
+        prod_low=PROD_PORT_LOW,
         prod_mark=_CONNTRACK_PROD_MARK,
         prod_sources=SET_PROD_SOURCES,
         dnat_chain=PREROUTING_DNAT,
@@ -305,9 +308,18 @@ def add_dnat_rule(dnat_rule, chain=PREROUTING_DNAT, safe=False):
     """
     if chain is None:
         chain = PREROUTING_DNAT
-    return add_raw_rule('nat', chain,
-                        _DNAT_RULE_PATTERN.format(**vars(dnat_rule)),
-                        safe)
+    return add_raw_rule(
+        'nat', chain,
+        _DNAT_RULE_PATTERN.format(
+            proto=dnat_rule.proto,
+            _proto=dnat_rule.proto,
+            orig_ip=dnat_rule.orig_ip,
+            orig_port=dnat_rule.orig_port,
+            new_ip=dnat_rule.new_ip,
+            new_port=dnat_rule.new_port,
+        ),
+        safe
+    )
 
 
 def delete_dnat_rule(dnat_rule, chain=PREROUTING_DNAT):
@@ -326,7 +338,14 @@ def delete_dnat_rule(dnat_rule, chain=PREROUTING_DNAT):
     if chain is None:
         chain = PREROUTING_DNAT
     return delete_raw_rule('nat', chain,
-                           _DNAT_RULE_PATTERN.format(**vars(dnat_rule)))
+                           _DNAT_RULE_PATTERN.format(
+                               proto=dnat_rule.proto,
+                               _proto=dnat_rule.proto,
+                               orig_ip=dnat_rule.orig_ip,
+                               orig_port=dnat_rule.orig_port,
+                               new_ip=dnat_rule.new_ip,
+                               new_port=dnat_rule.new_port,
+                           ))
 
 
 def get_current_dnat_rules(chain=PREROUTING_DNAT):
@@ -348,8 +367,11 @@ def get_current_dnat_rules(chain=PREROUTING_DNAT):
         match = _DNAT_RULE_RE.match(line.strip())
         if match:
             data = match.groupdict()
-            rule = firewall.DNATRule(data['orig_ip'], int(data['orig_port']),
-                                     data['new_ip'], int(data['new_port']))
+            rule = firewall.DNATRule(
+                data['proto'],
+                data['orig_ip'], int(data['orig_port']),
+                data['new_ip'], int(data['new_port'])
+            )
             rules.add(rule)
 
     return rules
@@ -466,20 +488,12 @@ def add_passthrough_rule(passthrough_rule, chain=PREROUTING_PASSTHROUGH,
     """
     add_raw_rule(
         'nat', chain,
-        _PASSTHROUGH_RULE_PATTERN.format(**vars(passthrough_rule)),
+        _PASSTHROUGH_RULE_PATTERN.format(
+            src_ip=passthrough_rule.src_ip,
+            dst_ip=passthrough_rule.dst_ip,
+        ),
         safe=safe
     )
-
-    _LOGGER.info('Reset connection cache once passthrough is created.')
-    try:
-        subproc.check_call(['conntrack', '-D', '-s', passthrough_rule.src_ip])
-    except subprocess.CalledProcessError as exc:
-        # return code is 0 if entries were deleted, 1 if no matching
-        # entries were found.
-        if exc.returncode in [0, 1]:
-            pass
-        else:
-            raise
 
 
 def delete_passthrough_rule(passthrough_rule, chain=PREROUTING_PASSTHROUGH):
@@ -496,24 +510,36 @@ def delete_passthrough_rule(passthrough_rule, chain=PREROUTING_PASSTHROUGH):
     """
     delete_raw_rule(
         'nat', chain,
-        _PASSTHROUGH_RULE_PATTERN.format(**vars(passthrough_rule))
+        _PASSTHROUGH_RULE_PATTERN.format(
+            src_ip=passthrough_rule.src_ip,
+            dst_ip=passthrough_rule.dst_ip,
+        )
     )
 
-    # When removing passthrough rule, delete iptable connection state.
+
+def flush_conntrack_table(vip):
+    """Clear any entry in the conntrack table for a given VIP.
+
+    This should be run after all the forwarding rules have been removed but
+    *before* the VIP is reused.
+
+    :param ``str`` vip:
+        IP to scrub from the conntrack table.
+    """
+    # This addresses the case for UDP session in particular.
     #
-    # This addresses the case for UDP passthrough "ping". Since iptables keep
-    # connection state cache for 30 sec, udp "passthrough" packets will not be
-    # routed if the same rule is recreated, rather they will be routed to non
-    # existing container.
+    # Since netfilter keeps connection state cache for 30 sec by default, udp
+    # packets will not be routed if the same rule is recreated, rather they
+    # will be routed to non previously associated container.
     #
-    # Deleting connection state will ensure that iptable routing works
-    # correctly.
+    # Deleting connection state will ensure that netfilter connection tracking
+    # works correctly.
     try:
-        subproc.check_call(['conntrack', '-D', '-s', passthrough_rule.src_ip])
+        subproc.check_call(['conntrack', '-D', '-g', vip])
     except subprocess.CalledProcessError as exc:
         # return code is 0 if entries were deleted, 1 if no matching
         # entries were found.
-        if exc.returncode in [0, 1]:
+        if exc.returncode in (0, 1):
             pass
         else:
             raise
