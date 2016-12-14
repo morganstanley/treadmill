@@ -103,13 +103,13 @@ class RESTClientTest(unittest.TestCase):
         # test will pass.
         requests.get.assert_has_calls([
             mock.call('http://foo.com/xxx', json=None, proxies=None,
-                      headers=None, auth=mock.ANY),
+                      headers=None, auth=mock.ANY, timeout=(.5, 10)),
             mock.call('http://bla.com/xxx', json=None, proxies=None,
-                      headers=None, auth=mock.ANY),
+                      headers=None, auth=mock.ANY, timeout=(.5, 10)),
             mock.call('http://foo.com/xxx', json=None, proxies=None,
-                      headers=None, auth=mock.ANY),
+                      headers=None, auth=mock.ANY, timeout=(1.5, 10)),
             mock.call('http://bla.com/xxx', json=None, proxies=None,
-                      headers=None, auth=mock.ANY),
+                      headers=None, auth=mock.ANY, timeout=(1.5, 10)),
         ], any_order=True)
 
 
