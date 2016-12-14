@@ -134,6 +134,7 @@ class Master(object):
             z.ZOOKEEPER: None,
             z.BLACKEDOUT_SERVERS: [_SERVERS_ACL],
             z.ENDPOINTS: [_SERVERS_ACL],
+            z.path.endpoint_proid('root'): [_SERVERS_ACL],
             z.EVENTS: [_SERVERS_ACL],
             z.RUNNING: [_SERVERS_ACL],
             z.SERVER_PRESENCE: [_SERVERS_ACL],

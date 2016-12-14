@@ -22,6 +22,8 @@ from treadmill.rest import error_handlers  # pylint: disable=W0611
 
 _LOGGER = logging.getLogger(__name__)
 
+_SERVERS_ACL = zkutils.make_role_acl('servers', 'rwcd')
+
 
 def init():
     """Top level command handler."""
@@ -86,7 +88,7 @@ def init():
             appname = 'root.%s#0000000000' % hostname
             path = z.path.endpoint(appname, 'tcp', 'nodeinfo')
             _LOGGER.info('register endpoint: %s %s', path, hostport)
-            zkutils.put(zkclient, path, hostport)
+            zkutils.put(zkclient, path, hostport, acl=[_SERVERS_ACL])
 
         _LOGGER.info('Starting nodeinfo server on port: %s', port)
 
