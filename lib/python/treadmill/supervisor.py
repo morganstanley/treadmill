@@ -1,4 +1,4 @@
-"""Manages daemontools-like services inside the container.
+﻿"""Manages daemontools-like services inside the container.
 
 For each application container there may be multiple services defined, which
 are controlled by skarnet.org s6 supervision suite.
@@ -117,7 +117,10 @@ def create_service(app_root, user, home, shell, service, runcmd,
 
 def exec_root_supervisor(directory):
     """Execs svscan in the directory."""
-    subproc.exec_pid1(['s6-svscan', directory])
+    if os.name == 'nt':
+        subproc.call(['s6-svscan', directory])
+    else:
+        subproc.exec_pid1(['s6-svscan', directory])
 
 
 def start_service(app_root, service, once=True):

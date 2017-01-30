@@ -21,30 +21,31 @@ def init(api, cors, impl):
         api, __name__, 'Cell REST operations'
     )
 
+    master = api.model('Master', {
+        'hostname': fields.String(description='Hostname'),
+        'idx': fields.Integer(description='Index of master'),
+        'zk-followers-port': fields.Integer(description='ZK follower port'),
+        'zk-election-port': fields.Integer(description='ZK election port'),
+        'zk-jmx-port': fields.Integer(description='ZK JMX port'),
+        'zk-client-port': fields.Integer(description='ZK client port'),
+    })
     cell_model = {
-        '_id': fields.String(
-            description='Name',
-            max_length=20,
-            pattern=r'/^[a-zA-Z0-9-]+$/'),
-        'treadmillid': fields.String(
-            description='Treadmill User ID',
-            max_length=16,
-            pattern=r'/^[a-zA-Z0-9_]+$/'),
-        'treadmill_root': fields.String(description='Treadmill Root'),
-        'archive_server': fields.String(description='Archive Server'),
-        'archive_username': fields.String(description='Archive Username'),
-        'ssq_namespace': fields.String(description='SSQ Namespace'),
-        'location': fields.String(
-            description='Location',
-            pattern=r'/^[a-zA-Z]+$/'),
+        '_id': fields.String(description='Name'),
+        'username': fields.String(description='Treadmill User ID'),
+        'root': fields.String(description='Treadmill Root'),
+        'archive-server': fields.String(description='Archive Server'),
+        'archive-username': fields.String(description='Archive Username'),
+        'ssq-namespace': fields.String(description='SSQ Namespace'),
+        'location': fields.String(description='Location'),
         'version': fields.String(description='Version'),
+        'masters': fields.List(fields.Nested(master)),
     }
 
     request_model = api.model(
         'ReqCell', cell_model
     )
     response_model = api.model(
-        'RespCell', cell_model
+        'Cell', cell_model
     )
 
     @namespace.route('/')

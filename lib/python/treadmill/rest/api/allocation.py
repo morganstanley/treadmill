@@ -27,7 +27,7 @@ def init(api, cors, impl):
                               description='Allocation REST operations')
 
     assignment = api.model('Assignment', {
-        'priority': fields.Integer(description='Priority', min=0, max=100),
+        'priority': fields.Integer(description='Priority'),
         'pattern': fields.String(description='App pattern'),
     })
     reservation = api.model('Reservation', {
@@ -35,7 +35,7 @@ def init(api, cors, impl):
         'memory': fields.String(description='Memory'),
         'cpu': fields.String(description='CPU'),
         'disk': fields.String(description='Disk size'),
-        'rank': fields.String(description='App rank', min=0, max=100),
+        'rank': fields.String(description='App rank'),
         'cell': fields.String(description='Cell'),
         'traits': fields.List(fields.String(description='Traits')),
         'assignments': fields.List(fields.Nested(assignment)),

@@ -6,9 +6,9 @@ import logging
 import click
 import yaml
 
-from .. import cli
-from treadmill import restclient
+from treadmill import cli
 from treadmill import context
+from treadmill import restclient
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -90,7 +90,7 @@ def _run(apis,
         url += '?count=%d' % count
 
     response = restclient.post(apis, url, payload=app)
-    for instance_id in response.json():
+    for instance_id in response.json()['instances']:
         cli.out(instance_id)
 
 

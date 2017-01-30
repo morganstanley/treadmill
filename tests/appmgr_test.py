@@ -17,6 +17,7 @@ import treadmill
 from treadmill import appmgr
 from treadmill import context
 from treadmill import fs
+from treadmill.apptrace import events
 from treadmill.appmgr import abort as app_abort
 from treadmill.appmgr import initialize as app_init
 
@@ -91,10 +92,15 @@ class AppMgrTest(unittest.TestCase):
         kazoo.client.KazooClient.create.reset()
         kazoo.client.KazooClient.delete.reset()
 
-        app_abort.abort(self.app_env, manifest_file)
+        app_abort.abort(self.app_env, manifest_file, exc=StandardError('test'))
         treadmill.appevents.post.assert_called_with(
             mock.ANY,
-            'proid.myapp#001', 'aborted', None, None)
+            events.AbortedTraceEvent(
+                instanceid='proid.myapp#001',
+                why='StandardError',
+                payload=None,
+            ),
+        )
 
     def test_gen_uniqueid(self):
         """Test generation of app uniqueid.

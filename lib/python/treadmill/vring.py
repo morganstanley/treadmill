@@ -46,7 +46,7 @@ def run(ring, routing, endpoints, discovery):
     for (app, hostport) in discovery.iteritems():
         # app is in the form appname:endpoint. We care only about endpoint
         # name.
-        name_unused, endpoint = app.split(':')
+        name_unused, proto, endpoint = app.split(':')
         # Ignore if endpoint is not in routing (only interested in endpoints
         # that are in routing table).
         if endpoint not in endpoints:
@@ -56,7 +56,7 @@ def run(ring, routing, endpoints, discovery):
         if hostport:
             host, public_port = hostport.split(':')
             ipaddr = socket.gethostbyname(host)
-            vring_route = firewall.DNATRule(proto='tcp',
+            vring_route = firewall.DNATRule(proto=proto,
                                             orig_ip=ipaddr,
                                             orig_port=private_port,
                                             new_ip=ipaddr,

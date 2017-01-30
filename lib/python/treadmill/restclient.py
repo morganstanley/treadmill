@@ -40,24 +40,28 @@ class NoApiEndpointsError(Exception):
     """Error raised if list of api endpoints is empty."""
 
 
-class NotAuthorizedError(Exception):
-    """Error raised on HTTP 401 (Unauthorized)
+class HttpExceptionWithResponse(Exception):
+    """Any error raised by an HTTP request
 
     Attributes:
     message -- message to return
+    response - the response from the server
     """
     def __init__(self, response):
-        super(NotAuthorizedError, self).__init__(_msg(response))
+        super(HttpExceptionWithResponse, self).__init__(_msg(response))
+        self.response = response
 
 
-class BadRequestError(Exception):
-    """Error raised on HTTP 400 (Bad request)
+class NotAuthorizedError(HttpExceptionWithResponse):
+    """Error raised on HTTP 401 (Unauthorized)"""
 
-    Attributes:
-    message -- message to return
-    """
-    def __init__(self, response):
-        super(BadRequestError, self).__init__(_msg(response))
+
+class BadRequestError(HttpExceptionWithResponse):
+    """Error raised on HTTP 400 (Bad request)"""
+
+
+class ValidationError(HttpExceptionWithResponse):
+    """Error raised on HTTP 424 (Failed Dependency)."""
 
 
 class NotFoundError(Exception):
@@ -78,16 +82,6 @@ class AlreadyExistsError(Exception):
     """
     def __init__(self, msg):
         super(AlreadyExistsError, self).__init__(msg)
-
-
-class ValidationError(Exception):
-    """Error raised on HTTP 424 (Failed Dependency).
-
-    Attributes:
-    message -- message to return
-    """
-    def __init__(self, response):
-        super(ValidationError, self).__init__(_msg(response))
 
 
 class MaxRequestRetriesError(Exception):
@@ -132,7 +126,6 @@ def _call(url, method, payload=None, headers=None, auth=_KERBEROS_AUTH,
                   method, url, payload, headers, timeout)
 
     try:
-
         response = getattr(requests, method.lower())(
             url, json=payload, auth=auth, proxies=proxies, headers=headers,
             timeout=timeout
@@ -143,9 +136,6 @@ def _call(url, method, payload=None, headers=None, auth=_KERBEROS_AUTH,
         return False, None, httplib.REQUEST_TIMEOUT
 
     if response.status_code == httplib.OK:
-        if callable(getattr(response, 'json')):
-            _LOGGER.debug('response.json: %r', response.json())
-
         return True, response, httplib.OK
 
     if _should_retry(response):
@@ -153,7 +143,7 @@ def _call(url, method, payload=None, headers=None, auth=_KERBEROS_AUTH,
         return False, response, response.status_code
 
     _handle_error(url, response)
-    return False, response
+    return False, response, response.status_code
 
 
 def _call_list(urls, method, payload=None, headers=None, auth=_KERBEROS_AUTH,
@@ -178,18 +168,21 @@ def _call_list_with_retry(urls, method, payload, headers, auth, proxies,
     if timeout is None:
         timeout = _DEFAULT_REQUEST_TIMEOUT
 
-    for _attempt in xrange(0, retries):
+    attempt = 0
+    while True:
         success, response = _call_list(
             urls, method, payload, headers, auth, proxies,
-            timeout=(_DEFAULT_CONNECT_TIMEOUT + _attempt, timeout)
+            timeout=(_DEFAULT_CONNECT_TIMEOUT + attempt, timeout)
         )
         if success:
             return response
 
         attempts.extend(response)
-        time.sleep(1)
+        if len(attempts) > retries:
+            raise MaxRequestRetriesError(attempts)
 
-    raise MaxRequestRetriesError(attempts)
+        attempt += 1
+        time.sleep(1)
 
 
 def call(api, url, method, payload=None, headers=None, auth=_KERBEROS_AUTH,
@@ -207,28 +200,32 @@ def call(api, url, method, payload=None, headers=None, auth=_KERBEROS_AUTH,
 
 
 def get(api, url, headers=None, auth=_KERBEROS_AUTH, proxies=None,
-        retries=_NUM_OF_RETRIES):
+        retries=_NUM_OF_RETRIES, timeout=None):
     """Convenience function to get a resoure"""
     return call(api, url, 'get',
-                headers=headers, auth=auth, proxies=proxies, retries=retries)
+                headers=headers, auth=auth, proxies=proxies, retries=retries,
+                timeout=timeout)
 
 
 def post(api, url, payload, headers=None, auth=_KERBEROS_AUTH, proxies=None,
-         retries=_NUM_OF_RETRIES):
+         retries=_NUM_OF_RETRIES, timeout=None):
     """Convenience function to create or POST a new resoure to url"""
     return call(api, url, 'post', payload=payload,
-                headers=headers, auth=auth, proxies=proxies, retries=retries)
+                headers=headers, auth=auth, proxies=proxies, retries=retries,
+                timeout=timeout)
 
 
 def delete(api, url, payload=None, headers=None, auth=_KERBEROS_AUTH,
-           proxies=None, retries=_NUM_OF_RETRIES):
+           proxies=None, retries=_NUM_OF_RETRIES, timeout=None):
     """Convenience function to delete a resoure"""
     return call(api, url, 'delete', payload=payload,
-                headers=headers, auth=auth, proxies=proxies, retries=retries)
+                headers=headers, auth=auth, proxies=proxies, retries=retries,
+                timeout=timeout)
 
 
 def put(api, url, payload, headers=None, auth=_KERBEROS_AUTH, proxies=None,
-        retries=_NUM_OF_RETRIES):
+        retries=_NUM_OF_RETRIES, timeout=None):
     """Convenience function to update a resoure"""
     return call(api, url, 'put', payload=payload,
-                headers=headers, auth=auth, proxies=proxies, retries=retries)
+                headers=headers, auth=auth, proxies=proxies, retries=retries,
+                timeout=timeout)

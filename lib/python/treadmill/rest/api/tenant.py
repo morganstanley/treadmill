@@ -27,10 +27,7 @@ def init(api, cors, impl):
         '_id': fields.String(description='Tenant name'),
         'tenant': fields.String(description='Tenant name'),
         'systems': fields.List(
-            fields.Integer(
-                description='System ID',
-                min=0,
-                required=True),
+            fields.Integer(description='System ID', required=True),
             min_items=1)
     }
 

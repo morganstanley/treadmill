@@ -11,6 +11,7 @@ import sys
 import kazoo
 import yaml
 
+from . import exc
 from . import cgroups
 from . import supervisor
 from . import sysinfo
@@ -21,6 +22,8 @@ from . import appevents
 
 from . import logcontext as lc
 from . import zknamespace as z
+
+from .apptrace import events as traceevents
 
 
 _LOGGER = lc.ContainerAdapter(logging.getLogger(__name__))
@@ -40,14 +43,22 @@ _EPHEMERAL_RETRY_INTERVAL = 5
 
 def _create_ephemeral_with_retry(zkclient, path, data):
     """Create ephemeral node with retry."""
+    prev_data = None
     for _ in range(0, 5):
         try:
             return zkutils.create(zkclient, path, data, acl=[_SERVERS_ACL],
                                   ephemeral=True)
         except kazoo.client.NodeExistsError:
-            _LOGGER.info('Node exists, will retry: %s', path)
+            prev_data, metadata = zkutils.get_default(
+                zkclient, path, need_metadata=True
+            )
+            _LOGGER.warn(
+                'Node exists, will retry: %s, data: %r, metadata: %r',
+                path, prev_data, metadata
+            )
             time.sleep(_EPHEMERAL_RETRY_INTERVAL)
-    raise Exception('Unable to register: %s', path)
+
+    raise exc.ContainerSetupError('presence.%s:%s' % (path, prev_data))
 
 
 class EndpointPresence(object):
@@ -217,7 +228,8 @@ class ServicePresence(object):
         self.services_dir = os.path.join(container_dir, 'services')
         self.appevents_dir = appevents_dir
         self.hostname = hostname if hostname else sysinfo.hostname()
-        self.appname = self.manifest.get('name')
+        self.appname = self.manifest['name']
+        self.uniqueid = self.manifest['uniqueid']
         self.services = self._services()
         self.log = lc.Adapter(_LOGGER, self.appname)
 
@@ -247,15 +259,28 @@ class ServicePresence(object):
         finished = os.path.join(self.services_dir, service_name, 'finished')
 
         restart_rate_exceeded = False
-        if os.path.exists(finished):
-            limit, interval = restart_data['limit'], restart_data['interval']
+        try:
             with open(finished) as f:
+                limit, interval = (
+                    restart_data['limit'],
+                    restart_data['interval']
+                )
                 lines = f.readlines()
                 actual_restarts = len(lines)
-                if len(lines) >= limit:
+                if limit == 0:
+                    # Do not allow any restart
+                    restart_rate_exceeded = True
+
+                elif len(lines) >= limit:
+                    # See if we went over the limit
                     timestamp, _rc, _sig = lines[-limit].split()
                     if int(timestamp) + interval > time.time():
                         restart_rate_exceeded = True
+
+        except IOError as err:
+            if err.errno != errno.ENOENT:
+                raise
+
         return restart_rate_exceeded, actual_restarts
 
     def start_all(self):
@@ -386,8 +411,16 @@ class ServicePresence(object):
         self.log.info('exit (rc, signal): (%s, %s)',
                       exitinfo['rc'], exitinfo['sig'])
 
-        event = '%s.%s.%s' % (service_name, exitinfo['rc'], exitinfo['sig'])
-        appevents.post(self.appevents_dir, self.appname, 'exit', event)
+        appevents.post(
+            self.appevents_dir,
+            traceevents.ServiceExitedTraceEvent(
+                instanceid=self.appname,
+                uniqueid=self.uniqueid,
+                service=service_name,
+                rc=exitinfo['rc'],
+                signal=exitinfo['sig']
+            )
+        )
 
         # Records that exit status was successfully reported.
         with open(reported, 'w+') as f:
@@ -399,7 +432,13 @@ class ServicePresence(object):
         """Creates ephemeral node indicating service has started."""
         self.log.info('Service is running.')
         appevents.post(
-            self.appevents_dir, self.appname, 'running', service_name)
+            self.appevents_dir,
+            traceevents.ServiceRunningTraceEvent(
+                instanceid=self.appname,
+                uniqueid=self.uniqueid,
+                service=service_name
+            )
+        )
 
     def exit_app(self, service_name, killed=False):
         """Removes application from Zookeeper, trigger container shutdown."""

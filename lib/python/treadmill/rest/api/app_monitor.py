@@ -22,16 +22,8 @@ def init(api, cors, impl):
     )
 
     app_monitor_model = {
-        '_id': fields.String(
-            description='Name',
-            max_length=60,
-            pattern=(
-                r'/^([\w\-]+(\.[\w\-]+)+)|'
-                r'(([\w\-]+)@([\w\-]+)(\.[\w\-]+)+)$/')),
-        'count': fields.Integer(
-            description='Count',
-            min=0, max=1000,
-            required=True),
+        '_id': fields.String(description='Name'),
+        'count': fields.Integer(description='Count', required=True),
     }
 
     request_model = api.model(

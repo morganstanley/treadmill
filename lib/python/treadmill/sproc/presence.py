@@ -8,14 +8,16 @@ import os
 import click
 import yaml
 
-from .. import appmgr
-from .. import presence
-from .. import context
-from .. import logcontext as lc
-from .. import subproc
-from .. import supervisor
-from .. import tickets
-from .. import zkutils
+from treadmill import appmgr
+from treadmill import exc
+from treadmill import presence
+from treadmill import context
+from treadmill import logcontext as lc
+from treadmill import subproc
+from treadmill import supervisor
+from treadmill import tickets
+from treadmill import zkutils
+from treadmill.appmgr import abort as app_abort
 
 
 _LOGGER = lc.ContainerAdapter(logging.getLogger(__name__))
@@ -33,6 +35,27 @@ def _start_service_sup(container_dir):
         supervisor.start_service(sys_dir, 'start_container', once=True)
     else:
         _LOGGER.info('services supervisor already started.')
+
+
+def _get_tickets(appname, app, container_dir):
+    """Get tickets."""
+    with lc.LogContext(_LOGGER, appname, lc.ContainerAdapter) as log:
+        tkts_spool_dir = os.path.join(
+            container_dir, 'root', 'var', 'spool', 'tickets')
+
+        reply = tickets.request_tickets(context.GLOBAL.zk.conn, appname)
+        if reply:
+            tickets.store_tickets(reply, tkts_spool_dir)
+
+        # Check that all requested tickets are valid.
+        for princ in app.get('tickets', []):
+            krbcc_file = os.path.join(tkts_spool_dir, princ)
+            if not tickets.krbcc_ok(krbcc_file):
+                log.error('Missing or expired tickets: %s, %s',
+                          princ, krbcc_file)
+                raise exc.ContainerSetupError('tickets.%s' % princ)
+            else:
+                _LOGGER.info('Ticket ok: %s, %s', princ, krbcc_file)
 
 
 def init():
@@ -56,31 +79,34 @@ def init():
         """Register container presence."""
         del appevents_dir
         tm_env = appmgr.AppEnvironment(approot)
-        watchdog = tm_env.watchdogs.create(
-            'presence-%s' % os.path.basename(container_dir),
-            '30s',
-            'Registration of %r stalled' % container_dir
-        )
 
         app = yaml.load(manifest.read())
         appname = app['name']
 
         with lc.LogContext(_LOGGER, appname, lc.ContainerAdapter) as log:
-            app_presence = presence.EndpointPresence(context.GLOBAL.zk.conn,
-                                                     app)
-            app_presence.register()
-            watchdog.remove()
+            app_presence = presence.EndpointPresence(
+                context.GLOBAL.zk.conn,
+                app
+            )
 
+            try:
+                app_presence.register()
+                _get_tickets(appname, app, container_dir)
+                _start_service_sup(container_dir)
+            except exc.ContainerSetupError as err:
+                app_abort.abort(
+                    tm_env,
+                    appname,
+                    reason=str(err)
+                )
+
+            # If tickets are not ok, app will be aborted. Waiting for tickets
+            # in the loop is harmless way to wait for that.
+            #
+            # If tickets acquired successfully, services will start, and
+            # tickets will be refreshed after each interval.
             tkts_spool_dir = os.path.join(
                 container_dir, 'root', 'var', 'spool', 'tickets')
-
-            reply = tickets.request_tickets(context.GLOBAL.zk.conn, appname)
-            if reply:
-                tickets.store_tickets(reply, tkts_spool_dir)
-            else:
-                log.error('Error requesting tickets.')
-
-            _start_service_sup(container_dir)
 
             while True:
                 time.sleep(refresh_interval)

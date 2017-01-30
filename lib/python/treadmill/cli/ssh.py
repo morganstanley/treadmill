@@ -111,15 +111,17 @@ def init():
                             'endpoint': 'ssh',
                             'since': 0,
                             'snapshot': False}))
-        while True:
-            reply = ws.recv()
-            result = json.loads(reply)
-            host = result['host']
-            port = result['port']
 
-            run_ssh(host, port, ssh, list(command))
+        reply = ws.recv()
+        result = json.loads(reply)
+        if '_error' in result:
+            click.echo('Error: %s' % result['_error'], err=True)
+            sys.exit(-1)
 
-            ws.close()
-            break
+        host = result['host']
+        port = result['port']
+        ws.close()
+
+        run_ssh(host, port, ssh, list(command))
 
     return ssh

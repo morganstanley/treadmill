@@ -51,7 +51,7 @@
     },
     "environment": {
         "type": "string",
-        "pattern": "dev|qa|uat|prod"
+        "pattern": "^dev$|^qa$|^uat$|^prod$"
     },
     "location": {
         "type": "string",

@@ -22,21 +22,11 @@ def init(api, cors, impl):
     )
 
     app_group_model = {
-        '_id': fields.String(
-            description='Name',
-            max_length=60,
-            pattern=r'/^[a-zA-Z0-9\\-_]+(\\.[a-zA-Z0-9\\-_^#]+)+$/'),
+        '_id': fields.String(description='Name'),
         'cells': fields.List(fields.String(description='Cells')),
-        'group-type': fields.String(
-            description='Group Type',
-            pattern=r'/^[a-zA-Z0-9\-_]+$/',
-            required=True),
+        'group-type': fields.String(description='Group Type'),
         'pattern': fields.String(description='Pattern'),
-        'data': fields.String(
-            description='Data',
-            max_length=128,
-            pattern=r'/^[a-zA-Z0-9]+(\.[a-zA-Z0-9\-]+)+$/',
-            required=True),
+        'data': fields.String(description='Data'),
     }
 
     request_model = api.model(

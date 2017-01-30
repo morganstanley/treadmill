@@ -67,12 +67,13 @@ class API(object):
             """Create (configure) instance."""
             _LOGGER.info('create: count = %s, %s %r', count, rsrc_id, rsrc)
 
+            admin_app = admin.Application(context.GLOBAL.ldap.conn)
             if not rsrc:
-                admin_app = admin.Application(context.GLOBAL.ldap.conn)
                 configured = admin_app.get(rsrc_id)
                 _LOGGER.info('Configured: %s %r', rsrc_id, configured)
             else:
-                configured = rsrc
+                # Make sure defaults are present
+                configured = admin_app.from_entry(admin_app.to_entry(rsrc))
                 app.verify_feature(rsrc.get('features', []))
 
             if '_id' in configured:

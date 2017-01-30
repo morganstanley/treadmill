@@ -17,7 +17,9 @@ import kazoo.client
 import yaml
 
 import treadmill
+from treadmill import exc
 from treadmill import presence
+from treadmill.apptrace import events
 from treadmill.test import mockzk
 
 
@@ -36,34 +38,54 @@ class PresenceTest(mockzk.MockZookeeperTestCase):
             shutil.rmtree(self.root)
 
     @mock.patch('kazoo.client.KazooClient.create', mock.Mock())
+    @mock.patch('kazoo.client.KazooClient.get', mock.Mock())
     @mock.patch('treadmill.sysinfo.hostname', mock.Mock())
     @mock.patch('treadmill.subproc.check_call', mock.Mock())
     @mock.patch('time.sleep', mock.Mock)
     def test_registration(self):
         """Verifies presence registration."""
         treadmill.sysinfo.hostname.return_value = 'myhostname'
-        manifest = yaml.load("""
----
-name: foo.test1
-proid: andreik
-services:
-- command: /usr/bin/python -m SimpleHTTPServer
-  name: web_server
-  restart:
-    limit: 3
-    interval: 60
-- command: /usr/bin/python -m SimpleHTTPServer
-  name: another_server
-- command: sshd -D -f /etc/ssh/sshd_config
-  endpoints:
-  name: sshd
-  proid: ~
-endpoints:
-- {name: ssh,  port: 22,   real_port: 5001}
-- {name: http, port: 8000, real_port: 5000}
-vip: {ip0: 192.168.0.1, ip1: 192.168.0.2}
-task: t-0001
-""")
+        manifest = {
+            'vip': {
+                'ip0': '192.168.0.1',
+                'ip1': '192.168.0.2'
+            },
+            'task': 't-0001',
+            'name': 'foo.test1',
+            'uniqueid': 'AAAAAA',
+            'proid': 'andreik',
+            'services': [
+                {
+                    'command': '/usr/bin/python -m SimpleHTTPServer',
+                    'name': 'web_server',
+                    'restart': {
+                        'interval': 60,
+                        'limit': 3
+                    }
+                },
+                {
+                    'command': '/usr/bin/python -m SimpleHTTPServer',
+                    'name': 'another_server'
+                },
+                {
+                    'command': 'sshd -D -f /etc/ssh/sshd_config',
+                    'name': 'sshd',
+                    'proid': None
+                }
+            ],
+            'endpoints': [
+                {
+                    'port': 22,
+                    'name': 'ssh',
+                    'real_port': 5001,
+                },
+                {
+                    'port': 8000,
+                    'name': 'http',
+                    'real_port': 5000,
+                }
+            ]
+        }
         app_presence = presence.EndpointPresence(self.zkclient, manifest)
         app_presence.register_endpoints()
         kazoo.client.KazooClient.create.assert_has_calls([
@@ -88,6 +110,7 @@ task: t-0001
 
         kazoo.client.KazooClient.create.reset()
         kazoo.client.KazooClient.create.side_effect = node_exists
+        kazoo.client.KazooClient.get.return_value = ('{}', {})
         app_presence.register_endpoints()
         self.assertTrue(retry_happened)
         self.assertTrue(time.sleep.called)
@@ -100,6 +123,13 @@ task: t-0001
                       sequence=False),
 
         ])
+
+        kazoo.client.KazooClient.create.reset()
+        kazoo.client.KazooClient.create.side_effect = (
+            kazoo.client.NodeExistsError
+        )
+        self.assertRaises(exc.ContainerSetupError,
+                          app_presence.register_endpoints)
 
     @mock.patch('kazoo.client.KazooClient.get', mock.Mock())
     @mock.patch('kazoo.client.KazooClient.delete', mock.Mock())
@@ -159,29 +189,47 @@ task: t-0001
     @mock.patch('time.time', mock.Mock(return_value=0))
     def test_start_service(self):
         """Verifies restart/finish file interaction."""
-        manifest = yaml.load("""
----
-name: foo.test1
-proid: andreik
-services:
-- command: /usr/bin/python -m SimpleHTTPServer
-  name: web_server
-  restart:
-    limit: 3
-    interval: 60
-- command: sshd -D -f /etc/ssh/sshd_config
-  endpoints:
-  name: sshd
-  proid: ~
-  restart:
-    limit: 3
-    interval: 60
-endpoints:
-- {name: ssh,  port: 22,   real_port: 5001}
-- {name: http, port: 8000, real_port: 5000}
-vip: {ip0: 192.168.0.1, ip1: 192.168.0.2}
-task: t-0001
-""")
+        manifest = {
+            'vip': {
+                'ip0': '192.168.0.1',
+                'ip1': '192.168.0.2'
+            },
+            'task': 't-0001',
+            'name': 'foo.test1',
+            'uniqueid': 'AAAAAA',
+            'proid': 'andreik',
+            'services': [
+                {
+                    'command': '/usr/bin/python -m SimpleHTTPServer',
+                    'name': 'web_server',
+                    'restart': {
+                        'interval': 60,
+                        'limit': 3
+                    }
+                },
+                {
+                    'command': 'sshd -D -f /etc/ssh/sshd_config',
+                    'name': 'sshd',
+                    'restart': {
+                        'interval': 60,
+                        'limit': 3
+                    },
+                    'proid': None
+                }
+            ],
+            'endpoints': [
+                {
+                    'port': 22,
+                    'name': 'ssh',
+                    'real_port': 5001
+                },
+                {
+                    'port': 8000,
+                    'name': 'http',
+                    'real_port': 5000
+                }
+            ]
+        }
         app_presence = presence.ServicePresence(
             manifest,
             container_dir=self.root,
@@ -221,26 +269,43 @@ task: t-0001
     @mock.patch('treadmill.appevents.post', mock.Mock())
     def test_report_running(self):
         """Verifies report running sequence."""
-        manifest = yaml.load("""
----
-name: foo.test1#0001
-proid: andreik
-services:
-- command: /usr/bin/python -m SimpleHTTPServer
-  name: web_server
-  restart:
-    limit: 3
-    interval: 60
-- command: sshd -D -f /etc/ssh/sshd_config
-  endpoints:
-  name: sshd
-  proid: ~
-endpoints:
-- {name: ssh,  port: 22,   real_port: 5001}
-- {name: http, port: 8000, real_port: 5000}
-vip: {ip0: 192.168.0.1, ip1: 192.168.0.2}
-task: t-0001
-""")
+        manifest = {
+            'vip': {
+                'ip0': '192.168.0.1',
+                'ip1': '192.168.0.2'
+            },
+            'task': 't-0001',
+            'name': 'foo.test1#0001',
+            'uniqueid': 'AAAAAA',
+            'proid': 'andreik',
+            'services': [
+                {
+                    'command': '/usr/bin/python -m SimpleHTTPServer',
+                    'name': 'web_server',
+                    'restart': {
+                        'interval': 60,
+                        'limit': 3
+                    }
+                },
+                {
+                    'command': 'sshd -D -f /etc/ssh/sshd_config',
+                    'name': 'sshd',
+                    'proid': None
+                }
+            ],
+            'endpoints': [
+                {
+                    'port': 22,
+                    'name': 'ssh',
+                    'real_port': 5001
+                },
+                {
+                    'port': 8000,
+                    'name': 'http',
+                    'real_port': 5000
+                }
+            ]
+        }
         treadmill.sysinfo.hostname.return_value = 'server1.xx.com'
         app_presence = presence.ServicePresence(
             manifest,
@@ -251,13 +316,23 @@ task: t-0001
         kazoo.client.KazooClient.exists.return_value = False
         app_presence.report_running('web_server')
         treadmill.appevents.post.assert_called_with(
-            self.events_dir, 'foo.test1#0001', 'running', 'web_server'
+            self.events_dir,
+            events.ServiceRunningTraceEvent(
+                instanceid='foo.test1#0001',
+                uniqueid='AAAAAA',
+                service='web_server'
+            )
         )
 
         kazoo.client.KazooClient.exists.return_value = True
         app_presence.report_running('web_server')
         treadmill.appevents.post.assert_called_with(
-            self.events_dir, 'foo.test1#0001', 'running', 'web_server'
+            self.events_dir,
+            events.ServiceRunningTraceEvent(
+                instanceid='foo.test1#0001',
+                uniqueid='AAAAAA',
+                service='web_server'
+            )
         )
 
     @mock.patch('kazoo.client.KazooClient.create', mock.Mock())
@@ -267,26 +342,43 @@ task: t-0001
     @mock.patch('treadmill.subproc.call', mock.Mock())
     def test_app_exit(self):
         """Verifies app deletion on service exit."""
-        manifest = yaml.load("""
----
-name: foo.test1#0001
-proid: andreik
-services:
-- command: /usr/bin/python -m SimpleHTTPServer
-  name: web_server
-  restart:
-    limit: 3
-    interval: 60
-- command: sshd -D -f /etc/ssh/sshd_config
-  endpoints:
-  name: sshd
-  proid: ~
-endpoints:
-- {name: ssh,  port: 22,   real_port: 5001}
-- {name: http, port: 8000, real_port: 5000}
-vip: {ip0: 192.168.0.1, ip1: 192.168.0.2}
-task: t-0001
-""")
+        manifest = {
+            'vip': {
+                'ip0': '192.168.0.1',
+                'ip1': '192.168.0.2'
+            },
+            'task': 't-0001',
+            'name': 'foo.test1#0001',
+            'uniqueid': 'AAAAAA',
+            'proid': 'andreik',
+            'services': [
+                {
+                    'command': '/usr/bin/python -m SimpleHTTPServer',
+                    'name': 'web_server',
+                    'restart': {
+                        'interval': 60,
+                        'limit': 3
+                    }
+                },
+                {
+                    'command': 'sshd -D -f /etc/ssh/sshd_config',
+                    'name': 'sshd',
+                    'proid': None
+                }
+            ],
+            'endpoints': [
+                {
+                    'port': 22,
+                    'name': 'ssh',
+                    'real_port': 5001
+                },
+                {
+                    'port': 8000,
+                    'name': 'http',
+                    'real_port': 5000
+                }
+            ]
+        }
         services_dir = os.path.join(self.root, 'services')
         os.mkdir(services_dir)
 
@@ -328,26 +420,43 @@ task: t-0001
     @mock.patch('time.time', mock.Mock(return_value=100))
     def test_update_exit_status(self):
         """Verifies reading the finished file and updating task status."""
-        manifest = yaml.load("""
----
-name: foo.test1#0001
-proid: andreik
-services:
-- command: /usr/bin/python -m SimpleHTTPServer
-  name: web_server
-  restart:
-    limit: 3
-    interval: 60
-- command: sshd -D -f /etc/ssh/sshd_config
-  endpoints:
-  name: sshd
-  proid: ~
-endpoints:
-- {name: ssh,  port: 22,   real_port: 5001}
-- {name: http, port: 8000, real_port: 5000}
-vip: {ip0: 192.168.0.1, ip1: 192.168.0.2}
-task: t-0001
-""")
+        manifest = {
+            'vip': {
+                'ip0': '192.168.0.1',
+                'ip1': '192.168.0.2'
+            },
+            'task': 't-0001',
+            'name': 'foo.test1#0001',
+            'uniqueid': 'AAAAAA',
+            'proid': 'andreik',
+            'services': [
+                {
+                    'command': '/usr/bin/python -m SimpleHTTPServer',
+                    'name': 'web_server',
+                    'restart': {
+                        'interval': 60,
+                        'limit': 3
+                    }
+                },
+                {
+                    'command': 'sshd -D -f /etc/ssh/sshd_config',
+                    'name': 'sshd',
+                    'proid': None
+                }
+            ],
+            'endpoints': [
+                {
+                    'port': 22,
+                    'name': 'ssh',
+                    'real_port': 5001
+                },
+                {
+                    'port': 8000,
+                    'name': 'http',
+                    'real_port': 5000
+                }
+            ]
+        }
         treadmill.sysinfo.hostname.return_value = 'server1.xx.com'
         app_presence = presence.ServicePresence(manifest,
                                                 container_dir=self.root,
@@ -361,7 +470,14 @@ task: t-0001
             f.write('1000 1 0\n')
         app_presence.update_exit_status('web_server')
         treadmill.appevents.post.assert_called_with(
-            self.events_dir, 'foo.test1#0001', 'exit', 'web_server.1.0',
+            self.events_dir,
+            events.ServiceExitedTraceEvent(
+                instanceid='foo.test1#0001',
+                uniqueid='AAAAAA',
+                service='web_server',
+                rc=1,
+                signal=0
+            )
         )
 
         kazoo.client.KazooClient.create.reset_mock()
@@ -369,7 +485,14 @@ task: t-0001
             f.write('2000 9 255\n')
         app_presence.update_exit_status('web_server')
         treadmill.appevents.post.assert_called_with(
-            self.events_dir, 'foo.test1#0001', 'exit', 'web_server.9.255',
+            self.events_dir,
+            events.ServiceExitedTraceEvent(
+                instanceid='foo.test1#0001',
+                uniqueid='AAAAAA',
+                service='web_server',
+                rc=9,
+                signal=255
+            )
         )
 
         reported_file = os.path.join(self.root, 'services', 'web_server',
@@ -386,29 +509,25 @@ task: t-0001
     @mock.patch('treadmill.subproc.check_call', mock.Mock())
     @mock.patch('treadmill.presence.ServicePresence.report_running',
                 mock.Mock())
-    @mock.patch('time.time', mock.Mock(return_value=100))
+    @mock.patch('time.time', mock.Mock(return_value=None))
     def test_restart_rate(self):
         """Verifies reading the finished file and updating task status."""
-        manifest = yaml.load("""
----
-name: foo.test1#0001
-proid: andreik
-services:
-- command: /usr/bin/python -m SimpleHTTPServer
-  name: web_server
-  restart:
-    limit: 5
-    interval: 60
-- command: sshd -D -f /etc/ssh/sshd_config
-  endpoints:
-  name: sshd
-  proid: ~
-endpoints:
-- {name: ssh,  port: 22,   real_port: 5001}
-- {name: http, port: 8000, real_port: 5000}
-vip: {ip0: 192.168.0.1, ip1: 192.168.0.2}
-task: t-0001
-""")
+        manifest = {
+            'task': 't-0001',
+            'name': 'foo.test1#0001',
+            'uniqueid': 'AAAAAA',
+            'proid': 'andreik',
+            'services': [
+                {
+                    'command': '/usr/bin/python -m SimpleHTTPServer',
+                    'name': 'web_server',
+                    'restart': {
+                        'interval': 60,
+                        'limit': 5
+                    }
+                },
+            ],
+        }
         treadmill.sysinfo.hostname.return_value = 'server1.xx.com'
         app_presence = presence.ServicePresence(
             manifest,
@@ -422,8 +541,8 @@ task: t-0001
                                      'finished')
 
         time.time.return_value = 1059
-        # Five restarts in less than 60 sec.
-        with open(finished_file, 'a+') as f:
+        # Five restarts in less than 60 sec, service should not be restarted
+        with open(finished_file, 'w') as f:
             f.write('1000 1 0\n')
             f.write('1001 1 0\n')
             f.write('1002 1 0\n')
@@ -432,16 +551,45 @@ task: t-0001
 
         self.assertFalse(app_presence.start_service('web_server'))
 
-        # Fifth restart is 100 sec away.
+        # Fifth restart is 105 sec away, service should be restarted
         time.time.return_value = 1105
-        with open(finished_file, 'a+') as f:
+        with open(finished_file, 'w') as f:
             f.write('1000 1 0\n')
-            f.write('1100 1 0\n')
+            f.write('1101 1 0\n')
             f.write('1102 1 0\n')
             f.write('1103 1 0\n')
             f.write('1104 1 0\n')
 
         self.assertTrue(app_presence.start_service('web_server'))
+
+        time.time.return_value = 2000
+        # Last restart in more than 30 sec, should be restarted
+        manifest['services'][0]['restart'] = {'limit': 1, 'interval': 30}
+        with open(finished_file, 'w') as f:
+            f.write('1000 1 0\n')
+            f.write('1950 1 0\n')
+
+        self.assertTrue(app_presence.start_service('web_server'))
+
+        # Last restart in less than 30 sec, should be *not* restarted
+        with open(finished_file, 'w') as f:
+            f.write('1000 1 0\n')
+            f.write('1001 1 0\n')
+            f.write('1980 1 0\n')
+
+        self.assertFalse(app_presence.start_service('web_server'))
+
+        # Confirm that limit: 0 does not allow *any* exit
+        manifest['services'][0]['restart'] = {'limit': 0, 'interval': 60}
+        time.time.return_value = 2000
+        with open(finished_file, 'w') as f:
+            f.write('1000 1 0\n')
+            f.write('1001 1 0\n')
+            f.write('1002 1 0\n')
+            f.write('1003 1 0\n')
+            f.write('1004 1 0\n')
+
+        self.assertFalse(app_presence.start_service('web_server'))
 
     @mock.patch('kazoo.client.KazooClient.create', mock.Mock())
     @mock.patch('treadmill.cgroups.get_mountpoint',
@@ -450,26 +598,43 @@ task: t-0001
     @mock.patch('treadmill.subproc.check_call', mock.Mock())
     def test_exit_info(self):
         """Tests collection of exit info."""
-        manifest = yaml.load("""
----
-name: foo.test1#0001
-proid: andreik
-services:
-- command: /usr/bin/python -m SimpleHTTPServer
-  name: web_server
-  restart:
-    limit: 3
-    interval: 60
-- command: sshd -D -f /etc/ssh/sshd_config
-  endpoints:
-  name: sshd
-  proid: ~
-endpoints:
-- {name: ssh,  port: 22,   real_port: 5001}
-- {name: http, port: 8000, real_port: 5000}
-vip: {ip0: 192.168.0.1, ip1: 192.168.0.2}
-task: t-0001
-""")
+        manifest = {
+            'vip': {
+                'ip0': '192.168.0.1',
+                'ip1': '192.168.0.2'
+            },
+            'task': 't-0001',
+            'name': 'foo.test1#0001',
+            'uniqueid': 'AAAAAA',
+            'proid': 'andreik',
+            'services': [
+                {
+                    'command': '/usr/bin/python -m SimpleHTTPServer',
+                    'name': 'web_server',
+                    'restart': {
+                        'interval': 60,
+                        'limit': 3
+                    }
+                },
+                {
+                    'command': 'sshd -D -f /etc/ssh/sshd_config',
+                    'name': 'sshd',
+                    'proid': None
+                }
+            ],
+            'endpoints': [
+                {
+                    'port': 22,
+                    'name': 'ssh',
+                    'real_port': 5001
+                },
+                {
+                    'port': 8000,
+                    'name': 'http',
+                    'real_port': 5000
+                }
+            ]
+        }
 
         os.mkdir(os.path.join(self.root, 'services'))
         os.mkdir(os.path.join(self.root, 'services', 'web_server'))

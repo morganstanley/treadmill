@@ -21,6 +21,7 @@ import treadmill
 from treadmill import firewall
 from treadmill import fs
 from treadmill import utils
+from treadmill.apptrace import events
 from treadmill.appmgr import finish as app_finish
 
 
@@ -249,11 +250,16 @@ class AppMgrFinishTest(unittest.TestCase):
         )
         treadmill.appevents.post.assert_called_with(
             mock.ANY,
-            'proid.myapp#001', 'finished', '0.0',
-            {'sig': 0,
-             'service':
-             'web_server',
-             'rc': 0}
+            events.FinishedTraceEvent(
+                instanceid='proid.myapp#001',
+                rc=0,
+                signal=0,
+                payload={
+                    'service': 'web_server',
+                    'sig': 0,
+                    'rc': 0
+                }
+            )
         )
         treadmill.rrdutils.flush_noexc.assert_called_with(
             os.path.join(self.root, 'metrics', 'apps',
@@ -351,10 +357,16 @@ class AppMgrFinishTest(unittest.TestCase):
         )
         treadmill.appevents.post.assert_called_with(
             mock.ANY,
-            'proid.myapp#001', 'finished', '1.3',
-            {'sig': 3,
-             'service': 'web_server',
-             'rc': 1}
+            events.FinishedTraceEvent(
+                instanceid='proid.myapp#001',
+                rc=1,
+                signal=3,
+                payload={
+                    'service': 'web_server',
+                    'sig': 3,
+                    'rc': 1,
+                }
+            )
         )
         treadmill.rrdutils.flush_noexc.assert_called_with(
             os.path.join(self.root, 'metrics', 'apps',
@@ -452,9 +464,15 @@ class AppMgrFinishTest(unittest.TestCase):
 
         treadmill.appevents.post(
             mock.ANY,
-            'proid.myapp#001', 'aborted',
-            {'why': 'something went wrong',
-             'node': 'hostname'})
+            events.AbortedTraceEvent(
+                instanceid='proid.myapp#001',
+                why=None,
+                payload={
+                    'why': 'something went wrong',
+                    'node': 'hostname',
+                }
+            )
+        )
         treadmill.rrdutils.flush_noexc.assert_called_with(
             os.path.join(self.root, 'metrics', 'apps',
                          app_unique_name + '.rrd')

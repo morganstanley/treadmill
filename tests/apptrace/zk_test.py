@@ -1,5 +1,5 @@
 """
-Unit test for Treadmill presense module.
+Unit test for Treadmill ZK apptrace module.
 """
 
 import time
@@ -12,7 +12,7 @@ import mock
 import kazoo
 import kazoo.client
 
-from treadmill import apptrace
+from treadmill.apptrace import zk
 from treadmill.test import mockzk
 
 
@@ -29,14 +29,14 @@ class MockStat(object):
         self.mtime = self.last_modified * 1000
 
 
-class AppTraceTest(mockzk.MockZookeeperTestCase):
+class AppTraceZKTest(mockzk.MockZookeeperTestCase):
     """Mock test for treadmill.apptrace."""
 
     def setUp(self):
-        super(AppTraceTest, self).setUp()
+        super(AppTraceZKTest, self).setUp()
 
     def tearDown(self):
-        super(AppTraceTest, self).tearDown()
+        super(AppTraceZKTest, self).tearDown()
 
     @mock.patch('kazoo.client.KazooClient.delete', mock.Mock())
     @mock.patch('kazoo.client.KazooClient.exists', mock.Mock())
@@ -86,7 +86,7 @@ class AppTraceTest(mockzk.MockZookeeperTestCase):
         self.make_mock_zk(zk_content)
         zkclient = kazoo.client.KazooClient()
 
-        apptrace.cleanup(zkclient, 100, max_events=1)
+        zk.cleanup(zkclient, 100, max_events=1)
 
         kazoo.client.KazooClient.delete.assert_has_calls(
             [
@@ -102,9 +102,11 @@ class AppTraceTest(mockzk.MockZookeeperTestCase):
             any_order=True
         )
 
+    @mock.patch('kazoo.client.KazooClient', mock.Mock(spec_set=True))
     def test_wait_snapshot(self):
         """Tests that .wait() return True when not initialized."""
-        trace = apptrace.AppTrace(None, None, None)
+        zkclient = kazoo.client.KazooClient()
+        trace = zk.AppTrace(zkclient, None, None)
         self.assertTrue(trace.wait())
 
 

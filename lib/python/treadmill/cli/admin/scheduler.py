@@ -30,6 +30,7 @@ def view_group(parent):
 
     def _print_frame(output):
         """Prints dataframe."""
+        pd.set_option('display.max_rows', None)
         if output is not None and len(output):
             if cli.OUTPUT_FORMAT == 'csv':
                 print output.to_csv()

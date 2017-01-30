@@ -26,7 +26,7 @@ class EndpointAPI(object):
             endpoint = '*'
 
         proid, pattern = app_filter.split('.', 1)
-        if pattern.find('#') == -1:
+        if '#' not in pattern:
             pattern += '#*'
 
         full_pattern = ':'.join([pattern, proto, endpoint])

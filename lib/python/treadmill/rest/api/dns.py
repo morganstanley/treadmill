@@ -20,22 +20,18 @@ def init(api, cors, impl):
         api, __name__, 'DNS REST operations'
     )
 
-    server_model = fields.String(
-        description='Server',
-        pattern=r'/^[a-zA-Z0-9\-_]+(\.[a-zA-Z0-9\-_^#]+)+:[1-9][0-9]*$/')
+    server_model = fields.String(description='Server')
 
     dns_model = {
         '_id': fields.String(
             description='Name',
             max_length=32),
-        'location': fields.String(
-            description='Location',
-            pattern=r'/^[a-zA-Z]+$/'),
+        'location': fields.String(description='Location'),
         'nameservers': fields.List(server_model),
         'rest-server': fields.List(server_model),
         'zkurl': fields.String(description='Zookeeper URL'),
         'fqdn': fields.String(description='FQDN'),
-        'ttl': fields.String(description='Time To Live', min=0),
+        'ttl': fields.String(description='Time To Live'),
     }
 
     response_model = api.model(

@@ -136,6 +136,16 @@ class Ticket(object):
         return '/tmp/krb5cc_%s' % uid
 
 
+def krbcc_ok(tkt_path):
+    """Check if credential cache is valid (not expired)."""
+    try:
+        subproc.check_call(['klist', '-5', '-s', tkt_path])
+        return True
+    except subprocess.CalledProcessError:
+        _LOGGER.warn('Ticket cache invalid: %s', tkt_path)
+        return False
+
+
 class TicketLocker(object):
     """Manages ticket exchange between ticket locker and the container."""
 
@@ -211,20 +221,19 @@ def run_server(locker):
         def got_line(self, line):
             """Callback on received line."""
             appname = line
-            try:
-                tkts = locker.process_request(self.peer(), appname)
-                if tkts:
-                    for princ, encoded in tkts.iteritems():
-                        if encoded:
-                            _LOGGER.info('Sending ticket: %s size: %d',
-                                         princ, len(encoded))
-                            self.write('%s:%s' % (princ, encoded))
-                        else:
-                            _LOGGER.info('Sending ticket %s, None', princ)
-                            self.write('%s:' % princ)
-                    self.write('')
-            finally:
-                self.transport.loseConnection()
+            tkts = locker.process_request(self.peer(), appname)
+            _LOGGER.info('Sending tickets for: %r', tkts.keys())
+            if tkts:
+                for princ, encoded in tkts.iteritems():
+                    if encoded:
+                        _LOGGER.info('Sending ticket: %s:%s',
+                                     princ,
+                                     hashlib.sha1(encoded).hexdigest())
+                        self.write('%s:%s' % (princ, encoded))
+                    else:
+                        _LOGGER.info('Sending ticket %s, None', princ)
+                        self.write('%s:' % princ)
+            self.write('')
 
     class TicketLockerServerFactory(protocol.Factory):
         """TicketLockerServer factory."""
@@ -254,15 +263,19 @@ def request_tickets(zkclient, appname):
         client = gssapiprotocol.GSSAPILineClient(host, int(port), service)
         try:
             if client.connect():
+                _LOGGER.debug('connected to: %s:%s, %s', host, port, service)
                 client.write(appname)
+                _LOGGER.debug('sent: %s', appname)
                 while True:
                     line = client.read()
                     if not line:
+                        _LOGGER.debug('Got empty response.')
                         break
 
                     princ, encoded = line.split(':')
                     if encoded:
-                        _LOGGER.info('got ticket %s:%s', princ,
+                        _LOGGER.info('got ticket %s:%s',
+                                     princ,
                                      hashlib.sha1(encoded).hexdigest())
                         ticket = Ticket(princ,
                                         base64.urlsafe_b64decode(encoded))

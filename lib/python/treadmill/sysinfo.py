@@ -18,7 +18,6 @@ else:
 
 from . import exc
 from . import subproc
-from .syscall import sysinfo as syscall_sysinfo
 
 
 # Equate "virtual" CPU to 5000 bogomips.

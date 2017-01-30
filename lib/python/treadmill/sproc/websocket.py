@@ -4,6 +4,8 @@ Treadmill Websocket server.
 from __future__ import absolute_import
 
 import logging
+import os
+import time
 import tornado.httpserver
 import tornado.ioloop
 import tornado.web
@@ -33,6 +35,11 @@ def init():
     def websocket(fs_root, modules, port):
         """Treadmill Websocket"""
         _LOGGER.debug('port: %s', port)
+
+        modified = os.path.join(fs_root, '.modified')
+        while not os.path.exists(modified):
+            _LOGGER.info('zk2fs mirror does not exist, waiting.')
+            time.sleep(1)
 
         pubsub = ws.DirWatchPubSub(fs_root)
         for topic, impl in api.init(modules):

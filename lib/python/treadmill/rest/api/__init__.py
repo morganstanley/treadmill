@@ -48,6 +48,25 @@ def init(apis, title=None, cors_origin=None):
                          content_type='application/json',
                          credentials=True)
 
+    @rest.FLASK_APP.after_request
+    def _after_request_cors_handler(response):
+        """Process all OPTIONS request, thus don't need to add to each app"""
+        if flask.request.method != 'OPTIONS':
+            return response
+
+        _LOGGER.debug('This is an OPTIONS call')
+
+        def _noop_options():
+            """No noop response handler for all OPTIONS"""
+            pass
+
+        headers = flask.request.headers.get('Access-Control-Request-Headers')
+        options_cors = webutils.cors(origin=cors_origin,
+                                     credentials=True,
+                                     headers=headers)
+        response = options_cors(_noop_options)()
+        return response
+
     def user_clbk():
         """Get current user from the request."""
         return flask.request.environ.get('REMOTE_USER')

@@ -6,8 +6,8 @@ SLEEP={{ sleep }}
 ECHO={{ echo }}
 REBOOT={{ reboot }}
 
-$ECHO $REBOOT -noexception -nooptout -noschedule -nouptime -noexec
-$REBOOT -noexception -nooptout -noschedule -nouptime -noexec
+$ECHO $REBOOT -noexception -nooptout -noschedule -nouptime
+$REBOOT -noexception -nooptout -noschedule -nouptime
 
 $ECHO Reboot failed.
 

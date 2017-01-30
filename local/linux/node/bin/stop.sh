@@ -30,7 +30,7 @@ function wait_until_empty {
     DIR=$1
     $ECHO Wait for $DIR to become empty.
 
-    while true; do
+    for i in {1..3}; do
         COUNT=$($LS $DIR | wc -l)
         $ECHO $($DATE) - $COUNT items left.
         $LS -l $DIR

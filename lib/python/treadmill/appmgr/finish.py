@@ -16,20 +16,22 @@ import tarfile
 import yaml
 import kazoo
 
-from .. import appevents
-from .. import appmgr
-from .. import firewall
-from .. import fs
-from .. import iptables
-from .. import logcontext as lc
-from .. import rrdutils
-from .. import services
-from .. import subproc
-from .. import supervisor
-from .. import sysinfo
-from .. import utils
-from .. import zknamespace as z
-from .. import zkutils
+from treadmill import appevents
+from treadmill import appmgr
+from treadmill import firewall
+from treadmill import fs
+from treadmill import iptables
+from treadmill import logcontext as lc
+from treadmill import rrdutils
+from treadmill import services
+from treadmill import subproc
+from treadmill import supervisor
+from treadmill import sysinfo
+from treadmill import utils
+from treadmill import zknamespace as z
+from treadmill import zkutils
+
+from treadmill.apptrace import events
 
 from . import manifest as app_manifest
 
@@ -87,11 +89,17 @@ def finish(tm_env, zkclient, container_dir):
             # container, remove the node from Zookeeper, which will notify the
             # scheduler that it is safe to reuse the host for other load.
             if aborted:
-                appevents.post(tm_env.app_events_dir, app.name, 'aborted',
-                               None, aborted_reason)
+                appevents.post(
+                    tm_env.app_events_dir,
+                    events.AbortedTraceEvent(
+                        instanceid=app.name,
+                        why=None,  # TODO(boysson): extract this info
+                        payload=aborted_reason
+                    )
+                )
 
             if exitinfo:
-                _post_exit_event(tm_env, app.name, exitinfo)
+                _post_exit_event(tm_env, app, exitinfo)
 
         # Delete the app directory (this includes the tarball, if any)
         shutil.rmtree(container_dir)
@@ -153,20 +161,22 @@ def _stop_container(container_dir):
             raise
 
 
-def _post_exit_event(tm_env, name, exitinfo):
+def _post_exit_event(tm_env, app, exitinfo):
     """Post exit event based on exit reason."""
     if exitinfo.get('killed'):
-        event = 'killed'
-        if exitinfo.get('oom'):
-            eventmsg = 'oom'
+        event = events.KilledTraceEvent(
+            instanceid=app.name,
+            is_oom=bool(exitinfo.get('oom')),
+        )
     else:
-        rc = exitinfo.get('rc', 256)
-        sig = exitinfo.get('sig', 256)
-        event = 'finished'
-        eventmsg = '%s.%s' % (rc, sig)
+        event = events.FinishedTraceEvent(
+            instanceid=app.name,
+            rc=exitinfo.get('rc', 256),
+            signal=exitinfo.get('sig', 256),
+            payload=exitinfo
+        )
 
-    appevents.post(tm_env.app_events_dir,
-                   name, event, eventmsg, exitinfo)
+    appevents.post(tm_env.app_events_dir, event)
 
 
 def _cleanup(tm_env, zkclient, container_dir, app):

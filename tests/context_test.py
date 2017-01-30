@@ -116,7 +116,7 @@ class ContextTest(unittest.TestCase):
 
         ctx = context.Context()
         ctx.dns_domain = 'a'
-        ctx.admin_api_scope = 'na.region'
+        ctx.admin_api_scope = ['ny.campus', 'na.region']
         ctx.cell = 'b'
         self.assertEquals(['http://xxx:123', 'http://yyy:234'],
                           ctx.cell_api())
@@ -134,6 +134,14 @@ class ContextTest(unittest.TestCase):
         ctx.dns_domain = None
         self.assertRaises(context.ContextError, ctx.cell_api)
         self.assertEquals(['x:8080'], ctx.cell_api('x:8080'))
+
+        ctx.dns_domain = 'a.com'
+        treadmill.dnsutils.srv.return_value = []
+        self.assertRaises(context.ContextError, ctx.admin_api)
+        treadmill.dnsutils.srv.assert_has_calls([
+            mock.call('_http._tcp.adminapi.ny.campus.a.com'),
+            mock.call('_http._tcp.adminapi.na.region.a.com'),
+        ])
 
 
 if __name__ == '__main__':

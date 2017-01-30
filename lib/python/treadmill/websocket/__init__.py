@@ -19,6 +19,7 @@ import tornado.websocket
 
 from treadmill import idirwatch
 from treadmill import exc
+from treadmill import fs
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -89,7 +90,7 @@ def make_handler(pubsub):
                 topic = message['topic']
                 impl = pubsub.impl.get(topic)
                 if not impl:
-                    self.send_error_msg('Invalid topic: %s', topic)
+                    self.send_error_msg('Invalid topic: %r' % topic)
                     return
 
                 since = message.get('since', 0)
@@ -98,6 +99,7 @@ def make_handler(pubsub):
                     pubsub.register(directory, pattern, self, impl, since)
                 if snapshot:
                     self.close()
+
             except Exception as err:  # pylint: disable=W0703
                 self.send_error_msg(str(err))
 
@@ -135,6 +137,7 @@ class DirWatchPubSub(object):
                                                   directory.lstrip('/')))
         if not self.handlers[norm_path]:
             _LOGGER.info('Added dir watcher: %s', directory)
+            fs.mkdir_safe(norm_path)
             self.watcher.add_dir(norm_path)
 
         self.handlers[norm_path].append((pattern, ws_handler, impl))
@@ -198,7 +201,10 @@ class DirWatchPubSub(object):
     def _sow(self, directory, pattern, since, handler, impl):
         """Publish state of the world."""
         root_len = len(self.root)
+
         files = glob.glob(os.path.join(directory, pattern))
+        files.sort(key=os.path.getmtime)
+
         for filename in files:
             content = None
             try:
@@ -225,7 +231,7 @@ class DirWatchPubSub(object):
     def _gc(self):
         """Remove disconnected websocket handlers."""
         _LOGGER.info('Running gc.')
-        for directory in self.handlers.viewkeys():
+        for directory in list(self.handlers.viewkeys()):
             handlers = [(pattern, handler, impl)
                         for pattern, handler, impl in self.handlers[directory]
                         if handler.active()]

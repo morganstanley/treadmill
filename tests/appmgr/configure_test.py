@@ -16,6 +16,7 @@ import mock
 
 import treadmill
 from treadmill.appmgr import configure as app_cfg
+from treadmill.apptrace import events
 
 
 class AppMgrConfigureTest(unittest.TestCase):
@@ -48,6 +49,7 @@ class AppMgrConfigureTest(unittest.TestCase):
     @mock.patch('treadmill.utils.rootdir',
                 mock.Mock(return_value='/treadmill'))
     @mock.patch('treadmill.appmgr.manifest.load', auto_spec=True)
+    @mock.patch('treadmill.appevents.post', mock.Mock(auto_spec=True))
     def test_configure(self, mock_load):
         """Tests that appmgr.configure creates necessary s6 layout."""
         manifest = {
@@ -74,13 +76,13 @@ class AppMgrConfigureTest(unittest.TestCase):
                 },
             ],
             'name': 'proid.myapp#0',
-            'uniqueid': '12345',
+            'uniqueid': 'AAAAA',
         }
         mock_load.return_value = manifest
         mock_cgroup_client = self.app_env.svc_cgroup.make_client.return_value
         mock_ld_client = self.app_env.svc_localdisk.make_client.return_value
         mock_nwrk_client = self.app_env.svc_network.make_client.return_value
-        app_unique_name = 'proid.myapp-0-0000000012345'
+        app_unique_name = 'proid.myapp-0-00000000AAAAA'
         app_dir = os.path.join(self.root, 'apps', app_unique_name)
 
         app_cfg.configure(self.app_env, '/some/event')
@@ -138,6 +140,14 @@ class AppMgrConfigureTest(unittest.TestCase):
             {
                 'environment': 'dev',
             }
+        )
+        treadmill.appevents.post.assert_called_with(
+            mock.ANY,
+            events.ConfiguredTraceEvent(
+                instanceid='proid.myapp#0',
+                uniqueid='AAAAA',
+                payload=None
+            )
         )
 
     @mock.patch('pwd.getpwnam', mock.Mock(auto_spec=True))

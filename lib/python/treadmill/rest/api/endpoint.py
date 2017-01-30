@@ -22,7 +22,7 @@ def init(api, cors, impl):
         api, __name__, 'Endpoint state REST operations'
     )
 
-    dns_model = {
+    endpoint_model = {
         'endpoint': fields.String(description='Endpoint name'),
         'name': fields.String(description='Application name'),
         'port': fields.Integer(description='Endpoint port'),
@@ -31,7 +31,7 @@ def init(api, cors, impl):
     }
 
     response_model = api.model(
-        'RespDNS', dns_model
+        'RespEndpoint', endpoint_model
     )
 
     @namespace.route(

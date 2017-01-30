@@ -1,6 +1,7 @@
 """Unit test for Zookeeper to FS module
 """
 
+import collections
 import os
 import shutil
 import tempfile
@@ -134,6 +135,7 @@ class ZkSyncTest(mockzk.MockZookeeperTestCase):
                 'z': '3',
             },
         }
+        mock_stat = collections.namedtuple('ZkStat', ['last_modified'])(0)
 
         self.make_mock_zk(zk_content)
         zk2fs_sync = zksync.Zk2Fs(kazoo.client.KazooClient(), self.root)
@@ -141,18 +143,18 @@ class ZkSyncTest(mockzk.MockZookeeperTestCase):
 
         event = kazoo.protocol.states.WatchedEvent(
             'CREATED', 'CONNECTED', '/a/x')
-        zk2fs_sync._data_watch('/a/x', 'aaa', None, event)
+        zk2fs_sync._data_watch('/a/x', 'aaa', mock_stat, event)
 
         self._check_file('a/x', 'aaa')
 
         event = kazoo.protocol.states.WatchedEvent(
             'DELETED', 'CONNECTED', '/a/x')
-        zk2fs_sync._data_watch('/a/x', 'aaa', None, event)
+        zk2fs_sync._data_watch('/a/x', 'aaa', mock_stat, event)
         self.assertFalse(os.path.exists(os.path.join(self.root, 'a/x')))
 
         event = kazoo.protocol.states.WatchedEvent(
             'CREATED', 'CONNECTED', '/a/x')
-        zk2fs_sync._data_watch('/a/x', 'aaa', None, event)
+        zk2fs_sync._data_watch('/a/x', 'aaa', mock_stat, event)
         self._check_file('a/x', 'aaa')
 
         zk2fs_sync._data_watch('/a/x', None, None, None)
