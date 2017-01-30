@@ -2,6 +2,7 @@
 Unit test for treadmill.cli.
 """
 
+import sys
 import unittest
 
 # Disable W0611: Unused import
@@ -40,6 +41,7 @@ class CliTest(unittest.TestCase):
                            '1  2  1,2,3'])
 
     @mock.patch('click.echo', mock.Mock())
+    @mock.patch('sys.exit', mock.Mock())
     def test_exceptions_wrapper(self):
         """Tests wrapping function with exceptions wrapper."""
         class AExc(Exception):
@@ -67,10 +69,13 @@ class CliTest(unittest.TestCase):
 
         _raise_a()
         click.echo.assert_called_with('a', err=True)
+        sys.exit.assert_called_with(1)
         click.echo.reset_mock()
+        sys.exit.reset_mock()
 
         _raise_b()
         click.echo.assert_called_with('b', err=True)
+        sys.exit.assert_called_with(1)
 
     def test_combine(self):
         """Test combining lists."""

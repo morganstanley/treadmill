@@ -4,29 +4,34 @@ from __future__ import absolute_import
 import logging
 import os
 
-from .. import appevents
-
+from treadmill import appevents
+from treadmill.apptrace import events
 
 _LOGGER = logging.getLogger(__name__)
 
 
-def abort(tm_env, event, exc=None):
+def abort(tm_env, event, exc=None, reason=None):
     """Abort a unconfigured application.
 
     Called when aborting after failed configure step.
     """
     # If aborting after failed configure step, the 'name' attibute is
     # derived from the event file name.
-    app_name = os.path.basename(event)
-    _LOGGER.info('Aborting %s', app_name)
+    instanceid = os.path.basename(event)
+    _LOGGER.info('Aborting %s', instanceid)
 
     # Report start failure.
-    reason = None
-    if exc:
-        reason = str(exc)
+    if reason is None and exc:
+        reason = type(exc).__name__
 
-    # TODO: need to provide short description of aborted reason.
-    appevents.post(tm_env.app_events_dir, app_name, 'aborted', None, reason)
+    appevents.post(
+        tm_env.app_events_dir,
+        events.AbortedTraceEvent(
+            why=reason,
+            instanceid=instanceid,
+            payload=None
+        )
+    )
 
 
 def flag_aborted(_tm_env, container_dir, exc=None):

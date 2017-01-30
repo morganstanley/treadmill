@@ -2,12 +2,10 @@
 from __future__ import absolute_import
 
 import logging
-import httplib
+import os
 import socket
 
 import click
-import flask
-import kazoo
 
 from treadmill import cli
 from treadmill import context
@@ -28,39 +26,7 @@ _SERVERS_ACL = zkutils.make_role_acl('servers', 'rwcd')
 def init():
     """Top level command handler."""
 
-    @click.group(name='nodeinfo')
-    def nodeinfo_grp():
-        """Manages local node info server and redirector."""
-        pass
-
-    @nodeinfo_grp.command()
-    @click.option('-p', '--port', required=False, default=8000)
-    def redirector(port):
-        """Runs local nodeinfo redirector."""
-        context.GLOBAL.zk.conn.add_listener(zkutils.exit_on_lost)
-
-        app = flask.Flask(__name__)
-
-        zkclient = context.GLOBAL.zk.conn
-        zkclient.add_listener(zkutils.exit_on_lost)
-
-        @app.route('/<hostname>/<path:path>')
-        def _redirect(hostname, path):
-            """Redirect to host specific handler."""
-            _LOGGER.info('Redirect: %s %s', hostname, path)
-            try:
-                hostport, _metadata = zkclient.get(z.path.nodeinfo(hostname))
-                _LOGGER.info('Found: %s - %s', hostname, hostport)
-                return flask.redirect(
-                    'http://%s/%s' % (hostport, path),
-                    code=httplib.FOUND
-                )
-            except kazoo.client.NoNodeError:
-                return 'Host not found.', httplib.NOT_FOUND
-
-        app.run(host='0.0.0.0', port=port)
-
-    @nodeinfo_grp.command()
+    @click.command()
     @click.option('-r', '--register', required=False, default=False,
                   is_flag=True, help='Register as /nodeinfo in Zookeeper.')
     @click.option('-p', '--port', required=False, default=0)
@@ -85,10 +51,12 @@ def init():
             zkclient = context.GLOBAL.zk.conn
             zkclient.add_listener(zkutils.exit_on_lost)
 
-            appname = 'root.%s#0000000000' % hostname
+            appname = 'root.%s#%010d' % (hostname, os.getpid())
             path = z.path.endpoint(appname, 'tcp', 'nodeinfo')
             _LOGGER.info('register endpoint: %s %s', path, hostport)
-            zkutils.put(zkclient, path, hostport, acl=[_SERVERS_ACL])
+            zkutils.create(zkclient, path, hostport,
+                           acl=[_SERVERS_ACL],
+                           ephemeral=True)
 
         _LOGGER.info('Starting nodeinfo server on port: %s', port)
 
@@ -101,7 +69,4 @@ def init():
         rest_server = rest.RestServer(port)
         rest_server.run(auth_type=auth, protect=api_paths)
 
-    del redirector
-    del server
-
-    return nodeinfo_grp
+    return server

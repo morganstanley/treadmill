@@ -82,7 +82,7 @@ def query(name, rdatatype, resolver=None):
 
     query_str = '%s IN %s' % (name, dns.rdatatype.to_text(rdatatype))
     try:
-        return resolver.query(name, rdatatype)
+        return resolver.query(name, rdatatype, tcp=True)
     except dns.exception.Timeout as err:
         _LOGGER.debug('Timeout while querying %s: %s', query_str, err)
     except dns.resolver.NXDOMAIN as err:
@@ -162,3 +162,10 @@ def txt(label, resolver=None):
 def ns(fqdn, resolver=None):
     """Resolve DNS zone."""
     return map(str, query(fqdn, dns.rdatatype.NS, resolver))
+
+
+def srv_target_to_url(srv_rec, srv_target):
+    """Convert SRV record to URL"""
+    protocol, _rest = srv_rec.split('.', 1)
+    host, port, _prio, _weight = srv_target
+    return '%s://%s:%s' % (protocol[1:], host, port)

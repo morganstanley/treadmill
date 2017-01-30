@@ -211,8 +211,7 @@ class AdminTest(unittest.TestCase):
                  'zk-client-port': 5000,
                  'zk-jmx-port': 6000,
                  'zk-followers-port': 7000,
-                 'zk-election-port': 8000,
-                 'kafka-client-port': 9000}
+                 'zk-election-port': 8000}
             ]
         }
         cell_admin = admin.Cell(None)

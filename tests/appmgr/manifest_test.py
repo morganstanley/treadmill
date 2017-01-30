@@ -253,47 +253,6 @@ class AppMgrManifestTest(unittest.TestCase):
         self.assertEquals(app0['environ'], [])
         self.assertEquals(app0['ephemeral_ports'], 2)
 
-    def test__add_features(self):
-        """Tests optional container features."""
-        # Access protected member _add_features
-        # pylint: disable=W0212
-        manifest = {
-            'services': [],
-            'system_services': [],
-            'features': ['webauthd']
-        }
-
-        treadmill.appmgr.manifest._add_features(manifest)
-
-        self.assertIn(
-            {
-                'name': 'webauthd',
-                'proid': None,
-                'command': '${TREADMILL}/sbin/run_webauthd',
-                'restart': {
-                    'limit': 5,
-                    'interval': 60,
-                },
-            },
-            manifest['system_services']
-        )
-
-    def test__add_features_nonexist(self):
-        """Tests adding non-existant container features."""
-        # Access protected member _add_features
-        # pylint: disable=W0212
-        manifest = {
-            'services': [],
-            'system_services': [],
-            'features': ['webauthd', 'no_such_feature']
-        }
-
-        self.assertRaises(
-            Exception,
-            treadmill.appmgr.manifest._add_features,
-            manifest
-        )
-
     @mock.patch('treadmill.appmgr.gen_uniqueid', mock.Mock(return_value='42'))
     @mock.patch('treadmill.appmgr.manifest.read', mock.Mock())
     @mock.patch('treadmill.subproc._check', mock.Mock(return_value=True))

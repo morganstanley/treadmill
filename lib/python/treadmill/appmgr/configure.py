@@ -11,12 +11,14 @@ import tempfile
 
 import yaml
 
-from .. import appmgr
-from .. import utils
+import treadmill
+from treadmill import appevents
+from treadmill import appmgr
+from treadmill import utils
+
+from treadmill.apptrace import events
 
 from . import manifest as app_manifest
-
-import treadmill
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -167,6 +169,13 @@ def configure(tm_env, event):
                         service=app.name, proid=None,
                         cmds=[finish_cmd])
 
+    appevents.post(
+        tm_env.app_events_dir,
+        events.ConfiguredTraceEvent(
+            instanceid=app.name,
+            uniqueid=app.uniqueid
+        )
+    )
     return container_dir
 
 

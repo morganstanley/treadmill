@@ -26,12 +26,19 @@ class Zk2Fs(object):
         self.processed_once = set()
         self.zkclient = zkclient
         self.fsroot = fsroot
+        self.ready = False
+
+    def mark_ready(self):
+        """Mark itself as ready, typically past initial sync."""
+        self.ready = True
+        self._update_last()
 
     def _update_last(self):
         """Update .modified timestamp to indicate changes were made."""
-        modified_file = os.path.join(self.fsroot, '.modified')
-        utils.touch(modified_file)
-        os.utime(modified_file, (time.time(), time.time()))
+        if self.ready:
+            modified_file = os.path.join(self.fsroot, '.modified')
+            utils.touch(modified_file)
+            os.utime(modified_file, (time.time(), time.time()))
 
     def _default_on_del(self, zkpath):
         """Default callback invoked on node delete, remove file."""
@@ -41,7 +48,18 @@ class Zk2Fs(object):
         """Default callback invoked on node is added, default - sync data."""
         self.sync_data(zknode)
 
-    def _data_watch(self, zkpath, data, _stat, event):
+    def _write_data(self, fpath, data, stat):
+        """Write Zookeeper data to filesystem.
+        """
+        with tempfile.NamedTemporaryFile(dir=os.path.dirname(fpath),
+                                         delete=False,
+                                         prefix='.tmp') as temp:
+            temp.write(data)
+            os.fchmod(temp.fileno(), 0o644)
+        os.utime(temp.name, (stat.last_modified, stat.last_modified))
+        os.rename(temp.name, fpath)
+
+    def _data_watch(self, zkpath, data, stat, event):
         """Invoked when data changes."""
         fpath = self.fpath(zkpath)
         if data is None and event is None:
@@ -54,12 +72,7 @@ class Zk2Fs(object):
             self.watches.discard(zkpath)
             fs.rm_safe(fpath)
         else:
-            with tempfile.NamedTemporaryFile(dir=os.path.dirname(fpath),
-                                             delete=False,
-                                             prefix='.tmp') as temp:
-                temp.write(data)
-                os.fchmod(temp.fileno(), 0o644)
-                os.rename(temp.name, fpath)
+            self._write_data(fpath, data, stat)
 
         # Returning False will not renew the watch.
         renew = zkpath in self.watches
@@ -108,13 +121,20 @@ class Zk2Fs(object):
     def sync_data(self, zkpath):
         """Sync zk node data to file."""
 
-        @self.zkclient.DataWatch(zkpath)
-        @exc.exit_on_unhandled
-        def _data_watch(data, stat, event):
-            """Invoked when data changes."""
-            renew = self._data_watch(zkpath, data, stat, event)
+        if zkpath in self.watches:
+            @self.zkclient.DataWatch(zkpath)
+            @exc.exit_on_unhandled
+            def _data_watch(data, stat, event):
+                """Invoked when data changes."""
+                renew = self._data_watch(zkpath, data, stat, event)
+                self._update_last()
+                return renew
+
+        else:
+            fpath = self.fpath(zkpath)
+            data, stat = self.zkclient.get(zkpath)
+            self._write_data(fpath, data, stat)
             self._update_last()
-            return renew
 
     def sync_children(self, zkpath, watch_data=False,
                       on_add=None, on_del=None):
@@ -136,8 +156,13 @@ class Zk2Fs(object):
         @exc.exit_on_unhandled
         def _children_watch(children):
             """Callback invoked on children watch."""
-            renew = self._children_watch(zkpath,
-                                         children, watch_data, on_add, on_del)
+            renew = self._children_watch(
+                zkpath,
+                children,
+                watch_data,
+                on_add,
+                on_del
+            )
 
             self._update_last()
             return renew

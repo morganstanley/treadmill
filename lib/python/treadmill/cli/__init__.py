@@ -1,8 +1,6 @@
 """Treadmill commaand line helpers."""
 from __future__ import absolute_import
 
-import sys
-
 import copy
 import json
 import importlib
@@ -10,6 +8,7 @@ import os
 import functools
 import pkgutil
 import re
+import sys
 import tempfile
 import traceback
 import logging
@@ -26,6 +25,8 @@ from treadmill import restclient
 
 
 __path__ = pkgutil.extend_path(__path__, __name__)
+
+EXIT_CODE_DEFAULT = 1
 
 
 def init_logger(name):
@@ -178,7 +179,7 @@ def validate_cpu(_ctx, _param, value):
     return value
 
 
-def wrap_words(words, length, sep=','):
+def wrap_words(words, length, sep=',', newline='\n'):
     """Join words by sep, no more than count in each line."""
     lines = []
     line = []
@@ -197,7 +198,7 @@ def wrap_words(words, length, sep=','):
         cur_length += len(word)
         line.append(word)
 
-    return '\n'.join([sep.join(line) for line in lines])
+    return newline.join([sep.join(line) for line in lines])
 
 
 def make_wrap_words(length, sep=','):
@@ -335,6 +336,8 @@ def handle_exceptions(exclist):
                     else:
                         click.echo(handler(err), err=True)
 
+                    sys.exit(EXIT_CODE_DEFAULT)
+
         @functools.wraps(f)
         def _handle_any(*args, **kwargs):
             """Default exception handler."""
@@ -346,6 +349,8 @@ def handle_exceptions(exclist):
                     traceback.print_exc(file=f)
                     click.echo('Error: %s [ %s ]' % (unhandled, f.name),
                                err=True)
+
+                sys.exit(EXIT_CODE_DEFAULT)
 
         return _handle_any
 
@@ -394,10 +399,11 @@ class AppPrettyFormatter(object):
             ('interval', None, None),
         ])
 
+        command_fmt = lambda cmd: wrap_words(cmd.split(), 40, ' ', '\n   ')
         services_tbl = make_list_to_table([
             ('name', None, None),
             ('restart', None, services_restart_tbl),
-            ('command', None, None),
+            ('command', None, command_fmt),
         ])
 
         endpoints_tbl = make_list_to_table([
@@ -420,6 +426,7 @@ class AppPrettyFormatter(object):
             ('tickets', None, None),
             ('features', None, None),
             ('identity-group', 'identity_group', None),
+            ('shared-ip', 'shared_ip', None),
             ('services', None, services_tbl),
             ('endpoints', None, endpoints_tbl),
             ('environ', None, environ_tbl),
@@ -585,7 +592,6 @@ class CellPrettyFormatter(object):
             ('zk-jmx-port', None, None),
             ('zk-followers-port', None, None),
             ('zk-election-port', None, None),
-            ('kafka-client-port', None, None),
         ])
 
         schema = [
@@ -673,7 +679,7 @@ class TenantPrettyFormatter(object):
     def format(item):
         """Return pretty-formatted item."""
         schema = [
-            ('tenant', ['tenant', '_id'], None),
+            ('tenant', ['_id', 'tenant'], None),
             ('system', 'systems', None),
             ('allocations', 'allocations', AllocationPrettyFormatter.format),
         ]

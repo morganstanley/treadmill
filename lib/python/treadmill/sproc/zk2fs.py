@@ -22,10 +22,7 @@ _LOGGER = logging.getLogger(__name__)
 def _on_add_proid(zk2fs_sync, zkpath):
     """Invoked when new proid is added to endpoints."""
     _LOGGER.info('Added proid: %s', zkpath)
-    # It is not clear if we need to watch data, as endpoints as
-    # ephemeral and are added/deleted, but never modified once
-    # ephemeral node is created.
-    zk2fs_sync.sync_children(zkpath)
+    zk2fs_sync.sync_children(zkpath, watch_data=True)
 
 
 def _on_del_proid(zk2fs_sync, zkpath):
@@ -88,12 +85,21 @@ def init():
     @click.option('--placement', help='Sync placement.',
                   is_flag=True, default=False)
     @click.option('--tasks', help='Sync trace with app pattern.')
+    @click.option('--once', help='Sync once and exit.',
+                  is_flag=True, default=False)
     def zk2fs_cmd(root, endpoints, appgroups, running, scheduled, servers,
-                  placement, tasks):
+                  placement, tasks, once):
         """Starts appcfgmgr process."""
 
         fs.mkdir_safe(root)
         zk2fs_sync = zksync.Zk2Fs(context.GLOBAL.zk.conn, root)
+
+        if servers:
+            zk2fs_sync.sync_children(z.path.server(), watch_data=False)
+
+        if running:
+            # Running are ephemeral, and will be added/remove automatically.
+            zk2fs_sync.sync_children(z.path.running())
 
         if endpoints:
             zk2fs_sync.sync_children(
@@ -101,18 +107,11 @@ def init():
                 on_add=lambda p: _on_add_proid(zk2fs_sync, p),
                 on_del=lambda p: _on_del_proid(zk2fs_sync, p))
 
-        if running:
-            # Running are ephemeral, and will be added/remove automatically.
-            zk2fs_sync.sync_children(z.path.running())
-
         if scheduled:
             zk2fs_sync.sync_children(z.path.scheduled())
 
         if appgroups:
             zk2fs_sync.sync_children(z.path.appgroup(), watch_data=True)
-
-        if servers:
-            zk2fs_sync.sync_children(z.path.server(), watch_data=False)
 
         if placement:
             zk2fs_sync.sync_placement(z.path.placement(), watch_data=True)
@@ -127,7 +126,10 @@ def init():
                 on_add=lambda p: _on_add_app(zk2fs_sync, p, reobj),
                 on_del=lambda p: _on_del_app(zk2fs_sync, p, reobj))
 
-        while True:
-            time.sleep(100000)
+        zk2fs_sync.mark_ready()
+
+        if not once:
+            while True:
+                time.sleep(100000)
 
     return zk2fs_cmd

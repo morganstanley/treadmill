@@ -92,6 +92,9 @@ class PubSubTest(unittest.TestCase):
         pubsub.run(once=True)
         self.assertEquals(1, len(pubsub.handlers[self.root]))
 
+        pubsub.register('/new_dir', 'bbb', ws2, handler2, True)
+        self.assertTrue(os.path.exists(os.path.join(self.root, 'new_dir')))
+
     def test_sow_since(self):
         """Tests sow since handling."""
         # Access to protected member: _sow

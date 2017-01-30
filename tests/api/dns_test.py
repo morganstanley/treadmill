@@ -1,4 +1,4 @@
-"""Cell API tests."""
+"""DNS API tests."""
 
 import unittest
 

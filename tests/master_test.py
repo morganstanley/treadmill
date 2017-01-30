@@ -746,6 +746,39 @@ class MasterTest(mockzk.MockZookeeperTestCase):
             mock.call(mock.ANY, '/reboots/' + app_server, acl=mock.ANY),
         ])
 
+    @mock.patch('kazoo.client.KazooClient.get', mock.Mock())
+    @mock.patch('kazoo.client.KazooClient.exists', mock.Mock())
+    @mock.patch('kazoo.client.KazooClient.get_children', mock.Mock())
+    @mock.patch('treadmill.zkutils.ensure_deleted', mock.Mock())
+    def test_placement_integrity(self):
+        """Tests placement integrity."""
+        zk_content = {
+            'placement': {
+                'test1.xx.com': {
+                    'xxx.app1#1234': '',
+                    'xxx.app2#2345': '',
+                },
+                'test2.xx.com': {
+                    'xxx.app1#1234': '',
+                }
+            },
+        }
+
+        self.master.cell.apps['xxx.app1#1234'] = scheduler.Application(
+            'xxx.app1#1234', 100, [1, 1, 1], 'app1')
+        self.master.cell.apps['xxx.app2#2345'] = scheduler.Application(
+            'xxx.app2#2345', 100, [1, 1, 1], 'app1')
+
+        self.master.cell.apps['xxx.app1#1234'].server = 'test1.xx.com'
+
+        self.make_mock_zk(zk_content)
+        self.master.check_placement_integrity()
+
+        treadmill.zkutils.ensure_deleted.assert_called_with(
+            mock.ANY,
+            '/placement/test2.xx.com/xxx.app1#1234'
+        )
+
 
 if __name__ == '__main__':
     unittest.main()

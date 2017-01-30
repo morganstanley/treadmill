@@ -11,6 +11,7 @@ import os
 import pkgutil
 import stat
 import time
+import urllib
 
 # Pylint warning re string being deprecated
 #
@@ -401,7 +402,7 @@ def datetime_utcnow():
 
 def strftime_utc(epoch):
     """Convert seconds from epoch into UTC time string."""
-    return time.strftime("%a, %d %b %Y %H:%M:%S +0000", time.gmtime(epoch))
+    return time.strftime("%a, %d %b %Y %H:%M:%S+0000", time.gmtime(epoch))
 
 
 def to_base_n(num, base=None, alphabet=None):
@@ -547,3 +548,8 @@ def modules_in_pkg(pkg):
 def equals_list2dict(equals_list):
     """Converts an array of key/values seperated by = to dict"""
     return dict(entry.split('=') for entry in equals_list)
+
+
+def encode_uri_parts(path):
+    """Encode URI path components"""
+    return '/'.join([urllib.quote(part) for part in path.split('/')])

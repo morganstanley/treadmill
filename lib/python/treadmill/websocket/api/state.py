@@ -19,7 +19,7 @@ class RunningAPI(object):
     def subscribe(self, message):
         """Return filter based on message payload."""
         app_filter = message['filter']
-        if app_filter.find('#') == -1:
+        if '#' not in app_filter:
             app_filter += '#*'
 
         return [('/running', app_filter)]
@@ -63,6 +63,7 @@ class ScheduledAPI(object):
         manifest = None
         if content:
             manifest = yaml.load(content)
+
         return {
             'topic': '/scheduled',
             'name': appname,

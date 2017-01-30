@@ -32,76 +32,116 @@ class VRingTest(unittest.TestCase):
 
         mock_discovery = treadmill.discovery.Discovery(None, 'a.a', None)
         treadmill.discovery.Discovery.iteritems.return_value = [
-            ('foo:tcp0', 'xxx.xx.com:12345'),
-            ('foo:tcp1', 'xxx.xx.com:23456'),
-            ('foo:tcp2', 'xxx.xx.com:34567'),
-            ('bla:tcp0', 'yyy.xx.com:54321'),
+            ('proid.foo#123:tcp:tcp_ep', 'xxx.xx.com:12345'),
+            ('proid.foo#123:udp:udp_ep', 'xxx.xx.com:23456'),
+            ('proid.foo#123:tcp:other_tcp_ep', 'xxx.xx.com:34567'),
+            ('proid.bla#123:tcp:tcp_ep', 'yyy.xx.com:54321'),
         ]
-        vring.run('ring_0', {'tcp0': 10000, 'tcp1': 11000}, ['tcp0'],
+        vring.run('ring_0',
+                  {'tcp_ep': 10000, 'udp_ep': 11000},
+                  ['tcp_ep', 'udp_ep'],
                   mock_discovery)
 
         # Ignore all but tcp0 endpoints.
         #
         # Ignore tcp2 as it is not listed in the port map.
-        treadmill.iptables.add_dnat_rule.assert_has_calls([
-            mock.call(
-                treadmill.firewall.DNATRule(
-                    'tcp',
-                    '1.1.1.1', 10000,
-                    '1.1.1.1', '12345'
+        treadmill.iptables.add_dnat_rule.assert_has_calls(
+            [
+                mock.call(
+                    treadmill.firewall.DNATRule(
+                        'tcp',
+                        '1.1.1.1', 10000,
+                        '1.1.1.1', '12345'
+                    ),
+                    chain='ring_0'
                 ),
-                chain='ring_0'
-            ),
-            mock.call(
-                treadmill.firewall.DNATRule(
-                    'tcp',
-                    '2.2.2.2', 10000,
-                    '2.2.2.2', '54321'
+                mock.call(
+                    treadmill.firewall.DNATRule(
+                        'tcp',
+                        '2.2.2.2', 10000,
+                        '2.2.2.2', '54321'
+                    ),
+                    chain='ring_0'
                 ),
-                chain='ring_0'
-            ),
-        ])
+                mock.call(
+                    treadmill.firewall.DNATRule(
+                        'udp',
+                        '1.1.1.1', 11000,
+                        '1.1.1.1', '23456'
+                    ),
+                    chain='ring_0'
+                ),
+            ],
+            any_order=True
+        )
 
         treadmill.iptables.add_dnat_rule.reset()
         treadmill.discovery.Discovery.iteritems.return_value = [
-            ('foo:tcp0', 'xxx.xx.com:12345'),
-            ('foo:tcp1', 'xxx.xx.com:23456'),
-            ('foo:tcp2', 'xxx.xx.com:34567'),
-            ('bla:tcp0', 'yyy.xx.com:54321'),
-            ('foo:tcp0', None),
+            ('proid.foo#123:tcp:tcp_ep', 'xxx.xx.com:12345'),
+            ('proid.foo#123:udp:udp_ep', 'xxx.xx.com:23456'),
+            ('proid.foo#123:tcp:other_tcp_ep', 'xxx.xx.com:34567'),
+            ('proid.bla#123:tcp:tcp_ep', 'yyy.xx.com:54321'),
+            ('proid.foo#123:tcp:tcp_ep', None),
+            ('proid.foo#123:udp:udp_ep', None),
         ]
-        vring.run('ring_0', {'tcp0': 10000, 'tcp1': 11000}, ['tcp0'],
-                  mock_discovery)
+        vring.run(
+            'ring_0',
+            {'tcp_ep': 10000, 'udp_ep': 11000},
+            ['tcp_ep', 'udp_ep'],
+            mock_discovery
+        )
 
-        treadmill.iptables.add_dnat_rule.assert_has_calls([
-            mock.call(
-                treadmill.firewall.DNATRule(
-                    'tcp',
-                    '1.1.1.1', 10000,
-                    '1.1.1.1', '12345'
+        treadmill.iptables.add_dnat_rule.assert_has_calls(
+            [
+                mock.call(
+                    treadmill.firewall.DNATRule(
+                        'tcp',
+                        '1.1.1.1', 10000,
+                        '1.1.1.1', '12345'
+                    ),
+                    chain='ring_0'
                 ),
-                chain='ring_0'
-            ),
-            mock.call(
-                treadmill.firewall.DNATRule(
-                    'tcp',
-                    '2.2.2.2', 10000,
-                    '2.2.2.2', '54321'
+                mock.call(
+                    treadmill.firewall.DNATRule(
+                        'tcp',
+                        '2.2.2.2', 10000,
+                        '2.2.2.2', '54321'
+                    ),
+                    chain='ring_0'
                 ),
-                chain='ring_0'
-            ),
-        ])
+                mock.call(
+                    treadmill.firewall.DNATRule(
+                        'udp',
+                        '1.1.1.1', 11000,
+                        '1.1.1.1', '23456'
+                    ),
+                    chain='ring_0'
+                ),
+            ],
+            any_order=True
+        )
         # Check the rule is removed for foo:tcp0 endpoint.
-        treadmill.iptables.delete_dnat_rule.assert_has_calls([
-            mock.call(
-                treadmill.firewall.DNATRule(
-                    'tcp',
-                    '1.1.1.1', 10000,
-                    '1.1.1.1', '12345'
+        treadmill.iptables.delete_dnat_rule.assert_has_calls(
+            [
+                mock.call(
+                    treadmill.firewall.DNATRule(
+                        'tcp',
+                        '1.1.1.1', 10000,
+                        '1.1.1.1', '12345'
+                    ),
+                    chain='ring_0'
                 ),
-                chain='ring_0'
-            )
-        ])
+                mock.call(
+                    treadmill.firewall.DNATRule(
+                        'udp',
+                        '1.1.1.1', 11000,
+                        '1.1.1.1', '23456'
+                    ),
+                    chain='ring_0'
+                ),
+            ],
+            any_order=True
+        )
 
 
 if __name__ == '__main__':

@@ -23,6 +23,7 @@ from . import exc
 from . import zknamespace as z
 from . import scheduler
 
+from .apptrace import events as traceevents
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -563,9 +564,59 @@ class Master(object):
             self.reload_server(servername)
             self.adjust_server_state(servername)
 
+    def check_placement_integrity(self):
+        """Check integrity of app placement."""
+        app2server = dict()
+        servers = self.zkclient.get_children(z.PLACEMENT)
+        for server in servers:
+            apps = self.zkclient.get_children(z.path.placement(server))
+            for app in apps:
+                if app not in app2server:
+                    app2server[app] = server
+                    continue
+
+                _LOGGER.critical('Duplicate placement: %s: (%s, %s)',
+                                 app, app2server[app], server)
+
+                # Check the cell datamodel.
+                correct_placement = self.cell.apps[app].server
+                _LOGGER.critical('Correct placement: %s', correct_placement)
+
+                # If correct placement is neither, something is seriously
+                # corrupted, no repair possible.
+                assert correct_placement in [app2server[app], server]
+
+                if server != correct_placement:
+                    _LOGGER.critical('Removing incorrect placement: %s/%s',
+                                     server, app)
+                    zkutils.ensure_deleted(
+                        self.zkclient, z.path.placement(server, app))
+
+                if app2server[app] != correct_placement:
+                    _LOGGER.critical('Removing incorrect placement: %s/%s',
+                                     app2server[app], app)
+                    zkutils.ensure_deleted(
+                        self.zkclient, z.path.placement(app2server[app], app))
+
+        # Cross check that all apps in the model are recorded in placement.
+        success = True
+        for appname, app in self.cell.apps.iteritems():
+            if app.server:
+                if appname not in app2server:
+                    _LOGGER.critical('app missing from placement: %s', appname)
+                    success = False
+                else:
+                    if app.server != app2server[appname]:
+                        _LOGGER.critical(
+                            'corrupted placement %s: expected: %s, actual: %s',
+                            appname, app.server, app2server[appname]
+                        )
+                        success = False
+
+        assert success, 'Placement integrity failed.'
+
     def check_integrity(self):
         """Checks integrity of scheduler state vs. real."""
-        # TODO: implement integrity check.
         return True
 
     @exc.exit_on_unhandled
@@ -600,7 +651,12 @@ class Master(object):
                 zkutils.ensure_deleted(self.zkclient,
                                        z.path.placement(app.server, appname))
             if self.events_dir:
-                appevents.post(self.events_dir, appname, 'deleted', None)
+                appevents.post(
+                    self.events_dir,
+                    traceevents.DeletedTraceEvent(
+                        instanceid=appname
+                    )
+                )
             self.cell.remove_app(appname)
 
         for appname in target - current:
@@ -722,9 +778,7 @@ class Master(object):
                     last_sched_time = time.time()
                     if not self.up_to_date:
                         self.reschedule()
-                        # TODO: this may be agressive, may want to
-                        #                check integrity out of band only.
-                        assert self.check_integrity()
+                        self.check_placement_integrity()
 
                 if time_past(last_integrity_check + INTEGRITY_INTERVAL):
                     assert self.check_integrity()
@@ -734,6 +788,7 @@ class Master(object):
 
             if time_past(last_reboot_check + REBOOT_CHECK_INTERVAL):
                 self.check_reboot()
+                last_reboot_check = time.time()
 
             if queue_empty:
                 time.sleep(CHECK_EVENT_INTERVAL)
@@ -783,6 +838,13 @@ class Master(object):
                     self._schedule_reboot(name)
                     continue
 
+    def _placement_data(self, app):
+        """Return placement data for given app."""
+        return {
+            'identity': self.cell.apps[app].identity,
+            'expires': self.cell.apps[app].placement_expiry
+        }
+
     def load_schedule(self):
         """Run scheduler first time and update scheduled data."""
         placement = self.cell.schedule()
@@ -804,12 +866,7 @@ class Master(object):
                 _LOGGER.info('Scheduling: %s - %s,%s',
                              servername, app, self.cell.apps[app].identity)
 
-                placement_data = None
-                if self.cell.apps[app].identity is not None:
-                    placement_data = {
-                        'identity': self.cell.apps[app].identity
-                    }
-
+                placement_data = self._placement_data(app)
                 zkutils.put(self.zkclient,
                             os.path.join(placement_node, app),
                             placement_data,
@@ -824,43 +881,41 @@ class Master(object):
         """Run scheduler and adjust placement."""
         placement = self.cell.schedule()
 
-        for app, before, exp_before, after, exp_after in placement:
-            if before == after and exp_before == exp_after:
-                continue
+        # Filter out placement records where nothing changed.
+        changed_placement = [
+            (app, before, exp_before, after, exp_after)
+            for app, before, exp_before, after, exp_after in placement
+            if before != after or exp_before != exp_after
+        ]
 
-            # If placement changed, remove previous placement.
+        # We run two loops. First - remove all old placement, before creating
+        # any new ones. This ensures that in the event of loop interruption
+        # for anyreason (like Zookeeper connection lost or master restart)
+        # there are no duplicate placements.
+        for app, before, exp_before, after, exp_after in changed_placement:
             if before and before != after:
                 _LOGGER.info('Unscheduling: %s - %s', before, app)
                 zkutils.ensure_deleted(
                     self.zkclient,
                     z.path.placement(before, app))
 
-            placement_data = {
-                'identity': self.cell.apps[app].identity,
-                'expires': self.cell.apps[app].placement_expiry,
-            }
+        for app, before, exp_before, after, exp_after in changed_placement:
+            placement_data = self._placement_data(app)
+            if after:
+                _LOGGER.info('Scheduling: %s - %s,%s, expires at: %s',
+                             after,
+                             app,
+                             self.cell.apps[app].identity,
+                             exp_after)
 
-            # New placement.
-            if before != after:
-                if after:
-                    _LOGGER.info('Scheduling: %s - %s,%s',
-                                 after, app, self.cell.apps[app].identity)
-
-                    zkutils.put(
-                        self.zkclient,
-                        z.path.placement(after, app),
-                        placement_data,
-                        acl=[_SERVERS_ACL])
-                    self._update_task(app, after)
-                else:
-                    self._update_task(app, None)
-            else:
-                # Same server, placement expiry renewed.
                 zkutils.put(
                     self.zkclient,
                     z.path.placement(after, app),
                     placement_data,
                     acl=[_SERVERS_ACL])
+                self._update_task(app, after)
+            else:
+                self._update_task(app, None)
 
         self._unschedule_evicted()
 
@@ -893,14 +948,31 @@ class Master(object):
         # Servers in the cell have full control over task node.
         if self.events_dir:
             if server:
-                appevents.post(self.events_dir, appname, 'scheduled', server)
+                appevents.post(
+                    self.events_dir,
+                    traceevents.ScheduledTraceEvent(
+                        instanceid=appname,
+                        where=server
+                    )
+                )
             else:
-                appevents.post(self.events_dir, appname, 'pending', server)
+                appevents.post(
+                    self.events_dir,
+                    traceevents.PendingTraceEvent(
+                        instanceid=appname
+                    )
+                )
 
     def _abort_task(self, appname, exception):
         """Set task into aborted state in case of scheduling error."""
         if self.events_dir:
-            appevents.post(self.events_dir, appname, 'aborted', str(exception))
+            appevents.post(
+                self.events_dir,
+                traceevents.AbortedTraceEvent(
+                    instanceid=appname,
+                    why=type(exception).__name__
+                )
+            )
 
 
 # master/scheduler "API"

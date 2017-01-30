@@ -26,7 +26,8 @@
                 },
                 "required": [ "limit" ],
                 "additionalProperties": false
-            }
+            },
+            "root": { "type": "boolean" }
         },
         "required": [ "name", "command" ],
         "additionalProperties": false
@@ -45,7 +46,7 @@
             },
             "proto": {
                 "type": "string",
-                "pattern": "tcp|udp"
+                "pattern": "^tcp$|^udp$"
             }
         },
         "required": [ "name", "port" ],

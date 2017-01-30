@@ -4,6 +4,7 @@ from __future__ import absolute_import
 import json
 import logging
 import socket
+import sys
 
 import websocket as ws_client
 
@@ -39,7 +40,21 @@ def init():
         ctx['api'] = api
         apis = context.GLOBAL.ws_api(ctx['api'])
 
-        ws = ws_client.create_connection(apis[0])
+        ws = None
+        for api in apis:
+            try:
+                ws = ws_client.create_connection(api)
+                _LOGGER.debug('Using API %s', api)
+                break
+            except socket.error:
+                _LOGGER.debug('Could not connect to %s, trying next SRV '
+                              'record', api)
+                continue
+
+        if not ws:
+            click.echo('Could not connect to any Websocket APIs')
+            sys.exit(-1)
+
         ws.send(json.dumps({'topic': '/endpoints',
                             'filter': app,
                             'proto': 'tcp',
@@ -50,6 +65,10 @@ def init():
             if not reply:
                 break
             result = json.loads(reply)
+            if '_error' in result:
+                click.echo('Error: %s' % result['_error'], err=True)
+                break
+
             instance = ':'.join([
                 result['name'], result['proto'], result['endpoint']
             ])

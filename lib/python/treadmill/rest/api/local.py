@@ -8,120 +8,89 @@ import httplib
 
 # pylint: disable=E0611,F0401
 import flask
-import flask.ext.restplus as restplus
-from flask import request
+import flask_restplus as restplus
 
 from treadmill import webutils
-
-
-def _archive_type():
-    """Get archive type from query string."""
-    archive_type = request.args.get('type')
-    if not archive_type:
-        archive_type = 'app'
-
-    if archive_type not in ['app', 'sys']:
-        # TODO: need to raise validation error exception.
-        raise Exception('Invalid archive type.')
-
-    return archive_type
 
 
 # pylint: disable=W0232,R0912
 def init(api, cors, impl):
     """Configures REST handlers for allocation resource."""
 
-    namespace = api.namespace('local',
-                              description='Local server REST operations')
+    app_ns = api.namespace('app', description='Local app REST operations')
 
-    @namespace.route('/running',)
-    class _RunningList(restplus.Resource):
-        """Treadmill Allocation resource"""
+    @app_ns.route('/',)
+    class _AppList(restplus.Resource):
+        """Local app list resource."""
 
         @webutils.get_api(api, cors)
         def get(self):
-            """Returns list running containers."""
-            return impl.running.list()
+            """Returns list of local instances."""
+            return impl.list(flask.request.args.get('state'))
 
-    @namespace.route('/running/<instance>',)
-    class _RunningDetails(restplus.Resource):
-        """Treadmill Allocation resource"""
+    @app_ns.route('/<app>/<uniq>',)
+    class _AppDetails(restplus.Resource):
+        """Local app details resource."""
 
         @webutils.get_api(api, cors)
-        def get(self, instance):
-            """Returns list running containers."""
-            return impl.running.get(instance)
+        def get(self, app, uniq):
+            """Returns list of local instances."""
+            return impl.get('/'.join([app, uniq]))
 
-    @namespace.route('/running/<instance>/sys/<component>')
-    class _RunningSystemLog(restplus.Resource):
-        """System log stream."""
+    @app_ns.route('/<app>/<uniq>/sys/<component>',)
+    class _AppSystemLog(restplus.Resource):
+        """Local app details resource."""
 
-        def get(self, instance, component):
-            """Return content of archived file.."""
+        @webutils.raw_get_api(api, cors)
+        def get(self, app, uniq, component):
+            """Return content of system component log.."""
             mimetype = 'text/plain'
             return flask.Response(
-                impl.running.lines(instance, 'sys', component),
+                impl.log.get('/'.join([app, uniq, 'sys', component])),
                 mimetype=mimetype
             )
 
-    @namespace.route('/running/<instance>/service/<component>')
-    class _RunningServiceLog(restplus.Resource):
-        """System log stream."""
+    @app_ns.route('/<app>/<uniq>/service/<service>',)
+    class _AppServiceLog(restplus.Resource):
+        """Local app details resource."""
 
-        def get(self, instance, component):
-            """Return content of archived file.."""
+        @webutils.raw_get_api(api, cors)
+        def get(self, app, uniq, service):
+            """Return content of system component log.."""
             mimetype = 'text/plain'
             return flask.Response(
-                impl.running.lines(instance, 'services', component),
+                impl.log.get('/'.join([app, uniq, 'app', service])),
                 mimetype=mimetype
             )
 
-    @namespace.route('/archive/<instance>',)
-    class _ArchiveList(restplus.Resource):
-        """Archive resource."""
+    archive_ns = api.namespace('archive',
+                               description='Local archive REST operations')
 
-        @webutils.get_api(api, cors)
-        def get(self, instance):
-            """Returns list of archives."""
-            archive_type = _archive_type()
-            return impl.archive.list(archive_type, instance)
+    @archive_ns.route('/<app>/<uniq>/sys')
+    class _SysArchiveAsAttachment(restplus.Resource):
+        """Download sys archive as attachment."""
 
-    @namespace.route('/archive/<instance>/<idx>',)
-    class _ArchiveDetails(restplus.Resource):
-        """Archive resource."""
+        @webutils.raw_get_api(api, cors)
+        def get(self, app, uniq):
+            """Return content of sys archived file.."""
+            fname = impl.archive.get('/'.join([app, uniq, 'sys']))
+            if not os.path.exists(fname):
+                return 'Not found.', httplib.NOT_FOUND
 
-        @webutils.get_api(api, cors)
-        def get(self, instance, idx):
-            """Returns archive details."""
-            idx = int(idx)
-            archive_type = _archive_type()
-            return impl.archive.get(archive_type, instance, idx)
-
-    @namespace.route('/archive/<instance>/<idx>/file/<path:path>')
-    class _ArchiveFile(restplus.Resource):
-        """Archive resource."""
-
-        def get(self, instance, idx, path):
-            """Return content of archived file.."""
-            idx = int(idx)
-            archive_type = _archive_type()
-            mimetype = 'text/plain'
-
-            return flask.Response(
-                impl.archive.lines(archive_type, instance, idx, path),
-                mimetype=mimetype
+            return flask.send_file(
+                fname,
+                as_attachment=True,
+                attachment_filename=os.path.basename(fname)
             )
 
-    @namespace.route('/archive/<instance>/<idx>/fetch')
-    class _ArchiveAsAttachment(restplus.Resource):
-        """Download archive as attachment."""
+    @archive_ns.route('/<app>/<uniq>/app')
+    class _AppArchiveAsAttachment(restplus.Resource):
+        """Download app archive as attachment."""
 
-        def get(self, instance, idx):
-            """Return content of archived file.."""
-            idx = int(idx)
-            archive_type = _archive_type()
-            fname = impl.archive.path(archive_type, instance, idx)
-
+        @webutils.raw_get_api(api, cors)
+        def get(self, app, uniq):
+            """Return content of app archived file.."""
+            fname = impl.archive.get('/'.join([app, uniq, 'app']))
             if not os.path.exists(fname):
                 return 'Not found.', httplib.NOT_FOUND
 

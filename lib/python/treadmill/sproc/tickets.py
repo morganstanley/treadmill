@@ -10,6 +10,7 @@ from __future__ import absolute_import
 
 import logging
 import socket
+import time
 
 import click
 
@@ -31,7 +32,7 @@ def init():
 
     @click.group()
     def top():
-        """Manage KRB tickets."""
+        """Manage Kerberos tickets."""
         pass
 
     @top.command()
@@ -70,7 +71,16 @@ def init():
 
         endpoint_path = z.path.endpoint(appname, 'tcp', endpoint)
         _LOGGER.info('Registering %s %s', endpoint_path, hostport)
+
+        # Need to delete/create endpoints for the disovery to pick it up in
+        # case of master restart.
+        #
+        # Unlile typical endpoint, we cannot make the node ephemeral as we
+        # exec into tkt-recv.
+        zkutils.ensure_deleted(context.GLOBAL.zk.conn, endpoint_path)
+        time.sleep(5)
         zkutils.put(context.GLOBAL.zk.conn, endpoint_path, hostport)
+
         context.GLOBAL.zk.conn.stop()
 
         # Exec into tickets acceptor. If race condition will not allow it to

@@ -45,7 +45,7 @@ class API(object):
         def _watch_placement(placement, _stat, event):
             """Watch /placement data."""
             if placement is None or event == 'DELETED':
-                cell_state['placement'] = []
+                cell_state['placement'] = {}
                 return True
 
             updated_placement = {}
@@ -69,7 +69,7 @@ class API(object):
             """List instances state."""
             if match is None:
                 match = '*'
-            if match.find('#') == -1:
+            if '#' not in match:
                 match += '#*'
             filtered = [
                 {'name': name, 'state': item['state'], 'host': item['host']}

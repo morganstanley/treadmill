@@ -986,6 +986,7 @@ class Application(LdapObject):
         ('ticket', 'tickets', [str]),
         ('feature', 'features', [str]),
         ('identity-group', 'identity_group', str),
+        ('shared-ip', 'shared_ip', bool),
     ]
 
     _svc_schema = [
@@ -1139,7 +1140,6 @@ class Cell(LdapObject):
         ('master-zk-jmx-port', 'zk-jmx-port', int),
         ('master-zk-followers-port', 'zk-followers-port', int),
         ('master-zk-election-port', 'zk-election-port', int),
-        ('master-kafka-client-port', 'kafka-client-port', int),
     ]
 
     _schema = [('cell', '_id', str),

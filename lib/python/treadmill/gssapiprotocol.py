@@ -157,6 +157,7 @@ class GSSAPILineServer(basic.LineReceiver):
             res, out_token = self.gss_server.step(in_token)
             self.sendLine(out_token)
             if res == kerberos.AUTH_GSS_COMPLETE:
+                _LOGGER.info('Authenticated.')
                 self.authenticated = True
         else:
             unwrapped = self.gss_server.unwrap(line.strip())

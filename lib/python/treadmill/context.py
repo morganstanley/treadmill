@@ -50,9 +50,6 @@ class AdminContext(object):
     def conn(self):
         """Lazily establishes connection to admin LDAP."""
         if self._conn is None:
-            _LOGGER.debug('Connecting to LDAP %s, %s',
-                          self.url, self.search_base)
-
             if self.search_base is None:
                 raise ContextError('LDAP search base not set.')
 
@@ -61,6 +58,9 @@ class AdminContext(object):
                     self._resolve()
                 if self.url is None:
                     raise ContextError('LDAP url not set.')
+
+            _LOGGER.debug('Connecting to LDAP %s, %s',
+                          self.url, self.search_base)
 
             self._conn = admin.Admin(self.url, self.search_base)
             self._conn.connect()
@@ -117,7 +117,7 @@ class Context(object):
         self.dns_domain = None
         self.ldap = AdminContext(self.resolve)
         self.zk = ZkContext(self.resolve)
-        self.admin_api_scope = None
+        self.admin_api_scope = (None, None)
         self.ctx_plugin = None
 
         try:
@@ -145,19 +145,18 @@ class Context(object):
 
     def _resolve_srv(self, srv_rec):
         """Returns list of host, port tuples for given srv record."""
-        _LOGGER.debug('Query DNS -t SRV %s', srv_rec)
+        _LOGGER.debug('Query DNS -t SRV %s.%s', srv_rec, self.dns_domain)
         if not self.dns_domain:
             raise ContextError('Treadmill DNS domain not specified.')
 
         result = dnsutils.srv(srv_rec + '.' + self.dns_domain)
         _LOGGER.debug('Result: %r', result)
 
-        protocol, _rest = srv_rec.split('.', 1)
         if result:
-            return ['%s://%s:%s' % (protocol[1:], host, port)
-                    for host, port, _prio, _weight in result]
+            return [dnsutils.srv_target_to_url(srv_rec, target)
+                    for target in result]
         else:
-            raise ContextError('No srv records found: %s', srv_rec)
+            raise ContextError('No srv records found: %s' % srv_rec)
 
     def cell_api(self, restapi=None):
         """Resolve REST API endpoints."""
@@ -194,11 +193,13 @@ class Context(object):
         if restapi:
             return [restapi]
 
-        if not self.admin_api_scope:
-            raise ContextError('Admin API scope is not specified.')
+        for scope in self.admin_api_scope:
+            try:
+                return self._resolve_srv('_http._tcp.adminapi.' + scope)
+            except ContextError:
+                pass
 
-        return self._resolve_srv(
-            '_http._tcp.adminapi.' + self.admin_api_scope)
+        raise ContextError('no admin api found.')
 
     def resolve(self, cellname=None):
         """Resolve Zookeeper connection string by cell name."""

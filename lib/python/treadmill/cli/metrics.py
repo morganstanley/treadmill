@@ -59,7 +59,7 @@ def _get_app_metrics(nodeinfo_url, outdir, appendpoint, hostport):
     fs.mkdir_safe(outdir)
 
     host, _port = hostport.split(':')
-    instance, _endpoint = appendpoint.split(':')
+    instance, _proto, _endpoint = appendpoint.split(':')
     metrics_url = '%s/%s/metrics/apps/%s' % (
         nodeinfo_url, host, urllib2.quote(instance))
 

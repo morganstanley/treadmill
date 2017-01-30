@@ -6,15 +6,18 @@ import time
 
 import click
 
-from .. import apptrace
-from .. import sysinfo
-from .. import context
+from treadmill.apptrace import zk
+from treadmill import sysinfo
+from treadmill import context
 
 
 _LOGGER = logging.getLogger(__name__)
 
 # Delete all nodes older than 1 day
 TASK_EXPIRATION_TIME = 60 * 60 * 24
+
+# Interval between cleanup - every hour.
+TASK_CHECK_INTERFAL = 60 * 60
 
 
 def init():
@@ -26,7 +29,11 @@ def init():
         pass
 
     @task.command()
-    def cleanup():
+    @click.option('--expiration', help='Task expiration (sec).',
+                  default=TASK_EXPIRATION_TIME)
+    @click.option('--interval', help='Timeout between checks (sec).',
+                  default=TASK_CHECK_INTERFAL)
+    def cleanup(expiration, interval):
         """Cleans up old tasks."""
         context.GLOBAL.zk.conn.ensure_path('/task-cleanup-election')
         me = '%s' % (sysinfo.hostname())
@@ -34,10 +41,10 @@ def init():
         _LOGGER.info('Waiting for leader lock.')
         with lock:
             while True:
-                apptrace.cleanup(context.GLOBAL.zk.conn, TASK_EXPIRATION_TIME)
+                zk.cleanup(context.GLOBAL.zk.conn, expiration)
                 _LOGGER.info('Finished cleanup, sleep %s sec',
-                             TASK_EXPIRATION_TIME)
-                time.sleep(TASK_EXPIRATION_TIME)
+                             interval)
+                time.sleep(interval)
 
     del cleanup
     return task

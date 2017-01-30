@@ -147,6 +147,12 @@ class ApiSchemaTest(unittest.TestCase):
             {'name': 'http', 'port': 8080}
         ]})
         _ok(api.create, 'foo.bla', good)
+        _ok(api.create, 'foo.bla',
+            _patch(good, '/endpoints/0/proto', 'udp'))
+        _ok(api.create, 'foo.bla',
+            _patch(good, '/endpoints/0/proto', 'tcp'))
+        _fail(api.create, 'foo.bla',
+              _patch(good, '/endpoints/0/proto', 'tcp, udp'))
         _fail(api.create, 'foo.bla',
               _patch(good, '/endpoints/0/name', 'sss:d'))
         _fail(api.create, 'foo.bla',
@@ -319,6 +325,7 @@ class ApiSchemaTest(unittest.TestCase):
         _ok(api.create, 'aaa/prod', _patch(good, '/environment', 'dev'))
         _ok(api.create, 'aaa/prod', _patch(good, '/environment', 'uat'))
         _fail(api.create, 'aaa/prod', _patch(good, '/environment', 'x'))
+        _fail(api.create, 'aaa/prod', _patch(good, '/environment', ' uat '))
 
     @mock.patch('treadmill.context.AdminContext.conn',
                 mock.Mock(return_value=None))

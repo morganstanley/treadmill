@@ -79,8 +79,7 @@ class EventMgr(object):
         seen.clear()
 
         # Wait for presence node to appear. Once up, syncronize the placement.
-        @zkclient.DataWatch(
-            z.path.server_presence(self._hostname))
+        @zkclient.DataWatch(z.path.server_presence(self._hostname))
         @exc.exit_on_unhandled
         def _server_presence_update(data, _stat, event):
             """Watch server presence."""
@@ -100,8 +99,7 @@ class EventMgr(object):
                 self._synchronize(zkclient, apps)
             return True
 
-        @zkclient.ChildrenWatch(
-            z.path.placement(self._hostname))
+        @zkclient.ChildrenWatch(z.path.placement(self._hostname))
         @exc.exit_on_unhandled
         def _app_watch(apps):
             """Watch application placement."""
