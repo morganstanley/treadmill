@@ -13,9 +13,6 @@ import unittest
 # pylint: disable=W0402
 import string
 
-# Disable W0611: Unused import
-import tests.treadmill_test_deps  # pylint: disable=W0611
-
 import mock
 import yaml
 

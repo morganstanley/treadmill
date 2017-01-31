@@ -8,9 +8,6 @@ Unit test for treadmill admin.
 import hashlib
 import unittest
 
-# Disable W0611: Unused import
-import tests.treadmill_test_deps  # pylint: disable=W0611
-
 import mock
 import ldap3
 

@@ -6,9 +6,6 @@ import multiprocessing
 import os
 import unittest
 
-# Disable W0611: Unused import
-import tests.treadmill_test_deps  # pylint: disable=W0611
-
 import mock
 
 import treadmill

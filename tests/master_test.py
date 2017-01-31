@@ -11,9 +11,6 @@ import tempfile
 import time
 import unittest
 
-# Disable W0611: Unused import
-import tests.treadmill_test_deps  # pylint: disable=W0611
-
 import kazoo
 import mock
 import numpy as np
@@ -596,7 +593,7 @@ class MasterTest(mockzk.MockZookeeperTestCase):
         kazoo.client.KazooClient.set.assert_has_calls(
             [
                 mock.call('/scheduled/foo.bar#1', '{priority: 10}\n'),
-                mock.call('/scheduled/foo.bar#2', '{priority: 20}\n')
+                mock.call('/scheduled/foo.bar#2', '{priority: 20}\n'),
             ],
             any_order=True
         )

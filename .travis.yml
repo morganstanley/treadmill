@@ -1,0 +1,30 @@
+language: python
+
+env:
+- TOXENV=py27
+- TOXENV=py34
+- TOXENV=flake8
+- TOXENV=docs
+- TOXENV=docs-linkcheck
+
+install:
+- pip install tox
+
+script:
+- tox
+
+after_success:
+  - coverage combine
+  - codecov
+
+notifications:
+  email: false
+
+# Don't fail on trunk versions.
+matrix:
+  allow_failures:
+    - env: TOX_ENV=py34
+
+branches:
+  only:
+    - master

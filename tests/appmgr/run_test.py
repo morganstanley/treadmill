@@ -15,9 +15,6 @@ import unittest
 
 from collections import namedtuple
 
-# Disable W0611: Unused import
-import tests.treadmill_test_deps  # pylint: disable=W0611
-
 import mock
 
 import treadmill
@@ -110,7 +107,11 @@ class AppMgrRunTest(unittest.TestCase):
             '/some/root_dir/.etc'
         )
         shutil.copyfile.assert_called_with(
-            '/etc/hosts',
+            os.path.join(self.app_env.root, 'etc/resolv.conf'),
+            '/some/root_dir/.etc/resolv.conf'
+        )
+        shutil.copyfile.assert_called_with(
+            os.path.join(self.app_env.root, 'etc/hosts'),
             '/some/root_dir/.etc/hosts'
         )
 

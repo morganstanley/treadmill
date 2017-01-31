@@ -7,9 +7,6 @@ import os
 import shutil
 import time
 
-# Disable W0611: Unused import
-import tests.treadmill_test_deps  # pylint: disable=W0611
-
 import mock
 from tornado import gen
 from tornado import web

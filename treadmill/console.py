@@ -1,4 +1,4 @@
-"""Treadmill module."""
+"""Treadmill console entry point."""
 
 from __future__ import absolute_import
 
@@ -7,11 +7,6 @@ import logging.config
 import os
 import tempfile
 import traceback
-
-try:
-    from treadmill import dependencies  # pylint: disable=E0611,W0611
-except ImportError:
-    pass
 
 import click
 import requests
@@ -83,6 +78,3 @@ def run(ctx, with_proxy, outfmt, debug):
         ctx.obj['logging.debug'] = True
         logging.getLogger('treadmill').setLevel(logging.DEBUG)
         logging.getLogger().setLevel(logging.DEBUG)
-
-
-run()
