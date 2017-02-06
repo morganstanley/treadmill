@@ -1,6 +1,5 @@
 """Treadmill Kafka API"""
 
-import fnmatch
 import logging
 import os
 import re
@@ -11,8 +10,6 @@ from .. import context
 from .. import dnsutils
 from .. import discovery
 from .. import fs
-from .. import zkutils
-
 
 _LOGGER = logging.getLogger(__name__)
 

@@ -3,7 +3,6 @@
 Create, delete and manage identity groups.
 """
 
-from __future__ import absolute_import
 
 import logging
 

@@ -1,5 +1,5 @@
 """Bootstrap implementation for windows."""
-from __future__ import absolute_import
+
 
 import glob
 import os

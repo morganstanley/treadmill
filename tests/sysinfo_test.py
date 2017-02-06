@@ -30,14 +30,14 @@ class SysinfoTest(unittest.TestCase):
         # this makes this assert unusable
         expected_progs = ['setup.py', 'altnose.py', 'sysinfo_test.py']
         if expected not in expected_progs:
-            self.assertEquals(expected, proc_info.filename)
-        self.assertEquals(os.getppid(), proc_info.ppid)
+            self.assertEqual(expected, proc_info.filename)
+        self.assertEqual(os.getppid(), proc_info.ppid)
 
         # We do not check the starttime, but just verify that calling
         # proc_info twice returns same starttime, which can be used as part of
         # process signature.
-        self.assertEquals(proc_info.starttime,
-                          sysinfo.proc_info(os.getpid()).starttime)
+        self.assertEqual(proc_info.starttime,
+                         sysinfo.proc_info(os.getpid()).starttime)
 
     def test_mem_info(self):
         """Mock test for mem info."""
@@ -75,10 +75,10 @@ Hugepagesize:     2048 kB
 """
 
         open_mock = mock.mock_open(read_data=proc_meminfo.strip())
-        with mock.patch('__builtin__.open', open_mock, create=True):
+        with mock.patch('builtins.open', open_mock, create=True):
             meminfo = sysinfo.mem_info()
 
-        self.assertEquals(7992596, meminfo.total)
+        self.assertEqual(7992596, meminfo.total)
 
     @mock.patch('os.statvfs', mock.Mock())
     def test_disk_usage(self):
@@ -88,8 +88,8 @@ Hugepagesize:     2048 kB
             'f_blocks f_bavail, f_frsize')(100, 20, 4)
         du = sysinfo.disk_usage('/var/tmp')
         os.statvfs.assert_called_with('/var/tmp')
-        self.assertEquals(400, du.total)
-        self.assertEquals(80, du.free)
+        self.assertEqual(400, du.total)
+        self.assertEqual(80, du.free)
 
     def test_bogomips(self):
         """Mock test for mem info."""
@@ -193,7 +193,7 @@ power management: [8]
 """
 
         open_mock = mock.mock_open(read_data=cpuinfo.strip())
-        with mock.patch('__builtin__.open', open_mock, create=True):
+        with mock.patch('builtins.open', open_mock, create=True):
             bogomips = sysinfo.total_bogomips()
 
         # bogomips  : 6385.66
@@ -202,11 +202,11 @@ power management: [8]
         # bogomips  : 6384.10
         # -------------------
         # total     : 25539.659999999996
-        self.assertEquals(25539, bogomips)
+        self.assertEqual(25539, bogomips)
 
     @mock.patch('time.time', mock.Mock(return_value=50))
     @mock.patch('treadmill.cgroups.get_value',
-                mock.Mock(return_value=42*1024**2))
+                mock.Mock(return_value=42 * 1024 ** 2))
     @mock.patch('treadmill.sysinfo.BMIPS_PER_CPU', 1)
     @mock.patch('treadmill.sysinfo.total_bogomips',
                 mock.Mock(return_value=2))
@@ -232,14 +232,14 @@ power management: [8]
             ),
         )
         mock_tm_env.svc_localdisk.status.return_value = {
-            'size': 100*1024**2,
+            'size': 100 * 1024 ** 2,
         }
 
         res = sysinfo.node_info(mock_tm_env)
 
         mock_tm_env.svc_localdisk.status.assert_called_with(timeout=30)
         mock_tm_env.svc_cgroup.status.assert_called_with(timeout=30)
-        self.assertEquals(
+        self.assertEqual(
             res,
             {
                 'cpu': '200%',    # 100% of 2 cores is available
@@ -264,7 +264,7 @@ power management: [8]
 
         res = sysinfo._app_cpu_shares_prct()
 
-        self.assertEquals(
+        self.assertEqual(
             res,
             0.375,  # 0.75 (tm/sys split) * 0.5 (core/apps split)
         )

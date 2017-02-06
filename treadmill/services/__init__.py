@@ -1,8 +1,7 @@
 """Treadmill resource service framework."""
 
-from __future__ import absolute_import
 
-from ._base_service import (
+from ._base_service import (  # noqa: F401
     ResourceService,
     ResourceServiceError,
     ResourceServiceRequestError,

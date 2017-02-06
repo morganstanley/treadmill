@@ -1,5 +1,5 @@
 """Flask method decorators and other web utilities."""
-from __future__ import absolute_import
+
 
 import datetime
 import functools
@@ -45,7 +45,7 @@ def jsonp(func):
         callback = flask.request.args.get('callback', False)
         if callback:
             content = '%s(%s)' % (str(callback),
-                                  str(func(*args, **kwargs).data))
+                                  func(*args, **kwargs).get_data(as_text=True))
             return flask.current_app.response_class(
                 content, mimetype='application/json')
         else:
@@ -82,9 +82,9 @@ def cors(origin=None, methods=None, headers=None, max_age=21600,
     """
     if methods is not None:
         methods = ', '.join(sorted(mthd.upper() for mthd in methods))
-    if headers is not None and not isinstance(headers, basestring):
+    if headers is not None and not isinstance(headers, str):
         headers = ', '.join(hdr.upper() for hdr in headers)
-    if not isinstance(origin, basestring):
+    if not isinstance(origin, str):
         origin = ', '.join(origin)
     if isinstance(max_age, datetime.timedelta):
         max_age = max_age.total_seconds()

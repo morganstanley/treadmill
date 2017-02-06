@@ -1,5 +1,5 @@
 """Generation of Treadmill manifests from cell events."""
-from __future__ import absolute_import
+
 
 import importlib
 import logging

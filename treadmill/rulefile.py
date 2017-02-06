@@ -1,5 +1,5 @@
 """Functions for handling the network rules directory files"""
-from __future__ import absolute_import
+
 
 import errno
 

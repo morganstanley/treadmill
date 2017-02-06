@@ -1,5 +1,5 @@
 """Implementation of treadmill admin ldap CLI plugin."""
-from __future__ import absolute_import
+
 
 import logging
 
@@ -336,7 +336,7 @@ def schema_group(parent):
         def dict_to_namevalue_list(item):
             """Translates name: value dict into [{name: $name, ...}]"""
             return [pair[1].update({'name': pair[0]}) or pair[1]
-                    for pair in sorted(item.iteritems())]
+                    for pair in sorted(item.items())]
 
         schema_obj['attributeTypes'] = dict_to_namevalue_list(
             schema_obj['attributeTypes'])

@@ -1,5 +1,5 @@
 """Collects and reports container and host metrics."""
-from __future__ import absolute_import
+
 
 import os
 

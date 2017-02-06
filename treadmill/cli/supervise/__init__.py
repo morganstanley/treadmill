@@ -1,23 +1,15 @@
 """Distributed supervision suite."""
-from __future__ import absolute_import
 
-import importlib
-import logging
-import os
+
 import pkgutil
-import tempfile
-import traceback
-import yaml
-
 import click
 import kazoo
-import kazoo.exceptions
-import ldap3
+import kazoo.exceptions  # noqa: F401
+import ldap3  # noqa: F401
 
-import treadmill
-from treadmill import restclient
+from treadmill import restclient  # noqa: F401
 from treadmill import cli
-from treadmill import context
+from treadmill import context  # noqa: F401
 
 
 __path__ = pkgutil.extend_path(__path__, __name__)

@@ -1,6 +1,5 @@
 """Websocket API."""
 
-from __future__ import absolute_import
 
 import collections
 import datetime
@@ -9,12 +8,11 @@ import glob
 import fnmatch
 import logging
 import threading
-import urlparse
+import urllib.parse
 import os
 import time
 
 import json
-from enum import Enum
 import tornado.websocket
 
 from treadmill import idirwatch
@@ -75,7 +73,7 @@ def make_handler(pubsub):
 
             This method returns true all the time.
             """
-            parsed_origin = urlparse.urlparse(origin)
+            parsed_origin = urllib.parse.urlparse(origin)
             _LOGGER.debug('parsed_origin: %r', parsed_origin)
             return True
 
@@ -231,7 +229,7 @@ class DirWatchPubSub(object):
     def _gc(self):
         """Remove disconnected websocket handlers."""
         _LOGGER.info('Running gc.')
-        for directory in list(self.handlers.viewkeys()):
+        for directory in self.handlers.keys():
             handlers = [(pattern, handler, impl)
                         for pattern, handler, impl in self.handlers[directory]
                         if handler.active()]

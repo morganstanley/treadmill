@@ -1,7 +1,7 @@
 # pylint: disable=C0103
 
 """Master CLI plugin."""
-from __future__ import absolute_import
+
 
 import click
 import kazoo
@@ -33,10 +33,10 @@ def view_group(parent):
         pd.set_option('display.max_rows', None)
         if output is not None and len(output):
             if cli.OUTPUT_FORMAT == 'csv':
-                print output.to_csv()
+                print(output.to_csv())
             else:
                 pd.set_option('expand_frame_repr', False)
-                print output
+                print(output)
 
     def _load():
         """Load cell information."""

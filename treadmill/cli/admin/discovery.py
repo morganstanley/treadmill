@@ -1,5 +1,5 @@
 """Trace treadmill application events."""
-from __future__ import absolute_import
+
 
 import sys
 
@@ -41,7 +41,7 @@ def _iterate(discovery_iter, check_state, sep):
         else:
             output = app
 
-        print output.strip()
+        print(output.strip())
         sys.stdout.flush()
 
 

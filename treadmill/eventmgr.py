@@ -10,7 +10,7 @@ server.
 Applications that are scheduled to run on the server are mirrored in the
 'cache' directory.
 """
-from __future__ import absolute_import
+
 
 import os
 import time
@@ -166,7 +166,8 @@ class EventMgr(object):
             manifest_file = os.path.join(self.tm_env.cache_dir, app)
             with tempfile.NamedTemporaryFile(dir=self.tm_env.cache_dir,
                                              prefix='.%s-' % app,
-                                             delete=False) as temp_manifest:
+                                             delete=False,
+                                             mode='w') as temp_manifest:
                 yaml.dump(manifest, stream=temp_manifest)
             os.rename(temp_manifest.name, manifest_file)
             _LOGGER.info('Created cache manifest: %s', manifest_file)

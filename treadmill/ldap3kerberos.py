@@ -1,7 +1,7 @@
 """
 Replaces the use of python-gssapi with pykerberos in ldap3.
 """
-from __future__ import absolute_import
+
 
 import socket
 import base64

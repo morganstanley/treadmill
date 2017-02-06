@@ -38,7 +38,7 @@ service will be started with 'svc -o' (run once) option, and Treadmill will
 be responsible for restart and maintaining restart count.
 
 """
-from __future__ import absolute_import
+
 
 import glob
 import logging
@@ -162,7 +162,7 @@ def is_supervisor_running(app_root, service):
         subproc.check_call(['s6-svok', os.path.join(app_root, service)],
                            stderr=subprocess.STDOUT)
         return True
-    except subprocess.CalledProcessError, err:
+    except subprocess.CalledProcessError as err:
         _LOGGER.info('exit code: %d, %s', err.returncode, err.cmd)
         if err.output:
             _LOGGER.info(err.output)
@@ -271,7 +271,7 @@ def create_environ_dir(env_dir, env):
     """Create environment directory for s6-envdir."""
     fs.mkdir_safe(env_dir)
 
-    for key, value in env.iteritems():
+    for key, value in env.items():
         with open(os.path.join(env_dir, key), 'w+') as f:
             if value is not None:
                 f.write(str(value))

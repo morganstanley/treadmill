@@ -1,7 +1,5 @@
 """Bridge based network management service."""
 
-from __future__ import absolute_import
-
 import errno
 import logging
 import os
@@ -147,7 +145,7 @@ class NetworkResourceService(BaseResourceServiceImpl):
             Network IP `vip`, network device `veth`, IP gateway `gateway`.
         """
         with lc.LogContext(_LOGGER, rsrc_id) as log:
-            log.debug('req: %r', rsrc_data)
+            log.logger.debug('req: %r', rsrc_data)
 
             app_unique_name = rsrc_id
             environment = rsrc_data['environment']

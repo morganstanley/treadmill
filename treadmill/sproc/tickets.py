@@ -1,5 +1,5 @@
 """Runs Treadmill App tickets service."""
-from __future__ import absolute_import
+
 
 # TODO: This service should be refactored into two:
 #                - node service refreshing tickets for all apps, stoing in

@@ -48,7 +48,7 @@ class ApiAppTest(unittest.TestCase):
             'cpu': '100%',
             'memory': '1G',
             'disk': '1G',
-            'tickets': [u'a@realm1', u'b@realm2'],
+            'tickets': ['a@realm1', 'b@realm2'],
             'features': [],
             'services': [
                 {

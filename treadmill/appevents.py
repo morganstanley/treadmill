@@ -1,5 +1,5 @@
 """Process application events."""
-from __future__ import absolute_import
+
 
 import tempfile
 import logging
@@ -44,7 +44,7 @@ def post(events_dir, event):
     )
     with tempfile.NamedTemporaryFile(dir=events_dir,
                                      delete=False,
-                                     prefix='.tmp') as temp:
+                                     prefix='.tmp', mode='w') as temp:
         if isinstance(payload, str):
             temp.write(payload)
         else:

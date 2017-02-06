@@ -1,12 +1,15 @@
 """Runs healthcheck and reaps instances that are unhealthy."""
-from __future__ import absolute_import
+
 
 import collections
 import logging
 import os
 import subprocess
 import time
-import urllib
+import urllib.request
+import urllib.parse
+import urllib.error
+
 
 import click
 
@@ -26,7 +29,7 @@ _CLOSE_FDS = os.name != 'nt'
 def _health_check(pattern, proto, endpoint, command):
     """Invoke instance health check."""
     stateapi = context.GLOBAL.state_api()
-    stateurl = '/endpoint/%s/%s/%s' % (urllib.quote(pattern),
+    stateurl = '/endpoint/%s/%s/%s' % (urllib.parse.quote(pattern),
                                        proto,
                                        endpoint)
 
@@ -113,10 +116,10 @@ def init():
         failed = collections.Counter()
         while True:
             failed.update(_health_check(pattern, proto, endpoint, command))
-            for instance, count in failed.iteritems():
+            for instance, count in failed.items():
                 _LOGGER.info('Failed: %s, count: %s', instance, count)
 
-            reaped = _reap([instance for instance, count in failed.iteritems()
+            reaped = _reap([instance for instance, count in failed.items()
                             if count > threshold])
 
             for instance in reaped:

@@ -1,7 +1,6 @@
 """Treadmill REST APIs"""
-from __future__ import absolute_import
 
-import os
+
 import logging
 import importlib
 import pkgutil
@@ -16,7 +15,7 @@ import flask_restplus as restplus
 from treadmill import authz
 from treadmill.rest import error_handlers
 from treadmill import rest
-from treadmill import utils
+from treadmill import utils  # noqa: F401
 from treadmill import webutils
 
 
@@ -89,4 +88,4 @@ def init(apis, title=None, cors_origin=None):
         except ImportError as err:
             _LOGGER.warn('Unable to load %s api: %s', apimod, err)
 
-    return ['/' + apimod.replace('_', '-') for apimod in apis]
+    return ['/' + _apimod.replace('_', '-') for _apimod in apis]

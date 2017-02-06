@@ -1,7 +1,7 @@
 """
 Syncronizes Zookeeper to file system.
 """
-from __future__ import absolute_import
+
 
 import logging
 import glob
@@ -53,7 +53,8 @@ class Zk2Fs(object):
         """
         with tempfile.NamedTemporaryFile(dir=os.path.dirname(fpath),
                                          delete=False,
-                                         prefix='.tmp') as temp:
+                                         prefix='.tmp',
+                                         mode='w') as temp:
             temp.write(data)
             os.fchmod(temp.fileno(), 0o644)
         os.utime(temp.name, (stat.last_modified, stat.last_modified))

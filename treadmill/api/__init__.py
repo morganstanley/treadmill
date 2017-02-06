@@ -1,5 +1,5 @@
 """API package."""
-from __future__ import absolute_import
+
 
 import pkgutil
 
@@ -31,8 +31,8 @@ def normalize(rsrc):
 
 def normalize_dict(rsrc):
     """Normalize dict."""
-    norm = {key: value for key, value in rsrc.iteritems() if not _empty(value)}
-    for key, value in norm.iteritems():
+    norm = {key: value for key, value in rsrc.items() if not _empty(value)}
+    for key, value in norm.items():
         norm[key] = normalize(value)
     return norm
 

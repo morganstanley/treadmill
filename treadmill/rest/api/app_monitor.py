@@ -1,7 +1,7 @@
 """
 Treadmill App monitor REST api.
 """
-from __future__ import absolute_import
+
 
 import flask
 import flask_restplus as restplus

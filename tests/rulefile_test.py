@@ -60,15 +60,15 @@ class RulefileTest(unittest.TestCase):
         # Pylint warning re accessing protected class member.
         # pylint: disable=W0212
 
-        self.assertEquals(
+        self.assertEqual(
             rulefile.RuleMgr._filenameify(self.tcpnatrule),
             "dnat:tcp:1.1.1.1:123-2.2.2.2:234"
         )
-        self.assertEquals(
+        self.assertEqual(
             rulefile.RuleMgr._filenameify(self.udpnatrule),
             "dnat:udp:1.1.1.1:123-2.2.2.2:234"
         )
-        self.assertEquals(
+        self.assertEqual(
             rulefile.RuleMgr._filenameify(self.passthroughrule),
             "passthrough:3.3.3.3-4.4.4.4"
         )
@@ -76,19 +76,19 @@ class RulefileTest(unittest.TestCase):
     def test_get_rule(self):
         """Test parsing a given rule specs.
         """
-        self.assertEquals(
+        self.assertEqual(
             self.rules.get_rule("dnat:tcp:1.1.1.1:123-2.2.2.2:234"),
             self.tcpnatrule,
         )
-        self.assertEquals(
+        self.assertEqual(
             self.rules.get_rule("dnat:udp:1.1.1.1:123-2.2.2.2:234"),
             self.udpnatrule,
         )
-        self.assertEquals(
+        self.assertEqual(
             self.rules.get_rule("passthrough:3.3.3.3-4.4.4.4"),
             self.passthroughrule,
         )
-        self.assertEquals(
+        self.assertEqual(
             self.rules.get_rule('not_a_rule'),
             None,
         )
@@ -130,7 +130,7 @@ class RulefileTest(unittest.TestCase):
             )
         )
         # Ensure the rule link points to its owner app
-        self.assertEquals(
+        self.assertEqual(
             os.path.realpath(
                 os.path.join(
                     self.rules_dir,
@@ -149,7 +149,7 @@ class RulefileTest(unittest.TestCase):
                 os.path.join(self.rules_dir, self.tcpnatfile)
             )
         )
-        self.assertEquals(
+        self.assertEqual(
             os.path.realpath(
                 os.path.join(
                     self.rules_dir,
@@ -200,7 +200,7 @@ class RulefileTest(unittest.TestCase):
         rules = self.rules.get_rules()
         self.assertIn(self.tcpnatrule, rules)
         self.assertIn(self.passthroughrule, rules)
-        self.assertEquals(2, len(rules))
+        self.assertEqual(2, len(rules))
 
 
 if __name__ == '__main__':

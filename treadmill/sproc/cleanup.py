@@ -1,5 +1,5 @@
 """Runs the Treadmill container cleanup job."""
-from __future__ import absolute_import
+
 
 import glob
 import logging
@@ -52,11 +52,11 @@ def init():
             with lc.LogContext(_LOGGER, os.path.basename(path),
                                lc.ContainerAdapter) as log:
                 if not os.path.islink(fullpath):
-                    log.info('Ignore - not a link: %s', fullpath)
+                    log.logger.info('Ignore - not a link: %s', fullpath)
                     return
 
                 container_dir = os.readlink(fullpath)
-                log.info('Cleanup: %s => %s', path, container_dir)
+                log.logger.info('Cleanup: %s => %s', path, container_dir)
                 if os.path.exists(container_dir):
 
                     treadmill_bin = os.path.join(
@@ -66,8 +66,9 @@ def init():
                     )
 
                     try:
-                        log.info('invoking treadmill_bin script: %r',
-                                 treadmill_bin)
+                        log.logger.info(
+                            'invoking treadmill_bin script: %r', treadmill_bin
+                        )
                         subproc.check_call(
                             [
                                 treadmill_bin,
@@ -76,12 +77,14 @@ def init():
                                 container_dir
                             ]
                         )
-                    except subprocess.CalledProcessError as _err:
+                    except subprocess.CalledProcessError:
                         log.exception('Fatal error running %r.', treadmill_bin)
                         raise
 
                 else:
-                    log.info('Container dir does not exist: %r', container_dir)
+                    log.logger.info(
+                        'Container dir does not exist: %r', container_dir
+                    )
 
                 os.unlink(fullpath)
 
@@ -94,7 +97,7 @@ def init():
         for pending_cleanup in leftover:
             _on_created(pending_cleanup)
 
-        loop_timeout = _WATCHDOG_HEARTBEAT_SEC/2
+        loop_timeout = _WATCHDOG_HEARTBEAT_SEC / 2
         while True:
             if watcher.wait_for_events(timeout=loop_timeout):
                 watcher.process_events(max_events=_MAX_REQUEST_PER_CYCLE)

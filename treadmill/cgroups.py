@@ -1,6 +1,5 @@
 """Common cgroups management routines."""
 
-from __future__ import absolute_import
 
 import errno
 import os
@@ -69,6 +68,7 @@ def get_value(subsystem, group, pseudofile):
     fullpath = makepath(subsystem, group, pseudofile)
     with open(fullpath) as f:
         return f.read().strip()
+
 
 _BLKIO_THROTTLE_TYPES = {
     'bps': 'blkio.throttle.io_service_bytes',

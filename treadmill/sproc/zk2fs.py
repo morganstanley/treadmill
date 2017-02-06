@@ -1,5 +1,5 @@
 """Syncronize Zookeeper with file system."""
-from __future__ import absolute_import
+
 
 import fnmatch
 import logging

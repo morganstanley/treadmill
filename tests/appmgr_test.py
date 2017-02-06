@@ -51,7 +51,7 @@ class AppMgrTest(unittest.TestCase):
         """Helper method to create app.yaml file in the event directory."""
         fs.mkdir_safe(os.path.dirname(event))
         with tempfile.NamedTemporaryFile(dir=os.path.dirname(event),
-                                         delete=False) as f:
+                                         delete=False, mode='w') as f:
             f.write(manifest_str)
         os.rename(f.name, event)
 
@@ -89,12 +89,12 @@ class AppMgrTest(unittest.TestCase):
         kazoo.client.KazooClient.create.reset()
         kazoo.client.KazooClient.delete.reset()
 
-        app_abort.abort(self.app_env, manifest_file, exc=StandardError('test'))
+        app_abort.abort(self.app_env, manifest_file, exc=Exception('test'))
         treadmill.appevents.post.assert_called_with(
             mock.ANY,
             events.AbortedTraceEvent(
                 instanceid='proid.myapp#001',
-                why='StandardError',
+                why='Exception',
                 payload=None,
             ),
         )

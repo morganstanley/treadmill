@@ -1,6 +1,5 @@
 """LVM based local disk management service."""
 
-from __future__ import absolute_import
 
 import math
 import errno
@@ -169,7 +168,7 @@ class LocalDiskResourceService(BaseResourceServiceImpl):
         write_iops = self._default_write_iops
 
         with lc.LogContext(_LOGGER, rsrc_id) as log:
-            log.info('Processing request')
+            log.logger.info('Processing request')
 
             size_in_bytes = utils.size_to_bytes(size)
             # FIXME(boysson): This kind of manipulation should live elsewhere.
@@ -182,7 +181,7 @@ class LocalDiskResourceService(BaseResourceServiceImpl):
                 if needed > self._status['extent_free']:
                     # If we do not have enough space, delay the creation until
                     # another volume is deleted.
-                    log.info(
+                    log.logger.info(
                         'Delaying request %r until %d extents are free',
                         rsrc_id, needed)
                     self._pending.append(rsrc_id)
@@ -450,7 +449,7 @@ _TREADMILL_LOOPDEV_NB = 8
 
 def _init_loopback_devices():
     """Create and initialize loopback devices."""
-    for i in xrange(0, _TREADMILL_LOOPDEV_NB):
+    for i in range(0, _TREADMILL_LOOPDEV_NB):
         if not os.path.exists('/dev/loop%s' % i):
             subproc.check_call(['mknod', '-m660', '/dev/loop%s' % i, 'b',
                                 '7', str(i)])

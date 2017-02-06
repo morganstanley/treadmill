@@ -24,7 +24,7 @@ class NetDevTest(unittest.TestCase):
         if self.root and os.path.isdir(self.root):
             shutil.rmtree(self.root)
 
-    @mock.patch('__builtin__.open', autospec=True)
+    @mock.patch('builtins.open', autospec=True)
     def test_dev_mtu(self, mock_open):
         """Test device MTU read.
         """
@@ -37,7 +37,7 @@ class NetDevTest(unittest.TestCase):
         mock_open.assert_called_with('/sys/class/net/foo/mtu')
         self.assertEqual(res, 1234)
 
-    @mock.patch('__builtin__.open', autospec=True)
+    @mock.patch('builtins.open', autospec=True)
     def test_dev_mac(self, mock_open):
         """Test device MAC address read.
         """
@@ -50,7 +50,7 @@ class NetDevTest(unittest.TestCase):
         mock_open.assert_called_with('/sys/class/net/foo/address')
         self.assertEqual(res, '11:22:33:44:55')
 
-    @mock.patch('__builtin__.open', autospec=True)
+    @mock.patch('builtins.open', autospec=True)
     def test_dev_alias(self, mock_open):
         """Test device alias read.
         """
@@ -63,20 +63,20 @@ class NetDevTest(unittest.TestCase):
         mock_open.assert_called_with('/sys/class/net/foo/ifalias')
         self.assertEqual(res, 'foo alias')
 
-    @mock.patch('__builtin__.open', autospec=True)
+    @mock.patch('builtins.open', autospec=True)
     def test_dev_state(self, mock_open):
         """Test device state read.
         """
         mock_file = mock_open.return_value
         mock_filectx = mock_file.__enter__.return_value
-        mock_filectx.read.return_value = 'up\n'
+        mock_filectx.read.return_value = b'up\n'
 
         res = netdev.dev_state('foo')
 
         mock_open.assert_called_with('/sys/class/net/foo/operstate')
         self.assertEqual(res, netdev.DevState.UP)
 
-    @mock.patch('__builtin__.open', autospec=True)
+    @mock.patch('builtins.open', autospec=True)
     def test_dev_speed(self, mock_open):
         """Test device link speed read.
         """
@@ -89,7 +89,7 @@ class NetDevTest(unittest.TestCase):
         mock_open.assert_called_with('/sys/class/net/foo/speed')
         self.assertEqual(res, 10000)
 
-    @mock.patch('__builtin__.open', autospec=True)
+    @mock.patch('builtins.open', autospec=True)
     def test_dev_speed_inval(self, mock_open):
         """Test device link speed read when the device does not support it.
         """
@@ -348,7 +348,7 @@ class NetDevTest(unittest.TestCase):
             ],
         )
 
-    @mock.patch('__builtin__.open', autospec=True)
+    @mock.patch('builtins.open', autospec=True)
     def test_bridge_forward_delay(self, mock_open):
         """Test reading of bridge forward-delay setting.
         """
@@ -375,7 +375,7 @@ class NetDevTest(unittest.TestCase):
             ['a', 'b', 'c']
         )
 
-    @mock.patch('__builtin__.open', autospec=True)
+    @mock.patch('builtins.open', autospec=True)
     def test_dev_conf_route_lnet_set(self, mock_open):
         """Test enabling to local network routing on interface.
         """
@@ -389,7 +389,7 @@ class NetDevTest(unittest.TestCase):
         )
         mock_filectx.write.assert_called_with('1')
 
-    @mock.patch('__builtin__.open', autospec=True)
+    @mock.patch('builtins.open', autospec=True)
     def test_dev_conf_proxy_arp_set(self, mock_open):
         """Test enabling of proxy ARP on interface.
         """
@@ -403,7 +403,7 @@ class NetDevTest(unittest.TestCase):
         )
         mock_filectx.write.assert_called_with('1')
 
-    @mock.patch('__builtin__.open', autospec=True)
+    @mock.patch('builtins.open', autospec=True)
     def test_dev_conf_arp_ignore_set(self, mock_open):
         """Test enabling of proxy ARP on interface.
         """
@@ -417,7 +417,7 @@ class NetDevTest(unittest.TestCase):
         )
         mock_filectx.write.assert_called_with('2')
 
-    @mock.patch('__builtin__.open', autospec=True)
+    @mock.patch('builtins.open', autospec=True)
     def test_dev_conf_forwarding_set(self, mock_open):
         """Test enabling of proxy ARP on interface.
         """

@@ -1,5 +1,5 @@
 """Implementation of allocation API."""
-from __future__ import absolute_import
+
 
 from .. import admin
 from .. import authz

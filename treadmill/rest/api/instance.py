@@ -1,9 +1,9 @@
 """
 Treadmill Instance REST api.
 """
-from __future__ import absolute_import
 
-import httplib
+
+import http.client
 
 import flask
 import flask_restplus as restplus
@@ -101,13 +101,14 @@ def init(api, cors, impl):
             """Bulk updates list of instances."""
             deltas = flask.request.json['instances']
             if not isinstance(deltas, list):
-                api.abort(httplib.BAD_REQUEST, 'Not a list: %r.' % deltas)
+                api.abort(http.client.BAD_REQUEST, 'Not a list: %r.' % deltas)
             result = []
             for delta in deltas:
                 if not isinstance(delta, dict):
-                    api.abort(httplib.BAD_REQUEST, 'Not a dict: %r.' % delta)
+                    api.abort(http.client.BAD_REQUEST,
+                              'Not a dict: %r.' % delta)
                 if '_id' not in delta:
-                    api.abort(httplib.BAD_REQUEST,
+                    api.abort(http.client.BAD_REQUEST,
                               'Missing _id attribute: %r' % delta)
 
                 # rest of validation is done in API.
@@ -132,7 +133,7 @@ def init(api, cors, impl):
             """Return Treadmill instance configuration."""
             instance = impl.get(instance_id)
             if not instance:
-                api.abort(httplib.NOT_FOUND,
+                api.abort(http.client.NOT_FOUND,
                           'Instance does not exist: %s' % instance_id)
             return instance
 

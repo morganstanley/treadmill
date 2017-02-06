@@ -1,7 +1,5 @@
 """Firewall rule representation"""
 
-from __future__ import absolute_import
-
 
 class DNATRule(object):
     """Definition of a DNAT Rule

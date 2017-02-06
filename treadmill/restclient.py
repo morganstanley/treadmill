@@ -2,9 +2,9 @@
 
 This is meant to replace treadmill.http, as this uses outdated urlib.
 """
-from __future__ import absolute_import
 
-import httplib
+
+import http.client
 import logging
 import time
 
@@ -101,11 +101,13 @@ class MaxRequestRetriesError(Exception):
 def _handle_error(url, response):
     """Handle response status codes."""
     handlers = {
-        httplib.NOT_FOUND: NotFoundError('Resource not found: %s' % url),
-        httplib.FOUND: AlreadyExistsError('Resource already exists: %s' % url),
-        httplib.FAILED_DEPENDENCY: ValidationError(response),
-        httplib.UNAUTHORIZED: NotAuthorizedError(response),
-        httplib.BAD_REQUEST: BadRequestError(response),
+        http.client.NOT_FOUND: NotFoundError('Resource not found: %s' % url),
+        http.client.FOUND: AlreadyExistsError(
+            'Resource already exists: %s' % url
+        ),
+        http.client.FAILED_DEPENDENCY: ValidationError(response),
+        http.client.UNAUTHORIZED: NotAuthorizedError(response),
+        http.client.BAD_REQUEST: BadRequestError(response),
     }
 
     if response.status_code in handlers:
@@ -114,9 +116,9 @@ def _handle_error(url, response):
 
 def _should_retry(response):
     """Check if response should retry."""
-    return response.status_code in [httplib.INTERNAL_SERVER_ERROR,
-                                    httplib.BAD_GATEWAY,
-                                    httplib.SERVICE_UNAVAILABLE]
+    return response.status_code in [http.client.INTERNAL_SERVER_ERROR,
+                                    http.client.BAD_GATEWAY,
+                                    http.client.SERVICE_UNAVAILABLE]
 
 
 def _call(url, method, payload=None, headers=None, auth=_KERBEROS_AUTH,
@@ -133,10 +135,10 @@ def _call(url, method, payload=None, headers=None, auth=_KERBEROS_AUTH,
         _LOGGER.debug('response: %r', response)
     except requests.exceptions.Timeout:
         _LOGGER.debug('Request timeout: %r', timeout)
-        return False, None, httplib.REQUEST_TIMEOUT
+        return False, None, http.client.REQUEST_TIMEOUT
 
-    if response.status_code == httplib.OK:
-        return True, response, httplib.OK
+    if response.status_code == http.client.OK:
+        return True, response, http.client.OK
 
     if _should_retry(response):
         _LOGGER.debug('Retry: %s', response.status_code)

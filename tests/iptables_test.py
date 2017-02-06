@@ -147,7 +147,7 @@ class IptablesTest(unittest.TestCase):
         treadmill.subproc.check_output.assert_called_with(
             ['iptables', '-t', 'nat', '-S', 'OUTPUT']
         )
-        self.assertEquals(0, treadmill.subproc.check_call.call_count)
+        self.assertEqual(0, treadmill.subproc.check_call.call_count)
 
     @mock.patch('treadmill.subproc.check_call', mock.Mock())
     def test_delete_raw_rule(self):
@@ -283,8 +283,8 @@ class IptablesTest(unittest.TestCase):
             iptables.PREROUTING_DNAT
         )
 
-        self.assertEquals(0, treadmill.iptables.add_dnat_rule.call_count)
-        self.assertEquals(0, treadmill.iptables.delete_dnat_rule.call_count)
+        self.assertEqual(0, treadmill.iptables.add_dnat_rule.call_count)
+        self.assertEqual(0, treadmill.iptables.delete_dnat_rule.call_count)
 
     @mock.patch('treadmill.iptables.add_dnat_rule', mock.Mock())
     @mock.patch('treadmill.iptables.delete_dnat_rule', mock.Mock())
@@ -307,7 +307,7 @@ class IptablesTest(unittest.TestCase):
             missing_rule,
             chain=iptables.PREROUTING_DNAT
         )
-        self.assertEquals(0, treadmill.iptables.delete_dnat_rule.call_count)
+        self.assertEqual(0, treadmill.iptables.delete_dnat_rule.call_count)
 
     @mock.patch('treadmill.iptables.add_dnat_rule', mock.Mock())
     @mock.patch('treadmill.iptables.delete_dnat_rule', mock.Mock())
@@ -326,7 +326,7 @@ class IptablesTest(unittest.TestCase):
             iptables.PREROUTING_DNAT
         )
 
-        self.assertEquals(0, treadmill.iptables.add_dnat_rule.call_count)
+        self.assertEqual(0, treadmill.iptables.add_dnat_rule.call_count)
         treadmill.iptables.delete_dnat_rule.assert_called_with(
             extra_rule,
             chain=iptables.PREROUTING_DNAT,
@@ -344,7 +344,7 @@ class IptablesTest(unittest.TestCase):
             ['iptables',
              '-t', 'nat', '-S', iptables.PREROUTING_DNAT]
         )
-        self.assertEquals(set(rules), self.dnat_rules)
+        self.assertEqual(set(rules), self.dnat_rules)
 
     @mock.patch('treadmill.iptables.add_raw_rule', mock.Mock())
     def test_add_passthrough_rule(self):
@@ -402,10 +402,10 @@ class IptablesTest(unittest.TestCase):
             iptables.PREROUTING_PASSTHROUGH
         )
 
-        self.assertEquals(
+        self.assertEqual(
             0, treadmill.iptables.add_passthrough_rule.call_count
         )
-        self.assertEquals(
+        self.assertEqual(
             0, treadmill.iptables.delete_passthrough_rule.call_count
         )
 
@@ -430,7 +430,7 @@ class IptablesTest(unittest.TestCase):
             missing_rule,
             chain=iptables.PREROUTING_PASSTHROUGH
         )
-        self.assertEquals(
+        self.assertEqual(
             0, treadmill.iptables.delete_passthrough_rule.call_count
         )
 
@@ -452,7 +452,7 @@ class IptablesTest(unittest.TestCase):
             iptables.PREROUTING_PASSTHROUGH
         )
 
-        self.assertEquals(
+        self.assertEqual(
             0, treadmill.iptables.add_passthrough_rule.call_count
         )
         treadmill.iptables.delete_passthrough_rule.assert_called_with(
@@ -497,7 +497,7 @@ class IptablesTest(unittest.TestCase):
             ['iptables',
              '-t', 'nat', '-S', iptables.PREROUTING_PASSTHROUGH]
         )
-        self.assertEquals(set(rules), self.passthrough_rules)
+        self.assertEqual(set(rules), self.passthrough_rules)
 
     @mock.patch('treadmill.iptables.add_dnat_rule', mock.Mock())
     @mock.patch('treadmill.iptables.add_passthrough_rule', mock.Mock())
@@ -508,7 +508,7 @@ class IptablesTest(unittest.TestCase):
 
         iptables.add_rule(dnat_rule, chain='TEST_CHAIN')
 
-        self.assertEquals(
+        self.assertEqual(
             0, treadmill.iptables.add_passthrough_rule.call_count
         )
         treadmill.iptables.add_dnat_rule.assert_called_with(
@@ -525,7 +525,7 @@ class IptablesTest(unittest.TestCase):
             passthrough_rule,
             chain='TEST_CHAIN'
         )
-        self.assertEquals(
+        self.assertEqual(
             0, treadmill.iptables.add_dnat_rule.call_count
         )
 
@@ -538,7 +538,7 @@ class IptablesTest(unittest.TestCase):
 
         iptables.delete_rule(dnat_rule, chain='TEST_CHAIN')
 
-        self.assertEquals(
+        self.assertEqual(
             0, treadmill.iptables.delete_passthrough_rule.call_count
         )
         treadmill.iptables.delete_dnat_rule.assert_called_with(
@@ -555,7 +555,7 @@ class IptablesTest(unittest.TestCase):
             passthrough_rule,
             chain='TEST_CHAIN'
         )
-        self.assertEquals(
+        self.assertEqual(
             0, treadmill.iptables.delete_dnat_rule.call_count
         )
 

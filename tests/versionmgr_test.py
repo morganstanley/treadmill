@@ -50,12 +50,12 @@ class VersionMgrTest(mockzk.MockZookeeperTestCase):
             },
         }
         self.make_mock_zk(zk_content)
-        self.assertEquals([],
-                          versionmgr.verify(self.zkclient, '1234', ['s1']))
-        self.assertEquals(['s1'],
-                          versionmgr.verify(self.zkclient, '3333', ['s1']))
-        self.assertEquals([],
-                          versionmgr.verify(self.zkclient, '3333', ['s2']))
+        self.assertEqual([],
+                         versionmgr.verify(self.zkclient, '1234', ['s1']))
+        self.assertEqual(['s1'],
+                         versionmgr.verify(self.zkclient, '3333', ['s1']))
+        self.assertEqual([],
+                         versionmgr.verify(self.zkclient, '3333', ['s2']))
 
     @mock.patch('kazoo.client.KazooClient.delete', mock.Mock())
     @mock.patch('kazoo.client.KazooClient.get', mock.Mock())
@@ -85,7 +85,7 @@ class VersionMgrTest(mockzk.MockZookeeperTestCase):
         #
         # In the test, version for s1 will not be recreated, and s1 will be
         # reported as failure.
-        self.assertEquals(
+        self.assertEqual(
             ['s1'],
             versionmgr.upgrade(
                 self.zkclient,

@@ -1,5 +1,5 @@
 """Useful utility functions."""
-from __future__ import absolute_import
+
 
 import signal
 
@@ -11,7 +11,9 @@ import os
 import pkgutil
 import stat
 import time
-import urllib
+import urllib.request
+import urllib.parse
+import urllib.error
 
 # Pylint warning re string being deprecated
 #
@@ -21,12 +23,8 @@ import string
 # see:
 # http://stackoverflow.com/questions/13193278/understand-python-threading-bug
 import threading
-
-if os.name != 'nt':
-    import fcntl
-
+from functools import reduce
 from collections import namedtuple
-
 import yaml
 import jinja2
 
@@ -34,6 +32,9 @@ import treadmill
 
 # E0611: No name 'subproc' in module 'treadmill'
 from . import subproc  # pylint: disable=E0611
+
+if os.name != 'nt':
+    import fcntl
 
 
 threading._DummyThread._Thread__stop = lambda x: 0  # pylint: disable=W0212
@@ -102,7 +103,7 @@ def to_obj(value, name='struct'):
         return [to_obj(item) for item in value]
     elif isinstance(value, dict):
         return namedtuple(name, value.keys())(
-            *[to_obj(v, k) for k, v in value.iteritems()])
+            *[to_obj(v, k) for k, v in value.items()])
     else:
         return value
 
@@ -120,12 +121,12 @@ def sys_exit(code):
 
 def _repr_unicode(dumper, data):
     """Fix yaml str representation."""
-    ascii_data = data.encode('ascii', 'ignore')
+    data = data.encode('ascii', 'ignore').decode()  # XXX:Is this the best way?
     if '\n' in data:
-        return dumper.represent_scalar(u'tag:yaml.org,2002:str', ascii_data,
+        return dumper.represent_scalar('tag:yaml.org,2002:str', data,
                                        style='|')
     else:
-        return dumper.represent_scalar(u'tag:yaml.org,2002:str', ascii_data)
+        return dumper.represent_scalar('tag:yaml.org,2002:str', data)
 
 
 def _repr_tuple(dumper, data):
@@ -135,11 +136,10 @@ def _repr_tuple(dumper, data):
 
 def _repr_none(dumper, data_unused):
     """Fix yaml None representation (use ~)."""
-    return dumper.represent_scalar(u'tag:yaml.org,2002:null', '~')
+    return dumper.represent_scalar('tag:yaml.org,2002:null', '~')
 
 
 # This will be invoked on module import once.
-yaml.add_representer(unicode, _repr_unicode)
 yaml.add_representer(str, _repr_unicode)
 yaml.add_representer(tuple, _repr_tuple)
 yaml.add_representer(type(None), _repr_none)
@@ -155,7 +155,7 @@ def dump_yaml(obj):
 
 def print_yaml(obj):
     """Print yaml wih correct options."""
-    print dump_yaml(obj)
+    print(dump_yaml(obj))
 
 
 def hashcmp(file1, file2):
@@ -249,7 +249,7 @@ def size_to_bytes(size):
     >>> size_to_bytes("1K")
     1024
     """
-    if isinstance(size, basestring):
+    if isinstance(size, str):
         size = str(size).upper().strip()
         unit = 1024
         if size[-1] == 'B':
@@ -380,7 +380,7 @@ def tail_stream(stream, nlines=10):
     # N lines.
     stream.seek(0, 2)
     fsize = stream.tell()
-    stream.seek(max(fsize-1024, 0), 0)
+    stream.seek(max(fsize - 1024, 0), 0)
     lines = stream.readlines()
     return lines[-nlines:]
 
@@ -390,7 +390,7 @@ def tail(filename, nlines=10):
     try:
         with open(filename) as f:
             return tail_stream(f, nlines=nlines)
-    except StandardError:
+    except Exception:
         _LOGGER.error('Cannot open %s for reading.', filename)
         return []
 
@@ -494,7 +494,7 @@ def drop_privileges(uid_name='nobody'):
     os.setuid(running_uid)
 
     # Ensure a very conservative umask
-    os.umask(077)
+    os.umask(0o77)
 
     # TODO: probably redundant, as it will not have access to the
     #                cred cache anyway.
@@ -552,4 +552,4 @@ def equals_list2dict(equals_list):
 
 def encode_uri_parts(path):
     """Encode URI path components"""
-    return '/'.join([urllib.quote(part) for part in path.split('/')])
+    return '/'.join([urllib.parse.quote(part) for part in path.split('/')])

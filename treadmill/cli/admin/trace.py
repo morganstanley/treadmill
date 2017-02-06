@@ -1,6 +1,5 @@
 """Trace treadmill application events."""
 
-from __future__ import absolute_import
 
 import sys
 
@@ -36,12 +35,12 @@ def init():
             # Instance is not specified, list matching and exit.
             tasks = zk.list_history(context.GLOBAL.zk.conn, app)
             if not tasks:
-                print >> sys.stderr, '# Trace information does not exist.'
+                print('# Trace information does not exist.', file=sys.stderr)
                 return
 
             elif not last:
                 for task in sorted(tasks):
-                    print task
+                    print(task)
                 return
 
             else:

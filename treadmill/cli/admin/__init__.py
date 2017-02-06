@@ -1,13 +1,8 @@
 """Implementation of treadmill-admin CLI plugin."""
-from __future__ import absolute_import
 
-import importlib
+
 import logging
-import os
 import pkgutil
-import tempfile
-import traceback
-import yaml
 
 import click
 import dns.exception  # pylint: disable=E0611
@@ -15,7 +10,6 @@ import kazoo
 import kazoo.exceptions
 import ldap3
 
-import treadmill
 from treadmill import restclient
 from treadmill import cli
 from treadmill import context

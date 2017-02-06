@@ -1,9 +1,9 @@
 """
 Treadmill State REST api.
 """
-from __future__ import absolute_import
 
-import httplib
+
+import http.client
 
 import flask_restplus as restplus
 from flask_restplus import fields
@@ -83,6 +83,6 @@ def init(api, cors, impl):
             """Return Treadmill instance state."""
             state = impl.get(instance_id)
             if state is None:
-                api.abort(httplib.NOT_FOUND,
+                api.abort(http.client.NOT_FOUND,
                           'Instance does not exist: %s' % instance_id)
             return state

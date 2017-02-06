@@ -1,5 +1,5 @@
 """Syncronizes cell Zookeeper with LDAP data."""
-from __future__ import absolute_import
+
 
 import logging
 import os
@@ -28,7 +28,7 @@ def reevaluate(instance_api, state):
     grouped = dict(state['scheduled'])
     monitors = dict(state['monitors'])
 
-    for name, count in monitors.iteritems():
+    for name, count in monitors.items():
 
         current_count = len(grouped.get(name, []))
         _LOGGER.debug('App: %s current: %s, target %s',
@@ -41,7 +41,7 @@ def reevaluate(instance_api, state):
             # need to start more.
             needed = count - current_count
             try:
-                _scheduled = instance_api.create(name, {}, count=needed)
+                instance_api.create(name, {}, count=needed)
                 # TODO: may need to rationalize this and not expose low
                 #       level ldap exception from admin.py, and rather
                 #       return None for non-existing entities.

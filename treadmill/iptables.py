@@ -1,7 +1,5 @@
 """Wrapper for iptables/ipset"""
 
-from __future__ import absolute_import
-
 import logging
 import re
 import subprocess
@@ -649,7 +647,7 @@ def add_mark_rule(src_ip, environment):
 
     # Check that the IP is not marked in any other environment
     other_env_sets = {
-        env_set for env_set in _SET_BY_ENVIRONMENT.viewvalues()
+        env_set for env_set in _SET_BY_ENVIRONMENT.values()
         if env_set != target_set
     }
     for other_set in other_env_sets:

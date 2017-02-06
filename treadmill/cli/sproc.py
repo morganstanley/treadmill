@@ -1,5 +1,5 @@
 """Implementation of treadmill-admin CLI plugin."""
-from __future__ import absolute_import
+
 
 import logging
 import logging.config
@@ -64,7 +64,7 @@ def init():
                 logging.config.dictConfig(log_config)
 
         except IOError:
-            with tempfile.NamedTemporaryFile(delete=False) as f:
+            with tempfile.NamedTemporaryFile(delete=False, mode='w') as f:
                 traceback.print_exc(file=f)
                 click.echo('Unable to load log conf: %s [ %s ]' %
                            (log_conf_file, f.name), err=True)

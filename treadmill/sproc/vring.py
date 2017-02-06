@@ -1,5 +1,5 @@
 """Treadmill vring manager."""
-from __future__ import absolute_import
+
 
 import signal
 import sys

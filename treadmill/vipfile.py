@@ -1,5 +1,5 @@
 """Manage Treadmill vIPs allocations"""
-from __future__ import absolute_import
+
 
 import errno
 
@@ -45,7 +45,7 @@ class VipMgr(object):
                                 picked_ip, owner)
             return picked_ip
 
-        for index in xrange(0, 256**2):
+        for index in range(0, 256**2):
             major, minor = (index >> 8), (index % 256)
             if major in [128, 256]:
                 continue
@@ -89,7 +89,7 @@ class VipMgr(object):
         )
         for link in allocated:
             try:
-                _link_st = os.stat(link)
+                _link_st = os.stat(link)  # noqa: F841
             except OSError as err:
                 if err.errno == errno.ENOENT:
                     _LOGGER.warning('Reclaimed: %r', link)

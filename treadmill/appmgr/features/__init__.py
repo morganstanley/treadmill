@@ -3,7 +3,7 @@
 import sys
 import pkgutil
 
-import jsonschema.exceptions
+import jsonschema.exceptions  # noqa: F401
 
 from treadmill import utils
 

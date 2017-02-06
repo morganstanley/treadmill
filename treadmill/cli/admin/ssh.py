@@ -1,5 +1,5 @@
 """Trace treadmill application events."""
-from __future__ import absolute_import
+
 
 import sys
 import signal
@@ -116,7 +116,7 @@ def init():
                 pass
 
         # TODO: not sure how to handle mutliple instances.
-        for (app, hostport) in app_discovery.iteritems():
+        for (app, hostport) in app_discovery.items():
             _LOGGER.info('%s :: %s', app, hostport)
             if hostport:
                 host, port = hostport.split(':')

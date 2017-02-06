@@ -1,5 +1,5 @@
 """Runs the Treadmill application runner."""
-from __future__ import absolute_import
+
 
 import signal
 
@@ -33,7 +33,7 @@ def init():
                            lc.ContainerAdapter) as log:
             terminated = utils.make_signal_flag(signal.SIGTERM)
             try:
-                log.info('run %r %r', approot, container_dir)
+                log.logger.info('run %r %r', approot, container_dir)
                 app_env = appmgr.AppEnvironment(approot)
 
                 watchdog = app_run.create_watchdog(app_env, container_dir)
@@ -53,8 +53,8 @@ def init():
                                  exc_info=True)
                     app_abort.flag_aborted(app_env, container_dir, exc)
                 else:
-                    log.info('Exception while handling term, ignore.',
-                             exc_info=True)
+                    log.logger.info('Exception while handling term, ignore.',
+                                    exc_info=True)
 
             finally:
                 watchdog.remove()

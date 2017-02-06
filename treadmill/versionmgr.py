@@ -1,5 +1,5 @@
 """Helper tools to manage Treadmill versions."""
-from __future__ import absolute_import
+
 
 import hashlib
 import logging
@@ -130,7 +130,7 @@ def upgrade(zkclient, expected, servers, batch_size, timeout,
             return False
 
     total_failed = []
-    for index in xrange(0, len(servers), batch_size):
+    for index in range(0, len(servers), batch_size):
         batch = set(servers[index:index + batch_size])
         _LOGGER.info('Processing batch: %r', list(batch))
 

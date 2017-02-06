@@ -31,9 +31,9 @@ class SchemaTest(unittest.TestCase):
             """sample function with default args."""
             return num_arg, str_arg
 
-        self.assertEquals((None, None), _kwargs(1, '1'))
-        self.assertEquals((1, None), _kwargs(1, '1', num_arg=1))
-        self.assertEquals((None, '1'), _kwargs(1, '1', str_arg='1'))
+        self.assertEqual((None, None), _kwargs(1, '1'))
+        self.assertEqual((1, None), _kwargs(1, '1', num_arg=1))
+        self.assertEqual((None, '1'), _kwargs(1, '1', str_arg='1'))
         self.assertRaises(
             jsonschema.exceptions.ValidationError,
             _kwargs, '1', '1', str_arg=1)

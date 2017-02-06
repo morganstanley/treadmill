@@ -1,5 +1,5 @@
 """Implementation of state API."""
-from __future__ import absolute_import
+
 
 import logging
 
@@ -32,7 +32,7 @@ class API(object):
         def _watch_running(running):
             """Watch /running nodes."""
             cell_state['running'] = set(running)
-            for name, item in cell_state.get('placement', {}).iteritems():
+            for name, item in cell_state.get('placement', {}).items():
                 state = item['state'] = (
                     'running' if name in cell_state['running'] else 'scheduled'
                 )
@@ -73,7 +73,7 @@ class API(object):
                 match += '#*'
             filtered = [
                 {'name': name, 'state': item['state'], 'host': item['host']}
-                for name, item in cell_state.get('placement', {}).iteritems()
+                for name, item in cell_state.get('placement', {}).items()
                 if fnmatch.fnmatch(name, match)
             ]
             return sorted(filtered, key=lambda item: item['name'])

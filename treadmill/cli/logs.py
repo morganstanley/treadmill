@@ -1,7 +1,9 @@
 """Trace treadmill application events."""
-from __future__ import absolute_import
 
-import urllib
+
+import urllib.request
+import urllib.parse
+import urllib.error
 
 import click
 
@@ -39,7 +41,7 @@ def init():
         apis = context.GLOBAL.state_api(api)
 
         if uniq == 'running':
-            state_url = '/state?%s' % urllib.urlencode(
+            state_url = '/state?%s' % urllib.parse.urlencode(
                 [('match', appname)]
             )
             where = restclient.get(apis, state_url).json()
@@ -57,12 +59,12 @@ def init():
         nodeinfo_api = ['http://%s:%s' % (nodeinfo[0]['host'],
                                           nodeinfo[0]['port'])]
         logurl = '/app/%s/%s/%s/%s' % (
-            urllib.quote(appname),
-            urllib.quote(uniq),
+            urllib.parse.quote(appname),
+            urllib.parse.quote(uniq),
             logtype,
-            urllib.quote(service))
+            urllib.parse.quote(service))
 
         log = restclient.get(nodeinfo_api, logurl)
-        print log.text
+        print(log.text)
 
     return logs

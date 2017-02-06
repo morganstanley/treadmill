@@ -1,6 +1,6 @@
 """Collect Treadmill node information after a crash.
 """
-from __future__ import absolute_import
+
 
 import os
 

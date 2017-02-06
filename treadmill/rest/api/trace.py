@@ -1,9 +1,9 @@
 """
 Treadmill State REST api.
 """
-from __future__ import absolute_import
 
-import httplib
+
+import http.client
 
 import flask_restplus as restplus
 from flask_restplus import fields
@@ -48,6 +48,6 @@ def init(api, cors, impl):
             """
             trace_info = impl.get(app_name)
             if trace_info is None:
-                api.abort(httplib.NOT_FOUND,
+                api.abort(http.client.NOT_FOUND,
                           'No trace information available for %s' % app_name)
             return trace_info

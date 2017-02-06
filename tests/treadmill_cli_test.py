@@ -20,7 +20,7 @@ from treadmill.sproc import zk2fs as zk2fs_sproc
 
 def check_help(testcase, args):
     """Checks help invocation."""
-    testcase.assertEquals(
+    testcase.assertEqual(
         testcase.runner.invoke(testcase.cli, args + ['--help']).exit_code, 0)
 
 
@@ -44,7 +44,7 @@ class TreadmillShowTest(unittest.TestCase):
         """Test show actions."""
         self.runner.invoke(
             self.cli, ['--cell', 'foo', 'running'])
-        self.assertEquals(context.GLOBAL.cell, 'foo')
+        self.assertEqual(context.GLOBAL.cell, 'foo')
 
 
 class TreadmillSchedulerTest(unittest.TestCase):
@@ -71,7 +71,7 @@ class TreadmillSchedulerTest(unittest.TestCase):
         """Test scheduler commands."""
         self.runner.invoke(
             self.cli, ['--cell', 'foo', 'view', 'servers'])
-        self.assertEquals(context.GLOBAL.cell, 'foo')
+        self.assertEqual(context.GLOBAL.cell, 'foo')
 
 
 class TreadmillBlackoutTest(unittest.TestCase):
@@ -135,12 +135,12 @@ class TreadmillSprocTest(unittest.TestCase):
         """Test passing context arguments."""
         self.runner.invoke(
             self.cli, ['--cell', 'foo', 'init', '--help'])
-        self.assertEquals(context.GLOBAL.cell, 'foo')
+        self.assertEqual(context.GLOBAL.cell, 'foo')
         self.runner.invoke(
             self.cli, ['--cell', 'xxx', '--zookeeper', 'bla',
                        'init', '--help'])
-        self.assertEquals(context.GLOBAL.cell, 'xxx')
-        self.assertEquals(context.GLOBAL.zk.url, 'bla')
+        self.assertEqual(context.GLOBAL.cell, 'xxx')
+        self.assertEqual(context.GLOBAL.zk.url, 'bla')
 
 
 class TreadmillZk2FsTest(unittest.TestCase):

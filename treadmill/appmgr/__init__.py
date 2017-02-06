@@ -1,25 +1,24 @@
 """Manages Treadmill applications lifecycle."""
-from __future__ import absolute_import
+
 
 # Pylint warning re string being deprecated
 #
 # pylint: disable=W0402
 
-import errno
 import logging
 import os
 import string
-
-if os.name == 'nt':
-    import socket
-else:
-    import netifaces
 
 from .. import fs
 from .. import rulefile
 from .. import services
 from .. import utils
 from .. import watchdog
+
+if os.name == 'nt':
+    import socket
+else:
+    import netifaces
 
 
 _LOGGER = logging.getLogger(__name__)

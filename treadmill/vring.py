@@ -4,7 +4,7 @@ Each vring manages chain of iptables output rules, which enables applications
 that expect to find their peers on a "well-defined" constant port to be
 deployed inside the container.
 """
-from __future__ import absolute_import
+
 
 import logging
 import socket

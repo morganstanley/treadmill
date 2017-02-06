@@ -1,7 +1,5 @@
 """Handles reports over scheduler data."""
 
-from __future__ import absolute_import
-
 import time
 import datetime
 import itertools
@@ -9,6 +7,7 @@ import logging
 
 import numpy as np
 import pandas as pd
+from functools import reduce
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -40,8 +39,9 @@ def servers(cell):
 
         return row
 
-    frame = pd.DataFrame.from_dict([_server_row(server)
-                                    for server in cell.members().values()])
+    frame = pd.DataFrame.from_dict([
+        _server_row(server) for server in cell.members().values()
+    ])
     if frame.empty:
         frame = pd.DataFrame(columns=['name', 'memory', 'cpu', 'disk',
                                       'free.memory', 'free.cpu', 'free.disk',
@@ -65,7 +65,7 @@ def allocations(cell):
                 name, suballoc = item
                 return itertools.chain(acc, _leafs(path + [name], suballoc))
 
-            return reduce(_chain, alloc.sub_allocations.iteritems(), [])
+            return reduce(_chain, iter(alloc.sub_allocations.items()), [])
 
     def _alloc_row(label, name, alloc):
         """Converts allocation to dict/dataframe row."""
@@ -86,7 +86,7 @@ def allocations(cell):
         }
 
     all_allocs = []
-    for label, partition in cell.partitions.iteritems():
+    for label, partition in cell.partitions.items():
         allocation = partition.allocation
         leaf_allocs = _leafs([], allocation)
         alloc_df = pd.DataFrame.from_dict(

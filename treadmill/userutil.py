@@ -1,5 +1,5 @@
 """Treadmill user util module."""
-from __future__ import absolute_import
+
 
 import os
 

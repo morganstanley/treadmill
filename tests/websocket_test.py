@@ -64,11 +64,11 @@ class PubSubTest(unittest.TestCase):
         pubsub.register('/', '*', ws1, handler1, True)
         pubsub.register('/', 'a*', ws2, handler2, True)
 
-        self.assertEquals(2, len(pubsub.handlers[self.root]))
+        self.assertEqual(2, len(pubsub.handlers[self.root]))
 
         self.assertIn(('/aaa', None, ''), handler1.events)
         self.assertIn(('/xxx', None, ''), handler1.events)
-        self.assertEquals(
+        self.assertEqual(
             [('/aaa', None, '')],
             handler2.events
         )
@@ -87,7 +87,7 @@ class PubSubTest(unittest.TestCase):
         ws1.active.return_value = False
 
         pubsub.run(once=True)
-        self.assertEquals(1, len(pubsub.handlers[self.root]))
+        self.assertEqual(1, len(pubsub.handlers[self.root]))
 
         pubsub.register('/new_dir', 'bbb', ws2, handler2, True)
         self.assertTrue(os.path.exists(os.path.join(self.root, 'new_dir')))
@@ -170,7 +170,7 @@ class WebSocketTest(AsyncHTTPTestCase):
         ws.write_message(echo_msg)
         self.pubsub.run(once=True)
         response = yield ws.read_message()
-        self.assertEquals('{"echo": 1}', response)
+        self.assertEqual('{"echo": 1}', response)
 
     @gen_test
     def test_snapshot(self):
@@ -187,7 +187,7 @@ class WebSocketTest(AsyncHTTPTestCase):
         ws.write_message(echo_msg)
         self.pubsub.run(once=True)
         response = yield ws.read_message()
-        self.assertEquals('{"echo": 1}', response)
+        self.assertEqual('{"echo": 1}', response)
         response = yield ws.read_message()
         self.assertIsNone(response)
 

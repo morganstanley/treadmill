@@ -1,5 +1,5 @@
 """Treadmill master process."""
-from __future__ import absolute_import
+
 
 # Disable too many lines in module warning.
 #
@@ -143,7 +143,7 @@ class Master(object):
             z.REBOOTS: [_SERVERS_ACL],
         }
 
-        for path, acl in root_ns.iteritems():
+        for path, acl in root_ns.items():
             zkutils.ensure_exists(self.zkclient, path, acl)
 
     def load_cell(self):
@@ -309,8 +309,8 @@ class Master(object):
             #                rack can never change buiding. If this does not
             #                hold, comparing parents is not enough, need to
             #                compare recursively all the way up.
-            if (current_server.is_same(server)
-                    and current_server.parent == parent):
+            if (current_server.is_same(server) and
+                    current_server.parent == parent):
                 # Nothing changed, no need to update anything.
                 _LOGGER.info('server is same, keeping old.')
                 current_server.valid_until = server.valid_until
@@ -390,7 +390,7 @@ class Master(object):
     def find_assignment(self, name):
         """Find allocation by matching app assignment."""
         _LOGGER.debug('Find assignment: %s', name)
-        assignments = reversed(sorted(self.assignments.iteritems()))
+        assignments = reversed(sorted(self.assignments.items()))
 
         for pattern, assignment in assignments:
             if fnmatch.fnmatch(name, pattern):
@@ -523,7 +523,7 @@ class Master(object):
                                                    z.path.scheduled(appname))
                             self.cell.remove_app(appname)
 
-        for appname, servers in integrity.iteritems():
+        for appname, servers in integrity.items():
             if len(servers) > 1:
                 _LOGGER.warn('Integrity error: %s placed on %r',
                              appname, servers)
@@ -536,7 +536,7 @@ class Master(object):
 
     def load_placement_data(self):
         """Restore app identities."""
-        for appname, app in self.cell.apps.iteritems():
+        for appname, app in self.cell.apps.items():
             if app.server:
                 placement_data = zkutils.get_default(
                     self.zkclient, z.path.placement(app.server, appname))
@@ -600,7 +600,7 @@ class Master(object):
 
         # Cross check that all apps in the model are recorded in placement.
         success = True
-        for appname, app in self.cell.apps.iteritems():
+        for appname, app in self.cell.apps.items():
             if app.server:
                 if appname not in app2server:
                     _LOGGER.critical('app missing from placement: %s', appname)
@@ -766,7 +766,7 @@ class Master(object):
         last_reboot_check = 0
         while not self.exit:
             queue_empty = False
-            for _idx in xrange(0, EVENT_BATCH_COUNT):
+            for _idx in range(0, EVENT_BATCH_COUNT):
                 try:
                     event = self.queue.popleft()
                     self.process(event)
@@ -816,7 +816,7 @@ class Master(object):
         now = time.time()
 
         # expired servers rebooted unconditionally, as they are no use anumore.
-        for name, server in self.servers.iteritems():
+        for name, server in self.servers.items():
             if now > server.valid_until:
                 _LOGGER.info(
                     'Expired: %s at %s',
@@ -849,7 +849,7 @@ class Master(object):
         """Run scheduler first time and update scheduled data."""
         placement = self.cell.schedule()
 
-        for servername, server in self.cell.members().iteritems():
+        for servername, server in self.cell.members().items():
             placement_node = z.path.placement(servername)
             zkutils.ensure_exists(self.zkclient,
                                   placement_node,
@@ -930,7 +930,7 @@ class Master(object):
         #
         # Remove will trigger rescheduling which will be harmless but
         # strictly speaking unnecessary.
-        for appname, app in self.cell.apps.iteritems():
+        for appname, app in self.cell.apps.items():
             if app.schedule_once and app.evicted:
                 _LOGGER.info('Removing schedule_once/evicted app: %s',
                              appname)
@@ -992,7 +992,7 @@ def create_apps(zkclient, app_id, app, count):
     """Schedules new apps."""
     app_ids = []
     acl = zkutils.make_role_acl('servers', 'rwcd')
-    for _idx in xrange(0, count):
+    for _idx in range(0, count):
         node_path = zkutils.put(zkclient,
                                 _app_node(app_id, existing=False),
                                 app,
@@ -1028,14 +1028,14 @@ def list_running_apps(zkclient):
 
 def update_app_priorities(zkclient, updates):
     """Updates app priority."""
-    for app_id, priority in updates.iteritems():
+    for app_id, priority in updates.items():
         assert 0 <= priority <= 100
 
         app = get_app(zkclient, app_id)
         app['priority'] = priority
         zkutils.update(zkclient, _app_node(app_id), app)
 
-    create_event(zkclient, 1, 'apps', updates.keys())
+    create_event(zkclient, 1, 'apps', list(updates.keys()))
 
 
 def create_bucket(zkclient, bucket_id, parent_id, traits=0):

@@ -17,6 +17,7 @@ from ctypes import (
 from ctypes.util import find_library
 
 import enum
+from functools import reduce
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -66,12 +67,12 @@ class INInitFlags(enum.IntEnum):
     #: Set the O_NONBLOCK file status flag on the new open file description.
     #: Using this flag saves extra calls to fcntl(2) to achieve the same
     #: result.
-    NONBLOCK = 04000
+    NONBLOCK = 0o4000
 
     #: Set the close-on-exec (FD_CLOEXEC) flag on the new file descriptor.  See
     #: the description of the O_CLOEXEC flag in open(2) for reasons why this
     #: may be useful.
-    CLOEXEC = 02000000
+    CLOEXEC = 0o2000000
 
 
 IN_NONBLOCK = INInitFlags.NONBLOCK
@@ -87,7 +88,7 @@ _INOTIFY_ADD_WATCH = _INOTIFY_ADD_WATCH_DECL(('inotify_add_watch', _LIBC))
 
 def inotify_add_watch(fileno, path, mask):
     """Add a watch to an initialized inotify instance."""
-    watch_id = _INOTIFY_ADD_WATCH(fileno, path, mask)
+    watch_id = _INOTIFY_ADD_WATCH(fileno, path.encode('utf-8'), mask)
     if watch_id < 0:
         errno = ctypes.get_errno()
         raise OSError(errno, os.strerror(errno),
@@ -111,6 +112,7 @@ class INAddWatchFlags(enum.IntEnum):
     ONESHOT = 0x80000000
     #: Only watch the path if it's a directory.
     ONLYDIR = 0x01000000
+
 
 IN_DONT_FOLLOW = INAddWatchFlags.DONT_FOLLOW
 IN_MASK_ADD = INAddWatchFlags.MASK_ADD
@@ -162,7 +164,7 @@ def _parse_buffer(event_buffer):
             INOTIFY_EVENT_HDRSIZE:
             INOTIFY_EVENT_HDRSIZE + length
         ]
-        name = name.rstrip('\x00')
+        name = name.decode().rstrip('\x00')
         event_buffer = event_buffer[INOTIFY_EVENT_HDRSIZE + length:]
         yield wd, mask, cookie, name
 
@@ -217,6 +219,7 @@ class INEvent(enum.IntEnum):
     Q_OVERFLOW = 0x00004000
     #: Backing file system was unmounted.
     UNMOUNT = 0x00002000
+
 
 IN_ACCESS = INEvent.ACCESS
 IN_ATTRIB = INEvent.ATTRIB

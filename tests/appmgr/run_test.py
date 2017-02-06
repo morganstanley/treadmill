@@ -1048,7 +1048,7 @@ class AppMgrRunTest(unittest.TestCase):
         )
 
         self.assertTrue(os.path.exists(os.path.join(base_dir, 'sys')))
-        with open(os.path.join(base_dir, 'sys', 'toberemoved'), 'w+') as _f:
+        with open(os.path.join(base_dir, 'sys', 'toberemoved'), 'w+'):
             pass
 
         self.assertTrue(

@@ -1,7 +1,7 @@
 """Unit test for treadmill.dnsutils
 """
 
-import httplib
+import http.client
 import unittest
 
 import mock
@@ -49,7 +49,7 @@ class ApiproxyGetTest(unittest.TestCase):
     def test_redir_no_path_with_lb(self, *_args):
         """Test redirect with no path and existing LB"""
         resp = self.app.get('/type1/cell1')
-        self.assertEqual(resp.status_code, httplib.TEMPORARY_REDIRECT)
+        self.assertEqual(resp.status_code, http.client.TEMPORARY_REDIRECT)
         self.assertIn(resp.headers.get('Location'),
                       'http://treadmill-ny-foobar.foo.com:9876')
 
@@ -61,7 +61,7 @@ class ApiproxyGetTest(unittest.TestCase):
     def test_redir_no_path_no_lb(self, *_args):
         """Test redirect with no path and no LB"""
         resp = self.app.get('/type1/cell1')
-        self.assertEqual(resp.status_code, httplib.TEMPORARY_REDIRECT)
+        self.assertEqual(resp.status_code, http.client.TEMPORARY_REDIRECT)
         self.assertIn(resp.headers.get('Location'),
                       'http://host:1234')
 
@@ -70,7 +70,7 @@ class ApiproxyGetTest(unittest.TestCase):
     def test_redir_path_with_lb(self, *_args):
         """Test redirect with given path and existing LB"""
         resp = self.app.get('/type1/cell1/my/path')
-        self.assertEqual(resp.status_code, httplib.TEMPORARY_REDIRECT)
+        self.assertEqual(resp.status_code, http.client.TEMPORARY_REDIRECT)
         self.assertIn(resp.headers.get('Location'),
                       'http://treadmill-ny-foobar.foo.com:9876/my/path')
 
@@ -79,7 +79,7 @@ class ApiproxyGetTest(unittest.TestCase):
     def test_redir_path_no_lb(self, *_args):
         """Test redirect with given path and no LB"""
         resp = self.app.get('/type1/cell1/my/path')
-        self.assertEqual(resp.status_code, httplib.TEMPORARY_REDIRECT)
+        self.assertEqual(resp.status_code, http.client.TEMPORARY_REDIRECT)
         self.assertIn(resp.headers.get('Location'),
                       'http://treadmill-ny-foobar.foo.com:9876/my/path')
 
@@ -88,7 +88,7 @@ class ApiproxyGetTest(unittest.TestCase):
     def test_json_no_path_lb(self, *_args):
         """Test json response with no path and with lb"""
         resp = self.app.get('/type2.json/cell1')
-        self.assertEqual(resp.status_code, httplib.OK)
+        self.assertEqual(resp.status_code, http.client.OK)
         payload = json.loads(resp.data)
         self.assertEqual(payload['target'],
                          'p2://treadmill-ny-foobar.foo.com:9876')
@@ -101,7 +101,7 @@ class ApiproxyGetTest(unittest.TestCase):
     def test_json_path_no_lb(self, *_args):
         """Test json response with path and no lb"""
         resp = self.app.get('/type2.json/cell1/foo/bar')
-        self.assertEqual(resp.status_code, httplib.OK)
+        self.assertEqual(resp.status_code, http.client.OK)
         payload = json.loads(resp.data)
         self.assertEqual(payload['target'], 'p2://host:1234/foo/bar')
 
@@ -113,7 +113,7 @@ class ApiproxyGetTest(unittest.TestCase):
     def test_redir_not_allowed(self, *_args):
         """Test redirection not allowed error when protocol not http"""
         resp = self.app.get('/type2/cell1/foo/bar')
-        self.assertEqual(resp.status_code, httplib.BAD_REQUEST)
+        self.assertEqual(resp.status_code, http.client.BAD_REQUEST)
         payload = json.loads(resp.data)
         self.assertEqual('Redirection not allowed for p2 protocol',
                          payload['message'])
@@ -124,7 +124,7 @@ class ApiproxyGetTest(unittest.TestCase):
     def test_no_srv_records(self, *_args):
         """Test no srv records error when no LB and no SRV records"""
         resp = self.app.get('/type1/cell1/foo/bar')
-        self.assertEqual(resp.status_code, httplib.NOT_FOUND)
+        self.assertEqual(resp.status_code, http.client.NOT_FOUND)
         payload = json.loads(resp.data)
         self.assertEqual('No SRV records found for '
                          '_http._tcp.type1api.cell1.cell',
@@ -135,11 +135,12 @@ class ApiproxyGetTest(unittest.TestCase):
     def test_url_part_encoding(self, *_args):
         """Test whether apiproxy encodes URI components"""
         resp = self.app.get('/type1.json/cell1/foo/bar%2312340230492304')
-        self.assertEqual(resp.status_code, httplib.OK)
+        self.assertEqual(resp.status_code, http.client.OK)
         payload = json.loads(resp.data)
         self.assertEqual('http://treadmill-ny-foobar.foo.com:9876'
                          '/foo/bar%2312340230492304',
                          payload['target'])
+
 
 if __name__ == '__main__':
     unittest.main()

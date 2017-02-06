@@ -1,6 +1,5 @@
 """Helper tools for jsonschema."""
 
-from __future__ import absolute_import
 
 import os
 

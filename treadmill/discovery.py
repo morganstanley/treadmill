@@ -1,8 +1,6 @@
 """List Treadmill endpoints matching a given pattern."""
 
-from __future__ import absolute_import
-
-import Queue
+import queue
 import fnmatch
 import logging
 
@@ -19,7 +17,7 @@ class Discovery(object):
     def __init__(self, zkclient, pattern, endpoint):
         _LOGGER.debug('Treadmill discovery: %s:%s', pattern, endpoint)
 
-        self.queue = Queue.Queue()
+        self.queue = queue.Queue()
         # Pattern is assumed to be in the form of <proid>.<pattern>
         self.prefix, self.pattern = pattern.split('.', 1)
         if self.pattern.find('#') == -1:
@@ -37,7 +35,7 @@ class Discovery(object):
                 if (endpoint, hostport) == (None, None):
                     break
                 yield (endpoint, hostport)
-            except Queue.Empty:
+            except queue.Empty:
                 break
 
     def apps_watcher(self, event):
@@ -121,5 +119,5 @@ def iterator(zkclient, pattern, endpoint, watch):
     if not watch:
         app_discovery.exit_loop()
 
-    for (app, hostport) in app_discovery.iteritems():
+    for (app, hostport) in app_discovery.items():
         yield app, hostport

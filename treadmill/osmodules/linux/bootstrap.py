@@ -1,5 +1,5 @@
 """Bootstrap implementation for linux."""
-from __future__ import absolute_import
+
 
 import abc
 import logging

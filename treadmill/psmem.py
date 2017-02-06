@@ -3,7 +3,7 @@
 The code is based on:
 https://raw.githubusercontent.com/pixelb/ps_mem/master/ps_mem.py
 """
-from __future__ import absolute_import
+
 
 import sys
 import errno
@@ -197,7 +197,7 @@ def get_memory_usage(pids, exclude=None, use_pss=True):
         mem_ids.setdefault(cmd, {}).update({mem_id: None})
 
     # Aggregate for same progs.
-    for cmd, meminfo in meminfos.iteritems():
+    for cmd, meminfo in meminfos.items():
         cmd_count = meminfo['count']
         if len(mem_ids[cmd]) == 1 and cmd_count > 1:
             # Assume this program is using CLONE_VM without CLONE_THREAD

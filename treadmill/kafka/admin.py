@@ -9,7 +9,6 @@ instances. This includes the following:
     - Deleting topics
 """
 
-from __future__ import absolute_import
 
 import logging
 

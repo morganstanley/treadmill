@@ -1,8 +1,10 @@
 """Manage Treadmill app manifest."""
-from __future__ import absolute_import
+
 
 import logging
-import urllib
+import urllib.request
+import urllib.parse
+import urllib.error
 
 import click
 
@@ -24,7 +26,7 @@ def _show_state(apis, match):
     """Show cell state."""
     url = '/state/'
     if match:
-        url += '?' + urllib.urlencode([('match', match)])
+        url += '?' + urllib.parse.urlencode([('match', match)])
 
     response = restclient.get(apis, url)
     cli.out(_STATE_FORMATTER(response.json()))
@@ -34,18 +36,18 @@ def _show_list(apis, match, states):
     """Show list of instnces in given state."""
     url = '/state/'
     if match:
-        url += '?' + urllib.urlencode([('match', match)])
+        url += '?' + urllib.parse.urlencode([('match', match)])
 
     response = restclient.get(apis, url)
     names = [item['name']
              for item in response.json() if item['state'] in states]
     for name in names:
-        print name
+        print(name)
 
 
 def _show_endpoints(apis, pattern, endpoint, proto):
     """Show cell endpoints."""
-    url = '/endpoint/%s' % urllib.quote(pattern)
+    url = '/endpoint/%s' % urllib.parse.quote(pattern)
     if endpoint:
         if proto:
             url += '/' + proto
@@ -67,7 +69,7 @@ def _show_endpoints(apis, pattern, endpoint, proto):
 
 def _show_instance(apis, instance_id):
     """Show instance manifest."""
-    url = '/instance/%s' % urllib.quote(instance_id)
+    url = '/instance/%s' % urllib.parse.quote(instance_id)
 
     response = restclient.get(apis, url)
     cli.out(_APP_FORMATTER(response.json()))

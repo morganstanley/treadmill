@@ -1,5 +1,5 @@
 """Treadmill ZooKeeper helper functions."""
-from __future__ import absolute_import
+
 
 import sys
 
@@ -130,7 +130,7 @@ def make_safe_create(zkclient):
     """Makes a wrapper for kazoo.client.create enforcing default acl."""
     _create = zkclient.create
 
-    def safe_create(self_unused, path, value='', acl=None, ephemeral=False,
+    def safe_create(self_unused, path, value=b'', acl=None, ephemeral=False,
                     sequence=False, makepath=False):
         """Safe wrapper around kazoo.client.create"""
         return _create(path, value=value, acl=make_default_acl(acl),
@@ -317,7 +317,7 @@ class SequenceNodeWatch(object):
 
         # Sort nodes by seq #
         for seq, node in sorted(seq_children):
-            if seq > self.last:
+            if not self.last or seq > self.last:
                 self.last = seq
                 yield node
 
@@ -371,12 +371,12 @@ def watch_sequence(zkclient, path, func, delim='-', pattern=None,
 
 def _payload(data=None):
     """Converts payload to yaml."""
-    payload = ''
+    payload = b''
     if data is not None:
-        if isinstance(data, str) or isinstance(data, unicode):
+        if isinstance(data, str):
             payload = data
         else:
-            payload = yaml.dump(data)
+            payload = yaml.dump(data).encode()
     return payload
 
 

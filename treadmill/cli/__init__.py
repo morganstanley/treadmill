@@ -1,5 +1,5 @@
 """Treadmill commaand line helpers."""
-from __future__ import absolute_import
+
 
 import copy
 import json
@@ -22,6 +22,7 @@ import treadmill
 from treadmill import context
 from treadmill import utils
 from treadmill import restclient
+import collections
 
 
 __path__ = pkgutil.extend_path(__path__, __name__)
@@ -38,7 +39,7 @@ def init_logger(name):
             logging.config.dictConfig(log_config)
 
     except IOError:
-        with tempfile.NamedTemporaryFile(delete=False) as f:
+        with tempfile.NamedTemporaryFile(delete=False, mode='w') as f:
             traceback.print_exc(file=f)
             click.echo('Unable to load log conf: %s [ %s ]' %
                        (log_conf_file, f.name), err=True)
@@ -72,7 +73,7 @@ def make_multi_command(module_name):
                 mod = importlib.import_module(full_name)
                 return mod.init()
             except Exception:  # pylint: disable=W0703
-                with tempfile.NamedTemporaryFile(delete=False) as f:
+                with tempfile.NamedTemporaryFile(delete=False, mode='w') as f:
                     traceback.print_exc(file=f)
                     click.echo(
                         'Unable to load plugin: %s [ %s ]' % (name, f.name),
@@ -238,7 +239,7 @@ def _cell(item, column, key, fmt):
             raw_value = item[key]
             break
 
-    if callable(fmt):
+    if isinstance(fmt, collections.Callable):
         try:
             value = fmt(raw_value)
         except Exception:  # pylint: disable=W0703
@@ -308,7 +309,7 @@ def out(string, *args):
     if args:
         string = string % args
 
-    print string
+    print(string)
 
 
 def handle_exceptions(exclist):
@@ -345,7 +346,7 @@ def handle_exceptions(exclist):
                 return wrapped_f(*args, **kwargs)
             except Exception as unhandled:  # pylint: disable=W0703
 
-                with tempfile.NamedTemporaryFile(delete=False) as f:
+                with tempfile.NamedTemporaryFile(delete=False, mode='w') as f:
                     traceback.print_exc(file=f)
                     click.echo('Error: %s [ %s ]' % (unhandled, f.name),
                                err=True)

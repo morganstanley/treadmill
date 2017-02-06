@@ -1,6 +1,5 @@
 """Container instance events."""
 
-from __future__ import absolute_import
 
 import abc
 import logging
@@ -11,7 +10,7 @@ import enum
 _LOGGER = logging.getLogger(__name__)
 
 
-class AppTraceEvent(object):
+class AppTraceEvent(object, metaclass=abc.ABCMeta):
     """Parent class of all trace events.
 
     Contains the basic attributes of all events as well as the factory method
@@ -19,7 +18,6 @@ class AppTraceEvent(object):
 
     All event classes must derive from this class.
     """
-    __metaclass__ = abc.ABCMeta
 
     __slots__ = (
         'event_type',
@@ -75,7 +73,7 @@ class AppTraceEvent(object):
                 event_data=event_data,
                 payload=payload
             )
-        except StandardError:
+        except Exception:
             _LOGGER.warning('Failed to parse event type %r:', event_type,
                             exc_info=True)
             event = None
@@ -106,7 +104,7 @@ class AppTraceEvent(object):
         try:
             event = eclass(**event_data)
 
-        except StandardError:
+        except Exception:
             _LOGGER.warning('Failed to instanciate event type %r:', event_type,
                             exc_info=True)
             event = None
@@ -472,10 +470,8 @@ class AppTraceEventTypes(enum.Enum):
     service_running = ServiceRunningTraceEvent
 
 
-class AppTraceEventHandler(object):
+class AppTraceEventHandler(object, metaclass=abc.ABCMeta):
     """Base class for processing events."""
-
-    __metaclass__ = abc.ABCMeta
     __slots__ = (
         'ctx',
     )

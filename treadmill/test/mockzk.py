@@ -25,7 +25,7 @@ Usage::
 """
 
 import copy
-import Queue
+import queue
 import threading
 import time
 import unittest
@@ -205,7 +205,7 @@ class MockZookeeperTestCase(unittest.TestCase):
                 return []
 
         if events:
-            self.watch_events = Queue.Queue()
+            self.watch_events = queue.Queue()
 
             def run_events():
                 """Invoke watcher callback for each event."""

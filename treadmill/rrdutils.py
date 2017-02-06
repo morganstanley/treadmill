@@ -1,5 +1,5 @@
 """Useful rrd utility functions."""
-from __future__ import absolute_import
+
 
 import errno
 
@@ -65,7 +65,7 @@ class RRDClient(object):
         if status < 0:
             raise RRDError(reply)
 
-        for _ in xrange(0, status):
+        for _ in range(0, status):
             reply = self.rrd.readline()
             _LOGGER.info('rrd reply: %s', reply)
 
