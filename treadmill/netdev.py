@@ -73,6 +73,7 @@ class DevState(enum.Enum):
     UP = b'up'  # pylint: disable=C0103
     DOWN = b'down'
     UNKNOWN = b'unknown'
+    LOWERLAYERDOWN = b'lowerlayerdown'
 
 
 def dev_state(devname):
