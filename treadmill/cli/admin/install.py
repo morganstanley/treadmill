@@ -8,6 +8,7 @@ import yaml
 
 from treadmill import context
 from treadmill.osmodules import bootstrap
+from treadmill import cli
 
 
 def init():
@@ -15,9 +16,11 @@ def init():
 
     @click.group()
     @click.option('--cell', required=True, envvar='TREADMILL_CELL')
+    @click.option('--zookeeper', required=True, envvar='TREADMILL_ZOOKEEPER',
+                  callback=cli.handle_context_opt,)
     @click.option('--config', required=True, type=click.File(), multiple=True)
     @click.pass_context
-    def install(ctx, cell, config):
+    def install(ctx, cell, zookeeper, config):
         """Installs Treadmill."""
 
         if cell == '-':

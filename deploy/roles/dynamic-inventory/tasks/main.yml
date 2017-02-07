@@ -1,0 +1,16 @@
+---
+- add_host:
+    groupname=ec2instances
+    hostname="{{item.public_ip}}"
+    instance_tags="{{item.tags}}"
+    ansible_user=centos
+  with_items: "{{created_instances.tagged_instances}}"
+
+- name: Wait for SSH
+  local_action:
+    wait_for host="{{ item.public_ip }}"
+    port=22
+    delay=10
+    timeout=240
+    state=started
+  with_items: "{{created_instances.tagged_instances}}"

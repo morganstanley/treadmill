@@ -1,0 +1,4 @@
+---
+- include: vpc.yml
+- include: master.yml
+- include: node.yml

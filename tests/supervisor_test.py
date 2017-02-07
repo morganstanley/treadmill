@@ -152,7 +152,7 @@ class SupervisorTest(unittest.TestCase):
         expected_cmd = ['s6-svwait', '-u', '-t', '0', '-o',
                         svcroot + '/a', svcroot + '/b']
         actual_cmd = treadmill.subproc.check_call.call_args[0][0]
-        self.assertEqual(expected_cmd, actual_cmd)
+        self.assertCountEqual(expected_cmd, actual_cmd)
         treadmill.subproc.check_call.assert_called_with(actual_cmd)
 
         treadmill.subproc.check_call.reset_mock()

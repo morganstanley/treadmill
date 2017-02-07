@@ -1,0 +1,10 @@
+---
+- name: Get external IP from checkip.amazonaws.com
+  uri: 
+    url: http://checkip.amazonaws.com
+    return_content: yes
+  register: local_ip
+
+- name: Set the my_ip variable
+  set_fact:
+    controller_ip: "{{ local_ip.content | replace('\n', '') }}/32"

@@ -1,0 +1,16 @@
+---
+- name: Create security group
+  ec2_group:
+    name: "{{ vpc.sg_name }}"
+    description: "{{ vpc.sg_description }}"
+    vpc_id: "{{ vpc_id }}"
+    region: "{{ vpc.region }}"
+    rules:
+      - proto: tcp
+        from_port: 22
+        to_port: 22
+        cidr_ip: "{{ controller_ip }}"
+      - proto: all
+        group_name: "{{ vpc.sg_name }}"
+  register: sg_info
+

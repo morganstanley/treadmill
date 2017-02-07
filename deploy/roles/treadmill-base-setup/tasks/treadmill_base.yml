@@ -1,0 +1,35 @@
+---
+- name: Checkout treadmill code
+  git:
+    repo: https://github.com/ThoughtWorksInc/treadmill.git
+    dest: "{{ base_dir }}/treadmill"
+    version: standard_setup
+
+- name: Install requirements
+  pip: 
+    requirements: "{{ base_dir }}/treadmill/requirements.txt"
+    virtualenv: "{{ base_dir }}/env"
+
+- name: Install treadmill
+  command: "{{ base_dir }}/env/bin/python setup.py install"
+  args:
+    chdir: "{{ base_dir }}/treadmill"
+
+- name: Create logging directory in venv
+  file:
+    path: "{{base_dir}}/env/lib/python2.7/etc"
+    state: directory
+
+- name: Copy logging files to venv
+  command: "cp -rf {{base_dir}}/treadmill/etc/logging {{base_dir}}/env/lib/python2.7/etc/"
+
+- debug:
+    msg: "{{hostvars.localhost.created_instances.tagged_instances}}"
+
+- name: Drop the env file
+  template: src=env_vars.sh dest="{{ base_dir }}" mode=700
+
+- name: Set treadmill environment variables
+  lineinfile:
+    dest: ~/.bashrc
+    line: "source {{ base_dir }}/env_vars.sh"

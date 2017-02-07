@@ -306,7 +306,7 @@ class AppCfgMgrTest(unittest.TestCase):
         # pylint: disable=W0212
 
         self.appcfgmgr._refresh_supervisor(
-            instance_names=set(['foo#1', 'bar#2'])
+            instance_names=['foo#1', 'bar#2']
         )
 
         treadmill.subproc.check_call.assert_has_calls(
@@ -332,7 +332,8 @@ class AppCfgMgrTest(unittest.TestCase):
                         os.path.join(self.running, 'bar#2'),
                     ]
                 ),
-            ]
+            ],
+            any_order=True
         )
         # Make sure we did the right amount of retries
         treadmill.subproc.call.assert_has_calls(
@@ -367,7 +368,8 @@ class AppCfgMgrTest(unittest.TestCase):
                         os.path.join(self.running, 'bar#2'),
                     ]
                 ),
-            ]
+            ],
+            any_order=True
         )
         self.assertEqual(
             time.sleep.call_count,
