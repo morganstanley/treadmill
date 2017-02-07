@@ -24,7 +24,3 @@ notifications:
 matrix:
   allow_failures:
     - env: TOX_ENV=py34
-
-branches:
-  only:
-    - master
