@@ -580,11 +580,12 @@ class Node(object):
         """Find app placement on the node."""
         if app.allocation is not None:
             if app.allocation.label not in self.labels:
-                _LOGGER.info('Missing label: %s', app.allocation.label)
+                _LOGGER.info('Missing label: %s on %s', app.allocation.label,
+                             self.name)
                 return False
 
         if app.traits != 0 and not self.traits.has(app.traits):
-            _LOGGER.info('Missing traits: %s', app.traits)
+            _LOGGER.info('Missing traits: %s on %s', app.traits, self.name)
             return False
 
         if (self.affinity_counters[app.affinity.name] >=

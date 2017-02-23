@@ -176,7 +176,7 @@ def run(tm_env, container_dir, watchdog, terminated):
         _share_cgroup_info(app, root_dir)
 
         ldpreloads = []
-        if app.ephemeral_ports:
+        if app.ephemeral_ports.tcp or app.ephemeral_ports.udp:
             treadmill_bind_preload = subproc.resolve(
                 'treadmill_bind_preload.so')
             ldpreloads.append(treadmill_bind_preload)
@@ -256,7 +256,7 @@ def _unshare_network(tm_env, app):
                 )
             )
 
-    for port in app.ephemeral_ports:
+    for port in app.ephemeral_ports.tcp:
         _LOGGER.info('Creating ephemeral DNAT rule: %s:%s -> %s:%s',
                      tm_env.host_ip, port,
                      app.network.vip, port)
@@ -271,6 +271,23 @@ def _unshare_network(tm_env, app):
         # behavior.
         iptables.add_ip_set(iptables.SET_INFRA_SVC,
                             '{ip},tcp:{port}'.format(ip=app.network.vip,
+                                                     port=port))
+
+    for port in app.ephemeral_ports.udp:
+        _LOGGER.info('Creating ephemeral DNAT rule: %s:%s -> %s:%s',
+                     tm_env.host_ip, port,
+                     app.network.vip, port)
+        dnatrule = firewall.DNATRule(proto='udp',
+                                     orig_ip=tm_env.host_ip,
+                                     orig_port=port,
+                                     new_ip=app.network.vip,
+                                     new_port=port)
+        tm_env.rules.create_rule(rule=dnatrule,
+                                 owner=unique_name)
+        # Treat ephemeral ports as infra, consistent with current prodperim
+        # behavior.
+        iptables.add_ip_set(iptables.SET_INFRA_SVC,
+                            '{ip},udp:{port}'.format(ip=app.network.vip,
                                                      port=port))
 
     # configure passthrough while on main network.
@@ -328,8 +345,11 @@ def _create_environ_dir(env_dir, app):
         envname = 'TREADMILL_ENDPOINT_{0}'.format(endpoint.name.upper())
         env[envname] = endpoint.real_port
 
-    env['TREADMILL_EPHEMERAL_PORTS'] = ' '.join(
-        [str(port) for port in app.ephemeral_ports]
+    env['TREADMILL_EPHEMERAL_TCP_PORTS'] = ' '.join(
+        [str(port) for port in app.ephemeral_ports.tcp]
+    )
+    env['TREADMILL_EPHEMERAL_UDP_PORTS'] = ' '.join(
+        [str(port) for port in app.ephemeral_ports.udp]
     )
 
     env['TREADMILL_CONTAINER_IP'] = app.vip.ip1
@@ -380,6 +400,28 @@ def _create_supervision_tree(container_dir, app_events_dir, app):
 
     root_pw = pwd.getpwnam('root')
     proid_pw = pwd.getpwnam(app.proid)
+
+    # Create .s6-svscan directories for svscan finish
+    sys_svscandir = os.path.join(sys_dir, '.s6-svscan')
+    fs.mkdir_safe(sys_svscandir)
+
+    svc_svscandir = os.path.join(services_dir, '.s6-svscan')
+    fs.mkdir_safe(svc_svscandir)
+
+    # svscan finish scripts to wait on all services
+    utils.create_script(
+        os.path.join(sys_svscandir, 'finish'),
+        'svscan.finish',
+        timeout=6000,
+        services_dir=sys_dir
+    )
+
+    utils.create_script(
+        os.path.join(svc_svscandir, 'finish'),
+        'svscan.finish',
+        timeout=5000,
+        services_dir='/services'
+    )
 
     for svc in app.services:
         if getattr(svc, 'root', False):
@@ -492,6 +534,13 @@ def _create_root_dir(tm_env, container_dir, root_dir, app):
 
     fs.configure_plugins(tm_env.root, root_dir, app)
 
+    # Ensure .etc directory is clean in case of volume restore.
+    try:
+        shutil.rmtree(os.path.join(root_dir, '.etc'))
+    except OSError as err:
+        if err.errno != errno.ENOENT:
+            raise
+
     shutil.copytree(
         os.path.join(tm_env.root, 'etc'),
         os.path.join(root_dir, '.etc')
@@ -568,87 +617,59 @@ def _allocate_sockets(environment, host_ip, sock_type, count):
     return sockets
 
 
+def _allocate_network_ports_proto(host_ip, manifest, proto, so_type):
+    """Allocate ports for named and unnamed endpoints given protocol."""
+    ephemeral_count = manifest['ephemeral_ports'].get(proto, 0)
+    if isinstance(ephemeral_count, list):
+        ephemeral_count = len(ephemeral_count)
+
+    endpoints = [ep for ep in manifest['endpoints']
+                 if ep.get('proto', 'tcp') == proto]
+    endpoints_count = len(endpoints)
+
+    sockets = _allocate_sockets(
+        manifest['environment'],
+        host_ip,
+        so_type,
+        endpoints_count + ephemeral_count
+    )
+
+    for idx, endpoint in enumerate(endpoints):
+        sock = sockets[idx]
+        endpoint['real_port'] = sock.getsockname()[1]
+
+        # Specifying port 0 tells appmgr that application wants to
+        # have same numeric port value in the container and in
+        # the public interface.
+        #
+        # This is needed for applications that advertise ports they
+        # listen on to other members of the app/cluster.
+        if endpoint['port'] == 0:
+            endpoint['port'] = endpoint['real_port']
+
+    # Ephemeral port are the rest of the ports
+    manifest['ephemeral_ports'][proto] = [
+        sock.getsockname()[1]
+        for sock in sockets[endpoints_count:]
+    ]
+
+    return sockets
+
+
 def _allocate_network_ports(host_ip, manifest):
     """Allocate ports for named and unnamed endpoints.
 
     :returns:
         ``list`` of bound sockets
     """
-    # Ephemeral_ports needs to be a list
-    ephemeral_count = manifest.get('ephemeral_ports', 0)
-    # FIXME(boysson): Hack to work around the fact that we change the type of
-    #                 'ephemeral_ports' from integer to list below
-    if isinstance(ephemeral_count, list):
-        ephemeral_count = len(ephemeral_count)
-
-    udp_port_count = len(
-        [
-            ep
-            for ep in manifest['endpoints']
-            if ep.get('proto', 'tcp') == 'udp'
-        ]
-    )
-    tcp_port_count = (
-        len(manifest['endpoints']) - udp_port_count
-        + ephemeral_count
-    )
-
-    tcp_sockets = _allocate_sockets(
-        manifest['environment'],
-        host_ip,
-        socket.SOCK_STREAM,
-        tcp_port_count
-    )
-    udp_sockets = _allocate_sockets(
-        manifest['environment'],
-        host_ip,
-        socket.SOCK_DGRAM,
-        udp_port_count
-    )
-
-    # Assign the TCP sockets
-    #
-    tcp_sock_iter = iter(tcp_sockets)
-    for endpoint in manifest['endpoints']:
-        if endpoint.get('proto', 'tcp') != 'tcp':
-            continue
-
-        tcp_sock = tcp_sock_iter.next()
-        endpoint['real_port'] = tcp_sock.getsockname()[1]
-
-        # Specifying port 0 tells appmgr that application wants to
-        # have same numeric port value in the container and in
-        # the public interface.
-        #
-        # This is needed for applications that advertise ports they
-        # listen on to other members of the app/cluster.
-        if endpoint['port'] == 0:
-            endpoint['port'] = endpoint['real_port']
-
-    # Ephemeral port are the rest of the TCP ports
-    manifest['ephemeral_ports'] = [
-        tcp_sock.getsockname()[1]
-        for tcp_sock in tcp_sock_iter
-    ]
-
-    # Assign UDP sockets
-    #
-    udp_sock_iter = iter(udp_sockets)
-    for endpoint in manifest['endpoints']:
-        if endpoint.get('proto', 'tcp') != 'udp':
-            continue
-
-        endpoint['real_port'] = udp_sock_iter.next().getsockname()[1]
-
-        # Specifying port 0 tells appmgr that application wants to
-        # have same numeric port value in the container and in
-        # the public interface.
-        #
-        # This is needed for applications that advertise ports they
-        # listen on to other members of the app/cluster.
-        if endpoint['port'] == 0:
-            endpoint['port'] = endpoint['real_port']
-
+    tcp_sockets = _allocate_network_ports_proto(host_ip,
+                                                manifest,
+                                                'tcp',
+                                                socket.SOCK_STREAM)
+    udp_sockets = _allocate_network_ports_proto(host_ip,
+                                                manifest,
+                                                'udp',
+                                                socket.SOCK_DGRAM)
     return tcp_sockets + udp_sockets
 
 

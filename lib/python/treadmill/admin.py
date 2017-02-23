@@ -987,11 +987,17 @@ class Application(LdapObject):
         ('feature', 'features', [str]),
         ('identity-group', 'identity_group', str),
         ('shared-ip', 'shared_ip', bool),
+        ('passthrough', 'passthrough', [str]),
+        ('schedule-once', 'schedule_once', bool),
+        ('ephemeral-ports-tcp', 'ephemeral_ports_tcp', int),
+        ('ephemeral-ports-udp', 'ephemeral_ports_udp', int),
+        ('data-retention-timeout', 'data_retention_timeout', str),
     ]
 
     _svc_schema = [
         ('service-name', 'name', str),
         ('service-command', 'command', str),
+        ('service-root', 'root', bool),
     ]
 
     _svc_restart_schema = [
@@ -1021,6 +1027,15 @@ class Application(LdapObject):
         ('affinity-limit', 'limit', int),
     ]
 
+    _vring_schema = [
+        ('vring-cell', 'cells', [str]),
+    ]
+
+    _vring_rule_schema = [
+        ('vring-rule-endpoint', 'endpoints', [str]),
+        ('vring-rule-pattern', 'pattern', str),
+    ]
+
     _oc = 'tmApp'
     _ou = 'apps'
     _entity = 'app'
@@ -1029,12 +1044,15 @@ class Application(LdapObject):
     def schema():
         """Returns combined schema for retrieval."""
         name_only = lambda schema_rec: (schema_rec[0], None, None)
-        return sum([map(name_only, Application._svc_schema),
-                    map(name_only, Application._svc_restart_schema),
-                    map(name_only, Application._endpoint_schema),
-                    map(name_only, Application._environ_schema),
-                    map(name_only, Application._affinity_schema)],
-                   Application._schema)
+        return sum([
+            map(name_only, Application._svc_schema),
+            map(name_only, Application._svc_restart_schema),
+            map(name_only, Application._endpoint_schema),
+            map(name_only, Application._environ_schema),
+            map(name_only, Application._affinity_schema),
+            map(name_only, Application._vring_schema),
+            map(name_only, Application._vring_rule_schema),
+        ], Application._schema)
 
     def from_entry(self, entry, dn=None):
         """Converts LDAP app object to dict."""
@@ -1050,6 +1068,16 @@ class Application(LdapObject):
             grouped, 'tm-envvar-', Application._environ_schema)
         affinity_limits = _grouped_to_list_of_dict(
             grouped, 'tm-affinity-', Application._affinity_schema)
+        vring_rules = _grouped_to_list_of_dict(
+            grouped, 'tm-vring-rule-', Application._vring_rule_schema)
+
+        obj['ephemeral_ports'] = {}
+        if 'ephemeral_ports_tcp' in obj:
+            obj['ephemeral_ports']['tcp'] = obj['ephemeral_ports_tcp']
+            del obj['ephemeral_ports_tcp']
+        if 'ephemeral_ports_udp' in obj:
+            obj['ephemeral_ports']['udp'] = obj['ephemeral_ports_udp']
+            del obj['ephemeral_ports_udp']
 
         # Merge services and services restarts
         for service in services:
@@ -1063,6 +1091,9 @@ class Application(LdapObject):
         affinity_limits = {affinity['level']: affinity['limit']
                            for affinity in affinity_limits}
 
+        vring = _entry_2_dict(entry, Application._vring_schema)
+        vring['rules'] = vring_rules
+
         obj.update({
             'services': services,
             'endpoints': endpoints,
@@ -1070,11 +1101,24 @@ class Application(LdapObject):
             'affinity_limits': affinity_limits,
         })
 
+        if vring['cells'] or vring['rules']:
+            obj['vring'] = vring
+
         return obj
 
     def to_entry(self, obj):
         """Converts app dictionary to LDAP entry."""
+        if 'ephemeral_ports' in obj:
+            obj['ephemeral_ports_tcp'] = obj['ephemeral_ports'].get('tcp', 0)
+            obj['ephemeral_ports_udp'] = obj['ephemeral_ports'].get('udp', 0)
+
         entry = super(Application, self).to_entry(obj)
+
+        # Clean up
+        if 'ephemeral_ports_tcp' in obj:
+            del obj['ephemeral_ports_tcp']
+        if 'ephemeral_ports_udp' in obj:
+            del obj['ephemeral_ports_udp']
 
         for service in obj.get('services', []):
             service_entry = _dict_2_entry(
@@ -1122,6 +1166,15 @@ class Application(LdapObject):
                                           limit['level'])
 
             entry.update(aff_lim_entry)
+
+        vring = obj.get('vring')
+        if vring:
+            entry.update(_dict_2_entry(vring, Application._vring_schema))
+            for rule in vring.get('rules', []):
+                entry.update(_dict_2_entry(rule,
+                                           Application._vring_rule_schema,
+                                           'tm-vring-rule',
+                                           rule['pattern']))
 
         return entry
 

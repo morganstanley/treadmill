@@ -8,7 +8,6 @@ import os
 import treadmill
 
 from .. import _bootstrap_base
-
 from ... import context
 
 
@@ -86,3 +85,18 @@ class MasterBootstrap(LinuxBootstrap):
             if master['idx'] == self.master_id:
                 params.update({'me': master})
         return params
+
+
+class SpawnBootstrap(LinuxBootstrap):
+    """For bootstrapping the spawn processes on linux."""
+
+    def __init__(self, dst_dir, defaults):
+        super(SpawnBootstrap, self).__init__(
+            os.path.join(treadmill.TREADMILL, 'local', 'linux', 'spawn'),
+            dst_dir,
+            defaults
+        )
+
+    @property
+    def _bin_path(self):
+        return os.path.join('bin', 'run.sh')

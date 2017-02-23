@@ -15,6 +15,10 @@
         "type": "string",
         "pattern": "^\\d+%$"
     },
+    "time_interval": {
+        "type": "string",
+        "pattern": "^\\d+[SsMmHhDdMmYy]$"
+    },
     "proid": {
         "type": "string",
         "maxLength": 16,
@@ -94,6 +98,11 @@
                 "pattern": "^([\\w\\-]+)@([\\w\\-]+)(\\.[\\w\\-]+)+(#\\d+)$"
             }
         ]
+    },
+    "priority": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 100
     },
     "identity_group_id": {
         "type": "string",

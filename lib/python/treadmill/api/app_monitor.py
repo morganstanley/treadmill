@@ -2,11 +2,12 @@
 from __future__ import absolute_import
 
 import logging
+import fnmatch
 
-from .. import context
-from .. import schema
-from .. import authz
-from .. import master
+from treadmill import context
+from treadmill import schema
+from treadmill import authz
+from treadmill import master
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -17,14 +18,23 @@ class API(object):
 
     def __init__(self):
 
-        def _list():
+        def _list(match=None):
             """List configured monitors."""
+            if match is None:
+                match = '*'
+
             zkclient = context.GLOBAL.zk.conn
             monitors = [
                 master.get_appmonitor(zkclient, app)
                 for app in master.appmonitors(zkclient)
             ]
-            return [monitor for monitor in monitors if monitor is not None]
+
+            filtered = [
+                monitor for monitor in monitors
+                if (monitor is not None
+                    and fnmatch.fnmatch(monitor['_id'], match))
+            ]
+            return sorted(filtered)
 
         @schema.schema(
             {'$ref': 'appmonitor.json#/resource_id'},

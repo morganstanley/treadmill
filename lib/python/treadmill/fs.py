@@ -426,6 +426,10 @@ def archive_filesystem(block_dev, rootdir, archive, files):
     :type list:
         ``str``
     """
+    if not files:
+        _LOGGER.info('Nothing to archive.')
+        return True
+
     if not os.path.exists(rootdir):
         _LOGGER.error('Root device directory does not exist: %s', rootdir)
         return False

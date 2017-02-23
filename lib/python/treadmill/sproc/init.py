@@ -68,7 +68,7 @@ def init():
         zk_server_path = z.path.server(hostname)
 
         while not zkclient.exists(zk_server_path):
-            _LOGGER.warn('server not defined in the cell.')
+            _LOGGER.warn('server %s not defined in the cell.', hostname)
             time.sleep(30)
 
         _LOGGER.info('Checking blackout list.')

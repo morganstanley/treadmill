@@ -107,6 +107,31 @@ _DNAT_RULE_RE = re.compile((
     r'$'
 ))
 
+#: String pattern forming SNAT rules for use with iptables
+_SNAT_RULE_PATTERN = ('-d {orig_ip} -p {proto} -m {_proto} --dport {orig_port}'
+                      ' -j SNAT --to {new_ip}:{new_port}')
+
+#: Regular expression scrapping SNAT rules
+_SNAT_RULE_RE = re.compile((
+    r'^-A \w+ ' +
+    # Ignore the chain name
+    _SNAT_RULE_PATTERN.format(
+        # Original IP
+        orig_ip=r'(?P<orig_ip>(?:\d{1,3}\.){3}\d{1,3})/32',
+        # Protocol
+        proto=r'(?P<proto>(?:tcp|udp))',
+        _proto=r'(?P=proto)',
+        # Original Port
+        orig_port=r'(?P<orig_port>\d{1,5})',
+        # New IP
+        new_ip=r'(?P<new_ip>(?:\d{1,3}\.){3}\d{1,3})',
+        # New Port
+        new_port=r'(?P<new_port>\d{1,5})',
+    ) +
+    r'$'
+))
+
+
 #: String pattern forming passthough rules for use with iptables
 _PASSTHROUGH_RULE_PATTERN = \
     '-s {src_ip} -j DNAT --to-destination {dst_ip}'
@@ -348,8 +373,63 @@ def delete_dnat_rule(dnat_rule, chain=PREROUTING_DNAT):
                            ))
 
 
-def get_current_dnat_rules(chain=PREROUTING_DNAT):
-    """Extract all DNAT rules in chain from iptables.
+def add_snat_rule(snat_rule, chain, safe=False):
+    """Adds snat rule to a given chain.
+
+    :param dnat_rule:
+        SNAT rule to insert
+    :type dnat_rule:
+        ``SNATRule``
+    :param chain:
+        Name of the chain where to insert the new rule.
+    :type chain:
+        ``str``
+    :param safe:
+        Query iptables prior to adding to prevent duplicates
+    :param safe:
+        ``bool``
+    """
+    return add_raw_rule(
+        'nat', chain,
+        _SNAT_RULE_PATTERN.format(
+            proto=snat_rule.proto,
+            _proto=snat_rule.proto,
+            orig_ip=snat_rule.orig_ip,
+            orig_port=snat_rule.orig_port,
+            new_ip=snat_rule.new_ip,
+            new_port=snat_rule.new_port,
+        ),
+        safe
+    )
+
+
+def delete_snat_rule(snat_rule, chain):
+    """Deletes snat rule from a given chain.
+
+    :param chain:
+        Name of the chain from where to remove the rule.
+    :type chain:
+        ``str``
+    :param snat_rule:
+        SNAT rule to remove
+    :type snat_rule:
+        ``SNATRule``
+    """
+    return delete_raw_rule(
+        'nat', chain,
+        _SNAT_RULE_PATTERN.format(
+            proto=snat_rule.proto,
+            _proto=snat_rule.proto,
+            orig_ip=snat_rule.orig_ip,
+            orig_port=snat_rule.orig_port,
+            new_ip=snat_rule.new_ip,
+            new_port=snat_rule.new_port,
+        )
+    )
+
+
+def get_current_nat_rules(chain=PREROUTING_DNAT):
+    """Extract all DNAT/SNAT rules in chain from iptables.
 
     :param chain:
         Iptables chain to process. If ``None``, the default chain
@@ -357,31 +437,42 @@ def get_current_dnat_rules(chain=PREROUTING_DNAT):
     :type chain:
         ``str``
     :returns:
-        ``set([DNATRule])`` -- Set of rules.
+        ``set([DNATRule|SNATRule])`` -- Set of rules.
     """
     rules = set()
     if chain is None:
         chain = PREROUTING_DNAT
     iptables_cmd = ['iptables', '-t', 'nat', '-S', chain]
     for line in subproc.check_output(iptables_cmd).splitlines():
-        match = _DNAT_RULE_RE.match(line.strip())
-        if match:
-            data = match.groupdict()
+        dnat_match = _DNAT_RULE_RE.match(line.strip())
+        if dnat_match:
+            data = dnat_match.groupdict()
             rule = firewall.DNATRule(
                 data['proto'],
                 data['orig_ip'], int(data['orig_port']),
                 data['new_ip'], int(data['new_port'])
             )
             rules.add(rule)
+            continue
+        snat_match = _SNAT_RULE_RE.match(line.strip())
+        if snat_match:
+            data = snat_match.groupdict()
+            rule = firewall.SNATRule(
+                data['proto'],
+                data['orig_ip'], int(data['orig_port']),
+                data['new_ip'], int(data['new_port'])
+            )
+            rules.add(rule)
+            continue
 
     return rules
 
 
-def configure_dnat_rules(target, chain=PREROUTING_DNAT):
-    """Configures iptables DNAT rules.
+def configure_nat_rules(target, chain=PREROUTING_DNAT):
+    """Configures iptables DNAT/SNAT rules.
 
-    The input to the function is target state - a set of DNAT rules that needs
-    to be present.
+    The input to the function is target state - a set of DNAT/SNAT rules that
+    needs to be present.
 
     The function will sync existing iptables configuration with the target
     state, by adding/removing extra rules.
@@ -389,22 +480,28 @@ def configure_dnat_rules(target, chain=PREROUTING_DNAT):
     :param target:
         Desired set of rules
     :type target:
-        ``set([DNATRule])``
+        ``set([DNATRule|SNATRule])``
     :param chain:
         Iptables chain to process.
     :type chain:
         ``str``
     """
-    current = get_current_dnat_rules(chain)
+    current = get_current_nat_rules(chain)
 
-    _LOGGER.info('Current %s DNAT: %s', chain, current)
-    _LOGGER.info('Target %s DNAT: %s', chain, target)
+    _LOGGER.info('Current %s DNAT/SNAT: %s', chain, current)
+    _LOGGER.info('Target %s DNAT/SNAT: %s', chain, target)
 
     # Sync current and desired state.
     for rule in current - target:
-        delete_dnat_rule(rule, chain=chain)
+        if isinstance(rule, firewall.DNATRule):
+            delete_dnat_rule(rule, chain=chain)
+        elif isinstance(rule, firewall.SNATRule):
+            delete_snat_rule(rule, chain=chain)
     for rule in target - current:
-        add_dnat_rule(rule, chain=chain)
+        if isinstance(rule, firewall.DNATRule):
+            add_dnat_rule(rule, chain=chain)
+        elif isinstance(rule, firewall.SNATRule):
+            add_snat_rule(rule, chain=chain)
 
 
 def get_current_passthrough_rules(chain=PREROUTING_PASSTHROUGH):
@@ -558,17 +655,17 @@ def add_rule(rule, chain=None):
     :type chain:
         ``str``
     """
+    if chain is None:
+        chain = PREROUTING_DNAT
+
     if isinstance(rule, firewall.DNATRule):
-        if chain is not None:
-            add_dnat_rule(rule, chain=chain)
-        else:
-            add_dnat_rule(rule)
+        add_dnat_rule(rule, chain=chain)
+
+    elif isinstance(rule, firewall.SNATRule):
+        add_snat_rule(rule, chain=chain)
 
     elif isinstance(rule, firewall.PassThroughRule):
-        if chain is not None:
-            add_passthrough_rule(rule, chain=chain)
-        else:
-            add_passthrough_rule(rule)
+        add_passthrough_rule(rule, chain=chain)
     else:
         raise ValueError("Unknown rule type %r" % (type(rule)))
 
@@ -586,17 +683,17 @@ def delete_rule(rule, chain=None):
     :type chain:
         ``str``
     """
+    if chain is None:
+        chain = PREROUTING_DNAT
+
     if isinstance(rule, firewall.DNATRule):
-        if chain is not None:
-            delete_dnat_rule(rule, chain=chain)
-        else:
-            delete_dnat_rule(rule)
+        delete_dnat_rule(rule, chain=chain)
+
+    elif isinstance(rule, firewall.SNATRule):
+        delete_snat_rule(rule, chain=chain)
 
     elif isinstance(rule, firewall.PassThroughRule):
-        if chain is not None:
-            delete_passthrough_rule(rule, chain=chain)
-        else:
-            delete_passthrough_rule(rule)
+        delete_passthrough_rule(rule, chain=chain)
 
     else:
         raise ValueError("Unknown rule type %r" % (type(rule)))
@@ -616,16 +713,22 @@ def configure_rules(target):
     :type target:
         ``set([])``
     """
-    dnat_rules = set([rule for rule in target
-                      if isinstance(rule, firewall.DNATRule)])
-    passthrough_rules = set([rule for rule in target
-                             if isinstance(rule, firewall.PassThroughRule)])
+    nat_rules = {
+        rule
+        for rule in target
+        if isinstance(rule, (firewall.DNATRule, firewall.SNATRule))
+    }
+    passthrough_rules = {
+        rule
+        for rule in target
+        if isinstance(rule, firewall.PassThroughRule)
+    }
 
-    unknown_rules = target - (dnat_rules | passthrough_rules)
+    unknown_rules = target - (nat_rules | passthrough_rules)
     if unknown_rules:
         raise ValueError("Unknown rules %r" % (unknown_rules, ))
 
-    configure_dnat_rules(dnat_rules)
+    configure_nat_rules(nat_rules)
     configure_passthrough_rules(passthrough_rules)
 
 

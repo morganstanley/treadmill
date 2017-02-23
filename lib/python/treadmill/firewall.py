@@ -44,7 +44,7 @@ class DNATRule(object):
 
     def __repr__(self):
         return '{cls}({proto}:{origip}:{origport}->{newip}:{newport})'.format(
-            cls=self.__class__.__name__,
+            cls=type(self).__name__,
             proto=self.proto,
             origip=self.orig_ip,
             origport=self.orig_port,
@@ -54,6 +54,7 @@ class DNATRule(object):
 
     def __eq__(self, other):
         return (
+            type(self) is type(other) and
             self.proto == other.proto and
             self.orig_ip == other.orig_ip and
             self.orig_port == other.orig_port and
@@ -64,6 +65,79 @@ class DNATRule(object):
     def __hash__(self):
         return hash(
             (
+                type(self),
+                self.proto,
+                self.orig_ip,
+                self.orig_port,
+                self.new_ip,
+                self.new_port,
+            )
+        )
+
+
+class SNATRule(object):
+    """Definition of a SNAT Rule
+
+    :param proto:
+        Proto for the redirection
+    :type proto:
+        ``str``
+    :param orig_ip:
+        Original destination IP to be rewriten.
+    :type orig_ip:
+        ``str``
+    :param orig_port:
+        Original destination prot to be rewriten.
+    :type orig_port:
+        ``str``
+    :param new_ip:
+        New source IP.
+    :type new_ip:
+        ``str``
+    :param new_port:
+        New source port.
+    :type new_port:
+        ``str``
+    """
+    __slots__ = (
+        'proto',
+        'orig_ip',
+        'orig_port',
+        'new_ip',
+        'new_port',
+    )
+
+    def __init__(self, proto, orig_ip, orig_port, new_ip, new_port):
+        self.proto = proto
+        self.orig_ip = orig_ip
+        self.orig_port = orig_port
+        self.new_ip = new_ip
+        self.new_port = new_port
+
+    def __repr__(self):
+        return '{cls}({proto}:{origip}:{origport}->{newip}:{newport})'.format(
+            cls=type(self).__name__,
+            proto=self.proto,
+            origip=self.orig_ip,
+            origport=self.orig_port,
+            newip=self.new_ip,
+            newport=self.new_port,
+        )
+
+    def __eq__(self, other):
+        return (
+            type(self) is type(other) and
+            self.proto == other.proto and
+            self.orig_ip == other.orig_ip and
+            self.orig_port == other.orig_port and
+            self.new_ip == other.new_ip and
+            self.new_port == other.new_port
+        )
+
+    def __hash__(self):
+        return hash(
+            (
+                type(self),
                 self.proto,
                 self.orig_ip,
                 self.orig_port,

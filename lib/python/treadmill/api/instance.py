@@ -1,6 +1,7 @@
 """Implementation of instance API."""
 from __future__ import absolute_import
 
+import fnmatch
 import importlib
 import logging
 
@@ -10,6 +11,7 @@ from treadmill import context
 from treadmill import exc
 from treadmill import master
 from treadmill import schema
+from treadmill import utils
 
 from treadmill.api import app
 
@@ -21,9 +23,17 @@ _LOGGER = logging.getLogger(__name__)
     {'allOf': [{'$ref': 'instance.json#/resource'},
                {'$ref': 'instance.json#/verbs/schedule'}]},
 )
-def _validate(_rsrc):
+def _validate(rsrc):
     """Validate instance manifest."""
-    pass
+    memory_mb = utils.megabytes(rsrc['memory'])
+    if memory_mb < 100:
+        raise exc.TreadmillError(
+            'memory size should be larger than or equal to 100M')
+
+    disk_mb = utils.megabytes(rsrc['disk'])
+    if disk_mb < 100:
+        raise exc.TreadmillError(
+            'disk size should be larger than or equal to 100M')
 
 
 class API(object):
@@ -38,11 +48,19 @@ class API(object):
         except ImportError as err:
             _LOGGER.info('Unable to load auth plugin: %s', err)
 
-        def _list():
+        def _list(match=None):
             """List configured instances."""
-            return master.list_scheduled_apps(
-                context.GLOBAL.zk.conn
-            )
+            if match is None:
+                match = '*'
+            if '#' not in match:
+                match += '#*'
+
+            instances = master.list_scheduled_apps(context.GLOBAL.zk.conn)
+            filtered = [
+                inst for inst in instances
+                if fnmatch.fnmatch(inst, match)
+            ]
+            return sorted(filtered)
 
         @schema.schema({'$ref': 'instance.json#/resource_id'})
         def get(rsrc_id):

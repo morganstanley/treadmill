@@ -115,6 +115,7 @@ def init():
     @click.group()
     @click.option('--zookeeper', required=False,
                   callback=cli.handle_context_opt,
+                  envvar='TREADMILL_ZOOKEEPER',
                   expose_value=False)
     @click.option('--cell', required=True,
                   envvar='TREADMILL_CELL',

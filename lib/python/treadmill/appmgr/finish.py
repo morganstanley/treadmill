@@ -216,23 +216,22 @@ def _cleanup(tm_env, zkclient, container_dir, app):
     )
 
     # Tar up container root filesystem if archive list is in manifest
-    if getattr(app, 'archive', []):
-        try:
-            localdisk = localdisk_client.get(unique_name)
-            fs.archive_filesystem(
-                localdisk['block_dev'],
-                rootdir,
-                archive_filename,
-                app.archive
-            )
-        except services.ResourceServiceError:
-            _LOGGER.warning('localdisk never allocated')
-        except subprocess.CalledProcessError:
-            _LOGGER.exception('Unable to archive root device of %r',
-                              unique_name)
-        except:  # pylint: disable=W0702
-            _LOGGER.exception('Unknow exception while archiving %r',
-                              unique_name)
+    try:
+        localdisk = localdisk_client.get(unique_name)
+        fs.archive_filesystem(
+            localdisk['block_dev'],
+            rootdir,
+            archive_filename,
+            app.archive
+        )
+    except services.ResourceServiceError:
+        _LOGGER.warning('localdisk never allocated')
+    except subprocess.CalledProcessError:
+        _LOGGER.exception('Unable to archive root device of %r',
+                          unique_name)
+    except:  # pylint: disable=W0702
+        _LOGGER.exception('Unknown exception while archiving %r',
+                          unique_name)
 
     # Destroy the volume
     try:
@@ -297,6 +296,10 @@ def _cleanup_network(tm_env, app, network_client):
         _LOGGER.warning('network never allocated')
         return
 
+    if app_network is None:
+        _LOGGER.info('Network resource already freed')
+        return
+
     # Unconfigure passthrough
     if hasattr(app, 'passthrough'):
         _LOGGER.info('Deleting passthrough for: %r',
@@ -336,27 +339,35 @@ def _cleanup_network(tm_env, app, network_client):
                 )
             )
 
-    if hasattr(app, 'ephemeral_ports'):
-        for port in app.ephemeral_ports:
-            # We treat ephemeral ports as infra, consistent with current
-            # prodperim behavior.
-            iptables.rm_ip_set(
-                iptables.SET_INFRA_SVC,
-                '{ip},tcp:{port}'.format(ip=app_network['vip'],
-                                         port=port)
-            )
-            dnatrule = firewall.DNATRule(proto='tcp',
-                                         orig_ip=tm_env.host_ip,
-                                         orig_port=port,
-                                         new_ip=app_network['vip'],
-                                         new_port=port)
-            tm_env.rules.unlink_rule(rule=dnatrule,
-                                     owner=unique_name)
+    _cleanup_ports(tm_env, unique_name,
+                   app_network['vip'], app.ephemeral_ports.tcp, 'tcp')
+    _cleanup_ports(tm_env, unique_name,
+                   app_network['vip'], app.ephemeral_ports.udp, 'udp')
 
     # Terminate any entries in the conntrack table
     iptables.flush_conntrack_table(app_network['vip'])
     # Cleanup network resources
     network_client.delete(unique_name)
+
+
+def _cleanup_ports(tm_env, unique_name, vip, ports, proto):
+    """Cleanup firewall rules for ports."""
+    for port in ports:
+        # We treat ephemeral ports as infra, consistent with current
+        # prodperim behavior.
+        iptables.rm_ip_set(
+            iptables.SET_INFRA_SVC,
+            '{ip},{proto}:{port}'.format(ip=vip,
+                                         proto=proto,
+                                         port=port)
+        )
+        dnatrule = firewall.DNATRule(proto=proto,
+                                     orig_ip=tm_env.host_ip,
+                                     orig_port=port,
+                                     new_ip=vip,
+                                     new_port=port)
+        tm_env.rules.unlink_rule(rule=dnatrule,
+                                 owner=unique_name)
 
 
 def _kill_apps_by_root(approot):
@@ -491,7 +502,7 @@ def _archive_logs(tm_env, container_dir):
         for cfg in cfgs:
             _add(f, cfg)
 
-        _add(f, os.path.join(container_dir, 'run.out'))
+        _add(f, os.path.join(container_dir, 'log', 'current'))
 
     with tarfile.open(app_archive_name, 'w:gz') as f:
         logs = glob.glob(

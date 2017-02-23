@@ -36,6 +36,14 @@ def init(apis, title=None, cors_origin=None):
 
     error_handlers.register(api)
 
+    # load up any external error_handlers
+    try:
+        err_handlers_plugin = importlib.import_module(
+            'treadmill.plugins.rest.error_handlers')
+        err_handlers_plugin.init(api)
+    except ImportError as err:
+        _LOGGER.warn('Unable to load error_handlers plugin: %s', err)
+
     @blueprint.route('/docs/', endpoint='docs')
     def _swagger_ui():
         """Swagger documentation route"""
@@ -73,6 +81,7 @@ def init(apis, title=None, cors_origin=None):
 
     authorizer = authz.PluginAuthorizer(user_clbk)
 
+    endpoints = []
     for apiname in apis:
         try:
             apimod = apiname.replace('-', '_')
@@ -86,7 +95,16 @@ def init(apis, title=None, cors_origin=None):
             api_impl = api_implmod.init(authorizer)
             api_restmod.init(api, cors, api_impl)
 
+            endpoint = '/' + apiname.replace('_', '-')
+
+            if hasattr(api_restmod, 'endpoint_name'):
+                endpoint = api_restmod.endpoint_name()
+                if not endpoint.startswith('/'):
+                    endpoint = '/' + endpoint
+
+            endpoints.append(endpoint)
+
         except ImportError as err:
             _LOGGER.warn('Unable to load %s api: %s', apimod, err)
 
-    return ['/' + apimod.replace('_', '-') for apimod in apis]
+    return endpoints

@@ -176,8 +176,7 @@ class AppCfgMgr(object):
                             instance_name)
             return
 
-        else:
-            self._configure(instance_name)
+        elif self._configure(instance_name):
             self._refresh_supervisor(instance_names=[instance_name])
 
     def _on_deleted(self, event_file):
@@ -293,8 +292,8 @@ class AppCfgMgr(object):
                 self.tm_env.running_dir,
                 instance_name
             )
-            self._configure(instance_name)
-            added_instances.add(instance_name)
+            if self._configure(instance_name):
+                added_instances.add(instance_name)
 
         _LOGGER.debug('End resuld: %r / %r - %r + %r',
                       cached_containers,
@@ -312,10 +311,10 @@ class AppCfgMgr(object):
 
         - Runs app_configure --approot <rootdir> cache/<instance>
 
-        :param instance_name:
+        :param ``str`` instance_name:
             Name of the instance to configure
-        :type instance_name:
-            ``str``
+        :returns ``bool``:
+            True for successfully configured container.
         """
         event_file = os.path.join(
             self.tm_env.cache_dir,
@@ -330,11 +329,13 @@ class AppCfgMgr(object):
                     container_dir,
                     os.path.join(self.tm_env.running_dir, instance_name)
                 )
+                return True
 
             except Exception as err:  # pylint: disable=W0703
                 _LOGGER.exception('Error configuring (%r)', event_file)
                 app_abort.abort(self.tm_env, event_file, err)
                 fs.rm_safe(event_file)
+                return False
 
     def _terminate(self, instance_name):
         """Removes application from the supervised running list.

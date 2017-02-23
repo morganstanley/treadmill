@@ -26,7 +26,7 @@ class ApiAppTest(unittest.TestCase):
     def test_list(self):
         """Dummy test for treadmill.api.cell._list()"""
         app_admin = admin.Application(None)
-        self.app.list()
+        self.app.list('*')
         self.assertTrue(app_admin.list.called)
 
     @mock.patch('treadmill.context.AdminContext.conn',

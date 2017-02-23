@@ -376,10 +376,13 @@ class Master(object):
             _LOGGER.info('Loading allocation: %s, label: %s', name, label)
 
             alloc = self.cell.partitions[label].allocation
+            alloc.label = label
+
             for part in re.split('[/:]', name):
                 alloc = alloc.get_sub_alloc(part)
                 capacity = resources(obj)
                 alloc.update(capacity, obj['rank'], obj.get('max-utilization'))
+                alloc.label = label
 
             for assignment in obj.get('assignments', []):
                 pattern = assignment['pattern'] + '[#]' + ('[0-9]' * 10)
@@ -1028,14 +1031,23 @@ def list_running_apps(zkclient):
 
 def update_app_priorities(zkclient, updates):
     """Updates app priority."""
+    modified = []
     for app_id, priority in updates.iteritems():
         assert 0 <= priority <= 100
 
         app = get_app(zkclient, app_id)
-        app['priority'] = priority
-        zkutils.update(zkclient, _app_node(app_id), app)
+        if app is None:
+            # app does not exist.
+            continue
 
-    create_event(zkclient, 1, 'apps', updates.keys())
+        app['priority'] = priority
+
+        if zkutils.update(zkclient, _app_node(app_id), app,
+                          check_content=True):
+            modified.append(app_id)
+
+    if modified:
+        create_event(zkclient, 1, 'apps', modified)
 
 
 def create_bucket(zkclient, bucket_id, parent_id, traits=0):
@@ -1120,6 +1132,16 @@ def update_server_capacity(zkclient, server_id,
         data['cpu'] = cpu
     if disk:
         data['disk'] = disk
+
+    if zkutils.update(zkclient, node, data, check_content=True):
+        create_event(zkclient, 0, 'servers', [server_id])
+
+
+def update_server_features(zkclient, server_id, features):
+    """Updates server features."""
+    node = z.path.server(server_id)
+    data = zkutils.get(zkclient, node)
+    data['features'] = features
 
     if zkutils.update(zkclient, node, data, check_content=True):
         create_event(zkclient, 0, 'servers', [server_id])

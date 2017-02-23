@@ -60,8 +60,7 @@ class AppMgrFinishTest(unittest.TestCase):
         if self.root and os.path.isdir(self.root):
             shutil.rmtree(self.root)
 
-    @mock.patch('kazoo.client.KazooClient.exists', mock.Mock())
-    @mock.patch('kazoo.client.KazooClient.get_children', mock.Mock())
+    @mock.patch('kazoo.client.KazooClient', mock.Mock(set_spec=True))
     @mock.patch('shutil.copy', mock.Mock())
     @mock.patch('treadmill.appevents.post', mock.Mock())
     @mock.patch('treadmill.utils.datetime_utcnow', mock.Mock(
@@ -74,18 +73,15 @@ class AppMgrFinishTest(unittest.TestCase):
     @mock.patch('treadmill.fs.archive_filesystem',
                 mock.Mock(return_value=True))
     @mock.patch('treadmill.iptables.rm_ip_set', mock.Mock())
+    @mock.patch('treadmill.rrdutils.flush_noexc', mock.Mock())
     @mock.patch('treadmill.subproc.call', mock.Mock(return_value=0))
     @mock.patch('treadmill.subproc.check_call', mock.Mock())
     @mock.patch('treadmill.subproc.invoke', mock.Mock())
-    @mock.patch('treadmill.zkutils.connect', mock.Mock())
-    @mock.patch('treadmill.zkutils.ensure_deleted', mock.Mock())
     @mock.patch('treadmill.zkutils.get',
                 mock.Mock(return_value={
                     'server': 'nonexist',
                     'auth': 'nonexist',
                 }))
-    @mock.patch('treadmill.zkutils.put', mock.Mock())
-    @mock.patch('treadmill.rrdutils.flush_noexc', mock.Mock())
     def test_finish(self):
         """Tests container finish procedure and freeing of the resources.
         """
@@ -122,10 +118,10 @@ class AppMgrFinishTest(unittest.TestCase):
                     'proto': 'tcp',
                 }
             ],
-            'ephemeral_ports': [
-                45024,
-                62422
-            ],
+            'ephemeral_ports': {
+                'tcp': [45024],
+                'udp': [62422],
+            },
             'services': [
                 {
                     'name': 'web_server',
@@ -141,11 +137,11 @@ class AppMgrFinishTest(unittest.TestCase):
         app_unique_name = 'proid.myapp-001-0000000ID1234'
         mock_cgroup_client = self.app_env.svc_cgroup.make_client.return_value
         mock_ld_client = self.app_env.svc_localdisk.make_client.return_value
+        mock_nwrk_client = self.app_env.svc_network.make_client.return_value
         localdisk = {
             'block_dev': '/dev/foo',
         }
         mock_ld_client.get.return_value = localdisk
-        mock_nwrk_client = self.app_env.svc_network.make_client.return_value
         network = {
             'vip': '192.168.0.2',
             'gateway': '192.168.254.254',
@@ -159,11 +155,9 @@ class AppMgrFinishTest(unittest.TestCase):
         # Simulate daemontools finish script, marking the app is done.
         with open(os.path.join(app_dir, 'exitinfo'), 'w') as f:
             f.write(yaml.dump({'service': 'web_server', 'rc': 0, 'sig': 0}))
-        kazoo.client.KazooClient.exists.return_value = True
-        kazoo.client.KazooClient.get_children.return_value = []
+        mock_zkclient = kazoo.client.KazooClient()
 
-        zkclient = kazoo.client.KazooClient()
-        app_finish.finish(self.app_env, zkclient, app_dir)
+        app_finish.finish(self.app_env, mock_zkclient, app_dir)
 
         self.app_env.watchdogs.create.assert_called_with(
             'treadmill.appmgr.finish-' + app_unique_name,
@@ -188,12 +182,17 @@ class AppMgrFinishTest(unittest.TestCase):
                 ),
             ]
         )
+        # All resource service clients are properly created
         self.app_env.svc_cgroup.make_client.assert_called_with(
             os.path.join(app_dir, 'cgroups')
         )
         self.app_env.svc_localdisk.make_client.assert_called_with(
             os.path.join(app_dir, 'localdisk')
         )
+        self.app_env.svc_network.make_client.assert_called_with(
+            os.path.join(app_dir, 'network')
+        )
+
         treadmill.appmgr.finish._kill_apps_by_root.assert_called_with(
             os.path.join(app_dir, 'root')
         )
@@ -209,7 +208,7 @@ class AppMgrFinishTest(unittest.TestCase):
         # Verify that the file is uploaded by Uploader
         app = utils.to_obj(manifest)
         treadmill.appmgr.finish._send_container_archive.assert_called_with(
-            zkclient,
+            mock_zkclient,
             app,
             os.path.join(app_dir,
                          '001_xxx.xx.com_20150122_141436537918.tar.gz'),
@@ -220,6 +219,8 @@ class AppMgrFinishTest(unittest.TestCase):
         mock_ld_client.delete.assert_called_with(app_unique_name)
         # Cleanup the cgroup resource
         mock_cgroup_client.delete.assert_called_with(app_unique_name)
+        # Cleanup network resources
+        mock_nwrk_client.get.assert_called_with(app_unique_name)
         self.app_env.rules.unlink_rule.assert_has_calls([
             mock.call(rule=firewall.DNATRule('tcp',
                                              '172.31.81.67', 5000,
@@ -233,7 +234,7 @@ class AppMgrFinishTest(unittest.TestCase):
                                              '172.31.81.67', 45024,
                                              '192.168.0.2', 45024),
                       owner=app_unique_name),
-            mock.call(rule=firewall.DNATRule('tcp',
+            mock.call(rule=firewall.DNATRule('udp',
                                              '172.31.81.67', 62422,
                                              '192.168.0.2', 62422),
                       owner=app_unique_name),
@@ -245,9 +246,10 @@ class AppMgrFinishTest(unittest.TestCase):
                 mock.call(treadmill.iptables.SET_INFRA_SVC,
                           '192.168.0.2,tcp:45024'),
                 mock.call(treadmill.iptables.SET_INFRA_SVC,
-                          '192.168.0.2,tcp:62422'),
+                          '192.168.0.2,udp:62422'),
             ]
         )
+        mock_nwrk_client.delete.assert_called_with(app_unique_name)
         treadmill.appevents.post.assert_called_with(
             mock.ANY,
             events.FinishedTraceEvent(
@@ -271,8 +273,7 @@ class AppMgrFinishTest(unittest.TestCase):
             os.path.join(app_dir, 'metrics.rrd')
         )
 
-    @mock.patch('kazoo.client.KazooClient.exists', mock.Mock())
-    @mock.patch('kazoo.client.KazooClient.get_children', mock.Mock())
+    @mock.patch('kazoo.client.KazooClient', mock.Mock(set_spec=True))
     @mock.patch('shutil.copy', mock.Mock())
     @mock.patch('treadmill.appevents.post', mock.Mock())
     @mock.patch('treadmill.appmgr.finish._kill_apps_by_root', mock.Mock())
@@ -287,9 +288,7 @@ class AppMgrFinishTest(unittest.TestCase):
     @mock.patch('treadmill.subproc.call', mock.Mock(return_value=0))
     @mock.patch('treadmill.subproc.check_call', mock.Mock())
     @mock.patch('treadmill.subproc.invoke', mock.Mock())
-    @mock.patch('treadmill.zkutils.connect', mock.Mock())
-    @mock.patch('treadmill.zkutils.put', mock.Mock())
-    @mock.patch('treadmill.zkutils.ensure_deleted', mock.Mock())
+    @mock.patch('treadmill.zkutils.get', mock.Mock(return_value=None))
     @mock.patch('treadmill.rrdutils.flush_noexc', mock.Mock())
     def test_finish_error(self):
         """Tests container finish procedure when app is improperly finished."""
@@ -327,6 +326,10 @@ class AppMgrFinishTest(unittest.TestCase):
                     },
                 }
             ],
+            'ephemeral_ports': {
+                'tcp': [],
+                'udp': [],
+            }
         }
         treadmill.appmgr.manifest.read.return_value = manifest
         app_unique_name = 'proid.myapp-001-0000000001234'
@@ -349,12 +352,12 @@ class AppMgrFinishTest(unittest.TestCase):
         # Simulate daemontools finish script, marking the app is done.
         with open(os.path.join(app_dir, 'exitinfo'), 'w') as f:
             f.write(yaml.dump({'service': 'web_server', 'rc': 1, 'sig': 3}))
-        kazoo.client.KazooClient.exists.return_value = True
-        kazoo.client.KazooClient.get_children.return_value = []
+        mock_zkclient = kazoo.client.KazooClient()
 
         app_finish.finish(
-            self.app_env, kazoo.client.KazooClient(), app_dir
+            self.app_env, mock_zkclient, app_dir
         )
+
         treadmill.appevents.post.assert_called_with(
             mock.ANY,
             events.FinishedTraceEvent(
@@ -378,8 +381,7 @@ class AppMgrFinishTest(unittest.TestCase):
             os.path.join(app_dir, 'metrics.rrd')
         )
 
-    @mock.patch('kazoo.client.KazooClient.exists', mock.Mock())
-    @mock.patch('kazoo.client.KazooClient.get_children', mock.Mock())
+    @mock.patch('kazoo.client.KazooClient', mock.Mock(set_spec=True))
     @mock.patch('shutil.copy', mock.Mock())
     @mock.patch('treadmill.appevents.post', mock.Mock())
     @mock.patch('treadmill.appmgr.manifest.read', mock.Mock())
@@ -392,9 +394,7 @@ class AppMgrFinishTest(unittest.TestCase):
     @mock.patch('treadmill.subproc.call', mock.Mock(return_value=0))
     @mock.patch('treadmill.subproc.check_call', mock.Mock())
     @mock.patch('treadmill.subproc.invoke', mock.Mock())
-    @mock.patch('treadmill.zkutils.connect', mock.Mock())
-    @mock.patch('treadmill.zkutils.put', mock.Mock())
-    @mock.patch('treadmill.zkutils.ensure_deleted', mock.Mock())
+    @mock.patch('treadmill.zkutils.get', mock.Mock(return_value=None))
     @mock.patch('treadmill.rrdutils.flush_noexc', mock.Mock())
     def test_finish_aborted(self):
         """Tests container finish procedure when node is aborted.
@@ -433,6 +433,10 @@ class AppMgrFinishTest(unittest.TestCase):
                     },
                 }
             ],
+            'ephemeral_ports': {
+                'tcp': [],
+                'udp': [],
+            }
         }
         treadmill.appmgr.manifest.read.return_value = manifest
         app_unique_name = 'proid.myapp-001-0000000ID1234'
@@ -455,11 +459,10 @@ class AppMgrFinishTest(unittest.TestCase):
         # Simulate daemontools finish script, marking the app is done.
         with open(os.path.join(app_dir, 'aborted'), 'w') as aborted:
             aborted.write('something went wrong')
-        kazoo.client.KazooClient.exists.return_value = True
-        kazoo.client.KazooClient.get_children.return_value = []
+        mock_zkclient = kazoo.client.KazooClient()
 
         app_finish.finish(
-            self.app_env, kazoo.client.KazooClient(), app_dir
+            self.app_env, mock_zkclient, app_dir
         )
 
         treadmill.appevents.post(
@@ -488,6 +491,166 @@ class AppMgrFinishTest(unittest.TestCase):
         """Test app finish on directory with no app.yml.
         """
         app_finish.finish(self.app_env, None, self.root)
+
+    @mock.patch('kazoo.client.KazooClient', mock.Mock(set_spec=True))
+    @mock.patch('shutil.copy', mock.Mock())
+    @mock.patch('treadmill.appevents.post', mock.Mock())
+    @mock.patch('treadmill.utils.datetime_utcnow', mock.Mock(
+        return_value=datetime.datetime(2015, 1, 22, 14, 14, 36, 537918)))
+    @mock.patch('treadmill.appmgr.manifest.read', mock.Mock())
+    @mock.patch('treadmill.appmgr.finish._kill_apps_by_root', mock.Mock())
+    @mock.patch('treadmill.appmgr.finish._send_container_archive', mock.Mock())
+    @mock.patch('treadmill.sysinfo.hostname',
+                mock.Mock(return_value='xxx.ms.com'))
+    @mock.patch('treadmill.fs.archive_filesystem',
+                mock.Mock(return_value=True))
+    @mock.patch('treadmill.iptables.rm_ip_set', mock.Mock())
+    @mock.patch('treadmill.rrdutils.flush_noexc', mock.Mock())
+    @mock.patch('treadmill.subproc.call', mock.Mock(return_value=0))
+    @mock.patch('treadmill.subproc.check_call', mock.Mock())
+    @mock.patch('treadmill.subproc.invoke', mock.Mock())
+    @mock.patch('treadmill.zkutils.get',
+                mock.Mock(return_value={
+                    'server': 'nonexist',
+                    'auth': 'nonexist',
+                }))
+    @mock.patch('treadmill.zkutils.put', mock.Mock())
+    def test_finish_no_resources(self):
+        """Test app finish on directory when all resources are already freed.
+        """
+        # Access protected module _kill_apps_by_root
+        # pylint: disable=W0212
+        manifest = {
+            'app': 'proid.myapp',
+            'cell': 'test',
+            'cpu': '100%',
+            'disk': '100G',
+            'environment': 'dev',
+            'host_ip': '172.31.81.67',
+            'memory': '100M',
+            'name': 'proid.myapp#001',
+            'proid': 'foo',
+            'shared_network': False,
+            'task': '001',
+            'uniqueid': '0000000ID1234',
+            'archive': [
+                '/var/tmp/treadmill'
+            ],
+            'endpoints': [
+                {
+                    'port': 8000,
+                    'name': 'http',
+                    'real_port': 5000
+                },
+                {
+                    'port': 54321,
+                    'type': 'infra',
+                    'name': 'ssh',
+                    'real_port': 54321
+                }
+            ],
+            'ephemeral_ports': {
+                'tcp': [45024],
+                'udp': [62422],
+            },
+            'services': [
+                {
+                    'command': '/bin/false',
+                    'restart_count': 3,
+                    'name': 'web_server'
+                }
+            ],
+        }
+        treadmill.appmgr.manifest.read.return_value = manifest
+        app_unique_name = 'proid.myapp-001-0000000ID1234'
+        mock_cgroup_client = self.app_env.svc_cgroup.make_client.return_value
+        mock_ld_client = self.app_env.svc_localdisk.make_client.return_value
+        mock_nwrk_client = self.app_env.svc_network.make_client.return_value
+        # All resource managers return None
+        mock_cgroup_client.get.return_value = None
+        mock_ld_client.get.return_value = None
+        mock_nwrk_client.get.return_value = None
+        app_dir = os.path.join(self.app_env.apps_dir, app_unique_name)
+        # Create content in app root directory, verify that it is archived.
+        fs.mkdir_safe(os.path.join(app_dir, 'root', 'xxx'))
+        fs.mkdir_safe(os.path.join(app_dir, 'services'))
+        # Simulate daemontools finish script, marking the app is done.
+        with open(os.path.join(app_dir, 'exitinfo'), 'w') as f:
+            f.write(yaml.dump({'service': 'web_server', 'rc': 0, 'sig': 0}))
+        mock_zkclient = kazoo.client.KazooClient()
+
+        app_finish.finish(
+            self.app_env, mock_zkclient, app_dir
+        )
+
+        self.app_env.watchdogs.create.assert_called_with(
+            'treadmill.appmgr.finish-' + app_unique_name,
+            '5m',
+            mock.ANY
+        )
+        treadmill.subproc.check_call.assert_has_calls(
+            [
+                mock.call(
+                    [
+                        's6-svc',
+                        '-d',
+                        app_dir,
+                    ],
+                ),
+                mock.call(
+                    [
+                        's6-svwait',
+                        '-d',
+                        app_dir,
+                    ],
+                ),
+            ]
+        )
+        self.app_env.svc_cgroup.make_client.assert_called_with(
+            os.path.join(app_dir, 'cgroups')
+        )
+        self.app_env.svc_localdisk.make_client.assert_called_with(
+            os.path.join(app_dir, 'localdisk')
+        )
+        self.app_env.svc_network.make_client.assert_called_with(
+            os.path.join(app_dir, 'network')
+        )
+
+        treadmill.appmgr.finish._kill_apps_by_root.assert_called_with(
+            os.path.join(app_dir, 'root')
+        )
+
+        # Verify that the app folder was deleted
+        self.assertFalse(os.path.exists(app_dir))
+        # Cleanup the network resources
+        mock_nwrk_client.get.assert_called_with(app_unique_name)
+        # Cleanup the block device
+        mock_ld_client.delete.assert_called_with(app_unique_name)
+        # Cleanup the cgroup resource
+        mock_cgroup_client.delete.assert_called_with(app_unique_name)
+
+        treadmill.appevents.post.assert_called_with(
+            mock.ANY,
+            events.FinishedTraceEvent(
+                instanceid='proid.myapp#001',
+                rc=0,
+                signal=0,
+                payload={
+                    'service': 'web_server',
+                    'sig': 0,
+                    'rc': 0
+                }
+            )
+        )
+        treadmill.rrdutils.flush_noexc.assert_called_with(
+            os.path.join(self.root, 'metrics', 'apps',
+                         app_unique_name + '.rrd')
+        )
+        shutil.copy.assert_called_with(
+            os.path.join(self.root, 'metrics', 'apps',
+                         app_unique_name + '.rrd'),
+            os.path.join(app_dir, 'metrics.rrd')
+        )
 
     def test__copy_metrics(self):
         """Test that metrics are copied safely.
@@ -540,7 +703,7 @@ class AppMgrFinishTest(unittest.TestCase):
         _touch_file('services/xxx/log/whatever')
         _touch_file('a.yml')
         _touch_file('a.rrd')
-        _touch_file('run.out')
+        _touch_file('log/current')
         _touch_file('whatever')
 
         app_finish._archive_logs(self.app_env, container_dir)
@@ -549,7 +712,7 @@ class AppMgrFinishTest(unittest.TestCase):
         files = sorted([member.name for member in tar.getmembers()])
         self.assertEquals(
             files,
-            ['a.rrd', 'a.yml', 'run.out',
+            ['a.rrd', 'a.yml', 'log/current',
              'sys/bla/log/current', 'sys/foo/log/current']
         )
         tar.close()

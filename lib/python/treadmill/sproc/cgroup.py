@@ -27,9 +27,8 @@ def _transfer_processes(subsystem, fromgroup, togroup):
         try:
             cgroups.set_value(subsystem, togroup, 'tasks', pid)
         except IOError as ioe:  # pylint: disable=W0702
-            if ioe.errno == errno.EINVAL:
-                pass
-            raise
+            if ioe.errno not in [errno.EINVAL, errno.ESRCH]:
+                raise
 
 
 def _read_mounted_cgroups():
@@ -89,25 +88,47 @@ def init():
     @click.option('--mem', callback=cli.validate_memory)
     @click.option('--mem-core', callback=cli.validate_memory)
     @click.option('--cpu', callback=cli.validate_cpu)
-    def cginit(mem, mem_core, cpu):
+    @click.option('--cpu-cores', type=int)
+    def cginit(mem, mem_core, cpu, cpu_cores):
         """Initialize core and system cgroups."""
-        total_cpu_shares = int(sysinfo.total_bogomips())
-        tm_cpu_shares = int(total_cpu_shares * utils.cpu_units(cpu) / 100.0)
-        system_cpu_shares = int(total_cpu_shares - tm_cpu_shares)
-        tm_core_cpu_shares = int(tm_cpu_shares * 0.01)
-        tm_apps_cpu_shares = tm_cpu_shares - tm_core_cpu_shares
+        if cpu_cores > 0:
+            tm_cpu_shares = sysinfo.bogomips_linux(range(0, cpu_cores))
+            tm_core_cpu_shares = int(tm_cpu_shares * 0.01)
+            tm_apps_cpu_shares = tm_cpu_shares - tm_core_cpu_shares
 
-        _LOGGER.info('Configuring CPU limits: '
-                     'total: %d, '
-                     'treadmill: %d, '
-                     'system: %d, '
-                     'treadmill core: %d, '
-                     'treadmill apps: %d',
-                     total_cpu_shares,
-                     tm_cpu_shares,
-                     system_cpu_shares,
-                     tm_core_cpu_shares,
-                     tm_apps_cpu_shares)
+            total_cores = sysinfo.cpu_count()
+            system_cores = range(cpu_cores, total_cores)
+            system_cpu_shares = sysinfo.bogomips_linux(system_cores)
+
+            _LOGGER.info('Configuring CPU limits: '
+                         'treadmill cores: %d, '
+                         'treadmill: %d, '
+                         'treadmill core: %d, '
+                         'treadmill apps: %d',
+                         cpu_cores,
+                         tm_cpu_shares,
+                         tm_core_cpu_shares,
+                         tm_apps_cpu_shares)
+        else:
+            total_cores = sysinfo.cpu_count()
+            total_cpu_shares = sysinfo.bogomips_linux(range(0, total_cores))
+            tm_cpu_shares = int(total_cpu_shares *
+                                utils.cpu_units(cpu) / 100.0)
+            system_cpu_shares = int(total_cpu_shares - tm_cpu_shares)
+            tm_core_cpu_shares = int(tm_cpu_shares * 0.01)
+            tm_apps_cpu_shares = tm_cpu_shares - tm_core_cpu_shares
+
+            _LOGGER.info('Configuring CPU limits: '
+                         'total: %d, '
+                         'treadmill: %d, '
+                         'system: %d, '
+                         'treadmill core: %d, '
+                         'treadmill apps: %d',
+                         total_cpu_shares,
+                         tm_cpu_shares,
+                         system_cpu_shares,
+                         tm_core_cpu_shares,
+                         tm_apps_cpu_shares)
 
         tm_mem = utils.size_to_bytes(mem)
         tm_core_mem = utils.size_to_bytes(mem_core)
@@ -132,6 +153,7 @@ def init():
                                          tm_cpu_shares,
                                          tm_core_cpu_shares,
                                          tm_apps_cpu_shares,
+                                         cpu_cores,
                                          real_tm_mem,
                                          tm_core_mem)
 
@@ -181,7 +203,7 @@ def init():
                   help='Clean core group.')
     def cgcleanup(delete, apps, core):
         """Kill stale apps in cgroups."""
-        subsystems = ['cpu', 'cpuacct', 'memory', 'blkio']
+        subsystems = ['cpu', 'cpuacct', 'cpuset', 'memory', 'blkio']
         cgrps = []
         if core:
             cgrps.append('treadmill/core/*')
@@ -206,6 +228,7 @@ def init():
             'memory':   '/cgroup/memory',
             'cpu':      '/cgroup/cpu',
             'cpuacct':  '/cgroup/cpuacct',
+            'cpuset':   '/cgroup/cpuset',
             'blkio':    '/cgroup/blkio',
         }
 

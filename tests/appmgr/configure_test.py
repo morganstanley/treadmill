@@ -104,13 +104,7 @@ class AppMgrConfigureTest(unittest.TestCase):
         )
         self.assertTrue(
             os.path.exists(
-                os.path.join(app_dir, 'run.out')
-            )
-        )
-        self.assertTrue(
-            os.path.exists(
-                os.path.join(self.root, 'apps',
-                             "%s.%s" % (app_unique_name, 'run.out'))
+                os.path.join(app_dir, 'log', 'run')
             )
         )
         self.app_env.svc_cgroup.make_client.assert_called_with(

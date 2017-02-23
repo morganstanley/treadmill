@@ -65,7 +65,7 @@ class API(object):
             cell_state['placement'] = updated_placement
             return True
 
-        def _list(match):
+        def _list(match=None):
             """List instances state."""
             if match is None:
                 match = '*'

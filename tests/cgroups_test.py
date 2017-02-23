@@ -136,13 +136,16 @@ class CGroupsTest(unittest.TestCase):
     @mock.patch('treadmill.cgroups.create', mock.Mock())
     @mock.patch('treadmill.cgroups.set_value', mock.Mock())
     @mock.patch('treadmill.cgroups.get_value',
-                mock.Mock(side_effect=['0', '', '1024', '512']))
+                mock.Mock(side_effect=['0', '0', '', '1024', '512']))
+    @mock.patch('treadmill.sysinfo.cpu_count',
+                mock.Mock(return_value=4))
     def test_create_treadmill_cgroups(self):
         """Test the creation of core treadmill cgroups"""
         system_cpu_shares = 50
         treadmill_cpu_shares = 50
         treadmill_core_cpu_shares = 10
         treadmill_apps_cpu_shares = 90
+        treadmill_cpu_cores = 0
         treadmill_mem = 1024
         treadmill_core_mem = 512
         treadmill_apps_mem = treadmill_mem - treadmill_core_mem
@@ -150,6 +153,7 @@ class CGroupsTest(unittest.TestCase):
                                          treadmill_cpu_shares,
                                          treadmill_core_cpu_shares,
                                          treadmill_apps_cpu_shares,
+                                         treadmill_cpu_cores,
                                          treadmill_mem,
                                          treadmill_core_mem)
         calls = [mock.call('cpu', 'system'),
@@ -160,6 +164,8 @@ class CGroupsTest(unittest.TestCase):
                  mock.call('cpuacct', 'treadmill'),
                  mock.call('cpuacct', 'treadmill/core'),
                  mock.call('cpuacct', 'treadmill/apps'),
+                 mock.call('cpuset', 'system'),
+                 mock.call('cpuset', 'treadmill'),
                  mock.call('memory', 'system'),
                  mock.call('memory', 'treadmill'),
                  mock.call('memory', 'treadmill/core'),
@@ -173,6 +179,14 @@ class CGroupsTest(unittest.TestCase):
                            'cpu.shares', treadmill_core_cpu_shares),
                  mock.call('cpu', 'treadmill/apps',
                            'cpu.shares', treadmill_apps_cpu_shares),
+                 mock.call('cpuset', 'system',
+                           'cpuset.mems', '0'),
+                 mock.call('cpuset', 'treadmill',
+                           'cpuset.mems', '0'),
+                 mock.call('cpuset', 'treadmill',
+                           'cpuset.cpus', '0-3'),
+                 mock.call('cpuset', 'system',
+                           'cpuset.cpus', '0-3'),
                  mock.call('memory', 'treadmill',
                            'memory.use_hierarchy', '1'),
                  mock.call('memory', 'treadmill',

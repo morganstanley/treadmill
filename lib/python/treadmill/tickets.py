@@ -181,6 +181,7 @@ class TicketLocker(object):
         - Read list of principals from the application manifest.
         - Send back ticket files for each princ, base64 encoded.
         """
+        _LOGGER.info('Processing request from %s: %s', princ, appname)
         if not princ or not princ.startswith('host/'):
             _LOGGER.error('Host principal expected, got: %s.', princ)
             return
@@ -195,14 +196,18 @@ class TicketLocker(object):
         app = zkutils.with_retry(
             zkutils.get, self.zkclient, appnode)
 
-        principals = set(app.get('tickets', []))
+        _LOGGER.info('Got: %s: %r', appnode, app)
+
+        tickets = set(app.get('tickets', []))
         tkt_dict = dict()
-        for princ in principals:
-            tkt_file = os.path.join(self.tkt_spool_dir, princ)
+        for ticket in tickets:
+            tkt_file = os.path.join(self.tkt_spool_dir, ticket)
             if os.path.exists(tkt_file):
                 with open(tkt_file) as f:
                     encoded = base64.urlsafe_b64encode(f.read())
-                    tkt_dict[princ] = encoded
+                    tkt_dict[ticket] = encoded
+            else:
+                _LOGGER.warn('Ticket file does not exist: %s', tkt_file)
         return tkt_dict
 
 
@@ -222,8 +227,8 @@ def run_server(locker):
             """Callback on received line."""
             appname = line
             tkts = locker.process_request(self.peer(), appname)
-            _LOGGER.info('Sending tickets for: %r', tkts.keys())
             if tkts:
+                _LOGGER.info('Sending tickets for: %r', tkts.keys())
                 for princ, encoded in tkts.iteritems():
                     if encoded:
                         _LOGGER.info('Sending ticket: %s:%s',
@@ -233,6 +238,9 @@ def run_server(locker):
                     else:
                         _LOGGER.info('Sending ticket %s, None', princ)
                         self.write('%s:' % princ)
+            else:
+                _LOGGER.info('No tickets found for app: %s', appname)
+
             self.write('')
 
     class TicketLockerServerFactory(protocol.Factory):

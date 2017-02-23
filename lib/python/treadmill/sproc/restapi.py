@@ -1,6 +1,8 @@
 """Implementation of treadmill API server plugin."""
 from __future__ import absolute_import
 
+import sys
+
 import click
 
 from .. import rest
@@ -16,7 +18,8 @@ def init():
     """Return top level command handler."""
 
     @click.command()
-    @click.option('-p', '--port', required=True)
+    @click.option('-p', '--port', help='Port for TCP server')
+    @click.option('-s', '--socket', help='Socket for UDS server')
     @click.option('-a', '--auth', type=click.Choice(['spnego']))
     @click.option('-t', '--title', help='API Doc Title',
                   default='Treadmill REST API')
@@ -24,13 +27,21 @@ def init():
                   required=True, type=cli.LIST)
     @click.option('-c', '--cors-origin', help='CORS origin REGEX',
                   required=True)
-    def top(port, auth, title, modules, cors_origin):
+    def top(port, socket, auth, title, modules, cors_origin):
         """Run Treadmill API server."""
         context.GLOBAL.zk.conn.add_listener(zkutils.exit_on_lost)
 
         api_paths = api.init(modules, title.replace('_', ' '), cors_origin)
 
-        rest_server = rest.RestServer(port)
-        rest_server.run(auth_type=auth, protect=api_paths)
+        if port:
+            rest_server = rest.TcpRestServer(port, auth_type=auth,
+                                             protect=api_paths)
+        elif socket:
+            rest_server = rest.UdsRestServer(socket)
+        else:
+            click.echo('port or socket must be specified')
+            sys.exit(1)
+
+        rest_server.run()
 
     return top

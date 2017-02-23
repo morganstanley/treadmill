@@ -66,7 +66,8 @@ def init():
         if modules:
             api_paths = api.init(modules, title.replace('_', ' '), cors_origin)
 
-        rest_server = rest.RestServer(port)
-        rest_server.run(auth_type=auth, protect=api_paths)
+        rest_server = rest.TcpRestServer(port, auth_type=auth,
+                                         protect=api_paths)
+        rest_server.run()
 
     return server

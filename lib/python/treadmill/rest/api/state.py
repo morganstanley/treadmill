@@ -24,15 +24,15 @@ def init(api, cors, impl):
         api, __name__, 'State REST operations'
     )
 
-    state_model = {
+    model = {
         'name': fields.String(description='Application name'),
         'host': fields.String(description='Application host'),
         'state': fields.String(description='Application state'),
         'expires': fields.Float(description='Host expiration'),
     }
 
-    response_model = api.model(
-        'RespState', state_model
+    state_model = api.model(
+        'State', model
     )
 
     match_parser = api.parser()
@@ -40,7 +40,7 @@ def init(api, cors, impl):
                               location='args', required=False,)
 
     inst_parser = api.parser()
-    inst_parser.add_argument('instances', type=dict,
+    inst_parser.add_argument('instances', type=list,
                              location='json', required=True,
                              help='List of instances, e.g.: '
                              '{ "instances": ["proid.app#0000000000"]}')
@@ -53,7 +53,7 @@ def init(api, cors, impl):
 
         @webutils.get_api(api, cors,
                           marshal=api.marshal_list_with,
-                          resp_model=response_model,
+                          resp_model=state_model,
                           parser=match_parser)
         def get(self):
             """Return all state."""
@@ -62,7 +62,7 @@ def init(api, cors, impl):
 
         @webutils.post_api(api, cors,
                            marshal=api.marshal_list_with,
-                           resp_model=response_model,
+                           resp_model=state_model,
                            parser=inst_parser)
         def post(self):
             """Returns state of the instance list."""
@@ -78,7 +78,7 @@ def init(api, cors, impl):
 
         @webutils.get_api(api, cors,
                           marshal=api.marshal_with,
-                          resp_model=response_model)
+                          resp_model=state_model)
         def get(self, instance_id):
             """Return Treadmill instance state."""
             state = impl.get(instance_id)

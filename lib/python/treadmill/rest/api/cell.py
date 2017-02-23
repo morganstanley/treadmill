@@ -29,7 +29,7 @@ def init(api, cors, impl):
         'zk-jmx-port': fields.Integer(description='ZK JMX port'),
         'zk-client-port': fields.Integer(description='ZK client port'),
     })
-    cell_model = {
+    model = {
         '_id': fields.String(description='Name'),
         'username': fields.String(description='Treadmill User ID'),
         'root': fields.String(description='Treadmill Root'),
@@ -41,11 +41,8 @@ def init(api, cors, impl):
         'masters': fields.List(fields.Nested(master)),
     }
 
-    request_model = api.model(
-        'ReqCell', cell_model
-    )
-    response_model = api.model(
-        'Cell', cell_model
+    cell_model = api.model(
+        'Cell', model
     )
 
     @namespace.route('/')
@@ -54,7 +51,7 @@ def init(api, cors, impl):
 
         @webutils.get_api(api, cors,
                           marshal=api.marshal_list_with,
-                          resp_model=response_model)
+                          resp_model=cell_model)
         def get(self):
             """Returns list of configured cells."""
             return impl.list()
@@ -66,21 +63,21 @@ def init(api, cors, impl):
 
         @webutils.get_api(api, cors,
                           marshal=api.marshal_with,
-                          resp_model=response_model)
+                          resp_model=cell_model)
         def get(self, cell):
             """Return Treadmill cell configuration."""
             return impl.get(cell)
 
         @webutils.post_api(api, cors,
-                           req_model=request_model,
-                           resp_model=response_model)
+                           req_model=cell_model,
+                           resp_model=cell_model)
         def post(self, cell):
             """Creates Treadmill cell."""
             return impl.create(cell, flask.request.json)
 
         @webutils.put_api(api, cors,
-                          req_model=request_model,
-                          resp_model=response_model)
+                          req_model=cell_model,
+                          resp_model=cell_model)
         def put(self, cell):
             """Updates Treadmill cell configuration."""
             return impl.update(cell, flask.request.json)

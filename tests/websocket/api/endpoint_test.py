@@ -85,8 +85,7 @@ class WSEndpointAPITest(unittest.TestCase):
             )
         )
 
-        # IGnore create event.
-        self.assertIsNone(
+        self.assertIsNotNone(
             api.on_event(
                 '/endpoints/foo/bar#1234:tcp:http',
                 'c',

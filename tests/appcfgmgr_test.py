@@ -53,7 +53,7 @@ class AppCfgMgrTest(unittest.TestCase):
         # Access to a protected member _configure of a client class
         # pylint: disable=W0212
 
-        self.appcfgmgr._configure('foo#1')
+        res = self.appcfgmgr._configure('foo#1')
 
         treadmill.appmgr.configure.configure.assert_called_with(
             self.appcfgmgr.tm_env,
@@ -63,6 +63,7 @@ class AppCfgMgrTest(unittest.TestCase):
             '/test/foo',
             os.path.join(self.running, 'foo#1'),
         )
+        self.assertTrue(res)
 
     @mock.patch('treadmill.appmgr.abort.abort', mock.Mock())
     @mock.patch('treadmill.appmgr.configure.configure', mock.Mock())
@@ -74,7 +75,7 @@ class AppCfgMgrTest(unittest.TestCase):
 
         treadmill.appmgr.configure.configure.side_effect = Exception('Boom')
 
-        self.appcfgmgr._configure('foo#1')
+        res = self.appcfgmgr._configure('foo#1')
 
         treadmill.appmgr.abort.abort.assert_called_with(
             self.appcfgmgr.tm_env,
@@ -84,6 +85,7 @@ class AppCfgMgrTest(unittest.TestCase):
         treadmill.fs.rm_safe.assert_called_with(
             os.path.join(self.cache, 'foo#1')
         )
+        self.assertFalse(res)
 
     @mock.patch('treadmill.subproc.check_call', mock.Mock())
     @mock.patch('treadmill.utils.rootdir',

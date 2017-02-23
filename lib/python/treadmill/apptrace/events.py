@@ -390,7 +390,9 @@ class ServiceRunningTraceEvent(AppTraceEvent):
     def from_data(cls, timestamp, source, instanceid, event_type, event_data,
                   payload=None):
         assert cls == getattr(AppTraceEventTypes, event_type).value
-        uniqueid, service = event_data.split('.', 1)
+        parts = event_data.split('.')
+        uniqueid = parts.pop(0)
+        service = '.'.join(parts)
         return cls(
             timestamp=timestamp,
             source=source,
@@ -436,7 +438,13 @@ class ServiceExitedTraceEvent(AppTraceEvent):
     def from_data(cls, timestamp, source, instanceid, event_type, event_data,
                   payload=None):
         assert cls == getattr(AppTraceEventTypes, event_type).value
-        uniqueid, service, rc, signal = event_data.split('.', 4)
+
+        parts = event_data.split('.')
+        uniqueid = parts.pop(0)
+        signal = parts.pop()
+        rc = parts.pop()
+        service = '.'.join(parts)
+
         return cls(
             timestamp=timestamp,
             source=source,

@@ -103,6 +103,20 @@ def set_cpu_shares(cgrp, shares):
     return set_value('cpu', cgrp, 'cpu.shares', shares)
 
 
+def get_cpuset_cores(cgrp):
+    """Get list of enabled cores."""
+    cores = []
+    cpuset = get_value('cpuset', cgrp, 'cpuset.cpus')
+    for entry in cpuset.split(','):
+        cpus = entry.split('-')
+        if len(cpus) == 1:
+            cores.append(int(cpus[0]))
+        elif len(cpus) == 2:
+            cores.extend(range(int(cpus[0]), int(cpus[1]) + 1))
+
+    return cores
+
+
 def join(subsystem, group, pid=None):
     """Move process into a specific cgroup"""
     if pid is None:
