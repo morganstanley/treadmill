@@ -12,6 +12,7 @@ import click
 from .. import context
 from .. import discovery
 from .. import logcontext as lc
+from .. import sysinfo
 from .. import utils
 from .. import vring
 from .. import zkutils
@@ -86,7 +87,12 @@ def init():
                 except RuntimeError:
                     pass
 
+            skip = None
+            if app.get('shared_ip'):
+                skip = [sysinfo.hostname()]
+
             vring.init(ringname)
-            vring.run(ringname, routing, vring_endpoints, app_discovery)
+            vring.run(ringname, routing, vring_endpoints, app_discovery,
+                      skip=skip)
 
     return vring_cmd

@@ -1,17 +1,18 @@
 """Bootstrap implementation for windows."""
 from __future__ import absolute_import
 
+import abc
 import glob
 import os
 
 import treadmill
-
 import treadmill.syscall.winsymlink  # pylint: disable=W0611
 
 from .. import _bootstrap_base
 
 
 _MASTER_NOT_SUPPORTED_MESSAGE = "Windows does not support master services."
+_SPAWN_NOT_SUPPORTED_MESSAGE = "Windows does not support spawn services."
 
 
 def default_install_dir():
@@ -30,6 +31,10 @@ class WindowsBootstrap(_bootstrap_base.BootstrapBase):
             os.remove(dst)
 
         super(WindowsBootstrap, self)._rename_file(src, dst)
+
+    @abc.abstractmethod
+    def run(self):
+        """Runs the services."""
 
 
 class NodeBootstrap(WindowsBootstrap):
@@ -71,11 +76,11 @@ class NodeBootstrap(WindowsBootstrap):
         super(NodeBootstrap, self).install()
 
 
-class MasterBootstrap(_bootstrap_base.BootstrapBase):
+class MasterBootstrap(WindowsBootstrap):
     """For bootstrapping the master on windows."""
 
     # pylint: disable=W0613, W0231
-    def __init__(self, dst_dir, defaults, master_id):
+    def __init__(self, _dst_dir, _defaults, _master_id):
         raise Exception(_MASTER_NOT_SUPPORTED_MESSAGE)
 
     def install(self):
@@ -85,3 +90,19 @@ class MasterBootstrap(_bootstrap_base.BootstrapBase):
     def run(self):
         """Runs the services."""
         raise Exception(_MASTER_NOT_SUPPORTED_MESSAGE)
+
+
+class SpawnBootstrap(WindowsBootstrap):
+    """For bootstrapping the spawn service on windows."""
+
+    # pylint: disable=W0613, W0231
+    def __init__(self, _dst_dir, _defaults):
+        raise Exception(_SPAWN_NOT_SUPPORTED_MESSAGE)
+
+    def install(self):
+        """Installs the services."""
+        raise Exception(_SPAWN_NOT_SUPPORTED_MESSAGE)
+
+    def run(self):
+        """Runs the services."""
+        raise Exception(_SPAWN_NOT_SUPPORTED_MESSAGE)

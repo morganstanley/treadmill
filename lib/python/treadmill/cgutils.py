@@ -74,6 +74,7 @@ def create_treadmill_cgroups(system_cpu_shares,
                              treadmill_cpu_shares,
                              treadmill_core_cpu_shares,
                              treadmill_apps_cpu_shares,
+                             treadmill_cpu_cores,
                              treadmill_mem,
                              treadmill_core_mem):
     """This is the core cgroup setup. Should be applied to a cleaned env."""
@@ -96,6 +97,28 @@ def create_treadmill_cgroups(system_cpu_shares,
     cgroups.create('cpuacct', 'treadmill')
     cgroups.create('cpuacct', 'treadmill/core')
     cgroups.create('cpuacct', 'treadmill/apps')
+
+    cgroups.create('cpuset', 'system')
+    cgroups.create('cpuset', 'treadmill')
+
+    mems = cgroups.get_value('cpuset', '', 'cpuset.mems')
+    cgroups.set_value('cpuset', 'system', 'cpuset.mems', mems)
+    cgroups.set_value('cpuset', 'treadmill', 'cpuset.mems', mems)
+
+    cores_max = sysinfo.cpu_count() - 1
+    if treadmill_cpu_cores > cores_max:
+        raise TreadmillError('Not enough cpu cores.')
+
+    if treadmill_cpu_cores > 0:
+        cgroups.set_value('cpuset', 'treadmill', 'cpuset.cpus',
+                          '%d-%d' % (0, treadmill_cpu_cores - 1))
+        cgroups.set_value('cpuset', 'system', 'cpuset.cpus',
+                          '%d-%d' % (treadmill_cpu_cores, cores_max))
+    else:
+        cgroups.set_value('cpuset', 'treadmill', 'cpuset.cpus',
+                          '%d-%d' % (0, cores_max))
+        cgroups.set_value('cpuset', 'system', 'cpuset.cpus',
+                          '%d-%d' % (0, cores_max))
 
     cgroups.create('memory', 'system')
     cgroups.create('memory', 'treadmill')

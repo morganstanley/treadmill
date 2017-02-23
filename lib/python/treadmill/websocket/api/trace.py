@@ -26,12 +26,8 @@ class TraceAPI(object):
 
         return [(os.path.join('/tasks', app_name, instanceid), '*')]
 
-    def on_event(self, filename, operation, content):
-        """Event handler.
-        """
-        if operation == 'c':
-            return
-
+    def on_event(self, filename, _operation, content):
+        """Event handler."""
         if not filename.startswith('/tasks/'):
             return
 

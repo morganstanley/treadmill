@@ -7,6 +7,7 @@
 -N TM_PREROUTING_DNAT
 -A PREROUTING -j TM_PREROUTING_PASSTHROUGH 
 -A PREROUTING -j TM_PREROUTING_DNAT 
+-A TM_PREROUTING_DNAT -d 192.168.0.3/32 -p udp -m udp --dport 22 -j SNAT --to 172.31.81.67:5001 
 -A TM_PREROUTING_DNAT -d 172.31.81.67/32 -p udp -m udp --dport 5002 -j DNAT --to-destination 192.168.1.13:8000 
 -A TM_PREROUTING_DNAT -d 172.31.81.67/32 -p tcp -m tcp --dport 5000 -j DNAT --to-destination 192.168.0.11:8000 
 -A TM_PREROUTING_DNAT -d 172.31.81.67/32 -p tcp -m tcp --dport 5003 -j DNAT --to-destination 192.168.1.13:22 

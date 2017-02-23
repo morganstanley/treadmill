@@ -78,6 +78,8 @@ class PubSubTest(unittest.TestCase):
 
         with open(os.path.join(self.root, 'abc'), 'w+') as f:
             f.write('x')
+        with open(os.path.join(self.root, '.abc'), 'w+') as f:
+            f.write('x')
 
         pubsub.run(once=True)
 
@@ -85,6 +87,8 @@ class PubSubTest(unittest.TestCase):
         self.assertIn(('/abc', 'm', 'x'), handler1.events)
         self.assertIn(('/abc', 'c', 'x'), handler2.events)
         self.assertIn(('/abc', 'm', 'x'), handler2.events)
+        self.assertNotIn(('/.abc', 'c', 'x'), handler1.events)
+        self.assertNotIn(('/.abc', 'c', 'x'), handler2.events)
 
         # Simulate connection close.
         ws1.active.return_value = False

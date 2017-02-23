@@ -1,8 +1,8 @@
 """An interface for bootstrapping treadmill."""
 from __future__ import absolute_import
 
+import abc
 import errno
-
 import logging
 import os
 import tempfile
@@ -26,15 +26,6 @@ class BootstrapBase(object):
         self.src_dir = src_dir
         self.dst_dir = dst_dir
         self.defaults = defaults
-
-    def install(self):
-        """Installs the services."""
-        params = self._params
-        params = self._interpolate(params, params)
-        self._install(params)
-
-    def run(self):
-        """Runs the services."""
 
     def _render(self, value, params):
         """Renders text, interpolating params."""
@@ -128,7 +119,7 @@ class BootstrapBase(object):
             if not os.path.exists(subdir):
                 fs.mkdir_safe(subdir)
             for filename in files:
-                if filename.startswith('.'):
+                if filename == '.' or filename == '..':
                     continue
 
                 src_file = os.path.join(root, filename)
@@ -165,3 +156,13 @@ class BootstrapBase(object):
             'dir': self.dst_dir
         })
         return params
+
+    def install(self):
+        """Installs the services."""
+        params = self._params
+        params = self._interpolate(params, params)
+        self._install(params)
+
+    @abc.abstractmethod
+    def run(self):
+        """Runs the services."""

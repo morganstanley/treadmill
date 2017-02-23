@@ -97,7 +97,7 @@ def read_cpu_stats(cgrp):
 
     cpu_shares = cgroups.get_cpu_shares(cgrp)
     total_bogomips = sysinfo.total_bogomips()
-    cpu_count = sysinfo.cpu_count()
+    cpu_count = sysinfo.available_cpu_count()
 
     requested_ratio = cgutils.get_cpu_ratio(cgrp) * 100
     usage_ratio = ((cpu_usage * total_bogomips) /

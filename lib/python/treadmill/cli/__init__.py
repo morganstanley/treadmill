@@ -92,7 +92,10 @@ def handle_context_opt(ctx, param, value):
     of the global context.
     """
     if not value or ctx.resilient_parsing:
-        return
+        return None
+
+    if value == '-':
+        return None
 
     opt = param.name
     if opt == 'cell':
@@ -276,6 +279,8 @@ def list_to_table(items, schema, header=True):
     """Display  list of items as table."""
     columns = [column for column, _, _ in schema]
     table = _make_table(columns, header=header)
+    if items is None:
+        items = []
     for item in items:
         row = []
         for column, key, fmt in schema:
@@ -402,6 +407,7 @@ class AppPrettyFormatter(object):
         command_fmt = lambda cmd: wrap_words(cmd.split(), 40, ' ', '\n   ')
         services_tbl = make_list_to_table([
             ('name', None, None),
+            ('root', None, None),
             ('restart', None, services_restart_tbl),
             ('command', None, command_fmt),
         ])
@@ -418,6 +424,21 @@ class AppPrettyFormatter(object):
             ('value', None, None),
         ])
 
+        vring_rules_tbl = make_list_to_table([
+            ('pattern', None, None),
+            ('endpoints', None, ','.join),
+        ])
+
+        vring_tbl = make_dict_to_table([
+            ('cells', None, ','.join),
+            ('rules', None, vring_rules_tbl),
+        ])
+
+        ephemeral_tbl = make_dict_to_table([
+            ('tcp', None, None),
+            ('udp', None, None),
+        ])
+
         schema = [
             ('name', '_id', None),
             ('memory', None, None),
@@ -426,10 +447,15 @@ class AppPrettyFormatter(object):
             ('tickets', None, None),
             ('features', None, None),
             ('identity-group', 'identity_group', None),
+            ('schedule-once', 'schedule_once', None),
             ('shared-ip', 'shared_ip', None),
+            ('ephemeral-ports', 'ephemeral_ports', ephemeral_tbl),
             ('services', None, services_tbl),
             ('endpoints', None, endpoints_tbl),
             ('environ', None, environ_tbl),
+            ('vring', None, vring_tbl),
+            ('passthrough', None, '\n'.join),
+            ('data-retention-timeout', 'data_retention_timeout', None),
         ]
 
         format_item = make_dict_to_table(schema)

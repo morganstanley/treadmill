@@ -14,6 +14,7 @@ import yaml
 import treadmill
 from treadmill import appevents
 from treadmill import appmgr
+from treadmill import fs
 from treadmill import utils
 
 from treadmill.apptrace import events
@@ -39,6 +40,7 @@ def configure(tm_env, event):
               - app.yml
                 run
                 finish
+                log/run
 
     The 'run' script is responsible for creating container environment
     and starting svscan inside the container.
@@ -150,15 +152,13 @@ def configure(tm_env, event):
         'sproc', 'run', container_dir
     ])
 
-    run_out_file = os.path.join(container_dir, 'run.out')
-
     utils.create_script(os.path.join(container_dir, 'run'),
                         'supervisor.run_no_log',
-                        log_out=run_out_file,
                         cmd=app_run_cmd)
 
-    _init_log_file(run_out_file,
-                   os.path.join(tm_env.apps_dir, "%s.run.out" % uniq_name))
+    fs.mkdir_safe(os.path.join(container_dir, 'log'))
+    utils.create_script(os.path.join(container_dir, 'log', 'run'),
+                        'logger.run')
 
     # Unique name for the link, based on creation time.
     cleanup_link = os.path.join(tm_env.cleanup_dir, uniq_name)

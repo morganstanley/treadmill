@@ -24,11 +24,8 @@ class RunningAPI(object):
 
         return [('/running', app_filter)]
 
-    def on_event(self, filename, operation, content):
+    def on_event(self, filename, _operation, content):
         """Event handler."""
-        if operation == 'c':
-            return
-
         if not filename.startswith('/running/'):
             return
 
@@ -51,11 +48,8 @@ class ScheduledAPI(object):
 
         return [('/scheduled', app_filter)]
 
-    def on_event(self, filename, operation, content):
+    def on_event(self, filename, _operation, content):
         """Event handler."""
-        if operation == 'c':
-            return
-
         if not filename.startswith('/scheduled/'):
             return
 

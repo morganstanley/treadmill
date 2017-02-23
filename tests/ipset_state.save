@@ -8,7 +8,5 @@ create tm:prod-sources hash:ip family inet hashsize 4096 maxelem 262144
 flush tm:containers
 flush tm:infra-services
 flush tm:passthroughs
-flush tm:nonprod-containers
-flush tm:prod-containers
 add tm:containers tm:prod-containers
 add tm:containers tm:nonprod-containers

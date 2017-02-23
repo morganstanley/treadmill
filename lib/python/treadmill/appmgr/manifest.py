@@ -110,6 +110,7 @@ def load(tm_env, event):
     _set_default('cells', [], manifest['vring'])
     _set_default('identity_group', None)
     _set_default('identity', None)
+    _set_default('data_retention_timeout', None)
 
     # Normalize restart count
     manifest['services'] = [
@@ -135,7 +136,21 @@ def load(tm_env, event):
         for endpoint in manifest.get('endpoints', [])
     ]
 
-    manifest['ephemeral_ports'] = int(manifest.get('ephemeral_ports', 0))
+    # TODO: need better way to normalize.
+    if 'ephemeral_ports' not in manifest:
+        manifest['ephemeral_ports'] = {'tcp': 0, 'udp': 0}
+
+    if 'tcp' not in manifest['ephemeral_ports']:
+        manifest['ephemeral_ports']['tcp'] = 0
+    else:
+        manifest['ephemeral_ports']['tcp'] = int(
+            manifest['ephemeral_ports']['tcp'])
+
+    if 'udp' not in manifest['ephemeral_ports']:
+        manifest['ephemeral_ports']['udp'] = 0
+    else:
+        manifest['ephemeral_ports']['udp'] = int(
+            manifest['ephemeral_ports']['udp'])
 
     return manifest
 

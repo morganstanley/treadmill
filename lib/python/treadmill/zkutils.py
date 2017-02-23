@@ -22,7 +22,6 @@ import yaml
 from . import userutil
 from . import utils
 from . import sysinfo
-from . import trace
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -125,7 +124,6 @@ def make_default_acl(acls):
     return realacl
 
 
-@trace.disable
 def make_safe_create(zkclient):
     """Makes a wrapper for kazoo.client.create enforcing default acl."""
     _create = zkclient.create
@@ -140,7 +138,6 @@ def make_safe_create(zkclient):
     return safe_create
 
 
-@trace.disable
 def make_safe_ensure_path(zkclient):
     """Makes a wrapper for kazoo.client.ensure_path enforcing default acl."""
     ensure_path = zkclient.ensure_path
@@ -152,7 +149,6 @@ def make_safe_ensure_path(zkclient):
     return safe_ensure_path
 
 
-@trace.disable
 def make_safe_set_acls(zkclient):
     """Makes a wrapper for kazoo.client.set_acls enforcing default acl."""
     set_acls = zkclient.set_acls

@@ -2,6 +2,7 @@
 from __future__ import absolute_import
 
 import logging
+import fnmatch
 
 import jsonschema.exceptions
 
@@ -34,9 +35,17 @@ class API(object):
             """Lazily return admin object."""
             return admin.Application(context.GLOBAL.ldap.conn)
 
-        def _list():
+        def _list(match=None):
             """List configured applications."""
-            return _admin_app().list({})
+            if match is None:
+                match = '*'
+
+            apps = _admin_app().list({})
+            filtered = [
+                app for app in apps
+                if fnmatch.fnmatch(app['_id'], match)
+            ]
+            return sorted(filtered)
 
         @schema.schema({'$ref': 'app.json#/resource_id'})
         def get(rsrc_id):

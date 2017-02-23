@@ -609,6 +609,30 @@ class MasterTest(mockzk.MockZookeeperTestCase):
 
     @mock.patch('kazoo.client.KazooClient.get', mock.Mock(
         return_value=('{}', None)))
+    @mock.patch('treadmill.zkutils.update', mock.Mock(return_value=None))
+    @mock.patch('treadmill.master.create_event', mock.Mock(return_value=None))
+    def test_update_app_priority_noop(self):
+        """Tests app api."""
+        zkclient = kazoo.client.KazooClient()
+
+        # kazoo.client.KazooClient.create.return_value = '/events/001-apps-1'
+        master.update_app_priorities(zkclient, {'foo.bar#1': 10,
+                                                'foo.bar#2': 20})
+        treadmill.zkutils.update.assert_has_calls(
+            [
+                mock.call(mock.ANY, '/scheduled/foo.bar#1', {'priority': 10},
+                          check_content=True),
+                mock.call(mock.ANY, '/scheduled/foo.bar#2', {'priority': 20},
+                          check_content=True),
+            ],
+            any_order=True
+        )
+
+        # Verify that event is placed correctly.
+        self.assertFalse(treadmill.master.create_event.called)
+
+    @mock.patch('kazoo.client.KazooClient.get', mock.Mock(
+        return_value=('{}', None)))
     @mock.patch('kazoo.client.KazooClient.set', mock.Mock())
     @mock.patch('kazoo.client.KazooClient.create', mock.Mock())
     @mock.patch('kazoo.client.KazooClient.exists',
@@ -777,6 +801,27 @@ class MasterTest(mockzk.MockZookeeperTestCase):
         treadmill.zkutils.ensure_deleted.assert_called_with(
             mock.ANY,
             '/placement/test2.xx.com/xxx.app1#1234'
+        )
+
+    @mock.patch('kazoo.client.KazooClient.get', mock.Mock(
+        return_value=('{}', None)))
+    @mock.patch('kazoo.client.KazooClient.set', mock.Mock())
+    @mock.patch('kazoo.client.KazooClient.create', mock.Mock())
+    def test_update_server_features(self):
+        """Tests master.update_server_features()."""
+        zkclient = kazoo.client.KazooClient()
+        kazoo.client.KazooClient.create.return_value = '/events/000-servers-1'
+
+        master.update_server_features(zkclient, 'foo.ms.com', ['webauthd'])
+        kazoo.client.KazooClient.set.assert_has_calls(
+            [mock.call('/servers/foo.ms.com', 'features: [webauthd]\n')],
+            any_order=True
+        )
+
+        # Verify that event is placed correctly.
+        kazoo.client.KazooClient.create.assert_called_with(
+            '/events/000-servers-', mock.ANY,
+            makepath=True, acl=mock.ANY, sequence=True, ephemeral=False
         )
 
 

@@ -21,7 +21,7 @@ def init(api, cors, impl):
         api, __name__, 'Tenant REST operations'
     )
 
-    tenant_model = {
+    model = {
         # Tenant return is inconsistent, for list it uses "tenant" and GET, it
         # uses _id, now need both in here.
         '_id': fields.String(description='Tenant name'),
@@ -31,11 +31,8 @@ def init(api, cors, impl):
             min_items=1)
     }
 
-    request_model = api.model(
-        'ReqTenant', tenant_model
-    )
-    response_model = api.model(
-        'RespTenant', tenant_model
+    tenant_model = api.model(
+        'Tenant', model
     )
 
     @namespace.route('/',)
@@ -44,7 +41,7 @@ def init(api, cors, impl):
 
         @webutils.get_api(api, cors,
                           marshal=api.marshal_list_with,
-                          resp_model=response_model)
+                          resp_model=tenant_model)
         def get(self):
             """Returns list of configured tenants."""
             return impl.list()
@@ -56,21 +53,21 @@ def init(api, cors, impl):
 
         @webutils.get_api(api, cors,
                           marshal=api.marshal_with,
-                          resp_model=response_model)
+                          resp_model=tenant_model)
         def get(self, tenant_id):
             """Return Treadmill tenant configuration."""
             return impl.get(tenant_id)
 
         @webutils.post_api(api, cors,
-                           req_model=request_model,
-                           resp_model=response_model)
+                           req_model=tenant_model,
+                           resp_model=tenant_model)
         def post(self, tenant_id):
             """Creates Treadmill tenant."""
             return impl.create(tenant_id, flask.request.json)
 
         @webutils.put_api(api, cors,
-                          req_model=request_model,
-                          resp_model=response_model)
+                          req_model=tenant_model,
+                          resp_model=tenant_model)
         def put(self, tenant_id):
             """Updates Treadmill tenant configuration."""
             return impl.update(tenant_id, flask.request.json)

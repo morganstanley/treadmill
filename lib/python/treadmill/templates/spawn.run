@@ -1,0 +1,5 @@
+#!/bin/sh
+
+exec 2>&1
+
+exec ${TREADMILL}/bin/treadmill sproc spawn run {{ manifest_path }}

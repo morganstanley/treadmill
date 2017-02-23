@@ -146,18 +146,24 @@ class DirWatchPubSub(object):
     @exc.exit_on_unhandled
     def _on_created(self, filename):
         """On file created callback."""
+        if os.path.basename(filename)[0] == '.':
+            return
         _LOGGER.debug('created: %s', filename)
         self._handle('c', filename)
 
     @exc.exit_on_unhandled
     def _on_modified(self, filename):
         """On file modified callback."""
+        if os.path.basename(filename)[0] == '.':
+            return
         _LOGGER.debug('modified: %s', filename)
         self._handle('m', filename)
 
     @exc.exit_on_unhandled
     def _on_deleted(self, filename):
         """On file deleted callback."""
+        if os.path.basename(filename)[0] == '.':
+            return
         _LOGGER.debug('deleted: %s', filename)
         self._notify(filename, 'd', None)
 
@@ -187,6 +193,8 @@ class DirWatchPubSub(object):
             if not handler.active():
                 continue
 
+            _LOGGER.debug('filename: %s', filename)
+            _LOGGER.debug('pattern: %s', pattern)
             if fnmatch.fnmatch(filename, pattern):
                 try:
                     payload = impl.on_event(path[root_len:],
@@ -194,9 +202,14 @@ class DirWatchPubSub(object):
                                             content)
                     if payload is not None:
                         handler.write_message(json.dumps(payload))
-                except Exception as err:  # pylint: disable=W0703
-                    _LOGGER.exception('ahh')
-                    handler.send_error_msg(str(err))
+                except StandardError as err:
+                    _LOGGER.exception('Error handling event')
+                    handler.send_error_msg(
+                        '{cls}: {err}'.format(
+                            cls=type(err).__name__,
+                            err=str(err)
+                        )
+                    )
 
     def _sow(self, directory, pattern, since, handler, impl):
         """Publish state of the world."""

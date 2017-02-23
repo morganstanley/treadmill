@@ -17,16 +17,6 @@ _DEFAULT_DISK = '100M'
 _DEFAULT_CPU = '10%'
 
 
-def _set_defaults(app, memory, cpu, disk):
-    """Ensure that memory, cpu, disk are set."""
-    if memory:
-        app['memory'] = memory
-    if disk:
-        app['disk'] = disk
-    if cpu:
-        app['cpu'] = cpu
-
-
 def _run(apis,
          count,
          manifest,
@@ -78,12 +68,21 @@ def _run(apis,
         app['services'] = services_dict.values()
 
     if app:
-        if memory:
-            app['memory'] = memory
-        if disk:
-            app['disk'] = disk
-        if cpu:
-            app['cpu'] = cpu
+        # Ensure defaults are set.
+        if 'memory' not in app:
+            app['memory'] = _DEFAULT_MEM
+        if 'disk' not in app:
+            app['disk'] = _DEFAULT_DISK
+        if 'cpu' not in app:
+            app['cpu'] = _DEFAULT_CPU
+
+        # Override if requested.
+        if memory is not None:
+            app['memory'] = str(memory)
+        if disk is not None:
+            app['disk'] = str(disk)
+        if cpu is not None:
+            app['cpu'] = str(cpu)
 
     url = '/instance/' + appname
     if count:
@@ -109,17 +108,14 @@ def init():
                   default=1)
     @click.option('-m', '--manifest', help='App manifest file (stream)',
                   type=click.File(mode='rb'))
-    @click.option('--memory', help='Memory demand.',
+    @click.option('--memory', help='Memory demand, default %s.' % _DEFAULT_MEM,
                   metavar='G|M',
-                  default='200M',
                   callback=cli.validate_memory)
-    @click.option('--cpu', help='CPU demand, %.',
+    @click.option('--cpu', help='CPU demand, default %s.' % _DEFAULT_CPU,
                   metavar='XX%',
-                  default='10%',
                   callback=cli.validate_cpu)
-    @click.option('--disk', help='Disk demand.',
+    @click.option('--disk', help='Disk demand, default %s.' % _DEFAULT_DISK,
                   metavar='G|M',
-                  default='200M',
                   callback=cli.validate_disk)
     @click.option('--tickets', help='Tickets.',
                   type=cli.LIST)

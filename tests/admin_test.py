@@ -122,6 +122,11 @@ class AdminTest(unittest.TestCase):
                 {'name': 'x', 'port': 1, 'type': 'infra', 'proto': 'udp'},
             ],
             'affinity_limits': {'server': 1, 'rack': 2},
+            'passthrough': [],
+            'ephemeral_ports': {
+                'tcp': 5,
+                'udp': 10,
+            }
         }
 
         md5_a = hashlib.md5('a').hexdigest()
@@ -163,6 +168,8 @@ class AdminTest(unittest.TestCase):
             'affinity-limit;tm-affinity-' + md5_srv: ['1'],
             'affinity-level;tm-affinity-' + md5_rack: ['rack'],
             'affinity-limit;tm-affinity-' + md5_rack: ['2'],
+            'ephemeral-ports-tcp': ['5'],
+            'ephemeral-ports-udp': ['10'],
         }
 
         self.assertEquals(ldap_entry, admin.Application(None).to_entry(app))
@@ -176,6 +183,100 @@ class AdminTest(unittest.TestCase):
         app['services'][1]['restart'] = {'limit': 5, 'interval': 60}
         app['services'][2]['restart']['interval'] = 60
         self.assertEquals(app, admin.Application(None).from_entry(ldap_entry))
+
+    def test_app_to_entry_and_back(self):
+        """Test converting app to/from entry populating default values."""
+        app = {
+            'cpu': '100%',
+            'memory': '1G',
+            'disk': '1G',
+            'services': [{'command': '/a',
+                          'name': 'a',
+                          'restart': {'interval': 30, 'limit': 3}}],
+            'endpoints': [{'name': 'y', 'port': 2}],
+        }
+
+        expected = {
+            'tickets': [],
+            'features': [],
+            'endpoints': [{'name': 'y', 'port': 2}],
+            'environ': [],
+            'memory': '1G',
+            'services': [{'command': '/a',
+                          'name': 'a',
+                          'restart': {'interval': 30, 'limit': 3}}],
+            'disk': '1G',
+            'affinity_limits': {},
+            'cpu': '100%',
+            'passthrough': [],
+            'ephemeral_ports': {},
+        }
+
+        admin_app = admin.Application(None)
+        self.assertEquals(
+            expected,
+            admin_app.from_entry(admin_app.to_entry(app))
+        )
+
+        app['services'][0]['root'] = True
+        expected['services'][0]['root'] = True
+        self.assertEquals(
+            expected,
+            admin_app.from_entry(admin_app.to_entry(app))
+        )
+
+        app['vring'] = {
+            'cells': ['a', 'b'],
+            'rules': [{
+                'pattern': 'x.y*',
+                'endpoints': ['http', 'tcp'],
+            }]
+        }
+
+        expected['vring'] = {
+            'cells': ['a', 'b'],
+            'rules': [{
+                'pattern': 'x.y*',
+                'endpoints': ['http', 'tcp'],
+            }]
+        }
+
+        self.assertEquals(
+            expected,
+            admin_app.from_entry(admin_app.to_entry(app))
+        )
+
+        app['passthrough'] = ['xxx.x.com', 'yyy.x.com']
+        expected['passthrough'] = ['xxx.x.com', 'yyy.x.com']
+
+        self.assertEquals(
+            expected,
+            admin_app.from_entry(admin_app.to_entry(app))
+        )
+
+        app['ephemeral_ports'] = {
+            'tcp': 10,
+        }
+        expected['ephemeral_ports'] = {
+            'tcp': 10,
+            'udp': 0,
+        }
+
+        app['schedule_once'] = True
+        expected['schedule_once'] = True
+
+        self.assertEquals(
+            expected,
+            admin_app.from_entry(admin_app.to_entry(app))
+        )
+
+        app['data_retention_timeout'] = '30m'
+        expected['data_retention_timeout'] = '30m'
+
+        self.assertEquals(
+            expected,
+            admin_app.from_entry(admin_app.to_entry(app))
+        )
 
     def test_server_to_entry(self):
         """Tests convertion of app dictionary to ldap entry."""

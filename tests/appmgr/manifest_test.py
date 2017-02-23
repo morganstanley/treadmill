@@ -163,7 +163,9 @@ class AppMgrManifestTest(unittest.TestCase):
                     'type': 'infra',
                 },
             ],
-            'ephemeral_ports': '2',
+            'ephemeral_ports': {
+                'tcp': '2',
+            },
             'proid': 'foo',
             'disk': '100G',
             'cpu': '100%',
@@ -251,7 +253,7 @@ class AppMgrManifestTest(unittest.TestCase):
         self.assertEquals(app0['identity'], None)
         self.assertEquals(app0['identity_group'], None)
         self.assertEquals(app0['environ'], [])
-        self.assertEquals(app0['ephemeral_ports'], 2)
+        self.assertEquals(app0['ephemeral_ports'], {'tcp': 2, 'udp': 0})
 
     @mock.patch('treadmill.appmgr.gen_uniqueid', mock.Mock(return_value='42'))
     @mock.patch('treadmill.appmgr.manifest.read', mock.Mock())

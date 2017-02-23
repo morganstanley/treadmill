@@ -70,6 +70,7 @@ class AppMgrRunTest(unittest.TestCase):
                 mock.Mock(return_value='/test_treadmill'))
     @mock.patch('shutil.copytree', mock.Mock())
     @mock.patch('shutil.copyfile', mock.Mock())
+    @mock.patch('shutil.rmtree', mock.Mock())
     def test__create_root_dir(self):
         """Test creation on the container root directory."""
         # Access protected module _create_root_dir
@@ -104,6 +105,9 @@ class AppMgrRunTest(unittest.TestCase):
             self.root,
             '/some/root_dir',
             app
+        )
+        shutil.rmtree.assert_called_with(
+            '/some/root_dir/.etc'
         )
         shutil.copytree.assert_called_with(
             os.path.join(self.app_env.root, 'etc'),
@@ -266,6 +270,8 @@ class AppMgrRunTest(unittest.TestCase):
         treadmill.fs.mkdir_safe.assert_has_calls([
             mock.call('/some/dir/root/services'),
             mock.call('/some/dir/services'),
+            mock.call('/some/dir/sys/.s6-svscan'),
+            mock.call('/some/dir/services/.s6-svscan'),
             mock.call('/some/dir/services/command1/log'),
             mock.call('/some/dir/services/command2/log'),
             mock.call('/some/dir/services/command3/log'),
@@ -335,6 +341,14 @@ class AppMgrRunTest(unittest.TestCase):
         ])
 
         treadmill.utils.create_script.assert_has_calls([
+            mock.call('/some/dir/sys/.s6-svscan/finish',
+                      'svscan.finish',
+                      services_dir='/some/dir/sys',
+                      timeout=mock.ANY),
+            mock.call('/some/dir/services/.s6-svscan/finish',
+                      'svscan.finish',
+                      services_dir='/services',
+                      timeout=mock.ANY),
             mock.call('/some/dir/services/command1/log/run', 'logger.run'),
             mock.call('/some/dir/services/command2/log/run', 'logger.run'),
             mock.call('/some/dir/services/command3/log/run', 'logger.run'),
@@ -412,7 +426,7 @@ class AppMgrRunTest(unittest.TestCase):
                     'proto': 'udp',
                 }
             ],
-            'ephemeral_ports': 3,
+            'ephemeral_ports': {'tcp': 3, 'udp': 0},
         }
 
         treadmill.appmgr.run._allocate_network_ports(
@@ -443,7 +457,7 @@ class AppMgrRunTest(unittest.TestCase):
                           manifest['endpoints'][3]['real_port'])
 
         self.assertEquals([10000, 10001, 10002],
-                          manifest['ephemeral_ports'])
+                          manifest['ephemeral_ports']['tcp'])
 
     @mock.patch('treadmill.iptables.add_ip_set', mock.Mock())
     @mock.patch('treadmill.newnet.create_newnet', mock.Mock())
@@ -464,7 +478,10 @@ class AppMgrRunTest(unittest.TestCase):
                 },
                 'host_ip': '172.31.81.67',
                 'shared_ip': True,
-                'ephemeral_ports': [],
+                'ephemeral_ports': {
+                    'tcp': [],
+                    'udp': [],
+                },
                 'endpoints': [
                     {
                         'real_port': '5007',
@@ -542,11 +559,10 @@ class AppMgrRunTest(unittest.TestCase):
                         'proto': 'udp',
                     }
                 ],
-                'ephemeral_ports': [
-                    10000,
-                    10001,
-                    10002,
-                ],
+                'ephemeral_ports': {
+                    'tcp': [10000, 10001, 10002],
+                    'udp': [],
+                },
                 'passthrough': [
                     'xxx',
                     'yyy',
@@ -620,6 +636,7 @@ class AppMgrRunTest(unittest.TestCase):
         )
 
     @mock.patch('shutil.copy', mock.Mock())
+    @mock.patch('shutil.copytree', mock.Mock())
     @mock.patch('treadmill.appmgr.manifest.read', mock.Mock())
     @mock.patch('treadmill.appmgr.run._allocate_network_ports', mock.Mock())
     @mock.patch('treadmill.appmgr.run._create_environ_dir', mock.Mock())
@@ -640,7 +657,10 @@ class AppMgrRunTest(unittest.TestCase):
         # pylint: disable=w0212
         manifest = {
             'shared_network': False,
-            'ephemeral_ports': 3,
+            'ephemeral_ports': {
+                'tcp': 3,
+                'udp': 0,
+            },
             'passthrough': [
                 'xxx',
                 'yyy',
@@ -697,7 +717,7 @@ class AppMgrRunTest(unittest.TestCase):
         def _fake_allocate_network_ports(_ip, manifest):
             """Mimick inplace manifest modification in _allocate_network_ports.
             """
-            manifest['ephemeral_ports'] = ['1', '2', '3']
+            manifest['ephemeral_ports'] = {'tcp': ['1', '2', '3']}
             return mock.DEFAULT
         treadmill.appmgr.run._allocate_network_ports.side_effect = \
             _fake_allocate_network_ports
@@ -719,7 +739,7 @@ class AppMgrRunTest(unittest.TestCase):
             'ip1': '2.2.2.2',
         }
         manifest['network'] = network
-        manifest['ephemeral_ports'] = ['1', '2', '3']
+        manifest['ephemeral_ports'] = {'tcp': ['1', '2', '3']}
         treadmill.appmgr.run._allocate_network_ports.assert_called_with(
             '172.31.81.67', manifest,
         )
@@ -873,7 +893,7 @@ class AppMgrRunTest(unittest.TestCase):
         def _fake_allocate_network_ports(_ip, manifest):
             """Mimick inplace manifest modification in _allocate_network_ports.
             """
-            manifest['ephemeral_ports'] = []
+            manifest['ephemeral_ports'] = {'tcp': 0, 'udp': 0}
             return mock.DEFAULT
         treadmill.appmgr.run._allocate_network_ports.side_effect = \
             _fake_allocate_network_ports
@@ -954,7 +974,7 @@ class AppMgrRunTest(unittest.TestCase):
         def _fake_allocate_network_ports(_ip, manifest):
             """Mimick inplace manifest modification in _allocate_network_ports.
             """
-            manifest['ephemeral_ports'] = []
+            manifest['ephemeral_ports'] = {'tcp': 0, 'udp': 0}
             return mock.DEFAULT
         treadmill.appmgr.run._allocate_network_ports.side_effect = \
             _fake_allocate_network_ports

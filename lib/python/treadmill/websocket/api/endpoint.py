@@ -34,9 +34,6 @@ class EndpointAPI(object):
 
     def on_event(self, filename, operation, content):
         """Event handler."""
-        if operation == 'c':
-            return
-
         if not filename.startswith('/endpoints/'):
             return
 

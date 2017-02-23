@@ -34,11 +34,16 @@ def init():
     @click.option('--watch', is_flag=True, default=False)
     @click.option('--separator', default=' ')
     @click.argument('app')
-    @click.argument('endpoint', required=False, default='*')
+    @click.argument('endpoint', required=False, default='*:*')
     def discovery(api, check_state, watch, separator, app, endpoint):
         """Show state of scheduled applications."""
         ctx['api'] = api
         apis = context.GLOBAL.ws_api(ctx['api'])
+
+        if ':' not in endpoint:
+            endpoint = '*:' + endpoint
+
+        proto, endpoint_name = endpoint.split(':')
 
         ws = None
         for api in apis:
@@ -57,8 +62,8 @@ def init():
 
         ws.send(json.dumps({'topic': '/endpoints',
                             'filter': app,
-                            'proto': 'tcp',
-                            'endpoint': endpoint,
+                            'proto': proto,
+                            'endpoint': endpoint_name,
                             'snapshot': not watch}))
         while True:
             reply = ws.recv()
