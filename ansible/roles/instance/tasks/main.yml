@@ -1,0 +1,4 @@
+---
+# tasks file for instance-spinup
+- include: fetch-facts.yml
+- include: create-instance.yml

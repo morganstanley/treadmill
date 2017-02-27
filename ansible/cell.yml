@@ -1,0 +1,3 @@
+---
+- include: vpc.yml
+- include: instance.yml

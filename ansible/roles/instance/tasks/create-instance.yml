@@ -1,0 +1,16 @@
+---
+- name: Spinup the instance
+  ec2:
+    assign_public_ip: yes
+    vpc_subnet_id: "{{ subnet_id }}"
+    region: "{{ vpc_region }}"
+    image: "{{ ami_id }}"
+    instance_type: t2.micro
+    key_name: "{{ aws_key_name }}"
+    instance_tags: { "Name":"{{ instance_name }}" }
+    volumes:
+      - device_name: /dev/sda1
+        volume_type: gp2
+        volume_size: 10
+        delete_on_termination: true
+  when: instance_facts.instances|length == 0
