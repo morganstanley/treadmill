@@ -1,0 +1,13 @@
+---
+- name: Create security group
+  ec2_group:
+    name: sg_common
+    description: sg rules for allowing ssh from controller
+    vpc_id: "{{ subnet_facts.subnets[0].vpc_id }}"
+    region: "{{ vpc_region }}"
+    rules:
+      - proto: tcp
+        from_port: 22
+        to_port: 22
+        cidr_ip: "{{ controller_ip }}"
+  register: sg_info

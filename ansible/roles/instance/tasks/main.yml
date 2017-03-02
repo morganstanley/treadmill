@@ -1,4 +1,6 @@
 ---
 # tasks file for instance-spinup
 - include: fetch-facts.yml
+- include: get-controller-ip.yml
+- include: create-security-group.yml
 - include: create-instance.yml
