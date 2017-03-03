@@ -1,12 +1,14 @@
 ---
 - name: Spinup the instance
   ec2:
-    assign_public_ip: yes
+    exact_count: "{{ exact_count }}"
     vpc_subnet_id: "{{ subnet_id }}"
     region: "{{ vpc_region }}"
     image: "{{ ami_id }}"
     instance_type: t2.micro
     key_name: "{{ aws_key_name }}"
+    count_tag:
+      Name: "{{ instance_name }}"
     instance_tags: { "Name":"{{ instance_name }}" }
     group_id: "{{ sg_info.group_id }}"
     volumes:
@@ -14,4 +16,9 @@
         volume_type: gp2
         volume_size: 10
         delete_on_termination: true
-  when: instance_facts.instances|length == 0
+    wait: yes
+  register: created_instances
+- name: Associate provided elastic IP
+  ec2_eip:
+    region: "{{ vpc_region }}"
+    device_id: "{{created_instances.tagged_instances[0].id}}"

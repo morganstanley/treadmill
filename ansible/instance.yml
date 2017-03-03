@@ -4,3 +4,9 @@
     - include_vars: aws.properties
   roles:
     - {role: instance}
+    - {role: dynamic-inventory}
+
+- hosts: ec2instances
+  become: yes
+  roles:
+    - {role: "{{ provision_role }}"}
