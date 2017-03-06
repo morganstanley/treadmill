@@ -18,6 +18,7 @@
         delete_on_termination: true
     wait: yes
   register: created_instances
+
 - name: Associate provided elastic IP
   ec2_eip:
     region: "{{ vpc_region }}"

@@ -5,6 +5,7 @@
       association.subnet-id: "{{ subnet_info.subnet.id }}"
     region: "{{ vpc_region }}"
   register: route_id_info
+
 - name: Create route table
   ec2_vpc_route_table:
     vpc_id: "{{ vpc_info.vpc.id }}"

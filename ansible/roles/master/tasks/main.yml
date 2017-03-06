@@ -1,34 +1,4 @@
 ---
 # tasks file for master
-- name: Upgrade all packages
-  yum:
-    name: '*'
-    state: latest
-- name: Install yum packages
-  yum:
-    name: "{{item}}"
-    state: present
-  with_items:
-    - java
-    - wget
-    - git
-    - ipset
-    - iptables
-    - bridge-utils
-    - libcgroup-tools
-    - lvm2*
-    - "@Development tools"
-    - python-devel
-    - ntp
-    - krb5-server
-    - krb5-libs
-    - krb5-devel
-    - epel-release
-
-- name: Install yum packages
-  yum:
-    name: "{{item}}"
-    state: present
-  with_items:
-    - python34
-    - python34-devel
+- include: zookeeper.yml
+- include: scheduler.yml

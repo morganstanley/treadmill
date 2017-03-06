@@ -5,8 +5,12 @@
   roles:
     - {role: instance}
     - {role: dynamic-inventory}
+  tags:
+    - always
 
 - hosts: ec2instances
   become: yes
   roles:
-    - {role: "{{ provision_role }}"}
+    - {role: master}
+  tags:
+    - master

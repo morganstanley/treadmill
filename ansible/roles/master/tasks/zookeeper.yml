@@ -1,0 +1,14 @@
+---
+- name: Download and untar zk tar
+  unarchive:
+    src: http://apache.claz.org/zookeeper/zookeeper-3.4.9/zookeeper-3.4.9.tar.gz
+    dest: "{{ base_dir }}/"
+    remote_src: True
+
+- name: Drop zk config
+  copy:
+    src: zoo.cfg
+    dest: "{{ base_dir }}/zookeeper-3.4.9/conf/zoo.cfg"
+
+- name: Start zookeeper service
+  command: "{{ base_dir }}/zookeeper-3.4.9/bin/zkServer.sh start"
