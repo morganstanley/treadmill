@@ -195,7 +195,7 @@ attributeTypes:
   schedule-once:
     desc: Schedule once attribute
     type: bool
-  data-retention-timeout
+  data-retention-timeout:
     desc: Data retention timeout
     ignore_case: true
     type: str
