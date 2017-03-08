@@ -18,6 +18,7 @@
     - krb5-server
     - krb5-libs
     - krb5-devel
+    - openssl-devel
     - epel-release
 
 - name: Install yum packages from epel repo
