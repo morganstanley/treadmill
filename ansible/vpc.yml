@@ -1,6 +1,7 @@
 ---
 - hosts: controller
   pre_tasks:
-    - include_vars: "aws.properties"
+    - include_vars:
+        file: aws.yml
   roles:
     - {role: vpc}

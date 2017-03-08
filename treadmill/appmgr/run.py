@@ -208,10 +208,10 @@ def run(tm_env, container_dir, watchdog, terminated):
 
             # Override pam.d sshd stack with special sshd pam that unshares
             # network.
-            #_bind('.etc/pam.d/sshd.shared_network', '/etc/pam.d/sshd')
-        #else:
+            _bind('.etc/pam.d/sshd.shared_network', '/etc/pam.d/sshd')
+        else:
             # Override pam.d sshd stack.
-            #_bind('.etc/pam.d/sshd', '/etc/pam.d/sshd')
+            _bind('.etc/pam.d/sshd', '/etc/pam.d/sshd')
 
         watchdog.remove()
 

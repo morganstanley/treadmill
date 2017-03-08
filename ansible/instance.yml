@@ -1,16 +1,7 @@
 ---
 - hosts: controller
-  pre_tasks:
-    - include_vars: aws.properties
   roles:
     - {role: instance}
     - {role: dynamic-inventory}
   tags:
     - always
-
-- hosts: ec2instances
-  become: yes
-  roles:
-    - {role: master}
-  tags:
-    - master

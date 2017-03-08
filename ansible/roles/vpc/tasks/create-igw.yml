@@ -3,5 +3,5 @@
   ec2_vpc_igw:
     vpc_id: "{{ vpc_info.vpc.id }}"
     state: present
-    region: "{{ vpc_region }}"
+    region: "{{ vpc.region }}"
   register: igw

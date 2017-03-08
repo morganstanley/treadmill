@@ -4,7 +4,7 @@
     name: sg_common
     description: sg rules for allowing ssh from controller
     vpc_id: "{{ subnet_facts.subnets[0].vpc_id }}"
-    region: "{{ vpc_region }}"
+    region: "{{ vpc.region }}"
     rules:
       - proto: tcp
         from_port: 22

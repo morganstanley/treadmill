@@ -1,10 +1,17 @@
 ---
 - add_host:
-    groupname=ec2instances
+    groupname=ec2masterinstances
     hostname="{{item.public_ip_address}}"
     instance_tags="{{item.tags}}"
     ansible_user=centos
-  with_items: "{{instance_facts.instances}}"
+  with_items: "{{instance_facts_master.instances}}"
+
+- add_host:
+    groupname=ec2nodeinstances
+    hostname="{{item.public_ip_address}}"
+    instance_tags="{{item.tags}}"
+    ansible_user=centos
+  with_items: "{{instance_facts_node_server.instances}}"
 
 - name: Wait for SSH
   local_action:
@@ -13,4 +20,6 @@
     delay=10
     timeout=240
     state=started
-  with_items: "{{instance_facts.instances}}"
+  with_flattened:
+    - "{{instance_facts_master.instances}}"
+    - "{{instance_facts_node_server.instances}}"

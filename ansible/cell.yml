@@ -1,3 +1,5 @@
 ---
 - include: vpc.yml
-- include: instance.yml
+- include: master.yml
+- include: node.yml
+

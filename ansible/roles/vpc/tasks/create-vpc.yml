@@ -2,7 +2,7 @@
 - name: Create VPC
   ec2_vpc_net:
     state: present
-    name: "{{ vpc_name }}"
-    cidr_block: "{{ vpc_cidr }}"
-    region: "{{ vpc_region }}"
+    name: "{{ vpc.name }}"
+    cidr_block: "{{ vpc.cidr }}"
+    region: "{{ vpc.region }}"
   register: vpc_info
