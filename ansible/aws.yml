@@ -10,7 +10,7 @@ vpc:
     az: us-east-1a
 master:
   name: Treadmill_Master
-  exact_count: 1
+  exact_count: 3
 node_server:
   name: Treadmill_Node_Server
   exact_count: 1

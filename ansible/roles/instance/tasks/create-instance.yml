@@ -24,3 +24,12 @@
     region: "{{ vpc.region }}"
     device_id: "{{item.1.id}}"
   with_indexed_items: "{{created_instances.tagged_instances}}"
+
+- name: Add instance number as tag
+  ec2_tag:
+    region: "{{ vpc.region }}"
+    state: present
+    resource: "{{item.1.id}}"
+    tags:
+      instance_number: "{{item.0 + 1}}"
+  with_indexed_items: "{{created_instances.tagged_instances}}"

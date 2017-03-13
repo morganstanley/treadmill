@@ -1,4 +1,4 @@
-export TREADMILL_ZOOKEEPER={% for instance in instance_facts_master.instances %}zookeeper://foo@{{instance.public_ip_address}}:2181,{% endfor %} 
+export TREADMILL_ZOOKEEPER=zookeeper://foo@{% for instance in instance_facts_master.instances %}{{instance.private_ip_address}}:2181{% if not loop.last %},{% endif %}{% endfor %} 
 export TREADMILL_EXE_WHITELIST={{base_dir}}/treadmill/etc/linux.exe.config
 export TREADMILL_CELL=localhost.localdomain
 export TREADMILL_APPROOT=/tmp/treadmill
