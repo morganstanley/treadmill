@@ -19,6 +19,7 @@
     - krb5-devel
     - openssl-devel
     - epel-release
+    - mercurial
 
 - name: Install yum packages from epel repo
   yum:

@@ -23,7 +23,7 @@ requests-kerberos>=0.10,<1
 simplejson>=3.8,<4
 tornado>=4.4,<5
 Twisted>=16.4,<17
-# urllib2_kerberos>=0.1,<1  TODO: Doesn't support Python3. -- Gaurav/Sny
+-e hg+https://tolsen@bitbucket.org/tolsen/urllib2_kerberos#egg=urllib2_kerberos
 websocket-client>=0.40.0,<1
 ansible==2.2.1.0
 boto==2.46.1
