@@ -306,7 +306,7 @@ class AppCfgMgrTest(unittest.TestCase):
         # pylint: disable=W0212
 
         self.appcfgmgr._refresh_supervisor(
-            instance_names=set(['foo#1', 'bar#2'])
+            instance_names=['foo#1', 'bar#2']
         )
 
         treadmill.subproc.check_call.assert_has_calls(
@@ -351,6 +351,12 @@ class AppCfgMgrTest(unittest.TestCase):
                     ]
                 ),
                 mock.call(
+                    [
+                        's6-svok',
+                        os.path.join(self.running, 'foo#1'),
+                    ]
+                ),
+                 mock.call(
                     [
                         's6-svok',
                         os.path.join(self.running, 'bar#2'),
