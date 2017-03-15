@@ -10,7 +10,7 @@ yum -y install ipset iptables bridge-utils libcgroup-tools lvm2*
 yum -y group install "Development Tools"
 yum -y install python-devel ntp krb5-server krb5-libs krb5-devel
 yum -y install epel-release
-yum -y install python34 python34-devel
+yum -y install python34 python34-devel mercurial openssl-devel
 
 curl "https://bootstrap.pypa.io/get-pip.py" -o /tmp/get-pip.py
 python /tmp/get-pip.py
