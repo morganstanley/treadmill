@@ -346,13 +346,13 @@ def bytes_to_readable(num, power='M'):
 
 def cpu_to_readable(num):
     """Converts CPU % into readable number."""
-    locale.setlocale(locale.LC_ALL, 'en_US')
+    locale.setlocale(locale.LC_ALL, 'en_US.utf8')
     return locale.format("%d", num, grouping=True)
 
 
 def cpu_to_cores_readable(num):
     """Converts CPU % into number of abstract cores."""
-    locale.setlocale(locale.LC_ALL, 'en_US')
+    locale.setlocale(locale.LC_ALL, 'en_US.utf8')
     return locale.format("%.2f", num / 100.0, grouping=True)
 
 
