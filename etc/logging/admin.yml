@@ -1,17 +1,17 @@
 version: 1
 formatters:
   simple:
-    format: '# %(asctime)s - %(name)s:%(lineno)d %(levelname)s - %(message)s'
+    format: '# %(asctime)s - [%(threadName)s] %(name)s:%(lineno)d %(levelname)s - %(message)s'
 handlers:
   console:
     class: logging.StreamHandler
     formatter: simple
-    stream: ext://sys.stdout
+    stream: ext://sys.stderr
 loggers:
   treadmill:
-    level: CRITICAL
+    level: INFO
     handlers: [console]
     propagate: no
 root:
-  level: CRITICAL
+  level: INFO
   handlers: [console]

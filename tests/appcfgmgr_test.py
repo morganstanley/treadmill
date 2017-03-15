@@ -332,7 +332,8 @@ class AppCfgMgrTest(unittest.TestCase):
                         os.path.join(self.running, 'bar#2'),
                     ]
                 ),
-            ]
+            ],
+            any_order=True
         )
         # Make sure we did the right amount of retries
         treadmill.subproc.call.assert_has_calls(
@@ -352,12 +353,6 @@ class AppCfgMgrTest(unittest.TestCase):
                 mock.call(
                     [
                         's6-svok',
-                        os.path.join(self.running, 'foo#1'),
-                    ]
-                ),
-                mock.call(
-                    [
-                        's6-svok',
                         os.path.join(self.running, 'bar#2'),
                     ]
                 ),
@@ -367,7 +362,8 @@ class AppCfgMgrTest(unittest.TestCase):
                         os.path.join(self.running, 'bar#2'),
                     ]
                 ),
-            ]
+            ],
+            any_order=True
         )
         self.assertEqual(
             time.sleep.call_count,

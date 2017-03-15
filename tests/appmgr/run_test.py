@@ -107,14 +107,9 @@ class AppMgrRunTest(unittest.TestCase):
             '/some/root_dir/.etc'
         )
         shutil.copyfile.assert_called_with(
-            os.path.join(self.app_env.root, 'etc/resolv.conf'),
-            '/some/root_dir/.etc/resolv.conf'
-        )
-        shutil.copyfile.assert_called_with(
-            os.path.join(self.app_env.root, 'etc/hosts'),
+            '/etc/hosts',
             '/some/root_dir/.etc/hosts'
         )
-
         treadmill.subproc.check_call.assert_has_calls([
             mock.call(
                 [
@@ -786,12 +781,12 @@ class AppMgrRunTest(unittest.TestCase):
                 bind_opt='--bind',
                 target=os.path.join(app_dir, 'root/.etc/ld.so.preload')
             ),
-            mock.call(
-                os.path.join(app_dir, 'root'),
-                '/etc/pam.d/sshd',
-                bind_opt='--bind',
-                target=os.path.join(app_dir, 'root/.etc/pam.d/sshd')
-            ),
+            # mock.call(
+            #     os.path.join(app_dir, 'root'),
+            #     '/etc/pam.d/sshd',
+            #     bind_opt='--bind',
+            #     target=os.path.join(app_dir, 'root/.etc/pam.d/sshd')
+            # ),
         ])
 
         self.assertTrue(mock_watchdog.remove.called)
