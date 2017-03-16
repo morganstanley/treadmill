@@ -2,6 +2,7 @@
 - name: Spinup the instance
   ec2:
     exact_count: "{{ _exact_count }}"
+    assign_public_ip: yes
     vpc_subnet_id: "{{ subnet_id }}"
     region: "{{ vpc.region }}"
     image: "{{ ami_id }}"
@@ -18,12 +19,6 @@
         delete_on_termination: true
     wait: yes
   register: created_instances
-
-- name: Associate provided elastic IP
-  ec2_eip:
-    region: "{{ vpc.region }}"
-    device_id: "{{item.1.id}}"
-  with_indexed_items: "{{created_instances.tagged_instances}}"
 
 - name: Add instance number as tag
   ec2_tag:
