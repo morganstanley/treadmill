@@ -41,3 +41,24 @@ sudo mount --make-rprivate /
 source /home/centos/env/bin/activate
 treadmill --help
 ```
+
+
+### Treadmill cli cheatsheet
+``` sh
+treadmill sproc scheduler /tmp
+treadmill sproc service --root-dir /tmp/treadmill/ localdisk --reserve 20G --img-location /tmp/treadmill --default-read-bps 100M --default-write-bps 100M --default-read-iops 300 --default-write-iops 300
+treadmill sproc service --root-dir /tmp/treadmill/ network
+treadmill sproc service --root-dir /tmp/treadmill/ cgroup
+
+# Zookeeper shell
+create /scheduled/centos.bar#123 {"memory":"100M","cpu":"10%","disk":"500M","proid":"centos","affinity":"centos.bar","services":[{"name":"sleep","command":"/bin/top","restart":{"limit":5,"interval":60}}]}
+create /servers/localhost.localdomain {"parent":"all:unknown","features":[],"traits":[],"label":null,"valid_until":1488573090.0}
+create /cell/all:unknown {}
+create /buckets/all:unknown {"parent":null,"traits":0}
+
+# System shell
+treadmill sproc init --approot /tmp/treadmill/
+cd /tmp/treadmill/running && nohup /bin/s6-svscan > s6_svscan.out & && cd -
+treadmill sproc eventdaemon
+treadmill sproc appcfgmgr
+```
