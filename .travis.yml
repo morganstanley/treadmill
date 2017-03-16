@@ -8,6 +8,7 @@ env:
 - TOXENV=docs-linkcheck
 
 install:
+- sudo touch /etc/ld.so.preload
 - pip install tox
 
 script:
