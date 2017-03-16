@@ -146,7 +146,7 @@ def configure(tm_env, event):
 
     # Generate the supervisor's run script
     app_run_cmd = ' '.join([
-        os.path.join(treadmill.TREADMILL, 'bin', 'treadmill'),
+        treadmill.TREADMILL_BIN,
         'sproc', 'run', container_dir
     ])
 
