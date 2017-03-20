@@ -19,12 +19,16 @@ def __root_join(*path):
 #
 # TODO: how will it work if packaged as single zip file?
 TREADMILL = __root_join('..', '..', '..')
+VIRTUAL_ENV = os.environ.get('VIRTUAL_ENV')
 
 if os.name == 'nt':
     _TREADMILL_SCRIPT = 'treadmill.cmd'
 else:
     _TREADMILL_SCRIPT = 'treadmill'
 
-TREADMILL_BIN = os.path.join(TREADMILL, 'bin', _TREADMILL_SCRIPT)
+if VIRTUAL_ENV:
+    TREADMILL_BIN = os.path.join(VIRTUAL_ENV, 'bin', _TREADMILL_SCRIPT)
+else:
+    TREADMILL_BIN = os.path.join('/bin', _TREADMILL_SCRIPT)
 
 TREADMILL_LDAP = os.environ.get('TREADMILL_LDAP')

@@ -1,0 +1,10 @@
+---
+- name: Check if scheduler is running
+  shell: ps -ef | grep scheduler | grep -v grep
+  ignore_errors: yes
+  changed_when: false
+  register: service_scheduler_status
+
+- name: Start the scheduler
+  shell: ". ~/.bashrc && nohup {{base_dir}}/env/bin/treadmill sproc scheduler /tmp > {{base_dir}}/scheduler.out &"
+  when: service_scheduler_status.rc != 0

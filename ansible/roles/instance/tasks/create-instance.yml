@@ -1,0 +1,30 @@
+---
+- name: Spinup the instance
+  ec2:
+    exact_count: "{{ _exact_count }}"
+    assign_public_ip: yes
+    vpc_subnet_id: "{{ subnet_id }}"
+    region: "{{ vpc.region }}"
+    image: "{{ ami_id }}"
+    instance_type: t2.micro
+    key_name: "{{ aws_key_name }}"
+    count_tag:
+      Name: "{{ _name }}"
+    instance_tags: { "Name":"{{ _name }}" }
+    group_id: "{{ sg_info.group_id }}"
+    volumes:
+      - device_name: /dev/sda1
+        volume_type: gp2
+        volume_size: 10
+        delete_on_termination: true
+    wait: yes
+  register: created_instances
+
+- name: Add instance number as tag
+  ec2_tag:
+    region: "{{ vpc.region }}"
+    state: present
+    resource: "{{item.1.id}}"
+    tags:
+      instance_number: "{{item.0 + 1}}"
+  with_indexed_items: "{{created_instances.tagged_instances}}"

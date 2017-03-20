@@ -1,0 +1,3 @@
+dependencies:
+  - { role: fetch-facts, resources: ['ec2']}
+  - { role: base-setup }

@@ -120,7 +120,6 @@ class AppMgrManifestTest(unittest.TestCase):
 
     @mock.patch('treadmill.appmgr.gen_uniqueid', mock.Mock(return_value='42'))
     @mock.patch('treadmill.appmgr.manifest.read', mock.Mock())
-    @mock.patch('treadmill.proiddb.environment', mock.Mock(return_value='dev'))
     @mock.patch('treadmill.subproc._check', mock.Mock(return_value=True))
     def test_load_normalize(self):
         """Test the normalization of manifests.

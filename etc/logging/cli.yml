@@ -1,0 +1,17 @@
+version: 1
+formatters:
+  simple:
+    format: '# %(asctime)s - %(name)s:%(lineno)d %(levelname)s - %(message)s'
+handlers:
+  console:
+    class: logging.StreamHandler
+    formatter: simple
+    stream: ext://sys.stdout
+loggers:
+  treadmill:
+    level: CRITICAL
+    handlers: [console]
+    propagate: no
+root:
+  level: CRITICAL
+  handlers: [console]

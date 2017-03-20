@@ -1,0 +1,30 @@
+---
+- name: Check if the localdisk service is running
+  shell: "ps -ef | grep localdisk | grep -v grep"
+  ignore_errors: yes
+  changed_when: false
+  register: localdisk_status
+
+- name: Check if the network service is running
+  shell: "ps -ef | grep network | grep -v grep"
+  ignore_errors: yes
+  changed_when: false
+  register: network_status
+
+- name: Check if the services are running
+  shell: "ps -ef | grep cgroup | grep -v grep"
+  ignore_errors: yes
+  changed_when: false
+  register: "cgroup_status"
+
+- name: Start localdisk service
+  shell: ". ~/.bashrc && nohup {{base_dir}}/env/bin/treadmill sproc service --root-dir {{app_root}} localdisk --reserve 20G --img-location /tmp/treadmill --default-read-bps 100M --default-write-bps 100M --default-read-iops 300 --default-write-iops 300 > local_disk_service.out &"
+  when: localdisk_status.rc != 0
+
+- name: Start network service
+  shell: ". ~/.bashrc && nohup {{base_dir}}/env/bin/treadmill sproc service --root-dir {{app_root}} network > network_service.out &"
+  when: network_status.rc != 0
+
+- name: Start cgroup service
+  shell: ". ~/.bashrc && nohup {{base_dir}}/env/bin/treadmill sproc service --root-dir {{app_root}} cgroup > cgroup_service.out &"
+  when: cgroup_status.rc != 0

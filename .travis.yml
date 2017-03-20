@@ -8,6 +8,7 @@ env:
 - TOXENV=docs-linkcheck
 
 install:
+- sudo touch /etc/ld.so.preload
 - pip install tox
 
 script:
@@ -24,3 +25,8 @@ notifications:
 matrix:
   allow_failures:
     - env: TOX_ENV=py34
+
+notifications:
+  email: false
+  slack:
+    secure: tqBCmtA0GMH10ZR7d4r+PcjTftrgjtyBXzlQLwz1zRsdUlPi955m55z+VfPhT1TmWmq4HN14lcljh8p7kBRNN1yD+xRK5Dk5upOqqOsr1g2zX1i6Vij4L/IYeX/JapwVF2a4zlWxZ3dGs4DqlR2GARlkw+7c3AjyPyODGjJp5zNaugkGaXuqRT6ePrrkqsD5QKdJzfA2QDc6n3S1MuK7mTbe4EvZOBELWpWeAupUm+6Q4SB27nl4d8besP2ufAQkB1v1ZemQ+R3fXTvt0grKBRwYIDbpMreg+ywuL0DMFKR0DQMVNhLDWfqYOTtvWSnwM2tbYU88iP6PeWKP/pMKGpUXt2DfFp1jVBLdfbIfWJXlKmn0nAjFLp0XpaAJ61KVMykyE2Rs8umVPXmLBigEH4COzxi+QMxxugjMP9Aj7XrWO0tDRJbrbpVHv1ZuYbATujHapc8M2+V4IUAf8qOIz3MWIC9X4uiD9Mu/VKtIsKX28dHM3lz5yuLZyfN0naRM2qi1K5cZ5eEYSNcPC3qqkcBxlLi20JE+gOyszA7bVeemsIMhmn/KkhZ6CX7w5IPqYmZuIW4B/876ze2bQPqNHzxWx53WAIIROdp0ehjSXD/Om+0PkUEQFXie6wVX0i84ax7+ULeJlHhEnlHkNBIeQUy1WxP10lH0hej0XCJQnDE=

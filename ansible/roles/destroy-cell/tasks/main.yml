@@ -1,0 +1,7 @@
+---
+- include: instances.yml
+- include: igw.yml
+- include: security-group.yml
+- include: subnet.yml
+- include: route-table.yml
+- include: vpc.yml

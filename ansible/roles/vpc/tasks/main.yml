@@ -1,0 +1,6 @@
+---
+# tasks file for vpc-spinup
+- include: create-vpc.yml
+- include: create-subnet.yml
+- include: create-igw.yml
+- include: create-route-entry.yml

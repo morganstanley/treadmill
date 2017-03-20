@@ -1,0 +1,12 @@
+---
+- name: Fetch VPC Facts
+  ec2_vpc_net_facts:
+    filters:
+      "tag:Name": "{{ vpc.name }}"
+      cidr: "{{ vpc.cidr }}"
+    region: "{{ vpc.region }}"
+  register: vpc_facts
+
+- set_fact:
+    vpc_id: "{{ item.id }}"
+  with_items: "{{vpc_facts.vpcs}}"

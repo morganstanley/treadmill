@@ -1,0 +1,31 @@
+---
+- name: Install system dependencies for node
+  yum:
+    name: "{{item}}"
+    state: present
+  with_items:
+    - ipset
+    - iptables
+    - bridge-utils
+    - libcgroup-tools
+    - lvm2*
+    - gcc
+
+- name: S6 Installations
+  git:
+    repo: "{{item.0}}"
+    dest: "{{base_dir}}/{{item.1}}"
+    version: "{{item.2}}"
+  with_together:
+    - ["https://github.com/skarnet/s6.git", "https://github.com/skarnet/execline.git", "https://github.com/skarnet/skalibs.git"]
+    - [s6, execline, skalibs]
+    - ['v2.4.0.0','v2.2.0.0','v2.4.0.2']
+
+- name: Make s6
+  shell: "./configure && make && make install"
+  args:
+    chdir: "{{base_dir}}/{{item}}"
+  with_items:
+    - skalibs
+    - execline
+    - s6
