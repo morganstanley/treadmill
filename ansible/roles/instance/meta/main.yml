@@ -217,7 +217,7 @@ galaxy_info:
     # alphanumeric characters. Maximum 20 tags per role.
 
 dependencies:
-  - { role: fetch-facts, resources: ['vpc']}
+  - { role: fetch-facts, resources: ['subnet','vpc']}
   # List your role dependencies here, one per line.
   # Be sure to remove the '[]' above if you add dependencies
   # to this list.
