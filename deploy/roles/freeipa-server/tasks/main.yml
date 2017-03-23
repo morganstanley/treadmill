@@ -1,0 +1,113 @@
+---
+- name: install FreeIPA and OpenLDAP server packages
+  yum:
+    name: "{{ item }}"
+    state: present
+  with_items:
+    - ipa-server
+    - openldap-servers
+
+- name: Add host entry
+  lineinfile:
+    dest=/etc/hosts
+    regexp="{{ freeipa.name|lower }}1.{{ domain }}"
+    line="{{ ansible_default_ipv4.address }} {{ freeipa.name|lower }}1.{{ domain }}"
+    owner=root
+    group=root
+    mode=0644
+
+- name: Fetch credential file if it exists
+  fetch:
+    src: "{{freeipa.admin_pwd_file}}"
+    dest: "{{freeipa.admin_pwd_file}}"
+    flat: yes
+
+- name: Genereate freeipa admin password
+  command: echo {{ lookup('password', freeipa.admin_pwd_file) }}
+  register: lookup_result
+
+- name: Set freeipa admin password fact
+  set_fact:
+    ipaserver_admin_password: "{{lookup_result.stdout}}"
+
+- name: Copy credential file on FreeIPA server
+  copy: src="{{freeipa.admin_pwd_file}}" dest="{{freeipa.admin_pwd_file}}"
+
+- name: Configure FreeIPA server
+  command: /sbin/ipa-server-install
+    -U --domain "{{ domain }}"
+    --realm "{{ freeipa.realm }}"
+    -a "{{ ipaserver_admin_password}}"
+    -p "{{ ipaserver_admin_password}}"
+    --hostname="{{ freeipa.name|lower }}1.{{ domain }}"
+    creates=/etc/ipa/default.conf
+
+- name: Copy OpenLDAP hdb ldif file
+  template:
+    src: hdb.ldif
+    dest: /etc/openldap/slapd.d/cn=config/olcDatabase={2}hdb.ldif
+    owner: ldap
+    group: ldap
+    mode: 0600
+
+- name: Copy OpenLDAP config ldif file
+  template:
+    src: config.ldif
+    dest: /etc/openldap/slapd.d/cn=config/olcDatabase={0}config.ldif
+    owner: ldap
+    group: ldap
+    mode: 0600
+
+- name: Copy treadmill schema config ldif file
+  template:
+    src: treadmill.ldif
+    dest: /etc/openldap/slapd.d/cn=config/cn=schema/cn={1}treadmill.ldif
+    owner: ldap
+    group: ldap
+    mode: 0600
+
+- name: Copy slapd sysconfig file
+  template:
+    src: slapd.sysconfig
+    dest: /etc/sysconfig/slapd
+    owner: root
+    group: root
+    mode: 0644
+
+- name: Change ownership of ldap db directory
+  file:
+    path: /var/lib/ldap
+    owner: ldap
+    group: ldap
+    state: directory
+    recurse: yes
+
+- name: Set nis_enabled selinux boolean
+  seboolean:
+    name: nis_enabled
+    state: yes
+    persistent: yes
+
+- name: Start slapd service
+  service:
+    name: slapd
+    state: started
+    enabled: yes
+
+- name: Copy schema.yml file
+  copy:
+    src: schema.yml
+    dest: /root/schema.yml
+    owner: root
+    group: root
+    mode: 0600
+
+- name: Run treadmill ldap init, load, configure
+  command: "{{ item }}"
+  with_items:
+    - treadmill admin ldap init {{ domain }}
+    - treadmill admin ldap schema --load /root/schema.yml
+    - treadmill admin ldap cell configure -u admin {{ vpc_id }}
+  environment:
+    TREADMILL_LDAP: "ldap://{{ freeipa.name|lower }}1.{{ domain }}:1389"
+    TREADMILL_LDAP_SEARCH_BASE: "ou=treadmill,{{ domain | regex_replace('(.*)\\.(.*)', 'dc=\\1,dc=\\2') }}"

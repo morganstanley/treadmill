@@ -1,7 +1,7 @@
 ---
 - name: Get Treadmill Binary
   get_url:
-    url: https://github.com/ThoughtWorksInc/treadmill/releases/download/0.0.1/treadmill
+    url: https://github.com/ThoughtWorksInc/treadmill/releases/download/0.0.2/treadmill
     dest: /bin/treadmill
     mode: 0744
 

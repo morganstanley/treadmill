@@ -1,4 +1,4 @@
 dependencies:
+  - { role: fetch-facts, resources: ['vpc']}
   - { role: base-setup }
-  - { role: freeipa-client }
   - { role: treadmill-base-setup }

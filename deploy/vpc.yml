@@ -1,7 +1,9 @@
 ---
 - hosts: controller
   pre_tasks:
-    - include_vars:
-        file: "{{aws_config | default('aws.yml')}}"
+    - include_vars: "{{ item }}"
+      with_items:
+        - "{{aws_config | default('config/aws.yml')}}"
+        - "config/treadmill.yml"
   roles:
     - {role: vpc}

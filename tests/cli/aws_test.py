@@ -54,7 +54,7 @@ class AwsTest(unittest.TestCase):
             '-e',
             'aws_config=' + os.path.join(
                 treadmill.TREADMILL_DEPLOY_PACKAGE,
-                'aws.yml'
+                'config/aws.yml'
             ),
             os.path.join(
                 treadmill.TREADMILL_DEPLOY_PACKAGE,
@@ -91,7 +91,7 @@ class AwsTest(unittest.TestCase):
             '-e',
             'aws_config=' + os.path.join(
                 treadmill.TREADMILL_DEPLOY_PACKAGE,
-                'aws.yml'
+                'config/aws.yml'
             ),
             os.path.join(
                 treadmill.TREADMILL_DEPLOY_PACKAGE,
@@ -141,7 +141,7 @@ class AwsTest(unittest.TestCase):
             '-e',
             'aws_config=' + os.path.join(
                 treadmill.TREADMILL_DEPLOY_PACKAGE,
-                'aws.yml'
+                'config/aws.yml'
             )
         ])
 

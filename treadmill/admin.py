@@ -11,6 +11,9 @@ import hashlib
 import itertools
 import logging
 import shlex
+import os
+import yaml
+import re
 
 from distutils import util
 
@@ -57,6 +60,8 @@ _TYPE_2_SUBSTR = {
 
 _TREADMILL_ATTR_OID_PREFIX = '1.3.6.1.4.1.360.10.6.1.'
 _TREADMILL_OBJCLS_OID_PREFIX = '1.3.6.1.4.1.360.10.6.2.'
+_TREADMILL_CONFIG_PATH = os.path.join(treadmill.TREADMILL_DEPLOY_PACKAGE,
+                                      'config', 'treadmill.yml')
 
 
 def _entry_2_dict(entry, schema):
@@ -355,6 +360,29 @@ class AndQuery(object):
         return query
 
 
+def _admin_ldap_user(domain):
+    match = re.match("(.*)\.(.*)", domain)
+    return "cn=admin,dc={},dc={}".format(match.group(1), match.group(2))
+
+
+def _ldap_args():
+    defaults = dict(authentication=ldap3.SASL,
+                    sasl_mechanism='GSSAPI',
+                    client_strategy=ldap3.STRATEGY_SYNC_RESTARTABLE,
+                    auto_bind=True)
+
+    with open(_TREADMILL_CONFIG_PATH) as f:
+        treadmill_conf = yaml.load(f)
+        freeipa_conf = treadmill_conf.get('freeipa')
+        if freeipa_conf.get('authentication').lower() == 'simple':
+            defaults['user'] = _admin_ldap_user(treadmill_conf.get('domain'))
+            defaults['authentication'] = ldap3.SIMPLE
+            defaults['sasl_mechanism'] = None
+            with open(freeipa_conf.get('admin_pwd_file')) as p:
+                defaults['password'] = p.read().strip()
+    return defaults
+
+
 class Admin(object):
     """Manages Treadmill objects in ldap."""
 
@@ -386,16 +414,12 @@ class Admin(object):
     def connect(self):
         """Connects (binds) to LDAP server."""
         ldap3.set_config_parameter('RESTARTABLE_TRIES', 3)
+        ldap_params = _ldap_args()
+
         for uri in self.uri:
             try:
                 server = ldap3.Server(uri)
-                self.ldap = ldap3.Connection(
-                    server,
-                    authentication=ldap3.SASL,
-                    sasl_mechanism='GSSAPI',
-                    client_strategy=ldap3.STRATEGY_SYNC_RESTARTABLE,
-                    auto_bind=True
-                )
+                self.ldap = ldap3.Connection(server, **ldap_params)
             except (ldap3.LDAPSocketOpenError,
                     ldap3.LDAPBindError,
                     ldap3.LDAPMaximumRetriesError):
