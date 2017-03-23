@@ -26,7 +26,7 @@ VIRTUAL_ENV = os.environ.get('VIRTUAL_ENV')
 
 if VIRTUAL_ENV:
     TREADMILL_BIN = os.path.join(VIRTUAL_ENV, 'bin', _TREADMILL_SCRIPT)
-    TREADMILL = os.path.join(VIRTUAL_ENV, '../')
+    TREADMILL = os.path.join(treadmill.__path__[0], '../')
 else:
     TREADMILL_BIN = os.path.join('/bin', _TREADMILL_SCRIPT)
     TREADMILL = __root_join('..')
