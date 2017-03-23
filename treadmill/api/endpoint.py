@@ -1,5 +1,5 @@
 """Implementation of endpoint API."""
-from __future__ import absolute_import
+
 
 import logging
 
@@ -94,7 +94,7 @@ class API(object):
             _LOGGER.debug('endpoints: %r', endpoints)
 
             filtered = []
-            for name, hostport in endpoints.iteritems():
+            for name, hostport in endpoints.items():
                 if not fnmatch.fnmatch(name, full_pattern):
                     continue
                 appname, proto, endpoint = name.split(':')

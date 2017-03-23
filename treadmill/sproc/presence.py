@@ -1,5 +1,5 @@
 """Runs Treadmill application presence daemon."""
-from __future__ import absolute_import
+
 
 import time
 import logging
@@ -142,11 +142,13 @@ def init():
             # start_container is terminated.
             svc_sup_ran_once = os.path.exists(os.path.join(svc_sup_dir,
                                                            'self.pid'))
-            log.info('services supervisor ran once: %s', svc_sup_ran_once)
+            log.logger.info(
+                'services supervisor ran once: %s', svc_sup_ran_once
+            )
             svc_sup_down = presence.is_down(svc_sup_dir)
-            log.info('services supervisor down: %s', svc_sup_down)
+            log.logger.info('services supervisor down: %s', svc_sup_down)
             if svc_sup_down and svc_sup_ran_once:
-                log.info('services supervisor was terminated, exiting.')
+                log.logger.info('services supervisor was terminated, exiting.')
             else:
                 svc_presence.ensure_supervisors_running()
 
@@ -164,14 +166,16 @@ def init():
 
                     svc_presence.wait_for_exit(svc_sup_dir)
                     if presence.is_down(svc_sup_dir):
-                        log.info('Container services supervisor is down.')
+                        log.logger.info(
+                            'Container services supervisor is down.'
+                        )
                         failed_svc = None
                         killed = True
                         break
 
             svc_presence.exit_app(failed_svc, killed=killed)
 
-            log.info('Shutting down sys supervisor.')
+            log.logger.info('Shutting down sys supervisor.')
             subproc.call(['s6-svscanctl', '-pi', sys_dir])
 
     del register

@@ -1,7 +1,5 @@
 """Treadmill exceptions and utility functions."""
 
-from __future__ import absolute_import
-
 import functools
 import logging
 
@@ -11,11 +9,10 @@ from . import utils
 _LOGGER = logging.getLogger(__name__)
 
 
-class TreadmillError(StandardError):
+class TreadmillError(Exception):
     """Base class for all Treadmill errors"""
 
-    def __str__(self):
-        return self.message
+    pass
 
 
 class InvalidInputError(TreadmillError):

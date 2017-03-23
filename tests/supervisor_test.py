@@ -78,7 +78,7 @@ class SupervisorTest(unittest.TestCase):
 #        # Check the the s6-svscan is running.
 #        time.sleep(1)
 #        proc_info = sysinfo.proc_info(pid)
-#        self.assertEquals('s6-svscan', proc_info.filename)
+#        self.assertEqual('s6-svscan', proc_info.filename)
 #        os.kill(pid, signal.SIGTERM)
 #
 #    def test_start_stop_service(self):
@@ -105,12 +105,12 @@ class SupervisorTest(unittest.TestCase):
 #        self.assertTrue(supervisor.is_running(self.root, 'bla'))
 #        service_pid = supervisor.get_pid(self.root, 'bla')
 #        self.assertIsNot(0, service_pid)
-#        self.assertEquals('sleep', sysinfo.proc_info(service_pid).filename)
+#        self.assertEqual('sleep', sysinfo.proc_info(service_pid).filename)
 #
 #        supervisor.kill_service(self.root, 'bla')
 #        time.sleep(1)
 #        self.assertFalse(supervisor.is_running(self.root, 'bla'))
-#        self.assertEquals(None, supervisor.get_pid(self.root, 'bla'))
+#        self.assertEqual(None, supervisor.get_pid(self.root, 'bla'))
 #
 #        os.kill(pid, signal.SIGTERM)
 
@@ -120,28 +120,24 @@ class SupervisorTest(unittest.TestCase):
         # Disable W0212: accessing protected member
         # pylint: disable=W0212
 
-        self.assertEquals({'since': 990,
-                           'state': 'up',
-                           'intended': 'up',
-                           'pid': 123},
-                          supervisor._parse_state('up (pid 123) 10 seconds\n'))
-        self.assertEquals({'since': 900,
-                           'state': 'up',
-                           'intended': 'down',
-                           'pid': 123},
-                          supervisor._parse_state('up (pid 123) 100 seconds'
-                                                  ' normally down\n'))
-        self.assertEquals({'since': 900,
-                           'state': 'down',
-                           'intended': 'down',
-                           'pid': None},
-                          supervisor._parse_state('down 100 seconds'))
-        self.assertEquals({'since': 900,
-                           'state': 'down',
-                           'intended': 'up',
-                           'pid': None},
-                          supervisor._parse_state('down 100 seconds'
-                                                  ' normally up'))
+        self.assertEqual(
+            {'since': 990, 'state': 'up', 'intended': 'up', 'pid': 123},
+            supervisor._parse_state('up (pid 123) 10 seconds\n')
+        )
+        self.assertEqual(
+            {'since': 900, 'state': 'up', 'intended': 'down', 'pid': 123},
+            supervisor._parse_state(
+                'up (pid 123) 100 seconds normally down\n'
+            )
+        )
+        self.assertEqual(
+            {'since': 900, 'state': 'down', 'intended': 'down', 'pid': None},
+            supervisor._parse_state('down 100 seconds')
+        )
+        self.assertEqual(
+            {'since': 900, 'state': 'down', 'intended': 'up', 'pid': None},
+            supervisor._parse_state('down 100 seconds normally up')
+        )
 
     @mock.patch('treadmill.subproc.check_call', mock.Mock(return_value=0))
     def test_wait(self):
@@ -156,7 +152,7 @@ class SupervisorTest(unittest.TestCase):
         expected_cmd = ['s6-svwait', '-u', '-t', '0', '-o',
                         svcroot + '/a', svcroot + '/b']
         actual_cmd = treadmill.subproc.check_call.call_args[0][0]
-        self.assertItemsEqual(expected_cmd, actual_cmd)
+        self.assertEqual(expected_cmd, actual_cmd)
         treadmill.subproc.check_call.assert_called_with(actual_cmd)
 
         treadmill.subproc.check_call.reset_mock()

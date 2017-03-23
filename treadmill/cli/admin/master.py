@@ -1,5 +1,5 @@
 """Implementation of treadmill admin master CLI plugin"""
-from __future__ import absolute_import
+
 
 import click
 import yaml
@@ -99,7 +99,7 @@ def app_group(parent):
     def list():  # pylint: disable=W0622
         """List apps"""
         for appname in master.list_scheduled_apps(context.GLOBAL.zk.conn):
-            print appname
+            print(appname)
 
     @app.command()
     @click.option('-m', '--manifest', type=click.File('rb'), required=True)
@@ -126,7 +126,7 @@ def app_group(parent):
         scheduled = master.create_apps(context.GLOBAL.zk.conn,
                                        app, data, count)
         for app_id in scheduled:
-            print app_id
+            print(app_id)
 
     @app.command()
     @click.argument('instance')
@@ -221,7 +221,7 @@ def cell_group(parent):
         """List top level bucket in the cell"""
         buckets = master.cell_buckets(context.GLOBAL.zk.conn)
         for bucket in buckets:
-            print bucket
+            print(bucket)
 
     del list
     del insert

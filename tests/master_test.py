@@ -47,11 +47,11 @@ class MasterTest(mockzk.MockZookeeperTestCase):
 
     def test_resource_parsing(self):
         """Tests parsing resources."""
-        self.assertEquals([0, 0, 0], master.resources({}))
-        self.assertEquals([1, 0, 0], master.resources({'memory': '1M'}))
-        self.assertEquals([1, 10, 1024], master.resources({'memory': '1M',
-                                                           'cpu': '10%',
-                                                           'disk': '1G'}))
+        self.assertEqual([0, 0, 0], master.resources({}))
+        self.assertEqual([1, 0, 0], master.resources({'memory': '1M'}))
+        self.assertEqual([1, 10, 1024], master.resources({'memory': '1M',
+                                                          'cpu': '10%',
+                                                          'disk': '1G'}))
 
     @mock.patch('kazoo.client.KazooClient.get', mock.Mock())
     @mock.patch('kazoo.client.KazooClient.exists', mock.Mock())
@@ -179,15 +179,19 @@ class MasterTest(mockzk.MockZookeeperTestCase):
         self.master.load_buckets()
         self.master.load_servers()
 
-        self.assertEquals((scheduler.State.down, 100),
-                          self.master.servers['test.xx.com'].get_state())
+        self.assertEqual(
+            (scheduler.State.down, 100),
+            self.master.servers['test.xx.com'].get_state()
+        )
 
         zk_content['server.presence']['test.xx.com'] = {}
 
         time.time.return_value = 200
         self.master.adjust_server_state('test.xx.com')
-        self.assertEquals((scheduler.State.up, 200),
-                          self.master.servers['test.xx.com'].get_state())
+        self.assertEqual(
+            (scheduler.State.up, 200),
+            self.master.servers['test.xx.com'].get_state()
+        )
 
     @mock.patch('kazoo.client.KazooClient.get', mock.Mock())
     def test_load_allocations(self):
@@ -210,13 +214,13 @@ class MasterTest(mockzk.MockZookeeperTestCase):
         root = self.master.cell.partitions[None].allocation
         self.assertIn('treadmill', root.sub_allocations)
         leaf_alloc = root.get_sub_alloc('treadmill').get_sub_alloc('dev')
-        self.assertEquals(100, leaf_alloc.rank)
-        self.assertEquals(1024, leaf_alloc.reserved[0])
-        self.assertEquals(100, leaf_alloc.reserved[1])
-        self.assertEquals(1024, leaf_alloc.reserved[2])
+        self.assertEqual(100, leaf_alloc.rank)
+        self.assertEqual(1024, leaf_alloc.reserved[0])
+        self.assertEqual(100, leaf_alloc.reserved[1])
+        self.assertEqual(1024, leaf_alloc.reserved[2])
 
         assignments = self.master.assignments
-        self.assertEquals(
+        self.assertEqual(
             (10, leaf_alloc),
             assignments['treadmlx.*[#]' + '[0-9]' * 10]
         )
@@ -240,12 +244,12 @@ class MasterTest(mockzk.MockZookeeperTestCase):
         self.master.load_apps()
 
         self.assertIn('foo.bar#1234', self.master.cell.apps)
-        self.assertEquals(self.master.cell.apps['foo.bar#1234'].priority, 1)
+        self.assertEqual(self.master.cell.apps['foo.bar#1234'].priority, 1)
 
         zk_content['scheduled']['foo.bar#1234']['priority'] = 5
         self.master.load_apps()
-        self.assertEquals(len(self.master.cell.apps), 1)
-        self.assertEquals(self.master.cell.apps['foo.bar#1234'].priority, 5)
+        self.assertEqual(len(self.master.cell.apps), 1)
+        self.assertEqual(self.master.cell.apps['foo.bar#1234'].priority, 5)
 
     @mock.patch('kazoo.client.KazooClient.get', mock.Mock())
     @mock.patch('kazoo.client.KazooClient.get_children', mock.Mock())
@@ -431,10 +435,10 @@ class MasterTest(mockzk.MockZookeeperTestCase):
         self.assertFalse(treadmill.zkutils.ensure_deleted.called)
         self.assertFalse(treadmill.zkutils.ensure_exists.called)
 
-        self.assertEquals(self.master.cell.apps['xxx.app1#1234'].identity, 1)
-        self.assertEquals(
+        self.assertEqual(self.master.cell.apps['xxx.app1#1234'].identity, 1)
+        self.assertEqual(
             self.master.cell.apps['xxx.app1#1234'].identity_group, 'xxx.app1')
-        self.assertEquals(
+        self.assertEqual(
             self.master.cell.identity_groups['xxx.app1'].available,
             set([0, 2, 3, 4]))
 
@@ -573,7 +577,7 @@ class MasterTest(mockzk.MockZookeeperTestCase):
         master.create_apps(zkclient, 'foo.bar', {}, 3)
         kazoo.client.KazooClient.create.assert_has_calls(
             [mock.call('/scheduled/foo.bar#',
-                       '{}\n',
+                       b'{}\n',
                        makepath=True,
                        sequence=True,
                        ephemeral=False,
@@ -592,8 +596,8 @@ class MasterTest(mockzk.MockZookeeperTestCase):
                                                 'foo.bar#2': 20})
         kazoo.client.KazooClient.set.assert_has_calls(
             [
-                mock.call('/scheduled/foo.bar#1', '{priority: 10}\n'),
-                mock.call('/scheduled/foo.bar#2', '{priority: 20}\n'),
+                mock.call('/scheduled/foo.bar#1', b'{priority: 10}\n'),
+                mock.call('/scheduled/foo.bar#2', b'{priority: 20}\n'),
             ],
             any_order=True
         )
@@ -617,10 +621,10 @@ class MasterTest(mockzk.MockZookeeperTestCase):
         master.cell_insert_bucket(zkclient, 'pod:pod1')
 
         kazoo.client.KazooClient.create.assert_has_calls([
-            mock.call('/cell/pod:pod1', '',
+            mock.call('/cell/pod:pod1', b'',
                       makepath=True, acl=mock.ANY,
                       sequence=False),
-            mock.call('/events/000-cell-', '',
+            mock.call('/events/000-cell-', b'',
                       makepath=True, acl=mock.ANY,
                       sequence=True, ephemeral=False)
         ])
@@ -708,7 +712,7 @@ class MasterTest(mockzk.MockZookeeperTestCase):
         self.master.load_schedule()
 
         # Valid until is rounded to the end of day - reboot time + 21
-        self.assertEquals(
+        self.assertEqual(
             self.master.servers['test1.xx.com'].valid_until,
             self.master.servers['test2.xx.com'].valid_until
         )

@@ -11,7 +11,7 @@ The SET_TM_NODES is the list of know Treadmill node IPs (across cells in the
 same environment). It is refresh everytime the `/global/servers` list is
 updated in Zookeeper.
 """
-from __future__ import absolute_import
+
 
 import logging
 import socket
@@ -65,7 +65,7 @@ def _update_nodes_change(data):
         for server in servers:
             try:
                 server_ip = socket.gethostbyname(server)
-            except socket.gaierror as _exc:
+            except socket.gaierror:
                 _LOGGER.warning('Unable to resolve %r', server)
                 continue
 
@@ -75,7 +75,7 @@ def _update_nodes_change(data):
         _LOGGER.info('IPSet %r refreshed', iptables.SET_TM_NODES)
         iptables.swap_set(iptables.SET_TM_NODES, new_set)
 
-    except Exception as _err:
+    except Exception:
         _LOGGER.exception('Error synchronizing Treadmill node data')
         raise
 
@@ -98,7 +98,7 @@ def _watcher(root_dir, rules_dir, containers_dir, watchdogs_dir):
     watchdogs = watchdog.Watchdog(watchdogs_dir)
     wd = watchdogs.create(
         'svc-{svc_name}'.format(svc_name='firewall_watcher'),
-        '{hb:d}s'.format(hb=_FW_WATCHER_HEARTBEAT*2),
+        '{hb:d}s'.format(hb=_FW_WATCHER_HEARTBEAT * 2),
         'Service firewall watcher failed'
     )
 
@@ -218,7 +218,7 @@ def init():
                 return True
 
         while True:
-            time.sleep(60*60*12)  # 12 hours
+            time.sleep(60 * 60 * 12)  # 12 hours
 
     @firewall.command()
     @click.option('--root-dir', required=True,

@@ -1,5 +1,5 @@
 """Safely invoke external binaries."""
-from __future__ import absolute_import
+
 
 import logging
 import os
@@ -73,7 +73,7 @@ def resolve(exe):
         raise CommandWhitelistError()
     else:
         if not _check(safe_exe):
-            print 'Not found: ', exe, safe_exe
+            print('Not found: ', exe, safe_exe)
             _LOGGER.critical('Command not found: %s, %s', exe, safe_exe)
             raise CommandWhitelistError()
 
@@ -155,7 +155,7 @@ def check_output(cmdline, environ=(), **kwargs):
         _LOGGER.warn(exc.output)
         raise
 
-    return res
+    return res.decode()
 
 
 def call(cmdline, environ=(), **kwargs):

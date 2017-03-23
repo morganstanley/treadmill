@@ -1,6 +1,5 @@
 """Provides functions that are used when apps are finished."""
 
-from __future__ import absolute_import
 
 import errno
 import glob
@@ -61,7 +60,7 @@ def finish(tm_env, zkclient, container_dir):
     #                 archiving time.
     name_dir = os.path.basename(container_dir)
     with lc.LogContext(_LOGGER, name_dir, lc.ContainerAdapter) as log:
-        log.info('finishing %r', container_dir)
+        log.logger.info('finishing %r', container_dir)
         watchdog_name = '{name}-{app}'.format(name=__name__,
                                               app=name_dir)
         watchdog = tm_env.watchdogs.create(watchdog_name, '5m', 'Cleanup of '
@@ -106,7 +105,7 @@ def finish(tm_env, zkclient, container_dir):
 
         # cleanup was succesful, remove the watchdog
         watchdog.remove()
-        log.info('Finished cleanup: %s', container_dir)
+        log.logger.info('Finished cleanup: %s', container_dir)
 
 
 def _collect_exit_info(container_dir):

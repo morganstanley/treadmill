@@ -12,6 +12,7 @@ import mock
 import numpy as np
 
 from treadmill import scheduler
+from functools import reduce
 
 
 _TRAITS = dict()
@@ -36,7 +37,7 @@ def app_list(count, name, *args, **kwargs):
     """Return list of apps."""
     return [scheduler.Application(name + '-' + str(idx),
                                   *args, affinity=name, **kwargs)
-            for idx in xrange(0, count)]
+            for idx in range(0, count)]
 
 
 class AllocationTest(unittest.TestCase):
@@ -56,14 +57,14 @@ class AllocationTest(unittest.TestCase):
 
         # First element is rank.
         util_q = list(alloc.utilization_queue([20, 20]))
-        self.assertEquals(100, util_q[0][0])
-        self.assertEquals(100, util_q[1][0])
-        self.assertEquals(100, util_q[2][0])
+        self.assertEqual(100, util_q[0][0])
+        self.assertEqual(100, util_q[1][0])
+        self.assertEqual(100, util_q[2][0])
 
         # Second elememt is utilization.
-        self.assertEquals(-9./(10. + 20), util_q[0][1])
-        self.assertEquals(-7./(10. + 20), util_q[1][1])
-        self.assertEquals(-4./(10. + 20), util_q[2][1])
+        self.assertEqual(-9. / (10. + 20), util_q[0][1])
+        self.assertEqual(-7. / (10. + 20), util_q[1][1])
+        self.assertEqual(-4. / (10. + 20), util_q[2][1])
 
         # Applications are sorted by priority.
         alloc = scheduler.Allocation([10, 10])
@@ -72,9 +73,9 @@ class AllocationTest(unittest.TestCase):
         alloc.add(scheduler.Application('app3', 100, [3, 3], 'app1'))
 
         util_q = list(alloc.utilization_queue([20., 20.]))
-        self.assertEquals(-7./(10. + 20), util_q[0][1])
-        self.assertEquals(-5./(10. + 20), util_q[1][1])
-        self.assertEquals(-4./(10. + 20), util_q[2][1])
+        self.assertEqual(-7. / (10. + 20), util_q[0][1])
+        self.assertEqual(-5. / (10. + 20), util_q[1][1])
+        self.assertEqual(-4. / (10. + 20), util_q[2][1])
 
     def test_running_order(self):
         """Test apps are ordered by status (running first) for same prio."""
@@ -85,11 +86,11 @@ class AllocationTest(unittest.TestCase):
         alloc.add(scheduler.Application('app3', 5, [3, 3], 'app1'))
 
         queue = list(alloc.utilization_queue([20., 20.]))
-        self.assertEquals(alloc.apps['app1'], queue[0][-1])
+        self.assertEqual(alloc.apps['app1'], queue[0][-1])
 
         alloc.apps['app2'].server = 'abc'
         queue = list(alloc.utilization_queue([20., 20.]))
-        self.assertEquals(alloc.apps['app2'], queue[0][-1])
+        self.assertEqual(alloc.apps['app2'], queue[0][-1])
 
     def test_utilization_max(self):
         """Tests max utilization cap on the allocation."""
@@ -118,30 +119,30 @@ class AllocationTest(unittest.TestCase):
         alloc = scheduler.Allocation(None)
 
         alloc.update([1, 0], None)
-        self.assertEquals(1.0, alloc.reserved[0])
-        self.assertEquals(0, alloc.reserved[1])
+        self.assertEqual(1.0, alloc.reserved[0])
+        self.assertEqual(0, alloc.reserved[1])
 
     def test_utilization_no_reservation(self):
         """Checks that any utilization without reservation is VERY large."""
         alloc = scheduler.Allocation(None)
         alloc.add(scheduler.Application('app1', 1, [1., 1.], 'app1'))
         queue = list(alloc.utilization_queue(np.array([10., 10.])))
-        self.assertEquals(1./(10), queue[0][1])
+        self.assertEqual(1. / (10), queue[0][1])
 
     def test_duplicate(self):
         """Checks behavior when adding duplicate app."""
         alloc = scheduler.Allocation(None)
         alloc.add(scheduler.Application('app1', 0, [1, 1], 'app1'))
-        self.assertEquals(
+        self.assertEqual(
             1, len(list(alloc.utilization_queue(np.array([5., 5.])))))
         alloc.add(scheduler.Application('app1', 0, [1, 1], 'app1'))
-        self.assertEquals(
+        self.assertEqual(
             1, len(list(alloc.utilization_queue(np.array([5., 5.])))))
 
     def test_sub_allocs(self):
         """Test utilization calculation with sub-allocs."""
         alloc = scheduler.Allocation([3, 3])
-        self.assertEquals(3, alloc.total_reserved()[0])
+        self.assertEqual(3, alloc.total_reserved()[0])
 
         alloc.add(scheduler.Application('1', 3, [2, 2], 'app1'))
         alloc.add(scheduler.Application('2', 2, [1, 1], 'app1'))
@@ -151,15 +152,15 @@ class AllocationTest(unittest.TestCase):
 
         sub_alloc_a = scheduler.Allocation([5, 5])
         alloc.add_sub_alloc('a1/a', sub_alloc_a)
-        self.assertEquals(8, alloc.total_reserved()[0])
+        self.assertEqual(8, alloc.total_reserved()[0])
         sub_alloc_a.add(scheduler.Application('1a', 3, [2, 2], 'app1'))
         sub_alloc_a.add(scheduler.Application('2a', 2, [3, 3], 'app1'))
         sub_alloc_a.add(scheduler.Application('3a', 1, [5, 5], 'app1'))
 
         queue = list(alloc.utilization_queue([20., 20.]))
         _rank, util, _pending, _order, app = queue[0]
-        self.assertEquals('1a', app.name)
-        self.assertEquals((2 - (5 + 3))/(20. + (5 + 3)), util)
+        self.assertEqual('1a', app.name)
+        self.assertEqual((2 - (5 + 3)) / (20. + (5 + 3)), util)
 
         sub_alloc_b = scheduler.Allocation([10, 10])
         alloc.add_sub_alloc('a1/b', sub_alloc_b)
@@ -169,15 +170,15 @@ class AllocationTest(unittest.TestCase):
 
         queue = list(alloc.utilization_queue([20., 20.]))
 
-        self.assertEquals(9, len(queue))
-        self.assertEquals(18, alloc.total_reserved()[0])
+        self.assertEqual(9, len(queue))
+        self.assertEqual(18, alloc.total_reserved()[0])
 
         # For each sub-alloc (and self) the least utilized app is 1.
         # The sub_allloc_b is largest, so utilization smallest, 1b will be
         # first.
         _rank, util, _pending, _order, app = queue[0]
-        self.assertEquals('1b', app.name)
-        self.assertEquals((2. - 18) / (20. + 18), util)
+        self.assertEqual('1b', app.name)
+        self.assertEqual((2. - 18) / (20. + 18), util)
 
         # Add prio 0 app to each, make sure they all end up last.
         alloc.add(scheduler.Application('1-zero', 0, [2, 2], 'app1'))
@@ -190,9 +191,10 @@ class AllocationTest(unittest.TestCase):
         self.assertIn('b-zero', [item[-1].name for item in queue[-3:]])
 
         # Check that utilization of prio 0 apps is always max float.
-        self.assertEquals([float('inf')] * 3,
-                          [util for (_rank, util, _pending,
-                                     _order, _app) in queue[-3:]])
+        self.assertEqual(
+            [float('inf')] * 3,
+            [util for (_rank, util, _pending, _order, _app) in queue[-3:]]  # noqa: F812,E501
+        )
 
 
 class TraitSetTest(unittest.TestCase):
@@ -364,10 +366,10 @@ class NodeTest(unittest.TestCase):
         #
         # Result is the after 4 placements they are spread evenly.
         #
-        self.assertEquals(1, len(a1_srv.apps))
-        self.assertEquals(1, len(a2_srv.apps))
-        self.assertEquals(1, len(b1_srv.apps))
-        self.assertEquals(1, len(b2_srv.apps))
+        self.assertEqual(1, len(a1_srv.apps))
+        self.assertEqual(1, len(a2_srv.apps))
+        self.assertEqual(1, len(b1_srv.apps))
+        self.assertEqual(1, len(b2_srv.apps))
 
         a_bucket.set_affinity_strategy('app2', scheduler.PackStrategy)
 
@@ -377,8 +379,8 @@ class NodeTest(unittest.TestCase):
         self.assertTrue(top.put(apps2[3]))
 
         # B bucket still uses spread strategy.
-        self.assertEquals(2, len(b1_srv.apps))
-        self.assertEquals(2, len(b2_srv.apps))
+        self.assertEqual(2, len(b1_srv.apps))
+        self.assertEqual(2, len(b2_srv.apps))
 
         # Without predicting exact placement, apps will be placed on one of
         # the servers in A bucket but not the other, as they use pack strateg.
@@ -405,19 +407,19 @@ class NodeTest(unittest.TestCase):
         right.add_node(srv_y)
         right.add_node(srv_z)
 
-        self.assertEquals(top.valid_until, 4)
-        self.assertEquals(left.valid_until, 2)
-        self.assertEquals(right.valid_until, 4)
+        self.assertEqual(top.valid_until, 4)
+        self.assertEqual(left.valid_until, 2)
+        self.assertEqual(right.valid_until, 4)
 
         left.remove_node_by_name('a')
-        self.assertEquals(top.valid_until, 4)
-        self.assertEquals(left.valid_until, 2)
-        self.assertEquals(right.valid_until, 4)
+        self.assertEqual(top.valid_until, 4)
+        self.assertEqual(left.valid_until, 2)
+        self.assertEqual(right.valid_until, 4)
 
         right.remove_node_by_name('z')
-        self.assertEquals(top.valid_until, 3)
-        self.assertEquals(left.valid_until, 2)
-        self.assertEquals(right.valid_until, 3)
+        self.assertEqual(top.valid_until, 3)
+        self.assertEqual(left.valid_until, 2)
+        self.assertEqual(right.valid_until, 3)
 
     def test_node_traits(self):
         """Tests node trait inheritance."""
@@ -540,8 +542,8 @@ class NodeTest(unittest.TestCase):
 
         self.assertTrue(
             (apps_nothing[0].server in ['a', 'b'] and
-             apps_nothing[1].server in ['y', 'z'])
-            or
+             apps_nothing[1].server in ['y', 'z']) or
+
             (apps_nothing[0].server in ['y', 'z'] and
              apps_nothing[1].server in ['a', 'b']))
 
@@ -550,8 +552,8 @@ class NodeTest(unittest.TestCase):
 
         self.assertTrue(
             (apps_nothing[2].server in ['a', 'b'] and
-             apps_nothing[3].server in ['y', 'z'])
-            or
+             apps_nothing[3].server in ['y', 'z']) or
+
             (apps_nothing[2].server in ['y', 'z'] and
              apps_nothing[3].server in ['a', 'b']))
 
@@ -581,10 +583,10 @@ class NodeTest(unittest.TestCase):
         self.assertTrue(scheduler._all_isclose(left.size(None), [2, 2]))
         self.assertTrue(scheduler._all_isclose(top.size(None), [4, 4]))
 
-        self.assertEquals({'a': srv_a,
-                           'b': srv_b,
-                           'y': srv_y,
-                           'z': srv_z}, top.members())
+        self.assertEqual({'a': srv_a,
+                          'b': srv_b,
+                          'y': srv_y,
+                          'z': srv_z}, top.members())
 
     def test_affinity_counters(self):
         """Tests affinity counters."""
@@ -606,19 +608,19 @@ class NodeTest(unittest.TestCase):
         apps_a = app_list(10, 'app_a', 50, [1, 1])
 
         self.assertTrue(srv_a.put(apps_a[0]))
-        self.assertEquals(1, srv_a.affinity_counters['app_a'])
-        self.assertEquals(1, left.affinity_counters['app_a'])
-        self.assertEquals(1, top.affinity_counters['app_a'])
+        self.assertEqual(1, srv_a.affinity_counters['app_a'])
+        self.assertEqual(1, left.affinity_counters['app_a'])
+        self.assertEqual(1, top.affinity_counters['app_a'])
 
         srv_z.put(apps_a[0])
-        self.assertEquals(1, srv_z.affinity_counters['app_a'])
-        self.assertEquals(1, left.affinity_counters['app_a'])
-        self.assertEquals(2, top.affinity_counters['app_a'])
+        self.assertEqual(1, srv_z.affinity_counters['app_a'])
+        self.assertEqual(1, left.affinity_counters['app_a'])
+        self.assertEqual(2, top.affinity_counters['app_a'])
 
         srv_a.remove(apps_a[0].name)
-        self.assertEquals(0, srv_a.affinity_counters['app_a'])
-        self.assertEquals(0, left.affinity_counters['app_a'])
-        self.assertEquals(1, top.affinity_counters['app_a'])
+        self.assertEqual(0, srv_a.affinity_counters['app_a'])
+        self.assertEqual(0, left.affinity_counters['app_a'])
+        self.assertEqual(1, top.affinity_counters['app_a'])
 
 
 class CellTest(unittest.TestCase):
@@ -707,7 +709,7 @@ class CellTest(unittest.TestCase):
 
         cell.schedule()
 
-        self.assertEquals(
+        self.assertEqual(
             set([app1.server, app2.server, app3.server, app4.server]),
             set(['a', 'y', 'b', 'z'])
         )
@@ -729,8 +731,8 @@ class CellTest(unittest.TestCase):
         #
         # As result, prio50 will be placed on 'z', and app4 (evicted) will be
         # placed on "next" server, which is 'a'.
-        self.assertEquals(app_prio50.server, srv4)
-        self.assertEquals(app4.server, srv1)
+        self.assertEqual(app_prio50.server, srv4)
+        self.assertEqual(app4.server, srv1)
 
         app_prio51 = scheduler.Application('prio51', 51, [10, 10], 'app')
         cell.partitions[None].allocation.add(app_prio51)
@@ -742,9 +744,9 @@ class CellTest(unittest.TestCase):
         #
         # app3 will be rescheduled to run on "next" server - 'y', and app4 will
         # be restored to 'a'.
-        self.assertEquals(app_prio51.server, srv3)
-        self.assertEquals(app_prio50.server, srv4)
-        self.assertEquals(app4.server, srv1)
+        self.assertEqual(app_prio51.server, srv3)
+        self.assertEqual(app_prio50.server, srv4)
+        self.assertEqual(app4.server, srv1)
 
         app_prio49_1 = scheduler.Application('prio49_1', 49, [10, 10], 'app')
         app_prio49_2 = scheduler.Application('prio49_2', 49, [9, 9], 'app')
@@ -753,10 +755,10 @@ class CellTest(unittest.TestCase):
         cell.schedule()
 
         # 50/51 not moved. from the end of the queue,
-        self.assertEquals(app_prio51.server, srv3)
-        self.assertEquals(app_prio50.server, srv4)
-        self.assertEquals(set([app_prio49_1.server, app_prio49_2.server]),
-                          set([srv1, srv2]))
+        self.assertEqual(app_prio51.server, srv3)
+        self.assertEqual(app_prio50.server, srv4)
+        self.assertEqual(set([app_prio49_1.server, app_prio49_2.server]),
+                         set([srv1, srv2]))
 
         # Only capacity left for small [1, 1] app.
         self.assertIsNotNone(app1.server)
@@ -875,29 +877,29 @@ class CellTest(unittest.TestCase):
 
         # Both apps having different affinity, will be on same node.
         first_srv = sticky_apps[0].server
-        self.assertEquals(sticky_apps[0].server, unsticky_app.server)
+        self.assertEqual(sticky_apps[0].server, unsticky_app.server)
 
         # Mark srv_a as down, unsticky app migrates right away,
         # sticky stays.
         srvs[first_srv].state = scheduler.State.down
 
         cell.schedule()
-        self.assertEquals(sticky_apps[0].server, first_srv)
+        self.assertEqual(sticky_apps[0].server, first_srv)
         self.assertNotEquals(unsticky_app.server, first_srv)
-        self.assertEquals(cell.next_event_at, 130)
+        self.assertEqual(cell.next_event_at, 130)
 
         time.time.return_value = 110
 
         cell.schedule()
-        self.assertEquals(sticky_apps[0].server, first_srv)
+        self.assertEqual(sticky_apps[0].server, first_srv)
         self.assertNotEquals(unsticky_app.server, first_srv)
-        self.assertEquals(cell.next_event_at, 130)
+        self.assertEqual(cell.next_event_at, 130)
 
         time.time.return_value = 130
         cell.schedule()
         self.assertNotEquals(sticky_apps[0].server, first_srv)
         self.assertNotEquals(unsticky_app.server, first_srv)
-        self.assertEquals(cell.next_event_at, np.inf)
+        self.assertEqual(cell.next_event_at, np.inf)
 
         second_srv = sticky_apps[0].server
 
@@ -906,9 +908,9 @@ class CellTest(unittest.TestCase):
         srvs[second_srv].state = scheduler.State.down
 
         cell.schedule()
-        self.assertEquals(sticky_apps[0].server, second_srv)
+        self.assertEqual(sticky_apps[0].server, second_srv)
         self.assertNotEquals(unsticky_app.server, second_srv)
-        self.assertEquals(cell.next_event_at, 160)
+        self.assertEqual(cell.next_event_at, 160)
 
         # Schedule one more sticky app. As it has rack affinity limit 1, it
         # can't to to right (x,y) rack, rather will end up in left (a,b) rack.
@@ -920,7 +922,7 @@ class CellTest(unittest.TestCase):
         cell.schedule()
 
         # Original app still on 'y', timeout did not expire
-        self.assertEquals(sticky_apps[0].server, second_srv)
+        self.assertEqual(sticky_apps[0].server, second_srv)
         # next sticky app is on (a,b) rack.
         # self.assertIn(sticky_apps[1].server, ['a', 'b'])
         # The 3rd sticky app pending, as rack affinity taken by currently
@@ -930,7 +932,7 @@ class CellTest(unittest.TestCase):
         srvs[second_srv].state = scheduler.State.up
         cell.schedule()
         # Original app still on 'y', timeout did not expire
-        self.assertEquals(sticky_apps[0].server, second_srv)
+        self.assertEqual(sticky_apps[0].server, second_srv)
         # next sticky app is on (a,b) rack.
         # self.assertIn(sticky_apps[1].server, ['a', 'b'])
         # The 3rd sticky app pending, as rack affinity taken by currently
@@ -978,7 +980,7 @@ class CellTest(unittest.TestCase):
     def test_identity(self):
         """Tests scheduling apps with identity."""
         cell = scheduler.Cell('top')
-        for idx in xrange(0, 10):
+        for idx in range(0, 10):
             server = scheduler.Server(str(idx), [10, 10], traits=0,
                                       valid_until=time.time() + 1000)
             cell.add_node(server)
@@ -989,38 +991,40 @@ class CellTest(unittest.TestCase):
             cell.add_app(cell.partitions[None].allocation, app)
 
         self.assertTrue(apps[0].acquire_identity())
-        self.assertEquals(set([1, 2]), apps[0].identity_group_ref.available)
-        self.assertEquals(set([1, 2]), apps[1].identity_group_ref.available)
+        self.assertEqual(set([1, 2]), apps[0].identity_group_ref.available)
+        self.assertEqual(set([1, 2]), apps[1].identity_group_ref.available)
 
         cell.schedule()
 
-        self.assertEquals(apps[0].identity, 0)
-        self.assertEquals(apps[1].identity, 1)
-        self.assertEquals(apps[2].identity, 2)
-        for idx in xrange(3, 10):
+        self.assertEqual(apps[0].identity, 0)
+        self.assertEqual(apps[1].identity, 1)
+        self.assertEqual(apps[2].identity, 2)
+        for idx in range(3, 10):
             self.assertIsNone(apps[idx].identity, None)
 
         # Removing app will release the identity, and it will be aquired by
         # next app in the group.
         cell.remove_app('app-2')
         cell.schedule()
-        self.assertEquals(apps[3].identity, 2)
+        self.assertEqual(apps[3].identity, 2)
 
         # Increase ideneity group count to 5, expect 5 placed apps.
         cell.configure_identity_group('ident1', 5)
         cell.schedule()
-        self.assertEquals(5,
-                          len([app for app in apps if app.server is not None]))
+        self.assertEqual(
+            5, len([app for app in apps if app.server is not None])
+        )
 
         cell.configure_identity_group('ident1', 3)
         cell.schedule()
-        self.assertEquals(3,
-                          len([app for app in apps if app.server is not None]))
+        self.assertEqual(
+            3, len([app for app in apps if app.server is not None])
+        )
 
     def test_schedule_once(self):
         """Tests schedule once trait on server down."""
         cell = scheduler.Cell('top')
-        for idx in xrange(0, 10):
+        for idx in range(0, 10):
             server = scheduler.Server(str(idx), [10, 10], traits=0,
                                       valid_until=time.time() + 1000)
             cell.add_node(server)
@@ -1047,7 +1051,7 @@ class CellTest(unittest.TestCase):
     def test_schedule_once_eviction(self):
         """Tests schedule once trait with eviction."""
         cell = scheduler.Cell('top')
-        for idx in xrange(0, 10):
+        for idx in range(0, 10):
             server = scheduler.Server(str(idx), [10, 10], traits=0,
                                       valid_until=time.time() + 1000)
             cell.add_node(server)
@@ -1074,7 +1078,7 @@ class CellTest(unittest.TestCase):
         # Check that all apps are placed.
         app2server = {app: after for app, _, _, after, _ in placement
                       if after is not None}
-        self.assertEquals(len(app2server), 20)
+        self.assertEqual(len(app2server), 20)
 
         # Add one app, higher priority than rest, will force eviction.
         medium_apps = app_list(1, 'medium', 70, [5, 5])
@@ -1082,21 +1086,21 @@ class CellTest(unittest.TestCase):
             cell.add_app(cell.partitions[None].allocation, app)
 
         cell.schedule()
-        self.assertEquals(len([app for app in small_apps if app.evicted]), 0)
-        self.assertEquals(len([app for app in small_apps if app.server]), 10)
+        self.assertEqual(len([app for app in small_apps if app.evicted]), 0)
+        self.assertEqual(len([app for app in small_apps if app.server]), 10)
 
-        self.assertEquals(len([app for app in large_apps if app.evicted]), 1)
-        self.assertEquals(len([app for app in large_apps if app.server]), 9)
+        self.assertEqual(len([app for app in large_apps if app.evicted]), 1)
+        self.assertEqual(len([app for app in large_apps if app.server]), 9)
 
         # Remove app, make sure the evicted app is not placed again.
         cell.remove_app(medium_apps[0].name)
         cell.schedule()
 
-        self.assertEquals(len([app for app in small_apps if app.evicted]), 0)
-        self.assertEquals(len([app for app in small_apps if app.server]), 10)
+        self.assertEqual(len([app for app in small_apps if app.evicted]), 0)
+        self.assertEqual(len([app for app in small_apps if app.server]), 10)
 
-        self.assertEquals(len([app for app in large_apps if app.evicted]), 1)
-        self.assertEquals(len([app for app in large_apps if app.server]), 9)
+        self.assertEqual(len([app for app in large_apps if app.evicted]), 1)
+        self.assertEqual(len([app for app in large_apps if app.server]), 9)
 
     @mock.patch('time.time', mock.Mock(return_value=100))
     def test_restore(self):
@@ -1118,7 +1122,7 @@ class CellTest(unittest.TestCase):
         time.time.return_value = 100
         cell.schedule()
 
-        self.assertEquals(apps[0].server, 'large')
+        self.assertEqual(apps[0].server, 'large')
 
         time.time.return_value = 190
         apps_not_fit = app_list(1, 'app-not-fit', 90, [6, 6], lease=50)
@@ -1127,7 +1131,7 @@ class CellTest(unittest.TestCase):
 
         cell.schedule()
         self.assertIsNone(apps_not_fit[0].server)
-        self.assertEquals(apps[0].server, 'large')
+        self.assertEqual(apps[0].server, 'large')
 
     @mock.patch('time.time', mock.Mock(return_value=10))
     def test_renew(self):
@@ -1142,19 +1146,19 @@ class CellTest(unittest.TestCase):
             cell.add_app(cell.partitions[None].allocation, app)
 
         cell.schedule()
-        self.assertEquals(apps[0].server, 'a')
-        self.assertEquals(apps[0].placement_expiry, 60)
+        self.assertEqual(apps[0].server, 'a')
+        self.assertEqual(apps[0].placement_expiry, 60)
 
         time.time.return_value = 100
         cell.schedule()
-        self.assertEquals(apps[0].server, 'a')
-        self.assertEquals(apps[0].placement_expiry, 60)
+        self.assertEqual(apps[0].server, 'a')
+        self.assertEqual(apps[0].placement_expiry, 60)
 
         time.time.return_value = 200
         apps[0].renew = True
         cell.schedule()
-        self.assertEquals(apps[0].server, 'a')
-        self.assertEquals(apps[0].placement_expiry, 250)
+        self.assertEqual(apps[0].server, 'a')
+        self.assertEqual(apps[0].placement_expiry, 250)
         self.assertFalse(apps[0].renew)
 
         # fast forward to 975, close to server 'a' expiration, app will
@@ -1166,8 +1170,8 @@ class CellTest(unittest.TestCase):
         time.time.return_value = 975
         apps[0].renew = True
         cell.schedule()
-        self.assertEquals(apps[0].server, 'b')
-        self.assertEquals(apps[0].placement_expiry, 1025)
+        self.assertEqual(apps[0].server, 'b')
+        self.assertEqual(apps[0].placement_expiry, 1025)
         self.assertFalse(apps[0].renew)
 
         # fast forward to 1975, when app can't be renewed on server b, but
@@ -1175,9 +1179,9 @@ class CellTest(unittest.TestCase):
         time.time.return_value = 1975
         apps[0].renew = True
         cell.schedule()
-        self.assertEquals(apps[0].server, 'b')
+        self.assertEqual(apps[0].server, 'b')
         # Placement expiry did not change, as placement was not found.
-        self.assertEquals(apps[0].placement_expiry, 1025)
+        self.assertEqual(apps[0].placement_expiry, 1025)
         # Renew flag is not cleared, as new placement was not found.
         self.assertTrue(apps[0].renew)
 
@@ -1188,13 +1192,13 @@ class IdentityGroupTest(unittest.TestCase):
     def test_basic(self):
         """Test basic acquire/release ops."""
         ident_group = scheduler.IdentityGroup(3)
-        self.assertEquals(0, ident_group.acquire())
-        self.assertEquals(1, ident_group.acquire())
-        self.assertEquals(2, ident_group.acquire())
-        self.assertEquals(None, ident_group.acquire())
+        self.assertEqual(0, ident_group.acquire())
+        self.assertEqual(1, ident_group.acquire())
+        self.assertEqual(2, ident_group.acquire())
+        self.assertEqual(None, ident_group.acquire())
 
         ident_group.release(1)
-        self.assertEquals(1, ident_group.acquire())
+        self.assertEqual(1, ident_group.acquire())
 
     def test_adjust(self):
         """Test identity group count adjustement."""
@@ -1202,10 +1206,10 @@ class IdentityGroupTest(unittest.TestCase):
         ident_group.available = set([1, 3])
 
         ident_group.adjust(7)
-        self.assertEquals(set([1, 3, 5, 6]), ident_group.available)
+        self.assertEqual(set([1, 3, 5, 6]), ident_group.available)
 
         ident_group.adjust(3)
-        self.assertEquals(set([1]), ident_group.available)
+        self.assertEqual(set([1]), ident_group.available)
 
 
 if __name__ == '__main__':

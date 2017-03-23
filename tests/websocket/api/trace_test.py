@@ -48,5 +48,6 @@ class WSRunningAPITest(unittest.TestCase):
             payload='xxx'
         )
 
+
 if __name__ == '__main__':
     unittest.main()

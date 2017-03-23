@@ -1,5 +1,5 @@
 """Implementation of treadmill-admin CLI plugin."""
-from __future__ import absolute_import
+
 
 import click
 import yaml

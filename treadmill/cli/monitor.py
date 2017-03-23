@@ -3,7 +3,6 @@
 Create, delete and manage app monitors.
 """
 
-from __future__ import absolute_import
 
 import logging
 

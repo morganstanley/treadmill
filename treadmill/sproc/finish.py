@@ -1,5 +1,5 @@
 """Treadmill application finishing."""
-from __future__ import absolute_import
+
 
 import logging
 import os
@@ -26,7 +26,7 @@ def init():
         """Finish treadmill application on the node."""
         with lc.LogContext(_LOGGER, os.path.basename(container_dir),
                            lc.ContainerAdapter) as log:
-            log.info('finish (approot %s)', approot)
+            log.logger.info('finish (approot %s)', approot)
             app_env = appmgr.AppEnvironment(approot)
             app_finish.finish(app_env, context.GLOBAL.zk.conn, container_dir)
 

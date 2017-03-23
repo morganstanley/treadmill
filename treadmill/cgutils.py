@@ -1,6 +1,5 @@
 """Misc cgroup utility functions."""
 
-from __future__ import absolute_import
 
 import errno
 import signal
@@ -260,7 +259,7 @@ def reset_memory_limit_in_bytes():
         try:
             set_memory_hardlimit(cgrp, hard_limit)
 
-        except TreadmillCgroupError as _err:
+        except TreadmillCgroupError:
             # Unable to resize group, add it to the expunged groups.
             expunged.append(f)
 
@@ -291,7 +290,7 @@ def cgrps_meminfo():
         try:
             cgrp = os.path.join('treadmill/apps', appname)
             meminfo = cgrp_meminfo(cgrp)
-        except IOError as _exception:
+        except IOError:
             continue
 
         yield (appname, meminfo)

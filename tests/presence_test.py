@@ -3,6 +3,7 @@ Unit test for Treadmill presense module.
 """
 
 import os
+import io
 import shutil
 import tempfile
 import time
@@ -392,7 +393,7 @@ class PresenceTest(mockzk.MockZookeeperTestCase):
         app_presence.exit_app('web_server')
 
         self.assertTrue(os.path.exists(os.path.join(self.root, 'exitinfo')))
-        self.assertEquals(
+        self.assertEqual(
             yaml.load(open(os.path.join(self.root, 'exitinfo')).read()),
             {'rc': 1,
              'sig': 3,
@@ -404,7 +405,7 @@ class PresenceTest(mockzk.MockZookeeperTestCase):
         del app_presence.services['web_server']['last_exit']
         app_presence.exit_app('web_server')
         self.assertTrue(os.path.exists(os.path.join(self.root, 'exitinfo')))
-        self.assertEquals(
+        self.assertEqual(
             yaml.load(open(os.path.join(self.root, 'exitinfo')).read()),
             {'service': 'web_server',
              'killed': False,
@@ -647,22 +648,22 @@ class PresenceTest(mockzk.MockZookeeperTestCase):
         )
         ws_svc_dir = os.path.join(self.root, 'services', 'web_server')
         einfo, count = app_presence.exit_info(ws_svc_dir)
-        self.assertEquals(1, count)
-        self.assertEquals(1, einfo['rc'])
-        self.assertEquals(0, einfo['sig'])
+        self.assertEqual(1, count)
+        self.assertEqual(1, einfo['rc'])
+        self.assertEqual(0, einfo['sig'])
         self.assertFalse(einfo['oom'])
 
         with open(finished_file, 'a+') as f:
             f.write('1001 255 9\n')
         einfo, count = app_presence.exit_info(ws_svc_dir)
-        self.assertEquals(2, count)
-        self.assertEquals(255, einfo['rc'])
-        self.assertEquals(9, einfo['sig'])
+        self.assertEqual(2, count)
+        self.assertEqual(255, einfo['rc'])
+        self.assertEqual(9, einfo['sig'])
         self.assertFalse(einfo['oom'])
 
-        open_name = '__builtin__.open'
+        open_name = 'builtins.open'
         with mock.patch(open_name, mock.mock_open()) as mock_open:
-            file_mock = mock.MagicMock(spec=file)
+            file_mock = mock.MagicMock(spec=io.IOBase)
             file_mock.__enter__.return_value.read.return_value = '1'
             mock_open.return_value = file_mock
             self.assertTrue(presence.is_oom())

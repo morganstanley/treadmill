@@ -79,12 +79,12 @@ class SFDFlags(enum.IntEnum):
     #: Set the O_NONBLOCK file status flag on the new open file description.
     #: Using this flag saves extra calls to fcntl(2) to achieve the same
     #: result.
-    NONBLOCK = 04000
+    NONBLOCK = 0o4000
 
     #: Set the close-on-exec (FD_CLOEXEC) flag on the new file descriptor.  See
     #: the description of the O_CLOEXEC flag in open(2) for reasons why this
     #: may be useful.
-    CLOEXEC = 02000000
+    CLOEXEC = 0o2000000
 
 
 SFD_NONBLOCK = SFDFlags.NONBLOCK

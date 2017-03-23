@@ -1,5 +1,5 @@
 """Implementation of treadmill API server plugin."""
-from __future__ import absolute_import
+
 
 import click
 
@@ -9,7 +9,7 @@ from .. import zkutils
 
 from treadmill import cli
 from treadmill.rest import api
-from treadmill.rest import error_handlers  # pylint: disable=W0611
+from treadmill.rest import error_handlers  # noqa: F401
 
 
 def init():

@@ -1,5 +1,5 @@
 """Creates new network subsystem with virtual eth device."""
-from __future__ import absolute_import
+
 
 import errno
 import os

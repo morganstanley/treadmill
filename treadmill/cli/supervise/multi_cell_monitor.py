@@ -1,9 +1,12 @@
 """Implementation of treadmill admin master CLI plugin"""
-from __future__ import absolute_import
+
 
 import logging
 import time
-import urllib
+import urllib.request
+import urllib.parse
+import urllib.error
+
 
 import click
 
@@ -26,7 +29,7 @@ def _count(cell, appname):
         ctx.dns_domain = context.GLOBAL.dns_domain
 
         stateapi = ctx.state_api()
-        url = '/state/?' + urllib.urlencode([('match', appname)])
+        url = '/state/?' + urllib.parse.urlencode([('match', appname)])
 
         response = restclient.get(stateapi, url)
         state = response.json()

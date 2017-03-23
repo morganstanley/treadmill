@@ -201,7 +201,7 @@ class EventMgrTest(mockzk.MockZookeeperTestCase):
 
         with open(appcache) as f:
             data = yaml.load(f.read())
-            self.assertEquals(data['identity'], 1)
+            self.assertEqual(data['identity'], 1)
 
 
 if __name__ == '__main__':

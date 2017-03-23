@@ -1,8 +1,9 @@
 """Helper module to get system related information."""
-from __future__ import absolute_import
+
+from . import exc
+from . import subproc
 
 from collections import namedtuple
-
 import multiprocessing
 import os
 import socket
@@ -15,9 +16,6 @@ if os.name == 'nt':
 else:
     from . import cgroups
     from .syscall import sysinfo as syscall_sysinfo
-
-from . import exc
-from . import subproc
 
 
 # Equate "virtual" CPU to 5000 bogomips.
@@ -197,8 +195,8 @@ def _node_info_linux(tm_env):
     # Request status information from services (this may wait for the services
     # to be up).
     localdisk_status = tm_env.svc_localdisk.status(timeout=30)
-    _cgroup_status = tm_env.svc_cgroup.status(timeout=30)
-    _network_status = tm_env.svc_network.status(timeout=30)
+    _cgroup_status = tm_env.svc_cgroup.status(timeout=30)  # noqa: F841
+    _network_status = tm_env.svc_network.status(timeout=30)  # noqa: F841
 
     # We normalize bogomips into logical "cores", each core == 5000 bmips.
     #
@@ -265,7 +263,7 @@ def _uptime_linux():
 
 def _uptime_windows():
     """Returns system uptime."""
-    return winapi.GetTickCount64()/1000
+    return winapi.GetTickCount64() / 1000
 
 
 def up_since():

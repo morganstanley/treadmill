@@ -1,7 +1,5 @@
 """Treadmill context."""
 
-from __future__ import absolute_import
-
 import importlib
 import logging
 

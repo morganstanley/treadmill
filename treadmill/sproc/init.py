@@ -6,7 +6,7 @@ responsible for publishing the node's capacity to the scheduler.
 This service is also responsible for shutting down the node, when necessary or
 requested, by disabling all traffic from and to the containers.
 """
-from __future__ import absolute_import
+
 
 import logging
 import os
@@ -15,10 +15,6 @@ import time
 
 import click
 import kazoo
-
-if os.name == 'posix':
-    from .. import netdev
-    from .. import subproc
 
 from .. import appmgr
 from .. import context
@@ -29,6 +25,9 @@ from .. import zknamespace as z
 from .. import zkutils
 from ..appmgr import initialize as app_initialize
 
+if os.name == 'posix':
+    from .. import netdev
+    from .. import subproc
 
 _LOGGER = logging.getLogger(__name__)
 

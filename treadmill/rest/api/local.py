@@ -1,10 +1,10 @@
 """
 Local node REST api.
 """
-from __future__ import absolute_import
+
 
 import os
-import httplib
+import http.client
 
 # pylint: disable=E0611,F0401
 import flask
@@ -75,7 +75,7 @@ def init(api, cors, impl):
             """Return content of sys archived file.."""
             fname = impl.archive.get('/'.join([app, uniq, 'sys']))
             if not os.path.exists(fname):
-                return 'Not found.', httplib.NOT_FOUND
+                return 'Not found.', http.client.NOT_FOUND
 
             return flask.send_file(
                 fname,
@@ -92,7 +92,7 @@ def init(api, cors, impl):
             """Return content of app archived file.."""
             fname = impl.archive.get('/'.join([app, uniq, 'app']))
             if not os.path.exists(fname):
-                return 'Not found.', httplib.NOT_FOUND
+                return 'Not found.', http.client.NOT_FOUND
 
             return flask.send_file(
                 fname,

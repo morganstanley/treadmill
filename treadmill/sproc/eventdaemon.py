@@ -1,5 +1,5 @@
 """Treadmill event daemon, subscribes to scheduler events."""
-from __future__ import absolute_import
+
 
 import click
 

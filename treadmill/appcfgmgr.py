@@ -23,7 +23,7 @@ Upon change, appcfgmgr will do the following:
  - trigger svscanctl -an, which will stop all apps that are no longer scheduled
    to run and will start all the new apps.
 """
-from __future__ import absolute_import
+
 
 import errno
 import glob
@@ -36,12 +36,11 @@ from . import fs
 from . import idirwatch
 from . import logcontext as lc
 from . import subproc
-
-if os.name == 'nt':
-    from .syscall import winsymlink  # pylint: disable=W0611
-
 from .appmgr import configure as app_cfg
 from .appmgr import abort as app_abort
+
+if os.name == 'nt':
+    from .syscall import winsymlink  # noqa: F401
 
 _LOGGER = lc.Adapter(logging.getLogger(__name__))
 

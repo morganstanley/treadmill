@@ -46,8 +46,8 @@ class MetricsTest(unittest.TestCase):
     @mock.patch('time.time', mock.Mock(return_value=1234))
     def test_read_memory_stats(self):
         """Tests updating memory stats from cgroups."""
-        self.assertEquals(metrics.read_memory_stats('treadmill/apps/appname'),
-                          (10, 12, 13))
+        self.assertEqual(metrics.read_memory_stats('treadmill/apps/appname'),
+                         (10, 12, 13))
 
     @mock.patch('treadmill.cgutils.cpu_usage',
                 mock.Mock(return_value=100))
@@ -82,17 +82,17 @@ class MetricsTest(unittest.TestCase):
                  (time_delta * sysinfo.BMIPS_PER_CPU) /
                  cpu_count * 100)
 
-        self.assertEquals(
+        self.assertEqual(
             (usage, requested_ratio, usage_ratio),
             cpumetrics
         )
 
-    @mock.patch('__builtin__.open',
+    @mock.patch('builtins.open',
                 mock.mock_open(read_data='1.0 2.0 2.5 12/123 12345\n'))
     @mock.patch('time.time', mock.Mock(return_value=10))
     def test_read_load(self):
         """Tests reading loadavg."""
-        self.assertEquals(('1.0', '2.0'), metrics.read_load())
+        self.assertEqual(('1.0', '2.0'), metrics.read_load())
 
 
 if __name__ == '__main__':

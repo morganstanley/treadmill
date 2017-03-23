@@ -1,11 +1,11 @@
 """Basic listing module that treadmill_list and REST API can use"""
-from __future__ import absolute_import
+
 
 import fnmatch
 import logging
 
 try:
-    import cPickle as pickle
+    import pickle as pickle
 except ImportError:
     import pickle
 
@@ -98,7 +98,7 @@ class State(object):
                        for name in sorted(placed - self.running())}
         broken_nodes = {}
 
-        for app, node in broken_apps.iteritems():
+        for app, node in broken_apps.items():
             broken_nodes.setdefault(node, []).append(app)
 
         return broken_nodes

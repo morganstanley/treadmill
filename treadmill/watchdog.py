@@ -1,6 +1,6 @@
 """Simple watchdog system.
 """
-from __future__ import absolute_import
+
 
 import errno
 import logging
@@ -138,7 +138,8 @@ class Watchdog(object):
                 fs.mkdir_safe(dirname)
                 with tempfile.NamedTemporaryFile(dir=dirname,
                                                  prefix='.' + filename,
-                                                 delete=False) as tmpfile:
+                                                 delete=False,
+                                                 mode='w') as tmpfile:
                     os.chmod(tmpfile.name, 0o600)
                     tmpfile.write(self.content)
                     # We have to flush now to make sure utime is the last

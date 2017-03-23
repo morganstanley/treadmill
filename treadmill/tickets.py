@@ -1,5 +1,5 @@
 """Handles ticket forwarding from the ticket master to the node."""
-from __future__ import absolute_import
+
 
 import pwd
 
@@ -67,7 +67,8 @@ class Ticket(object):
         try:
             with tempfile.NamedTemporaryFile(dir=os.path.dirname(path),
                                              prefix='.tmp' + self.princ,
-                                             delete=False) as tkt_file:
+                                             delete=False,
+                                             mode='w') as tkt_file:
                 # Write the file
                 tkt_file.write(self.ticket)
                 # Set the owner
@@ -91,7 +92,8 @@ class Ticket(object):
             with open(src, 'rb') as tkt_src_file:
                 with tempfile.NamedTemporaryFile(dir=dst_dir,
                                                  prefix='.tmp' + self.princ,
-                                                 delete=False) as tkt_dst_file:
+                                                 delete=False,
+                                                 mode='w') as tkt_dst_file:
                     # Copy binary from source to dest
                     shutil.copyfileobj(tkt_src_file, tkt_dst_file)
                     # Set the owner
@@ -224,7 +226,7 @@ def run_server(locker):
             tkts = locker.process_request(self.peer(), appname)
             _LOGGER.info('Sending tickets for: %r', tkts.keys())
             if tkts:
-                for princ, encoded in tkts.iteritems():
+                for princ, encoded in tkts.items():
                     if encoded:
                         _LOGGER.info('Sending ticket: %s:%s',
                                      princ,
@@ -274,9 +276,11 @@ def request_tickets(zkclient, appname):
 
                     princ, encoded = line.split(':')
                     if encoded:
-                        _LOGGER.info('got ticket %s:%s',
-                                     princ,
-                                     hashlib.sha1(encoded).hexdigest())
+                        _LOGGER.info(
+                            'got ticket %s:%s',
+                            princ,
+                            hashlib.sha1(encoded.encode()).hexdigest()
+                        )
                         ticket = Ticket(princ,
                                         base64.urlsafe_b64decode(encoded))
                         tickets.append(ticket)

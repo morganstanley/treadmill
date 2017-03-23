@@ -54,13 +54,13 @@ class WatchdogTest(unittest.TestCase):
     def test_check_success(self):
         """Check the return value when all watchdog are alive."""
         result = self.watchdog.check()
-        self.assertEquals(result, [])
+        self.assertEqual(result, [])
 
     @mock.patch('time.time', mock.Mock(return_value=100))
     def test_check_failed_all(self):
         """Check the return value when all watchdog died."""
         result = self.watchdog.check()
-        self.assertEquals(
+        self.assertEqual(
             sorted(result),
             sorted([('foo', 10.0, 'foo'),
                     ('bar_30s', 15.0, 'bar_30s'),
@@ -71,28 +71,28 @@ class WatchdogTest(unittest.TestCase):
     def test_check_failed_1(self):
         """Check the return value when one watchdog died."""
         result = self.watchdog.check()
-        self.assertEquals(result,
-                          [('foo', 10.0, 'foo')])
+        self.assertEqual(result,
+                         [('foo', 10.0, 'foo')])
 
     @mock.patch('time.time', mock.Mock(return_value=15))
     def test_check_failed_2(self):
         """Check the return value when two watchdog died."""
         result = self.watchdog.check()
-        self.assertEquals(sorted(result),
-                          sorted([('foo', 10.0, 'foo'),
-                                  ('bar_30s', 15.0, 'bar_30s')]))
+        self.assertEqual(sorted(result),
+                         sorted([('foo', 10.0, 'foo'),
+                                 ('bar_30s', 15.0, 'bar_30s')]))
 
     @mock.patch('time.time', mock.Mock(return_value=0))
     def test_create(self):
         """Test the watchdog heartbeat function."""
         l1 = self.watchdog.create('test1', '30s')
         self.assertTrue(os.path.isfile(os.path.join(self.root, 'test1')))
-        self.assertEquals(
+        self.assertEqual(
             os.path.join(self.root, 'test1'),
             l1.filename
         )
         with open(os.path.join(self.root, 'test1'), 'r') as f:
-            self.assertEquals(f.read(), '')
+            self.assertEqual(f.read(), '')
         self.assertEqual(
             os.lstat(l1.filename).st_mtime,
             30
@@ -100,15 +100,15 @@ class WatchdogTest(unittest.TestCase):
 
         l2 = self.watchdog.create('test2', '2h', 'test message')
         self.assertTrue(os.path.isfile(os.path.join(self.root, 'test2')))
-        self.assertEquals(
+        self.assertEqual(
             os.path.join(self.root, 'test2'),
             l2.filename
         )
         with open(os.path.join(self.root, 'test2'), 'r') as f:
-            self.assertEquals(f.read(), 'test message')
+            self.assertEqual(f.read(), 'test message')
         self.assertEqual(
             os.lstat(l2.filename).st_mtime,
-            60*60*2
+            60 * 60 * 2
         )
 
     @mock.patch('os.unlink', mock.Mock())

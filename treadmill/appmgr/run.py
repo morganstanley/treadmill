@@ -1,5 +1,5 @@
 """ Manages Treadmill applications lifecycle."""
-from __future__ import absolute_import
+
 
 import errno
 import logging
@@ -102,7 +102,7 @@ def run(tm_env, container_dir, watchdog, terminated):
         # R0912: Too many branches
         #
         # pylint: disable=R0915,R0912
-        log.info('Running %r', container_dir)
+        log.logger.info('Running %r', container_dir)
 
         manifest_file = os.path.join(container_dir, _APP_YML)
         manifest = app_manifest.read(manifest_file)
@@ -135,7 +135,7 @@ def run(tm_env, container_dir, watchdog, terminated):
         # Save the manifest with allocated vip and ports in the state
         state_file = os.path.join(container_dir, _STATE_YML)
         with tempfile.NamedTemporaryFile(dir=container_dir,
-                                         delete=False) as temp_file:
+                                         delete=False, mode='w') as temp_file:
             yaml.dump(manifest, stream=temp_file)
             # chmod for the file to be world readable.
             os.fchmod(
@@ -540,11 +540,11 @@ def _allocate_sockets(environment, host_ip, sock_type, count):
     """
     # TODO(boysson): this should probably be abstracted away
     if environment == 'prod':
-        port_pool = xrange(iptables.PROD_PORT_LOW,
-                           iptables.PROD_PORT_HIGH + 1)
+        port_pool = range(iptables.PROD_PORT_LOW,
+                          iptables.PROD_PORT_HIGH + 1)
     else:
-        port_pool = xrange(iptables.NONPROD_PORT_LOW,
-                           iptables.NONPROD_PORT_HIGH + 1)
+        port_pool = range(iptables.NONPROD_PORT_LOW,
+                          iptables.NONPROD_PORT_HIGH + 1)
 
     port_pool = random.sample(port_pool, iptables.PORT_SPAN)
 
@@ -553,9 +553,9 @@ def _allocate_sockets(environment, host_ip, sock_type, count):
     sockets = []
 
     port_pool_iter = iter(port_pool)
-    for _ in xrange(count):
+    for _ in range(count):
         socket_ = socket.socket(socket.AF_INET, sock_type)
-        real_port = port_pool_iter.next()
+        real_port = next(port_pool_iter)
         try:
             socket_.bind((host_ip, real_port))
         except socket.error as err:
@@ -589,8 +589,7 @@ def _allocate_network_ports(host_ip, manifest):
         ]
     )
     tcp_port_count = (
-        len(manifest['endpoints']) - udp_port_count
-        + ephemeral_count
+        len(manifest['endpoints']) - udp_port_count + ephemeral_count
     )
 
     tcp_sockets = _allocate_sockets(
@@ -613,7 +612,7 @@ def _allocate_network_ports(host_ip, manifest):
         if endpoint.get('proto', 'tcp') != 'tcp':
             continue
 
-        tcp_sock = tcp_sock_iter.next()
+        tcp_sock = next(tcp_sock_iter)
         endpoint['real_port'] = tcp_sock.getsockname()[1]
 
         # Specifying port 0 tells appmgr that application wants to
@@ -627,8 +626,8 @@ def _allocate_network_ports(host_ip, manifest):
 
     # Ephemeral port are the rest of the TCP ports
     manifest['ephemeral_ports'] = [
-        tcp_sock.getsockname()[1]
-        for tcp_sock in tcp_sock_iter
+        _tcp_sock.getsockname()[1]
+        for _tcp_sock in tcp_sock_iter
     ]
 
     # Assign UDP sockets
@@ -638,7 +637,7 @@ def _allocate_network_ports(host_ip, manifest):
         if endpoint.get('proto', 'tcp') != 'udp':
             continue
 
-        endpoint['real_port'] = udp_sock_iter.next().getsockname()[1]
+        endpoint['real_port'] = next(udp_sock_iter).getsockname()[1]
 
         # Specifying port 0 tells appmgr that application wants to
         # have same numeric port value in the container and in
@@ -670,7 +669,7 @@ def _prepare_ldpreload(root_dir, ldpreloads):
         else:
             # TODO: should we abort?
             _LOGGER.error('copy /etc/ld.so.preload, errno: %s', err.errno)
-        with open('/etc/ld.so.preload', 'w') as _:
+        with open('/etc/ld.so.preload', 'w'):
             pass
 
     with open(new_ldpreload, 'a') as new_ldpreload_f:

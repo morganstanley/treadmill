@@ -16,7 +16,7 @@ Usage:
         if watch.wait_for_events(timeout):
             watch.process_events()
 """
-from __future__ import absolute_import
+
 
 import sys  # pylint: disable=C0411
 import errno  # pylint: disable=C0411
@@ -137,7 +137,7 @@ class DirWatcher(object):
             rc = self.poll.poll(timeout)
             return bool(rc)
         except select.error as err:
-            if err[0] == errno.EINTR:
+            if err.errno == errno.EINTR:
                 return False
             raise
 
@@ -156,7 +156,7 @@ class DirWatcher(object):
             List of ``(DirWatcherEvent, <path>, <callback_return>)``.
         """
         if max_events <= 0:
-            max_events = sys.maxint
+            max_events = sys.maxsize
 
         # If we are out of cached events, get more from inotify
         if not self.event_list and not resume:

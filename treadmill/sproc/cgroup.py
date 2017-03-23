@@ -1,5 +1,5 @@
 """Manage core level cgroups."""
-from __future__ import absolute_import
+
 
 import errno
 

@@ -10,7 +10,7 @@ deleted (as server was rebooted already).
 Actual reboot procedure is specified in command line. Prior to invoking
 the plugin, perform graceful shutdown.
 """
-from __future__ import absolute_import
+
 
 import logging
 import os

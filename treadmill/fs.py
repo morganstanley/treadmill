@@ -1,7 +1,5 @@
 """Implements functions for setting up container chroot and file system."""
 
-from __future__ import absolute_import
-
 import errno
 import importlib
 import logging
@@ -9,13 +7,14 @@ import os
 import stat
 import tarfile
 import tempfile
-
-if os.name != 'nt':
-    import pwd
+import io
 
 from . import exc
 from . import utils
 from . import subproc
+
+if os.name != 'nt':
+    import pwd
 
 if os.name != 'nt':
     from .syscall import unshare
@@ -35,7 +34,7 @@ def rm_safe(path):
             raise
 
 
-def mkdir_safe(path, mode=0777):
+def mkdir_safe(path, mode=0o777):
     """Creates directory, if there is any error, aborts the process.
 
     :param path:
@@ -250,15 +249,15 @@ def _iter_plugins():
 
 def init_plugins(rootdir):
     """Initialize plugins."""
-    for mod in _iter_plugins():
-        mod.init(rootdir)
+    # XXX: for mod in _iter_plugins():
+    # XXX:    mod.init(rootdir)
 
 
 def configure_plugins(rootdir, newroot, app):
     """Configure each plugin in pre-chrooted environment."""
     # Load fs plugins
-    for mod in _iter_plugins():
-        mod.configure(rootdir, newroot, app)
+    # XXX: for mod in _iter_plugins():
+    # XXX:   mod.configure(rootdir, newroot, app)
 
 
 ###############################################################################
@@ -330,7 +329,7 @@ def make_rootfs(newroot, proid):
         mkdir_safe(newroot_norm + directory)
 
     for directory in stickydirs:
-        os.chmod(newroot_norm + directory, 0777 | stat.S_ISVTX)
+        os.chmod(newroot_norm + directory, 0o777 | stat.S_ISVTX)
 
     # Mount .../tickets .../keytabs on tempfs, so that they will be cleaned
     # up when the container exits.
@@ -478,7 +477,7 @@ def tar(target, sources, compression=None):
         ``str``
     """
     assert compression is None or compression in ['gzip', 'bzip2']
-    assert isinstance(target, str) or isinstance(target, file)
+    assert isinstance(target, str) or isinstance(target, io.IOBase)
 
     if compression == 'gzip':
         mode = 'gz'

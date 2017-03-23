@@ -1,5 +1,5 @@
 """Cleans up old tasks from Treadmill."""
-from __future__ import absolute_import
+
 
 import logging
 import time

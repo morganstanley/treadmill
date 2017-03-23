@@ -1,5 +1,5 @@
 """Treadmill platform module for linux."""
-from __future__ import absolute_import
 
-from . import bootstrap
-from . import nodeinit
+
+from . import bootstrap  # noqa: F401
+from . import nodeinit  # noqa: F401

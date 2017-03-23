@@ -13,28 +13,28 @@ class HttpTest(unittest.TestCase):
     def test_search(self):
         """Tests http request construction."""
         req = http.make_request('http://xxx', 'GET', None, None)
-        self.assertIsNone(req.get_data())
+        self.assertIsNone(req.data)
 
         req = http.make_request('http://xxx', 'GET', 'ignored', None)
-        self.assertIsNone(req.get_data())
+        self.assertIsNone(req.data)
 
         req = http.make_request('http://xxx', 'DELETE', None, None)
-        self.assertIsNone(req.get_data())
+        self.assertIsNone(req.data)
 
         req = http.make_request('http://xxx', 'DELETE', 'ignored', None)
-        self.assertIsNone(req.get_data())
+        self.assertIsNone(req.data)
 
         req = http.make_request('http://xxx', 'POST', '', None)
-        self.assertEquals(0, len(req.get_data()))
+        self.assertEqual(0, len(req.data))
 
         req = http.make_request('http://xxx', 'POST', 'abc', None)
-        self.assertEquals(3, len(req.get_data()))
+        self.assertEqual(3, len(req.data))
 
         req = http.make_request('http://xxx', 'POST', '', [('xxx', 'yyy'),
                                                            ('foo',)])
 
-        self.assertEquals('yyy', req.get_header('Xxx'))
-        self.assertEquals('1', req.get_header('Foo'))
+        self.assertEqual('yyy', req.get_header('Xxx'))
+        self.assertEqual('1', req.get_header('Foo'))
 
 
 if __name__ == '__main__':

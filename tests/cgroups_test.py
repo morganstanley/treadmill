@@ -2,7 +2,7 @@
 Unit test for cgroups module.
 """
 
-import __builtin__
+import builtins
 import io
 import os
 import shutil
@@ -104,16 +104,16 @@ class CGroupsTest(unittest.TestCase):
 
     @mock.patch('treadmill.cgroups.get_mountpoint',
                 mock.Mock(return_value='/cgroups'))
-    @mock.patch('__builtin__.open', mock.mock_open())
+    @mock.patch('builtins.open', mock.mock_open())
     def test_join(self):
         """Tests joining the cgroup."""
         group = os.path.join('treadmill', 'apps', 'test1')
 
         cgroups.join('cpu', group, '1234')
 
-        __builtin__.open.assert_called_once_with(
+        builtins.open.assert_called_once_with(
             '/cgroups/treadmill/apps/test1/tasks', 'w+')
-        __builtin__.open().write.assert_called_once_with('1234')
+        builtins.open().write.assert_called_once_with('1234')
 
     @mock.patch('treadmill.cgroups.mounted_subsystems',
                 mock.Mock(return_value={'cpu': '/cgroup/cpu'}))
@@ -123,8 +123,8 @@ class CGroupsTest(unittest.TestCase):
         cgroups.ensure_mounted(['cpu', 'memory'])
         treadmill.cgroups.mount.assert_called_with('memory')
 
-    @mock.patch('__builtin__.open',
-                mock.Mock(return_value=io.BytesIO(PROCCGROUPS)))
+    @mock.patch('builtins.open',
+                mock.Mock(return_value=io.StringIO(PROCCGROUPS)))
     def test_available_subsystems(self):
         """Test functions """
         subsystems = cgroups.available_subsystems()
@@ -296,7 +296,7 @@ class CGroupsTest(unittest.TestCase):
         treadmill.cgroups.get_value.assert_called_with(
             'blkio', 'mycgrp', 'blkio.throttle.io_service_bytes'
         )
-        self.assertEquals(
+        self.assertEqual(
             data['253:6'],
             {
                 'Read': 331776,
@@ -320,7 +320,7 @@ class CGroupsTest(unittest.TestCase):
         treadmill.cgroups.get_value.assert_called_with(
             'blkio', 'mycgrp', 'blkio.throttle.io_serviced'
         )
-        self.assertEquals(
+        self.assertEqual(
             data['253:6'],
             {
                 'Read': 81,

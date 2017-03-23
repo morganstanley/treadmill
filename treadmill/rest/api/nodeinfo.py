@@ -1,9 +1,9 @@
 """
 Local node redirect REST api.
 """
-from __future__ import absolute_import
 
-import httplib
+
+import http.client
 
 # pylint: disable=E0611,F0401
 import flask
@@ -29,8 +29,8 @@ def init(api, _cors, impl):
             """Returns list of local instances."""
             hostport = impl.get(hostname)
             if not hostport:
-                return 'Host not found.', httplib.NOT_FOUND
+                return 'Host not found.', http.client.NOT_FOUND
 
             url = utils.encode_uri_parts(path)
             return flask.redirect('http://%s/%s' % (hostport, url),
-                                  code=httplib.FOUND)
+                                  code=http.client.FOUND)

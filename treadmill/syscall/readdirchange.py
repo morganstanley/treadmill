@@ -1,14 +1,13 @@
 """Windows directory watcher API wrapper module
 """
 
-from __future__ import with_statement
-
 import ctypes.wintypes
 import os
-import Queue
+import queue
 import select
-import thread
+import _thread
 import threading
+from functools import reduce
 
 
 # Windows constatns
@@ -245,7 +244,7 @@ class ReadDirChange(object):
         self._path = ""
         self._handle = 0
         self._shouldexit = False
-        self._eventsqueue = Queue.Queue(100)
+        self._eventsqueue = queue.Queue(100)
         self._waitevent = threading.Event()
 
     def fileno(self):
@@ -293,7 +292,7 @@ class ReadDirChange(object):
                                    None, OPEN_EXISTING,
                                    WATCHDOG_FILE_FLAGS,
                                    None)
-        thread.start_new_thread(self._read_events_tread_proc, ())
+        _thread.start_new_thread(self._read_events_tread_proc, ())
         return self._handle
 
     def remove_watch(self, watch_id):  # pylint: disable=W0613
@@ -315,7 +314,7 @@ class ReadDirChange(object):
         if timeout == -1:
             result = self._waitevent.wait()
         else:
-            result = self._waitevent.wait(float(timeout/1000))
+            result = self._waitevent.wait(float(timeout / 1000))
         if result:
             self._waitevent.clear()
         return result
@@ -422,6 +421,7 @@ def poll():
     """Creates a new poll object."""
 
     return Poll()
+
 
 select.poll = poll
 select.POLLIN = 1

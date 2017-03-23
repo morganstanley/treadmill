@@ -98,6 +98,7 @@ class SigProcMaskHow(enum.IntEnum):
     #: Set the O_NONBLOCK file status flag on the new open file description.
     SIG_SETMASK = 2
 
+
 SIG_BLOCK = SigProcMaskHow.SIG_BLOCK
 SIG_UNBLOCK = SigProcMaskHow.SIG_UNBLOCK
 SIG_SETMASK = SigProcMaskHow.SIG_SETMASK

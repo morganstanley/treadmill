@@ -8,7 +8,7 @@ the node.
 The content of the node contain real path of the Treadmill code and timestamp
 when the reset happened.
 """
-from __future__ import absolute_import
+
 
 import logging
 import os

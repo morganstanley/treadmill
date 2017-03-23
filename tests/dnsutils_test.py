@@ -14,7 +14,7 @@ class DnsutilsTest(unittest.TestCase):
         srv_rec = '_protocol.x.y.z'
         srv_target = ('host', 1234, None, None)
         url = dnsutils.srv_target_to_url(srv_rec, srv_target)
-        self.assertEquals(url, 'protocol://host:1234')
+        self.assertEqual(url, 'protocol://host:1234')
 
 
 if __name__ == '__main__':

@@ -1,5 +1,5 @@
 """Implementation of state API."""
-from __future__ import absolute_import
+
 
 import logging
 
@@ -40,7 +40,7 @@ class API(object):
             """Watch /tasks data."""
 
             tasks_set = set(tasks)
-            for new_task in tasks_set - cell_state['tasks'].viewkeys():
+            for new_task in tasks_set - cell_state['tasks'].keys():
                 app_task_path = z.path.task(new_task)
                 app_task_info = cell_state['tasks'].setdefault(new_task, [])
 

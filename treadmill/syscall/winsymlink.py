@@ -1,7 +1,5 @@
 """Module for handlinkg symlinks on windows"""
 
-from __future__ import with_statement
-
 import ctypes.wintypes
 import errno
 import os
@@ -46,7 +44,7 @@ DeviceIoControl.argtypes = [
     ctypes.wintypes.DWORD,  # DWORD nOutBufferSize
     ctypes.POINTER(ctypes.wintypes.DWORD),  # LPDWORD lpBytesReturned
     ctypes.wintypes.LPVOID  # LPOVERLAPPED lpOverlapped
-    ]
+]
 DeviceIoControl.restype = ctypes.wintypes.BOOL
 
 # pylint: disable=C0103
@@ -55,7 +53,8 @@ CreateSymbolicLinkW.argtypes = [
     ctypes.c_wchar_p,  # LPTSTR lpSymlinkFileName
     ctypes.c_wchar_p,  # LPTSTR lpTargetFileName
     ctypes.c_uint32  # DWORD dwFlags
-    ]
+]
+
 CreateSymbolicLinkW.restype = ctypes.wintypes.BOOLEAN
 CreateSymbolicLinkW.errcheck = _errcheck_link
 
@@ -65,7 +64,7 @@ CreateHardLinkW.argtypes = [
     ctypes.c_wchar_p,  # LPCTSTR lpFileName
     ctypes.c_wchar_p,  # LPCTSTR lpExistingFileName
     ctypes.c_void_p  # LPSECURITY_ATTRIBUTES lpSecurityAttributes
-    ]
+]
 CreateHardLinkW.restype = ctypes.wintypes.BOOL
 CreateHardLinkW.errcheck = _errcheck_link
 
@@ -75,8 +74,8 @@ def _islink(path):
     if not os.path.isdir(path):
         return False
 
-    if not isinstance(path, unicode):
-        path = unicode(path)
+    if not isinstance(path, str):
+        path = str(path)
 
     attributes = ctypes.windll.kernel32.GetFileAttributesW(path)
     if attributes == INVALID_FILE_ATTRIBUTES:
@@ -111,10 +110,10 @@ def device_io_control(hDevice, ioControlCode, input_buffer, output_buffer):
 
 def _readlink(path):
     """ Windows readlink implementation. """
-    is_unicode = isinstance(path, unicode)
+    is_unicode = isinstance(path, str)
 
     if not is_unicode:
-        path = unicode(path)
+        path = str(path)
 
     if not _islink(path):
         raise OSError(errno.EINVAL, "Invalid argument", path)
@@ -176,11 +175,11 @@ def _readlink(path):
     actualPath = \
         data_buffer[start: start + SubstituteNameLength].decode("utf-16")
 
-    index = actualPath.find(u"\0")
+    index = actualPath.find("\0")
     if index > 0:
         actualPath = actualPath[:index]
 
-    if actualPath.startswith(u"\\??"):
+    if actualPath.startswith("\\??"):
         actualPath = actualPath[4:]
 
     if not is_unicode:

@@ -1,12 +1,13 @@
 """Treadmill trace CLI."""
 
-from __future__ import absolute_import
 
 import json
 import logging
 import socket
 import sys
-import urllib
+import urllib.request
+import urllib.parse
+import urllib.error
 
 import websocket as ws_client
 
@@ -62,7 +63,7 @@ def init():
         if '#' not in app:
             apis = context.GLOBAL.state_api(ctx['api'])
             url = '/trace/{app}'.format(
-                app=urllib.quote(app)
+                app=urllib.parse.quote(app)
             )
 
             try:
@@ -76,7 +77,7 @@ def init():
                 }
 
             if not trace_info['instances']:
-                print >> sys.stderr, '# Trace information does not exist.'
+                print('# Trace information does not exist.', file=sys.stderr)
                 return
 
             elif not last:

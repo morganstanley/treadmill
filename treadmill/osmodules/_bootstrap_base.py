@@ -1,5 +1,5 @@
 """An interface for bootstrapping treadmill."""
-from __future__ import absolute_import
+
 
 import errno
 
@@ -48,7 +48,7 @@ class BootstrapBase(object):
         while counter < 100:
             counter += 1
             result = {k: self._interpolate(v, params) for k, v in
-                      target.iteritems()}
+                      target.items()}
             if result == target:
                 break
             target = dict(result)

@@ -1,5 +1,5 @@
 """Reports presence information into Zookeeper."""
-from __future__ import absolute_import
+
 
 import errno
 import os
@@ -30,7 +30,7 @@ _LOGGER = lc.ContainerAdapter(logging.getLogger(__name__))
 
 _SERVERS_ACL = zkutils.make_role_acl('servers', 'rwcd')
 
-_INVALID_IDENTITY = sys.maxint
+_INVALID_IDENTITY = sys.maxsize
 
 # Max number of restart in a min, after which the app will not be restarted.
 _MAX_RESTART_RATE = 5
@@ -82,25 +82,27 @@ class EndpointPresence(object):
 
     def register_running(self):
         """Register container as running."""
-        self.log.info('registering container as running: %s', self.appname)
+        self.log.logger.info('registering container as running: %s',
+                             self.appname)
         _create_ephemeral_with_retry(self.zkclient,
                                      z.path.running(self.appname),
                                      self.hostname)
 
     def unregister_running(self):
         """Safely deletes the "running" node for the container."""
-        self.log.info('un-registering container as running: %s', self.appname)
+        self.log.logger.info('un-registering container as running: %s',
+                             self.appname)
         path = z.path.running(self.appname)
         try:
             data, _metadata = self.zkclient.get(path)
             if data == self.hostname:
                 self.zkclient.delete(path)
         except kazoo.client.NoNodeError:
-            self.log.info('running node does not exist.')
+            self.log.logger.info('running node does not exist.')
 
     def register_endpoints(self):
         """Registers service endpoint."""
-        self.log.info('registering endpoints: %s', self.appname)
+        self.log.logger.info('registering endpoints: %s', self.appname)
 
         endpoints = self.manifest.get('endpoints', [])
         for endpoint in endpoints:
@@ -111,7 +113,7 @@ class EndpointPresence(object):
 
             hostport = self.hostname + ':' + str(ep_port)
             path = z.path.endpoint(self.appname, ep_proto, ep_name)
-            self.log.info('register endpoint: %s %s', path, hostport)
+            self.log.logger.info('register endpoint: %s %s', path, hostport)
 
             # Endpoint node is created with default acl. It is ephemeral
             # and not supposed to be modified by anyone.
@@ -119,7 +121,7 @@ class EndpointPresence(object):
 
     def unregister_endpoints(self):
         """Unregisters service endpoint."""
-        self.log.info('registering endpoints: %s', self.appname)
+        self.log.logger.info('registering endpoints: %s', self.appname)
 
         endpoints = self.manifest.get('endpoints', [])
         for endpoint in endpoints:
@@ -133,13 +135,13 @@ class EndpointPresence(object):
                 return
 
             path = z.path.endpoint(self.appname, ep_proto, ep_name)
-            self.log.info('un-register endpoint: %s', path)
+            self.log.logger.info('un-register endpoint: %s', path)
             try:
                 data, _metadata = self.zkclient.get(path)
                 if data.split(':')[0] == self.hostname:
                     self.zkclient.delete(path)
             except kazoo.client.NoNodeError:
-                self.log.info('endpoint node does not exist.')
+                self.log.logger.info('endpoint node does not exist.')
 
     def register_identity(self):
         """Register app identity."""
@@ -151,7 +153,9 @@ class EndpointPresence(object):
 
         identity = self.manifest.get('identity', _INVALID_IDENTITY)
 
-        self.log.info('Register identity: %s, %s', identity_group, identity)
+        self.log.logger.info('Register identity: %s, %s',
+                             identity_group,
+                             identity)
         _create_ephemeral_with_retry(
             self.zkclient,
             z.path.identity_group(identity_group, str(identity)),
@@ -247,9 +251,9 @@ class ServicePresence(object):
             # Busy wait for service directory to become supervised.
             while not supervisor.is_supervisor_running(self.services_dir,
                                                        service):
-                self.log.info('%s/%s not yet supervised.',
-                              self.services_dir,
-                              service)
+                self.log.logger.info('%s/%s not yet supervised.',
+                                     self.services_dir,
+                                     service)
                 time.sleep(0.5)
 
     def _actual_restarts(self, service_name, restart_data):
@@ -286,7 +290,7 @@ class ServicePresence(object):
     def start_all(self):
         """Start all services."""
         for service_name in self.services:
-            self.log.info('Starting: %s', service_name)
+            self.log.logger.info('Starting: %s', service_name)
             if not self.start_service(service_name):
                 return False, service_name
         return True, None
@@ -308,9 +312,9 @@ class ServicePresence(object):
 
         restart_rate_exceeded, actual_restarts = (
             self._actual_restarts(service_name, restart_data))
-        self.log.info('starting %s, retries %s/%s in %s',
-                      service_name, actual_restarts,
-                      restart_data['limit'], restart_data['interval'])
+        self.log.logger.info('starting %s, retries %s/%s in %s',
+                             service_name, actual_restarts,
+                             restart_data['limit'], restart_data['interval'])
 
         # If for whatever reason presence exited before reporting last exit
         # status, do it now. The method is no-op if last status was reported
@@ -318,7 +322,7 @@ class ServicePresence(object):
         self.update_exit_status(service_name)
 
         if restart_rate_exceeded:
-            self.log.info('Exceeded number of restarts per interval')
+            self.log.logger.info('Exceeded number of restarts per interval')
             return False
 
         if is_down(svc_dir):
@@ -326,7 +330,7 @@ class ServicePresence(object):
                 subproc.check_call(['s6-svc', '-o', svc_dir])
             self.report_running(service_name)
         else:
-            self.log.info('Service %s already running', service_name)
+            self.log.logger.info('Service %s already running', service_name)
 
         subproc.check_call(['s6-svwait', '-u', svc_dir])
         return True
@@ -338,7 +342,7 @@ class ServicePresence(object):
         if container_svc_dir:
             watched_dirs.append(container_svc_dir)
 
-        self.log.info('waiting for service exit: %r', watched_dirs)
+        self.log.logger.info('waiting for service exit: %r', watched_dirs)
 
         # Wait for one of the services to come down.
         # TODO: need to investigate why s6-svwait returns 111 rather
@@ -384,7 +388,7 @@ class ServicePresence(object):
         svc_dir = os.path.join(self.services_dir, service_name)
         finished = os.path.join(svc_dir, 'finished')
         if not os.path.exists(finished):
-            self.log.info('%s/finished does not exist.', svc_dir)
+            self.log.logger.info('%s/finished does not exist.', svc_dir)
             return
 
         task_id = self.manifest.get('task', None)
@@ -405,11 +409,12 @@ class ServicePresence(object):
                 raise
 
         if prev_count == count:
-            self.log.info('Exit status already reported, count: %d', count)
+            self.log.logger.info('Exit status already reported, count: %d',
+                                 count)
             return
 
-        self.log.info('exit (rc, signal): (%s, %s)',
-                      exitinfo['rc'], exitinfo['sig'])
+        self.log.logger.info('exit (rc, signal): (%s, %s)',
+                             exitinfo['rc'], exitinfo['sig'])
 
         appevents.post(
             self.appevents_dir,
@@ -430,7 +435,7 @@ class ServicePresence(object):
 
     def report_running(self, service_name):
         """Creates ephemeral node indicating service has started."""
-        self.log.info('Service is running.')
+        self.log.logger.info('Service is running.')
         appevents.post(
             self.appevents_dir,
             traceevents.ServiceRunningTraceEvent(
@@ -442,7 +447,7 @@ class ServicePresence(object):
 
     def exit_app(self, service_name, killed=False):
         """Removes application from Zookeeper, trigger container shutdown."""
-        self.log.info('Exiting %s', self.appname)
+        self.log.logger.info('Exiting %s', self.appname)
 
         # Max restarts reached, kill the container.
         if service_name:

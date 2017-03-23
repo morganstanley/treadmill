@@ -1,5 +1,5 @@
 """Treadmill app configurator daemon, subscribes to eventmgr events."""
-from __future__ import absolute_import
+
 
 import click
 

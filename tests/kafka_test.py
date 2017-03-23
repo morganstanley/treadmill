@@ -65,8 +65,8 @@ class KafkaTest(unittest.TestCase):
         """Test getting Zookeeper instances for Kafka by ZK URL"""
         zk_instances = kafka.zk_instances_by_zkurl(_ZKURL)
 
-        self.assertEquals(zk_instances, 'bar.xx.com,baz.xx.com/%s' %
-                          kafka.KAFKA_ZK_ROOT)
+        self.assertEqual(zk_instances, 'bar.xx.com,baz.xx.com/%s' %
+                         kafka.KAFKA_ZK_ROOT)
 
     @mock.patch('treadmill.kafka._is_broker_up',
                 mock.Mock(return_value=True))
@@ -77,7 +77,7 @@ class KafkaTest(unittest.TestCase):
         """Test getting the number of Kafka replicas"""
         replica = kafka.get_replica(['foo:1111'])
 
-        self.assertEquals(replica, 1)
+        self.assertEqual(replica, 1)
 
     @mock.patch('treadmill.kafka.get_master_brokers',
                 mock.Mock(return_value=['foo:1111']))
@@ -87,7 +87,7 @@ class KafkaTest(unittest.TestCase):
         """Test getting the number of Kafka brokers with masters"""
         brokers = kafka.get_brokers('test', 'tm.xxx.com', self.zkclient_mock,
                                     app_pattern='foo.kafka.*')
-        self.assertEquals(len(brokers), 1)
+        self.assertEqual(len(brokers), 1)
 
     @mock.patch('treadmill.kafka.get_master_brokers',
                 mock.Mock(return_value=[]))
@@ -100,7 +100,7 @@ class KafkaTest(unittest.TestCase):
         """Test getting the number of Kafka brokers from cell"""
         brokers = kafka.get_brokers('test', 'tm.xxx.com', self.zkclient_mock,
                                     app_pattern='foo.kafka.*')
-        self.assertEquals(len(brokers), 1)
+        self.assertEqual(len(brokers), 1)
 
     @mock.patch('treadmill.admin.Cell.get',
                 mock.Mock(return_value={'masters': [{
@@ -115,7 +115,7 @@ class KafkaTest(unittest.TestCase):
         """Test getting the number of Kafka brokers with pattern & match"""
         brokers = kafka.get_brokers('test', 'tm.xxx.com', self.zkclient_mock,
                                     app_pattern='foo.kafka.*')
-        self.assertEquals(len(brokers), 1)
+        self.assertEqual(len(brokers), 1)
 
     @mock.patch('treadmill.admin.Cell.get',
                 mock.Mock(return_value={'masters': [{
@@ -129,7 +129,7 @@ class KafkaTest(unittest.TestCase):
         """Test getting the number of Kafka brokers with pattern & no match"""
         brokers = kafka.get_brokers('test', 'tm.zzz.com', self.zkclient_mock,
                                     app_pattern='proid.kafka.*')
-        self.assertEquals(len(brokers), 0)
+        self.assertEqual(len(brokers), 0)
 
     @mock.patch('treadmill.admin.Cell.get',
                 mock.Mock(return_value={'masters': [{
@@ -144,7 +144,7 @@ class KafkaTest(unittest.TestCase):
         """Test getting the number of Kafka brokers with no pattern & match"""
         # No pattern, use default pattern
         brokers = kafka.get_brokers('test', 'tm.xxx.com', self.zkclient_mock)
-        self.assertEquals(len(brokers), 2)
+        self.assertEqual(len(brokers), 2)
 
 
 if __name__ == '__main__':

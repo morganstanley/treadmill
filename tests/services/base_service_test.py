@@ -269,7 +269,7 @@ class BaseServiceTest(unittest.TestCase):
 
         res = instance._run_events(loop_poll, 42, mock_callbacks)
 
-        loop_poll.poll.assert_called_with(42*1000)
+        loop_poll.poll.assert_called_with(42 * 1000)
         self.assertTrue(mock_callbacks[0]['callback'].called)
         self.assertTrue(mock_callbacks[1]['callback'].called)
         self.assertFalse(mock_callbacks[2]['callback'].called)

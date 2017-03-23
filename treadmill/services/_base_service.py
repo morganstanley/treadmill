@@ -1,6 +1,5 @@
 """Base for all node resource services."""
 
-from __future__ import absolute_import
 
 import abc
 import collections
@@ -42,7 +41,7 @@ _REP_FILE = 'reply.yml'
 _STATUS_SOCK = 'status.sock'
 
 
-def _wait_for_file(filename, timeout=60*60):
+def _wait_for_file(filename, timeout=60 * 60):
     """Wait at least ``timeout`` seconds for a file to appear or be modified.
 
     :param ``int`` timeout:
@@ -51,7 +50,7 @@ def _wait_for_file(filename, timeout=60*60):
         ``True`` if there was an event, ``False`` otherwise (timeout).
     """
     if timeout is None:
-        timeout = 60*60
+        timeout = 60 * 60
 
     elif timeout == 0:
         return os.path.exists(filename)
@@ -312,7 +311,7 @@ class ResourceService(object):
         self._service_class = None
         self._io_eventfd = None
         # Figure out the service's name
-        if isinstance(self._service_impl, basestring):
+        if isinstance(self._service_impl, str):
             svc_name = self._service_impl.rsplit('.', 1)[-1]
         else:
             svc_name = self._service_impl.__name__
@@ -472,7 +471,7 @@ class ResourceService(object):
             base_event_handlers + impl_event_handlers,
         )
 
-        loop_timeout = impl.WATCHDOG_HEARTBEAT_SEC/2
+        loop_timeout = impl.WATCHDOG_HEARTBEAT_SEC / 2
         while not self._is_dead:
 
             # Check for events
@@ -533,7 +532,7 @@ class ResourceService(object):
 
         try:
             # poll timeout is in milliseconds
-            for (fd, _event) in loop_poll.poll(loop_timeout*1000):
+            for (fd, _event) in loop_poll.poll(loop_timeout * 1000):
                 fd_data = loop_callbacks[fd]
                 _LOGGER.debug('Event on %r: %r', fd, fd_data)
                 pending_callbacks.append(
@@ -592,7 +591,7 @@ class ResourceService(object):
     def _load_impl(self):
         """Load the implementation class of the service.
         """
-        if isinstance(self._service_impl, basestring):
+        if isinstance(self._service_impl, str):
             (module_name, cls_name) = self._service_impl.rsplit('.', 1)
             impl_module = importlib.import_module(module_name)
             impl_class = getattr(impl_module, cls_name)
@@ -784,7 +783,8 @@ class ResourceService(object):
         _LOGGER.debug('created %r', req_id)
 
         with tempfile.NamedTemporaryFile(dir=filepath,
-                                         delete=False) as f:
+                                         delete=False,
+                                         mode='w') as f:
             os.fchmod(f.fileno(), 0o644)
             yaml.dump(res,
                       explicit_start=True, explicit_end=True,
@@ -812,11 +812,9 @@ class ResourceService(object):
         return res
 
 
-class BaseResourceServiceImpl(object):
+class BaseResourceServiceImpl(object, metaclass=abc.ABCMeta):
     """Base interface of Resource Service implementations.
     """
-
-    __metaclass__ = abc.ABCMeta
     __slots__ = (
         '_service_dir',
         '_service_rsrc_dir',

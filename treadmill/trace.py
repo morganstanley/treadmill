@@ -1,5 +1,5 @@
 """Trace function invocation using decorator."""
-from __future__ import absolute_import
+
 
 import functools
 import logging

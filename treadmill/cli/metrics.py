@@ -4,13 +4,15 @@ The files are downloaded for current directory, or it can be overwritten with
 --outdir command line option.
 
 """
-from __future__ import absolute_import
+
 
 import sys
 
 import logging
 import os
-import urllib2
+import urllib.request
+import urllib.parse
+import urllib.error
 
 import click
 
@@ -61,7 +63,7 @@ def _get_app_metrics(nodeinfo_url, outdir, appendpoint, hostport):
     host, _port = hostport.split(':')
     instance, _proto, _endpoint = appendpoint.split(':')
     metrics_url = '%s/%s/metrics/apps/%s' % (
-        nodeinfo_url, host, urllib2.quote(instance))
+        nodeinfo_url, host, urllib.parse.quote(instance))
 
     rrdfile = os.path.join(outdir, '%s.rrd' % instance)
     _download_rrd(metrics_url, rrdfile)
@@ -75,7 +77,7 @@ def _get_server_metrics(nodeinfo_url, outdir, server, services):
     for svc in services:
         metrics_url = '%s/%s/metrics/core/%s' % (nodeinfo_url,
                                                  server,
-                                                 urllib2.quote(svc))
+                                                 urllib.parse.quote(svc))
         rrdfile = os.path.join(outdir, '%s-%s.rrd' % (server, svc))
         _download_rrd(metrics_url, rrdfile)
 
@@ -83,14 +85,14 @@ def _get_server_metrics(nodeinfo_url, outdir, server, services):
 def _download_rrd(metrics_url, rrdfile):
     """Get rrd file and store in output directory."""
     _LOGGER.info('%s', metrics_url)
-    request = urllib2.Request(metrics_url)
+    request = urllib.request.Request(metrics_url)
     try:
         with open(rrdfile, 'w+') as f:
-            f.write(urllib2.urlopen(request).read())
+            f.write(urllib.request.urlopen(request).read())
 
         rrdutils.gen_graph(rrdfile, rrdutils.RRDTOOL,
                            show_mem_limit=False)
-    except urllib2.HTTPError as err:
+    except urllib.error.HTTPError as err:
         _LOGGER.warning('%s: %s, %s', metrics_url, err.code, err.reason)
 
 

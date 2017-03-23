@@ -1,5 +1,5 @@
 """Treadmill discovery CLI."""
-from __future__ import absolute_import
+
 
 import json
 import logging
@@ -94,7 +94,7 @@ def init():
             else:
                 output = instance
 
-            print output
+            print(output)
 
         ws.close()
 

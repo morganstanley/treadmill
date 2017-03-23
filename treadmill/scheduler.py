@@ -1,6 +1,6 @@
 """Treadmill hierarchical scheduler."""
 
-from __future__ import absolute_import
+
 # Disable "too many lines in module" warning.
 #
 # pylint: disable=C0302
@@ -16,7 +16,7 @@ import time
 import enum
 
 import numpy as np
-
+from functools import reduce
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -60,7 +60,7 @@ def eps_capacity():
     """Returns eps capacity vector."""
     assert DIMENSION_COUNT is not None, 'Dimension count not set.'
     return np.array(
-        [np.finfo(float).eps for _x in xrange(0, DIMENSION_COUNT)]
+        [np.finfo(float).eps for _x in range(0, DIMENSION_COUNT)]
     )
 
 
@@ -80,12 +80,12 @@ def utilization(demand, allocated, available):
 
 def _all(oper, left, right):
     """Short circuit all for ndarray."""
-    return all(oper(ai, bi) for ai, bi in itertools.izip(left, right))
+    return all(oper(ai, bi) for ai, bi in zip(left, right))
 
 
 def _any(oper, left, right):
     """Short circuit any for ndarray."""
-    return any(oper(ai, bi) for ai, bi in itertools.izip(left, right))
+    return any(oper(ai, bi) for ai, bi in zip(left, right))
 
 
 def _any_eq(left, right):
@@ -180,9 +180,9 @@ class IdentityGroup(object):
         schedule cycle.
         """
         if count >= self.count:
-            self.available ^= set(xrange(self.count, count))
+            self.available ^= set(range(self.count, count))
         else:
-            self.available -= set(xrange(count, self.count))
+            self.available -= set(range(count, self.count))
         self.count = count
 
 
@@ -225,7 +225,6 @@ class Application(object):
         'demand',
         'affinity',
         'priority',
-        'traits',
         'allocation',
         'data_retention_timeout',
         'server',
@@ -264,6 +263,11 @@ class Application(object):
         self.evicted = False
         self.placement_expiry = None
         self.renew = False
+
+    # FIXME: What dictates order? heapq.merge in utilization_queue needs this
+    # comparison.
+    def __lt__(self, other):
+        return self.priority < other.priority
 
     def acquire_identity(self):
         """Try to acquire identity if belong to the group.
@@ -305,10 +309,8 @@ class Application(object):
             return self.allocation.traits
 
 
-class Strategy(object):
+class Strategy(object, metaclass=abc.ABCMeta):
     """Base class for all placement strategies."""
-
-    __metaclass__ = abc.ABCMeta
 
     @abc.abstractmethod
     def suggested_node(self):
@@ -334,7 +336,7 @@ class SpreadStrategy(Strategy):
 
     def suggested_node(self):
         """Suggest next node from the cycle."""
-        for _ in xrange(0, len(self.node.children)):
+        for _ in range(0, len(self.node.children)):
             if self.current_idx == len(self.node.children):
                 self.current_idx = 0
 
@@ -363,7 +365,7 @@ class PackStrategy(Strategy):
 
     def suggested_node(self):
         """Suggest same node as previous placement."""
-        for _ in xrange(0, len(self.node.children)):
+        for _ in range(0, len(self.node.children)):
             if self.current_idx == len(self.node.children):
                 self.current_idx = 0
             node = self.node.children[self.current_idx]
@@ -391,7 +393,7 @@ class TraitSet(object):
             traits = 0
 
         # Private traits.
-        assert isinstance(traits, int) or isinstance(traits, long)
+        assert isinstance(traits, int) or isinstance(traits, int)
         self.self_traits = traits
 
         # Union of all children traits.
@@ -560,7 +562,7 @@ class Node(object):
         assert node.name in self.children_by_name
 
         del self.children_by_name[node.name]
-        for idx in xrange(0, len(self.children)):
+        for idx in range(0, len(self.children)):
             if self.children[idx] == node:
                 self.children[idx] = None
 
@@ -873,7 +875,9 @@ class Server(Node):
 
     def latest_app_expiry(self):
         """Return max expire time for all apps."""
-        return max([0] + [app.placement_expiry for app in self.apps.values()])
+        return max(
+            [0] + [app.placement_expiry for app in self.apps.values()]
+        )
 
 
 class Allocation(object):
@@ -1061,6 +1065,7 @@ class Allocation(object):
         acc_demand = zero_capacity()
         available = total_reserved + free_capacity + np.finfo(float).eps
 
+        # FIXME: heapq.merge has an overhead of comparison
         for item in heapq.merge(*queues):
             rank, _util, pending, order, app = item
             acc_demand = acc_demand + app.demand
@@ -1233,7 +1238,7 @@ class Cell(Bucket):
             if state == State.down:
                 _LOGGER.debug('Server state is down: %s', server.name)
                 to_be_moved = []
-                for name, app in server.apps.iteritems():
+                for name, app in server.apps.items():
                     if app.data_retention_timeout is None:
                         expires_at = 0
                     else:
@@ -1376,7 +1381,7 @@ class Cell(Bucket):
                      time.time() - begin)
 
         placement = [tuple(itertools.chain(b, a))
-                     for b, a in itertools.izip(before, after)]
+                     for b, a in zip(before, after)]
 
         for appname, s_before, exp_before, s_after, exp_after in placement:
             if s_before != s_after:
@@ -1392,7 +1397,7 @@ class Cell(Bucket):
     def schedule(self):
         """Run the scheduler."""
         placement = []
-        for label, partition in self.partitions.iteritems():
+        for label, partition in self.partitions.items():
             allocation = partition.allocation
             allocation.label = label
             placement.extend(self.schedule_alloc(allocation))

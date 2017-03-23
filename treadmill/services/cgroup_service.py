@@ -1,6 +1,5 @@
 """Cgroup management service."""
 
-from __future__ import absolute_import
 
 import errno
 import logging
@@ -71,7 +70,7 @@ class CgroupResourceService(BaseResourceServiceImpl):
         cgrp = os.path.join('treadmill', 'apps', instance_id)
 
         with lc.LogContext(_LOGGER, rsrc_id) as log:
-            log.info('Creating cgroups: %s:%s', self.SUBSYSTEMS, cgrp)
+            log.logger.info('Creating cgroups: %s:%s', self.SUBSYSTEMS, cgrp)
             for subsystem in self.SUBSYSTEMS:
                 cgroups.create(subsystem, cgrp)
 
@@ -115,7 +114,9 @@ class CgroupResourceService(BaseResourceServiceImpl):
             app_bogomips = app_cpu_pcnt * sysinfo.BMIPS_PER_CPU
             app_cpu_shares = int(app_bogomips)
 
-            log.info('created in cpu:%s with %s shares', cgrp, app_cpu_shares)
+            log.logger.info(
+                'created in cpu:%s with %s shares', cgrp, app_cpu_shares
+            )
             cgroups.set_cpu_shares(cgrp, app_cpu_shares)
 
         return {
@@ -130,7 +131,7 @@ class CgroupResourceService(BaseResourceServiceImpl):
         with lc.LogContext(_LOGGER, rsrc_id) as log:
             self._unregister_oom_handler(cgrp)
 
-            log.info('Deleting cgroups: %s:%s', self.SUBSYSTEMS, cgrp)
+            log.logger.info('Deleting cgroups: %s:%s', self.SUBSYSTEMS, cgrp)
             for subsystem in self.SUBSYSTEMS:
                 cgroups.delete(subsystem, cgrp)
 

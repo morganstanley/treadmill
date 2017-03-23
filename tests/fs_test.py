@@ -37,7 +37,7 @@ class FsTest(unittest.TestCase):
     def test_chroot_init_ok(self):
         """Mock test, verifies root directory created and unshare called."""
         fs.chroot_init('/var/bla')
-        os.makedirs.assert_called_with('/var/bla', mode=0777)
+        os.makedirs.assert_called_with('/var/bla', mode=0o777)
         treadmill.syscall.unshare.unshare.assert_called_with(_CLONE_NEWNS)
 
     @mock.patch('os.path.exists', mock.Mock(return_value=True))
@@ -46,7 +46,7 @@ class FsTest(unittest.TestCase):
     def test_chroot_init_empty_existing(self):
         """Checks that chroot can be done over existing empty dir."""
         fs.chroot_init('/var/bla')
-        os.makedirs.assert_called_with('/var/bla', mode=0777)
+        os.makedirs.assert_called_with('/var/bla', mode=0o777)
         treadmill.syscall.unshare.unshare.assert_called_with(_CLONE_NEWNS)
 
     @mock.patch('os.path.exists', mock.Mock(return_value=False))
@@ -101,7 +101,11 @@ class FsTest(unittest.TestCase):
             os.path.isdir(os.path.join(container_dir, foo_dir[1:]))
         )
         treadmill.subproc.check_call.reset_mock()
-        self.assertTrue(os.path.isdir(os.path.join(container_dir, foo_dir[1:])))
+        self.assertTrue(
+            os.path.isdir(
+                os.path.join(container_dir, foo_dir[1:])
+            )
+        )
 
         # test binding directory with subdirs
         bar_dir = os.path.join(self.root, 'bar')
@@ -313,7 +317,7 @@ class FsTest(unittest.TestCase):
         with open(os.path.join(tardir, 'file'), 'w+'):
             pass
 
-        self.assertEquals(
+        self.assertEqual(
             fs.tar(archive, tardir).name,
             archive,
             'fs.tar runs successfully'
@@ -323,13 +327,13 @@ class FsTest(unittest.TestCase):
             'fs.tar creates a tarfile'
         )
 
-        self.assertEquals(
+        self.assertEqual(
             fs.tar(archive, tardir2).name,
             archive,
             'fs.tar will succeed if tarfile already exists'
         )
 
-        self.assertEquals(
+        self.assertEqual(
             fs.tar(archive, tardir, compression='gzip').name,
             "%s.gz" % archive,
             'fs.tar with gzip runs successfully'
@@ -362,7 +366,7 @@ class FsTest(unittest.TestCase):
         with open(os.path.join(tardir, 'file'), 'w+'):
             pass
 
-        self.assertEquals(
+        self.assertEqual(
             fs.tar(archive, [tardir, tardir2], compression='gzip').name,
             '%s.gz' % archive,
             'fs.tar runs successfully'
@@ -402,6 +406,7 @@ class FsTest(unittest.TestCase):
         self.assertTrue(
             'subdir' in names and 'file' in names and 'file2' in names
         )
+
 
 if __name__ == '__main__':
     unittest.main()
