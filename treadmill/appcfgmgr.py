@@ -407,7 +407,7 @@ class AppCfgMgr(object):
                     if res == 0:
                         break
                     else:
-                        _LOGGER.warning('Supervisor has not picked up it yet')
+                        _LOGGER.warning('Supervisor has not picked it up yet')
                         time.sleep(0.5)
                 # Bring the instance up.
                 subproc.check_call(
