@@ -1,0 +1,7 @@
+---
+- name: Delete Security Group
+  ec2_group:
+    state: absent
+    name: "{{ vpc.sg_name }}"
+    description: "{{ vpc.sg_description }}"
+    region: "{{ vpc.region }}"

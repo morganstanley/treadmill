@@ -1,0 +1,6 @@
+---
+- name: Destroy Internet Gateway
+  ec2_vpc_igw:
+    vpc_id: "{{vpc_id}}"
+    state: absent
+    region: "{{ vpc.region }}"

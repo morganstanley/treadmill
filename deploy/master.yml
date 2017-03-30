@@ -1,0 +1,17 @@
+---
+- hosts: controller
+  pre_tasks:
+    - include_vars:
+        file: "{{aws_config | default('aws.yml')}}"
+
+- include: instance.yml _name="{{master.name}}" _exact_count="{{master.exact_count}}"
+
+- hosts: ec2instances
+  become: yes
+  environment:
+    AWS_ACCESS_KEY_ID: "{{hostvars.localhost.ansible_env.AWS_ACCESS_KEY_ID}}"
+    AWS_SECRET_ACCESS_KEY: "{{hostvars.localhost.ansible_env.AWS_SECRET_ACCESS_KEY}}"
+  vars_files:
+    - "{{aws_config | default('aws.yml')}}"
+  roles:
+    - {role: master}

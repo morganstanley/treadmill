@@ -1,0 +1,9 @@
+---
+- name: Delete Route Table
+  ec2_vpc_route_table:
+    state: absent
+    lookup: id
+    route_table_id: "{{item.id}}"
+    vpc_id: "{{vpc_id}}"
+    region: "{{vpc.region}}"
+  with_items: "{{route_tables_facts.route_tables}}"

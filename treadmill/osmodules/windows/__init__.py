@@ -1,5 +1,5 @@
-"""Treadmill platform module for windows."""
+# """Treadmill platform module for windows."""
+# from __future__ import absolute_import
 
-
-from . import bootstrap  # noqa: F401
-from . import nodeinit  # noqa: F401
+# from . import bootstrap
+# from . import nodeinit

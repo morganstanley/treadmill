@@ -59,26 +59,24 @@ def init():
                 log.logger.info('Cleanup: %s => %s', path, container_dir)
                 if os.path.exists(container_dir):
 
-                    treadmill_bin = os.path.join(
-                        treadmill.TREADMILL,
-                        'bin',
-                        'treadmill'
-                    )
-
                     try:
                         log.logger.info(
-                            'invoking treadmill_bin script: %r', treadmill_bin
+                            'invoking treadmill.TREADMILL_BIN script: %r',
+                            treadmill.TREADMILL_BIN
                         )
                         subproc.check_call(
                             [
-                                treadmill_bin,
+                                treadmill.TREADMILL_BIN,
                                 'sproc',
                                 'finish',
                                 container_dir
                             ]
                         )
                     except subprocess.CalledProcessError:
-                        log.exception('Fatal error running %r.', treadmill_bin)
+                        log.exception(
+                            'Fatal error running %r.',
+                            treadmill.TREADMILL_BIN
+                        )
                         raise
 
                 else:

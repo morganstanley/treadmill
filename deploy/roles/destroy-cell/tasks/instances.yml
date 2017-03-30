@@ -1,0 +1,10 @@
+---
+- name: Destroy ec2 Instances
+  ec2:
+    region: "{{ vpc.region }}"
+    state: absent
+    instance_ids: "{{ item.id }}"
+    wait: yes
+  with_items: 
+    - "{{instance_facts_master.instances}}"    
+    - "{{instance_facts_node_server.instances}}"

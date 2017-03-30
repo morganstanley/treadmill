@@ -1,0 +1,25 @@
+---
+- hosts: controller
+  pre_tasks:
+    - include_vars:
+        file: "{{aws_config | default('aws.yml')}}"
+
+- include: instance.yml _name="{{freeipa.name}}" _exact_count="{{freeipa.exact_count}}"
+
+- hosts: controller
+  roles:
+    - {role: route53-freeipa-server}
+
+- hosts: ec2instances
+  become: yes
+  environment:
+    AWS_ACCESS_KEY_ID: "{{hostvars.localhost.ansible_env.AWS_ACCESS_KEY_ID}}"
+    AWS_SECRET_ACCESS_KEY: "{{hostvars.localhost.ansible_env.AWS_SECRET_ACCESS_KEY}}"
+  vars_files:
+    - aws.yml
+  #vars_prompt:
+  #  - name: ipaserver_admin_password
+  #    prompt: "What should the admin password be for IPA?"
+  #    private: yes
+  roles:
+    - {role: freeipa-server}

@@ -1,0 +1,24 @@
+aws_key_name: ms_mumbai_key
+ami_id: ami-af4333cf
+domain: tw.treadmill
+vpc:
+  name: Treadmill
+  cidr: 172.23.0.0/16
+  region: us-west-1
+  sg_name: sg_common
+  sg_description: sg_rules_for_allowing_ssh_from_controller
+  subnet:
+    name: Treadmill
+    cidr: 172.23.1.0/24
+    az: us-west-1b
+master:
+  name: TreadmillMaster
+  exact_count: 3
+node_server:
+  name: TreadmillNodeServer
+  exact_count: 1
+freeipa:
+  name: TreadmillFreeIPA
+  exact_count: 1
+  realm: TW.TREADMILL
+  server_hostname: ipa

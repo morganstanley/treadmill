@@ -1,0 +1,34 @@
+version: 1
+incremental: 0
+formatters:
+  simple:
+    format: '%(asctime)s - [%(threadName)s] %(name)s:%(lineno)d %(levelname)s - %(message)s'
+handlers:
+  console:
+    class: logging.StreamHandler
+    formatter: simple
+    stream: ext://sys.stderr
+loggers:
+  treadmill:
+    level: DEBUG
+    handlers: [console]
+    propagate: no
+  suds:
+    level: INFO
+    handlers: [console]
+    propagate: no
+  suds.client:
+    level: INFO
+    handlers: [console]
+    propagate: no
+  suds.metrics:
+    level: INFO
+    handlers: [console]
+    propagate: no
+  kazoo:
+    level: INFO
+    handlers: [console]
+    propagate: no
+root:
+  level: DEBUG
+  handlers: [console]

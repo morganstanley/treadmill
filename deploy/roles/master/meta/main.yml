@@ -1,0 +1,4 @@
+dependencies:
+  - { role: base-setup }
+  - { role: treadmill-base-setup }
+  - { role: fetch-facts, resources: ['ec2']}

@@ -1,0 +1,30 @@
+---
+- name: Install yum packages
+  yum:
+    name: "{{item}}"
+    state: present
+  with_items:
+    - java
+    - git
+    - "@Development tools"
+    - python-devel
+    - ntp
+    - krb5-server
+    - krb5-libs
+    - krb5-devel
+    - openssl-devel
+    - epel-release
+    - mercurial
+
+- name: Install yum packages from epel repo
+  yum:
+    name: "{{item}}"
+    state: present
+  with_items:
+    - python34
+    - python34-devel
+    - python-pip
+
+- name: Install virtualenv
+  pip:
+    name: virtualenv

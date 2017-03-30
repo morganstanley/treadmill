@@ -1,0 +1,7 @@
+---
+- hosts: controller
+  pre_tasks:
+    - include_vars:
+        file: aws.yml
+  roles:
+    - {role: destroy-cell}

@@ -1,0 +1,10 @@
+galaxy_info:
+  author: your name
+  description: your description
+  company: your company (optional)
+  license: license (GPLv2, CC-BY, etc)
+  min_ansible_version: 1.2
+  galaxy_tags: []
+
+dependencies:
+  - { role: fetch-facts, resources: ['ec2','subnet','vpc','route_table']}

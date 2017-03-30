@@ -1,13 +1,11 @@
 language: python
 
 env:
-- TOXENV=py27
 - TOXENV=py34
 - TOXENV=flake8
-- TOXENV=docs
-- TOXENV=docs-linkcheck
 
 install:
+- sudo touch /etc/ld.so.preload
 - pip install tox
 
 script:
@@ -24,3 +22,6 @@ notifications:
 matrix:
   allow_failures:
     - env: TOX_ENV=py34
+
+notifications:
+  email: false
