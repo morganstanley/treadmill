@@ -32,6 +32,7 @@ class UtilsTest(unittest.TestCase):
         if self.root and os.path.isdir(self.root):
             shutil.rmtree(self.root)
 
+    @mock.patch('treadmill.subproc.get_aliases', mock.Mock(return_value={}))
     def test_create_script(self):
         """this tests the create_script function.
 
@@ -60,6 +61,7 @@ class UtilsTest(unittest.TestCase):
         # Validate that the file is +x
         self.assertEqual(utils.os.stat(script_file).st_mode, 33261)
 
+    @mock.patch('treadmill.subproc.get_aliases', mock.Mock(return_value={}))
     def test_create_script_perms(self):
         """this tests the create_script function (permissions).
         """

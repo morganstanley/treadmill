@@ -1,7 +1,6 @@
 """Unit test for supervisor
 """
 
-import glob
 import os
 import re
 import shutil
@@ -27,6 +26,19 @@ def _strip(content):
 
 class SupervisorTest(unittest.TestCase):
     """Tests supervisor routines."""
+
+    @classmethod
+    def setUpClass(cls):
+        aliases_path = os.environ.get('TREADMILL_ALIASES_PATH')
+        if aliases_path is None:
+            aliases_path = os.path.abspath(
+                os.path.join(os.path.dirname(__file__), '..', 'etc',
+                             'linux.aliases'))
+            os.environ['TREADMILL_ALIASES_PATH'] = ':'.join(aliases_path)
+
+        os.environ['PATH'] = ':'.join(os.environ['PATH'].split(':') + [
+            os.path.join(subproc.resolve('s6'), 'bin')
+        ])
 
     def setUp(self):
         self.root = tempfile.mkdtemp()
@@ -180,11 +192,4 @@ class SupervisorTest(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    CONFIG_PATTERN = os.path.abspath(
-        os.path.join(os.path.dirname(__file__), '..', 'etc', '*.config')
-    )
-    EXE_CONFIGS = glob.glob(CONFIG_PATTERN)
-    os.environ['TREADMILL_EXE_WHITELIST'] = ':'.join(EXE_CONFIGS)
-    os.environ['PATH'] = ':'.join(os.environ['PATH'].split(':') +
-                                  [os.path.join(subproc.resolve('s6'), 'bin')])
     unittest.main()

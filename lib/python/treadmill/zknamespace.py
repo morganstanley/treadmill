@@ -31,6 +31,7 @@ TREADMILL = '/treadmill'
 VERSION = '/version'
 VERSION_ID = '/version-id'
 ZOOKEEPER = '/zookeeper'
+ELECTION = '/election'
 
 
 def join_zookeeper_path(root, *child):
@@ -119,6 +120,7 @@ path.ticket_locker = _make_path_f(TICKET_LOCKER)
 path.version = _make_path_f(VERSION)
 path.version_id = _make_path_f(VERSION_ID)
 path.zookeeper = _make_path_f(ZOOKEEPER)
+path.election = _make_path_f(ELECTION)
 
 # Special methods
 path.endpoint = _path_endpoint

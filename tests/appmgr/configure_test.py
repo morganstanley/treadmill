@@ -50,6 +50,7 @@ class AppMgrConfigureTest(unittest.TestCase):
                 mock.Mock(return_value='/treadmill'))
     @mock.patch('treadmill.appmgr.manifest.load', auto_spec=True)
     @mock.patch('treadmill.appevents.post', mock.Mock(auto_spec=True))
+    @mock.patch('treadmill.subproc.get_aliases', mock.Mock(return_value={}))
     def test_configure(self, mock_load):
         """Tests that appmgr.configure creates necessary s6 layout."""
         manifest = {

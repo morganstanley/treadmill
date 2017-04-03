@@ -7,9 +7,11 @@ import logging
 import time
 import os
 import socket
+import subprocess
 
 from . import fs
 from . import metrics
+from . import subproc
 from . import sysinfo
 
 
@@ -29,10 +31,15 @@ _METRICS_FMT = ':'.join(['{%s}' % svc for svc in [
 ]])
 
 RRDTOOL = 'rrdtool'
+SOCKET = '/tmp/treadmill.rrd'
 
 
 class RRDError(Exception):
     """RRD protocol error."""
+
+
+class RRDToolNotFoundError(Exception):
+    """RRDtool not in the path error."""
 
 
 class RRDClient(object):
@@ -122,7 +129,7 @@ class RRDClient(object):
                 pass
 
 
-def flush_noexc(rrdfile, rrd_socket='/tmp/treadmill.rrd'):
+def flush_noexc(rrdfile, rrd_socket=SOCKET):
     """Send flush request to the rrd cache daemon."""
     rrdclient = RRDClient(rrd_socket)
     try:
@@ -135,7 +142,7 @@ def flush_noexc(rrdfile, rrd_socket='/tmp/treadmill.rrd'):
         rrdclient.rrd.close()
 
 
-def forget_noexc(rrdfile, rrd_socket='/tmp/treadmill.rrd'):
+def forget_noexc(rrdfile, rrd_socket=SOCKET):
     """Send flush request to the rrd cache daemon."""
     rrdclient = RRDClient(rrd_socket)
     try:
@@ -205,13 +212,14 @@ def app_metrics(cgrp, blkio_major_minor=None):
 
 
 def gen_graph(rrdfile, rrdtool, outdir=None, show_mem_limit=True):
-    """Generate PNG images given rrd file."""
+    """Generate SVG images given rrd file."""
     if not outdir:
         outdir = rrdfile.rsplit('.', 1)[0]
     fs.mkdir_safe(outdir)
 
     memory_args = [
-        os.path.join(outdir, 'memory.png'),
+        os.path.join(outdir, 'memory.svg'),
+        '--imgformat=SVG',
         'DEF:memory_usage=%s:memory_usage:MAX' % rrdfile,
         'LINE1:memory_usage#0000FF:"memory usage"',
     ]
@@ -222,45 +230,115 @@ def gen_graph(rrdfile, rrdtool, outdir=None, show_mem_limit=True):
         ])
 
     cpu_usage_args = [
-        os.path.join(outdir, 'cpu_usage.png'),
+        os.path.join(outdir, 'cpu_usage.svg'),
+        '--imgformat=SVG',
         'DEF:cpu_usage=%s:cpu_usage:AVERAGE' % rrdfile,
         'LINE1:cpu_usage#0000FF:"cpu usage"',
     ]
     cpu_ratio_args = [
-        os.path.join(outdir, 'cpu_ratio.png'),
+        os.path.join(outdir, 'cpu_ratio.svg'),
+        '--imgformat=SVG',
         'DEF:cpu_ratio=%s:cpu_ratio:AVERAGE' % rrdfile,
         'LINE1:cpu_ratio#0000FF:"cpu ratio"',
     ]
     blk_iops = [
-        os.path.join(outdir, 'blk_iops.png'),
+        os.path.join(outdir, 'blk_iops.svg'),
+        '--imgformat=SVG',
         'DEF:blk_read_iops=%s:blk_read_iops:MAX' % rrdfile,
         'LINE1:blk_read_iops#0000FF:"read iops"',
         'DEF:blk_write_iops=%s:blk_write_iops:MAX' % rrdfile,
         'LINE1:blk_write_iops#CC0000:"write iops"'
     ]
     blk_bps = [
-        os.path.join(outdir, 'blk_bps.png'),
+        os.path.join(outdir, 'blk_bps.svg'),
+        '--imgformat=SVG',
         'DEF:blk_read_bps=%s:blk_read_bps:MAX' % rrdfile,
         'LINE1:blk_read_bps#0000FF:"read bps"',
         'DEF:blk_write_bps=%s:blk_write_bps:MAX' % rrdfile,
         'LINE1:blk_write_bps#CC0000:"write bps"'
     ]
 
-    os.system(' '.join([rrdtool, 'graph'] + memory_args))
-    os.system(' '.join([rrdtool, 'graph'] + cpu_usage_args))
-    os.system(' '.join([rrdtool, 'graph'] + cpu_ratio_args))
-    os.system(' '.join([rrdtool, 'graph'] + blk_iops))
-    os.system(' '.join([rrdtool, 'graph'] + blk_bps))
+    # stdout, stderr -> subproc.PIPE: don't print the result of the execution
+    # because it's just noise anyway
+    try:
+        subprocess.check_call(['rrdtool', '--help'],
+                              stderr=subprocess.PIPE,
+                              stdout=subprocess.PIPE)
+    except OSError as err:
+        _LOGGER.error('%s', err)
+        if err.errno == errno.ENOENT:
+            raise RRDToolNotFoundError()
+        raise
+
+    for arg in memory_args, cpu_usage_args, cpu_ratio_args, blk_iops, blk_bps:
+        subprocess.check_call([rrdtool, 'graph'] + arg,
+                              stdout=subprocess.PIPE)
 
     with open(os.path.join(outdir, 'index.html'), 'w+') as f:
         f.write("""
 <html>
 <body>
-<img src="memory.png" /><br/>
-<img src="cpu_usage.png" /><br/>
-<img src="cpu_ratio.png" /><br/>
-<img src="blk_iops.png" /><br/>
-<img src="blk_bps.png" /><br/>
+<img src="memory.svg" /><br/>
+<img src="cpu_usage.svg" /><br/>
+<img src="cpu_ratio.svg" /><br/>
+<img src="blk_iops.svg" /><br/>
+<img src="blk_bps.svg" /><br/>
 </body>
 </html>
 """)
+
+
+def first(rrdfile, rrdtool=RRDTOOL, rrd_socket=SOCKET):
+    """
+    Returns the UNIX timestamp of the first data sample entered into the RRD.
+    """
+    epoch = subproc.check_output([rrdtool, 'first', '--daemon',
+                                  'unix:%s' % rrd_socket, rrdfile])
+    return epoch.strip()
+
+
+def last(rrdfile, rrdtool=RRDTOOL, rrd_socket=SOCKET):
+    """
+    Returns the UNIX timestamp of the most recent update of the RRD.
+    """
+    epoch = subproc.check_output([rrdtool, 'last', '--daemon',
+                                  'unix:%s' % rrd_socket, rrdfile])
+    return epoch.strip()
+
+
+def get_json_metrics(rrdfile, rrdtool=RRDTOOL, rrd_socket=SOCKET):
+    """Return the metrics in the rrd file as a json string."""
+
+    _LOGGER.info('Get the metrics in JSON for %s', rrdfile)
+
+    # the command sends a FLUSH to the rrdcached implicitly...
+    cmd = [rrdtool, 'graph', '-', '--daemon', 'unix:%s' % rrd_socket,
+           '--imgformat', 'JSONTIME',
+           '--start=%s' % first(rrdfile),
+           '--end=%s' % last(rrdfile),
+           # mem usage
+           'DEF:memory_usage=%s:memory_usage:MAX' % rrdfile,
+           'LINE:memory_usage:memory usage',
+           # mem hardlimit
+           'DEF:memory_hardlimit=%s:memory_hardlimit:MAX' % rrdfile,
+           'LINE:memory_hardlimit:memory limit',
+           # cpu usage
+           'DEF:cpu_usage=%s:cpu_usage:AVERAGE' % rrdfile,
+           'LINE:cpu_usage:cpu usage',
+           # cpu ratio
+           'DEF:cpu_ratio=%s:cpu_ratio:AVERAGE' % rrdfile,
+           'LINE:cpu_ratio:cpu ratio',
+           # blk read
+           'DEF:blk_read_iops=%s:blk_read_iops:MAX' % rrdfile,
+           'LINE:blk_read_iops:read iops',
+           # blk write
+           'DEF:blk_write_iops=%s:blk_write_iops:MAX' % rrdfile,
+           'LINE:blk_write_iops:write iops',
+           # blk read
+           'DEF:blk_read_bps=%s:blk_read_bps:MAX' % rrdfile,
+           'LINE:blk_read_bps:read bps',
+           # blk write
+           'DEF:blk_write_bps=%s:blk_write_bps:MAX' % rrdfile,
+           'LINE:blk_write_bps:write bps']
+
+    return subproc.check_output(cmd)

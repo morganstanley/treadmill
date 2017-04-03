@@ -2,4 +2,7 @@
 
 exec 2>&1
 
-exec ${TREADMILL}/bin/treadmill sproc spawn finish {{ manifest_path }} "$1"
+exec {{ treadmill_spawn_finish }} -d
+     {%- if stop %} --stop {% endif %}
+     {%- if reconnect %} --reconnect {{ reconnect_timeout }} {% endif %} \
+     {{ id }} {{ cellapi }} {{ cleanup }} "$1"

@@ -76,6 +76,8 @@ class ContainerAdapter(Adapter):
         """
         if '#' in unique_name:
             parts = unique_name.split('#')
+            if '/' in parts[-1]:
+                parts[-1:] = parts[-1].split('/', 1)
         else:
             parts = unique_name.rsplit('-', 2)
 

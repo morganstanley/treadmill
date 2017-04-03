@@ -899,6 +899,7 @@ class Server(LdapObject):
         ('cell', 'cell', str),
         ('trait', 'traits', [str]),
         ('label', 'label', str),
+        ('data', 'data', [str]),
     ]
 
     _oc = 'tmServer'

@@ -3,14 +3,16 @@ Local node REST api.
 """
 from __future__ import absolute_import
 
+import logging
 import os
-import httplib
 
 # pylint: disable=E0611,F0401
 import flask
 import flask_restplus as restplus
 
 from treadmill import webutils
+
+_LOGGER = logging.getLogger(__name__)
 
 
 # pylint: disable=W0232,R0912
@@ -44,11 +46,9 @@ def init(api, cors, impl):
         @webutils.raw_get_api(api, cors)
         def get(self, app, uniq, component):
             """Return content of system component log.."""
-            mimetype = 'text/plain'
             return flask.Response(
                 impl.log.get('/'.join([app, uniq, 'sys', component])),
-                mimetype=mimetype
-            )
+                mimetype='text/plain')
 
     @app_ns.route('/<app>/<uniq>/service/<service>',)
     class _AppServiceLog(restplus.Resource):
@@ -57,11 +57,9 @@ def init(api, cors, impl):
         @webutils.raw_get_api(api, cors)
         def get(self, app, uniq, service):
             """Return content of system component log.."""
-            mimetype = 'text/plain'
             return flask.Response(
                 impl.log.get('/'.join([app, uniq, 'app', service])),
-                mimetype=mimetype
-            )
+                mimetype='text/plain')
 
     archive_ns = api.namespace('archive',
                                description='Local archive REST operations')
@@ -74,8 +72,6 @@ def init(api, cors, impl):
         def get(self, app, uniq):
             """Return content of sys archived file.."""
             fname = impl.archive.get('/'.join([app, uniq, 'sys']))
-            if not os.path.exists(fname):
-                return 'Not found.', httplib.NOT_FOUND
 
             return flask.send_file(
                 fname,
@@ -91,11 +87,63 @@ def init(api, cors, impl):
         def get(self, app, uniq):
             """Return content of app archived file.."""
             fname = impl.archive.get('/'.join([app, uniq, 'app']))
-            if not os.path.exists(fname):
-                return 'Not found.', httplib.NOT_FOUND
 
             return flask.send_file(
                 fname,
                 as_attachment=True,
                 attachment_filename=os.path.basename(fname)
+            )
+
+    metrics_ns = api.namespace('metrics', description='Local metrics '
+                               'REST operations')
+
+    @metrics_ns.route('/',)
+    class _MetricsList(restplus.Resource):
+        """Local metrics list resource."""
+
+        @webutils.get_api(api, cors)
+        def get(self):
+            """Returns list of locally available metrics."""
+            return impl.list(flask.request.args.get('state'), inc_svc=True)
+
+    @metrics_ns.route('/<app>/<uniq>')
+    @metrics_ns.route('/<service>')
+    class _Metrics(restplus.Resource):
+        """Download metrics."""
+
+        @webutils.raw_get_api(api, cors)
+        def get(self, **id_parts):
+            """
+            Return metrics either as an attachment or as json.
+            """
+            if webutils.wants_json_resp(flask.request):
+                return self._get(self._to_rsrc_id(**id_parts))
+            else:
+                return self._get_as_attach(self._to_rsrc_id(**id_parts))
+
+        def _to_rsrc_id(self, **id_parts):
+            """
+            Return the metrics resource id based on the keyword args.
+            """
+            try:
+                rsrc_id = '/'.join([id_parts['app'], id_parts['uniq']])
+            except KeyError:
+                rsrc_id = id_parts['service']
+
+            return rsrc_id
+
+        def _get(self, rsrc_id):
+            """Return the metrics file as json."""
+            return flask.Response(impl.metrics.get(rsrc_id, as_json=True),
+                                  mimetype='application/json')
+
+        def _get_as_attach(self, rsrc_id):
+            """Return the metrics file as attachment."""
+            return flask.send_file(
+                impl.metrics.get(rsrc_id),
+                as_attachment=True,
+                mimetype='application/octet-stream',
+                attachment_filename=os.path.basename(
+                    impl.metrics.file_path(rsrc_id)
+                )
             )

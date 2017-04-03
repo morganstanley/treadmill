@@ -4,7 +4,6 @@ from __future__ import absolute_import
 
 import fnmatch
 import logging
-import os
 import time
 
 import kazoo
@@ -126,25 +125,56 @@ class AppTrace(object):
             self._callback.process(event, ctx)
 
 
+def _try_delete(zkclient, task_node):
+    """Try delete task node safely."""
+    try:
+        _data, metadata = zkclient.get(task_node)
+        # Do not delete new task nodes.
+        #
+        # This avoids a race condition with task is created but not yet
+        # populated with eny events. Pending event is created right after
+        # task is created, but race condition is still present.
+        #
+        # The 60 seconds is more than enough to avoid the race.
+        #
+        # As optimization, do not try to delete node with children not
+        # purged.
+        try_delete = ((metadata.created + 60 < time.time()) and
+                      (metadata.children_count == 0))
+        if try_delete:
+            zkclient.delete(task_node)
+            _LOGGER.info('Deleting empty task: %s', task_node)
+        else:
+            _LOGGER.info('Skip active task %s: ctime: %s, children: %s',
+                         task_node, metadata.created, metadata.children_count)
+    except kazoo.exceptions.NotEmptyError:
+        _LOGGER.info('Task is not empty: %s', task_node)
+    except kazoo.exceptions.NoNodeError:
+        _LOGGER.info('Task does not exist: %s', task_node)
+
+
 def cleanup(zkclient, expire_after, max_events=1024):
     """Iterates over tasks nodes and deletes all that are expired."""
     # Enumerate all tasks.
-    tasks = set(zkclient.get_children('/tasks'))
-    scheduled = set(zkclient.get_children('/scheduled'))
+    tasks = set(zkclient.get_children(z.TASKS))
+    scheduled = set(zkclient.get_children(z.SCHEDULED))
 
     for task in tasks:
-        task_node = os.path.join('/tasks', task)
-        instances = set(zkclient.get_children(task_node))
+        task_node = z.path.task(task)
+        instances = sorted(zkclient.get_children(task_node))
 
         # Filter out instances that are not running
-        finished = set([instance for instance in instances
-                        if '#'.join([task, instance]) not in scheduled])
+        finished = set(
+            [instance for instance in instances
+             if '#'.join([task, instance]) not in scheduled]
+        )
 
         for instance in instances:
-            instance_node = os.path.join(task_node, instance)
-            _LOGGER.info('Processing task: %s/%s', task_node, instance)
-            events = sorted([tuple(reversed(node.rsplit('-', 1)))
-                             for node in zkclient.get_children(instance_node)])
+            instance_node = z.path.task(task, instance)
+            events = sorted(zkclient.get_children(instance_node))
+            _LOGGER.info('Processing task: %s/%s - event count: %s',
+                         task, instance, len(events))
+
             # Maintain at most N events
             if len(events) > max_events:
                 extra = len(events) - max_events
@@ -152,9 +182,7 @@ def cleanup(zkclient, expire_after, max_events=1024):
                              instance_node, extra)
 
                 for event in events[:extra]:
-                    ev_node = '-'.join(reversed(event))
-                    ev_fullpath = os.path.join(task_node, instance, ev_node)
-
+                    ev_fullpath = z.path.task(task, instance, event)
                     zkclient.delete(ev_fullpath)
 
             if instance in finished:
@@ -164,10 +192,8 @@ def cleanup(zkclient, expire_after, max_events=1024):
                 if not events:
                     expired = True
                 else:
-                    last_ev_node = '-'.join(reversed(events[-1]))
-                    last_ev_fullpath = os.path.join(task_node,
-                                                    instance,
-                                                    last_ev_node)
+                    last_event = events[-1]
+                    last_ev_fullpath = z.path.task(task, instance, last_event)
                     _data, metadata = zkclient.get(last_ev_fullpath)
                     if metadata.last_modified + expire_after < time.time():
                         _LOGGER.info('Instance %s expired.', instance)
@@ -178,19 +204,15 @@ def cleanup(zkclient, expire_after, max_events=1024):
                     _LOGGER.info('Deleting instance node: %s', instance_node)
                     zkclient.delete(instance_node, recursive=True)
 
-        try:
-            zkclient.delete('/tasks/' + task)
-            _LOGGER.info('/tasks/%s empty, deleting.', task)
-        except kazoo.exceptions.NotEmptyError:
-            _LOGGER.info('/tasks/%s not empty.', task)
+        _try_delete(zkclient, task_node)
 
 
 def list_history(zkclient, app_pattern):
     """List all historical tasks for given app name."""
     tasks = []
-    for app in zkclient.get_children('/tasks'):
+    for app in zkclient.get_children(z.TASKS):
         if fnmatch.fnmatch(app, app_pattern):
-            instances = zkclient.get_children(os.path.join('/tasks', app))
+            instances = zkclient.get_children(z.path.task(app))
             tasks.extend([app + '#' + instance for instance in instances])
 
     return tasks

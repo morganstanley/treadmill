@@ -29,9 +29,11 @@ def server_group(parent):
     @click.option('-t', '--traits', help='List of server traits',
                   multiple=True, default=[])
     @click.option('-l', '--label', help='Server label')
+    @click.option('-d', '--data', help='Server specific data as key=value '
+                  'comma separated list', type=cli.LIST)
     @click.argument('server')
     @cli.admin.ON_EXCEPTIONS
-    def configure(cell, traits, server, label):
+    def configure(cell, traits, server, label, data):
         """Create, get or modify server configuration"""
         admin_srv = admin.Server(context.GLOBAL.ldap.conn)
 
@@ -44,6 +46,10 @@ def server_group(parent):
             if label == '-':
                 label = None
             attrs['label'] = label
+        if data:
+            if data == ['-']:
+                data = None
+            attrs['data'] = data
 
         if attrs:
             try:
@@ -438,16 +444,23 @@ def cell_group(parent):
     @click.option('--archive-server', help='Archive server.')
     @click.option('--archive-username', help='Archive username.')
     @click.option('--ssq-namespace', help='SSQ namespace.')
+    @click.option('-m', '--manifest', help='Load cell from manifest file.',
+                  type=click.File('rb'))
     @click.argument('cell')
     @cli.admin.ON_EXCEPTIONS
     def configure(cell, version, root, location, username, archive_server,
-                  archive_username, ssq_namespace):
+                  archive_username, ssq_namespace, manifest):
         """Create, get or modify cell configuration"""
         admin_cell = admin.Cell(context.GLOBAL.ldap.conn)
         attrs = {}
+        if manifest:
+            attrs = yaml.load(manifest.read())
+
         if version:
             attrs['version'] = version
         if root:
+            if root == '-':
+                root = None
             attrs['root'] = root
         if location:
             attrs['location'] = location

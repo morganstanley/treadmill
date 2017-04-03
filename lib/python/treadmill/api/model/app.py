@@ -58,6 +58,8 @@ def models(api):
         'shared_network': fields.Boolean(description='Shared Network'),
         'schedule_once': fields.Boolean(description='Schedule Once'),
         'vring': fields.Nested(vring),
+        'data_retention_timeout': fields.String(
+            description='Data retention timeout'),
     }
 
     app_model = api.model(

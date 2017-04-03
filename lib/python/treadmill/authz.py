@@ -3,10 +3,11 @@
 from __future__ import absolute_import
 
 import logging
-import importlib
 
 import decorator
 
+# Disable E0611: No 'name' in module
+from treadmill import restclient
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -30,23 +31,44 @@ class NullAuthorizer(object):
         pass
 
 
-class PluginAuthorizer(object):
+class ClientAuthorizer(object):
     """Loads authorizer implementation plugin."""
 
-    def __init__(self, user_clbk):
-        self.impl = None
-        try:
-            authzmod = importlib.import_module('treadmill.plugins.api.authz')
-            self.impl = authzmod.init(user_clbk)
-        except ImportError as err:
-            _LOGGER.warn('Unable to load auth plugin: %s', err)
+    def __init__(self, user_clbk, auth=None):
+        self.user_clbk = user_clbk
+        self.remote = auth
 
-    def authorize(self, resource, action, args, kwargs):
+    def authorize(self, resource, action, args, _kwargs):
         """Delegate authorization to the plugin."""
-        if not self.impl:
-            return False
+        resource = resource.split('.').pop()
 
-        return self.impl.authorize(resource, action, args, kwargs)
+        user = self.user_clbk()
+        # PGE API can't handle None.
+        if user is None:
+            user = ''
+
+        # Defaults for primary key and payload.
+        url = '/%s/%s/%s' % (user, action, resource)
+        data = {}
+
+        if len(args) > 0:
+            data['pk'] = str(args[0])
+        if len(args) > 1:
+            data['payload'] = args[1]
+
+        # POST http://auth_server/user/action/resource
+        # {"pk": "foo", "payload": { ... }}
+        response = restclient.post(api=self.remote,
+                                   url=url,
+                                   payload=data,
+                                   auth=None)
+        authd = response.json()
+        _LOGGER.debug('client authorize ressult %r', authd)
+
+        if not authd['auth']:
+            raise AuthorizationError(authd['annotations'])
+
+        return authd
 
 
 def authorize(authorizer):

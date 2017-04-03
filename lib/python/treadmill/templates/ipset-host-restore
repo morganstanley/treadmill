@@ -5,9 +5,10 @@ create {{nodes}} hash:ip family inet hashsize 1024 maxelem 65536
 create {{nonprod_containers}} hash:ip family inet hashsize 1024 maxelem 65536
 create {{prod_containers}} hash:ip family inet hashsize 1024 maxelem 65536
 create {{prod_sources}} hash:ip family inet hashsize 4096 maxelem 262144
+create {{vring_containers}} hash:ip family inet hashsize 1024 maxelem 65536
 flush {{any_container}}
-flush {{infra_services}}
-flush {{passthroughs}}
 add {{any_container}} {{prod_containers}}
 add {{any_container}} {{nonprod_containers}}
+flush {{infra_services}}
+flush {{vring_containers}}
 

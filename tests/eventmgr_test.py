@@ -10,6 +10,7 @@ import unittest
 
 # Disable W0611: Unused import
 import tests.treadmill_test_deps  # pylint: disable=W0611
+from tests.testutils import mockzk
 
 import kazoo
 import mock
@@ -18,7 +19,6 @@ import yaml
 import treadmill
 from treadmill import context
 from treadmill import eventmgr
-from treadmill.test import mockzk
 
 
 class MockEvent(object):

@@ -37,6 +37,11 @@ class NodeSetupError(TreadmillError):
     pass
 
 
+class FileNotFoundError(TreadmillError):
+    """Thrown if the file cannot be found on the host."""
+    pass
+
+
 def exit_on_unhandled(func):
     """Decorator to exit thread on unhandled exception."""
     @functools.wraps(func)

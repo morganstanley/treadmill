@@ -59,16 +59,47 @@ def cors_domain_match(base_domain):
         return base_domain
 
     origin_re = re.compile(r'https?://%s' % base_domain)
+    origin = None
+
+    environ = flask.request.environ
 
     key = 'HTTP_ORIGIN'
-    if key not in flask.request.environ.keys():
-        return None
+    if key in environ.keys():
+        origin = environ[key]
+    else:
+        protocol = environ['SERVER_PROTOCOL'].split('/')[0].lower()
+        origin = '{0}://{1}'.format(protocol,
+                                    environ['HTTP_HOST'])
 
-    origin = flask.request.environ[key]
     if origin and origin_re.match(origin):
         return origin
     else:
         return None
+
+
+def cors_make_headers(base_origin,
+                      max_age,
+                      credentials,
+                      content_type,
+                      headers=None,
+                      methods=None):
+    """Create CORS headers from request environment variables"""
+
+    environ = flask.request.environ
+
+    if methods is None:
+        methods = [environ['REQUEST_METHOD']]
+
+    hdr = {}
+    hdr['Access-Control-Allow-Origin'] = cors_domain_match(base_origin)
+    hdr['Access-Control-Allow-Methods'] = methods
+    hdr['Access-Control-Max-Age'] = str(max_age)
+    hdr['Access-Control-Allow-Credentials'] = str(credentials).lower()
+    hdr['Content-Type'] = content_type
+    if headers is not None:
+        hdr['Access-Control-Allow-Headers'] = headers
+
+    return hdr
 
 
 def cors(origin=None, methods=None, headers=None, max_age=21600,
@@ -112,14 +143,15 @@ def cors(origin=None, methods=None, headers=None, max_age=21600,
                 return resp
 
             hdr = resp.headers
+            add_hdr = cors_make_headers(base_origin=origin,
+                                        max_age=max_age,
+                                        credentials=credentials,
+                                        content_type=content_type,
+                                        methods=get_methods(),
+                                        headers=headers)
+            for key, val in add_hdr.iteritems():
+                hdr[key] = val
 
-            hdr['Access-Control-Allow-Origin'] = cors_domain_match(origin)
-            hdr['Access-Control-Allow-Methods'] = get_methods()
-            hdr['Access-Control-Max-Age'] = str(max_age)
-            hdr['Access-Control-Allow-Credentials'] = str(credentials).lower()
-            hdr['Content-Type'] = content_type
-            if headers is not None:
-                hdr['Access-Control-Allow-Headers'] = headers
             return resp
 
         func.provide_automatic_options = False
@@ -307,6 +339,21 @@ def delete_api(api, cors_handler, req_model=None, resp_model=None):
 def namespace(api, name, description):
     """Return namespace name for the given module."""
     return api.namespace(
-        name.split('.')[-1].replace('_', '-'),
+        '/'.join(name.split('.')[3:]).replace('_', '-'),
         description=description
     )
+
+
+def wants_json_resp(request):
+    """
+    Decide whether the response should be in json format based on the request's
+    accept header.
+
+    Code taken from: http://flask.pocoo.org/snippets/45/
+    """
+    best = request.accept_mimetypes.best_match(['application/json',
+                                                'text/html'])
+
+    return (
+        best == 'application/json' and
+        request.accept_mimetypes[best] > request.accept_mimetypes['text/html'])

@@ -570,3 +570,11 @@ def with_retry(func, *args, **kwargs):
     """Calls function with retry."""
     zk_retry = kazoo.retry.KazooRetry(ignore_expire=False, max_tries=5)
     return zk_retry(func, *args, **kwargs)
+
+
+def make_lock(zkclient, path):
+    """Make lock."""
+    _LOGGER.debug('Creating lock on: %s', path)
+    zkclient.ensure_path(path)
+    me = '%s.%d' % (sysinfo.hostname(), os.getpid())
+    return zkclient.Lock(path, me)

@@ -13,6 +13,7 @@ from .. import _bootstrap_base
 
 _MASTER_NOT_SUPPORTED_MESSAGE = "Windows does not support master services."
 _SPAWN_NOT_SUPPORTED_MESSAGE = "Windows does not support spawn services."
+_HAPROXY_NOT_SUPPORTED_MESSAGE = "Windows does not support haproxy services."
 
 
 def default_install_dir():
@@ -106,3 +107,19 @@ class SpawnBootstrap(WindowsBootstrap):
     def run(self):
         """Runs the services."""
         raise Exception(_SPAWN_NOT_SUPPORTED_MESSAGE)
+
+
+class HAProxyBootstrap(WindowsBootstrap):
+    """For bootstrapping the haproxy processes on windows."""
+
+    # pylint: disable=W0613, W0231
+    def __init__(self, _dst_dir, _defaults):
+        raise Exception(_HAPROXY_NOT_SUPPORTED_MESSAGE)
+
+    def install(self):
+        """Installs the services."""
+        raise Exception(_HAPROXY_NOT_SUPPORTED_MESSAGE)
+
+    def run(self):
+        """Runs the services."""
+        raise Exception(_HAPROXY_NOT_SUPPORTED_MESSAGE)

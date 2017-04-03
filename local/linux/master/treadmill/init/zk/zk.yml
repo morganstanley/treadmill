@@ -12,7 +12,7 @@ use:
 
 kuula:
     modules:
-        - msjava/oraclejdk/1.8.0_31
+        - msjava/oraclejdk/1.8.0_121
         - kerberos
     +env_vars:
         JMX_ACL_PREFIX: ''

@@ -2,6 +2,7 @@
 """
 
 import collections
+import glob
 import os
 import shutil
 import tempfile
@@ -9,13 +10,13 @@ import unittest
 
 # Disable W0611: Unused import
 import tests.treadmill_test_deps  # pylint: disable=W0611
+from tests.testutils import mockzk
 
 import kazoo
 import mock
 
 from treadmill import fs
 from treadmill import zksync
-from treadmill.test import mockzk
 
 
 class ZkSyncTest(mockzk.MockZookeeperTestCase):
@@ -88,6 +89,40 @@ class ZkSyncTest(mockzk.MockZookeeperTestCase):
                                    zk2fs_sync._default_on_add,
                                    zk2fs_sync._default_on_del)
         self.assertFalse(os.path.exists(os.path.join(self.root, 'a/x')))
+
+    @mock.patch('glob.glob', mock.Mock())
+    @mock.patch('kazoo.client.KazooClient.get', mock.Mock())
+    @mock.patch('kazoo.client.KazooClient.exists', mock.Mock())
+    @mock.patch('kazoo.client.KazooClient.get_children', mock.Mock())
+    def test_sync_children_unordered(self):
+        """Test zk2fs sync with unordered data."""
+        # Disable W0212: accessing protected members.
+        # pylint: disable=W0212
+
+        zk_content = {
+            'a': {
+                'z': '1',
+                'x': '2',
+                'y': '3',
+            },
+        }
+
+        self.make_mock_zk(zk_content)
+
+        glob.glob.return_value = ['a/b', 'a/a', 'a/y']
+
+        add = []
+        rm = []
+
+        zk2fs_sync = zksync.Zk2Fs(kazoo.client.KazooClient(), self.root)
+        zk2fs_sync._children_watch('/a', ['z', 'x', 'y'],
+                                   False,
+                                   lambda x: add.append(os.path.basename(x)),
+                                   lambda x: rm.append(os.path.basename(x)))
+
+        # y first because its common
+        self.assertSequenceEqual(['y', 'x', 'z'], add)
+        self.assertSequenceEqual(['a', 'b'], rm)
 
     @mock.patch('kazoo.client.KazooClient.get', mock.Mock())
     @mock.patch('kazoo.client.KazooClient.exists', mock.Mock())

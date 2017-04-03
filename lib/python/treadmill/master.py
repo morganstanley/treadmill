@@ -16,12 +16,12 @@ import re
 import kazoo
 
 from . import appevents
-from . import sysinfo
 from . import utils
 from . import zkutils
 from . import exc
 from . import zknamespace as z
 from . import scheduler
+from . import sysinfo
 
 from .apptrace import events as traceevents
 
@@ -799,9 +799,7 @@ class Master(object):
     @exc.exit_on_unhandled
     def run(self):
         """Runs the master (once it is elected leader)."""
-        self.zkclient.ensure_path('/master-election')
-        me = '%s.%d' % (sysinfo.hostname(), os.getpid())
-        lock = self.zkclient.Lock('/master-election', me)
+        lock = zkutils.make_lock(self.zkclient, z.path.election(__name__))
         _LOGGER.info('Waiting for leader lock.')
         with lock:
             self.run_real()
@@ -993,7 +991,7 @@ def create_event(zkclient, priority, event, payload):
 
 def create_apps(zkclient, app_id, app, count):
     """Schedules new apps."""
-    app_ids = []
+    instance_ids = []
     acl = zkutils.make_role_acl('servers', 'rwcd')
     for _idx in xrange(0, count):
         node_path = zkutils.put(zkclient,
@@ -1001,9 +999,23 @@ def create_apps(zkclient, app_id, app, count):
                                 app,
                                 sequence=True,
                                 acl=[acl])
-        app_ids.append(os.path.basename(node_path))
+        instance_id = os.path.basename(node_path)
 
-    return app_ids
+        # Create task for the app, and put it in pending state.
+        task_node = z.path.task(
+            instance_id,
+            '{time},{hostname},pending,'.format(time=time.time(),
+                                                hostname=sysinfo.hostname())
+        )
+        try:
+            zkclient.create(task_node, '',
+                            acl=[_SERVERS_ACL], makepath=True)
+        except kazoo.client.NodeExistsError:
+            pass
+
+        instance_ids.append(instance_id)
+
+    return instance_ids
 
 
 def delete_apps(zkclient, app_ids):

@@ -29,6 +29,9 @@ def init(api, cors, impl):
         'host': fields.String(description='Application host'),
         'state': fields.String(description='Application state'),
         'expires': fields.Float(description='Host expiration'),
+        'when': fields.Float(description='Timestamp of event'),
+        'signal': fields.Integer(description='Kill signal'),
+        'exitcode': fields.Integer(description='Service exitcode'),
     }
 
     state_model = api.model(

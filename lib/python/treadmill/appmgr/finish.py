@@ -311,18 +311,37 @@ def _cleanup_network(tm_env, app, network_client):
                    for host in app.passthrough])
         for ip in ips:
             tm_env.rules.unlink_rule(
+                chain=iptables.PREROUTING_PASSTHROUGH,
                 rule=firewall.PassThroughRule(src_ip=ip,
                                               dst_ip=app_network['vip']),
                 owner=unique_name,
             )
 
+    if app.vring:
+        # Mark the container's IP as VRing enabled
+        _LOGGER.debug('removing %r from VRing set', app_network['vip'])
+        iptables.rm_ip_set(
+            iptables.SET_VRING_CONTAINERS,
+            app_network['vip']
+        )
+
     for endpoint in app.endpoints:
         tm_env.rules.unlink_rule(
+            chain=iptables.PREROUTING_DNAT,
             rule=firewall.DNATRule(proto=endpoint.proto,
-                                   orig_ip=app.host_ip,
-                                   orig_port=endpoint.real_port,
+                                   dst_ip=app.host_ip,
+                                   dst_port=endpoint.real_port,
                                    new_ip=app_network['vip'],
                                    new_port=endpoint.port),
+            owner=unique_name,
+        )
+        tm_env.rules.unlink_rule(
+            chain=iptables.POSTROUTING_SNAT,
+            rule=firewall.SNATRule(proto=endpoint.proto,
+                                   src_ip=app_network['vip'],
+                                   src_port=endpoint.port,
+                                   new_ip=tm_env.host_ip,
+                                   new_port=endpoint.real_port),
             owner=unique_name,
         )
         # See if this was an "infra" endpoint and if so remove it
@@ -339,10 +358,14 @@ def _cleanup_network(tm_env, app, network_client):
                 )
             )
 
-    _cleanup_ports(tm_env, unique_name,
-                   app_network['vip'], app.ephemeral_ports.tcp, 'tcp')
-    _cleanup_ports(tm_env, unique_name,
-                   app_network['vip'], app.ephemeral_ports.udp, 'udp')
+    _cleanup_ephemeral_ports(
+        tm_env, unique_name,
+        app_network['vip'], app.ephemeral_ports.tcp, 'tcp'
+    )
+    _cleanup_ephemeral_ports(
+        tm_env, unique_name,
+        app_network['vip'], app.ephemeral_ports.udp, 'udp'
+    )
 
     # Terminate any entries in the conntrack table
     iptables.flush_conntrack_table(app_network['vip'])
@@ -350,7 +373,7 @@ def _cleanup_network(tm_env, app, network_client):
     network_client.delete(unique_name)
 
 
-def _cleanup_ports(tm_env, unique_name, vip, ports, proto):
+def _cleanup_ephemeral_ports(tm_env, unique_name, vip, ports, proto):
     """Cleanup firewall rules for ports."""
     for port in ports:
         # We treat ephemeral ports as infra, consistent with current
@@ -362,12 +385,15 @@ def _cleanup_ports(tm_env, unique_name, vip, ports, proto):
                                          port=port)
         )
         dnatrule = firewall.DNATRule(proto=proto,
-                                     orig_ip=tm_env.host_ip,
-                                     orig_port=port,
+                                     dst_ip=tm_env.host_ip,
+                                     dst_port=port,
                                      new_ip=vip,
                                      new_port=port)
-        tm_env.rules.unlink_rule(rule=dnatrule,
-                                 owner=unique_name)
+        tm_env.rules.unlink_rule(
+            chain=iptables.PREROUTING_DNAT,
+            rule=dnatrule,
+            owner=unique_name
+        )
 
 
 def _kill_apps_by_root(approot):

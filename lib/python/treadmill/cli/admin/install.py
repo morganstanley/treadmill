@@ -6,6 +6,7 @@ import os
 import click
 import yaml
 
+import treadmill
 from treadmill import cli
 from treadmill import context
 from treadmill.osmodules import bootstrap
@@ -16,10 +17,11 @@ def init():
 
     @click.group()
     @click.option('--cell', required=True, envvar='TREADMILL_CELL')
-    @click.option('--config', required=True, type=click.File(), multiple=True)
+    @click.option('--aliases', required=True, type=click.File(), multiple=True)
+    @click.option('--config', required=False, type=click.File(), multiple=True)
     @click.option('--override', required=False, type=cli.DICT)
     @click.pass_context
-    def install(ctx, cell, config, override):
+    def install(ctx, cell, aliases, config, override):
         """Installs Treadmill."""
 
         if cell == '-':
@@ -29,13 +31,24 @@ def init():
             context.GLOBAL.cell = cell
             context.GLOBAL.resolve(cell)
 
-        ctx.obj['COMMON_DEFAULTS'] = {}
+        aliases_path = ":".join(
+            [os.path.abspath(x.name) for x in aliases])
+
+        ctx.obj['COMMON_DEFAULTS'] = {
+            'aliases_path': aliases_path
+        }
+
+        for conf in aliases:
+            ctx.obj['COMMON_DEFAULTS'].update(yaml.load(conf.read()))
 
         for conf in config:
             ctx.obj['COMMON_DEFAULTS'].update(yaml.load(conf.read()))
 
         if override:
             ctx.obj['COMMON_DEFAULTS'].update(override)
+
+        os.environ['TREADMILL'] = treadmill.TREADMILL
+        os.environ['TREADMILL_ALIASES_PATH'] = aliases_path
 
     @install.command()
     @click.option('--install-dir',
@@ -102,5 +115,26 @@ def init():
                 spawn_bootstrap.run()
 
         del spawn
+
+        @install.command()
+        @click.option('--install-dir',
+                      default=lambda: os.path.join(
+                          bootstrap.default_install_dir(),
+                          "treadmill_haproxy"))
+        @click.option('--run/--no-run', is_flag=True, default=False)
+        @click.pass_context
+        def haproxy(ctx, install_dir, run):
+            """Installs Treadmill haproxy."""
+            haproxy_bootstrap = bootstrap.HAProxyBootstrap(
+                install_dir,
+                ctx.obj['COMMON_DEFAULTS']
+            )
+
+            haproxy_bootstrap.install()
+
+            if run:
+                haproxy_bootstrap.run()
+
+        del haproxy
 
     return install

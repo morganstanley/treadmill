@@ -13,6 +13,7 @@ import unittest
 
 # Disable W0611: Unused import
 import tests.treadmill_test_deps  # pylint: disable=W0611
+from tests.testutils import mockzk
 
 import kazoo
 import mock
@@ -22,7 +23,6 @@ import treadmill
 import treadmill.exc
 from treadmill import master
 from treadmill import scheduler
-from treadmill.test import mockzk
 
 
 class MasterTest(mockzk.MockZookeeperTestCase):
@@ -568,19 +568,38 @@ class MasterTest(mockzk.MockZookeeperTestCase):
 
     @mock.patch('kazoo.client.KazooClient.get', mock.Mock())
     @mock.patch('kazoo.client.KazooClient.create', mock.Mock())
+    @mock.patch('time.time', mock.Mock(return_value=123.34))
+    @mock.patch('treadmill.sysinfo.hostname', mock.Mock(return_value='xxx'))
     def test_create_apps(self):
         """Tests app api."""
         zkclient = kazoo.client.KazooClient()
         kazoo.client.KazooClient.create.return_value = '/scheduled/foo.bar#12'
 
-        master.create_apps(zkclient, 'foo.bar', {}, 3)
-        kazoo.client.KazooClient.create.assert_has_calls(
-            [mock.call('/scheduled/foo.bar#',
-                       '{}\n',
-                       makepath=True,
-                       sequence=True,
-                       ephemeral=False,
-                       acl=mock.ANY)] * 3)
+        master.create_apps(zkclient, 'foo.bar', {}, 2)
+        kazoo.client.KazooClient.create.assert_has_calls([
+            mock.call('/scheduled/foo.bar#',
+                      '{}\n',
+                      makepath=True,
+                      sequence=True,
+                      ephemeral=False,
+                      acl=mock.ANY),
+            mock.call('/tasks/foo.bar/12/123.34,xxx,pending,',
+                      '',
+                      makepath=True,
+                      acl=mock.ANY),
+            # Mock call returns same instance (#12), so same task is created
+            # twice.
+            mock.call('/scheduled/foo.bar#',
+                      '{}\n',
+                      makepath=True,
+                      sequence=True,
+                      ephemeral=False,
+                      acl=mock.ANY),
+            mock.call('/tasks/foo.bar/12/123.34,xxx,pending,',
+                      '',
+                      makepath=True,
+                      acl=mock.ANY)
+        ])
 
     @mock.patch('kazoo.client.KazooClient.get', mock.Mock(
         return_value=('{}', None)))
