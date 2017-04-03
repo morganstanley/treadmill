@@ -284,12 +284,14 @@ class AdminTest(unittest.TestCase):
             '_id': 'xxx',
             'cell': 'yyy',
             'traits': ['a', 'b', 'c'],
+            'data': ['a=1', 'b=2'],
         }
 
         ldap_entry = {
             'server': ['xxx'],
             'cell': ['yyy'],
             'trait': ['a', 'b', 'c'],
+            'data': ['a=1', 'b=2'],
         }
 
         self.assertEquals(ldap_entry, admin.Server(None).to_entry(srv))

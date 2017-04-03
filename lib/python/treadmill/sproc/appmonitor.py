@@ -2,7 +2,6 @@
 from __future__ import absolute_import
 
 import logging
-import os
 import time
 import itertools
 import collections
@@ -13,8 +12,8 @@ import yaml
 
 from treadmill import context
 from treadmill import exc
-from treadmill import sysinfo
 from treadmill import authz
+from treadmill import zkutils
 from treadmill import zknamespace as z
 from treadmill.api import instance
 
@@ -145,10 +144,9 @@ def init():
                   help='Run without lock.')
     def top(no_lock):
         """Sync LDAP data with Zookeeper data."""
-        context.GLOBAL.zk.conn.ensure_path('/appmonitor-election')
-        me = '%s.%d' % (sysinfo.hostname(), os.getpid())
-        lock = context.GLOBAL.zk.conn.Lock('/appmonitor-election', me)
         if not no_lock:
+            lock = zkutils.make_lock(context.GLOBAL.zk.conn,
+                                     z.path.election(__name__))
             _LOGGER.info('Waiting for leader lock.')
             with lock:
                 _run_sync()

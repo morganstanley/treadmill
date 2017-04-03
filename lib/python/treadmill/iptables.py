@@ -15,19 +15,33 @@ _LOGGER = logging.getLogger(__name__)
 
 JINJA2_ENV = jinja2.Environment(loader=jinja2.PackageLoader(__name__))
 
-#: Chain where to add outgoing traffic NAT rule (used inside container)
+#: Chain where to add outgoing traffic DNAT rule (used inside container)
 OUTPUT = 'OUTPUT'
+
+#: Chain where to add outgoing traffic SNAT rule (used inside container)
+POSTROUTING = 'POSTROUTING'
 
 #: Chain where to add incoming NAT Passthrough rule
 PREROUTING_PASSTHROUGH = 'TM_PASSTHROUGH'
 
 #: Chain where to add incoming NAT DNAT redirect rule
-PREROUTING_DNAT = 'TM_DNAT'
+PREROUTING_DNAT = 'TM_PREROUTING_DNAT'
 
+#: Chain where to add container outgoing traffic SNAT rule
+POSTROUTING_SNAT = 'TM_POSTROUTING_SNAT'
+
+#: Chain where to add container vring DNAT rule
+VRING_DNAT = 'TM_PREROUTING_VRING'
+
+#: Chain where to add container vring SNAT rule
+VRING_SNAT = 'TM_POSTROUTING_VRING'
+
+#: IPSet set of the IPs of all containers using vring
+SET_VRING_CONTAINERS = 'tm:vring-containers'
 #: IPSet set of the IPs of all NONPROD containers
-_SET_NONPROD_CONTAINERS = 'tm:nonprod-containers'
+SET_NONPROD_CONTAINERS = 'tm:nonprod-containers'
 #: IPSet set of the IPs of all PROD containers
-_SET_PROD_CONTAINERS = 'tm:prod-containers'
+SET_PROD_CONTAINERS = 'tm:prod-containers'
 #: IPSet set of IPs of all containers (union of PROD and NONPROD sets)
 _SET_CONTAINERS = 'tm:containers'
 #: IPSet set of the IPs know PROD servers/service addresses
@@ -83,55 +97,61 @@ _IPTABLES_FILTER_TABLE = JINJA2_ENV.get_template(
 #:
 _IPTABLES_EMPTY_TABLES = JINJA2_ENV.get_template('iptables-empty-restore')
 
-#: String pattern forming DNAT rules for use with iptables
-_DNAT_RULE_PATTERN = ('-d {orig_ip} -p {proto} -m {_proto} --dport {orig_port}'
-                      ' -j DNAT --to-destination {new_ip}:{new_port}')
-
 #: Regular expression scrapping DNAT rules
-_DNAT_RULE_RE = re.compile((
-    r'^-A \w+ ' +
+_DNAT_RULE_RE = re.compile(
+    r'^'
     # Ignore the chain name
-    _DNAT_RULE_PATTERN.format(
-        # Original IP
-        orig_ip=r'(?P<orig_ip>(?:\d{1,3}\.){3}\d{1,3})/32',
-        # Protocol
-        proto=r'(?P<proto>(?:tcp|udp))',
-        _proto=r'(?P=proto)',
-        # Original Port
-        orig_port=r'(?P<orig_port>\d{1,5})',
-        # New IP
-        new_ip=r'(?P<new_ip>(?:\d{1,3}\.){3}\d{1,3})',
-        # New Port
-        new_port=r'(?P<new_port>\d{1,5})',
-    ) +
+    r'-A \w+ '
+    # Original source IP
+    r'(?:-s (?P<src_ip>(?:\d{1,3}\.){3}\d{1,3})/32 )?'
+    # Original destination IP
+    r'(?:-d (?P<dst_ip>(?:\d{1,3}\.){3}\d{1,3})/32 )?'
+    # Protocol
+    r'-p (?P<proto>(?:tcp|udp)) -m (?P=proto) '
+    # Original source Port
+    r'(?:--sport (?P<src_port>\d{1,5}) )?'
+    # Original destination Port
+    r'(?:--dport (?P<dst_port>\d{1,5}) )?'
+    # Ignore counters if present
+    r'(?:-c \d+ \d+ )?'
+    # New IP
+    r'-j DNAT --to-destination (?P<new_ip>(?:\d{1,3}\.){3}\d{1,3})'
+    # New Port
+    r'(?:[:](?P<new_port>\d{1,5}))?'
     r'$'
-))
+)
 
 #: String pattern forming SNAT rules for use with iptables
-_SNAT_RULE_PATTERN = ('-d {orig_ip} -p {proto} -m {_proto} --dport {orig_port}'
-                      ' -j SNAT --to {new_ip}:{new_port}')
+_SNAT_RULE_PATTERN = ('-s {src_ip} -d {dst_ip} -p {proto} -m {_proto}'
+                      ' --sport {src_port} --dport {dst_port}'
+                      ' -j SNAT --to-source {new_ip}:{new_port}')
 
 #: Regular expression scrapping SNAT rules
-_SNAT_RULE_RE = re.compile((
-    r'^-A \w+ ' +
+_SNAT_RULE_RE = re.compile(
+    r'^'
     # Ignore the chain name
-    _SNAT_RULE_PATTERN.format(
-        # Original IP
-        orig_ip=r'(?P<orig_ip>(?:\d{1,3}\.){3}\d{1,3})/32',
-        # Protocol
-        proto=r'(?P<proto>(?:tcp|udp))',
-        _proto=r'(?P=proto)',
-        # Original Port
-        orig_port=r'(?P<orig_port>\d{1,5})',
-        # New IP
-        new_ip=r'(?P<new_ip>(?:\d{1,3}\.){3}\d{1,3})',
-        # New Port
-        new_port=r'(?P<new_port>\d{1,5})',
-    ) +
+    r'-A \w+ '
+    # Original source IP
+    r'(?:-s (?P<src_ip>(?:\d{1,3}\.){3}\d{1,3})/32 )?'
+    # Original destination IP
+    r'(?:-d (?P<dst_ip>(?:\d{1,3}\.){3}\d{1,3})/32 )?'
+    # Protocol
+    r'-p (?P<proto>(?:tcp|udp)) -m (?P=proto) '
+    # Original source Port
+    r'(?:--sport (?P<src_port>\d{1,5}) )?'
+    # Original destination Port
+    r'(?:--dport (?P<dst_port>\d{1,5}) )?'
+    # Ignore counters if present
+    r'(?:-c \d+ \d+ )?'
+    # New IP
+    r'-j SNAT --to-source (?P<new_ip>(?:\d{1,3}\.){3}\d{1,3})'
+    # New Port
+    r'(?:[:](?P<new_port>\d{1,5}))?'
     r'$'
-))
+)
 
 
+# TODO(boysson): Fold PassThroughRule into a kind of DNAT rule
 #: String pattern forming passthough rules for use with iptables
 _PASSTHROUGH_RULE_PATTERN = \
     '-s {src_ip} -j DNAT --to-destination {dst_ip}'
@@ -149,10 +169,10 @@ _PASSTHROUGH_RULE_RE = re.compile((
 
 #: Container environment to ipset set.
 _SET_BY_ENVIRONMENT = {
-    'dev': _SET_NONPROD_CONTAINERS,
-    'qa': _SET_NONPROD_CONTAINERS,
-    'uat': _SET_NONPROD_CONTAINERS,
-    'prod': _SET_PROD_CONTAINERS,
+    'dev': SET_NONPROD_CONTAINERS,
+    'qa': SET_NONPROD_CONTAINERS,
+    'uat': SET_NONPROD_CONTAINERS,
+    'prod': SET_PROD_CONTAINERS,
 }
 
 
@@ -172,28 +192,33 @@ def initialize(external_ip):
         infra_services=SET_INFRA_SVC,
         passthroughs=SET_PASSTHROUGHS,
         nodes=SET_TM_NODES,
-        nonprod_containers=_SET_NONPROD_CONTAINERS,
-        prod_containers=_SET_PROD_CONTAINERS,
+        nonprod_containers=SET_NONPROD_CONTAINERS,
+        prod_containers=SET_PROD_CONTAINERS,
         prod_sources=SET_PROD_SOURCES,
+        vring_containers=SET_VRING_CONTAINERS,
     )
     ipset_restore(ipset_rules)
 
     iptables_state = _IPTABLES_TABLES.render(
-        external_ip=external_ip,
         any_container=_SET_CONTAINERS,
+        dnat_chain=PREROUTING_DNAT,
+        external_ip=external_ip,
         nodes=SET_TM_NODES,
-        nonprod_containers=_SET_NONPROD_CONTAINERS,
+        nonprod_containers=SET_NONPROD_CONTAINERS,
         nonprod_high=NONPROD_PORT_HIGH,
         nonprod_low=NONPROD_PORT_LOW,
         nonprod_mark=_CONNTRACK_NONPROD_MARK,
-        prod_containers=_SET_PROD_CONTAINERS,
+        passthroughs=SET_PASSTHROUGHS,
+        passthrough_chain=PREROUTING_PASSTHROUGH,
+        prod_containers=SET_PROD_CONTAINERS,
         prod_high=PROD_PORT_HIGH,
         prod_low=PROD_PORT_LOW,
         prod_mark=_CONNTRACK_PROD_MARK,
         prod_sources=SET_PROD_SOURCES,
-        dnat_chain=PREROUTING_DNAT,
-        passthroughs=SET_PASSTHROUGHS,
-        passthrough_chain=PREROUTING_PASSTHROUGH,
+        snat_chain=POSTROUTING_SNAT,
+        vring_containers=SET_VRING_CONTAINERS,
+        vring_dnat_chain=VRING_DNAT,
+        vring_snat_chain=VRING_SNAT,
     )
     _iptables_restore(iptables_state)
 
@@ -219,7 +244,7 @@ def filter_table_set(filter_chain):
         any_container=_SET_CONTAINERS,
         infra_services=SET_INFRA_SVC,
         nonprod_mark=_CONNTRACK_NONPROD_MARK,
-        prod_containers=_SET_PROD_CONTAINERS,
+        prod_containers=SET_PROD_CONTAINERS,
         filter_chain=filter_chain,
     )
     return _iptables_restore(filtering_table, noflush=True)
@@ -314,6 +339,45 @@ def create_chain(table, chain):
     subproc.call(['iptables', '-t', table, '-N', chain])
 
 
+def flush_chain(table, chain):
+    """Flush a chain in the given table.
+
+    :param ``str`` table:
+        Name of the table where the chain resides.
+    :param ``str`` chain:
+        Name of the chain to create
+    """
+    subproc.call(['iptables', '-t', table, '-vF', chain])
+
+
+def _dnat_rule_format(dnat_rule):
+    """Format a DNATRule as a iptables rule.
+
+    :param ``DNATRule`` dnat_rule:
+        DNAT rule to insert
+    :returns:
+        ``str`` -- Iptables DNAT rule.
+    """
+    rule = '-s {src_ip} -d {dst_ip} -p {proto} -m {proto}'.format(
+        proto=dnat_rule.proto,
+        src_ip=(dnat_rule.src_ip or '0.0.0.0'),
+        dst_ip=(dnat_rule.dst_ip or '0.0.0.0'),
+    )
+    if dnat_rule.src_port:
+        rule += ' --sport {src_port}'.format(
+            src_port=dnat_rule.src_port
+        )
+    if dnat_rule.dst_port:
+        rule += ' --dport {dst_port}'.format(
+            dst_port=dnat_rule.dst_port
+        )
+    rule += ' -j DNAT --to-destination {new_ip}:{new_port}'.format(
+        new_ip=dnat_rule.new_ip,
+        new_port=dnat_rule.new_port,
+    )
+    return rule
+
+
 def add_dnat_rule(dnat_rule, chain=PREROUTING_DNAT, safe=False):
     """Adds dnat rule to a given chain.
 
@@ -333,16 +397,10 @@ def add_dnat_rule(dnat_rule, chain=PREROUTING_DNAT, safe=False):
     """
     if chain is None:
         chain = PREROUTING_DNAT
+
     return add_raw_rule(
         'nat', chain,
-        _DNAT_RULE_PATTERN.format(
-            proto=dnat_rule.proto,
-            _proto=dnat_rule.proto,
-            orig_ip=dnat_rule.orig_ip,
-            orig_port=dnat_rule.orig_port,
-            new_ip=dnat_rule.new_ip,
-            new_port=dnat_rule.new_port,
-        ),
+        _dnat_rule_format(dnat_rule),
         safe
     )
 
@@ -362,105 +420,102 @@ def delete_dnat_rule(dnat_rule, chain=PREROUTING_DNAT):
     """
     if chain is None:
         chain = PREROUTING_DNAT
-    return delete_raw_rule('nat', chain,
-                           _DNAT_RULE_PATTERN.format(
-                               proto=dnat_rule.proto,
-                               _proto=dnat_rule.proto,
-                               orig_ip=dnat_rule.orig_ip,
-                               orig_port=dnat_rule.orig_port,
-                               new_ip=dnat_rule.new_ip,
-                               new_port=dnat_rule.new_port,
-                           ))
+
+    return delete_raw_rule(
+        'nat', chain,
+        _dnat_rule_format(dnat_rule),
+    )
 
 
-def add_snat_rule(snat_rule, chain, safe=False):
+def _snat_rule_format(dnat_rule):
+    """Format a SNATRule as a iptables rule.
+
+    :param ``SNATRule`` dnat_rule:
+        SNAT rule to insert
+    :returns:
+        ``str`` -- Iptables SNAT rule.
+    """
+    rule = '-s {src_ip} -d {dst_ip} -p {proto} -m {proto}'.format(
+        proto=dnat_rule.proto,
+        src_ip=(dnat_rule.src_ip or '0.0.0.0'),
+        dst_ip=(dnat_rule.dst_ip or '0.0.0.0'),
+    )
+    if dnat_rule.src_port:
+        rule += ' --sport {src_port}'.format(
+            src_port=dnat_rule.src_port
+        )
+    if dnat_rule.dst_port:
+        rule += ' --dport {dst_port}'.format(
+            dst_port=dnat_rule.dst_port
+        )
+    rule += ' -j SNAT --to-source {new_ip}:{new_port}'.format(
+        new_ip=dnat_rule.new_ip,
+        new_port=dnat_rule.new_port,
+    )
+    return rule
+
+
+def add_snat_rule(snat_rule, chain=POSTROUTING_SNAT, safe=False):
     """Adds snat rule to a given chain.
 
-    :param dnat_rule:
+    :param ``SNATRule`` snat_rule:
         SNAT rule to insert
-    :type dnat_rule:
-        ``SNATRule``
-    :param chain:
-        Name of the chain where to insert the new rule.
-    :type chain:
-        ``str``
-    :param safe:
+    :param ``str`` chain:
+        Name of the chain where to insert the new rule.  If ``None``, the
+        default chain ``POSTROUTING_SNAT`` will be picked.
+    :param ``bool`` safe:
         Query iptables prior to adding to prevent duplicates
-    :param safe:
-        ``bool``
     """
+    if chain is None:
+        chain = POSTROUTING_SNAT
     return add_raw_rule(
         'nat', chain,
-        _SNAT_RULE_PATTERN.format(
-            proto=snat_rule.proto,
-            _proto=snat_rule.proto,
-            orig_ip=snat_rule.orig_ip,
-            orig_port=snat_rule.orig_port,
-            new_ip=snat_rule.new_ip,
-            new_port=snat_rule.new_port,
-        ),
+        _snat_rule_format(snat_rule),
         safe
     )
 
 
-def delete_snat_rule(snat_rule, chain):
+def delete_snat_rule(snat_rule, chain=POSTROUTING_SNAT):
     """Deletes snat rule from a given chain.
 
-    :param chain:
-        Name of the chain from where to remove the rule.
-    :type chain:
-        ``str``
-    :param snat_rule:
+    :param ``SNATRule`` snat_rule:
         SNAT rule to remove
-    :type snat_rule:
-        ``SNATRule``
+    :param ``str`` chain:
+        Name of the chain where to insert the new rule.  If ``None``, the
+        default chain ``POSTROUTING_SNAT`` will be picked.
     """
+    if chain is None:
+        chain = POSTROUTING_SNAT
     return delete_raw_rule(
         'nat', chain,
-        _SNAT_RULE_PATTERN.format(
-            proto=snat_rule.proto,
-            _proto=snat_rule.proto,
-            orig_ip=snat_rule.orig_ip,
-            orig_port=snat_rule.orig_port,
-            new_ip=snat_rule.new_ip,
-            new_port=snat_rule.new_port,
-        )
+        _snat_rule_format(snat_rule),
     )
 
 
-def get_current_nat_rules(chain=PREROUTING_DNAT):
-    """Extract all DNAT/SNAT rules in chain from iptables.
+def _get_current_dnat_rules(chain):
+    """Extract all DNAT rules in chain from iptables.
 
-    :param chain:
-        Iptables chain to process. If ``None``, the default chain
-        ``PREROUTING_DNAT`` will be picked.
-    :type chain:
-        ``str``
+    :param ``str`` chain:
+        Iptables chain to process.
     :returns:
-        ``set([DNATRule|SNATRule])`` -- Set of rules.
+        ``set([DNATRule])`` -- Set of rules.
     """
-    rules = set()
     if chain is None:
         chain = PREROUTING_DNAT
+    rules = set()
     iptables_cmd = ['iptables', '-t', 'nat', '-S', chain]
     for line in subproc.check_output(iptables_cmd).splitlines():
         dnat_match = _DNAT_RULE_RE.match(line.strip())
         if dnat_match:
             data = dnat_match.groupdict()
             rule = firewall.DNATRule(
-                data['proto'],
-                data['orig_ip'], int(data['orig_port']),
-                data['new_ip'], int(data['new_port'])
-            )
-            rules.add(rule)
-            continue
-        snat_match = _SNAT_RULE_RE.match(line.strip())
-        if snat_match:
-            data = snat_match.groupdict()
-            rule = firewall.SNATRule(
-                data['proto'],
-                data['orig_ip'], int(data['orig_port']),
-                data['new_ip'], int(data['new_port'])
+                proto=data['proto'],
+                dst_ip=data['dst_ip'],
+                dst_port=data['dst_port'],
+                src_ip=data['src_ip'],
+                src_port=data['src_port'],
+                new_ip=data['new_ip'],
+                new_port=data['new_port']
             )
             rules.add(rule)
             continue
@@ -468,8 +523,8 @@ def get_current_nat_rules(chain=PREROUTING_DNAT):
     return rules
 
 
-def configure_nat_rules(target, chain=PREROUTING_DNAT):
-    """Configures iptables DNAT/SNAT rules.
+def configure_dnat_rules(target, chain=None):
+    """Configures iptables DNAT rules.
 
     The input to the function is target state - a set of DNAT/SNAT rules that
     needs to be present.
@@ -477,39 +532,87 @@ def configure_nat_rules(target, chain=PREROUTING_DNAT):
     The function will sync existing iptables configuration with the target
     state, by adding/removing extra rules.
 
-    :param target:
+    :param ``set([DNATRule])`` target:
         Desired set of rules
-    :type target:
-        ``set([DNATRule|SNATRule])``
-    :param chain:
-        Iptables chain to process.
-    :type chain:
-        ``str``
+    :param ``str`` chain:
+        Name of the chain to process.  If ``None``, the default chain
+        ``PREROUTING_DNAT`` will be picked.
     """
-    current = get_current_nat_rules(chain)
+    current = _get_current_dnat_rules(chain)
 
-    _LOGGER.info('Current %s DNAT/SNAT: %s', chain, current)
-    _LOGGER.info('Target %s DNAT/SNAT: %s', chain, target)
+    _LOGGER.info('Current %s DNAT: %s', chain, current)
+    _LOGGER.info('Target %s DNAT: %s', chain, target)
 
     # Sync current and desired state.
     for rule in current - target:
-        if isinstance(rule, firewall.DNATRule):
-            delete_dnat_rule(rule, chain=chain)
-        elif isinstance(rule, firewall.SNATRule):
-            delete_snat_rule(rule, chain=chain)
+        delete_dnat_rule(rule, chain=chain)
     for rule in target - current:
-        if isinstance(rule, firewall.DNATRule):
-            add_dnat_rule(rule, chain=chain)
-        elif isinstance(rule, firewall.SNATRule):
-            add_snat_rule(rule, chain=chain)
+        add_dnat_rule(rule, chain=chain)
 
 
-def get_current_passthrough_rules(chain=PREROUTING_PASSTHROUGH):
+def _get_current_snat_rules(chain):
+    """Extract all SNAT rules in chain from iptables.
+
+    :param ``str`` chain:
+        Iptables chain to process.
+    :returns:
+        ``set([SNATRule])`` -- Set of rules.
+    """
+    if chain is None:
+        chain = POSTROUTING_SNAT
+    rules = set()
+    iptables_cmd = ['iptables', '-t', 'nat', '-S', chain]
+    for line in subproc.check_output(iptables_cmd).splitlines():
+        snat_match = _SNAT_RULE_RE.match(line.strip())
+        if snat_match:
+            data = snat_match.groupdict()
+            rule = firewall.SNATRule(
+                proto=data['proto'],
+                src_ip=data['src_ip'],
+                src_port=data['src_port'],
+                dst_ip=data['dst_ip'],
+                dst_port=data['dst_port'],
+                new_ip=data['new_ip'],
+                new_port=data['new_port']
+            )
+            rules.add(rule)
+            continue
+
+    return rules
+
+
+def configure_snat_rules(target, chain=None):
+    """Configures iptables SNAT rules.
+
+    The input to the function is target state - a set of DNAT/SNAT rules that
+    needs to be present.
+
+    The function will sync existing iptables configuration with the target
+    state, by adding/removing extra rules.
+
+    :param ``set([SNATRule])`` target:
+        Desired set of rules
+    :param ``str`` chain:
+        Name of the chain to process.  If ``None``, the default chain
+        ``POSTROUTING_SNAT`` will be picked.
+    """
+    current = _get_current_snat_rules(chain)
+
+    _LOGGER.info('Current %s SNAT: %s', chain, current)
+    _LOGGER.info('Target %s SNAT: %s', chain, target)
+
+    # Sync current and desired state.
+    for rule in current - target:
+        delete_snat_rule(rule, chain=chain)
+    for rule in target - current:
+        add_snat_rule(rule, chain=chain)
+
+
+def _get_current_passthrough_rules(chain):
     """Extract all PassThrough rules from iptables.
 
     :param chain:
-        Iptables chain to process. If ``None``, the default chain
-        ``PREROUTING_PASSTHROUGH`` will be picked.
+        Iptables chain to process.
     :type chain:
         ``str``
     :returns:
@@ -523,14 +626,16 @@ def get_current_passthrough_rules(chain=PREROUTING_PASSTHROUGH):
         match = _PASSTHROUGH_RULE_RE.match(line.strip())
         if match:
             data = match.groupdict()
-            rule = firewall.PassThroughRule(data['src_ip'],
-                                            data['dst_ip'])
+            rule = firewall.PassThroughRule(
+                src_ip=data['src_ip'],
+                dst_ip=data['dst_ip']
+            )
             rules.add(rule)
 
     return rules
 
 
-def configure_passthrough_rules(target, chain=PREROUTING_PASSTHROUGH):
+def configure_passthrough_rules(target, chain=None):
     """Configures iptables PassThrough rules.
 
     The input to the function is target state - a set of PassThrough rules
@@ -548,7 +653,7 @@ def configure_passthrough_rules(target, chain=PREROUTING_PASSTHROUGH):
     :type chain:
         ``str``
     """
-    current = get_current_passthrough_rules(chain)
+    current = _get_current_passthrough_rules(chain)
 
     _LOGGER.info('Current PassThrough: %r', current)
     _LOGGER.info('Target PassThrough: %r', target)
@@ -583,6 +688,8 @@ def add_passthrough_rule(passthrough_rule, chain=PREROUTING_PASSTHROUGH,
     :param safe:
         ``bool``
     """
+    if chain is None:
+        chain = PREROUTING_PASSTHROUGH
     add_raw_rule(
         'nat', chain,
         _PASSTHROUGH_RULE_PATTERN.format(
@@ -605,6 +712,8 @@ def delete_passthrough_rule(passthrough_rule, chain=PREROUTING_PASSTHROUGH):
     :type chain:
         ``str``
     """
+    if chain is None:
+        chain = PREROUTING_PASSTHROUGH
     delete_raw_rule(
         'nat', chain,
         _PASSTHROUGH_RULE_PATTERN.format(
@@ -655,9 +764,6 @@ def add_rule(rule, chain=None):
     :type chain:
         ``str``
     """
-    if chain is None:
-        chain = PREROUTING_DNAT
-
     if isinstance(rule, firewall.DNATRule):
         add_dnat_rule(rule, chain=chain)
 
@@ -683,9 +789,6 @@ def delete_rule(rule, chain=None):
     :type chain:
         ``str``
     """
-    if chain is None:
-        chain = PREROUTING_DNAT
-
     if isinstance(rule, firewall.DNATRule):
         delete_dnat_rule(rule, chain=chain)
 
@@ -697,39 +800,6 @@ def delete_rule(rule, chain=None):
 
     else:
         raise ValueError("Unknown rule type %r" % (type(rule)))
-
-
-def configure_rules(target):
-    """Configures iptables rules.
-
-    The input to the function is target state - a list of rules that needs to
-    be present.
-
-    The function will sync existing iptables configuration with the target
-    state, by adding/removing extra rules.
-
-    :param target:
-        Desired set of rules
-    :type target:
-        ``set([])``
-    """
-    nat_rules = {
-        rule
-        for rule in target
-        if isinstance(rule, (firewall.DNATRule, firewall.SNATRule))
-    }
-    passthrough_rules = {
-        rule
-        for rule in target
-        if isinstance(rule, firewall.PassThroughRule)
-    }
-
-    unknown_rules = target - (nat_rules | passthrough_rules)
-    if unknown_rules:
-        raise ValueError("Unknown rules %r" % (unknown_rules, ))
-
-    configure_nat_rules(nat_rules)
-    configure_passthrough_rules(passthrough_rules)
 
 
 def add_mark_rule(src_ip, environment):
@@ -794,7 +864,7 @@ def init_set(new_set, **set_options):
     _ipset('create', new_set, 'hash:ip',
            # Below expands to a list of k, v, one after the other
            *[str(i) for item in set_options.items() for i in item])
-    _ipset('flush', new_set)
+    flush_set(new_set)
 
 
 def destroy_set(target_set):
@@ -806,6 +876,17 @@ def destroy_set(target_set):
         ``str``
     """
     _ipset('destroy', target_set)
+
+
+def flush_set(target_set):
+    """Flush an IPSet set.
+
+    :param target_set:
+        Name of the IPSet set to flush.
+    :type target_set:
+        ``str``
+    """
+    _ipset('flush', target_set)
 
 
 def test_ip_set(target_set, test_ip):
@@ -896,14 +977,10 @@ def _ipset(*args, **kwargs):
 def _iptables_restore(iptables_state, noflush=False):
     """Call iptable-restore with the provide tables dump
 
-    :param iptables_state:
+    :param ``str`` iptables_state:
         Table initialization to pass to iptables-restore
-    :type iptables_state:
-        ``str``
-    :param noflush:
+    :param ``bool`` noflush:
         *optional* Do not flush the table before loading the rules.
-    :type noflush:
-        ``bool``
     """
     # Use logical name (iptables_restore) of the real command.
     cmd = ['iptables_restore']

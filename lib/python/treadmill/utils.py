@@ -64,8 +64,11 @@ def create_script(path, templatename, mode=EXEC_MODE, *args, **kwargs):
     template = JINJA2_ENV.get_template(templatename)
 
     all_kwargs = {}
-    if subproc.EXECUTABLES:
-        all_kwargs.update(subproc.EXECUTABLES)
+
+    executables = subproc.get_aliases()
+    if executables:
+        all_kwargs.update(executables)
+
     all_kwargs.update(kwargs)
 
     with open(path, 'w') as f:

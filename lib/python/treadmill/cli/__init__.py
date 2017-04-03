@@ -44,11 +44,17 @@ def init_logger(name):
                        (log_conf_file, f.name), err=True)
 
 
-def make_multi_command(module_name):
+def make_multi_command(module_name, **click_args):
     """Make a Click multicommand from all submodules of the module."""
 
     class MCommand(click.MultiCommand):
         """Treadmill CLI driver."""
+
+        def __init__(self, *args, **kwargs):
+            if kwargs and click_args:
+                kwargs.update(click_args)
+
+            click.MultiCommand.__init__(self, *args, **kwargs)
 
         def list_commands(self, ctx):
             climod = importlib.import_module(module_name)
@@ -141,14 +147,13 @@ class _KeyValuePairs(click.ParamType):
         if value is None:
             return {}
 
-        items = value.split(',')
-        result = {}
-        for item in items:
-            if item.find('=') == -1:
-                self.fail('"%s" not a key/value pair, X=Y expected.' % item)
-            key, value = item.split('=')
-            result[key] = value
-        return result
+        items = re.split(r'(\w+=)', value)
+        items.pop(0)
+
+        keys = [key.rstrip('=') for key in items[0::2]]
+        values = [value.rstrip(',') for value in items[1::2]]
+
+        return dict(zip(keys, values))
 
 
 DICT = _KeyValuePairs()
@@ -523,6 +528,7 @@ class ServerPrettyFormatter(object):
             ('cell', None, None),
             ('traits', None, None),
             ('label', None, None),
+            ('data', None, None),
         ]
 
         format_item = make_dict_to_table(schema)
@@ -544,9 +550,9 @@ class ServerNodePrettyFormatter(object):
                   ('memory', None, None),
                   ('cpu', None, None),
                   ('disk', None, None),
+                  ('label', None, None),
                   ('parent', None, None),
-                  ('traits', None, None),
-                  ('valid_until', None, None)]
+                  ('traits', None, None)]
 
         format_item = make_dict_to_table(schema)
         format_list = make_list_to_table(schema)

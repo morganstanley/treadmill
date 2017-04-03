@@ -108,4 +108,18 @@ class AppEventsWatcher(object):
                 scheduled_node
             )
 
+            # For terminal state, update the task node with exit summary.
+            try:
+                zkutils.with_retry(
+                    zkutils.update,
+                    self.zkclient,
+                    z.path.task(appname),
+                    {'state': event,
+                     'when': eventtime,
+                     'host': _HOSTNAME,
+                     'data': data}
+                )
+            except kazoo.client.NoNodeError:
+                _LOGGER.warn('Task node not found: %s', z.path.task(appname))
+
         os.unlink(path)

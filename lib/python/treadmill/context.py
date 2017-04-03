@@ -75,6 +75,7 @@ class ZkContext(object):
         'proid',
         '_conn',
         '_resolve',
+        '_listeners',
     )
 
     def __init__(self, resolve=None):
@@ -82,6 +83,11 @@ class ZkContext(object):
         self.proid = None
         self._conn = None
         self._resolve = resolve
+        self._listeners = []
+
+    def add_listener(self, listener):
+        """Add a listener"""
+        self._listeners.append(listener)
 
     @property
     def conn(self):
@@ -96,6 +102,10 @@ class ZkContext(object):
 
             self.proid, _ = self.url[len('zookeeper://'):].split('@')
             self._conn = zkutils.connect(self.url, listener=zkutils.exit_never)
+
+            if self._listeners:
+                for listener in self._listeners:
+                    self._conn.add_listener(listener)
 
         return self._conn
 
@@ -215,9 +225,10 @@ class Context(object):
         if not self.ldap.url:
             ldap_srv_rec = dnsutils.srv('_ldap._tcp.%s.%s' % (cellname,
                                                               self.dns_domain))
-            if ldap_srv_rec:
-                ldap_host, ldap_port, _prio, _weight = ldap_srv_rec[0]
-                self.ldap.url = 'ldap://%s:%s' % (ldap_host, ldap_port)
+            self.ldap.url = ','.join([
+                'ldap://%s:%s' % (rec[0], rec[1])
+                for rec in ldap_srv_rec
+            ])
 
         while self.resolvers:
             resolver = self.resolvers.pop(0)

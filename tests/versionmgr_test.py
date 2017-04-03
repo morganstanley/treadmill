@@ -9,6 +9,7 @@ import shutil
 
 # Disable W0611: Unused import
 import tests.treadmill_test_deps  # pylint: disable=W0611
+from tests.testutils import mockzk
 
 import kazoo
 import kazoo.client
@@ -16,7 +17,6 @@ import mock
 
 from treadmill import zkutils
 from treadmill import versionmgr
-from treadmill.test import mockzk
 
 
 class VersionMgrTest(mockzk.MockZookeeperTestCase):

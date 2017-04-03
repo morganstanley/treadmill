@@ -17,6 +17,7 @@ import treadmill
 
 from .. import appmgr
 from .. import cgroups
+from .. import exc
 from .. import firewall
 from .. import fs
 from .. import iptables
@@ -235,12 +236,29 @@ def _unshare_network(tm_env, app):
                      app.network.vip,
                      endpoint.port)
         dnatrule = firewall.DNATRule(proto=endpoint.proto,
-                                     orig_ip=tm_env.host_ip,
-                                     orig_port=endpoint.real_port,
+                                     dst_ip=tm_env.host_ip,
+                                     dst_port=endpoint.real_port,
                                      new_ip=app.network.vip,
                                      new_port=endpoint.port)
-        tm_env.rules.create_rule(rule=dnatrule,
+        snatrule = firewall.SNATRule(proto=endpoint.proto,
+                                     src_ip=app.network.vip,
+                                     src_port=endpoint.port,
+                                     new_ip=tm_env.host_ip,
+                                     new_port=endpoint.real_port)
+        tm_env.rules.create_rule(chain=iptables.PREROUTING_DNAT,
+                                 rule=dnatrule,
                                  owner=unique_name)
+        tm_env.rules.create_rule(chain=iptables.POSTROUTING_SNAT,
+                                 rule=snatrule,
+                                 owner=unique_name)
+
+        # See if this container requires vring service
+        if app.vring:
+            _LOGGER.debug('adding %r to VRing set', app.network.vip)
+            iptables.add_ip_set(
+                iptables.SET_VRING_CONTAINERS,
+                app.network.vip
+            )
 
         # See if this was an "infra" endpoint and if so add it to the whitelist
         # set.
@@ -261,11 +279,12 @@ def _unshare_network(tm_env, app):
                      tm_env.host_ip, port,
                      app.network.vip, port)
         dnatrule = firewall.DNATRule(proto='tcp',
-                                     orig_ip=tm_env.host_ip,
-                                     orig_port=port,
+                                     dst_ip=tm_env.host_ip,
+                                     dst_port=port,
                                      new_ip=app.network.vip,
                                      new_port=port)
-        tm_env.rules.create_rule(rule=dnatrule,
+        tm_env.rules.create_rule(chain=iptables.PREROUTING_DNAT,
+                                 rule=dnatrule,
                                  owner=unique_name)
         # Treat ephemeral ports as infra, consistent with current prodperim
         # behavior.
@@ -278,11 +297,12 @@ def _unshare_network(tm_env, app):
                      tm_env.host_ip, port,
                      app.network.vip, port)
         dnatrule = firewall.DNATRule(proto='udp',
-                                     orig_ip=tm_env.host_ip,
-                                     orig_port=port,
+                                     dst_ip=tm_env.host_ip,
+                                     dst_port=port,
                                      new_ip=app.network.vip,
                                      new_port=port)
-        tm_env.rules.create_rule(rule=dnatrule,
+        tm_env.rules.create_rule(chain=iptables.PREROUTING_DNAT,
+                                 rule=dnatrule,
                                  owner=unique_name)
         # Treat ephemeral ports as infra, consistent with current prodperim
         # behavior.
@@ -306,7 +326,8 @@ def _unshare_network(tm_env, app):
                 src_ip=ipaddr,
                 dst_ip=app.network.vip,
             )
-            tm_env.rules.create_rule(rule=passthroughrule,
+            tm_env.rules.create_rule(chain=iptables.PREROUTING_PASSTHROUGH,
+                                     rule=passthroughrule,
                                      owner=unique_name)
 
     service_ip = None
@@ -412,15 +433,13 @@ def _create_supervision_tree(container_dir, app_events_dir, app):
     utils.create_script(
         os.path.join(sys_svscandir, 'finish'),
         'svscan.finish',
-        timeout=6000,
-        services_dir=sys_dir
+        timeout=6000
     )
 
     utils.create_script(
         os.path.join(svc_svscandir, 'finish'),
         'svscan.finish',
-        timeout=5000,
-        services_dir='/services'
+        timeout=5000
     )
 
     for svc in app.services:
@@ -601,18 +620,23 @@ def _allocate_sockets(environment, host_ip, sock_type, count):
     # them and expect the caller to keep them around while needed
     sockets = []
 
-    port_pool_iter = iter(port_pool)
-    for _ in xrange(count):
+    for real_port in port_pool:
+        if len(sockets) == count:
+            break
+
         socket_ = socket.socket(socket.AF_INET, sock_type)
-        real_port = port_pool_iter.next()
+        socket_.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         try:
             socket_.bind((host_ip, real_port))
         except socket.error as err:
             if err.errno == errno.EADDRINUSE:
                 continue
             raise
-        socket_.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+
         sockets.append(socket_)
+    else:
+        raise exc.ContainerSetupError(
+            'run.alloc_sockets:{0} < {1}'.format(len(sockets), count))
 
     return sockets
 

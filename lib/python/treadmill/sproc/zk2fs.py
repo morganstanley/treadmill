@@ -34,8 +34,35 @@ def _on_del_proid(zk2fs_sync, zkpath):
 
 def _on_add_instance(zk2fs_sync, zkpath):
     """Invoked when new instance is added to app."""
+
+    def need_task_watch(zkpath):
+        """Checks if the task is still scheduled, no need to watch if not."""
+        _rest, app, instance_id = zkpath.rsplit('/', 2)
+        instance = '%s#%s' % (app, instance_id)
+
+        # If instance is in scheduled, we need the watch.
+        scheduled_node = z.path.scheduled(instance)
+        exists = bool(zk2fs_sync.zkclient.exists(scheduled_node))
+        _LOGGER.debug('Need task watch: %s - %s', zkpath, exists)
+        return exists
+
+    def cont_task_watch(zkpath, children):
+        """Do not renew watch if task is in terminal state."""
+        if not children:
+            return True
+
+        last = children[-1]
+        _eventtime, _appname, event, _data = last.split(',', 4)
+        if event == 'deleted':
+            _LOGGER.info('Terminating watch for task: %s', zkpath)
+            return False
+
     _LOGGER.info('Added instance: %s', zkpath)
-    zk2fs_sync.sync_children(zkpath)
+    zk2fs_sync.sync_children(
+        zkpath,
+        need_watch_predicate=need_task_watch,
+        cont_watch_predicate=cont_task_watch,
+    )
 
 
 def _on_del_instance(zk2fs_sync, zkpath):
@@ -54,7 +81,8 @@ def _on_add_app(zk2fs_sync, zkpath, reobj):
         zk2fs_sync.sync_children(
             zkpath,
             on_add=lambda p: _on_add_instance(zk2fs_sync, p),
-            on_del=lambda p: _on_del_instance(zk2fs_sync, p))
+            on_del=lambda p: _on_del_instance(zk2fs_sync, p),
+        )
 
 
 def _on_del_app(zk2fs_sync, zkpath, reobj):
@@ -124,7 +152,8 @@ def init():
             zk2fs_sync.sync_children(
                 z.TASKS,
                 on_add=lambda p: _on_add_app(zk2fs_sync, p, reobj),
-                on_del=lambda p: _on_del_app(zk2fs_sync, p, reobj))
+                on_del=lambda p: _on_del_app(zk2fs_sync, p, reobj),
+            )
 
         zk2fs_sync.mark_ready()
 

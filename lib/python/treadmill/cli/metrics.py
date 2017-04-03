@@ -6,20 +6,18 @@ The files are downloaded for current directory, or it can be overwritten with
 """
 from __future__ import absolute_import
 
-import sys
-
 import logging
 import os
-import urllib2
+import urllib
 
 import click
 
-from .. import discovery
-from .. import cli
-from .. import fs
-from .. import rrdutils
-from .. import context
-from .. import admin
+from treadmill import cli
+from treadmill import context
+from treadmill import discovery
+from treadmill import fs
+from treadmill import restclient
+from treadmill import rrdutils
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -34,10 +32,11 @@ _SYSTEM_SERVICES = [
 ]
 
 
-def _get_nodeinfo_url(cell):
+def _get_nodeinfo_url(cell, api=None):
     """Get nodeinfo app url using discovery."""
-    admin_cell = admin.Cell(context.GLOBAL.ldap.conn)
-    cell_obj = admin_cell.get(cell)
+    restapi = context.GLOBAL.admin_api(api)
+
+    cell_obj = restclient.get(restapi, '/cell/%s' % cell).json()
 
     nodeinfo_app = '%s.%s' % (cell_obj['username'], 'nodeinfo')
     nodeinfo_iter = discovery.iterator(
@@ -51,7 +50,18 @@ def _get_nodeinfo_url(cell):
         return 'http://%s' % hostport
 
     _LOGGER.critical('%s: %s is not running.', cell, nodeinfo_app)
-    sys.exit(-1)
+    cli.bad_exit('%s: %s is not running.', cell, nodeinfo_app)
+
+
+def _metrics_url(host, instance):
+    """Return the url with which the application metrics can be retrieved."""
+    return '/nodeinfo/{}/metrics/{}'.format(host, urllib.quote(instance))
+
+
+def _rrdfile(outdir, *fname_parts):
+    """Return the full path of the rrd file where the metrics will be saved.
+    """
+    return os.path.join(outdir, '-'.join(fname_parts) + '.rrd')
 
 
 def _get_app_metrics(nodeinfo_url, outdir, appendpoint, hostport):
@@ -60,38 +70,39 @@ def _get_app_metrics(nodeinfo_url, outdir, appendpoint, hostport):
 
     host, _port = hostport.split(':')
     instance, _proto, _endpoint = appendpoint.split(':')
-    metrics_url = '%s/%s/metrics/apps/%s' % (
-        nodeinfo_url, host, urllib2.quote(instance))
 
-    rrdfile = os.path.join(outdir, '%s.rrd' % instance)
-    _download_rrd(metrics_url, rrdfile)
+    # assuming that only running application metrics should be retrieved
+    _download_rrd(nodeinfo_url, _metrics_url(host, instance + '/running'),
+                  _rrdfile(outdir, instance))
 
 
-def _get_server_metrics(nodeinfo_url, outdir, server, services):
+def _get_server_metrics(nodeinfo_url, outdir, server, services=None):
     """Get core services metrics."""
-    _LOGGER.info('Processing %s.', server)
     fs.mkdir_safe(outdir)
 
+    if not services:
+        services = _SYSTEM_SERVICES
+
     for svc in services:
-        metrics_url = '%s/%s/metrics/core/%s' % (nodeinfo_url,
-                                                 server,
-                                                 urllib2.quote(svc))
-        rrdfile = os.path.join(outdir, '%s-%s.rrd' % (server, svc))
-        _download_rrd(metrics_url, rrdfile)
+        _download_rrd(nodeinfo_url, _metrics_url(server, svc),
+                      _rrdfile(outdir, server, svc))
 
 
-def _download_rrd(metrics_url, rrdfile):
+def _download_rrd(nodeinfo_url, metrics_url, rrdfile):
     """Get rrd file and store in output directory."""
-    _LOGGER.info('%s', metrics_url)
-    request = urllib2.Request(metrics_url)
+    _LOGGER.info('Download metrics from %s/%s', nodeinfo_url, metrics_url)
     try:
-        with open(rrdfile, 'w+') as f:
-            f.write(urllib2.urlopen(request).read())
+        resp = restclient.get(nodeinfo_url, metrics_url, stream=True)
+        with open(rrdfile, 'w+b') as f:
+            for chunk in resp.iter_content(chunk_size=128):
+                f.write(chunk)
 
-        rrdutils.gen_graph(rrdfile, rrdutils.RRDTOOL,
-                           show_mem_limit=False)
-    except urllib2.HTTPError as err:
-        _LOGGER.warning('%s: %s, %s', metrics_url, err.code, err.reason)
+        rrdutils.gen_graph(rrdfile, rrdutils.RRDTOOL, show_mem_limit=False)
+    except restclient.NotFoundError as err:
+        _LOGGER.error('%s', err)
+        cli.bad_exit('Metrics not found: %s', err)
+    except rrdutils.RRDToolNotFoundError:
+        cli.bad_exit('The rrdtool utility cannot be found in the PATH')
 
 
 def init():
@@ -110,12 +121,12 @@ def init():
     @click.option('--services', type=cli.LIST,
                   help='Subset of core services.')
     @click.argument('app', required=False)
-    def metrics(outdir, servers, services, app):
+    @click.option('--api', required=False, help='API url to use.',
+                  envvar='TREADMILL_RESTAPI')
+    def metrics(outdir, servers, services, app, api=None):
         """Retrieve node / app metrics."""
         cell = context.GLOBAL.cell
-        nodeinfo_url = _get_nodeinfo_url(cell)
-        if not services:
-            services = _SYSTEM_SERVICES
+        nodeinfo_url = _get_nodeinfo_url(cell, api)
 
         if app:
             pattern = app.replace('%', '*')
@@ -126,10 +137,15 @@ def init():
                 watch=False
             )
 
+            app_found = False
             for (appendpoint, hostport) in discovery_iter:
                 _get_app_metrics(nodeinfo_url, outdir, appendpoint, hostport)
+                app_found = True
 
-        for server in servers:
+            if not app_found:
+                cli.bad_exit('Discovery found no trace of %s', app)
+
+        for server in servers or []:
             _get_server_metrics(nodeinfo_url, outdir, server, services)
 
     return metrics

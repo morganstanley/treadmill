@@ -7,13 +7,13 @@ import unittest
 
 # Disable W0611: Unused import
 import tests.treadmill_test_deps  # pylint: disable=W0611
+from tests.testutils import mockzk
 
 import mock
 import kazoo
 import kazoo.client
 
 from treadmill.apptrace import zk
-from treadmill.test import mockzk
 
 
 class MockStat(object):
@@ -52,12 +52,12 @@ class AppTraceZKTest(mockzk.MockZookeeperTestCase):
                 'app1': {
                     '001': {
                         # Old task, to be removed.
-                        'xxx-001': {
+                        '0.1,xxx': {
                             '.metadata': {
                                 'last_modified': time.time() - 101
                             }
                         },
-                        'yyy-002': {
+                        '0.1,yyy': {
                             '.metadata': {
                                 'last_modified': time.time() - 101
                             }
@@ -65,12 +65,12 @@ class AppTraceZKTest(mockzk.MockZookeeperTestCase):
                     },
                     # Task still active, as not all subnodes expired.
                     '002': {
-                        'xxx-001': {
+                        '0.2,xxx': {
                             '.metadata': {
                                 'last_modified': time.time() - 101
                             }
                         },
-                        'yyy-002': {
+                        '0.2,yyy': {
                             '.metadata': {
                                 'last_modified': time.time() - 10
                             }
@@ -91,13 +91,11 @@ class AppTraceZKTest(mockzk.MockZookeeperTestCase):
         kazoo.client.KazooClient.delete.assert_has_calls(
             [
                 # 002 task has > 1 event, extra will be removed.
-                mock.call('/tasks/app1/002/xxx-001'),
+                mock.call('/tasks/app1/002/0.2,xxx'),
                 # 001 task has > 1 event, extra will be removed.
-                mock.call('/tasks/app1/001/xxx-001'),
+                mock.call('/tasks/app1/001/0.1,xxx'),
                 # 001 task is expired, recursive delete.
                 mock.call('/tasks/app1/001', recursive=True),
-                # try to delete (and fail as not empty)
-                mock.call('/tasks/app1'),
             ],
             any_order=True
         )

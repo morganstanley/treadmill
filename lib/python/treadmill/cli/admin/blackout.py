@@ -85,7 +85,7 @@ def _blackout_server(zkclient, server, reason):
 def _blackout_app(zkclient, app, clear):
     """Blackout app."""
     # list current blacklist
-    blacklisted_node = z.blackedout_app(app)
+    blacklisted_node = z.path.blackedout_app(app)
     if clear:
         zkutils.ensure_deleted(zkclient, blacklisted_node)
     else:
@@ -94,8 +94,11 @@ def _blackout_app(zkclient, app, clear):
 
 def _list_blackedout_apps(zkclient):
     """List blackedout apps."""
-    for blacklisted in zkclient.get_children(z.BLACKEDOUT_APPS):
-        print blacklisted
+    try:
+        for blacklisted in zkclient.get_children(z.BLACKEDOUT_APPS):
+            print blacklisted
+    except kazoo.client.NoNodeError:
+        pass
 
 
 def init():

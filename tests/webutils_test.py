@@ -58,6 +58,20 @@ class WebUtilsTest(unittest.TestCase):
         self.assertIn('Access-Control-Allow-Origin', resp.headers)
         self.assertEquals('*', resp.headers['Access-Control-Allow-Origin'])
 
+    def test_wants_json_resp(self):
+        """Tests the accept header evaluation."""
+        app = flask.Flask(__name__)
+        app.testing = True
+
+        with app.test_request_context(headers=[('Accept', 'application/json; '
+                                                          'text/plain')]):
+            self.assertTrue(webutils.wants_json_resp(flask.request))
+
+        with app.test_request_context(headers=[('Accept', 'text/html; q=1.0, '
+                                                'text/*; q=0.8, image/gif; '
+                                                'q=0.6, image/jpeg;')]):
+            self.assertFalse(webutils.wants_json_resp(flask.request))
+
 
 if __name__ == '__main__':
     unittest.main()

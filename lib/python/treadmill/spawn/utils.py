@@ -2,26 +2,40 @@
 from __future__ import absolute_import
 
 import logging
-import socket
-
-from treadmill import subproc
+import os
+import pwd
+import zlib
 
 _LOGGER = logging.getLogger(__name__)
 
 
-def open_socket(name):
-    """Opens the socket and connected to the UDS."""
-    sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-
+def get_user_safe(path):
+    """Gets the user of the given path."""
     try:
-        sock.connect('\0' + '/tms/' + name)
-        return sock
-    except socket.error as ex:
-        _LOGGER.error(ex)
+        return pwd.getpwuid(os.stat(path).st_uid).pw_name
+    except (OSError, KeyError):
+        _LOGGER.warn('Could not get user of path %r', path)
         return None
 
 
-def exec_fstrace(path):
-    """exec's fstrace."""
-    _LOGGER.debug('watch path %r', path)
-    subproc.safe_exec(['treadmill-fstrace', path])
+def format_bucket(bucket):
+    """Formats the bucket to a string."""
+    return '{:06d}'.format(bucket)
+
+
+def get_bucket_for_name(name, buckets):
+    """Gets the bucket for the given name."""
+    return format_bucket(zlib.crc32(name) % buckets)
+
+
+def get_instance_path(path, spawn_paths):
+    """Gets the instance path for the app."""
+    name = os.path.basename(path)
+    if name.endswith('.yml'):
+        name = name[:-4]
+    bucket = get_bucket_for_name(name, spawn_paths.buckets)
+    job_path = os.path.join(spawn_paths.jobs_dir, name)
+    bucket_path = os.path.join(spawn_paths.running_dir, bucket)
+    running_path = os.path.join(bucket_path, name)
+
+    return job_path, bucket_path, running_path

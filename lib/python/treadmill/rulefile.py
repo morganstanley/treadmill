@@ -13,19 +13,58 @@ from . import fs
 
 _LOGGER = logging.getLogger(__name__)
 
-_DNAT_FILE_PATTERN = 'dnat:{proto}:{orig_ip}:{orig_port}-{new_ip}:{new_port}'
+_DNAT_FILE_PATTERN = (
+    '{chain}:dnat:'
+    '{proto}:{src_ip}:{src_port}:{dst_ip}:{dst_port}-{new_ip}:{new_port}'
+)
 
-_PASSTHROUGH_FILE_PATTERN = 'passthrough:{src_ip}-{dst_ip}'
+_SNAT_FILE_PATTERN = (
+    '{chain}:snat:'
+    '{proto}:{src_ip}:{src_port}:{dst_ip}:{dst_port}-{new_ip}:{new_port}'
+)
+
+_PASSTHROUGH_FILE_PATTERN = '{chain}:passthrough:{src_ip}-{dst_ip}'
+
+_ANY = '*'
 
 _DNAT_FILE_RE = re.compile((
     r'^' +
     _DNAT_FILE_PATTERN.format(
+        # chain
+        chain=r'(?P<chain>(?:\w{2,32}))',
         # Protocol
         proto=r'(?P<proto>(?:tcp|udp))',
-        # Original IP
-        orig_ip=r'(?P<orig_ip>(?:\d{1,3}\.){3}\d{1,3})',
-        # Original port
-        orig_port=r'(?P<orig_port>\d{1,5})',
+        # Original source IP
+        src_ip=r'(?P<src_ip>(?:(?:\d{1,3}\.){3}\d{1,3}|[*]))',
+        # Original source port
+        src_port=r'(?P<src_port>(?:\d{1,5}|[*]))',
+        # Original destination IP
+        dst_ip=r'(?P<dst_ip>(?:(?:\d{1,3}\.){3}\d{1,3}|[*]))',
+        # Original destination port
+        dst_port=r'(?P<dst_port>(?:\d{1,5}|[*]))',
+        # New IP
+        new_ip=r'(?P<new_ip>(?:\d{1,3}\.){3}\d{1,3})',
+        # New port
+        new_port=r'(?P<new_port>\d{1,5})',
+    ) +
+    r'$'
+))
+
+_SNAT_FILE_RE = re.compile((
+    r'^' +
+    _SNAT_FILE_PATTERN.format(
+        # chain
+        chain=r'(?P<chain>(?:\w{2,32}))',
+        # Protocol
+        proto=r'(?P<proto>(?:tcp|udp))',
+        # Original source IP
+        src_ip=r'(?P<src_ip>(?:(?:\d{1,3}\.){3}\d{1,3}|[*]))',
+        # Original source port
+        src_port=r'(?P<src_port>(?:\d{1,5}|[*]))',
+        # Original destination IP
+        dst_ip=r'(?P<dst_ip>(?:(?:\d{1,3}\.){3}\d{1,3}|[*]))',
+        # Original destination port
+        dst_port=r'(?P<dst_port>(?:\d{1,5}|[*]))',
         # New IP
         new_ip=r'(?P<new_ip>(?:\d{1,3}\.){3}\d{1,3})',
         # New port
@@ -37,6 +76,8 @@ _DNAT_FILE_RE = re.compile((
 _PASSTHROUGH_FILE_RE = re.compile((
     r'^' +
     _PASSTHROUGH_FILE_PATTERN.format(
+        # chain
+        chain=r'(?P<chain>(?:\w{2,32}))',
         # Source IP
         src_ip=r'(?P<src_ip>(?:\d{1,3}\.){3}\d{1,3})',
         # Destination IP
@@ -86,21 +127,66 @@ class RuleMgr(object):
         :param ``str`` rulespec:
             Forward rule in string form
         :returns:
-            ``DNATRule``|``PassThroughRule`` | ``None`` -- A tuple of the table
-            and the parsed rule. If parsing failed, returns ``None``
+            tuple(Chain, ``DNATRule`` | ``SNATRule`` | ``PassThroughRule``) |
+            ``None`` -- A tuple of a chain and a firewall rule object. If
+            parsing failed, returns ``None``
         """
         match = _DNAT_FILE_RE.match(rulespec)
         if match:
             data = match.groupdict()
-            return firewall.DNATRule(data['proto'],
-                                     data['orig_ip'], int(data['orig_port']),
-                                     data['new_ip'], int(data['new_port']))
+            return (
+                data['chain'],
+                firewall.DNATRule(
+                    proto=data['proto'],
+                    src_ip=(
+                        data['src_ip'] if data['src_ip'] != _ANY else None
+                    ),
+                    src_port=(
+                        data['src_port'] if data['src_port'] != _ANY else None
+                    ),
+                    dst_ip=(
+                        data['dst_ip'] if data['dst_ip'] != _ANY else None
+                    ),
+                    dst_port=(
+                        data['dst_port'] if data['dst_port'] != _ANY else None
+                    ),
+                    new_ip=data['new_ip'],
+                    new_port=data['new_port']
+                )
+            )
+
+        match = _SNAT_FILE_RE.match(rulespec)
+        if match:
+            data = match.groupdict()
+            return (
+                data['chain'],
+                firewall.SNATRule(
+                    proto=data['proto'],
+                    src_ip=(
+                        data['src_ip'] if data['src_ip'] != _ANY else None
+                    ),
+                    src_port=(
+                        data['src_port'] if data['src_port'] != _ANY else None
+                    ),
+                    dst_ip=(
+                        data['dst_ip'] if data['dst_ip'] != _ANY else None
+                    ),
+                    dst_port=(
+                        data['dst_port'] if data['dst_port'] != _ANY else None
+                    ),
+                    new_ip=data['new_ip'],
+                    new_port=data['new_port']
+                )
+            )
 
         match = _PASSTHROUGH_FILE_RE.match(rulespec)
         if match:
             data = match.groupdict()
-            return firewall.PassThroughRule(data['src_ip'],
-                                            data['dst_ip'])
+            return (
+                data['chain'],
+                firewall.PassThroughRule(data['src_ip'],
+                                         data['dst_ip'])
+            )
 
         return None
 
@@ -108,28 +194,30 @@ class RuleMgr(object):
         """Scrapes the network directory for redirect files.
 
         :returns:
-            ``set`` -- Set of rules in the rules directory
+            ``set`` -- Set of chain/rule tuples in the rules directory
         """
         rules = set()
 
         for entry in os.listdir(self._base_path):
-            rule = self.get_rule(entry)
-            if rule:
-                rules.add(rule)
+            chain_rule = self.get_rule(entry)
+            if chain_rule is not None:
+                rules.add(chain_rule)
             else:
                 _LOGGER.warning("Ignoring unparseable file %r", entry)
 
         return rules
 
-    def create_rule(self, rule, owner):
+    def create_rule(self, chain, rule, owner):
         """Creates a symlink who's name represents the port redirection.
 
-        :param ``DNATRule | PassThroughRule`` rule:
+        :param ``str`` chain:
+            Firewall chain where to insert the rule
+        :param ``DNATRule`` | ``SNATRule`` | ``PassThroughRule`` rule:
             Firewall Rule
         :param ``str`` owner:
             Unique container ID of the owner of the rule
         """
-        filename = self._filenameify(rule)
+        filename = self._filenameify(chain, rule)
         rule_file = os.path.join(self._base_path, filename)
         owner_file = os.path.join(self._owner_path, owner)
         try:
@@ -147,15 +235,17 @@ class RuleMgr(object):
             else:
                 raise
 
-    def unlink_rule(self, rule, owner):
+    def unlink_rule(self, chain, rule, owner):
         """Unlinks the empty file who's name represents the port redirection.
 
-        :param ``DNATRule | PassThroughRule`` rule:
+        :param ``str`` chain:
+            Firewall chain where to insert the rule
+        :param ``DNATRule`` | ``SNATRule`` | ``PassThroughRule`` rule:
             Firewall Rule
         :param ``str`` owner:
             Unique container ID of the owner of the rule
         """
-        filename = self._filenameify(rule)
+        filename = self._filenameify(chain, rule)
         rule_file = os.path.join(self._base_path, filename)
         try:
             existing_owner = os.path.basename(os.readlink(rule_file))
@@ -196,24 +286,49 @@ class RuleMgr(object):
                     raise
 
     @staticmethod
-    def _filenameify(rule):
+    def _filenameify(chain, rule):
         """Format the rule using rule patterns
 
-        :param ``DNATRule | PassThroughRule`` rule:
+        :param ``str`` chain:
+            Firewall chain where to insert the rule
+        :param ``DNATRule`` | ``SNATRule`` | ``PassThroughRule`` rule:
             Firewall Rule
         :returns:
             ``str`` -- Filename representation of the rule
         """
         if isinstance(rule, firewall.DNATRule):
             return _DNAT_FILE_PATTERN.format(
+                chain=chain,
                 proto=rule.proto,
-                orig_ip=rule.orig_ip,
-                orig_port=rule.orig_port,
+                src_ip=(
+                    _ANY if rule.src_ip is firewall.ANY_IP else rule.src_ip
+                ),
+                src_port=(rule.src_port or _ANY),
+                dst_ip=(
+                    _ANY if rule.dst_ip is firewall.ANY_IP else rule.dst_ip
+                ),
+                dst_port=(rule.dst_port or _ANY),
+                new_ip=rule.new_ip,
+                new_port=rule.new_port,
+            )
+        elif isinstance(rule, firewall.SNATRule):
+            return _SNAT_FILE_PATTERN.format(
+                chain=chain,
+                proto=rule.proto,
+                src_ip=(
+                    '*' if rule.src_ip is firewall.ANY_IP else rule.src_ip
+                ),
+                src_port=(rule.src_port or _ANY),
+                dst_ip=(
+                    '*' if rule.dst_ip is firewall.ANY_IP else rule.dst_ip
+                ),
+                dst_port=(rule.dst_port or _ANY),
                 new_ip=rule.new_ip,
                 new_port=rule.new_port,
             )
         elif isinstance(rule, firewall.PassThroughRule):
             return _PASSTHROUGH_FILE_PATTERN.format(
+                chain=chain,
                 src_ip=rule.src_ip,
                 dst_ip=rule.dst_ip,
             )

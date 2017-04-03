@@ -10,6 +10,8 @@ import treadmill
 from .. import _bootstrap_base
 from ... import context
 
+from treadmill.spawn import tree as spawn_tree
+
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -26,6 +28,7 @@ class LinuxBootstrap(_bootstrap_base.BootstrapBase):
     @abc.abstractproperty
     def _bin_path(self):
         """Gets the bin path."""
+        pass
 
     def run(self):
         """Runs the services."""
@@ -45,9 +48,11 @@ class NodeBootstrap(LinuxBootstrap):
 
     @property
     def _bin_path(self):
+        """Gets the bin path."""
         return os.path.join('bin', 'run.sh')
 
     def install(self):
+        """Installs the node services."""
         wipe_me = os.path.join(self.dst_dir, 'wipe_me')
         wipe_me_sh = os.path.join(self.dst_dir, 'bin', 'wipe_node.sh')
 
@@ -75,6 +80,7 @@ class MasterBootstrap(LinuxBootstrap):
 
     @property
     def _bin_path(self):
+        """Gets the bin path."""
         return os.path.join('treadmill', 'bin', 'run.sh')
 
     @property
@@ -99,4 +105,53 @@ class SpawnBootstrap(LinuxBootstrap):
 
     @property
     def _bin_path(self):
+        """Gets the bin path."""
         return os.path.join('bin', 'run.sh')
+
+    def install(self):
+        """Installs the spawn services."""
+        wipe_me = os.path.join(self.dst_dir, 'wipe_me')
+        wipe_me_sh = os.path.join(self.dst_dir, 'bin', 'wipe_spawn.sh')
+
+        _LOGGER.debug('wipe_me: %s, wipe_me.sh: %s', wipe_me, wipe_me_sh)
+        if os.path.exists(wipe_me):
+            _LOGGER.info('Requested clean start, calling: %s', wipe_me_sh)
+            os.system(wipe_me_sh)
+        else:
+            _LOGGER.info('Preserving treadmill data, no clean restart.')
+
+        super(SpawnBootstrap, self).install()
+
+        spawn_tree.Tree(self.dst_dir).create()
+
+
+class HAProxyBootstrap(LinuxBootstrap):
+    """For bootstrapping the haproxy processes on linux."""
+
+    def __init__(self, dst_dir, defaults):
+        super(HAProxyBootstrap, self).__init__(
+            os.path.join(treadmill.TREADMILL, 'local', 'linux', 'haproxy'),
+            dst_dir,
+            defaults
+        )
+
+    @property
+    def _bin_path(self):
+        """Gets the bin path."""
+        return os.path.join('bin', 'run.sh')
+
+    def install(self):
+        """Installs the HAProxy services."""
+        wipe_me = os.path.join(self.dst_dir, 'wipe_me')
+        wipe_me_sh = os.path.join(self.dst_dir, 'bin', 'wipe_haproxy.sh')
+
+        _LOGGER.debug('wipe_me: %s', wipe_me)
+        _LOGGER.debug('wipe_me.sh: %s', wipe_me_sh)
+
+        if os.path.exists(wipe_me):
+            _LOGGER.info('Requested clean start, calling: %s', wipe_me_sh)
+            os.system(wipe_me_sh)
+        else:
+            _LOGGER.info('Preserving treadmill data, no clean restart.')
+
+        super(HAProxyBootstrap, self).install()

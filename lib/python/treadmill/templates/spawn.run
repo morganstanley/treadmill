@@ -2,4 +2,4 @@
 
 exec 2>&1
 
-exec ${TREADMILL}/bin/treadmill sproc spawn run {{ manifest_path }}
+exec {{ treadmill_spawn_run }} -d {{ id }} {{ name }} {{ cellapi }} {{ zk2fs }}

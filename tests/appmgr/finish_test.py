@@ -18,9 +18,12 @@ import mock
 import yaml
 
 import treadmill
+
 from treadmill import firewall
 from treadmill import fs
+from treadmill import iptables
 from treadmill import utils
+
 from treadmill.apptrace import events
 from treadmill.appmgr import finish as app_finish
 
@@ -132,6 +135,9 @@ class AppMgrFinishTest(unittest.TestCase):
                     },
                 }
             ],
+            'vring': {
+                'some': 'settings'
+            }
         }
         treadmill.appmgr.manifest.read.return_value = manifest
         app_unique_name = 'proid.myapp-001-0000000ID1234'
@@ -221,24 +227,55 @@ class AppMgrFinishTest(unittest.TestCase):
         mock_cgroup_client.delete.assert_called_with(app_unique_name)
         # Cleanup network resources
         mock_nwrk_client.get.assert_called_with(app_unique_name)
-        self.app_env.rules.unlink_rule.assert_has_calls([
-            mock.call(rule=firewall.DNATRule('tcp',
-                                             '172.31.81.67', 5000,
-                                             '192.168.0.2', 8000),
-                      owner=app_unique_name),
-            mock.call(rule=firewall.DNATRule('tcp',
-                                             '172.31.81.67', 54321,
-                                             '192.168.0.2', 54321),
-                      owner=app_unique_name),
-            mock.call(rule=firewall.DNATRule('tcp',
-                                             '172.31.81.67', 45024,
-                                             '192.168.0.2', 45024),
-                      owner=app_unique_name),
-            mock.call(rule=firewall.DNATRule('udp',
-                                             '172.31.81.67', 62422,
-                                             '192.168.0.2', 62422),
-                      owner=app_unique_name),
-        ])
+        self.app_env.rules.unlink_rule.assert_has_calls(
+            [
+                mock.call(chain=iptables.PREROUTING_DNAT,
+                          rule=firewall.DNATRule(
+                              proto='tcp',
+                              dst_ip='172.31.81.67', dst_port=5000,
+                              new_ip='192.168.0.2', new_port=8000
+                          ),
+                          owner=app_unique_name),
+                mock.call(chain=iptables.POSTROUTING_SNAT,
+                          rule=firewall.SNATRule(
+                              proto='tcp',
+                              src_ip='192.168.0.2', src_port=8000,
+                              new_ip='172.31.81.67', new_port=5000
+                          ),
+                          owner=app_unique_name),
+                mock.call(chain=iptables.PREROUTING_DNAT,
+                          rule=firewall.DNATRule(
+                              proto='tcp',
+                              dst_ip='172.31.81.67', dst_port=54321,
+                              new_ip='192.168.0.2', new_port=54321
+                          ),
+                          owner=app_unique_name),
+                mock.call(chain=iptables.POSTROUTING_SNAT,
+                          rule=firewall.SNATRule(
+                              proto='tcp',
+                              src_ip='192.168.0.2', src_port=54321,
+                              new_ip='172.31.81.67', new_port=54321
+                          ),
+                          owner=app_unique_name),
+                mock.call(chain=iptables.PREROUTING_DNAT,
+                          rule=firewall.DNATRule(
+                              proto='tcp',
+                              dst_ip='172.31.81.67', dst_port=45024,
+                              new_ip='192.168.0.2', new_port=45024
+                          ),
+                          owner=app_unique_name),
+                mock.call(chain=iptables.PREROUTING_DNAT,
+                          rule=firewall.DNATRule(
+                              proto='udp',
+                              dst_ip='172.31.81.67', dst_port=62422,
+                              new_ip='192.168.0.2', new_port=62422
+                          ),
+                          owner=app_unique_name),
+
+            ],
+            any_order=True
+        )
+        self.assertEqual(self.app_env.rules.unlink_rule.call_count, 6)
         treadmill.iptables.rm_ip_set.assert_has_calls(
             [
                 mock.call(treadmill.iptables.SET_INFRA_SVC,
@@ -247,8 +284,12 @@ class AppMgrFinishTest(unittest.TestCase):
                           '192.168.0.2,tcp:45024'),
                 mock.call(treadmill.iptables.SET_INFRA_SVC,
                           '192.168.0.2,udp:62422'),
-            ]
+                mock.call(treadmill.iptables.SET_VRING_CONTAINERS,
+                          '192.168.0.2'),
+            ],
+            any_order=True
         )
+        self.assertEqual(treadmill.iptables.rm_ip_set.call_count, 4)
         mock_nwrk_client.delete.assert_called_with(app_unique_name)
         treadmill.appevents.post.assert_called_with(
             mock.ANY,
@@ -329,6 +370,9 @@ class AppMgrFinishTest(unittest.TestCase):
             'ephemeral_ports': {
                 'tcp': [],
                 'udp': [],
+            },
+            'vring': {
+                'some': 'settings'
             }
         }
         treadmill.appmgr.manifest.read.return_value = manifest
@@ -436,6 +480,9 @@ class AppMgrFinishTest(unittest.TestCase):
             'ephemeral_ports': {
                 'tcp': [],
                 'udp': [],
+            },
+            'vring': {
+                'some': 'settings'
             }
         }
         treadmill.appmgr.manifest.read.return_value = manifest
@@ -560,6 +607,9 @@ class AppMgrFinishTest(unittest.TestCase):
                     'name': 'web_server'
                 }
             ],
+            'vring': {
+                'some': 'settings'
+            }
         }
         treadmill.appmgr.manifest.read.return_value = manifest
         app_unique_name = 'proid.myapp-001-0000000ID1234'

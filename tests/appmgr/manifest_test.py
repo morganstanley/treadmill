@@ -37,6 +37,8 @@ class AppMgrManifestTest(unittest.TestCase):
     @mock.patch('treadmill.appmgr.gen_uniqueid', mock.Mock(return_value='42'))
     @mock.patch('treadmill.appmgr.manifest.read', mock.Mock())
     @mock.patch('treadmill.subproc._check', mock.Mock(return_value=True))
+    @mock.patch('treadmill.subproc.get_aliases',
+                mock.Mock(return_value={'sshd': '/path/to/sshd'}))
     def test_load(self):
         """Tests loading app manifest with resource allocation."""
         manifest = {
@@ -54,10 +56,6 @@ class AppMgrManifestTest(unittest.TestCase):
             'disk': '100G',
             'cpu': '100%',
             'memory': '100M'
-        }
-
-        treadmill.subproc.EXECUTABLES = {
-            'sshd': '/path/to/sshd',
         }
 
         treadmill.appmgr.manifest.read.return_value = manifest
@@ -125,6 +123,8 @@ class AppMgrManifestTest(unittest.TestCase):
     @mock.patch('treadmill.appmgr.manifest.read', mock.Mock())
     @mock.patch('treadmill.proiddb.environment', mock.Mock(return_value='dev'))
     @mock.patch('treadmill.subproc._check', mock.Mock(return_value=True))
+    @mock.patch('treadmill.subproc.get_aliases',
+                mock.Mock(return_value={'sshd': '/path/to/sshd'}))
     def test_load_normalize(self):
         """Test the normalization of manifests.
         """
@@ -258,6 +258,8 @@ class AppMgrManifestTest(unittest.TestCase):
     @mock.patch('treadmill.appmgr.gen_uniqueid', mock.Mock(return_value='42'))
     @mock.patch('treadmill.appmgr.manifest.read', mock.Mock())
     @mock.patch('treadmill.subproc._check', mock.Mock(return_value=True))
+    @mock.patch('treadmill.subproc.get_aliases',
+                mock.Mock(return_value={'sshd': '/path/to/sshd'}))
     def test_load_with_env(self):
         """Tests loading app manifest with resource allocation."""
         manifest = {
@@ -278,10 +280,6 @@ class AppMgrManifestTest(unittest.TestCase):
             'environ': [
                 {'name': 'xxx', 'value': 'yyy'}
             ],
-        }
-
-        treadmill.subproc.EXECUTABLES = {
-            'sshd': '/path/to/sshd',
         }
 
         treadmill.appmgr.manifest.read.return_value = manifest

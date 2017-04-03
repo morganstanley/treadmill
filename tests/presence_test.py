@@ -10,6 +10,7 @@ import unittest
 
 # Disable W0611: Unused import
 import tests.treadmill_test_deps  # pylint: disable=W0611
+from tests.testutils import mockzk
 
 import mock
 import kazoo
@@ -20,7 +21,6 @@ import treadmill
 from treadmill import exc
 from treadmill import presence
 from treadmill.apptrace import events
-from treadmill.test import mockzk
 
 
 class PresenceTest(mockzk.MockZookeeperTestCase):

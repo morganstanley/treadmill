@@ -11,19 +11,12 @@ import socket
 
 from . import firewall
 from . import iptables
-
+from . import sysinfo
 
 _LOGGER = logging.getLogger(__name__)
 
 
-def init(ring):
-    """Creates an iptable chain for the vring."""
-    iptables.create_chain('nat', ring)
-    jumprule = '-j %s' % ring
-    iptables.add_raw_rule('nat', iptables.OUTPUT, jumprule, safe=True)
-
-
-def run(ring, routing, endpoints, discovery, skip=None):
+def run(routing, endpoints, discovery, rulemgr, ip_owner, rules_owner):
     """Manage ring rules based on discovery info.
 
     :param routing:
@@ -39,13 +32,34 @@ def run(ring, routing, endpoints, discovery, skip=None):
 
         Absense of hostname:port indicates that given endpoint no longer
         exists.
-    :param skip:
-        set of hosts to skip when creating iptable rules.
+    :param ``RuleMgr`` rulemgr:
+        Firewall rule manager instance.
+    :param ``str`` rules_owner:
+        Unique name of the container owning all the rules.
+    :param ``str`` ip_owner:
+        IP of the container owning of the VRing.
     """
-    _LOGGER.info('Starting vring: %r %r %r %r',
-                 ring, routing, endpoints, skip)
+    local_host = sysinfo.hostname()
+    local_ip = socket.gethostbyname(local_host)
+
+    _LOGGER.info('Starting vring: %r %r %r %r %r',
+                 local_host, ip_owner, rules_owner, routing, endpoints)
+
+    # Add reflective rules back to the container
+    for endpoint in endpoints:
+        dnat_rule = firewall.DNATRule(
+            proto=routing[endpoint]['proto'],
+            src_ip=ip_owner,
+            dst_ip=local_ip,
+            dst_port=routing[endpoint]['port'],
+            new_ip=ip_owner,
+            new_port=routing[endpoint]['port']
+        )
+        rulemgr.create_rule(chain=iptables.VRING_DNAT,
+                            rule=dnat_rule,
+                            owner=rules_owner)
+
     vring_state = {}
-    iptables.configure_nat_rules(set(), chain=ring)
     for (app, hostport) in discovery.iteritems():
         # app is in the form appname:endpoint. We care only about endpoint
         # name.
@@ -55,11 +69,11 @@ def run(ring, routing, endpoints, discovery, skip=None):
         if endpoint not in endpoints:
             continue
 
-        private_port = int(routing[endpoint])
+        private_port = int(routing[endpoint]['port'])
         if hostport:
             host, public_port = hostport.split(':')
-            if skip and host in skip:
-                _LOGGER.info('Skipping: %s', hostport)
+
+            if host == local_host:
                 continue
 
             ipaddr = socket.gethostbyname(host)
@@ -69,20 +83,26 @@ def run(ring, routing, endpoints, discovery, skip=None):
             vring_state[app] = vring_route
             dnat_rule = firewall.DNATRule(
                 proto=proto,
-                orig_ip=ipaddr,
-                orig_port=private_port,
+                src_ip=ip_owner,
+                dst_ip=ipaddr,
+                dst_port=private_port,
                 new_ip=ipaddr,
                 new_port=public_port
             )
             snat_rule = firewall.SNATRule(
                 proto=proto,
-                orig_ip=ipaddr,
-                orig_port=public_port,
+                src_ip=ipaddr,
+                src_port=public_port,
+                dst_ip=ip_owner,
                 new_ip=ipaddr,
                 new_port=private_port
             )
-            iptables.add_dnat_rule(dnat_rule, chain=ring)
-            iptables.add_snat_rule(snat_rule, chain=ring)
+            rulemgr.create_rule(chain=iptables.VRING_DNAT,
+                                rule=dnat_rule,
+                                owner=rules_owner)
+            rulemgr.create_rule(chain=iptables.VRING_SNAT,
+                                rule=snat_rule,
+                                owner=rules_owner)
 
         else:
             vring_route = vring_state.pop(app, None)
@@ -93,17 +113,23 @@ def run(ring, routing, endpoints, discovery, skip=None):
             proto, ipaddr, public_port = vring_route
             dnat_rule = firewall.DNATRule(
                 proto=proto,
-                orig_ip=ipaddr,
-                orig_port=private_port,
+                src_ip=ip_owner,
+                dst_ip=ipaddr,
+                dst_port=private_port,
                 new_ip=ipaddr,
                 new_port=public_port
             )
             snat_rule = firewall.SNATRule(
                 proto=proto,
-                orig_ip=ipaddr,
-                orig_port=public_port,
+                src_ip=ipaddr,
+                src_port=public_port,
+                dst_ip=ip_owner,
                 new_ip=ipaddr,
                 new_port=private_port,
             )
-            iptables.delete_dnat_rule(dnat_rule, chain=ring)
-            iptables.delete_snat_rule(snat_rule, chain=ring)
+            rulemgr.unlink_rule(chain=iptables.VRING_DNAT,
+                                rule=dnat_rule,
+                                owner=rules_owner)
+            rulemgr.unlink_rule(chain=iptables.VRING_SNAT,
+                                rule=snat_rule,
+                                owner=rules_owner)

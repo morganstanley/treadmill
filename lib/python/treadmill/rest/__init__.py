@@ -51,12 +51,22 @@ class RestServer(object):
 class TcpRestServer(RestServer):
     """TCP based REST Server."""
 
-    def __init__(self, port, host='0.0.0.0', auth_type=None, protect=None):
-        """Init method."""
+    def __init__(self, port, host='0.0.0.0', auth_type=None, protect=None,
+                 workers=0):
+        """Init methods
+
+        :param int port: port number to listen on (required)
+        :param str host: host IP to listen on, default is '0.0.0.0'
+        :param str auth_type: the auth type, default is None
+        :param str protect: which URLs to protect, default is None
+        :param int workers: the number of workers to be forked, defaults to 0,
+            which is 5 in tornado, I know, weird, but that is their defaults.
+        """
         self.port = int(port)
         self.host = host
         self.auth_type = auth_type
         self.protect = protect
+        self.workers = workers
 
     def _setup_auth(self):
         """Setup the http authentication."""
@@ -76,7 +86,11 @@ class TcpRestServer(RestServer):
 
     def _setup_endpoint(self, http_server):
         """Setup the http server endpoint."""
-        http_server.listen(self.port)
+        if self.workers:
+            http_server.bind(self.port)
+            http_server.start(self.workers)
+        else:
+            http_server.listen(self.port)
 
 
 class UdsRestServer(RestServer):

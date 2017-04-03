@@ -5,6 +5,7 @@ Unit test for treadmill.appmgr.run
 # Disable C0302: Too many lines in module.
 # pylint: disable=C0302
 
+import errno
 import os
 import pwd
 import shutil
@@ -22,9 +23,11 @@ import mock
 
 import treadmill
 from treadmill import appmgr
+from treadmill import exc
 from treadmill import firewall
-from treadmill import utils
 from treadmill import fs
+from treadmill import iptables
+from treadmill import utils
 
 from treadmill.appmgr import run as app_run
 
@@ -204,13 +207,10 @@ class AppMgrRunTest(unittest.TestCase):
     @mock.patch('treadmill.utils.touch', mock.Mock())
     @mock.patch('treadmill.utils.rootdir',
                 mock.Mock(return_value='/test_treadmill'))
+    @mock.patch('treadmill.subproc.get_aliases', mock.Mock(return_value={
+        'chroot': '/bin/ls', 'pid1': '/bin/ls'}))
     def test__create_supervision_tree(self):
         """Test creation of the supervision tree."""
-        # pylint: disable=W0212
-        treadmill.subproc.EXECUTABLES = {
-            'chroot': '/bin/ls',
-            'pid1': '/bin/ls',
-        }
         # Access protected module _create_supervision_tree
         # pylint: disable=W0212
         app = utils.to_obj(
@@ -343,11 +343,9 @@ class AppMgrRunTest(unittest.TestCase):
         treadmill.utils.create_script.assert_has_calls([
             mock.call('/some/dir/sys/.s6-svscan/finish',
                       'svscan.finish',
-                      services_dir='/some/dir/sys',
                       timeout=mock.ANY),
             mock.call('/some/dir/services/.s6-svscan/finish',
                       'svscan.finish',
-                      services_dir='/services',
                       timeout=mock.ANY),
             mock.call('/some/dir/services/command1/log/run', 'logger.run'),
             mock.call('/some/dir/services/command2/log/run', 'logger.run'),
@@ -385,6 +383,39 @@ class AppMgrRunTest(unittest.TestCase):
         treadmill.utils.touch.assert_has_calls([
             mock.call('/some/dir/sys/start_container/down'),
         ])
+
+    @mock.patch('socket.socket.bind', mock.Mock())
+    def test__allocate_sockets(self):
+        """Test allocating sockets.
+        """
+        # access protected module _allocate_sockets
+        # pylint: disable=w0212
+
+        socket.socket.bind.side_effect = [
+            socket.error(errno.EADDRINUSE, 'In use'),
+            mock.DEFAULT,
+            mock.DEFAULT,
+            mock.DEFAULT
+        ]
+
+        sockets = treadmill.appmgr.run._allocate_sockets('prod', '0.0.0.0',
+                                                         socket.SOCK_STREAM, 3)
+
+        self.assertEquals(3, len(sockets))
+
+    @mock.patch('socket.socket.bind', mock.Mock())
+    def test__allocate_sockets_fail(self):
+        """Test allocating sockets when all are taken.
+        """
+        # access protected module _allocate_sockets
+        # pylint: disable=w0212
+
+        socket.socket.bind.side_effect = socket.error(errno.EADDRINUSE,
+                                                      'In use')
+
+        with self.assertRaises(exc.ContainerSetupError):
+            treadmill.appmgr.run._allocate_sockets('prod', '0.0.0.0',
+                                                   socket.SOCK_STREAM, 3)
 
     @mock.patch('socket.socket', mock.Mock(autospec=True))
     @mock.patch('treadmill.appmgr.run._allocate_sockets', mock.Mock())
@@ -495,30 +526,59 @@ class AppMgrRunTest(unittest.TestCase):
                         'port': '12345'
                     }
                 ],
+                'vring': {
+                    'some': 'data'
+                }
             }
         )
         app_unique_name = appmgr.app_unique_name(app)
 
         appmgr.run._unshare_network(self.app_env, app)
 
-        treadmill.iptables.add_ip_set.assert_has_calls([
-            mock.call(treadmill.iptables.SET_INFRA_SVC,
-                      '192.168.1.1,tcp:22'),
-        ])
+        treadmill.iptables.add_ip_set.assert_has_calls(
+            [
+                mock.call(treadmill.iptables.SET_VRING_CONTAINERS,
+                          '192.168.1.1'),
+                mock.call(treadmill.iptables.SET_INFRA_SVC,
+                          '192.168.1.1,tcp:22'),
+            ],
+            any_order=True
+        )
 
         self.app_env.rules.create_rule.assert_has_calls(
             [
-                mock.call(rule=firewall.DNATRule('tcp',
-                                                 '172.31.81.67', '5007',
-                                                 '192.168.1.1', '22'),
+                mock.call(chain=iptables.PREROUTING_DNAT,
+                          rule=firewall.DNATRule(
+                              proto='tcp',
+                              dst_ip='172.31.81.67', dst_port='5007',
+                              new_ip='192.168.1.1', new_port='22'
+                          ),
                           owner=app_unique_name),
-                mock.call(rule=firewall.DNATRule('udp',
-                                                 '172.31.81.67', '5013',
-                                                 '192.168.1.1', '12345'),
+                mock.call(chain=iptables.POSTROUTING_SNAT,
+                          rule=firewall.SNATRule(
+                              proto='tcp',
+                              src_ip='192.168.1.1', src_port='22',
+                              new_ip='172.31.81.67', new_port='5007'
+                          ),
+                          owner=app_unique_name),
+                mock.call(chain=iptables.PREROUTING_DNAT,
+                          rule=firewall.DNATRule(
+                              proto='udp',
+                              dst_ip='172.31.81.67', dst_port='5013',
+                              new_ip='192.168.1.1', new_port='12345'
+                          ),
+                          owner=app_unique_name),
+                mock.call(chain=iptables.POSTROUTING_SNAT,
+                          rule=firewall.SNATRule(
+                              proto='udp',
+                              src_ip='192.168.1.1', src_port='12345',
+                              new_ip='172.31.81.67', new_port='5013'
+                          ),
                           owner=app_unique_name)
             ],
             any_order=True
         )
+        self.assertEqual(self.app_env.rules.create_rule.call_count, 4)
         treadmill.newnet.create_newnet.assert_called_with(
             'id1234.0',
             '192.168.1.1',
@@ -568,6 +628,9 @@ class AppMgrRunTest(unittest.TestCase):
                     'yyy',
                     'zzz',
                 ],
+                'vring': {
+                    'some': 'data'
+                }
             }
         )
         app_unique_name = appmgr.app_unique_name(app)
@@ -586,47 +649,77 @@ class AppMgrRunTest(unittest.TestCase):
 
         self.app_env.rules.create_rule.assert_has_calls(
             [
-                mock.call(rule=firewall.DNATRule('tcp',
-                                                 '172.31.81.67', 54321,
-                                                 '192.168.0.2', 54321),
+                mock.call(chain=iptables.PREROUTING_DNAT,
+                          rule=firewall.DNATRule(
+                              proto='tcp',
+                              dst_ip='172.31.81.67', dst_port=54321,
+                              new_ip='192.168.0.2', new_port=54321),
                           owner=app_unique_name),
-                mock.call(rule=firewall.DNATRule('udp',
-                                                 '172.31.81.67', 54322,
-                                                 '192.168.0.2', 54322),
+                mock.call(chain=iptables.POSTROUTING_SNAT,
+                          rule=firewall.SNATRule(
+                              proto='tcp',
+                              src_ip='192.168.0.2', src_port=54321,
+                              new_ip='172.31.81.67', new_port=54321),
                           owner=app_unique_name),
-                mock.call(rule=firewall.DNATRule('tcp',
-                                                 '172.31.81.67', 10000,
-                                                 '192.168.0.2', 10000),
+                mock.call(chain=iptables.PREROUTING_DNAT,
+                          rule=firewall.DNATRule(
+                              proto='udp',
+                              dst_ip='172.31.81.67', dst_port=54322,
+                              new_ip='192.168.0.2', new_port=54322),
                           owner=app_unique_name),
-                mock.call(rule=firewall.DNATRule('tcp',
-                                                 '172.31.81.67', 10001,
-                                                 '192.168.0.2', 10001),
+                mock.call(chain=iptables.POSTROUTING_SNAT,
+                          rule=firewall.SNATRule(
+                              proto='udp',
+                              src_ip='192.168.0.2', src_port=54322,
+                              new_ip='172.31.81.67', new_port=54322),
                           owner=app_unique_name),
-                mock.call(rule=firewall.DNATRule('tcp',
-                                                 '172.31.81.67', 10002,
-                                                 '192.168.0.2', 10002),
+                mock.call(chain=iptables.PREROUTING_DNAT,
+                          rule=firewall.DNATRule(
+                              proto='tcp',
+                              dst_ip='172.31.81.67', dst_port=10000,
+                              new_ip='192.168.0.2', new_port=10000),
                           owner=app_unique_name),
-                mock.call(rule=firewall.PassThroughRule('4.4.4.4',
+                mock.call(chain=iptables.PREROUTING_DNAT,
+                          rule=firewall.DNATRule(
+                              proto='tcp',
+                              dst_ip='172.31.81.67', dst_port=10001,
+                              new_ip='192.168.0.2', new_port=10001),
+                          owner=app_unique_name),
+                mock.call(chain=iptables.PREROUTING_DNAT,
+                          rule=firewall.DNATRule(
+                              proto='tcp',
+                              dst_ip='172.31.81.67', dst_port=10002,
+                              new_ip='192.168.0.2', new_port=10002),
+                          owner=app_unique_name),
+                mock.call(chain=iptables.PREROUTING_PASSTHROUGH,
+                          rule=firewall.PassThroughRule('4.4.4.4',
                                                         '192.168.0.2'),
                           owner=app_unique_name),
-                mock.call(rule=firewall.PassThroughRule('5.5.5.5',
+                mock.call(chain=iptables.PREROUTING_PASSTHROUGH,
+                          rule=firewall.PassThroughRule('5.5.5.5',
                                                         '192.168.0.2'),
                           owner=app_unique_name),
             ],
             any_order=True
         )
+        self.assertEqual(self.app_env.rules.create_rule.call_count, 9)
 
         # Check that infra services + ephemeral ports are in the same set.
-        treadmill.iptables.add_ip_set.assert_has_calls([
-            mock.call(treadmill.iptables.SET_INFRA_SVC,
-                      '192.168.0.2,tcp:54321'),
-            mock.call(treadmill.iptables.SET_INFRA_SVC,
-                      '192.168.0.2,tcp:10000'),
-            mock.call(treadmill.iptables.SET_INFRA_SVC,
-                      '192.168.0.2,tcp:10001'),
-            mock.call(treadmill.iptables.SET_INFRA_SVC,
-                      '192.168.0.2,tcp:10002'),
-        ])
+        treadmill.iptables.add_ip_set.assert_has_calls(
+            [
+                mock.call(treadmill.iptables.SET_VRING_CONTAINERS,
+                          '192.168.0.2'),
+                mock.call(treadmill.iptables.SET_INFRA_SVC,
+                          '192.168.0.2,tcp:54321'),
+                mock.call(treadmill.iptables.SET_INFRA_SVC,
+                          '192.168.0.2,tcp:10000'),
+                mock.call(treadmill.iptables.SET_INFRA_SVC,
+                          '192.168.0.2,tcp:10001'),
+                mock.call(treadmill.iptables.SET_INFRA_SVC,
+                          '192.168.0.2,tcp:10002'),
+            ],
+            any_order=True
+        )
 
         treadmill.newnet.create_newnet.assert_called_with(
             'id1234.0',
@@ -650,6 +743,11 @@ class AppMgrRunTest(unittest.TestCase):
     @mock.patch('treadmill.subproc.check_call', mock.Mock())
     @mock.patch('treadmill.utils.rootdir',
                 mock.Mock(return_value='/treadmill'))
+    @mock.patch('treadmill.subproc.get_aliases',
+                mock.Mock(return_value={
+                    'treadmill_bind_preload.so':
+                        '/some/$LIB/treadmill_bind_preload.so'
+                }))
     def test_run(self):
         """Tests appmgr.run sequence, which will result in supervisor exec.
         """
@@ -722,9 +820,6 @@ class AppMgrRunTest(unittest.TestCase):
         treadmill.appmgr.run._allocate_network_ports.side_effect = \
             _fake_allocate_network_ports
         mock_watchdog = mock.Mock()
-
-        treadmill.subproc.EXECUTABLES['treadmill_bind_preload.so'] = (
-            '/some/$LIB/treadmill_bind_preload.so')
 
         app_run.run(
             self.app_env, app_dir, mock_watchdog, terminated=()
@@ -1005,6 +1100,7 @@ class AppMgrRunTest(unittest.TestCase):
     @mock.patch('treadmill.fs.mount_bind', mock.Mock())
     @mock.patch('treadmill.utils.rootdir', mock.Mock(return_value='/some/dir'))
     @mock.patch('treadmill.subproc.resolve', mock.Mock(return_value=''))
+    @mock.patch('treadmill.subproc.get_aliases', mock.Mock(return_value={}))
     def test_sysdir_cleanslate(self):
         """Verifies that sys directories are always clean slate."""
         # Disable access to protected member warning.

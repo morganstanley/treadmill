@@ -6,13 +6,151 @@ import errno
 import logging
 import os
 import tarfile
+import thread
 
 import yaml
 
-from .. import appmgr
+from treadmill import appmgr
+from treadmill import logcontext as lc
+from treadmill import rrdutils
+from treadmill.exc import FileNotFoundError
 
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER = lc.ContainerAdapter(logging.getLogger(__name__))
+
+
+def _temp_file_name():
+    """Construct a temporary file name for each thread."""
+    f_name = 'local-{}.temp'.format(thread.get_ident())
+
+    return os.path.join(os.path.sep, 'tmp', f_name)
+
+
+def _get_file(fname=None,
+              arch_fname=None,
+              arch_extract=True,
+              arch_extract_fname=None):
+    """Return the file pointed by "fname" or extract it from archive.
+
+    Return fname if the specified file exists or extract
+    'arch_extract_fname' from 'arch_fname' first and return the path to
+    the extracted file.
+    """
+    if os.path.exists(fname):
+        return fname
+
+    if not arch_extract:
+        raise FileNotFoundError('{} cannot be found.'.format(fname))
+
+    _LOGGER.info('Extract %s from archive %s', arch_extract_fname, arch_fname)
+
+    if not os.path.exists(arch_fname):
+        raise FileNotFoundError('{} cannot be found.'.format(arch_fname))
+
+    try:
+        # extract the req. file from the archive and copy it to a temp file
+        copy = _temp_file_name()
+        with tarfile.open(arch_fname) as archive, open(copy, 'w+b') as copy_fd:
+            member = archive.extractfile(arch_extract_fname)
+            copy_fd.writelines(member.readlines())
+            copy_fd.close()
+    except KeyError as err:
+        _LOGGER.error(err)
+        raise FileNotFoundError('The file {} cannot be found in {}'.format(
+            arch_extract_fname, arch_fname))
+
+    return copy
+
+
+class _MetricsAPI(object):
+    """Acess to the locally gathered metrics."""
+
+    def __init__(self, app_env_func):
+
+        self.app_env = app_env_func
+
+    def _remove_ext(self, fname, extension='.rrd'):
+        """Returns the basename of a file and removes the extension as well.
+        """
+        res = os.path.basename(fname)
+        res = res[:-len(extension)]
+
+        return res
+
+    def get(self, rsrc_id, as_json=False):
+        """Return the rrd metrics."""
+        with lc.LogContext(_LOGGER, rsrc_id) as log:
+            log.info('Get metrics')
+            id_ = self._unpack_id(rsrc_id)
+            file_ = self._get_rrd_file(**id_)
+
+            if as_json:
+                return rrdutils.get_json_metrics(file_)
+
+            return file_
+
+    def _unpack_id(self, rsrc_id):
+        """Decompose resource_id to a dictionary.
+
+        Unpack the (core) service name or the application name and "uniq name"
+        from rsrc_id to a dictionary.
+        """
+        if '/' in rsrc_id:
+            app, uniq = rsrc_id.split('/')
+            return {'app': app, 'uniq': uniq}
+
+        return {'service': rsrc_id}
+
+    def _get_rrd_file(
+            self, service=None,
+            app=None, uniq=None,
+            arch_extract=True):
+        """Return the rrd file path of an app or a core service."""
+        if uniq is None:
+            return self._core_rrd_file(service)
+
+        if uniq == 'running':
+            arch_extract = False
+            # find out uniq ...
+            state_yml = os.path.join(self.app_env().running_dir, app,
+                                     'state.yml')
+            with open(state_yml) as f:
+                uniq = yaml.load(f.read())['uniqueid']
+
+        return self._app_rrd_file(app, uniq, arch_extract)
+
+    def _app_rrd_file(self, app, uniq, arch_extract=True):
+        """Return an application's rrd file."""
+        _LOGGER.info('Return %s', self._metrics_fpath(app=app, uniq=uniq))
+
+        return _get_file(
+            self._metrics_fpath(app=app, uniq=uniq),
+            arch_extract=arch_extract,
+            arch_fname=os.path.join(self.app_env().archives_dir,
+                                    '%s-%s.sys.tar.gz' %
+                                    (app.replace('#', '-'), uniq)),
+            arch_extract_fname='metrics.rrd')
+
+    def _core_rrd_file(self, service):
+        """Return the given service's rrd file."""
+        _LOGGER.info('Return %s', self._metrics_fpath(service))
+
+        return _get_file(self._metrics_fpath(service), arch_extract=False)
+
+    def _metrics_fpath(self, service=None, app=None, uniq=None):
+        """Return the rrd metrics file's full path."""
+        if service is not None:
+            return os.path.join(self.app_env().metrics_dir, 'core',
+                                service + '.rrd')
+
+        return os.path.join(self.app_env().metrics_dir, 'apps',
+                            '%s-%s.rrd' % (app.replace('#', '-'), uniq))
+
+    def file_path(self, rsrc_id):
+        """Return the rrd metrics file path."""
+        id_ = self._unpack_id(rsrc_id)
+
+        return self._metrics_fpath(**id_)
 
 
 class API(object):
@@ -22,7 +160,7 @@ class API(object):
 
         self._app_env = None
 
-        def app_env():
+        def app_env(_metrics_api=None):
             """Lazy instantiate app environment."""
             if not self._app_env:
                 # TODO: we need to pass this parameter to api, unfortunately
@@ -89,11 +227,32 @@ class API(object):
                         continue
             return result
 
-        def _list(state=None):
+        def _list_services():
+            """List the local services."""
+            result = {}
+            services_glob = os.path.join(app_env().init_dir, '*')
+            for svc in glob.glob(services_glob):
+                try:
+                    svc_name = os.path.basename(svc)
+                    ctime = os.stat(os.path.join(svc, 'log',
+                                                 'current')).st_ctime
+                    result[svc] = {
+                        '_id': svc_name,
+                        'ctime': ctime,
+                        'state': 'running',
+                        }
+                except OSError as oserr:
+                    if oserr.errno == errno.ENOENT:
+                        continue
+            return result
+
+        def _list(state=None, inc_svc=False):
             """List all instances on the node."""
             result = {}
             if state is None or state == 'running':
                 result.update(_list_running())
+                if inc_svc:
+                    result.update(_list_services())
             if state is None or state == 'finished':
                 result.update(_list_finished())
             return result.values()
@@ -121,8 +280,8 @@ class API(object):
                     member = archive.extractfile('state.yml')
                     return yaml.load(member.read())
 
-        def _yield_log(instance, uniq, logtype, component):
-            """Yield lines from the log file."""
+        def _get_logfile(instance, uniq, logtype, component):
+            """Return the corresponding log file."""
             _LOGGER.info('Log: %s %s %s %s',
                          instance, uniq, logtype, component)
             if logtype == 'sys':
@@ -135,31 +294,27 @@ class API(object):
             else:
                 fname = os.path.join(_app_path(instance, uniq), logfile)
 
-            try:
-                with open(fname) as f:
-                    for line in f:
-                        yield line
-
-            except EnvironmentError as err:
-                if uniq == 'running' or err.errno != errno.ENOENT:
-                    raise
-
-                fname = _archive_path(logtype, instance, uniq)
-                _LOGGER.info('From archive: %s', fname)
-
-                with tarfile.open(fname) as archive:
-                    member = archive.extractfile(logfile)
-                    for line in member:
-                        yield line
+            _LOGGER.info('Logfile: %s', fname)
+            return _get_file(fname,
+                             arch_fname=_archive_path(logtype, instance, uniq),
+                             arch_extract=bool(uniq != 'running'),
+                             arch_extract_fname=logfile)
 
         class _LogAPI(object):
             """Access to log files."""
             def __init__(self):
 
+                def _yield_log(log_file):
+                    """Generator that returns the content of the log file."""
+                    with open(log_file) as log:
+                        for line in log:
+                            yield line
+
                 def _get(log_id):
                     """Get log file."""
                     instance, uniq, logtype, component = log_id.split('/')
-                    return _yield_log(instance, uniq, logtype, component)
+                    return _yield_log(_get_logfile(instance, uniq, logtype,
+                                                   component))
 
                 self.get = _get
 
@@ -170,7 +325,12 @@ class API(object):
                 def _get(archive_id):
                     """Get log file."""
                     instance, uniq, logtype = archive_id.split('/')
-                    return _archive_path(logtype, instance, uniq)
+                    arch_path = _archive_path(logtype, instance, uniq)
+                    if not os.path.exists(arch_path):
+                        raise FileNotFoundError(
+                            '{} cannot be found.'.format(arch_path))
+
+                    return arch_path
 
                 self.get = _get
 
@@ -178,6 +338,7 @@ class API(object):
         self.get = _get
         self.log = _LogAPI()
         self.archive = _ArchiveAPI()
+        self.metrics = _MetricsAPI(app_env)
 
 
 def init(_authorizer):

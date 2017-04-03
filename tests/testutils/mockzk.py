@@ -42,7 +42,8 @@ class MockZookeeperMetadata(namedtuple('MockZookeeperMetadata',
                                         'ctime',
                                         'mzxid',
                                         'mtime',
-                                        'ephemeralOwner'])):
+                                        'ephemeralOwner',
+                                        'children_count'])):
     """Subset of the Zookeeper metadata we are using."""
 
     # namedtuple classes dont have an __init__, that's ok
@@ -83,6 +84,7 @@ class MockZookeeperMetadata(namedtuple('MockZookeeperMetadata',
         czxid = value_dict.get('czxid', zxid)
         mtime = value_dict.get('mtime', timestamp_ms)
         mzxid = value_dict.get('mzxid', zxid)
+        children_count = value_dict.get('children_count', 0)
         ephemeralOwner = value_dict.get('ephemeralOwner', 0)
 
         if 'creation_transaction_id' in value_dict:
@@ -95,7 +97,8 @@ class MockZookeeperMetadata(namedtuple('MockZookeeperMetadata',
             mtime = int(value_dict['last_modified'] * 100)
 
         return cls(ctime=ctime, czxid=czxid, mtime=mtime, mzxid=mzxid,
-                   ephemeralOwner=ephemeralOwner)
+                   ephemeralOwner=ephemeralOwner,
+                   children_count=children_count)
 
 
 class MockZookeeperTestCase(unittest.TestCase):
@@ -178,6 +181,10 @@ class MockZookeeperTestCase(unittest.TestCase):
                 meta_values = content.pop('.metadata', {})
                 meta_dict.update(meta_values)
                 data = content.pop('.data', yaml.dump(content))
+                # Allow override for mock testing, if not set, derive
+                # children_count from num of children from the mock data.
+                if 'children_count' not in meta_dict:
+                    meta_dict['children_count'] = len(content)
             else:
                 data = content
 

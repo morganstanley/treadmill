@@ -21,6 +21,75 @@ from treadmill.apptrace import (events, printer)
 _LOGGER = logging.getLogger(__name__)
 
 
+class _RetryError(Exception):
+    """Error indicating that retry attempt should be made."""
+
+    def __init__(self, since):
+        Exception.__init__(self)
+        self.since = since
+
+
+def _ws_events(ws_conn, app, snapshot, since):
+    """Process websocket trace events."""
+
+    last_timestamp = None
+    try:
+        ws_conn.send(json.dumps({'topic': '/trace',
+                                 'filter': app,
+                                 'since': since,
+                                 'snapshot': snapshot}))
+
+        trace_printer = printer.AppTracePrinter()
+        while True:
+            reply = ws_conn.recv()
+            if not reply:
+                break
+
+            result = json.loads(reply)
+            if '_error' in result:
+                click.echo('Error: %s' % result['_error'], err=True)
+                break
+
+            event = events.AppTraceEvent.from_dict(result['event'])
+            if event is None:
+                break
+
+            last_timestamp = event.timestamp
+            trace_printer.process(event)
+            if isinstance(event, events.DeletedTraceEvent):
+                break
+
+    except ws_client.WebSocketConnectionClosedException:
+        _LOGGER.debug('ws connection closed, retrying.')
+        raise _RetryError(last_timestamp)
+
+    finally:
+        ws_conn.close()
+
+
+def _trace_loop(ctx, app, snapshot):
+    """Instance trace loop."""
+    ws_conn = None
+    since = 0
+
+    while True:
+        apis = context.GLOBAL.ws_api(ctx['wsapi'])
+        for api in apis:
+            try:
+                ws_conn = ws_client.create_connection(api)
+                _LOGGER.debug('Using API %s', api)
+                return _ws_events(ws_conn, app, snapshot, since)
+            except socket.error:
+                _LOGGER.debug('Connection failed, trying next: %s', api)
+                continue
+            except _RetryError as retry_err:
+                since = retry_err.since
+
+        if not ws_conn:
+            click.echo('Could not connect to any Websocket APIs', err=True)
+            sys.exit(-1)
+
+
 def init():
     """Return top level command handler."""
 
@@ -95,42 +164,6 @@ def init():
                     instanceid=sorted(trace_info['instances'])[-1]
                 )
 
-        apis = context.GLOBAL.ws_api(ctx['wsapi'])
-        ws = None
-        for api in apis:
-            try:
-                ws = ws_client.create_connection(api)
-                _LOGGER.debug('Using API %s', api)
-                break
-            except socket.error:
-                _LOGGER.debug('Could not connect to %s, trying next SRV '
-                              'record', api)
-                continue
-
-        if not ws:
-            click.echo('Could not connect to any Websocket APIs', err=True)
-            sys.exit(-1)
-
-        ws.send(json.dumps({'topic': '/trace',
-                            'filter': app,
-                            'snapshot': snapshot}))
-
-        trace_printer = printer.AppTracePrinter()
-        while True:
-            reply = ws.recv()
-            if not reply:
-                break
-            result = json.loads(reply)
-            if '_error' in result:
-                click.echo('Error: %s' % result['_error'], err=True)
-                break
-
-            event = events.AppTraceEvent.from_dict(result['event'])
-            if event is None:
-                continue
-
-            trace_printer.process(event)
-
-        ws.close()
+        return _trace_loop(ctx, app, snapshot)
 
     return trace

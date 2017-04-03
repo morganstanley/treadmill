@@ -3,7 +3,6 @@ from __future__ import absolute_import
 
 import importlib
 import logging
-import os
 import time
 
 import click
@@ -11,7 +10,6 @@ import click
 from treadmill import context
 from treadmill import admin
 from treadmill import zkutils
-from treadmill import sysinfo
 from treadmill import zknamespace as z
 
 
@@ -111,11 +109,10 @@ def init():
                   help='Run without lock.')
     def top(no_lock):
         """Sync LDAP data with Zookeeper data."""
-        context.GLOBAL.zk.conn.ensure_path('/cellsync-election')
-        me = '%s.%d' % (sysinfo.hostname(), os.getpid())
-        lock = context.GLOBAL.zk.conn.Lock('/cellsync-election', me)
         if not no_lock:
             _LOGGER.info('Waiting for leader lock.')
+            lock = zkutils.make_lock(context.GLOBAL.zk.conn,
+                                     z.path.election(__name__))
             with lock:
                 _run_sync()
         else:

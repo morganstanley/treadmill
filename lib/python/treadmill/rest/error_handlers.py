@@ -16,6 +16,7 @@ import kazoo
 
 from treadmill import authz
 from treadmill import exc
+from treadmill import webutils
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -24,73 +25,96 @@ _LOGGER = logging.getLogger(__name__)
 def register(api):
     """Register common error handlers."""
 
+    def _cors_headers():
+        return webutils.cors_make_headers(base_origin='.*',
+                                          max_age=21600,
+                                          credentials=True,
+                                          content_type='application/json')
+
     @api.errorhandler(authz.AuthorizationError)
     def _authorization_exc(err):
         """Authorization exception handler."""
         _LOGGER.info('Authorization error: %r', err)
-        return {'message': err.message,
-                'status': httplib.UNAUTHORIZED}, httplib.UNAUTHORIZED
+        resp = {'message': err.message,
+                'status': httplib.UNAUTHORIZED}
+        return resp, httplib.UNAUTHORIZED, _cors_headers()
 
     @api.errorhandler(kazoo.exceptions.NoNodeError)
     def _zookeeper_notfound(err):
         """Zookeeper nonode exception handler."""
         _LOGGER.info('Zookeeper not found error: %r', err)
-        return {'message': 'Resource not found',
-                'status': httplib.NOT_FOUND}, httplib.NOT_FOUND
+        resp = {'message': 'Resource not found',
+                'status': httplib.NOT_FOUND}
+        return resp, httplib.NOT_FOUND, _cors_headers()
 
     @api.errorhandler(kazoo.exceptions.NodeExistsError)
     def _zookeeper_exists(err):
         """Zookeeper node exists exception handler."""
         _LOGGER.info('Zookeeper node exists error: %r', err)
-        return {'message': 'Resource already exists',
-                'status': httplib.FOUND}, httplib.FOUND
+        resp = {'message': 'Resource already exists',
+                'status': httplib.FOUND}
+        return resp, httplib.FOUND, _cors_headers()
 
     @api.errorhandler(kazoo.exceptions.KazooException)
     def _zookeeper_exc(err):
         """Zookeeper exception handler."""
         _LOGGER.exception('Zookeeper error: %r', err)
-        return {
+        resp = {
             'message': err.message,
             'status': httplib.INTERNAL_SERVER_ERROR
-        }, httplib.INTERNAL_SERVER_ERROR
+        }
+        return resp, httplib.INTERNAL_SERVER_ERROR, _cors_headers()
 
     @api.errorhandler(ldap3.LDAPEntryAlreadyExistsResult)
     def _ldap_found_exc(err):
         """LDAP exception handler."""
         _LOGGER.info('Ldap already exists error: %r', err)
-        return {'message': err.result,
-                'status': httplib.FOUND}, httplib.FOUND
+        resp = {'message': err.result,
+                'status': httplib.FOUND}
+        return resp, httplib.FOUND, _cors_headers()
 
     @api.errorhandler(ldap3.LDAPNoSuchObjectResult)
     def _ldap_not_found_exc(err):
         """LDAP exception handler."""
         _LOGGER.exception('Ldap no such object error: %r', err)
-        return {'message': err.message,
-                'status': httplib.NOT_FOUND}, httplib.NOT_FOUND
+        resp = {'message': err.message,
+                'status': httplib.NOT_FOUND}
+        return resp, httplib.NOT_FOUND, _cors_headers()
+
+    @api.errorhandler(exc.FileNotFoundError)
+    def _file_not_found_exc(err):
+        """Nodeinfo/local module exception handler."""
+        _LOGGER.exception('File not found error: %r', err)
+        resp = {'message': err.message,
+                'status': httplib.NOT_FOUND}
+        return resp, httplib.NOT_FOUND, _cors_headers()
 
     @api.errorhandler(jsonschema.exceptions.ValidationError)
     def _json_validation_error_exc(err):
         """JSON Schema Validation error exception handler."""
         _LOGGER.info('Schema validation error: %r', err)
-        return {'message': err.message,
-                'status': httplib.BAD_REQUEST}, httplib.BAD_REQUEST
+        resp = {'message': err.message,
+                'status': httplib.BAD_REQUEST}
+        return resp, httplib.BAD_REQUEST, _cors_headers()
 
     @api.errorhandler(exc.TreadmillError)
     def _treadmill_exc(err):
         """Treadmill exception handler."""
         _LOGGER.exception('Treadmill error: %r', err)
-        return {
+        resp = {
             'message': err.message,
             'status': httplib.INTERNAL_SERVER_ERROR
-        }, httplib.INTERNAL_SERVER_ERROR
+        }
+        return resp, httplib.INTERNAL_SERVER_ERROR, _cors_headers()
 
     def _internal_server_error(err):
         """Unhandled exception handler."""
         _LOGGER.exception('exception: %r', err)
-        return {
+        resp = {
             'message': err.message,
             'status': httplib.INTERNAL_SERVER_ERROR
-        }, httplib.INTERNAL_SERVER_ERROR
+        }
+        return resp, httplib.INTERNAL_SERVER_ERROR, _cors_headers()
 
     @api.errorhandler(Exception)
     def _unhandled_exc(err):

@@ -627,11 +627,7 @@ class ResourceService(object):
         """
         svc_req_lnk = os.path.join(self._rsrc_dir, req_id)
         _LOGGER.info('Unegistering %r: %r', req_id, svc_req_lnk)
-        try:
-            os.unlink(svc_req_lnk)
-        except OSError as err:
-            if err.errno != errno.ENOENT:
-                raise
+        fs.rm_safe(svc_req_lnk)
 
         return req_id
 
@@ -644,11 +640,7 @@ class ResourceService(object):
         _LOGGER.debug('Updating %r: %r',
                       req_id, svc_req_lnk)
         # Remove any reply if it exists
-        try:
-            os.unlink(os.path.join(svc_req_lnk, _REP_FILE))
-        except OSError as err:
-            if err.errno != errno.ENOENT:
-                raise
+        fs.rm_safe(os.path.join(svc_req_lnk, _REP_FILE))
 
         # NOTE(boysson): This does the equivalent of a touch on the symlink
         try:
@@ -673,7 +665,7 @@ class ResourceService(object):
             except OSError as err:
                 if err.errno == errno.ENOENT:
                     _LOGGER.warning('Deleting stale request: %r', svc)
-                    os.unlink(svc)
+                    fs.rm_safe(svc)
                 else:
                     raise
 
@@ -682,11 +674,7 @@ class ResourceService(object):
     def _create_status_socket(self):
         """Create a listening socket to process status requests.
         """
-        try:
-            os.unlink(self.status_sock)
-        except OSError as err:
-            if err.errno != errno.ENOENT:
-                raise
+        fs.rm_safe(self.status_sock)
         status_socket = socket.socket(
             family=socket.AF_UNIX,
             type=socket.SOCK_STREAM,
@@ -759,7 +747,7 @@ class ResourceService(object):
             if (err.errno == errno.ENOENT or
                     err.errno == errno.ENOTDIR):
                 _LOGGER.exception('Removing invalid request: %r', req_id)
-                os.unlink(filepath)
+                fs.rm_safe(filepath)
                 return
             raise
 

@@ -159,6 +159,20 @@ def txt(label, resolver=None):
             for rec in query(label, dns.rdatatype.TXT, resolver)]
 
 
+def soa(label, resolver=None):
+    """Resolve a SOA resource record
+
+    :param label: label to lookup
+    :type zone: str
+
+    :param resolver: your own dns.resolver.Resolver
+    :type resolver: dns.resolver.Resolver
+
+    :return: a list of soa records
+    """
+    return query(label, dns.rdatatype.SOA, resolver)
+
+
 def ns(fqdn, resolver=None):
     """Resolve DNS zone."""
     return map(str, query(fqdn, dns.rdatatype.NS, resolver))
