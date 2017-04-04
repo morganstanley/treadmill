@@ -28,7 +28,7 @@ class TreadmillTest(unittest.TestCase):
 
         treadmill.os.environ.get.assert_any_call('VIRTUAL_ENV')
         self.assertEqual(treadmill.TREADMILL_BIN, '/foo/bar/env/bin/treadmill')
-        self.assertEqual(treadmill.TREADMILL, '/foo/bar/env/../')
+        self.assertEqual(treadmill.TREADMILL, treadmill.__path__[0] + '/../')
 
     @mock.patch('treadmill.os.environ.get', mock.Mock(return_value=None))
     def test_treadmill_root_and_bin_without_virtual_env(self):

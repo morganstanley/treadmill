@@ -56,7 +56,7 @@ def make_multi_command(module_name):
             commands = set()
             for path in climod.__path__:
                 for filename in os.listdir(path):
-                    if filename == '__init__.py':
+                    if filename in ['__init__.py', '__pycache__']:
                         continue
 
                     if filename.endswith('.py'):

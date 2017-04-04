@@ -4,7 +4,7 @@ import json
 import urllib.request
 import urllib.error
 import urllib.parse
-import urllib2_kerberos
+import urllib_kerberos
 
 
 def create_http_opener(proxy=None):
@@ -20,7 +20,7 @@ def create_http_opener(proxy=None):
     else:
         proxy_support = urllib.request.ProxyHandler(proxy)
 
-    krb_support = urllib2_kerberos.HTTPKerberosAuthHandler(mutual=False)
+    krb_support = urllib_kerberos.HTTPKerberosAuthHandler(mutual=False)
     return urllib.request.build_opener(
         https_support, proxy_support, krb_support
     )

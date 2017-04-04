@@ -1,27 +1,9 @@
 ---
-- name: Checkout treadmill code
-  git:
-    repo: https://github.com/ThoughtWorksInc/treadmill.git
-    dest: "{{ base_dir }}/treadmill"
-    version: standard_setup
-
-- name: Install requirements
-  pip: 
-    requirements: "{{ base_dir }}/treadmill/requirements.txt"
-    virtualenv: "{{ base_dir }}/env"
-
-- name: Install treadmill
-  command: "{{ base_dir }}/env/bin/python setup.py install"
-  args:
-    chdir: "{{ base_dir }}/treadmill"
-
-- name: Create logging directory in venv
-  file:
-    path: "{{base_dir}}/env/lib/python2.7/etc"
-    state: directory
-
-- name: Copy logging files to venv
-  command: "cp -rf {{base_dir}}/treadmill/etc/logging {{base_dir}}/env/lib/python2.7/etc/"
+- name: Get Treadmill Binary
+  get_url:
+    url: https://github.com/ThoughtWorksInc/treadmill/releases/download/0.0.1/treadmill
+    dest: /bin/treadmill
+    mode: 0744
 
 - debug:
     msg: "{{hostvars.localhost.created_instances.tagged_instances}}"
