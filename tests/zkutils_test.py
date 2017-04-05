@@ -111,7 +111,7 @@ class ZkTest(unittest.TestCase):
         client = kazoo.client.KazooClient()
         zkutils.ensure_exists(client, '/foo/bar', data='foo')
         kazoo.client.KazooClient.create.assert_called_with(
-            '/foo/bar', 'foo', acl=mock.ANY, makepath=True,
+            '/foo/bar', b'foo', acl=mock.ANY, makepath=True,
             sequence=False)
 
         # non-data
@@ -137,7 +137,7 @@ class ZkTest(unittest.TestCase):
 
         # ensure with data
         zkutils.ensure_exists(client, '/foo/bar', data='foo')
-        kazoo.client.KazooClient.set.assert_called_with('/foo/bar', 'foo')
+        kazoo.client.KazooClient.set.assert_called_with('/foo/bar', b'foo')
         kazoo.client.KazooClient.set_acls.assert_called_with('/foo/bar',
                                                              mock.ANY)
 
@@ -163,26 +163,26 @@ class ZkTest(unittest.TestCase):
         """Verifies put/update with check_content=True."""
         kazoo.client.KazooClient.create.side_effect = (
             kazoo.client.NodeExistsError)
-        kazoo.client.KazooClient.get.return_value = ('aaa', {})
+        kazoo.client.KazooClient.get.return_value = (b'aaa', {})
         zkclient = kazoo.client.KazooClient()
         zkutils.put(zkclient, '/a', 'aaa', check_content=True)
         self.assertFalse(kazoo.client.KazooClient.set.called)
 
         zkutils.put(zkclient, '/a', 'bbb', check_content=True)
-        kazoo.client.KazooClient.set.assert_called_with('/a', 'bbb')
+        kazoo.client.KazooClient.set.assert_called_with('/a', b'bbb')
 
     @mock.patch('kazoo.client.KazooClient.set', mock.Mock())
     @mock.patch('kazoo.client.KazooClient.set_acls', mock.Mock())
     @mock.patch('kazoo.client.KazooClient.get', mock.Mock())
     def test_update_check_content(self):
         """Verifies put/update with check_content=True."""
-        kazoo.client.KazooClient.get.return_value = ('aaa', {})
+        kazoo.client.KazooClient.get.return_value = (b'aaa', {})
         zkclient = kazoo.client.KazooClient()
         zkutils.update(zkclient, '/a', 'aaa', check_content=True)
         self.assertFalse(kazoo.client.KazooClient.set.called)
 
         zkutils.update(zkclient, '/a', 'bbb', check_content=True)
-        kazoo.client.KazooClient.set.assert_called_with('/a', 'bbb')
+        kazoo.client.KazooClient.set.assert_called_with('/a', b'bbb')
 
 
 if __name__ == "__main__":

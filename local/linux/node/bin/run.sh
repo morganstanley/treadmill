@@ -38,7 +38,7 @@ $ECHO 1 > /proc/sys/net/ipv4/ip_forward
 
 # Starting svscan
 exec $IONICE -c2 -n0 {{ s6 }}/bin/s6-envdir {{ dir }}/env                  \
-    {{ treadmill }}/bin/treadmill sproc --cell - cgroup                    \
+     {{ treadmill }} sproc --cell - cgroup                    \
         cleanup --delete --apps --core                                     \
         mount                                                              \
         init --cpu {{ treadmill_cpu}}                                      \

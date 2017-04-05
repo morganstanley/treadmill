@@ -446,7 +446,7 @@ class Admin(object):
             return
 
         for entry in self.ldap.response:
-            yield str(entry['dn']), _dict_normalize(entry['raw_attributes'])
+            yield str(entry['dn']), _dict_normalize(entry['attributes'])
 
     def _test_raise_exceptions(self):
         """
@@ -515,7 +515,7 @@ class Admin(object):
         attr_types = []
         for attr_type_s in entry.get('olcAttributeTypes', []):
             # Split preserving quotes.
-            attr_type_l = shlex.split(attr_type_s.decode())
+            attr_type_l = shlex.split(attr_type_s)
             # Remove leading and closing bracket.
             attr_type_l = attr_type_l[1:-1]
             oid = attr_type_l.pop(0)
@@ -567,7 +567,7 @@ class Admin(object):
 
         for obj_cls_s in entry.get('olcObjectClasses', []):
             # Split preserving quotes.
-            obj_cls_l = shlex.split(obj_cls_s.decode())
+            obj_cls_l = shlex.split(obj_cls_s)
             # Remove leading and closing bracket.
             obj_cls_l = obj_cls_l[1:-1]
             oid = obj_cls_l.pop(0)

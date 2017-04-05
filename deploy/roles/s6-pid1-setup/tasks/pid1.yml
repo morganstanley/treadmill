@@ -1,0 +1,3 @@
+---
+- name: Install Pid1
+  shell: "treadmill pid1"

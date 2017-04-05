@@ -86,7 +86,7 @@ class AppEventsWatcher(object):
         _LOGGER.info('New event file - %r', path)
 
         eventtime, appname, event, data = localpath.split(',', 4)
-        with open(path) as f:
+        with open(path, mode='rb') as f:
             eventnode = '%s,%s,%s,%s' % (eventtime, _HOSTNAME, event, data)
             _LOGGER.debug('Creating %s', z.path.task(appname, eventnode))
             try:

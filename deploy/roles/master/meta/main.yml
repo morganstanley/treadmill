@@ -2,3 +2,4 @@ dependencies:
   - { role: base-setup }
   - { role: freeipa-client }
   - { role: treadmill-base-setup }
+  - { role: s6-pid1-setup }

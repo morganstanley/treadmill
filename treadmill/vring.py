@@ -43,7 +43,7 @@ def run(ring, routing, endpoints, discovery):
     _LOGGER.info('Starting vring: %r %r %r', ring, routing, endpoints)
     vring_state = {}
     iptables.configure_dnat_rules(set(), chain=ring)
-    for (app, hostport) in discovery.iteritems():
+    for (app, hostport) in discovery.items():
         # app is in the form appname:endpoint. We care only about endpoint
         # name.
         name_unused, proto, endpoint = app.split(':')

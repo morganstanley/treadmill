@@ -23,7 +23,7 @@ $ECHO "#####################################################################"
 # Recalculate cgroup limits.
 $ECHO "#####################################################################"
 $ECHO "Re-apply Treadmill cgroup settings."
-{{ treadmill }}/bin/treadmill sproc cginit                             \
+{{ treadmill }} sproc cginit                             \
     --cpu {{ treadmill_cpu}}                                           \
     --mem {{ treadmill_mem }}                                          \
     --mem-core {{ treadmill_core_mem }}

@@ -5,6 +5,7 @@ import mock
 import os
 import treadmill
 import importlib
+from treadmill.cli.aws import deploy_path_join
 
 
 class TreadmillTest(unittest.TestCase):
@@ -52,6 +53,25 @@ class TreadmillTest(unittest.TestCase):
     def test_treadmill_deploy_package(self):
         self.assertTrue('/deploy/' in treadmill.TREADMILL_DEPLOY_PACKAGE)
         self.assertTrue(os.path.exists(treadmill.TREADMILL_DEPLOY_PACKAGE))
+
+    def test_treadmill_exe_whitelist_exists(self):
+        importlib.reload(treadmill)
+        self.assertIsNotNone(os.environ.get('TREADMILL_EXE_WHITELIST'))
+
+    @mock.patch('treadmill.cli.os.path.exists')
+    def test_deploy_path_join(self, exists_mock):
+        """Test deploy path"""
+        exists_mock.return_value = True
+        self.assertEquals(
+            os.path.realpath(os.path.realpath('deploy')),
+            deploy_path_join('../deploy')
+        )
+
+        exists_mock.return_value = False
+        self.assertEquals(
+            os.path.realpath(treadmill.TREADMILL_DEPLOY_PACKAGE + '../deploy'),
+            deploy_path_join('../deploy')
+        )
 
 
 if __name__ == '__main__':

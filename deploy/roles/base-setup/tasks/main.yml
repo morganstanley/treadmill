@@ -1,9 +1,4 @@
 ---
-- name: Upgrade all packages
-  yum:
-    name: '*'
-    state: latest
-
 - name: Get instance metadata from AWS API
   uri:
     url: http://169.254.169.254/latest/meta-data/instance-id
@@ -15,3 +10,8 @@
     name: "{{item.1.tags.Name}}{{item.0 + 1}}.{{domain}}"
   with_indexed_items: "{{hostvars.localhost.created_instances.tagged_instances}}"
   when: item.1.id == local_instance_id.content
+
+- name: Configuration to retain hostname on machine reboot
+  lineinfile:
+    dest: /etc/cloud/cloud.cfg
+    line: "preserve_hostname: true"

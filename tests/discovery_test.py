@@ -52,7 +52,7 @@ class DiscoveryTest(mockzk.MockZookeeperTestCase):
         app_discovery.exit_loop()
 
         expected = {}
-        for (endpoint, hostport) in app_discovery.iteritems():
+        for (endpoint, hostport) in app_discovery.items():
             expected[endpoint] = hostport
 
         self.assertEqual(expected, {'appproid.foo.1#0:tcp:http': 'xxx:123',

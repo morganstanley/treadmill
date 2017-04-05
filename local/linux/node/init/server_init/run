@@ -21,4 +21,4 @@ fi
 # This service needs host tickets
 export KRB5CCNAME="FILE:$TREADMILL_HOST_TICKET"
 
-exec {{ treadmill }}/bin/treadmill sproc --cgroup . init --zkid zkid.pickle
+exec {{ treadmill }} sproc --cgroup . init --zkid zkid.pickle

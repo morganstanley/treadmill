@@ -213,7 +213,7 @@ def connect(zkurl, idpath=None, listener=None, max_tries=30,
     client_id = None
     if idpath:
         if os.path.exists(idpath):
-            with open(idpath, 'r') as idfile:
+            with open(idpath, 'rb') as idfile:
                 client_id = pickle.load(idfile)
 
     zkclient = connect_native(zkurl, client_id=client_id, listener=listener,
@@ -222,7 +222,7 @@ def connect(zkurl, idpath=None, listener=None, max_tries=30,
 
     if idpath:
         client_id = zkclient.client_id
-        with open(idpath, 'w+') as idfile:
+        with open(idpath, 'wb+') as idfile:
             pickle.dump(client_id, idfile)
 
     zkclient.create = types.MethodType(make_safe_create(zkclient), zkclient)
@@ -374,7 +374,7 @@ def _payload(data=None):
     payload = b''
     if data is not None:
         if isinstance(data, str):
-            payload = data
+            payload = data.encode()
         else:
             payload = yaml.dump(data).encode()
     return payload

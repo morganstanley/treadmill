@@ -8,5 +8,5 @@
 exec 2>&1
 
 # FIXME(boysson): The location of all this dirs should be in a config somewhere
-exec {{ treadmill }}/bin/treadmill sproc --cgroup . \
+exec {{ treadmill }} sproc --cgroup . \
     firewall watcher --root-dir {{ dir }}

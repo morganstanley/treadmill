@@ -469,7 +469,7 @@ def report_ready():
         with open('notification-fd') as f:
             try:
                 fd = int(f.readline())
-                os.write(fd, 'ready\n')
+                os.write(fd, b'ready\n')
                 os.close(fd)
             except OSError:
                 _LOGGER.exception('Cannot read notification-fd')

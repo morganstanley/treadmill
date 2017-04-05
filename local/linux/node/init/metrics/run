@@ -5,4 +5,4 @@
 
 exec 2>&1
 
-exec {{ treadmill }}/bin/treadmill sproc --cgroup . metrics --step 5
+exec {{ treadmill }} sproc --cgroup . metrics --step 5

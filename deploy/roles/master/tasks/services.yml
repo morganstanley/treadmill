@@ -1,0 +1,7 @@
+---
+- name: Get master id
+  command: "cat {{ base_dir }}/zookeeper/myid"
+  register: master_id
+
+- name: Start master services
+  shell: ". ~/.bashrc && nohup treadmill admin install master --master-id {{master_id.stdout}}  --run > master_services.out 2>&1 &"

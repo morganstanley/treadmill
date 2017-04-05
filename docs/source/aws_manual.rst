@@ -59,23 +59,25 @@ Create/Destroy Treadmill Cell
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Run the following command to create/destroy a cell in aws:
 
-::
-
-  cd deploy
-
 **Create:**
 
 ::
 
-  treadmill aws cell --create --playbook cell.yml --inventory controller.inventory --key-file {{key_path}}/{{key_name}}.pem --aws-config aws.yml
+  treadmill aws cell --create --key-file <private_key_path>
 
 **Destroy:**
 
 ::
 
-  treadmill aws cell --destroy --playbook destroy-cell.yml --inventory controller.inventory --aws-config aws.yml
+  treadmill aws cell --destroy
 
-We are overriding the playbook and inventory files by the files present in *<current_directory>/deploy*.
+We can override the playbook to be executed, inventory file, and the config files by using the additional options.
+
+**For Ex:**
+
+::
+
+  treadmill aws cell --create --playbook cell.yml --inventory controller.inventory --key-file {{key_path}}/{{key_name}}.pem --aws-config aws.yml
 
 ----------------------------------------------------------
 
@@ -86,4 +88,4 @@ Provision a node in treadmill CELL on AWS
 
 ::
 
-  treadmill aws node --create --playbook node.yml --inventory controller.inventory --key-file {{key_path}}/{{key_name}}.pem --aws-config aws.yml
+  treadmill aws node --create --key-file <private_key_path>

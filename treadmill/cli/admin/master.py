@@ -333,6 +333,10 @@ def init():
                   envvar='TREADMILL_CELL',
                   is_eager=True, callback=cli.handle_context_opt,
                   expose_value=False)
+    @click.option('--zookeeper', required=False,
+                  envvar='TREADMILL_ZOOKEEPER',
+                  callback=cli.handle_context_opt,
+                  expose_value=False)
     def master_group():
         """Manage Treadmill master data"""
         pass

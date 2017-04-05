@@ -1,0 +1,8 @@
+---
+- name: Fetch FreeIPA EC2 Facts
+  ec2_remote_facts:
+    filters:
+      instance-state-name: [running, pending]
+      "tag:Name": "{{ freeipa.name }}"
+    region: "{{ vpc.region }}"
+  register: instance_facts_freeipa_server

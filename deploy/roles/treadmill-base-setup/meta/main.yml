@@ -1,2 +1,2 @@
 dependencies:
-  - { role: fetch-facts, resources: ['ec2', 'vpc']}
+  - { role: fetch-facts, resources: ['master_facts']}

@@ -6,7 +6,7 @@
     vpc_subnet_id: "{{ subnet_id }}"
     region: "{{ vpc.region }}"
     image: "{{ ami_id }}"
-    instance_type: "{{ _instance_type }}"
+    instance_type: "{{ instance_types[_instance_type] }}"
     key_name: "{{ aws_key_name }}"
     count_tag:
       Name: "{{ _name }}"

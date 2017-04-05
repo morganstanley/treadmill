@@ -6,7 +6,7 @@
 
 exec 2>&1
 
-exec {{ treadmill }}/bin/treadmill sproc --cgroup . \
+exec {{ treadmill }} sproc --cgroup . \
     service --root-dir {{ dir }} localdisk \
 {%- if localdisk_img_location %}
     --img-location {{ localdisk_img_location }} \

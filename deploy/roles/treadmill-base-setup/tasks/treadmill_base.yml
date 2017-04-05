@@ -1,12 +1,9 @@
 ---
 - name: Get Treadmill Binary
   get_url:
-    url: https://github.com/ThoughtWorksInc/treadmill/releases/download/0.0.2/treadmill
+    url: https://github.com/ThoughtWorksInc/treadmill/releases/download/0.0.1/treadmill
     dest: /bin/treadmill
     mode: 0744
-
-- debug:
-    msg: "{{hostvars.localhost.created_instances.tagged_instances}}"
 
 - name: Drop the env file
   template: src=env_vars.sh dest="{{ base_dir }}" mode=700

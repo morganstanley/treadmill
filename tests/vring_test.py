@@ -16,7 +16,7 @@ class VRingTest(unittest.TestCase):
     @mock.patch('treadmill.iptables.add_dnat_rule', mock.Mock())
     @mock.patch('treadmill.iptables.delete_dnat_rule', mock.Mock())
     @mock.patch('treadmill.iptables.configure_dnat_rules', mock.Mock())
-    @mock.patch('treadmill.discovery.Discovery.iteritems', mock.Mock())
+    @mock.patch('treadmill.discovery.Discovery.items', mock.Mock())
     @mock.patch('socket.gethostbyname', mock.Mock())
     def test_run(self):
         """Test vring."""
@@ -28,7 +28,7 @@ class VRingTest(unittest.TestCase):
         socket.gethostbyname.side_effect = lambda hostname: dns[hostname]
 
         mock_discovery = treadmill.discovery.Discovery(None, 'a.a', None)
-        treadmill.discovery.Discovery.iteritems.return_value = [
+        treadmill.discovery.Discovery.items.return_value = [
             ('proid.foo#123:tcp:tcp_ep', 'xxx.xx.com:12345'),
             ('proid.foo#123:udp:udp_ep', 'xxx.xx.com:23456'),
             ('proid.foo#123:tcp:other_tcp_ep', 'xxx.xx.com:34567'),
@@ -73,7 +73,7 @@ class VRingTest(unittest.TestCase):
         )
 
         treadmill.iptables.add_dnat_rule.reset()
-        treadmill.discovery.Discovery.iteritems.return_value = [
+        treadmill.discovery.Discovery.items.return_value = [
             ('proid.foo#123:tcp:tcp_ep', 'xxx.xx.com:12345'),
             ('proid.foo#123:udp:udp_ep', 'xxx.xx.com:23456'),
             ('proid.foo#123:tcp:other_tcp_ep', 'xxx.xx.com:34567'),

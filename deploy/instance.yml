@@ -1,7 +1,0 @@
----
-- hosts: controller
-  roles:
-    - {role: instance}
-    - {role: dynamic-inventory}
-  tags:
-    - always

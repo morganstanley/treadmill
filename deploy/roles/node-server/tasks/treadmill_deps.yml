@@ -1,14 +1,4 @@
 ---
-- name: Checkout pid1
-  git:
-    repo: https://github.com/Morgan-Stanley/treadmill-pid1.git
-    dest: "{{base_dir}}/treadmill-pid1"
-
-- name: Build pid1
-  shell: make
-  args:
-    chdir: "{{base_dir}}/treadmill-pid1"
-
 - name: Patch Treadmill deps
   file:
     path: "{{app_root}}/etc"
@@ -23,3 +13,12 @@
 - name: Make local disk volume
   shell: "dd if=/dev/zero of={{app_root}}/treadmill.img seek=$((1024*1024*20)) count=1"
 
+- name: Configure sshd_config
+  replace:
+    dest: /etc/ssh/sshd_config
+    regexp: "{{item.0}}"
+    replace: "{{item.1}}"
+    backup: yes
+  with_together:
+    - ['^#?PermitRootLogin.*','^#?PasswordAuthentication no','^(UsePrivilegeSeparation sandbox.*)']
+    - ['PermitRootLogin yes','PasswordAuthentication yes','#\1 \nUsePrivilegeSeparation no']

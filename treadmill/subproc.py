@@ -220,7 +220,10 @@ def invoke(cmd, cmd_input=None, use_except=False, **environ):
                                 stdout=subprocess.PIPE,
                                 stderr=subprocess.STDOUT,
                                 env=cmd_environ)
-        (out, _err) = proc.communicate(cmd_input)
+        if cmd_input:
+            (out, _err) = proc.communicate(cmd_input.encode())
+        else:
+            (out, _err) = proc.communicate()
         retcode = proc.returncode
 
     except Exception:

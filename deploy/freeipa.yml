@@ -5,11 +5,10 @@
       with_items:
         - "{{aws_config | default('config/aws.yml')}}"
         - "config/treadmill.yml"
-
-- include: instance.yml _name="{{freeipa.name}}" _exact_count="{{freeipa.exact_count}}" _instance_type="{{freeipa.instance_type}}"
-
-- hosts: controller
+    - meta: refresh_inventory
   roles:
+    - {role: instance, _name: "{{freeipa.name}}", _exact_count: "{{freeipa.exact_count}}", _instance_type: "{{freeipa.instance_type}}" }
+    - {role: dynamic-inventory}
     - {role: route53-freeipa-server}
 
 - hosts: ec2instances
@@ -17,6 +16,8 @@
   environment:
     AWS_ACCESS_KEY_ID: "{{hostvars.localhost.ansible_env.AWS_ACCESS_KEY_ID}}"
     AWS_SECRET_ACCESS_KEY: "{{hostvars.localhost.ansible_env.AWS_SECRET_ACCESS_KEY}}"
+  vars:
+    vpc_id: "{{hostvars.localhost.vpc_id}}"
   vars_files:
     - "{{aws_config | default('config/aws.yml')}}"
     - "config/treadmill.yml"

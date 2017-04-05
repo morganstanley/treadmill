@@ -17,6 +17,6 @@ ${MKDIR} -p {{ dir }}/metrics/core
 
 ${CHOWN} -R nobody {{ dir }}/metrics
 
-exec {{ treadmill }}/bin/treadmill sproc --cgroup . \
+exec treadmill sproc --cgroup . \
     exec -- {{ s6 }}/bin/s6-setuidgid nobody \
      {{ rrdcached }} -g -l unix:/tmp/treadmill.rrd -p /tmp/treadmill.rrd.pid
