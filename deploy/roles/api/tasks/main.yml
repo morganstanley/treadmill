@@ -1,0 +1,30 @@
+---
+- name: Check if cell API is running
+  shell: ps -ef | grep Treadmill_Cell_API | grep -v grep
+  ignore_errors: yes
+  changed_when: false
+  register: cell_api_status
+
+- name: Start cell API
+  shell: ". ~/.bashrc && nohup treadmill sproc restapi -p 8000 --title Treadmill_Cell_API -m instance,app-monitor,identity-group,nodeinfo --cors-origin='.*' > {{base_dir}}/cell_api.out &"
+  when: cell_api_status.rc != 0
+
+- name: Check if global config API is running
+  shell: ps -ef | grep Treadmill_Global_Config_API | grep -v grep
+  ignore_errors: yes
+  changed_when: false
+  register: global_config_api_status
+
+- name: Start global config API
+  shell: ". ~/.bashrc && nohup treadmill sproc restapi -p 8001 --title Treadmill_Global_Config_API -m app,app-group,app-dns,tenant,lbendpoint,allocation,cell --cors-origin='.*' > {{base_dir}}/global_config_api.out &"
+  when: global_config_api_status.rc != 0
+
+- name: Check if query API is running
+  shell: ps -ef | grep Treadmill_Query_API | grep -v grep
+  ignore_errors: yes
+  changed_when: false
+  register: query_api
+
+- name: Start query API
+  shell: ". ~/.bashrc && nohup treadmill sproc restapi -p 8002 --title 'Treadmill_Query_API' -m trace,state,endpoint --cors-origin='.*' > {{base_dir}}/query_api.out &"
+  when: query_api.rc != 0

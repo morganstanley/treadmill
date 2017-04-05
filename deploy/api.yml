@@ -1,0 +1,21 @@
+---
+- hosts: controller
+  pre_tasks:
+    - include_vars: "{{ item }}"
+      with_items:
+        - "{{aws_config | default('config/aws.yml')}}"
+        - "config/treadmill.yml"
+    - meta: refresh_inventory
+
+- include: instance.yml _name="{{api.name}}" _exact_count="{{api.exact_count}}" _instance_type="{{api.instance_type}}"
+
+- hosts: ec2instances
+  become: yes
+  environment:
+    AWS_ACCESS_KEY_ID: "{{hostvars.localhost.ansible_env.AWS_ACCESS_KEY_ID}}"
+    AWS_SECRET_ACCESS_KEY: "{{hostvars.localhost.ansible_env.AWS_SECRET_ACCESS_KEY}}"
+  vars_files:
+    - "{{aws_config | default('config/aws.yml')}}"
+    - "config/treadmill.yml"
+  roles:
+    - {role: api}

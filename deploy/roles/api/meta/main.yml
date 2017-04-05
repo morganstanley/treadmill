@@ -1,0 +1,4 @@
+dependencies:
+  - { role: base-setup }
+  - { role: freeipa-client }
+  - { role: treadmill-base-setup }
