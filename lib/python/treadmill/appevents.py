@@ -10,7 +10,7 @@ import kazoo.client
 import yaml
 
 from treadmill import exc
-from treadmill import idirwatch
+from treadmill import dirwatch
 from treadmill import sysinfo
 from treadmill import zkutils
 from treadmill import zknamespace as z
@@ -62,7 +62,7 @@ class AppEventsWatcher(object):
     def run(self):
         """Monitores events directory and publish events."""
 
-        watch = idirwatch.DirWatcher(self.events_dir)
+        watch = dirwatch.DirWatcher(self.events_dir)
         watch.on_created = self._on_created
 
         for eventfile in os.listdir(self.events_dir):

@@ -10,9 +10,9 @@ import socket
 
 import click
 
+from treadmill import bootstrap
 from treadmill import postmortem
 from treadmill import utils
-from treadmill.osmodules import bootstrap
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -23,7 +23,7 @@ def init():
 
     @click.group()
     @click.option('--install-dir',
-                  default=lambda: os.path.join(bootstrap.default_install_dir(),
+                  default=lambda: os.path.join(bootstrap.DEFAULT_INSTALL_DIR,
                                                'treadmill'),
                   help='Treadmill node install directory.')
     @click.option('--upload_script',

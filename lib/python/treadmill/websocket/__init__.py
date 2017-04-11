@@ -17,7 +17,7 @@ import json
 from enum import Enum
 import tornado.websocket
 
-from treadmill import idirwatch
+from treadmill import dirwatch
 from treadmill import exc
 from treadmill import fs
 
@@ -124,7 +124,7 @@ class DirWatchPubSub(object):
         self.impl = dict()
         self.root = root
 
-        self.watcher = idirwatch.DirWatcher()
+        self.watcher = dirwatch.DirWatcher()
         self.watcher.on_created = self._on_created
         self.watcher.on_deleted = self._on_deleted
         self.watcher.on_modified = self._on_modified
@@ -165,13 +165,14 @@ class DirWatchPubSub(object):
         if os.path.basename(filename)[0] == '.':
             return
         _LOGGER.debug('deleted: %s', filename)
-        self._notify(filename, 'd', None)
+        self._notify(filename, 'd', None, time.time())
 
     def _handle(self, operation, filename):
         """Read file event, notify all handlers."""
         _LOGGER.debug('modified: %s', filename)
 
         try:
+            when = int(os.stat(filename).st_mtime)
             with open(filename) as f:
                 content = f.read()
         except IOError as err:
@@ -180,10 +181,11 @@ class DirWatchPubSub(object):
 
             operation = 'd'
             content = None
+            when = int(time.time())
 
-        self._notify(filename, operation, content)
+        self._notify(filename, operation, content, when)
 
-    def _notify(self, path, operation, content):
+    def _notify(self, path, operation, content, when):
         """Notify all handlers of the change."""
         root_len = len(self.root)
         directory = os.path.dirname(path)
@@ -201,6 +203,7 @@ class DirWatchPubSub(object):
                                             operation,
                                             content)
                     if payload is not None:
+                        payload['when'] = when
                         handler.write_message(json.dumps(payload))
                 except StandardError as err:
                     _LOGGER.exception('Error handling event')
@@ -237,6 +240,7 @@ class DirWatchPubSub(object):
             try:
                 payload = impl.on_event(filename[root_len:], None, content)
                 if payload is not None:
+                    payload['when'] = int(stat.st_mtime)
                     handler.write_message(json.dumps(payload))
             except Exception as err:  # pylint: disable=W0703
                 handler.send_error_msg(str(err))

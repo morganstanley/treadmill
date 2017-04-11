@@ -10,7 +10,7 @@ import subprocess
 
 from treadmill import spawn
 from treadmill import fs
-from treadmill import idirwatch
+from treadmill import dirwatch
 from treadmill import subproc
 from treadmill.spawn import utils as spawn_utils
 
@@ -61,6 +61,6 @@ class Cleanup(object):
 
     def get_dir_watch(self):
         """Construct a watcher for the cleanup directory."""
-        watch = idirwatch.DirWatcher(self.paths.cleanup_dir)
+        watch = dirwatch.DirWatcher(self.paths.cleanup_dir)
         watch.on_created = self._on_created
         return watch

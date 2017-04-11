@@ -9,7 +9,7 @@ import subprocess
 import click
 
 from .. import appmgr
-from .. import idirwatch
+from .. import dirwatch
 from .. import logcontext as lc
 from .. import subproc
 
@@ -85,7 +85,7 @@ def init():
 
                 os.unlink(fullpath)
 
-        watcher = idirwatch.DirWatcher(app_env.cleanup_dir)
+        watcher = dirwatch.DirWatcher(app_env.cleanup_dir)
         watcher.on_created = _on_created
 
         # Before starting, capture all already pending cleanups

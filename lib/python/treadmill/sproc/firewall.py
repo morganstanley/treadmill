@@ -27,7 +27,7 @@ import yaml
 from .. import context
 from .. import exc
 from .. import firewall as fw
-from .. import idirwatch
+from .. import dirwatch
 from .. import iptables
 from .. import rulefile
 from .. import utils
@@ -197,7 +197,7 @@ def _watcher(root_dir, rules_dir, containers_dir, watchdogs_dir):
             _LOGGER.warning('Ignoring unparseable file %r', rule_file)
 
     _LOGGER.info('Monitoring dnat changes in %r', rulemgr.path)
-    watch = idirwatch.DirWatcher(rulemgr.path)
+    watch = dirwatch.DirWatcher(rulemgr.path)
     watch.on_created = on_created
     watch.on_deleted = on_deleted
 

@@ -389,6 +389,17 @@ def _create_logrun(directory):
                         'logger.run')
 
 
+def _create_sysrun(sys_dir, name, command, down=False):
+    """Create system script."""
+    fs.mkdir_safe(os.path.join(sys_dir, name))
+    utils.create_script(os.path.join(sys_dir, name, 'run'),
+                        'supervisor.run_sys',
+                        cmd=command)
+    _create_logrun(os.path.join(sys_dir, name))
+    if down:
+        utils.touch(os.path.join(sys_dir, name, 'down'))
+
+
 def _create_supervision_tree(container_dir, app_events_dir, app):
     """Creates s6 supervision tree."""
     root_dir = os.path.join(container_dir, 'root')
@@ -494,34 +505,27 @@ def _create_supervision_tree(container_dir, app_events_dir, app):
         container_dir,
         app_events_dir
     )
-
-    fs.mkdir_safe(os.path.join(sys_dir, 'monitor'))
-    utils.create_script(
-        os.path.join(sys_dir, 'monitor', 'run'),
-        'supervisor.run_sys',
-        cmd=presence_monitor_cmd
+    shadow_etc = os.path.join(container_dir, 'root', '.etc')
+    host_aliases_cmd = '%s sproc host-aliases --aliases-dir %s %s %s' % (
+        treadmill.TREADMILL_BIN,
+        os.path.join(shadow_etc, 'hosts-aliases'),
+        os.path.join(shadow_etc, 'hosts.original'),
+        os.path.join(shadow_etc, 'hosts'),
     )
-    _create_logrun(os.path.join(sys_dir, 'monitor'))
 
-    fs.mkdir_safe(os.path.join(sys_dir, 'register'))
-    utils.create_script(os.path.join(sys_dir, 'register', 'run'),
-                        'supervisor.run_sys',
-                        cmd=presence_register_cmd)
-    _create_logrun(os.path.join(sys_dir, 'register'))
-
-    fs.mkdir_safe(os.path.join(sys_dir, 'start_container'))
-    utils.create_script(
-        os.path.join(sys_dir, 'start_container', 'run'),
-        'supervisor.run_sys',
-        cmd='%s %s %s -m -p -i s6-svscan /services' % (
+    _create_sysrun(sys_dir, 'monitor', presence_monitor_cmd)
+    _create_sysrun(sys_dir, 'register', presence_register_cmd)
+    _create_sysrun(sys_dir, 'hostaliases', host_aliases_cmd)
+    _create_sysrun(
+        sys_dir,
+        'start_container',
+        '%s %s %s -m -p -i s6-svscan /services' % (
             subproc.resolve('chroot'),
             root_dir,
             subproc.resolve('pid1')
-        )
+        ),
+        down=True
     )
-    _create_logrun(os.path.join(sys_dir, 'start_container'))
-
-    utils.touch(os.path.join(sys_dir, 'start_container', 'down'))
 
 
 def _create_root_dir(tm_env, container_dir, root_dir, app):
@@ -569,6 +573,16 @@ def _create_root_dir(tm_env, container_dir, root_dir, app):
         '/etc/hosts',
         os.path.join(root_dir, '.etc/hosts')
     )
+    shutil.copyfile(
+        '/etc/hosts',
+        os.path.join(root_dir, '.etc/hosts.original')
+    )
+
+    hosts_aliases = os.path.join(root_dir, '.etc', 'hosts-aliases')
+    fs.mkdir_safe(hosts_aliases)
+
+    pwnam = pwd.getpwnam(app.proid)
+    os.chown(hosts_aliases, pwnam.pw_uid, pwnam.pw_gid)
 
     # Always use our own resolv.conf. Safe to rbind, as we are running in
     # private mount subsystem by now.

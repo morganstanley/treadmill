@@ -10,7 +10,7 @@ import subprocess
 
 from treadmill import spawn
 from treadmill import fs
-from treadmill import idirwatch
+from treadmill import dirwatch
 from treadmill import subproc
 from treadmill import utils
 from treadmill.spawn import utils as spawn_utils
@@ -114,6 +114,6 @@ class ManifestWatch(object):
 
     def get_dir_watch(self):
         """Construct a watcher for the manifest directory."""
-        watch = idirwatch.DirWatcher(self.paths.manifest_dir)
+        watch = dirwatch.DirWatcher(self.paths.manifest_dir)
         watch.on_created = self._on_created
         return watch

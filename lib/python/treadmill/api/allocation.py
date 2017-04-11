@@ -159,7 +159,7 @@ class API(object):
                 @schema.schema(
                     {'$ref': 'assignment.json#/resource_id'},
                     {'allOf': [{'$ref': 'assignment.json#/resource'},
-                               {'$ref': 'assignment.json#/verbs/create'}]}
+                               {'$ref': 'assignment.json#/verbs/update'}]}
                 )
                 def update(rsrc_id, rsrc):
                     """Update assignment."""

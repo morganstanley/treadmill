@@ -9,10 +9,8 @@ import os
 import socket
 import subprocess
 
-from . import fs
-from . import metrics
-from . import subproc
-from . import sysinfo
+from treadmill import fs
+from treadmill import subproc
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -155,108 +153,11 @@ def forget_noexc(rrdfile, rrd_socket=SOCKET):
         rrdclient.rrd.close()
 
 
-def app_metrics(cgrp, blkio_major_minor=None):
-    """Returns app metrics or empty dict if app not found."""
-    result = {
-        'memusage': 0,
-        'softmem': 0,
-        'hardmem': 0,
-        'cpuusage': 0,
-        'cpuusage_ratio': 0,
-        'blk_read_iops': 0,
-        'blk_write_iops': 0,
-        'blk_read_bps': 0,
-        'blk_write_bps': 0,
-    }
-
-    meminfo = sysinfo.mem_info()
-    meminfo_total_bytes = meminfo.total * 1024
-
-    try:
-        memusage, softmem, hardmem = metrics.read_memory_stats(cgrp)
-        if softmem > meminfo_total_bytes:
-            softmem = meminfo_total_bytes
-
-        if hardmem > meminfo_total_bytes:
-            hardmem = meminfo_total_bytes
-
-        result.update({
-            'memusage': memusage,
-            'softmem': softmem,
-            'hardmem': hardmem,
-        })
-
-        cpuusage, _, cpuusage_ratio = metrics.read_cpu_stats(cgrp)
-        result.update({
-            'cpuusage': cpuusage,
-            'cpuusage_ratio': cpuusage_ratio,
-        })
-
-        blkusage = metrics.read_blkio_stats(cgrp, blkio_major_minor)
-        result.update({
-            'blk_read_iops': blkusage['read_iops'],
-            'blk_write_iops': blkusage['write_iops'],
-            'blk_read_bps': blkusage['read_bps'],
-            'blk_write_bps': blkusage['write_bps'],
-        })
-
-    except IOError as err:
-        if err.errno != errno.ENOENT:
-            raise err
-
-    except OSError as err:
-        if err.errno != errno.ENOENT:
-            raise err
-
-    return result
-
-
 def gen_graph(rrdfile, rrdtool, outdir=None, show_mem_limit=True):
     """Generate SVG images given rrd file."""
     if not outdir:
         outdir = rrdfile.rsplit('.', 1)[0]
     fs.mkdir_safe(outdir)
-
-    memory_args = [
-        os.path.join(outdir, 'memory.svg'),
-        '--imgformat=SVG',
-        'DEF:memory_usage=%s:memory_usage:MAX' % rrdfile,
-        'LINE1:memory_usage#0000FF:"memory usage"',
-    ]
-    if show_mem_limit:
-        memory_args.extend([
-            'DEF:memory_hardlimit=%s:memory_hardlimit:MAX' % rrdfile,
-            'LINE1:memory_hardlimit#CC0000:"memory limit"'
-        ])
-
-    cpu_usage_args = [
-        os.path.join(outdir, 'cpu_usage.svg'),
-        '--imgformat=SVG',
-        'DEF:cpu_usage=%s:cpu_usage:AVERAGE' % rrdfile,
-        'LINE1:cpu_usage#0000FF:"cpu usage"',
-    ]
-    cpu_ratio_args = [
-        os.path.join(outdir, 'cpu_ratio.svg'),
-        '--imgformat=SVG',
-        'DEF:cpu_ratio=%s:cpu_ratio:AVERAGE' % rrdfile,
-        'LINE1:cpu_ratio#0000FF:"cpu ratio"',
-    ]
-    blk_iops = [
-        os.path.join(outdir, 'blk_iops.svg'),
-        '--imgformat=SVG',
-        'DEF:blk_read_iops=%s:blk_read_iops:MAX' % rrdfile,
-        'LINE1:blk_read_iops#0000FF:"read iops"',
-        'DEF:blk_write_iops=%s:blk_write_iops:MAX' % rrdfile,
-        'LINE1:blk_write_iops#CC0000:"write iops"'
-    ]
-    blk_bps = [
-        os.path.join(outdir, 'blk_bps.svg'),
-        '--imgformat=SVG',
-        'DEF:blk_read_bps=%s:blk_read_bps:MAX' % rrdfile,
-        'LINE1:blk_read_bps#0000FF:"read bps"',
-        'DEF:blk_write_bps=%s:blk_write_bps:MAX' % rrdfile,
-        'LINE1:blk_write_bps#CC0000:"write bps"'
-    ]
 
     # stdout, stderr -> subproc.PIPE: don't print the result of the execution
     # because it's just noise anyway
@@ -269,6 +170,60 @@ def gen_graph(rrdfile, rrdtool, outdir=None, show_mem_limit=True):
         if err.errno == errno.ENOENT:
             raise RRDToolNotFoundError()
         raise
+
+    first_ts = subprocess.check_output([rrdtool, 'first', rrdfile])
+    last_ts = subprocess.check_output([rrdtool, 'last', rrdfile])
+
+    memory_args = [
+        os.path.join(outdir, 'memory.svg'),
+        '--imgformat=SVG',
+        '--start=%s' % first_ts,
+        '--end=%s' % last_ts,
+        'DEF:memory_usage=%s:memory_usage:MAX' % rrdfile,
+        'LINE1:memory_usage#0000FF:"memory usage"',
+    ]
+    if show_mem_limit:
+        memory_args.extend([
+            'DEF:memory_hardlimit=%s:memory_hardlimit:MAX' % rrdfile,
+            'LINE1:memory_hardlimit#CC0000:"memory limit"'
+        ])
+
+    cpu_usage_args = [
+        os.path.join(outdir, 'cpu_usage.svg'),
+        '--imgformat=SVG',
+        '--start=%s' % first_ts,
+        '--end=%s' % last_ts,
+        'DEF:cpu_usage=%s:cpu_usage:AVERAGE' % rrdfile,
+        'LINE1:cpu_usage#0000FF:"cpu usage"',
+    ]
+    cpu_ratio_args = [
+        os.path.join(outdir, 'cpu_ratio.svg'),
+        '--imgformat=SVG',
+        '--start=%s' % first_ts,
+        '--end=%s' % last_ts,
+        'DEF:cpu_ratio=%s:cpu_ratio:AVERAGE' % rrdfile,
+        'LINE1:cpu_ratio#0000FF:"cpu ratio"',
+    ]
+    blk_iops = [
+        os.path.join(outdir, 'blk_iops.svg'),
+        '--imgformat=SVG',
+        '--start=%s' % first_ts,
+        '--end=%s' % last_ts,
+        'DEF:blk_read_iops=%s:blk_read_iops:MAX' % rrdfile,
+        'LINE1:blk_read_iops#0000FF:"read iops"',
+        'DEF:blk_write_iops=%s:blk_write_iops:MAX' % rrdfile,
+        'LINE1:blk_write_iops#CC0000:"write iops"'
+    ]
+    blk_bps = [
+        os.path.join(outdir, 'blk_bps.svg'),
+        '--imgformat=SVG',
+        '--start=%s' % first_ts,
+        '--end=%s' % last_ts,
+        'DEF:blk_read_bps=%s:blk_read_bps:MAX' % rrdfile,
+        'LINE1:blk_read_bps#0000FF:"read bps"',
+        'DEF:blk_write_bps=%s:blk_write_bps:MAX' % rrdfile,
+        'LINE1:blk_write_bps#CC0000:"write bps"'
+    ]
 
     for arg in memory_args, cpu_usage_args, cpu_ratio_args, blk_iops, blk_bps:
         subprocess.check_call([rrdtool, 'graph'] + arg,

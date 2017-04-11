@@ -118,8 +118,8 @@ class ContextTest(unittest.TestCase):
         ctx.dns_domain = 'a'
         ctx.admin_api_scope = ['ny.campus', 'na.region']
         ctx.cell = 'b'
-        self.assertEquals(['http://xxx:123', 'http://yyy:234'],
-                          ctx.cell_api())
+        self.assertEquals(set(['http://xxx:123', 'http://yyy:234']),
+                          set(ctx.cell_api()))
         treadmill.dnsutils.srv.assert_called_with(
             '_http._tcp.cellapi.b.cell.a'
         )

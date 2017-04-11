@@ -3,16 +3,14 @@ from __future__ import absolute_import
 
 import sys
 
-import json
 import logging
 import os
 import subprocess
-import websocket as ws_client
 
 import click
 
-from treadmill import context
 from treadmill import cli
+from treadmill.websocket import client as ws_client
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -86,7 +84,7 @@ def init():
     """Return top level command handler."""
 
     @click.command()
-    @click.option('--api', required=False, help='API url to use.',
+    @click.option('--wsapi', required=False, help='xAPI url to use.',
                   metavar='URL',
                   envvar='TREADMILL_WSAPI')
     @click.option('--cell', required=True,
@@ -97,31 +95,35 @@ def init():
                   type=click.File('rb'))
     @click.argument('app')
     @click.argument('command', nargs=-1)
-    def ssh(api, ssh, app, command):
+    def ssh(wsapi, ssh, app, command):
         """SSH into Treadmill container."""
         if ssh is None:
             ssh = _DEFAULT_SSH
 
-        apis = context.GLOBAL.ws_api(api)
+        def on_message(result):
+            """Callback to process trace message."""
+            host = result['host']
+            port = result['port']
+            run_ssh(host, port, ssh, list(command))
+            return False
 
-        ws = ws_client.create_connection(apis[0])
-        ws.send(json.dumps({'topic': '/endpoints',
-                            'filter': app,
-                            'proto': 'tcp',
-                            'endpoint': 'ssh',
-                            'since': 0,
-                            'snapshot': False}))
-
-        reply = ws.recv()
-        result = json.loads(reply)
-        if '_error' in result:
+        def on_error(result):
+            """Callback to process errors."""
             click.echo('Error: %s' % result['_error'], err=True)
+
+        try:
+            return ws_client.ws_loop(
+                wsapi,
+                {'topic': '/endpoints',
+                 'filter': app,
+                 'proto': 'tcp',
+                 'endpoint': 'ssh'},
+                False,
+                on_message,
+                on_error
+            )
+        except ws_client.ConnectionError:
+            click.echo('Could not connect to any Websocket APIs', err=True)
             sys.exit(-1)
-
-        host = result['host']
-        port = result['port']
-        ws.close()
-
-        run_ssh(host, port, ssh, list(command))
 
     return ssh

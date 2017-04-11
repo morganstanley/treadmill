@@ -16,4 +16,4 @@ exec {{ treadmill }}/bin/treadmill sproc checkout \
       --outdir $OUTDIR \
       --port 0 \
       --plugin treadmill.plugins.sproc.checkout \
-      api zk sysapps servers ldap
+      api zk sysapps servers ldap dns

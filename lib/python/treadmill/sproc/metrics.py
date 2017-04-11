@@ -15,6 +15,7 @@ from treadmill import appmgr
 from treadmill import exc
 from treadmill import fs
 from treadmill import rrdutils
+from treadmill import metrics as mtx
 
 #: Metric collection interval (every X seconds)
 _METRIC_TIMEOUT_SEC = 60 * 2
@@ -82,13 +83,13 @@ def init():
         while True:
             rrdclient.update(
                 os.path.join(core_metrics_dir, 'treadmill.apps.rrd'),
-                rrdutils.app_metrics('treadmill/apps', sys_maj_min))
+                mtx.app_metrics('treadmill/apps', sys_maj_min))
             rrdclient.update(
                 os.path.join(core_metrics_dir, 'treadmill.core.rrd'),
-                rrdutils.app_metrics('treadmill/core', sys_maj_min))
+                mtx.app_metrics('treadmill/core', sys_maj_min))
             rrdclient.update(
                 os.path.join(core_metrics_dir, 'treadmill.system.rrd'),
-                rrdutils.app_metrics('treadmill/system', sys_maj_min))
+                mtx.app_metrics('treadmill/system', sys_maj_min))
 
             for svc in sys_svcs:
                 if svc in sys_svcs_no_metrics:
@@ -100,7 +101,7 @@ def init():
                     rrdclient.create(rrdfile, step, interval)
 
                 svc_cgrp = os.path.join('treadmill', 'core', svc)
-                svc_metrics = rrdutils.app_metrics(svc_cgrp, sys_maj_min)
+                svc_metrics = mtx.app_metrics(svc_cgrp, sys_maj_min)
                 rrdclient.update(rrdfile, svc_metrics)
 
             seen_apps = set()
@@ -126,7 +127,7 @@ def init():
                     rrdclient.create(rrd_file, step, interval)
 
                 app_cgrp = os.path.join('treadmill', 'apps', app_unique_name)
-                app_metrics = rrdutils.app_metrics(app_cgrp, blkio_major_minor)
+                app_metrics = mtx.app_metrics(app_cgrp, blkio_major_minor)
                 rrdclient.update(rrd_file, app_metrics)
 
             for app_unique_name in monitored_apps - seen_apps:

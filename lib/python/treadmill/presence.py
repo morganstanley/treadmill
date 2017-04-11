@@ -206,7 +206,7 @@ def kill_node(zkclient, node):
 def is_down(svc_dir):
     """Check if service is running."""
     try:
-        subproc.check_call(['s6-svwait', '-t', '100', '-d', svc_dir])
+        subproc.check_call(['s6-svwait', '-t', '100', '-D', svc_dir])
         return True
     except subprocess.CalledProcessError as err:
         # If wait timed out, the app is already running, do nothing.
@@ -340,7 +340,7 @@ class ServicePresence(object):
         # Wait for one of the services to come down.
         # TODO: need to investigate why s6-svwait returns 111 rather
         #                than 0.
-        subproc.call(['s6-svwait', '-o', '-d'] + watched_dirs)
+        subproc.call(['s6-svwait', '-o', '-D'] + watched_dirs)
 
         # Wait for the supervisor to report finished status.
         time.sleep(1)
@@ -354,13 +354,17 @@ class ServicePresence(object):
         finished = os.path.join(svc_dir, 'finished')
         rc = -1
         signal = -1
+        timestamp = time.time()
 
         count = 0
         with open(finished) as f:
             lines = f.readlines()
             count = len(lines)
-            last_line = lines[-1]
-            timestamp, rc, signal = last_line.strip().split()
+            if count > 0:
+                last_line = lines[-1]
+                timestamp, rc, signal = last_line.strip().split()
+            else:
+                count = 1
 
         log = os.path.join(svc_dir, 'log', 'current')
         logtail = ''.join(utils.tail(log))
