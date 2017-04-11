@@ -1,15 +1,15 @@
 """Collects and reports container and host metrics."""
 from __future__ import absolute_import
 
-import os
-
+import errno
 import logging
+import os
 import time
 
-from . import cgroups
-from . import cgutils
-from . import psmem
-from . import sysinfo
+from treadmill import cgroups
+from treadmill import cgutils
+from treadmill import psmem
+from treadmill import sysinfo
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -106,3 +106,59 @@ def read_cpu_stats(cgrp):
              (delta * sysinfo.BMIPS_PER_CPU) / cpu_count * 100)
 
     return (usage, requested_ratio, usage_ratio)
+
+
+def app_metrics(cgrp, blkio_major_minor=None):
+    """Returns app metrics or empty dict if app not found."""
+    result = {
+        'memusage': 0,
+        'softmem': 0,
+        'hardmem': 0,
+        'cpuusage': 0,
+        'cpuusage_ratio': 0,
+        'blk_read_iops': 0,
+        'blk_write_iops': 0,
+        'blk_read_bps': 0,
+        'blk_write_bps': 0,
+    }
+
+    meminfo = sysinfo.mem_info()
+    meminfo_total_bytes = meminfo.total * 1024
+
+    try:
+        memusage, softmem, hardmem = read_memory_stats(cgrp)
+        if softmem > meminfo_total_bytes:
+            softmem = meminfo_total_bytes
+
+        if hardmem > meminfo_total_bytes:
+            hardmem = meminfo_total_bytes
+
+        result.update({
+            'memusage': memusage,
+            'softmem': softmem,
+            'hardmem': hardmem,
+        })
+
+        cpuusage, _, cpuusage_ratio = read_cpu_stats(cgrp)
+        result.update({
+            'cpuusage': cpuusage,
+            'cpuusage_ratio': cpuusage_ratio,
+        })
+
+        blkusage = read_blkio_stats(cgrp, blkio_major_minor)
+        result.update({
+            'blk_read_iops': blkusage['read_iops'],
+            'blk_write_iops': blkusage['write_iops'],
+            'blk_read_bps': blkusage['read_bps'],
+            'blk_write_bps': blkusage['write_bps'],
+        })
+
+    except IOError as err:
+        if err.errno != errno.ENOENT:
+            raise err
+
+    except OSError as err:
+        if err.errno != errno.ENOENT:
+            raise err
+
+    return result

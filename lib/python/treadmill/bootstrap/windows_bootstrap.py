@@ -8,7 +8,7 @@ import os
 import treadmill
 import treadmill.syscall.winsymlink  # pylint: disable=W0611
 
-from .. import _bootstrap_base
+from treadmill.bootstrap import bootstrap_base
 
 
 _MASTER_NOT_SUPPORTED_MESSAGE = "Windows does not support master services."
@@ -16,12 +16,7 @@ _SPAWN_NOT_SUPPORTED_MESSAGE = "Windows does not support spawn services."
 _HAPROXY_NOT_SUPPORTED_MESSAGE = "Windows does not support haproxy services."
 
 
-def default_install_dir():
-    """Gets the base install directory."""
-    return "c:\\"
-
-
-class WindowsBootstrap(_bootstrap_base.BootstrapBase):
+class WindowsBootstrap(bootstrap_base.BootstrapBase):
     """Base interface for bootstrapping on windows."""
 
     def _rename_file(self, src, dst):

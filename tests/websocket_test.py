@@ -1,6 +1,7 @@
 """Unit test for websocket.
 """
 
+import json
 import unittest
 import tempfile
 import os
@@ -109,9 +110,13 @@ class PubSubTest(unittest.TestCase):
         impl = mock.Mock()
         impl.on_event.return_value = {'echo': 1}
         open(os.path.join(self.root, 'xxx'), 'w+').close()
+        modified = int(os.stat(os.path.join(self.root, 'xxx')).st_mtime)
+
         pubsub._sow(self.root, '*', 0, handler, impl)
 
-        handler.write_message.assert_called_with('{"echo": 1}')
+        handler.write_message.assert_called_with(
+            json.dumps({'echo': 1, 'when': modified}),
+        )
         handler.write_message.reset_mock()
 
         pubsub._sow(self.root, '*', time.time() + 1, handler, impl)
@@ -119,7 +124,9 @@ class PubSubTest(unittest.TestCase):
         handler.write_message.reset_mock()
 
         pubsub._sow(self.root, '*', time.time() - 1, handler, impl)
-        handler.write_message.assert_called_with('{"echo": 1}')
+        handler.write_message.assert_called_with(
+            json.dumps({'echo': 1, 'when': modified}),
+        )
         handler.write_message.reset_mock()
 
 
@@ -177,7 +184,8 @@ class WebSocketTest(AsyncHTTPTestCase):
         ws.write_message(echo_msg)
         self.pubsub.run(once=True)
         response = yield ws.read_message()
-        self.assertEquals('{"echo": 1}', response)
+        self.assertEquals(1, json.loads(response)['echo'])
+        self.assertIn('when', json.loads(response))
 
     @gen_test
     def test_snapshot(self):
@@ -194,7 +202,10 @@ class WebSocketTest(AsyncHTTPTestCase):
         ws.write_message(echo_msg)
         self.pubsub.run(once=True)
         response = yield ws.read_message()
-        self.assertEquals('{"echo": 1}', response)
+
+        self.assertEquals(1, json.loads(response)['echo'])
+        self.assertIn('when', json.loads(response))
+
         response = yield ws.read_message()
         self.assertIsNone(response)
 

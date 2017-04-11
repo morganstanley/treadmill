@@ -11,9 +11,9 @@ import jinja2
 
 import treadmill
 
-from .. import admin
-from .. import context
-from .. import fs
+from treadmill import admin
+from treadmill import context
+from treadmill import fs
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -26,7 +26,8 @@ class BootstrapBase(object):
         self.dst_dir = dst_dir
         self.defaults = defaults
 
-    def _render(self, value, params):
+    @staticmethod
+    def _render(value, params):
         """Renders text, interpolating params."""
         return str(jinja2.Template(value).render(params))
 
@@ -102,7 +103,8 @@ class BootstrapBase(object):
         """Rename the specified file"""
         os.rename(src, dst)
 
-    def _update_stat(self, src_file, tgt_file):
+    @staticmethod
+    def _update_stat(src_file, tgt_file):
         """chmod target file to match the source file."""
         src_stat = os.stat(src_file)
         tgt_stat = os.stat(tgt_file)

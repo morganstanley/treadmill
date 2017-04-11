@@ -33,7 +33,7 @@ import time
 
 from . import appmgr
 from . import fs
-from . import idirwatch
+from . import dirwatch
 from . import logcontext as lc
 from . import subproc
 
@@ -82,7 +82,7 @@ class AppCfgMgr(object):
             content='Service %r failed' % self.name
         )
 
-        watch = idirwatch.DirWatcher(self.tm_env.cache_dir)
+        watch = dirwatch.DirWatcher(self.tm_env.cache_dir)
         watch.on_created = self._on_created
         watch.on_modified = self._on_modified
         watch.on_deleted = self._on_deleted

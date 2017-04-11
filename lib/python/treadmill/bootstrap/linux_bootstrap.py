@@ -7,8 +7,8 @@ import os
 
 import treadmill
 
-from .. import _bootstrap_base
-from ... import context
+from treadmill import context
+from treadmill.bootstrap import bootstrap_base
 
 from treadmill.spawn import tree as spawn_tree
 
@@ -16,12 +16,7 @@ from treadmill.spawn import tree as spawn_tree
 _LOGGER = logging.getLogger(__name__)
 
 
-def default_install_dir():
-    """Gets the base install directory."""
-    return '/var/tmp'
-
-
-class LinuxBootstrap(_bootstrap_base.BootstrapBase):
+class LinuxBootstrap(bootstrap_base.BootstrapBase):
     """Base interface for bootstrapping on linux."""
 
     @property

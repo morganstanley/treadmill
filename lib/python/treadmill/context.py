@@ -4,6 +4,7 @@ from __future__ import absolute_import
 
 import importlib
 import logging
+import random
 
 import ldap3
 
@@ -160,6 +161,7 @@ class Context(object):
             raise ContextError('Treadmill DNS domain not specified.')
 
         result = dnsutils.srv(srv_rec + '.' + self.dns_domain)
+        random.shuffle(result)
         _LOGGER.debug('Result: %r', result)
 
         if result:

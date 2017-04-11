@@ -19,6 +19,19 @@ from .. import zknamespace as z
 _LOGGER = logging.getLogger(__name__)
 
 
+def _on_add_identity(zk2fs_sync, zkpath):
+    """Invoked when new identity group is added."""
+    _LOGGER.info('Added identity-group: %s', zkpath)
+    zk2fs_sync.sync_children(zkpath, watch_data=True)
+
+
+def _on_del_identity(zk2fs_sync, zkpath):
+    """Invoked when identity group is removed."""
+    fpath = zk2fs_sync.fpath(zkpath)
+    _LOGGER.info('Removed identity-group: %s', os.path.basename(fpath))
+    shutil.rmtree(fpath)
+
+
 def _on_add_proid(zk2fs_sync, zkpath):
     """Invoked when new proid is added to endpoints."""
     _LOGGER.info('Added proid: %s', zkpath)
@@ -102,6 +115,8 @@ def init():
                   required=True)
     @click.option('--endpoints', help='Sync endpoints.',
                   is_flag=True, default=False)
+    @click.option('--identity-groups', help='Sync identity-groups.',
+                  is_flag=True, default=False)
     @click.option('--appgroups', help='Sync appgroups.',
                   is_flag=True, default=False)
     @click.option('--running', help='Sync running.',
@@ -115,8 +130,8 @@ def init():
     @click.option('--tasks', help='Sync trace with app pattern.')
     @click.option('--once', help='Sync once and exit.',
                   is_flag=True, default=False)
-    def zk2fs_cmd(root, endpoints, appgroups, running, scheduled, servers,
-                  placement, tasks, once):
+    def zk2fs_cmd(root, endpoints, identity_groups, appgroups, running,
+                  scheduled, servers, placement, tasks, once):
         """Starts appcfgmgr process."""
 
         fs.mkdir_safe(root)
@@ -134,6 +149,12 @@ def init():
                 z.ENDPOINTS,
                 on_add=lambda p: _on_add_proid(zk2fs_sync, p),
                 on_del=lambda p: _on_del_proid(zk2fs_sync, p))
+
+        if identity_groups:
+            zk2fs_sync.sync_children(
+                z.IDENTITY_GROUPS,
+                on_add=lambda p: _on_add_identity(zk2fs_sync, p),
+                on_del=lambda p: _on_del_identity(zk2fs_sync, p))
 
         if scheduled:
             zk2fs_sync.sync_children(z.path.scheduled())

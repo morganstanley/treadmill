@@ -7,6 +7,8 @@ import unittest
 # Disable W0611: Unused import
 import tests.treadmill_test_deps  # pylint: disable=W0611
 
+import jsonschema
+
 from treadmill.websocket.api import state
 
 
@@ -18,12 +20,14 @@ class WSRunningAPITest(unittest.TestCase):
         api = state.RunningAPI()
         self.assertEquals(
             [('/running', 'foo.bar#*')],
-            api.subscribe({'filter': 'foo.bar'})
+            api.subscribe({'topic': '/running',
+                           'filter': 'foo.bar'})
         )
 
         self.assertEquals(
             [('/running', '*#*')],
-            api.subscribe({'filter': '*'})
+            api.subscribe({'topic': '/running',
+                           'filter': '*'})
         )
 
     def test_on_event(self):
@@ -50,6 +54,32 @@ class WSRunningAPITest(unittest.TestCase):
                 None
             )
         )
+
+
+class WSScheduledAPITest(unittest.TestCase):
+    """Tests for scheduled websocket API."""
+
+    def test_subscribe(self):
+        """Test subscription registration."""
+        api = state.ScheduledAPI()
+        self.assertEquals(
+            [('/scheduled', 'foo.bar#*')],
+            api.subscribe({'topic': '/scheduled',
+                           'filter': 'foo.bar'})
+        )
+
+        self.assertEquals(
+            [('/scheduled', '*#*')],
+            api.subscribe({'topic': '/scheduled',
+                           'filter': '*'})
+        )
+
+        with self.assertRaisesRegexp(
+            jsonschema.exceptions.ValidationError,
+            "'foo!' does not match"
+        ):
+            api.subscribe({'topic': '/scheduled',
+                           'filter': 'foo!'})
 
 
 if __name__ == '__main__':

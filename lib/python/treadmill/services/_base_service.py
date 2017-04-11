@@ -23,7 +23,7 @@ import yaml
 from .. import exc
 from .. import fs
 from .. import logcontext as lc
-from .. import idirwatch
+from .. import dirwatch
 from .. import utils
 from .. import watchdog
 
@@ -58,7 +58,7 @@ def _wait_for_file(filename, timeout=60*60):
 
     filedir = os.path.dirname(filename)
     # TODO: Fine tune the watcher mask for efficiency.
-    watcher = idirwatch.DirWatcher(filedir)
+    watcher = dirwatch.DirWatcher(filedir)
 
     now = time.time()
     end_time = now + timeout
@@ -408,7 +408,7 @@ class ResourceService(object):
         # Run initialization
         impl.initialize(self._dir)
 
-        watcher = idirwatch.DirWatcher(self._rsrc_dir)
+        watcher = dirwatch.DirWatcher(self._rsrc_dir)
         # Call all the callbacks with the implementation instance
         watcher.on_created = functools.partial(self._on_created, impl)
         watcher.on_deleted = functools.partial(self._on_deleted, impl)
@@ -711,7 +711,7 @@ class ResourceService(object):
         )
 
         # Check if there were more events to process
-        if io_res and io_res[-1][0] == idirwatch.DirWatcherEvent.MORE_PENDING:
+        if io_res and io_res[-1][0] == dirwatch.DirWatcherEvent.MORE_PENDING:
             _LOGGER.debug('More requests events pending')
             os.write(self._io_eventfd, self._IO_EVENT_PENDING)
 

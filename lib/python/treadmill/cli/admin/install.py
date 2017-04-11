@@ -7,9 +7,9 @@ import click
 import yaml
 
 import treadmill
+from treadmill import bootstrap
 from treadmill import cli
 from treadmill import context
-from treadmill.osmodules import bootstrap
 
 
 def init():
@@ -52,7 +52,7 @@ def init():
 
     @install.command()
     @click.option('--install-dir',
-                  default=lambda: os.path.join(bootstrap.default_install_dir(),
+                  default=lambda: os.path.join(bootstrap.DEFAULT_INSTALL_DIR,
                                                "treadmill"))
     @click.option('--run/--no-run', is_flag=True, default=False)
     @click.pass_context
@@ -74,7 +74,7 @@ def init():
         @install.command()
         @click.option('--install-dir',
                       default=lambda: os.path.join(
-                          bootstrap.default_install_dir(),
+                          bootstrap.DEFAULT_INSTALL_DIR,
                           "treadmill_master"))
         @click.option('--run/--no-run', is_flag=True, default=False)
         @click.option('--master-id', required=True,
@@ -98,7 +98,7 @@ def init():
         @install.command()
         @click.option('--install-dir',
                       default=lambda: os.path.join(
-                          bootstrap.default_install_dir(),
+                          bootstrap.DEFAULT_INSTALL_DIR,
                           "treadmill_spawn"))
         @click.option('--run/--no-run', is_flag=True, default=False)
         @click.pass_context
@@ -119,7 +119,7 @@ def init():
         @install.command()
         @click.option('--install-dir',
                       default=lambda: os.path.join(
-                          bootstrap.default_install_dir(),
+                          bootstrap.DEFAULT_INSTALL_DIR,
                           "treadmill_haproxy"))
         @click.option('--run/--no-run', is_flag=True, default=False)
         @click.pass_context

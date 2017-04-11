@@ -60,6 +60,8 @@ class AppMgrRunTest(unittest.TestCase):
         if self.root and os.path.isdir(self.root):
             shutil.rmtree(self.root)
 
+    @mock.patch('pwd.getpwnam', mock.Mock())
+    @mock.patch('os.chown', mock.Mock())
     @mock.patch('treadmill.fs.chroot_init', mock.Mock())
     @mock.patch('treadmill.fs.create_filesystem', mock.Mock())
     @mock.patch('treadmill.fs.test_filesystem', mock.Mock(return_value=False))
@@ -116,10 +118,10 @@ class AppMgrRunTest(unittest.TestCase):
             os.path.join(self.app_env.root, 'etc'),
             '/some/root_dir/.etc'
         )
-        shutil.copyfile.assert_called_with(
-            '/etc/hosts',
-            '/some/root_dir/.etc/hosts'
-        )
+        shutil.copyfile.assert_has_calls([
+            mock.call('/etc/hosts', '/some/root_dir/.etc/hosts'),
+            mock.call('/etc/hosts', '/some/root_dir/.etc/hosts.original'),
+        ])
 
         treadmill.subproc.check_call.assert_has_calls([
             mock.call(
@@ -284,6 +286,8 @@ class AppMgrRunTest(unittest.TestCase):
             mock.call('/some/dir/sys/monitor/log'),
             mock.call('/some/dir/sys/register'),
             mock.call('/some/dir/sys/register/log'),
+            mock.call('/some/dir/sys/hostaliases'),
+            mock.call('/some/dir/sys/hostaliases/log'),
             mock.call('/some/dir/sys/start_container'),
             mock.call('/some/dir/sys/start_container/log'),
         ])
@@ -370,6 +374,11 @@ class AppMgrRunTest(unittest.TestCase):
                       'supervisor.run_sys',
                       cmd=mock.ANY),
             mock.call('/some/dir/sys/register/log/run',
+                      'logger.run'),
+            mock.call('/some/dir/sys/hostaliases/run',
+                      'supervisor.run_sys',
+                      cmd=mock.ANY),
+            mock.call('/some/dir/sys/hostaliases/log/run',
                       'logger.run'),
             mock.call(
                 '/some/dir/sys/start_container/run',

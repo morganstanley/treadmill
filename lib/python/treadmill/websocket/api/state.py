@@ -6,8 +6,9 @@ from __future__ import absolute_import
 
 import logging
 import os
-
 import yaml
+
+from treadmill import schema
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -16,53 +17,67 @@ _LOGGER = logging.getLogger(__name__)
 class RunningAPI(object):
     """Handler for /running topic."""
 
-    def subscribe(self, message):
-        """Return filter based on message payload."""
-        app_filter = message['filter']
-        if '#' not in app_filter:
-            app_filter += '#*'
+    def __init__(self):
+        """init"""
 
-        return [('/running', app_filter)]
+        @schema.schema({'$ref': 'websocket/state.json#/message'})
+        def subscribe(message):
+            """Return filter based on message payload."""
+            app_filter = message['filter']
+            if '#' not in app_filter:
+                app_filter += '#*'
 
-    def on_event(self, filename, _operation, content):
-        """Event handler."""
-        if not filename.startswith('/running/'):
-            return
+            return [('/running', app_filter)]
 
-        appname = os.path.basename(filename)
-        return {
-            'topic': '/running',
-            'name': appname,
-            'host': content,
-        }
+        def on_event(filename, _operation, content):
+            """Event handler."""
+            if not filename.startswith('/running/'):
+                return
+
+            appname = os.path.basename(filename)
+            return {
+                'topic': '/running',
+                'name': appname,
+                'host': content,
+            }
+
+        self.subscribe = subscribe
+        self.on_event = on_event
 
 
 class ScheduledAPI(object):
     """Handler for /scheduled topic."""
 
-    def subscribe(self, message):
-        """Return filter based on message payload."""
-        app_filter = message['filter']
-        if app_filter.find('#') == -1:
-            app_filter += '#*'
+    def __init__(self):
+        """init"""
 
-        return [('/scheduled', app_filter)]
+        @schema.schema({'$ref': 'websocket/state.json#/message'})
+        def subscribe(message):
+            """Return filter based on message payload."""
+            app_filter = message['filter']
+            if app_filter.find('#') == -1:
+                app_filter += '#*'
 
-    def on_event(self, filename, _operation, content):
-        """Event handler."""
-        if not filename.startswith('/scheduled/'):
-            return
+            return [('/scheduled', app_filter)]
 
-        appname = os.path.basename(filename)
-        manifest = None
-        if content:
-            manifest = yaml.load(content)
+        def on_event(filename, _operation, content):
+            """Event handler."""
+            if not filename.startswith('/scheduled/'):
+                return
 
-        return {
-            'topic': '/scheduled',
-            'name': appname,
-            'manifest': manifest,
-        }
+            appname = os.path.basename(filename)
+            manifest = None
+            if content:
+                manifest = yaml.load(content)
+
+            return {
+                'topic': '/scheduled',
+                'name': appname,
+                'manifest': manifest,
+            }
+
+        self.subscribe = subscribe
+        self.on_event = on_event
 
 
 def init():

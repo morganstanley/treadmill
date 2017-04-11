@@ -1,23 +1,26 @@
-"""Unit test for directory watcher (inotify).
+"""Unit test for directory watcher.
 """
 
 import errno
 import os
 import shutil
+import sys
 import tempfile
-import select
 import unittest
+
+if os.name != 'nt':
+    import select
 
 # Disable W0611: Unused import
 import tests.treadmill_test_deps  # pylint: disable=W0611
 
 import mock
 
-from treadmill import idirwatch
+from treadmill import dirwatch
 
 
 class DirWatcherTest(unittest.TestCase):
-    """Tests for teadmill.idirwatch."""
+    """Tests for teadmill.dirwatch."""
 
     def setUp(self):
         self.root = tempfile.mkdtemp()
@@ -33,7 +36,7 @@ class DirWatcherTest(unittest.TestCase):
         deleted = []
         test_file = os.path.join(self.root, 'a')
 
-        watcher = idirwatch.DirWatcher(self.root)
+        watcher = dirwatch.DirWatcher(self.root)
         watcher.on_created = lambda x: created.append(x) or 'one'
         watcher.on_modified = lambda x: modified.append(x) or 'two'
         watcher.on_deleted = lambda x: deleted.append(x) or 'three'
@@ -53,18 +56,19 @@ class DirWatcherTest(unittest.TestCase):
         self.assertEqual([test_file], deleted)
         self.assertEqual(
             [
-                (idirwatch.DirWatcherEvent.CREATED, test_file, 'one'),
-                (idirwatch.DirWatcherEvent.MODIFIED, test_file, 'two'),
-                (idirwatch.DirWatcherEvent.DELETED, test_file, 'three'),
-                (idirwatch.DirWatcherEvent.MORE_PENDING, None, None),
+                (dirwatch.DirWatcherEvent.CREATED, test_file, 'one'),
+                (dirwatch.DirWatcherEvent.MODIFIED, test_file, 'two'),
+                (dirwatch.DirWatcherEvent.DELETED, test_file, 'three'),
+                (dirwatch.DirWatcherEvent.MORE_PENDING, None, None),
             ],
             res,
         )
 
+    @unittest.skipUnless(sys.platform == 'linux2', 'Requires Linux')
     @mock.patch('select.poll', mock.Mock())
     def test_signal(self):
         """Tests behavior when signalled during wait."""
-        watcher = idirwatch.DirWatcher(self.root)
+        watcher = dirwatch.DirWatcher(self.root)
 
         mocked_pollobj = select.poll.return_value
         mocked_pollobj.poll.side_effect = select.error(errno.EINTR, '')

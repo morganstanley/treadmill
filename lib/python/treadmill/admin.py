@@ -420,9 +420,6 @@ class Admin(object):
 
         self._test_raise_exceptions()
 
-        if not self.ldap.response:
-            return
-
         for entry in self.ldap.response:
             yield str(entry['dn']), _dict_normalize(entry['raw_attributes'])
 
@@ -484,9 +481,6 @@ class Admin(object):
                              search_scope=ldap3.LEVEL,
                              attributes=['olcAttributeTypes',
                                          'olcObjectClasses'])
-
-        if not result:
-            return None
 
         schema_dn, entry = result.next()
 
