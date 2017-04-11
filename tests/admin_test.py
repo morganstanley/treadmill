@@ -7,12 +7,43 @@ Unit test for treadmill admin.
 
 import hashlib
 import unittest
+import io
 
 import mock
 import ldap3
 
 import treadmill
 from treadmill import admin
+
+
+def _open_side_effect_for_simple_auth(path, *args):
+    if path == '/root/.treadmill_ldap':
+        return io.StringIO("secret")
+    elif path.endswith('deploy/config/treadmill.yml'):
+        return io.StringIO(
+            """
+            domain: tm.treadmill
+            freeipa:
+                authentication: simple
+                admin_pwd_file: /root/.treadmill_ldap
+            """)
+    else:
+        return open(path, *args)
+
+
+def _open_side_effect_for_sasl_auth(path, *args):
+    if path == '/root/.treadmill_ldap':
+        return io.StringIO("secret")
+    elif path.endswith('deploy/config/treadmill.yml'):
+        return io.StringIO(
+            """
+            domain: tm.treadmill
+            freeipa:
+                authentication: sasl
+                admin_pwd_file: /root/.treadmill_ldap
+            """)
+    else:
+        return open(path, *args)
 
 
 class AdminTest(unittest.TestCase):
@@ -302,6 +333,40 @@ class AdminTest(unittest.TestCase):
         self.assertTrue('dc=test,dc=com' in dn_list)
         self.assertTrue('ou=treadmill,dc=test,dc=com' in dn_list)
         self.assertTrue('ou=apps,ou=treadmill,dc=test,dc=com' in dn_list)
+
+    @mock.patch('ldap3.Connection', mock.Mock())
+    @mock.patch('builtins.open', mock.Mock(
+        side_effect=_open_side_effect_for_simple_auth))
+    @mock.patch('ldap3.Server', mock.Mock(return_value={}))
+    def test_ldap3_simple_connection(self):
+        """Tests ldap simple credential."""
+        admin_obj = admin.Admin("ldap://host:389", None)
+
+        admin_obj.connect()
+
+        ldap3.Connection.assert_called_with({},
+                                            user="cn=admin,dc=tm,dc=treadmill",
+                                            password="secret",
+                                            authentication='SIMPLE',
+                                            client_strategy='RESTARTABLE',
+                                            sasl_mechanism=None,
+                                            auto_bind=True)
+
+    @mock.patch('ldap3.Connection', mock.Mock())
+    @mock.patch('builtins.open', mock.Mock(
+        side_effect=_open_side_effect_for_sasl_auth))
+    @mock.patch('ldap3.Server', mock.Mock(return_value={}))
+    def test_ldap3_sasl_connection(self):
+        """Tests ldap sasl credential."""
+        admin_obj = admin.Admin("ldap://host:389", None)
+
+        admin_obj.connect()
+
+        ldap3.Connection.assert_called_with({},
+                                            authentication='SASL',
+                                            client_strategy='RESTARTABLE',
+                                            sasl_mechanism='GSSAPI',
+                                            auto_bind=True)
 
 
 class TenantTest(unittest.TestCase):

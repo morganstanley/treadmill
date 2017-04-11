@@ -48,7 +48,7 @@ def init():
                   default='key.pem',
                   help='AWS ssh pem file',)
     @click.option('--aws-config',
-                  default=_get_from_treadmill_egg('aws.yml'),
+                  default=_get_from_treadmill_egg('config/aws.yml'),
                   help='AWS config file',)
     def cell(create, destroy, playbook, inventory, key_file, aws_config):
         """Manage treadmill cell on AWS"""
@@ -93,7 +93,7 @@ def init():
                   default='key.pem',
                   help='AWS ssh pem file',)
     @click.option('--aws-config',
-                  default=_get_from_treadmill_egg('aws.yml'),
+                  default=_get_from_treadmill_egg('config/aws.yml'),
                   help='AWS config file',)
     def node(create, playbook, inventory, key_file, aws_config):
         """Manage treadmill node"""

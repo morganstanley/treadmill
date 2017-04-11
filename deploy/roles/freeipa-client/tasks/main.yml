@@ -1,0 +1,38 @@
+---
+- name: Install FreeIPA client package
+  yum:
+    name: ipa-client
+    state: present
+
+- name: Add host entry
+  lineinfile:
+    dest=/etc/hosts
+    regexp="{{ ansible_nodename|lower }}"
+    line="{{ ansible_default_ipv4.address }} {{ ansible_nodename|lower }}"
+    owner=root
+    group=root
+    mode=0644
+
+- name: Fetch credential file if it exists
+  fetch:
+    src: "{{freeipa.admin_pwd_file}}"
+    dest: "{{freeipa.admin_pwd_file}}"
+    flat: yes
+
+- name: Lookup freeipa admin password
+  command: echo {{ lookup('password', freeipa.admin_pwd_file) }}
+  register: lookup_result
+
+- name: Set freeipa admin password fact
+  set_fact:
+    ipaserver_admin_password: "{{lookup_result.stdout}}"
+
+- name: Copy credential file on FreeIPA client
+  copy: src="{{freeipa.admin_pwd_file}}" dest="{{freeipa.admin_pwd_file}}"
+
+- name: Configure FreeIPA client
+  command: /sbin/ipa-client-install
+    -U -p admin
+    -w "{{ ipaserver_admin_password}}"
+    creates=/etc/ipa/default.conf
+

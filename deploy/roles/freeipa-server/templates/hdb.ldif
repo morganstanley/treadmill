@@ -1,0 +1,17 @@
+dn: olcDatabase={2}hdb
+objectClass: olcDatabaseConfig
+objectClass: olcHdbConfig
+olcDatabase: {2}hdb
+olcDbDirectory: /var/lib/ldap
+olcSuffix: {{ domain | regex_replace('(.*)\\.(.*)', 'dc=\\1,dc=\\2') }}
+olcRootDN: cn=admin,{{ domain | regex_replace('(.*)\\.(.*)', 'dc=\\1,dc=\\2') }}
+olcRootPW: {{ ipaserver_admin_password }} 
+olcDbIndex: objectClass eq,pres
+olcDbIndex: ou,cn,mail,surname,givenname eq,pres,sub
+structuralObjectClass: olcHdbConfig
+entryUUID: dfaf28fe-a897-1036-8453-77f0d6b2f9aa
+creatorsName: cn=config
+createTimestamp: 20170329065126Z
+entryCSN: 20170329065126.370191Z#000000#000#000000
+modifiersName: cn=config
+modifyTimestamp: 20170329065126Z
