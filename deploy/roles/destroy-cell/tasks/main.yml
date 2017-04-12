@@ -5,3 +5,4 @@
 - include: subnet.yml
 - include: route-table.yml
 - include: vpc.yml
+- include: route53.yml

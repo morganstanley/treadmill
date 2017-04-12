@@ -7,11 +7,12 @@ node_server:
   name: TreadmillNodeServer
   exact_count: 1
   instance_type: xlarge
-freeipa:
+freeipa_server:
   name: TreadmillFreeIPA
   exact_count: 1
   instance_type: small
   realm: TW.TREADMILL
   server_hostname: ipa
   authentication: sasl # sasl or simple
-  admin_pwd_file: /root/.treadmill_ldap
+  local_admin_pwd_file: ~/.treadmill/.ldap
+  remote_admin_pwd_file: /etc/treadmill/.ldap

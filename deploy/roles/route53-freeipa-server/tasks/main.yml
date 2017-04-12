@@ -115,6 +115,7 @@
     type: A
     record: "ipa-ca.{{domain}}."
     value: "{{created_instances.tagged_instances[0].private_ip}}"
+    overwrite: yes
 
 - name: Add VPC ldap tcp SRV DNS record
   route53:

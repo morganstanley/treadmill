@@ -25,7 +25,7 @@ def _open_side_effect_for_simple_auth(path, *args):
             domain: tm.treadmill
             freeipa:
                 authentication: simple
-                admin_pwd_file: /root/.treadmill_ldap
+                remote_admin_pwd_file: /root/.treadmill_ldap
             """)
     else:
         return open(path, *args)
@@ -40,7 +40,7 @@ def _open_side_effect_for_sasl_auth(path, *args):
             domain: tm.treadmill
             freeipa:
                 authentication: sasl
-                admin_pwd_file: /root/.treadmill_ldap
+                remote_admin_pwd_file: /root/.treadmill/.ldap
             """)
     else:
         return open(path, *args)
