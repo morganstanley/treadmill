@@ -44,7 +44,7 @@ class ContextTest(unittest.TestCase):
         ctx2 = context.Context()
         ctx2.ldap.search_base = 'ou=treadmill,ou=test'
         ctx2.ldap.url = 'ldap://foo:1234'
-        treadmill.admin.Cell.get.side_effect = ldap3.LDAPNoSuchObjectResult
+        treadmill.admin.Cell.get.side_effect = ldap3.core.exceptions.LDAPNoSuchObjectResult
         self.assertRaises(context.ContextError, ctx2.resolve, 'somecell')
 
         # Cell defined in LDAP

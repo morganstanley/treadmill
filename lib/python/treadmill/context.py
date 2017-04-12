@@ -276,7 +276,7 @@ class Context(object):
                 cellname
             )
             self.cell = cellname
-        except ldap3.LDAPNoSuchObjectResult:
+        except ldap3.core.exceptions.LDAPNoSuchObjectResult:
             _LOGGER.debug('Cell not defined in LDAP: %s', cellname)
 
         return bool(self.zk.url)
