@@ -14,4 +14,5 @@ freeipa:
   realm: TW.TREADMILL
   server_hostname: ipa
   authentication: sasl # sasl or simple
-  admin_pwd_file: /root/.treadmill_ldap
+  local_admin_pwd_file: ~/.treadmill/.ldap
+  remote_admin_pwd_file: /root/.treadmill/.ldap

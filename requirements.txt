@@ -27,3 +27,4 @@ urllib_kerberos
 websocket-client>=0.40.0,<1
 ansible==2.2.2.0
 boto==2.46.1
+boto3==1.4.4
