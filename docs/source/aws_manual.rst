@@ -53,6 +53,7 @@ Export the aws security credentials
 
   export AWS_ACCESS_KEY_ID=<Access Key ID>
   export AWS_SECRET_ACCESS_KEY=<Secret Access Key>
+
 ----------------------------------------------------------
 
 Create/Destroy Treadmill Cell
