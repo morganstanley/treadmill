@@ -11,12 +11,12 @@ List treadmill AWS commands
 Initialize
 ^^^^^^^^^^
 
-To make changes to ansible code and aws configuration run the following command:
+Initialize default dirs for AWS:
 ::
 
   treadmill aws init
 
-This will create the deploy directory in your current directory.
+This creates deploy directory current directory. Make changes to benefit.
 
 ----------------------------------------------------------
 
