@@ -23,25 +23,32 @@ This creates deploy directory current directory. Make changes to benefit.
 Create a Deployment Manifest
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Replace the values in *deploy/aws.yml*:
+Edit *deploy/aws.yml*:
 
 +-----------------------+----------------------------------------+
 | Key                   | Value                                  |
 +=======================+========================================+
 | aws_key_name          | SSH key for ec2 instances              |
 +-----------------------+----------------------------------------+
-| ami_id                | AMI ID for ec2 instances (Centos 7)    |
+| ami_id                | EC2 AMI ID (defaults to Centos 7)      |
 +-----------------------+----------------------------------------+
 | region                | AWS Region to create cell              |
 +-----------------------+----------------------------------------+
 | az                    | Availability Zone in the region        |
 +-----------------------+----------------------------------------+
+
+
+Edit *deploy/treadmill.yml*
+
++-----------------------+----------------------------------------+
+| Key                   | Value                                  |
++=======================+========================================+
 | exact_count           | Number of instances to spin up for     |
 |                       | master and node. By default it will    |
 |                       | create a 3-master cluster and 1 node.  |
 +-----------------------+----------------------------------------+
 
-Other values in the config files can be changed if required.
+Other default values can also be changed if required.
 
 ----------------------------------------------------------
 
