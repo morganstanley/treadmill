@@ -1,7 +1,7 @@
 Treadmill on AWS
 ==========================================================
 
-See all AWS commands for treadmill
+List treadmill AWS commands
 ::
 
   treadmill aws --help
