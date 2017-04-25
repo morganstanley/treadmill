@@ -90,8 +90,12 @@ Create/Destroy Treadmill Cell
 Create Node
 ^^^^^^^^^^^
 
-Provision a node in treadmill CELL on AWS
+Provision Node-Server in treadmill CELL on AWS
 
 ::
 
-  treadmill aws node --create --playbook node.yml --inventory controller.inventory --key-file {{key_path}}/{{key_name}}.pem --aws-config aws.yml
+  treadmill aws node --create --key-file <path/to/pem/file>
+
+  --playbook      default: deploy/node.yml
+  --inventory     default: deploy/controller.inventory
+  --aws-config    default: deploy/config/aws.yml
