@@ -54,7 +54,7 @@ Other default values can also be changed if required.
 
 Set AWS Credentials
 ^^^^^^^^^^^^^^^^^^^
-Export the aws security credentials
+Export AWS security credentials
 
 ::
 
@@ -65,25 +65,25 @@ Export the aws security credentials
 
 Create/Destroy Treadmill Cell
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-Run the following command to create/destroy a cell in aws:
-
-::
-
-  cd deploy
-
 **Create:**
 
 ::
 
-  treadmill aws cell --create --playbook cell.yml --inventory controller.inventory --key-file {{key_path}}/{{key_name}}.pem --aws-config aws.yml
+  treadmill aws cell --create --key-file <path/to/pem/file>
+
+  --playbook      default: deploy/cell.yml
+  --inventory     default: deploy/controller.inventory
+  --aws-config    default: deploy/config/aws.yml
 
 **Destroy:**
 
 ::
 
-  treadmill aws cell --destroy --playbook destroy-cell.yml --inventory controller.inventory --aws-config aws.yml
+  treadmill aws cell --destroy
 
-We are overriding the playbook and inventory files by the files present in *<current_directory>/deploy*.
+  --playbook      default: deploy/destroy-cell.yml
+  --inventory     default: deploy/controller.inventory
+  --aws-config    default: deploy/config/aws.yml
 
 ----------------------------------------------------------
 
