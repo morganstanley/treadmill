@@ -1,7 +1,7 @@
 =================================================
-Build Treadmill Binary
+Treadmill Binary
 =================================================
 ::
 
-   pip install pex
+   pex install git+https://github.com/thoughtworksinc/pex#egg=pex
    pex . -o treadmill -e treadmill.console:run -v

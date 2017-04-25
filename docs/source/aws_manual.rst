@@ -1,4 +1,4 @@
-Deploy Treadmill on AWS
+Treadmill on AWS
 ==========================================================
 
 See all AWS commands for treadmill

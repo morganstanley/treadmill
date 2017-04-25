@@ -9,10 +9,10 @@ Welcome to Treadmill-OSS's documentation!
 .. toctree::
 
    setup
-   ansible
    aws_manual
    cli_docs
    dev
+   ansible
 
 Indices and tables
 ==================
