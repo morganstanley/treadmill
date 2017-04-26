@@ -32,6 +32,7 @@ def _print_cli_info(runner, cli_pkg, mods, path):
 cli_pkg = os.path.dirname(treadmill.cli.__file__)
 cli_mods = sorted([name for _, name, _ in pkgutil.iter_modules([cli_pkg])])
 runner = click.testing.CliRunner()
+click.echo(".. AUTO-GENERATED FILE - DO NOT EDIT!! Use `make cli_docs`.")
 print("""
 ==============================================================
 CLI

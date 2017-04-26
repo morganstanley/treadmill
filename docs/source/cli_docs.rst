@@ -1,3 +1,4 @@
+.. AUTO-GENERATED FILE - DO NOT EDIT!! Use `make cli_docs`.
 
 ==============================================================
 CLI
