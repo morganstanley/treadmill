@@ -53,14 +53,6 @@ Module: treadmill.cli.admin.blackout
 
 
 
-		Usage: blackout [OPTIONS] COMMAND [ARGS]...
-		
-		Error: Missing option "--cell".
-
-		Usage: blackout [OPTIONS] COMMAND [ARGS]...
-		
-		Error: Missing option "--cell".
-
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Module: treadmill.cli.admin.cell
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -147,22 +139,6 @@ Module: treadmill.cli.admin.http
 
 
 
-		Usage: top [OPTIONS] COMMAND [ARGS]...
-		
-		Error: Missing option "--cell".
-
-		Usage: top [OPTIONS] COMMAND [ARGS]...
-		
-		Error: Missing option "--cell".
-
-		Usage: top [OPTIONS] COMMAND [ARGS]...
-		
-		Error: Missing option "--cell".
-
-		Usage: top [OPTIONS] COMMAND [ARGS]...
-		
-		Error: Missing option "--cell".
-
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Module: treadmill.cli.admin.install
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -183,14 +159,6 @@ Module: treadmill.cli.admin.install
 		  node    Installs Treadmill node.
 
 
-
-		Usage: install [OPTIONS] COMMAND [ARGS]...
-		
-		Error: Missing option "--cell".
-
-		Usage: install [OPTIONS] COMMAND [ARGS]...
-		
-		Error: Missing option "--cell".
 
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Module: treadmill.cli.admin.invoke
@@ -221,54 +189,6 @@ Module: treadmill.cli.admin.invoke
 		  tenant          Treadmill Tenant REST api.
 
 
-
-		Usage: invoke [OPTIONS] COMMAND [ARGS]...
-		
-		Error: Missing option "--cell".
-
-		Usage: invoke [OPTIONS] COMMAND [ARGS]...
-		
-		Error: Missing option "--cell".
-
-		Usage: invoke [OPTIONS] COMMAND [ARGS]...
-		
-		Error: Missing option "--cell".
-
-		Usage: invoke [OPTIONS] COMMAND [ARGS]...
-		
-		Error: Missing option "--cell".
-
-		Usage: invoke [OPTIONS] COMMAND [ARGS]...
-		
-		Error: Missing option "--cell".
-
-		Usage: invoke [OPTIONS] COMMAND [ARGS]...
-		
-		Error: Missing option "--cell".
-
-		Usage: invoke [OPTIONS] COMMAND [ARGS]...
-		
-		Error: Missing option "--cell".
-
-		Usage: invoke [OPTIONS] COMMAND [ARGS]...
-		
-		Error: Missing option "--cell".
-
-		Usage: invoke [OPTIONS] COMMAND [ARGS]...
-		
-		Error: Missing option "--cell".
-
-		Usage: invoke [OPTIONS] COMMAND [ARGS]...
-		
-		Error: Missing option "--cell".
-
-		Usage: invoke [OPTIONS] COMMAND [ARGS]...
-		
-		Error: Missing option "--cell".
-
-		Usage: invoke [OPTIONS] COMMAND [ARGS]...
-		
-		Error: Missing option "--cell".
 
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Module: treadmill.cli.admin.ldap
@@ -424,30 +344,6 @@ Module: treadmill.cli.admin.master
 
 
 
-		Usage: master_group [OPTIONS] COMMAND [ARGS]...
-		
-		Error: Missing option "--cell".
-
-		Usage: master_group [OPTIONS] COMMAND [ARGS]...
-		
-		Error: Missing option "--cell".
-
-		Usage: master_group [OPTIONS] COMMAND [ARGS]...
-		
-		Error: Missing option "--cell".
-
-		Usage: master_group [OPTIONS] COMMAND [ARGS]...
-		
-		Error: Missing option "--cell".
-
-		Usage: master_group [OPTIONS] COMMAND [ARGS]...
-		
-		Error: Missing option "--cell".
-
-		Usage: master_group [OPTIONS] COMMAND [ARGS]...
-		
-		Error: Missing option "--cell".
-
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Module: treadmill.cli.admin.ok
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -497,10 +393,6 @@ Module: treadmill.cli.admin.scheduler
 
 
 
-		Usage: top [OPTIONS] COMMAND [ARGS]...
-		
-		Error: Missing option "--cell".
-
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Module: treadmill.cli.admin.show
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -521,22 +413,6 @@ Module: treadmill.cli.admin.show
 		  stopped    List stopped applications
 
 
-
-		Usage: top [OPTIONS] COMMAND [ARGS]...
-		
-		Error: Missing option "--cell".
-
-		Usage: top [OPTIONS] COMMAND [ARGS]...
-		
-		Error: Missing option "--cell".
-
-		Usage: top [OPTIONS] COMMAND [ARGS]...
-		
-		Error: Missing option "--cell".
-
-		Usage: top [OPTIONS] COMMAND [ARGS]...
-		
-		Error: Missing option "--cell".
 
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Module: treadmill.cli.admin.ssh
@@ -785,18 +661,6 @@ Module: treadmill.cli.identity_group
 
 
 
-		Usage: monitor_group [OPTIONS] COMMAND [ARGS]...
-		
-		Error: Missing option "--cell".
-
-		Usage: monitor_group [OPTIONS] COMMAND [ARGS]...
-		
-		Error: Missing option "--cell".
-
-		Usage: monitor_group [OPTIONS] COMMAND [ARGS]...
-		
-		Error: Missing option "--cell".
-
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Module: treadmill.cli.krb
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -873,18 +737,6 @@ Module: treadmill.cli.monitor
 
 
 
-		Usage: monitor_group [OPTIONS] COMMAND [ARGS]...
-		
-		Error: Missing option "--cell".
-
-		Usage: monitor_group [OPTIONS] COMMAND [ARGS]...
-		
-		Error: Missing option "--cell".
-
-		Usage: monitor_group [OPTIONS] COMMAND [ARGS]...
-		
-		Error: Missing option "--cell".
-
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Module: treadmill.cli.pid1
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -951,34 +803,6 @@ Module: treadmill.cli.show
 		  state      Show state of Treadmill scheduled instances.
 
 
-
-		Usage: show [OPTIONS] COMMAND [ARGS]...
-		
-		Error: Missing option "--cell".
-
-		Usage: show [OPTIONS] COMMAND [ARGS]...
-		
-		Error: Missing option "--cell".
-
-		Usage: show [OPTIONS] COMMAND [ARGS]...
-		
-		Error: Missing option "--cell".
-
-		Usage: show [OPTIONS] COMMAND [ARGS]...
-		
-		Error: Missing option "--cell".
-
-		Usage: show [OPTIONS] COMMAND [ARGS]...
-		
-		Error: Missing option "--cell".
-
-		Usage: show [OPTIONS] COMMAND [ARGS]...
-		
-		Error: Missing option "--cell".
-
-		Usage: show [OPTIONS] COMMAND [ARGS]...
-		
-		Error: Missing option "--cell".
 
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Module: treadmill.cli.sproc
