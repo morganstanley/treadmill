@@ -16,14 +16,14 @@ Initialize default dirs for AWS:
 
   treadmill aws init
 
-This creates deploy directory current directory. Make changes to benefit.
+This creates deploy directory in the current directory. Make changes to benefit.
 
 ----------------------------------------------------------
 
 Create a Deployment Manifest
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Edit *deploy/aws.yml*:
+Edit *deploy/config/aws.yml*:
 
 +-----------------------+----------------------------------------+
 | Key                   | Value                                  |
@@ -38,7 +38,7 @@ Edit *deploy/aws.yml*:
 +-----------------------+----------------------------------------+
 
 
-Edit *deploy/treadmill.yml*
+Edit *deploy/config/treadmill.yml*
 
 +-----------------------+----------------------------------------+
 | Key                   | Value                                  |
