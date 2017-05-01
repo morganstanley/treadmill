@@ -57,7 +57,43 @@ class AwsTest(unittest.TestCase):
             '-i',
             'controller.inventory',
             '-e',
-            'aws_config=config/aws.yml',
+            'aws_config=config/aws.yml freeipa=False',
+            'cell.yml',
+            '--key-file',
+            'key.pem',
+        ])
+
+        playbook_cli_obj_mock.parse.assert_called_once()
+        playbook_cli_obj_mock.run.assert_called_once()
+
+    @mock.patch('treadmill.cli.aws.PlaybookCLI')
+    def test_cell_with_create_with_freeipa(self, playbook_cli_mock):
+        """Test cli.aws.cell with create option"""
+
+        playbook_cli_obj_mock = mock.Mock(
+            **{
+                'parse.return_value': None,
+                'run.return_value': None
+            }
+        )
+        playbook_cli_mock.return_value = playbook_cli_obj_mock
+
+        self.runner.invoke(
+            self.configure_cli, [
+                'cell', '--create',
+                '--playbook', 'cell.yml',
+                '--inventory', 'controller.inventory',
+                '--aws-config', 'config/aws.yml',
+                '--with-freeipa'
+            ]
+        )
+
+        playbook_cli_mock.assert_called_once_with([
+            'ansible-playbook',
+            '-i',
+            'controller.inventory',
+            '-e',
+            'aws_config=config/aws.yml freeipa=True',
             'cell.yml',
             '--key-file',
             'key.pem',
@@ -92,7 +128,7 @@ class AwsTest(unittest.TestCase):
             '-i',
             'controller.inventory',
             '-e',
-            'aws_config=config/aws.yml',
+            'aws_config=config/aws.yml freeipa=False',
             'destroy-cell.yml',
         ])
 

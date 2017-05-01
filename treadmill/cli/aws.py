@@ -53,7 +53,12 @@ def init():
     @click.option('--aws-config',
                   default=deploy_path_join('config/aws.yml'),
                   help='AWS config file',)
-    def cell(create, destroy, playbook, inventory, key_file, aws_config):
+    @click.option('--with-freeipa/--no-freeipa',
+                  default=False,
+                  help='Create Cell with freeIPA',)
+    def cell(create, destroy, playbook,
+             inventory, key_file,
+             aws_config, with_freeipa):
         """Manage treadmill cell on AWS"""
 
         playbook_args = [
@@ -61,7 +66,8 @@ def init():
             '-i',
             inventory,
             '-e',
-            'aws_config={}'.format(aws_config),
+            'aws_config={}'.format(aws_config) +
+            ' freeipa={}'.format(with_freeipa),
         ]
 
         if create:
