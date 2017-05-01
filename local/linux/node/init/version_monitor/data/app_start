@@ -1,0 +1,10 @@
+#!/bin/sh
+#
+# Starts Treadmill cleanup daemon.
+# Runs as root with host principal creds.
+#
+
+# This service needs host tickets
+
+exec {{ treadmill }}/bin/treadmill sproc --cgroup . \
+    version_monitor -- {{ dir }}/bin/reset.sh

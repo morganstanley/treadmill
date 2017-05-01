@@ -107,6 +107,16 @@ def register(api):
         }
         return resp, httplib.INTERNAL_SERVER_ERROR, _cors_headers()
 
+    @api.errorhandler(exc.InvalidInputError)
+    def _invalid_input_exc(err):
+        """InvalidInputError exception handler."""
+        _LOGGER.exception('Invalid input error: %r', err)
+        resp = {
+            'message': err.message,
+            'status': httplib.BAD_REQUEST
+        }
+        return resp, httplib.BAD_REQUEST, _cors_headers()
+
     def _internal_server_error(err):
         """Unhandled exception handler."""
         _LOGGER.exception('exception: %r', err)

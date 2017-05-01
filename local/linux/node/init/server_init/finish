@@ -1,34 +1,28 @@
-#!/bin/sh
+#!{{ _alias.execlineb }}
 
-# Shuts down the node once connection to Zookeeper is lost.
-#
-# If the monitored process was terminated with sighup, do not shut down the
-# node, rather do nothing, so that the treadmill_init process will restart.
-#
+{{ _alias.umask }} 0022
+{{ _alias.redirfd }} -r 0 /dev/null
+{{ _alias.redirfd }} -a 1 data/finish.log
 
-ECHO={{ echo }}
-RM={{ rm }}
+{{ _alias.if }} {
+    {{ _alias.mkdir }} -vp -- data/exits
+}
 
-EXIT_CODE=$1
-SIGNAL=$2
+# Unix time
+{{ _alias.backtick }} -n NOW {
+    {{ _alias.date }} "+%s.%3N"
+}
+{{ _alias.import }} -u -i NOW
 
-exec 1>> finish.log
+{{ _alias.importas }} -u -i EXIT 1
+# The second argument is undefined when the prog was not killed by signal
+{{ _alias.importas }} -u -D0 SIGNAL 2
 
-$ECHO ==================================
-$ECHO `date`: terminated:
-$ECHO ........... rc   = $EXIT_CODE
-$ECHO ........... sig  = $SIGNAL
-$ECHO
+{{ _alias.emptyenv }} -P
+{{ _alias.backtick }} -n EXITFILE {
+    {{ _alias.printf }} "%014.3f,%03d,%03d" ${NOW} ${EXIT} ${SIGNAL}
+}
+{{ _alias.import }} -u -i EXITFILE
 
+{{ _alias.touch }} data/exits/${EXITFILE}
 
-if [ $EXIT_CODE == 256 ] && [ $SIGNAL == 1 ]; then
-    $ECHO SIGHUP received, reloading...
-else
-    $ECHO removing zookeeper session id.
-    $RM -f zkid.pickle
-
-    $ECHO {{ s6 }}/bin/s6-svscanctl -pt {{ dir }}/running
-    {{ s6 }}/bin/s6-svscanctl -pt {{ dir }}/running
-
-    $ECHO done.
-fi

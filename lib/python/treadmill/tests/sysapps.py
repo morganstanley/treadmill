@@ -10,17 +10,6 @@ from treadmill import context
 from treadmill import tests as chk
 
 
-def mk_test_app_running(running_set, sysproid, cell, appname):
-    """Return test function."""
-
-    def test_app_running(self):
-        """Check app is running."""
-        self.assertIn('%s.%s.%s' % (sysproid, appname, cell), running_set)
-
-    test_app_running.__doc__ = '%s.%s is running' % (sysproid, appname)
-    return test_app_running
-
-
 def test():
     """Create sysapps test class."""
 
@@ -34,10 +23,11 @@ def test():
         """System apps checkout."""
 
     for appname in ['app-dns', 'cellapi', 'adminapi', 'stateapi', 'wsapi']:
-        chk.add_test(
-            SystemAppTest,
-            mk_test_app_running(running_set, sysproid, cell, appname),
-            '{}_{}_is_running.', sysproid, appname
-        )
+
+        @chk.T(SystemAppTest, running_set=running_set, sysproid=sysproid,
+               cell=cell, appname=appname)
+        def _test_app_running(self, running_set, sysproid, cell, appname):
+            """Check {sysproid}.{appname}.{cell} is running."""
+            self.assertIn('%s.%s.%s' % (sysproid, appname, cell), running_set)
 
     return SystemAppTest

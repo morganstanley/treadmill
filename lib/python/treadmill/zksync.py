@@ -14,6 +14,7 @@ from treadmill import fs
 from treadmill import exc
 from treadmill import utils
 from treadmill import zknamespace as z
+from treadmill import zkutils
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -28,6 +29,8 @@ class Zk2Fs(object):
         self.zkclient = zkclient
         self.fsroot = fsroot
         self.ready = False
+
+        self.zkclient.add_listener(zkutils.exit_on_lost)
 
     def mark_ready(self):
         """Mark itself as ready, typically past initial sync."""
@@ -234,6 +237,11 @@ class Zk2Fs(object):
         fpath = self.fpath(zkpath)
         fs.mkdir_safe(fpath)
 
+        done_file = os.path.join(fpath, '.done')
+        if os.path.exists(done_file):
+            _LOGGER.info('Found done file: %s, nothing to watch.', done_file)
+            return
+
         if not on_del:
             on_del = self._default_on_del
         if not on_add:
@@ -271,3 +279,6 @@ class Zk2Fs(object):
                 )
 
             self._update_last()
+
+        if not need_watch:
+            utils.touch(done_file)

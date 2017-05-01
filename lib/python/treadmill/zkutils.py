@@ -1,4 +1,5 @@
 """Treadmill ZooKeeper helper functions."""
+
 from __future__ import absolute_import
 
 import sys
@@ -19,9 +20,9 @@ import kazoo.security
 from kazoo.protocol import states
 import yaml
 
-from . import userutil
-from . import utils
-from . import sysinfo
+from treadmill import userutil
+from treadmill import utils
+from treadmill import sysinfo
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -576,5 +577,6 @@ def make_lock(zkclient, path):
     """Make lock."""
     _LOGGER.debug('Creating lock on: %s', path)
     zkclient.ensure_path(path)
+    zkclient.add_listener(exit_on_disconnect)
     me = '%s.%d' % (sysinfo.hostname(), os.getpid())
     return zkclient.Lock(path, me)

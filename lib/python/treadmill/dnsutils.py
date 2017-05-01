@@ -178,8 +178,25 @@ def ns(fqdn, resolver=None):
     return map(str, query(fqdn, dns.rdatatype.NS, resolver))
 
 
-def srv_target_to_url(srv_rec, srv_target):
+def srv_target_to_dict(srv_rec):
+    """Convert SRV record tuple to dict"""
+    host, port, prio, weight = srv_rec
+    return {'host': host,
+            'port': port,
+            'priority': prio,
+            'weight': weight}
+
+
+def srv_rec_to_url(srv_rec, srv_name=None, protocol=None):
     """Convert SRV record to URL"""
-    protocol, _rest = srv_rec.split('.', 1)
-    host, port, _prio, _weight = srv_target
-    return '%s://%s:%s' % (protocol[1:], host, port)
+    if not protocol:
+        if srv_name:
+            protocol, _rest = srv_name.split('.', 1)
+            protocol = protocol[1:]
+        else:
+            protocol = ''
+
+    tgt = srv_target_to_dict(srv_rec)
+    return '%s://%s:%s' % (protocol,
+                           tgt['host'],
+                           tgt['port'])

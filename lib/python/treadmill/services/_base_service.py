@@ -122,17 +122,24 @@ class ResourceServiceClient(object):
         fs.mkdir_safe(clientdir)
         self._clientdir = os.path.realpath(clientdir)
 
-    def create(self, rsrc_id, rsrc_data):
-        """Request creation of a resource.
+    def put(self, rsrc_id, rsrc_data):
+        """Request creation/update of a resource.
 
         :param `str` rsrc_id:
             Unique identifier for the requested resource.
         :param `str` rsrc_data:
-            Parameters for the requested resource.
+            (New) Parameters for the requested resource.
         """
         req_dir = self._req_dirname(rsrc_id)
-        os.mkdir(req_dir)  # Will fail if request already exists
 
+        if fs.mkdir_safe(req_dir):
+            self._create(rsrc_id, rsrc_data, req_dir)
+        else:
+            self._update(rsrc_id, rsrc_data, req_dir)
+
+    def _create(self, rsrc_id, rsrc_data, req_dir):
+        """Request creation of a resource.
+        """
         with open(os.path.join(req_dir, _REQ_FILE), 'w') as f:
             os.fchmod(f.fileno(), 0o644)
             yaml.dump(rsrc_data,
@@ -154,15 +161,9 @@ class ResourceServiceClient(object):
                 os.fchmod(f.fileno(), 0o644)
                 f.write(svc_req_uuid)
 
-    def update(self, rsrc_id, rsrc_data):
+    def _update(self, rsrc_id, rsrc_data, req_dir):
         """Update an existing resource.
-
-        :param `str` rsrc_id:
-            Unique identifier for the requested resource.
-        :param `str` rsrc_data:
-            New paramters for the requested resource.
         """
-        req_dir = self._req_dirname(rsrc_id)
         with open(os.path.join(req_dir, self._REQ_UID_FILE)) as f:
             os.fchmod(f.fileno(), 0o644)
             svc_req_uuid = f.read().strip()

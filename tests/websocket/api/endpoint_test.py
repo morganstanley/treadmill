@@ -66,6 +66,15 @@ class WSEndpointAPITest(unittest.TestCase):
                            'proto': 'tcp',
                            'endpoint_name': 'http'})
 
+        with self.assertRaisesRegexp(
+            jsonschema.exceptions.ValidationError,
+            "None is not of type u'string'"
+        ):
+            api.subscribe({'topic': '/endpoints',
+                           'filter': 'foo.*',
+                           'proto': None,
+                           'endpoint': None})
+
     def test_on_event(self):
         """Tests payload generation."""
         api = endpoint.EndpointAPI()

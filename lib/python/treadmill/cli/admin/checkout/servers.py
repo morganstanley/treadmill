@@ -11,7 +11,7 @@ def init():
 
     @click.command('servers')
     def check_servers():
-        """Checkout API."""
+        """Checkout nodeinfo API."""
         return servers.test
 
     return check_servers

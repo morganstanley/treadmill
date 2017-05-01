@@ -2,7 +2,6 @@
 from __future__ import absolute_import
 
 import pwd
-
 import base64
 import hashlib
 import logging
@@ -12,9 +11,14 @@ import shutil
 import stat
 import subprocess
 import tempfile
+
 from twisted.internet import reactor
 from twisted.internet import protocol
 
+import kazoo
+import kazoo.client
+
+from . import exc
 from . import gssapiprotocol
 from . import sysinfo
 from . import subproc
@@ -192,22 +196,25 @@ class TicketLocker(object):
             _LOGGER.error('App %s not scheduled on node %s', appname, hostname)
             return
 
-        appnode = z.path.scheduled(appname)
-        app = zkutils.with_retry(
-            zkutils.get, self.zkclient, appnode)
-
-        _LOGGER.info('Got: %s: %r', appnode, app)
-
-        tickets = set(app.get('tickets', []))
         tkt_dict = dict()
-        for ticket in tickets:
-            tkt_file = os.path.join(self.tkt_spool_dir, ticket)
-            if os.path.exists(tkt_file):
-                with open(tkt_file) as f:
-                    encoded = base64.urlsafe_b64encode(f.read())
-                    tkt_dict[ticket] = encoded
-            else:
-                _LOGGER.warn('Ticket file does not exist: %s', tkt_file)
+        try:
+            appnode = z.path.scheduled(appname)
+            app = zkutils.with_retry(zkutils.get, self.zkclient, appnode)
+
+            tickets = set(app.get('tickets', []))
+            _LOGGER.info('App tickets: %s: %r', appname, tickets)
+            for ticket in tickets:
+                tkt_file = os.path.join(self.tkt_spool_dir, ticket)
+                if os.path.exists(tkt_file):
+                    with open(tkt_file) as f:
+                        encoded = base64.urlsafe_b64encode(f.read())
+                        tkt_dict[ticket] = encoded
+                else:
+                    _LOGGER.warn('Ticket file does not exist: %s', tkt_file)
+
+        except kazoo.client.NoNodeError:
+            _LOGGER.info('App does not exist: %s', appname)
+
         return tkt_dict
 
 
@@ -223,6 +230,7 @@ def run_server(locker):
     class TicketLockerServer(gssapiprotocol.GSSAPILineServer):
         """Ticket locker server."""
 
+        @exc.exit_on_unhandled
         def got_line(self, line):
             """Callback on received line."""
             appname = line

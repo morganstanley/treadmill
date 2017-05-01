@@ -7,6 +7,7 @@ import tempfile
 import os
 import shutil
 import time
+import sqlite3
 
 # Disable W0611: Unused import
 import tests.treadmill_test_deps  # pylint: disable=W0611
@@ -108,6 +109,7 @@ class PubSubTest(unittest.TestCase):
         pubsub = websocket.DirWatchPubSub(self.root)
         handler = mock.Mock()
         impl = mock.Mock()
+        impl.sow_db = None
         impl.on_event.return_value = {'echo': 1}
         open(os.path.join(self.root, 'xxx'), 'w+').close()
         modified = int(os.stat(os.path.join(self.root, 'xxx')).st_mtime)
@@ -128,6 +130,54 @@ class PubSubTest(unittest.TestCase):
             json.dumps({'echo': 1, 'when': modified}),
         )
         handler.write_message.reset_mock()
+
+    @mock.patch('sqlite3.connect', mock.Mock())
+    def test_sow_fs_and_db(self):
+        """Tests sow from filesystem and database."""
+        # Access to protected member: _sow
+        #
+        # pylint: disable=W0212
+        pubsub = websocket.DirWatchPubSub(self.root)
+
+        handler = mock.Mock()
+
+        impl = mock.Mock()
+        impl.sow_db = '.tasks-sow.db'
+        impl.on_event.return_value = {'echo': 1}
+
+        open(os.path.join(self.root, 'xxx'), 'w+').close()
+        modified = int(os.stat(os.path.join(self.root, 'xxx')).st_mtime)
+
+        conn_mock = mock.Mock()
+        cur_mock = mock.Mock()
+        sqlite3.connect.return_value = conn_mock
+        conn_mock.cursor.return_value = cur_mock
+        cur_mock.fetchall.return_value = [
+            ('/aaa', 1, ''),
+            ('/bbb', 2, ''),
+            ('/ccc', 3, ''),
+        ]
+
+        pubsub._sow(self.root, '*', 0, handler, impl)
+
+        self.assertEquals(
+            impl.on_event.call_args_list,
+            [
+                mock.call('/aaa', None, ''),
+                mock.call('/bbb', None, ''),
+                mock.call('/ccc', None, ''),
+                mock.call('/xxx', None, '')
+            ]
+        )
+        self.assertEquals(
+            handler.write_message.call_args_list,
+            [
+                mock.call('{"when": 1, "echo": 1}'),
+                mock.call('{"when": 2, "echo": 1}'),
+                mock.call('{"when": 3, "echo": 1}'),
+                mock.call('{"when": %s, "echo": 1}' % modified)
+            ]
+        )
 
 
 class WebSocketTest(AsyncHTTPTestCase):
@@ -175,6 +225,7 @@ class WebSocketTest(AsyncHTTPTestCase):
         open(os.path.join(self.root, 'xxx'), 'w+').close()
 
         echo_impl = mock.Mock()
+        echo_impl.sow_db = None
         echo_impl.subscribe.return_value = [('/', '*')]
         echo_impl.on_event.return_value = {'echo': 1}
         self.pubsub.impl['echo'] = echo_impl
@@ -193,6 +244,7 @@ class WebSocketTest(AsyncHTTPTestCase):
         open(os.path.join(self.root, 'xxx'), 'w+').close()
 
         echo_impl = mock.Mock()
+        echo_impl.sow_db = None
         echo_impl.subscribe.return_value = [('/', '*')]
         echo_impl.on_event.return_value = {'echo': 1}
         self.pubsub.impl['echo'] = echo_impl

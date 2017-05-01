@@ -16,30 +16,6 @@ from treadmill import sysinfo
 _LOGGER = logging.getLogger(__name__)
 
 
-def mk_test_replication(search_base, url, other_url):
-    """Make test function."""
-
-    def test_replication(self):
-
-        """Check ldap replication."""
-        _LOGGER.info('Checking %s', url)
-
-        time.sleep(2)
-
-        other_conn = admin.Admin(other_url, search_base)
-        other_conn.connect()
-        other_admin_app = admin.Application(other_conn)
-
-        other_admin_app.get(self.name)
-
-    test_replication.__doc__ = 'replication from {} -> {}'.format(
-        url,
-        other_url
-    )
-
-    return test_replication
-
-
 def mk_test_cls(sysproid, search_base, url):
     """Make test class."""
 
@@ -79,13 +55,24 @@ def test(ldap_urls, search_base):
     tests = []
 
     for url in ldap_urls:
+
         cls = mk_test_cls(sysproid, search_base, url)
+
         for other_url in ldap_urls:
-            chk.add_test(
-                cls,
-                mk_test_replication(search_base, url, other_url),
-                '_replication_{}_{}.', url, other_url
-            )
+
+            @chk.T(cls, url=url, other_url=other_url, search_base=search_base)
+            def _test_replication(self, search_base, url, other_url):
+                """Check ldap replication {url} -> {other_url}."""
+                print 'Checking %s' % url
+
+                time.sleep(2)
+
+                other_conn = admin.Admin(other_url, search_base)
+                other_conn.connect()
+                other_admin_app = admin.Application(other_conn)
+
+                other_admin_app.get(self.name)
+
         tests.append(cls)
 
     return tests

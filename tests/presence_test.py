@@ -1,5 +1,5 @@
 """
-Unit test for Treadmill presense module.
+Unit test for Treadmill linux runtime presence module.
 """
 
 import os

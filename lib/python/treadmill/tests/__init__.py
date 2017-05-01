@@ -4,6 +4,11 @@ import unittest
 import socket
 import pkgutil
 import logging
+import telnetlib
+import functools
+import hashlib
+
+import decorator
 
 from treadmill import restclient
 
@@ -31,7 +36,7 @@ def zkadmin(hostname, port, command):
 
 
 def connect(host, port):
-    """Check host/port is up."""
+    """Check host:port is up."""
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.settimeout(1)
 
@@ -41,6 +46,15 @@ def connect(host, port):
         return True
     except socket.error:
         return False
+
+
+def telnet(host, port, expect='SSH', timeout=1):
+    """Check telnet to host:port succeeds."""
+    print 'telnet %s %s, expect: %s' % (host, port, expect)
+    telnet_client = telnetlib.Telnet(host, port, timeout=timeout)
+    telnet_client.read_until(expect, timeout=timeout)
+    telnet_client.close()
+    return True
 
 
 def _http_check(url):
@@ -66,3 +80,32 @@ def url_check(url):
 def add_test(cls, func, message, *args, **kwargs):
     """Set function as test function."""
     setattr(cls, 'test %s' % message.format(*args, **kwargs), func)
+
+
+class T(object):  # pylint: disable=C0103
+    """Decorator to create a new test case."""
+
+    def __init__(self, cls, **kwargs):
+        self.cls = cls
+        self.kwargs = kwargs
+
+    def __call__(self, func):
+
+        partial = functools.partial(func, **self.kwargs)
+        # Lambda is necessary as unittest refuses to work with partial
+        # objects. Disable pylint warning.
+        test_func = lambda(me): partial(me)  # pylint: disable=W0108
+        test_func.__doc__ = func.__doc__.format(**self.kwargs)
+        hash_md5 = hashlib.md5()
+        for name, value in self.kwargs.iteritems():
+            hash_md5.update(name)
+            hash_md5.update(str(value))
+        setattr(
+            self.cls, 'test_%s_%r_%s.' % (
+                func.__name__,
+                self.kwargs.keys(),
+                hash_md5.hexdigest()
+            ),
+            test_func
+        )
+        return func

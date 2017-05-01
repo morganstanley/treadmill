@@ -37,6 +37,7 @@ class AdminTest(unittest.TestCase):
             ('a', 'a', str),
             ('b', 'b', [str]),
             ('c', 'C', int),
+            ('d', 'd', dict),
         ]
 
         self.assertEquals({'a': '1', 'b': ['x'], 'C': 1},
@@ -44,10 +45,19 @@ class AdminTest(unittest.TestCase):
                                                'b': ['x'],
                                                'c': ['1']}, schema))
 
+        self.assertEquals({'a': '1', 'b': ['x'], 'd': {'x': 1}},
+                          admin._entry_2_dict({'a': ['1'],
+                                               'b': ['x'],
+                                               'd': ['{"x": 1}']}, schema))
+
         self.assertEquals({'a': ['1'], 'b': ['x'], 'c': ['1']},
                           admin._dict_2_entry({'a': '1',
                                                'b': ['x'],
                                                'C': 1}, schema))
+
+        self.assertEquals({'a': ['1'], 'd': ['{"x": 1}']},
+                          admin._dict_2_entry({'a': '1',
+                                               'd': {'x': 1}}, schema))
 
     def test_group_by_opt(self):
         """Tests group by attribute option."""
@@ -315,7 +325,8 @@ class AdminTest(unittest.TestCase):
                  'zk-jmx-port': 6000,
                  'zk-followers-port': 7000,
                  'zk-election-port': 8000}
-            ]
+            ],
+            'data': ['foo=bar', 'x=y'],
         }
         cell_admin = admin.Cell(None)
         self.assertEquals(cell,
@@ -479,6 +490,41 @@ class AllocationTest(unittest.TestCase):
         self.assertIn(
             {'pattern': 'ppp.ttt', 'priority': 80},
             obj['reservations'][0]['assignments'])
+
+
+class PartitionTest(unittest.TestCase):
+    """Tests Partition ldapobject routines."""
+
+    def setUp(self):
+        self.part = admin.Partition(
+            admin.Admin(None, 'ou=treadmill,dc=xx,dc=com'))
+
+    def test_dn(self):
+        """Test partition identity to dn mapping."""
+        self.assertTrue(
+            self.part.dn(['foo', 'bar']).startswith(
+                'partition=foo,cell=bar,ou=cells,'))
+
+    def test_to_entry(self):
+        """Tests conversion of partition to LDAP entry."""
+        obj = {
+            '_id': 'foo',
+            'memory': '4G',
+            'cpu': '42%',
+            'disk': '100G',
+            'down-threshold': 42,
+        }
+
+        ldap_entry = {
+            'partition': ['foo'],
+            'memory': ['4G'],
+            'cpu': ['42%'],
+            'disk': ['100G'],
+            'down-threshold': ['42'],
+        }
+
+        self.assertEquals(ldap_entry, self.part.to_entry(obj))
+        self.assertEquals(obj, self.part.from_entry(ldap_entry))
 
 
 if __name__ == '__main__':

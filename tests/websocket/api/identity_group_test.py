@@ -42,6 +42,13 @@ class WSIdentityGroupAPITest(unittest.TestCase):
             api.subscribe({'topic': '/identity-groups',
                            'filter': 'foo!'})
 
+        with self.assertRaisesRegexp(
+            jsonschema.exceptions.ValidationError,
+            "None is not of type u'string'"
+        ):
+            api.subscribe({'topic': '/identity-groups',
+                           'identity-group': None})
+
     def test_on_event(self):
         """Tests payload generation."""
         api = identity_group.IdentityGroupAPI()

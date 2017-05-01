@@ -1,4 +1,5 @@
 """Reports presence information into Zookeeper."""
+
 from __future__ import absolute_import
 
 import errno
@@ -11,18 +12,18 @@ import sys
 import kazoo
 import yaml
 
-from . import exc
-from . import cgroups
-from . import supervisor
-from . import sysinfo
-from . import utils
-from . import subproc
-from . import zkutils
-from . import appevents
+from treadmill import exc
+from treadmill import cgroups
+from treadmill import supervisor
+from treadmill import sysinfo
+from treadmill import utils
+from treadmill import subproc
+from treadmill import zkutils
+from treadmill import appevents
 
-from . import zknamespace as z
+from treadmill import zknamespace as z
 
-from .apptrace import events as traceevents
+from treadmill.apptrace import events as traceevents
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -206,7 +207,7 @@ def kill_node(zkclient, node):
 def is_down(svc_dir):
     """Check if service is running."""
     try:
-        subproc.check_call(['s6-svwait', '-t', '100', '-D', svc_dir])
+        subproc.check_call(['s6_svwait', '-t', '100', '-D', svc_dir])
         return True
     except subprocess.CalledProcessError as err:
         # If wait timed out, the app is already running, do nothing.
@@ -320,12 +321,12 @@ class ServicePresence(object):
 
         if is_down(svc_dir):
             if os.path.exists(os.path.join(svc_dir, 'down')):
-                subproc.check_call(['s6-svc', '-o', svc_dir])
+                subproc.check_call(['s6_svc', '-o', svc_dir])
             self.report_running(service_name)
         else:
             _LOGGER.info('Service %s already running', service_name)
 
-        subproc.check_call(['s6-svwait', '-u', svc_dir])
+        subproc.check_call(['s6_svwait', '-u', svc_dir])
         return True
 
     def wait_for_exit(self, container_svc_dir):
@@ -340,7 +341,7 @@ class ServicePresence(object):
         # Wait for one of the services to come down.
         # TODO: need to investigate why s6-svwait returns 111 rather
         #                than 0.
-        subproc.call(['s6-svwait', '-o', '-D'] + watched_dirs)
+        subproc.call(['s6_svwait', '-o', '-D'] + watched_dirs)
 
         # Wait for the supervisor to report finished status.
         time.sleep(1)

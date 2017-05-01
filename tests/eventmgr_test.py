@@ -47,7 +47,7 @@ class MockStat(object):
 class EventMgrTest(mockzk.MockZookeeperTestCase):
     """Mock test for treadmill.eventmgr.EventMgr."""
 
-    @mock.patch('treadmill.appmgr.AppEnvironment', mock.Mock(autospec=True))
+    @mock.patch('treadmill.appenv.AppEnvironment', mock.Mock(autospec=True))
     @mock.patch('treadmill.watchdog.Watchdog', mock.Mock(autospec=True))
     def setUp(self):
         self.root = tempfile.mkdtemp()

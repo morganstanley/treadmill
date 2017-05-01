@@ -77,7 +77,7 @@ def _blackout_server(zkclient, server, reason):
         zkclient,
         path,
         acl=[zkutils.make_host_acl(server, 'rwcda')],
-        data=reason
+        data=str(reason)
     )
     presence.kill_node(zkclient, server)
 

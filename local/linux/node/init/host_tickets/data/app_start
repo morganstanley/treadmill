@@ -1,0 +1,7 @@
+#!/bin/sh
+#
+# Generate and refresh host tickets.
+#
+
+exec {{ treadmill }}/bin/treadmill sproc --cgroup . exec \
+    {{ treadmill }}/sbin/host_tickets.sh $TREADMILL_HOST_TICKET

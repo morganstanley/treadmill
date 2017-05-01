@@ -14,11 +14,8 @@ from treadmill import zkutils
 
 _LOGGER = logging.getLogger(__name__)
 
-# Delete all nodes older than 1 day
-TASK_EXPIRATION_TIME = 60 * 60 * 24
-
 # Interval between cleanup - every hour.
-TASK_CHECK_INTERFAL = 60 * 60
+TASK_CHECK_INTERVAL = 60 * 60
 
 
 def init():
@@ -30,19 +27,17 @@ def init():
         pass
 
     @task.command()
-    @click.option('--expiration', help='Task expiration (sec).',
-                  default=TASK_EXPIRATION_TIME)
     @click.option('--interval', help='Timeout between checks (sec).',
-                  default=TASK_CHECK_INTERFAL)
+                  default=TASK_CHECK_INTERVAL)
     @click.option('--no-lock', is_flag=True, default=False,
                   help='Run without lock.')
-    def cleanup(expiration, interval, no_lock):
+    def cleanup(interval, no_lock):
         """Cleans up old tasks."""
 
         def _cleanup():
             """Do cleanup."""
             while True:
-                zk.cleanup(context.GLOBAL.zk.conn, expiration)
+                zk.cleanup(context.GLOBAL.zk.conn)
                 _LOGGER.info('Finished cleanup, sleep %s sec', interval)
                 time.sleep(interval)
 
@@ -55,29 +50,5 @@ def init():
             with lock:
                 _cleanup()
 
-    @task.command(name='gc')
-    @click.option('--max-count', help='Max non-running instance to keep.',
-                  type=int,
-                  default=10)
-    def garbage_collect(max_count):
-        """Garbage collect traces that are not active."""
-        zkclient = context.GLOBAL.zk.conn
-        tasks = zkclient.get_children(z.TASKS)
-        for task in tasks:
-            instances = sorted(zkclient.get_children(z.path.task(task)))
-            fullnames = ['%s#%s' % (task, instance) for instance in instances]
-            finished = [fullname for fullname in fullnames
-                        if not zkclient.exists(z.path.scheduled(fullname))]
-
-            for fullname in finished[:len(finished) - max_count]:
-                _LOGGER.info('Removing finished trace: %s', fullname)
-                zkutils.ensure_deleted(
-                    zkclient,
-                    z.path.task(fullname),
-                    recursive=True
-                )
-
     del cleanup
-    del garbage_collect
-
     return task

@@ -26,6 +26,7 @@ REBOOTS = '/reboots'
 SERVER_PRESENCE = '/server.presence'
 STRATEGIES = '/strategies'
 TASKS = '/tasks'
+TASKS_HISTORY = '/tasks.history'
 TICKET_LOCKER = '/ticket-locker'
 TREADMILL = '/treadmill'
 VERSION = '/version'
@@ -121,6 +122,7 @@ path.version = _make_path_f(VERSION)
 path.version_id = _make_path_f(VERSION_ID)
 path.zookeeper = _make_path_f(ZOOKEEPER)
 path.election = _make_path_f(ELECTION)
+path.tasks_history = _make_path_f(TASKS_HISTORY)
 
 # Special methods
 path.endpoint = _path_endpoint

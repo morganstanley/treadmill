@@ -5,9 +5,9 @@ import logging
 
 import click
 
-from treadmill import appmgr
+from treadmill import appenv
 
-from treadmill.appmgr import configure as app_cfg
+from treadmill.appcfg import configure as app_cfg
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -22,9 +22,9 @@ def init():
     @click.argument('eventfile', type=click.Path(exists=True))
     def configure(approot, eventfile):
         """Configure local manifest and schedule app to run."""
-        app_env = appmgr.AppEnvironment(root=approot)
+        tm_env = appenv.AppEnvironment(root=approot)
 
-        container_dir = app_cfg.configure(app_env, eventfile)
+        container_dir = app_cfg.configure(tm_env, eventfile)
         _LOGGER.info('Configured %r', container_dir)
 
     return configure

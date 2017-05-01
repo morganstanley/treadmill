@@ -6,12 +6,12 @@ import fnmatch
 
 import jsonschema.exceptions
 
-from .. import context
-from .. import schema
-from .. import authz
-from .. import admin
+from treadmill import context
+from treadmill import schema
+from treadmill import authz
+from treadmill import admin
 
-from treadmill.appmgr import features
+from treadmill.appcfg import features
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -20,7 +20,7 @@ _LOGGER = logging.getLogger(__name__)
 def verify_feature(app_features):
     """Verify that any feature in this resource has a corresponding module"""
     for feature in app_features:
-        if feature not in features.ALL_FEATURES:
+        if not features.feature_exists(feature):
             raise jsonschema.exceptions.ValidationError(
                 'Unsupported feature: ' + feature
             )

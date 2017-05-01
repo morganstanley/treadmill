@@ -1,19 +1,13 @@
-#!/bin/sh
-#
-# Starts Treadmill network management service
-# Runs as root.
-#
+#!{{ _alias.execlineb }} -P
 
-exec 2>&1
+{{ _alias.redirfd }} -r 0 /dev/null
+{{ _alias.fdmove }} -c 2 1
 
-exec {{ treadmill }}/bin/treadmill sproc --cgroup . \
-    service --root-dir {{ dir }} network \
-{%- if network_device %}
-    --device {{ network_device }} \
-{%- endif %}
-{%- if network_mtu %}
-    --mtu {{ network_mtu }} \
-{%- endif %}
-{%-if network_speed %}
-    --speed {{ network_speed }} \
-{%- endif %}
+# Set to single execution so that we can enforce restart policies
+{{ _alias.if }} { {{ _alias.s6_svc }} -o . }
+
+{{ _alias.s6_envdir }} -i -- {{ dir }}/env
+{{ _alias.s6_envdir }} -i -- ./env
+
+/bin/sh -l ./data/app_start
+

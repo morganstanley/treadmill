@@ -527,7 +527,7 @@ class ServerPrettyFormatter(object):
             ('name', '_id', None),
             ('cell', None, None),
             ('traits', None, None),
-            ('label', None, None),
+            ('partition', None, None),
             ('data', None, None),
         ]
 
@@ -550,7 +550,7 @@ class ServerNodePrettyFormatter(object):
                   ('memory', None, None),
                   ('cpu', None, None),
                   ('disk', None, None),
-                  ('label', None, None),
+                  ('partition', None, None),
                   ('parent', None, None),
                   ('traits', None, None)]
 
@@ -626,6 +626,14 @@ class CellPrettyFormatter(object):
             ('zk-election-port', None, None),
         ])
 
+        partitions_tbl = make_list_to_table([
+            ('id', 'partition', None),
+            ('cpu', None, None),
+            ('disk', None, None),
+            ('memory', None, None),
+            ('down threshold', 'down-threshold', None),
+        ])
+
         schema = [
             ('name', '_id', None),
             ('version', None, None),
@@ -636,12 +644,15 @@ class CellPrettyFormatter(object):
             ('archive-username', None, None),
             ('ssq-namespace', None, None),
             ('masters', None, masters_tbl),
+            ('partitions', None, partitions_tbl),
+            ('data', None, yaml.dump),
         ]
 
         format_item = make_dict_to_table(schema)
 
         format_list = make_list_to_table([
             ('name', '_id', None),
+            ('location', None, None),
             ('version', None, None),
             ('username', None, None),
             ('root', None, None),
@@ -738,7 +749,7 @@ class AllocationPrettyFormatter(object):
 
         cell_tbl = make_list_to_table([
             ('cell', 'cell', None),
-            ('label', None, None),
+            ('partition', None, None),
             ('rank', None, None),
             ('max-utilization', None, None),
             ('memory', None, None),
@@ -806,6 +817,31 @@ class EndpointPrettyFormatter(object):
             return format_item(item)
 
 
+class PartitionPrettyFormatter(object):
+    """Pretty table partition formatter."""
+
+    @staticmethod
+    def format(item):
+        """Return pretty-formatted item."""
+
+        schema = [
+            ('id', 'partition', None),
+            ('cell', None, None),
+            ('cpu', None, None),
+            ('disk', None, None),
+            ('memory', None, None),
+            ('down threshold', 'down-threshold', None),
+        ]
+
+        format_item = make_dict_to_table(schema)
+        format_list = make_list_to_table(schema)
+
+        if isinstance(item, list):
+            return format_list(item)
+        else:
+            return format_item(item)
+
+
 def bad_exit(string, *args):
     """System exit non-zero with a string to sys.stderr.
 
@@ -813,7 +849,7 @@ def bad_exit(string, *args):
     if args:
         string = string % args
 
-    click.echo(click.style(string, fg='red'), err=True)
+    click.echo(string, err=True)
     sys.exit(-1)
 
 

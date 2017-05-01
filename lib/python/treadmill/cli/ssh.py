@@ -6,10 +6,13 @@ import sys
 import logging
 import os
 import subprocess
+import urllib
 
 import click
 
+from treadmill import context
 from treadmill import cli
+from treadmill import restclient
 from treadmill.websocket import client as ws_client
 
 
@@ -80,50 +83,78 @@ def run_putty(host, port, sshcmd, command):
         sys.exit(0)
 
 
+def _wait_for_app(wsapi, ssh, app, command):
+    """Use websockets to wait for the app to start"""
+    def on_message(result):
+        """Callback to process trace message."""
+        host = result['host']
+        port = result['port']
+        run_ssh(host, port, ssh, list(command))
+        return False
+
+    def on_error(result):
+        """Callback to process errors."""
+        click.echo('Error: %s' % result['_error'], err=True)
+
+    try:
+        return ws_client.ws_loop(
+            wsapi,
+            {'topic': '/endpoints',
+             'filter': app,
+             'proto': 'tcp',
+             'endpoint': 'ssh'},
+            False,
+            on_message,
+            on_error
+        )
+    except ws_client.ConnectionError:
+        cli.bad_exit('Could not connect to any Websocket APIs')
+
+
 def init():
     """Return top level command handler."""
 
     @click.command()
-    @click.option('--wsapi', required=False, help='xAPI url to use.',
+    @click.option('--wsapi', required=False, help='WS API url to use.',
                   metavar='URL',
                   envvar='TREADMILL_WSAPI')
+    @click.option('--api', required=False, help='API url to use.',
+                  metavar='URL',
+                  envvar='TREADMILL_STATEAPI')
     @click.option('--cell', required=True,
                   envvar='TREADMILL_CELL',
                   callback=cli.handle_context_opt,
                   expose_value=False)
+    @click.option('--wait', help='Wait until the app starts up',
+                  is_flag=True, default=False)
     @click.option('--ssh', help='SSH client to use.',
                   type=click.File('rb'))
     @click.argument('app')
     @click.argument('command', nargs=-1)
-    def ssh(wsapi, ssh, app, command):
+    def ssh(wsapi, api, ssh, app, command, wait):
         """SSH into Treadmill container."""
         if ssh is None:
             ssh = _DEFAULT_SSH
+        else:
+            ssh = ssh.name
 
-        def on_message(result):
-            """Callback to process trace message."""
-            host = result['host']
-            port = result['port']
-            run_ssh(host, port, ssh, list(command))
-            return False
+        if wait:
+            return _wait_for_app(wsapi, ssh, app, command)
 
-        def on_error(result):
-            """Callback to process errors."""
-            click.echo('Error: %s' % result['_error'], err=True)
+        apis = context.GLOBAL.state_api(api)
 
-        try:
-            return ws_client.ws_loop(
-                wsapi,
-                {'topic': '/endpoints',
-                 'filter': app,
-                 'proto': 'tcp',
-                 'endpoint': 'ssh'},
-                False,
-                on_message,
-                on_error
-            )
-        except ws_client.ConnectionError:
-            click.echo('Could not connect to any Websocket APIs', err=True)
-            sys.exit(-1)
+        url = '/endpoint/{}/tcp/ssh'.format(urllib.quote(app))
+
+        response = restclient.get(apis, url)
+        endpoints = response.json()
+        _LOGGER.debug('endpoints: %r', endpoints)
+        if not endpoints:
+            cli.bad_exit('No ssh endpoint(s) found for %s', app)
+
+        # Take the first one, if there are more than one, then this is
+        # consistent with when 1 is returned.
+        endpoint = endpoints[0]
+
+        run_ssh(endpoint['host'], str(endpoint['port']), ssh, list(command))
 
     return ssh

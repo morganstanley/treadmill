@@ -8,7 +8,7 @@ import logging
 
 import enum
 
-from . import subproc
+from treadmill import subproc
 
 
 _LOGGER = logging.getLogger(__name__)

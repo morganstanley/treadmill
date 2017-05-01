@@ -6,11 +6,10 @@ import logging
 import os
 
 import treadmill
-
 from treadmill import context
-from treadmill.bootstrap import bootstrap_base
-
 from treadmill.spawn import tree as spawn_tree
+
+from . import bootstrap_base
 
 
 _LOGGER = logging.getLogger(__name__)

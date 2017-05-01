@@ -79,56 +79,6 @@ class SupervisorTest(unittest.TestCase):
         service_dir = os.path.join(self.root, 'bar')
         self.assertFalse(os.path.exists(service_dir + '/down'))
 
-# XXX: Disabling below until we can find sutable replacement for these tests.
-# XXX: Tests cannot have fork/kill/sleep as it makes them too fragile.
-#
-#    def test_exec_root_supervisor(self):
-#        """Test starting s6-svscan in fork/exec."""
-#        pid = os.fork()
-#        if not pid:
-#            supervisor.exec_root_supervisor(self.root, pid1=False)
-#            # This line is never executed.
-#            return
-#
-#        # Check the the s6-svscan is running.
-#        time.sleep(1)
-#        proc_info = sysinfo.proc_info(pid)
-#        self.assertEquals('s6-svscan', proc_info.filename)
-#        os.kill(pid, signal.SIGTERM)
-#
-#    def test_start_stop_service(self):
-#        """Test service startup and control."""
-#        pseudo_proid = os.environ['LOGNAME']
-#        supervisor.create_service(self.root, pseudo_proid, 'bla',
-#                                  '/bin/sleep 1000', 'dev')
-#        pid = os.fork()
-#        if not pid:
-#            supervisor.exec_root_supervisor(self.root, pid1=False)
-#            # This line is never executed.
-#            return
-#
-#        time.sleep(1)
-#        # Check that supervisor is started.
-#        self.assertTrue(supervisor.is_supervisor_running(self.root, 'bla'))
-#        self.assertFalse(supervisor.is_supervisor_running(self.root, 'foo'))
-#
-#        # Service is created in down state.
-#        self.assertFalse(supervisor.is_running(self.root, 'bla'))
-#        supervisor.start_service(self.root, 'bla')
-#
-#        time.sleep(1)
-#        self.assertTrue(supervisor.is_running(self.root, 'bla'))
-#        service_pid = supervisor.get_pid(self.root, 'bla')
-#        self.assertIsNot(0, service_pid)
-#        self.assertEquals('sleep', sysinfo.proc_info(service_pid).filename)
-#
-#        supervisor.kill_service(self.root, 'bla')
-#        time.sleep(1)
-#        self.assertFalse(supervisor.is_running(self.root, 'bla'))
-#        self.assertEquals(None, supervisor.get_pid(self.root, 'bla'))
-#
-#        os.kill(pid, signal.SIGTERM)
-
     @mock.patch('time.time', mock.Mock(return_value=1000))
     def test_state_parse(self):
         """Test parsing of the s6-svstat output."""
@@ -168,7 +118,7 @@ class SupervisorTest(unittest.TestCase):
         fs.mkdir_safe(os.path.join(svcroot, 'a'))
         fs.mkdir_safe(os.path.join(svcroot, 'b'))
         supervisor._service_wait(svcroot, '-u', '-o')
-        expected_cmd = ['s6-svwait', '-u', '-t', '0', '-o',
+        expected_cmd = ['s6_svwait', '-u', '-t', '0', '-o',
                         svcroot + '/a', svcroot + '/b']
         actual_cmd = treadmill.subproc.check_call.call_args[0][0]
         self.assertItemsEqual(expected_cmd, actual_cmd)
@@ -176,13 +126,13 @@ class SupervisorTest(unittest.TestCase):
 
         treadmill.subproc.check_call.reset_mock()
         supervisor._service_wait(svcroot, '-u', '-o', subset=['a'])
-        treadmill.subproc.check_call.assert_called_with(['s6-svwait', '-u',
+        treadmill.subproc.check_call.assert_called_with(['s6_svwait', '-u',
                                                          '-t', '0', '-o',
                                                          svcroot + '/a'])
 
         treadmill.subproc.check_call.reset_mock()
         supervisor._service_wait(svcroot, '-u', '-o', subset={'a': 1})
-        treadmill.subproc.check_call.assert_called_with(['s6-svwait', '-u',
+        treadmill.subproc.check_call.assert_called_with(['s6_svwait', '-u',
                                                          '-t', '0', '-o',
                                                          svcroot + '/a'])
 

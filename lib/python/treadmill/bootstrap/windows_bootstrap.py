@@ -8,7 +8,7 @@ import os
 import treadmill
 import treadmill.syscall.winsymlink  # pylint: disable=W0611
 
-from treadmill.bootstrap import bootstrap_base
+from . import bootstrap_base
 
 
 _MASTER_NOT_SUPPORTED_MESSAGE = "Windows does not support master services."

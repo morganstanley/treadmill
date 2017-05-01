@@ -8,6 +8,7 @@ the node.
 The content of the node contain real path of the Treadmill code and timestamp
 when the reset happened.
 """
+
 from __future__ import absolute_import
 
 import logging
@@ -17,16 +18,16 @@ import time
 
 import click
 
-from .. import appmgr
-from .. import context
-from .. import exc
-from .. import subproc
-from .. import sysinfo
-from .. import utils
-from .. import versionmgr
-from .. import watchdog
-from .. import zkutils
-from .. import zknamespace as z
+from treadmill import appenv
+from treadmill import context
+from treadmill import exc
+from treadmill import subproc
+from treadmill import sysinfo
+from treadmill import utils
+from treadmill import versionmgr
+from treadmill import watchdog
+from treadmill import zkutils
+from treadmill import zknamespace as z
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -49,7 +50,7 @@ def init():
         watchdogs = watchdog.Watchdog(
             os.path.join(
                 approot,
-                appmgr.AppEnvironment.WATCHDOG_DIR,
+                appenv.AppEnvironment.WATCHDOG_DIR,
             )
         )
 

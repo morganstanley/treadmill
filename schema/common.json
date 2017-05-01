@@ -113,6 +113,17 @@
         "type": "string",
         "maxLength": 32
     },
+    "partition": {
+        "anyOf": [
+            {
+                "type": "string",
+                "maxLength": 32
+            },
+            {
+                "type": "null"
+            }
+        ]
+    },
     "label": {
         "anyOf": [
             {

@@ -9,6 +9,7 @@ import sys
 
 import collections
 import copy
+import json
 import hashlib
 import itertools
 import logging
@@ -80,6 +81,8 @@ def _entry_2_dict(entry, schema):
             obj[obj_field] = map(field_type[0], value)
         elif field_type == bool:
             obj[obj_field] = bool(util.strtobool(value[0].lower()))
+        elif field_type == dict:
+            obj[obj_field] = json.loads(value[0])
         else:
             obj[obj_field] = field_type(value[0])
 
@@ -88,6 +91,9 @@ def _entry_2_dict(entry, schema):
 
 def _dict_2_entry(obj, schema, option=None, option_value=None):
     """Converts dict to ldap entry."""
+    # TODO: refactor to eliminate too many branches warning.
+    #
+    # pylint: disable=R0912
     entry = dict()
 
     delete = False
@@ -124,6 +130,8 @@ def _dict_2_entry(obj, schema, option=None, option_value=None):
                     entry[ldap_field] = filtered
             elif field_type == bool:
                 entry[ldap_field] = [str(value).upper()]
+            elif field_type == dict:
+                entry[ldap_field] = [json.dumps(value)]
             else:
                 entry[ldap_field] = [str(value)]
 
@@ -892,7 +900,7 @@ class Server(LdapObject):
         ('server', '_id', str),
         ('cell', 'cell', str),
         ('trait', 'traits', [str]),
-        ('label', 'label', str),
+        ('partition', 'partition', str),
         ('data', 'data', [str]),
     ]
 
@@ -1190,14 +1198,17 @@ class Cell(LdapObject):
         ('master-zk-election-port', 'zk-election-port', int),
     ]
 
-    _schema = [('cell', '_id', str),
-               ('archive-server', 'archive-server', str),
-               ('archive-username', 'archive-username', str),
-               ('location', 'location', str),
-               ('ssq-namespace', 'ssq-namespace', str),
-               ('username', 'username', str),
-               ('version', 'version', str),
-               ('root', 'root', str)]
+    _schema = [
+        ('cell', '_id', str),
+        ('archive-server', 'archive-server', str),
+        ('archive-username', 'archive-username', str),
+        ('location', 'location', str),
+        ('ssq-namespace', 'ssq-namespace', str),
+        ('username', 'username', str),
+        ('version', 'version', str),
+        ('root', 'root', str),
+        ('data', 'data', dict),
+    ]
 
     _oc = 'tmCell'
     _ou = 'cells'
@@ -1209,6 +1220,16 @@ class Cell(LdapObject):
         name_only = lambda schema_rec: (schema_rec[0], None, None)
         return (Cell._schema +
                 map(name_only, Cell._master_host_schema))
+
+    def get(self, ident):
+        """Gets cell given primary key."""
+        obj = super(Cell, self).get(ident)
+        obj['partitions'] = self.partitions(ident)
+        return obj
+
+    def partitions(self, ident):
+        """Retrieves all partitions for given cell."""
+        return self.children(ident, Partition)
 
     def from_entry(self, entry, dn=None):
         """Converts LDAP app object to dict."""
@@ -1235,6 +1256,20 @@ class Cell(LdapObject):
             entry.update(master_entry)
 
         return entry
+
+    def delete(self, ident):
+        """Deletes LDAP record."""
+        dn = self.dn(ident)
+        cell_partitions = self.admin.search(
+            search_base=dn,
+            search_filter='(objectclass=tmPartition)',
+            attributes=[]
+        )
+
+        for dn, _entry in cell_partitions:
+            self.admin.delete(dn)
+
+        return super(Cell, self).delete(ident)
 
 Cell.oc = staticmethod(lambda: Cell._oc)
 Cell.ou = staticmethod(lambda: Cell._ou)
@@ -1324,7 +1359,7 @@ class CellAllocation(LdapObject):
         ('max-utilization', 'max-utilization', str),
         ('rank', 'rank', int),
         ('trait', 'traits', [str]),
-        ('label', 'label', str),
+        ('partition', 'partition', str),
     ]
 
     _assign_schema = [
@@ -1443,3 +1478,61 @@ class Allocation(LdapObject):
 Allocation.oc = staticmethod(lambda: Allocation._oc)
 Allocation.ou = staticmethod(lambda: Allocation._ou)
 Allocation.entity = staticmethod(lambda: Allocation._entity)
+
+
+def _dn2partition_id(dn):
+    """Converts cell partition dn to full id."""
+    parts = dn.split(',')
+    partition = parts.pop(0).split('=')[1]
+    cell = parts.pop(0).split('=')[1]
+
+    return (cell, partition)
+
+
+class Partition(LdapObject):
+    """Partition object."""
+
+    _schema = [
+        ('partition', '_id', str),
+        ('cpu', 'cpu', str),
+        ('disk', 'disk', str),
+        ('memory', 'memory', str),
+        ('down-threshold', 'down-threshold', int)
+    ]
+
+    _oc = 'tmPartition'
+    _ou = 'cells'
+    _entity = 'partition'
+
+    def dn(self, ident=None):
+        """Object dn."""
+        if not ident:
+            return self.admin.dn(['ou=%s' % self.ou()])
+
+        partition = ident[0]
+        cell = ident[1]
+
+        parts = [
+            '%s=%s' % ('partition', partition),
+            '%s=%s' % (Cell.entity(), cell),
+            'ou=%s' % Cell.ou(),
+        ]
+        return self.admin.dn(parts)
+
+    def from_entry(self, entry, dn=None):
+        """Converts cell allocation object to dict."""
+        obj = super(Partition, self).from_entry(entry, dn)
+
+        if dn:
+            cell, partition = _dn2partition_id(dn)
+
+            obj['partition'] = partition
+            obj['cell'] = cell
+
+        return obj
+
+
+Partition.schema = staticmethod(lambda: Partition._schema)
+Partition.oc = staticmethod(lambda: Partition._oc)
+Partition.ou = staticmethod(lambda: Partition._ou)
+Partition.entity = staticmethod(lambda: Partition._entity)
