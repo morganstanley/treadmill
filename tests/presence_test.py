@@ -148,10 +148,10 @@ class PresenceTest(mockzk.MockZookeeperTestCase):
         app_presence = presence.EndpointPresence(self.zkclient, manifest)
         app_presence.register_endpoints()
         kazoo.client.KazooClient.create.assert_has_calls([
-            mock.call('/endpoints/foo/test1:tcp:ssh', 'myhostname:5001',
+            mock.call('/endpoints/foo/test1:tcp:ssh', b'myhostname:5001',
                       ephemeral=True, makepath=True, acl=mock.ANY,
                       sequence=False),
-            mock.call('/endpoints/foo/test1:tcp:http', 'myhostname:5000',
+            mock.call('/endpoints/foo/test1:tcp:http', b'myhostname:5000',
                       ephemeral=True, makepath=True, acl=mock.ANY,
                       sequence=False),
 
@@ -174,10 +174,10 @@ class PresenceTest(mockzk.MockZookeeperTestCase):
         self.assertTrue(retry_happened)
         self.assertTrue(time.sleep.called)
         kazoo.client.KazooClient.create.assert_has_calls([
-            mock.call('/endpoints/foo/test1:tcp:ssh', 'myhostname:5001',
+            mock.call('/endpoints/foo/test1:tcp:ssh', b'myhostname:5001',
                       ephemeral=True, makepath=True, acl=mock.ANY,
                       sequence=False),
-            mock.call('/endpoints/foo/test1:tcp:http', 'myhostname:5000',
+            mock.call('/endpoints/foo/test1:tcp:http', b'myhostname:5000',
                       ephemeral=True, makepath=True, acl=mock.ANY,
                       sequence=False),
 

@@ -27,7 +27,7 @@ class Discovery(object):
         self.state = set()
         self.zkclient = zkclient
 
-    def iteritems(self, block=True, timeout=None):
+    def items(self, block=True, timeout=None):
         """List matching endpoints. """
         while True:
             try:

@@ -2,15 +2,15 @@ domain: tw.treadmill
 master:
   name: TreadmillMaster
   exact_count: 3
-  instance_type: t2.micro
+  instance_type: small
 node_server:
   name: TreadmillNodeServer
   exact_count: 1
-  instance_type: t2.micro
+  instance_type: xlarge
 freeipa:
   name: TreadmillFreeIPA
   exact_count: 1
-  instance_type: t2.small
+  instance_type: small
   realm: TW.TREADMILL
   server_hostname: ipa
   authentication: sasl # sasl or simple

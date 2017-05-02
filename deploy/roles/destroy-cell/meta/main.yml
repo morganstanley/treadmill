@@ -7,4 +7,4 @@ galaxy_info:
   galaxy_tags: []
 
 dependencies:
-  - { role: fetch-facts, resources: ['ec2','subnet','vpc','route_table']}
+  - { role: fetch-facts, resources: ['freeipa_facts','master_facts','node_facts','subnet','vpc','route_table']}

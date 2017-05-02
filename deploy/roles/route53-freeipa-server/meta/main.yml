@@ -1,2 +1,0 @@
-dependencies:
-    - { role: fetch-facts, resources: ['vpc','ec2']}

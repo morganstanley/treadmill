@@ -75,7 +75,7 @@ def _run(apis,
             services_dict[service]['command'] = ' '.join(list(command))
 
     if services_dict:
-        app['services'] = services_dict.values()
+        app['services'] = list(services_dict.values())
 
     if app:
         if memory:

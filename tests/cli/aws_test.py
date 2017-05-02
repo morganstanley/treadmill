@@ -8,6 +8,7 @@ import click
 import click.testing
 import mock
 import os
+import sys
 import treadmill
 
 
@@ -42,24 +43,58 @@ class AwsTest(unittest.TestCase):
         )
         playbook_cli_mock.return_value = playbook_cli_obj_mock
 
-        self.runner.invoke(self.configure_cli, ['cell', '--create'])
+        self.runner.invoke(
+            self.configure_cli, [
+                'cell', '--create',
+                '--playbook', 'cell.yml',
+                '--inventory', 'controller.inventory',
+                '--aws-config', 'config/aws.yml'
+            ]
+        )
 
         playbook_cli_mock.assert_called_once_with([
             'ansible-playbook',
             '-i',
-            os.path.join(
-                treadmill.TREADMILL_DEPLOY_PACKAGE,
-                'controller.inventory',
-            ),
+            'controller.inventory',
             '-e',
-            'aws_config=' + os.path.join(
-                treadmill.TREADMILL_DEPLOY_PACKAGE,
-                'config/aws.yml'
-            ),
-            os.path.join(
-                treadmill.TREADMILL_DEPLOY_PACKAGE,
-                'cell.yml',
-            ),
+            'aws_config=config/aws.yml freeipa=False',
+            'cell.yml',
+            '--key-file',
+            'key.pem',
+        ])
+
+        playbook_cli_obj_mock.parse.assert_called_once()
+        playbook_cli_obj_mock.run.assert_called_once()
+
+    @mock.patch('treadmill.cli.aws.PlaybookCLI')
+    def test_cell_with_create_with_freeipa(self, playbook_cli_mock):
+        """Test cli.aws.cell with create option"""
+
+        playbook_cli_obj_mock = mock.Mock(
+            **{
+                'parse.return_value': None,
+                'run.return_value': None
+            }
+        )
+        playbook_cli_mock.return_value = playbook_cli_obj_mock
+
+        self.runner.invoke(
+            self.configure_cli, [
+                'cell', '--create',
+                '--playbook', 'cell.yml',
+                '--inventory', 'controller.inventory',
+                '--aws-config', 'config/aws.yml',
+                '--with-freeipa'
+            ]
+        )
+
+        playbook_cli_mock.assert_called_once_with([
+            'ansible-playbook',
+            '-i',
+            'controller.inventory',
+            '-e',
+            'aws_config=config/aws.yml freeipa=True',
+            'cell.yml',
             '--key-file',
             'key.pem',
         ])
@@ -79,24 +114,22 @@ class AwsTest(unittest.TestCase):
         )
         playbook_cli_mock.return_value = playbook_cli_obj_mock
 
-        self.runner.invoke(self.configure_cli, ['cell', '--destroy'])
+        self.runner.invoke(
+            self.configure_cli, [
+                'cell', '--destroy',
+                '--playbook', 'destroy-cell.yml',
+                '--inventory', 'controller.inventory',
+                '--aws-config', 'config/aws.yml'
+            ]
+        )
 
         playbook_cli_mock.assert_called_once_with([
             'ansible-playbook',
             '-i',
-            os.path.join(
-                treadmill.TREADMILL_DEPLOY_PACKAGE,
-                'controller.inventory',
-            ),
+            'controller.inventory',
             '-e',
-            'aws_config=' + os.path.join(
-                treadmill.TREADMILL_DEPLOY_PACKAGE,
-                'config/aws.yml'
-            ),
-            os.path.join(
-                treadmill.TREADMILL_DEPLOY_PACKAGE,
-                'destroy-cell.yml',
-            ),
+            'aws_config=config/aws.yml freeipa=False',
+            'destroy-cell.yml',
         ])
 
         playbook_cli_obj_mock.parse.assert_called_once()
@@ -123,26 +156,24 @@ class AwsTest(unittest.TestCase):
         )
         playbook_cli_mock.return_value = playbook_cli_obj_mock
 
-        self.runner.invoke(self.configure_cli, ['node', '--create'])
+        self.runner.invoke(
+            self.configure_cli, [
+                'node', '--create',
+                '--playbook', 'node.yml',
+                '--inventory', 'controller.inventory',
+                '--aws-config', 'config/aws.yml'
+            ], catch_exceptions=False
+        )
 
         playbook_cli_mock.assert_called_once_with([
             'ansible-playbook',
             '-i',
-            os.path.join(
-                treadmill.TREADMILL_DEPLOY_PACKAGE,
-                'controller.inventory',
-            ),
-            os.path.join(
-                treadmill.TREADMILL_DEPLOY_PACKAGE,
-                'node.yml',
-            ),
+            'controller.inventory',
+            'node.yml',
             '--key-file',
             'key.pem',
             '-e',
-            'aws_config=' + os.path.join(
-                treadmill.TREADMILL_DEPLOY_PACKAGE,
-                'config/aws.yml'
-            )
+            'aws_config=config/aws.yml'
         ])
 
         playbook_cli_obj_mock.parse.assert_called_once()
@@ -157,6 +188,18 @@ class AwsTest(unittest.TestCase):
             ['init']
         )
         copy_tree_mock.assert_called_once()
+
+    def test_pythonpath(self):
+        """Test PYTHONPATH for pex"""
+        with mock.patch.object(sys, 'path',
+                               ['/.pex/p2', '/.pex/p3', '/non-pex']):
+            os.environ['PYTHONPATH'] = 'package1'
+            importlib.reload(treadmill.cli.aws)
+
+            self.assertEquals(
+                os.environ['PYTHONPATH'],
+                'package1:/.pex/p2:/.pex/p3'
+            )
 
 
 if __name__ == '__main__':

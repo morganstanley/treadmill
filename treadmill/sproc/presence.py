@@ -91,7 +91,7 @@ def init():
 
             try:
                 app_presence.register()
-                _get_tickets(appname, app, container_dir)
+                # _get_tickets(appname, app, container_dir)
                 _start_service_sup(container_dir)
             except exc.ContainerSetupError as err:
                 app_abort.abort(

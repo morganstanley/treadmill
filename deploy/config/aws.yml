@@ -10,3 +10,10 @@ vpc:
     name: Treadmill
     cidr: 172.23.1.0/24
     az: us-west-1b
+instance_types:
+  micro: t2.micro
+  small: t2.small
+  medium: t2.medium
+  large: t2.large
+  xlarge: t2.xlarge
+  2xlarge: t2.2xlarge

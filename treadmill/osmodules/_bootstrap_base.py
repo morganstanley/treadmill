@@ -102,7 +102,7 @@ class BootstrapBase(object):
 
         with tempfile.NamedTemporaryFile(dir=os.path.dirname(filename),
                                          prefix='.tmp',
-                                         delete=False) as tmp_file:
+                                         delete=False, mode='w') as tmp_file:
             tmp_file.write(content)
             tmp_file.flush()
 

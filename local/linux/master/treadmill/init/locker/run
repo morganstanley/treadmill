@@ -10,5 +10,5 @@ exec 2>&1
 export KRB5CCNAME="FILE:/treadmill/spool/krb5cc_host"
 
 # Pick up new environment.
-exec {{ treadmill }}/bin/treadmill sproc tickets locker \
-    --tkt-spool-dir /treadmill/spool/tickets
+export PEX_ROOT=/tmp/.pex_{{ treadmillid }}
+exec {{ treadmill }} sproc tickets locker --tkt-spool-dir /treadmill/spool/tickets

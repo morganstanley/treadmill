@@ -54,7 +54,7 @@ def init():
             appname = 'root.%s#%010d' % (hostname, os.getpid())
             path = z.path.endpoint(appname, 'tcp', 'nodeinfo')
             _LOGGER.info('register endpoint: %s %s', path, hostport)
-            zkutils.create(zkclient, path, hostport,
+            zkutils.create(zkclient, path, hostport.encode(),
                            acl=[_SERVERS_ACL],
                            ephemeral=True)
 

@@ -1,4 +1,9 @@
 ---
+- name: Install Java
+  yum:
+    name: java
+    state: present
+
 - name: Download and untar zk tar
   unarchive:
     src: http://apache.claz.org/zookeeper/zookeeper-3.4.9/zookeeper-3.4.9.tar.gz
