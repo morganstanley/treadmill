@@ -1,13 +1,12 @@
-Vagrant setup for development
+Vagrant
 =========================================================================
--------------------------------------------------------------------------
 
 Prerequisites
 ^^^^^^^^^^^^^
 
 - VirtualBox_
 - Vagrant_
-- Install the Guest_Additions_plugin_ for Vagrant
+- Install the `Guest Additions Plugin`_ for Vagrant
 
 ::
 
@@ -15,7 +14,7 @@ Prerequisites
 
 -------------------------------------------------------------------------
 
-Vagrant Setup
+Setup
 ^^^^^^^^^^^^^
 
 - Clone the treadmill_ repo.
@@ -59,6 +58,6 @@ Vagrant Setup
 
 .. _VirtualBox: https://www.virtualbox.org/wiki/Downloads
 .. _Vagrant: https://www.vagrantup.com/docs/installation/
-.. _Guest_Additions_plugin: https://github.com/dotless-de/vagrant-vbguest
+.. _Guest Additions Plugin: https://github.com/dotless-de/vagrant-vbguest
 .. _treadmill: https://github.com/ThoughtWorksInc/treadmill.git 
 .. _treadmill_pid1: https://github.com/Morgan-Stanley/treadmill-pid1

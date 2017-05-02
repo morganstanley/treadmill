@@ -6,13 +6,13 @@ import importlib
 
 def _print_cli_info(runner, cli_pkg, mods, path):
     for mod in mods:
+        cli = importlib.import_module(path + '.' + mod).init()
+        _output = runner.invoke(cli, ['--help']).output
         print("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^")
         print("Module: " + path + '.' + mod)
         print("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^")
         print("::\n")
-
-        cli = importlib.import_module(path + '.' + mod).init()
-        click.echo("\t\t" + "\t\t".join(runner.invoke(cli, ['--help']).output.splitlines(True)))
+        click.echo("\t\t" + "\t\t".join(_output.splitlines(True)))
 
         if type(cli) is Group:
             subcommands = sorted(cli.list_commands(None))
@@ -21,7 +21,9 @@ def _print_cli_info(runner, cli_pkg, mods, path):
             subcommands = []
 
         for _subcommand in subcommands:
-            click.echo("\t\t" + "\t\t".join(runner.invoke(cli, [_subcommand, '--help']).output.splitlines(True)))
+            _output = runner.invoke(cli, [_subcommand, '--help']).output
+            if 'Error: Missing option' not in  _output:
+                click.echo("\t\t" + "\t\t".join(_output.splitlines(True)))
 
         submods = sorted([name for _, name, _ in pkgutil.iter_modules([cli_pkg + '/' + mod])])
         if submods:
@@ -30,9 +32,10 @@ def _print_cli_info(runner, cli_pkg, mods, path):
 cli_pkg = os.path.dirname(treadmill.cli.__file__)
 cli_mods = sorted([name for _, name, _ in pkgutil.iter_modules([cli_pkg])])
 runner = click.testing.CliRunner()
+click.echo(".. AUTO-GENERATED FILE - DO NOT EDIT!! Use `make cli_docs`.")
 print("""
 ==============================================================
-Treadmill-OSS CLI Cheatsheet
+CLI
 ==============================================================
 """)
 _print_cli_info(runner, cli_pkg, cli_mods, 'treadmill.cli')
