@@ -15,3 +15,7 @@ freeipa:
   server_hostname: ipa
   authentication: sasl # sasl or simple
   admin_pwd_file: /root/.treadmill_ldap
+api:
+  name: TreadmillAPI
+  exact_count: 1
+  instance_type: t2.small
