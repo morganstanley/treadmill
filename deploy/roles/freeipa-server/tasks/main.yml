@@ -10,20 +10,20 @@
 - name: Add host entry
   lineinfile:
     dest=/etc/hosts
-    regexp="{{ freeipa.name|lower }}1.{{ domain }}"
-    line="{{ ansible_default_ipv4.address }} {{ freeipa.name|lower }}1.{{ domain }}"
+    regexp="{{ freeipa_server.name|lower }}1.{{ domain }}"
+    line="{{ ansible_default_ipv4.address }} {{ freeipa_server.name|lower }}1.{{ domain }}"
     owner=root
     group=root
     mode=0644
 
 - name: Fetch credential file if it exists
   fetch:
-    src: "{{freeipa.admin_pwd_file}}"
-    dest: "{{freeipa.admin_pwd_file}}"
+    src: "{{freeipa_server.admin_pwd_file}}"
+    dest: "{{freeipa_server.admin_pwd_file}}"
     flat: yes
 
 - name: Genereate freeipa admin password
-  command: echo {{ lookup('password', freeipa.admin_pwd_file) }}
+  command: echo {{ lookup('password', freeipa_server.admin_pwd_file) }}
   register: lookup_result
 
 - name: Set freeipa admin password fact
@@ -31,15 +31,15 @@
     ipaserver_admin_password: "{{lookup_result.stdout}}"
 
 - name: Copy credential file on FreeIPA server
-  copy: src="{{freeipa.admin_pwd_file}}" dest="{{freeipa.admin_pwd_file}}"
+  copy: src="{{freeipa_server.admin_pwd_file}}" dest="{{freeipa_server.admin_pwd_file}}"
 
 - name: Configure FreeIPA server
   command: /sbin/ipa-server-install
     -U --domain "{{ domain }}"
-    --realm "{{ freeipa.realm }}"
+    --realm "{{ freeipa_server.realm }}"
     -a "{{ ipaserver_admin_password}}"
     -p "{{ ipaserver_admin_password}}"
-    --hostname="{{ freeipa.name|lower }}1.{{ domain }}"
+    --hostname="{{ freeipa_server.name|lower }}1.{{ domain }}"
     creates=/etc/ipa/default.conf
 
 - name: Copy OpenLDAP hdb ldif file
@@ -109,5 +109,5 @@
     - treadmill admin ldap schema --load /root/schema.yml
     - treadmill admin ldap cell configure -u admin {{ vpc_id }}
   environment:
-    TREADMILL_LDAP: "ldap://{{ freeipa.name|lower }}1.{{ domain }}:1389"
+    TREADMILL_LDAP: "ldap://{{ freeipa_server.name|lower }}1.{{ domain }}:1389"
     TREADMILL_LDAP_SEARCH_BASE: "ou=treadmill,{{ domain | regex_replace('(.*)\\.(.*)', 'dc=\\1,dc=\\2') }}"

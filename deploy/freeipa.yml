@@ -7,7 +7,7 @@
         - "config/treadmill.yml"
     - meta: refresh_inventory
   roles:
-    - {role: instance, _name: "{{freeipa.name}}", _exact_count: "{{freeipa.exact_count}}", _instance_type: "{{freeipa.instance_type}}" }
+    - {role: instance, _name: "{{freeipa_server.name}}", _exact_count: "{{freeipa_server.exact_count}}", _instance_type: "{{freeipa_server.instance_type}}" }
     - {role: dynamic-inventory}
     - {role: route53-freeipa-server}
 

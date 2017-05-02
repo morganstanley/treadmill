@@ -15,12 +15,12 @@
 
 - name: Fetch credential file if it exists
   fetch:
-    src: "{{freeipa.admin_pwd_file}}"
-    dest: "{{freeipa.admin_pwd_file}}"
+    src: "{{freeipa_server.admin_pwd_file}}"
+    dest: "{{freeipa_server.admin_pwd_file}}"
     flat: yes
 
 - name: Lookup freeipa admin password
-  command: echo {{ lookup('password', freeipa.admin_pwd_file) }}
+  command: echo {{ lookup('password', freeipa_server.admin_pwd_file) }}
   register: lookup_result
 
 - name: Set freeipa admin password fact
@@ -28,7 +28,7 @@
     ipaserver_admin_password: "{{lookup_result.stdout}}"
 
 - name: Copy credential file on FreeIPA client
-  copy: src="{{freeipa.admin_pwd_file}}" dest="{{freeipa.admin_pwd_file}}"
+  copy: src="{{freeipa_server.admin_pwd_file}}" dest="{{freeipa_server.admin_pwd_file}}"
 
 - name: Configure FreeIPA client
   command: /sbin/ipa-client-install

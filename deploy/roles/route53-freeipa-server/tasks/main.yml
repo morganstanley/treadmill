@@ -24,7 +24,7 @@
     vpc_id: "{{vpc_id}}"
     type: TXT
     record: "_kerberos.{{domain}}."
-    value: "\"{{freeipa.realm}}\""
+    value: "\"{{freeipa_server.realm}}\""
 
 - name: Add kerberos master tcp SRV DNS record
   route53:
