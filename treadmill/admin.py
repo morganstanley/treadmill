@@ -378,7 +378,7 @@ def _ldap_args():
             defaults['user'] = _admin_ldap_user(treadmill_conf.get('domain'))
             defaults['authentication'] = ldap3.SIMPLE
             defaults['sasl_mechanism'] = None
-            with open(freeipa_conf.get('admin_pwd_file')) as p:
+            with open(freeipa_conf.get('remote_admin_pwd_file')) as p:
                 defaults['password'] = p.read().strip()
     return defaults
 

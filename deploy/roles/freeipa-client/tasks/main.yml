@@ -15,24 +15,29 @@
 
 - name: Fetch credential file if it exists
   fetch:
-    src: "{{freeipa.admin_pwd_file}}"
-    dest: "{{freeipa.admin_pwd_file}}"
+    src: "{{freeipa.remote_admin_pwd_file}}"
+    dest: "{{freeipa.local_admin_pwd_file}}"
     flat: yes
 
 - name: Lookup freeipa admin password
-  command: echo {{ lookup('password', freeipa.admin_pwd_file) }}
+  command: echo {{ lookup('password', freeipa.local_admin_pwd_file) }}
   register: lookup_result
 
 - name: Set freeipa admin password fact
   set_fact:
     ipaserver_admin_password: "{{lookup_result.stdout}}"
 
+- name: Create .treadmill directory
+  file: path="/root/.treadmill" state=directory
+
 - name: Copy credential file on FreeIPA client
-  copy: src="{{freeipa.admin_pwd_file}}" dest="{{freeipa.admin_pwd_file}}"
+  copy: src="{{freeipa.local_admin_pwd_file}}" dest="{{freeipa.remote_admin_pwd_file}}"
 
 - name: Configure FreeIPA client
   command: /sbin/ipa-client-install
     -U -p admin
     -w "{{ ipaserver_admin_password}}"
     creates=/etc/ipa/default.conf
+    --force-join
+    --force-ntpd
 
