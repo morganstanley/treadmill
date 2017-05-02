@@ -19,14 +19,14 @@ def sync_servers():
         building = 'building:unknown'
 
         traits = []
-        label = None
+        partition = None
 
         master.create_bucket(context.GLOBAL.zk.conn, building, None)
         master.cell_insert_bucket(context.GLOBAL.zk.conn, building)
         master.create_bucket(context.GLOBAL.zk.conn, rack, building)
         master.create_server(context.GLOBAL.zk.conn, servername, rack)
         master.update_server_attrs(context.GLOBAL.zk.conn, servername,
-                                   traits=traits, label=label)
+                                   traits=traits, partition=partition)
 
 
 def init():

@@ -38,6 +38,7 @@ service will be started with 'svc -o' (run once) option, and Treadmill will
 be responsible for restart and maintaining restart count.
 
 """
+
 from __future__ import absolute_import
 
 import glob
@@ -49,10 +50,10 @@ import time
 
 import jinja2
 
-from . import fs
-from . import utils
-from . import subproc
-
+from treadmill import fs
+from treadmill import s6
+from treadmill import subproc
+from treadmill import utils
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -71,6 +72,18 @@ ERR_COMMAND = 111
 
 # s6-svc exits 100 if no s6-supervise process is running on servicedir.
 ERR_NO_SUP = 100
+
+
+def open_service(service_dir):
+    """Open a service object from a service directry.
+    """
+    if not isinstance(service_dir, s6.Service):
+        service = s6.Service.from_dir(service_dir)
+        if service is None:
+            raise ValueError('Invalid Service directory: %r' % service_dir)
+        return service
+
+    return service_dir
 
 
 def create_service(app_root, user, home, shell, service, runcmd,
@@ -118,9 +131,9 @@ def create_service(app_root, user, home, shell, service, runcmd,
 def exec_root_supervisor(directory):
     """Execs svscan in the directory."""
     if os.name == 'nt':
-        subproc.call(['s6-svscan', directory])
+        subproc.call(['s6_svscan', directory])
     else:
-        subproc.exec_pid1(['s6-svscan', directory])
+        subproc.exec_pid1(['s6_svscan', directory])
 
 
 def start_service(app_root, service, once=True):
@@ -129,12 +142,12 @@ def start_service(app_root, service, once=True):
         opt = '-o'
     else:
         opt = '-u'
-    subprocess.call(['s6-svc', opt, os.path.join(app_root, service)])
+    subproc.call(['s6_svc', opt, os.path.join(app_root, service)])
 
 
 def stop_service(app_root, service):
     """Stops the service and do not restart it."""
-    subprocess.call(['s6-svc', '-d', os.path.join(app_root, service)])
+    subproc.call(['s6_svc', '-d', os.path.join(app_root, service)])
 
 
 def kill_service(app_root, service, signal='TERM'):
@@ -152,14 +165,14 @@ def kill_service(app_root, service, signal='TERM'):
     if signal not in signal_opts:
         utils.fatal('Unsupported signal: %s', signal)
     opt = signal_opts[signal]
-    subprocess.call(['s6-svc', opt, os.path.join(app_root, service)])
+    subproc.call(['s6_svc', opt, os.path.join(app_root, service)])
 
 
 def is_supervisor_running(app_root, service):
     """Checks if the supervisor is running."""
     # svok returns 0 if supervisor is running.
     try:
-        subproc.check_call(['s6-svok', os.path.join(app_root, service)],
+        subproc.check_call(['s6_svok', os.path.join(app_root, service)],
                            stderr=subprocess.STDOUT)
         return True
     except subprocess.CalledProcessError, err:
@@ -176,7 +189,7 @@ def is_running(app_root, service):
 
 def get_pid(app_root, service):
     """Returns pid of the service or None if the service is not running."""
-    output = subproc.check_output(['s6-svstat',
+    output = subproc.check_output(['s6_svstat',
                                    os.path.join(app_root, service)])
     return _parse_state(output).get('pid', None)
 
@@ -222,7 +235,7 @@ def get_state(svcroot):
     services = glob.glob(os.path.join(svcroot, '*'))
     services_state = {}
     for service in services:
-        state = subproc.check_output(['s6-svstat', service])
+        state = subproc.check_output(['s6_svstat', service])
         services_state[os.path.basename(service)] = _parse_state(state)
 
     return services_state
@@ -237,7 +250,7 @@ def _service_wait(svcroot, up_opt, any_all_opt, timeout=0, subset=None):
     if not services:
         return
 
-    cmdline = ['s6-svwait', up_opt, '-t', str(timeout), any_all_opt] + services
+    cmdline = ['s6_svwait', up_opt, '-t', str(timeout), any_all_opt] + services
 
     # This will block until service status changes or timeout expires.
     subproc.check_call(cmdline)

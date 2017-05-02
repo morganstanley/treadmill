@@ -8,6 +8,7 @@ import os
 import logging
 
 from treadmill import schema
+from treadmill.websocket import utils
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -22,13 +23,13 @@ class EndpointAPI(object):
         @schema.schema({'$ref': 'websocket/endpoint.json#/message'})
         def subscribe(message):
             """Return filter based on message payload."""
-            app_filter = message['filter']
-            proto = message.get('proto') or '*'
-            endpoint = message.get('endpoint') or '*'
+            parsed_filter = utils.parse_message_filter(message['filter'])
+            if '.' not in parsed_filter.filter:
+                raise ValueError('Invalid filter: expect proid.pattern')
+            proid, pattern = parsed_filter.filter.split('.', 1)
 
-            proid, pattern = app_filter.split('.', 1)
-            if '#' not in pattern:
-                pattern += '#*'
+            proto = message.get('proto', '*')
+            endpoint = message.get('endpoint', '*')
 
             full_pattern = ':'.join([pattern, proto, endpoint])
             return [(os.path.join('/endpoints', proid), full_pattern)]

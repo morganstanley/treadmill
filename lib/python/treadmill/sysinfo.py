@@ -222,7 +222,7 @@ def _node_info_linux(tm_env):
     :param tm_env:
         Treadmill application environment
     :type tm_env:
-        `appmgr.AppEnvironment`
+        `appenv.AppEnvironment`
     """
     # Request status information from services (this may wait for the services
     # to be up).
@@ -264,7 +264,7 @@ def _node_info_windows(tm_env):
     :param tm_env:
         Treadmill application environment
     :type tm_env:
-        `appmgr.AppEnvironment`
+        `appenv.AppEnvironment`
     """
     # We normalize bogomips into logical "cores", each core == 5000 bmips.
     #

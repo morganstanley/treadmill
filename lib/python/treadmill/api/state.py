@@ -3,7 +3,12 @@ from __future__ import absolute_import
 
 import logging
 
+import os
+import zlib
+import sqlite3
+import tempfile
 import fnmatch
+
 import yaml
 
 from treadmill import context
@@ -146,6 +151,56 @@ def watch_tasks(zkclient, cell_state):
     _LOGGER.info('Loaded tasks.')
 
 
+def watch_tasks_history(zkclient, cell_state):
+    """Watch tasks history.
+
+    Load summary info from tasks history snapshots. Keep track of changes.
+    """
+    if not zkclient.exists(z.TASKS_HISTORY):
+        _LOGGER.warn('Not loading tasks history, no node: %s', z.TASKS_HISTORY)
+        return
+
+    loaded_tasks_history = {}
+
+    def _get_instance(path):
+        return '#'.join(path[len(z.TASKS) + 1:].rsplit('/', 1))
+
+    @exc.exit_on_unhandled
+    @zkclient.ChildrenWatch(z.TASKS_HISTORY)
+    def _watch_tasks_history(tasks_history):
+        """Watch /tasks.history nodes."""
+        for db_node in set(tasks_history) - set(loaded_tasks_history):
+            _LOGGER.debug('Loading tasks history from: %s', db_node)
+            db_node_path = z.path.tasks_history(db_node)
+            data, _stat = zkclient.get(db_node_path)
+            loaded_tasks_history[db_node] = []
+
+            with tempfile.NamedTemporaryFile(delete=False, mode='wb') as f:
+                f.write(zlib.decompress(data))
+            conn = sqlite3.connect(f.name)
+            cur = conn.cursor()
+            for row in cur.execute('select path, data from tasks'
+                                   ' where data is not null'):
+                path, data = row
+                instance = _get_instance(path)
+                if data:
+                    data = yaml.load(data)
+                cell_state.tasks_history[instance] = data
+                loaded_tasks_history[db_node].append(instance)
+            conn.close()
+            os.unlink(f.name)
+
+        for db_node in set(loaded_tasks_history) - set(tasks_history):
+            _LOGGER.debug('Unloading tasks history from: %s', db_node)
+            for instance in loaded_tasks_history[db_node]:
+                del cell_state.tasks_history[instance]
+            del loaded_tasks_history[db_node]
+
+        return True
+
+    _LOGGER.info('Loaded tasks history.')
+
+
 class CellState(object):
     """Cell state."""
 
@@ -153,6 +208,7 @@ class CellState(object):
         'running',
         'placement',
         'tasks',
+        'tasks_history',
         'watches',
     )
 
@@ -160,6 +216,7 @@ class CellState(object):
         self.running = []
         self.placement = {}
         self.tasks = {}
+        self.tasks_history = {}
         self.watches = set()
 
 
@@ -177,6 +234,7 @@ class API(object):
         watch_running(zkclient, cell_state)
         watch_placement(zkclient, cell_state)
         watch_tasks(zkclient, cell_state)
+        watch_tasks_history(zkclient, cell_state)
 
         def _list(match=None):
             """List instances state."""
@@ -196,9 +254,10 @@ class API(object):
             """Get instance state."""
             data = None
             if rsrc_id in cell_state.placement:
-                data = cell_state.placement.get(rsrc_id)
+                data = cell_state.placement[rsrc_id]
             else:
-                data = cell_state.tasks.get(rsrc_id)
+                data = (cell_state.tasks.get(rsrc_id) or
+                        cell_state.tasks_history.get(rsrc_id))
                 if data and data.get('state') == 'finished':
                     rc, signal = data.get('data', '255.255').split('.')
                     data['exitcode'] = rc

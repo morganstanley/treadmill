@@ -11,6 +11,7 @@ import flask
 try:
     # pylint: disable=F0401
     import tornado
+    import tornado.httpserver
     from tornado import wsgi
 except ImportError:
     # Ignore import errors on RHEL5, as tornado is available only for RHEL6
@@ -212,7 +213,23 @@ def run_wsgi(wsgi_app, port):
     app = tornado.web.Application([
         (r".*", tornado.web.FallbackHandler, dict(fallback=container)),
     ])
-    app.listen(port)
+
+    http_server = tornado.httpserver.HTTPServer(app)
+    http_server.listen(port)
+    tornado.ioloop.IOLoop.instance().start()
+
+
+def run_wsgi_unix(wsgi_app, socket):
+    """Runs wsgi (Flask) app using tornado unixsocket web server."""
+
+    container = wsgi.WSGIContainer(wsgi_app)
+    app = tornado.web.Application([
+        (r".*", tornado.web.FallbackHandler, dict(fallback=container)),
+    ])
+
+    http_server = tornado.httpserver.HTTPServer(app)
+    unix_socket = tornado.netutil.bind_unix_socket(socket)
+    http_server.add_socket(unix_socket)
     tornado.ioloop.IOLoop.instance().start()
 
 

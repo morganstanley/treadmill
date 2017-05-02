@@ -1,12 +1,13 @@
-#!/bin/sh
-#
-# Script to start the DNAT watcher in the same pid/mount namespace as treamill
-# node.
-# Runs as root
-#
+#!{{ _alias.execlineb }} -P
 
-exec 2>&1
+{{ _alias.redirfd }} -r 0 /dev/null
+{{ _alias.fdmove }} -c 2 1
 
-# FIXME(boysson): The location of all this dirs should be in a config somewhere
-exec {{ treadmill }}/bin/treadmill sproc --cgroup . \
-    firewall watcher --root-dir {{ dir }}
+# Set to single execution so that we can enforce restart policies
+{{ _alias.if }} { {{ _alias.s6_svc }} -o . }
+
+{{ _alias.s6_envdir }} -i -- {{ dir }}/env
+{{ _alias.s6_envdir }} -i -- ./env
+
+/bin/sh -l ./data/app_start
+

@@ -2,6 +2,7 @@
 
 import getopt
 import httplib
+import json
 import logging
 import logging.config
 import os
@@ -23,7 +24,14 @@ from treadmill.exc import FileNotFoundError
 from treadmill.rest import error_handlers
 from treadmill.rest.api import local
 
-LOG_CONTENT = ['log', 'entries']
+LOG_CONTENT = range(1, 10)
+
+
+# Don't complain about unused parameters
+# pylint: disable=W0613
+def return_params(*args, **kwargs):
+    """Return the parameters."""
+    return json.dumps(kwargs)
 
 
 # Don't complain about unused parameters
@@ -68,6 +76,29 @@ class LocalTest(unittest.TestCase):
 
         local.init(api, cors, self.impl)
         self.client = self.app.test_client()
+
+    def test_app_log_fragment(self):
+        """Checking that the params for getting log fragments are passed."""
+        self.impl.log.get.side_effect = return_params
+
+        resp = self.client.get('/app/proid.app/uniq/service/service_name')
+
+        self.assertEqual(''.join(resp.response),
+                         '{"start": 0, "limit": null, "order": "asc"}')
+        self.assertEqual(resp.status_code, httplib.OK)
+
+        resp = self.client.get(
+            '/app/proid.app/uniq/service/service_name?start=0&limit=5')
+
+        self.assertEqual(''.join(resp.response),
+                         '{"start": 0, "limit": 5, "order": "asc"}')
+        self.assertEqual(resp.status_code, httplib.OK)
+
+        resp = self.client.get(
+            '/app/proid.app/uniq/sys/component?start=3&limit=9&order=desc')
+        self.assertEqual(''.join(resp.response),
+                         '{"start": 3, "limit": 9, "order": "desc"}')
+        self.assertEqual(resp.status_code, httplib.OK)
 
     def test_app_log_success(self):
         """Dummy tests for returning application logs."""

@@ -38,11 +38,16 @@ def init():
             'aliases_path': aliases_path
         }
 
+        aliases_data = {}
         for conf in aliases:
-            ctx.obj['COMMON_DEFAULTS'].update(yaml.load(conf.read()))
+            aliases_data.update(yaml.load(conf.read()))
+
+        ctx.obj['COMMON_DEFAULTS']['_alias'] = aliases_data
+        # TODO(boysson): remove the below once all templates are cleaned up
+        ctx.obj['COMMON_DEFAULTS'].update(aliases_data)
 
         for conf in config:
-            ctx.obj['COMMON_DEFAULTS'].update(yaml.load(conf.read()))
+            ctx.obj['COMMON_DEFAULTS'].update(yaml.load(stream=conf))
 
         if override:
             ctx.obj['COMMON_DEFAULTS'].update(override)

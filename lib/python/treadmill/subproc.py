@@ -115,7 +115,7 @@ def check_call(cmdline, environ=(), runas=None, **kwargs):
 
     args = _alias_command(cmdline)
     if runas:
-        s6_setguid = os.path.join(resolve('s6'), 'bin', 's6-setuidgid')
+        s6_setguid = resolve('s6_setuidgid')
         args = [s6_setguid, runas] + args
 
     # Setup a copy of the environ with the provided overrides

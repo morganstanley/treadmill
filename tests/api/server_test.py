@@ -32,12 +32,12 @@ class ApiServerTest(unittest.TestCase):
         self.svr.list('some-cell', None)
         svr_admin.list.assert_called_with({'cell': 'some-cell'})
 
-        self.svr.list(label='xxx')
-        svr_admin.list.assert_called_with({'label': 'xxx'})
+        self.svr.list(partition='xxx')
+        svr_admin.list.assert_called_with({'partition': 'xxx'})
 
         self.svr.list('some-cell', 'xxx')
         svr_admin.list.assert_called_with({'cell': 'some-cell',
-                                           'label': 'xxx'})
+                                           'partition': 'xxx'})
 
     @mock.patch('treadmill.context.AdminContext.conn',
                 mock.Mock(return_value=admin.Admin(None, None)))
@@ -58,7 +58,7 @@ class ApiServerTest(unittest.TestCase):
         """Dummy test for treadmill.api.server.create()"""
         svr_admin = admin.Server(None)
         self.svr.create('foo.somewhere.in.xx.com', {'cell': 'ny-999-cell',
-                                                    'label': 'xxx'})
+                                                    'partition': 'xxx'})
         svr_admin.get.assert_called_with('foo.somewhere.in.xx.com')
 
 

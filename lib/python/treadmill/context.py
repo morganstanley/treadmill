@@ -162,13 +162,26 @@ class Context(object):
 
         result = dnsutils.srv(srv_rec + '.' + self.dns_domain)
         random.shuffle(result)
-        _LOGGER.debug('Result: %r', result)
+        return result
 
-        if result:
-            return [dnsutils.srv_target_to_url(srv_rec, target)
-                    for target in result]
-        else:
-            raise ContextError('No srv records found: %s' % srv_rec)
+    def _srv_to_urls(self, srv_recs, protocol=None):
+        """Randomizes and converts SRV records to URLs."""
+        _LOGGER.debug('Result: %r', srv_recs)
+
+        return [dnsutils.srv_rec_to_url(srv_rec,
+                                        protocol=protocol)
+                for srv_rec in srv_recs]
+
+    def cell_api_srv(self, cellname):
+        """Resolve REST API SRV records."""
+
+        target = '_http._tcp.cellapi.{}.cell'.format(cellname)
+        srv_recs = self._resolve_srv(target)
+
+        if not srv_recs:
+            raise ContextError('No srv records found: %s' % target)
+
+        return srv_recs
 
     def cell_api(self, restapi=None):
         """Resolve REST API endpoints."""
@@ -178,7 +191,18 @@ class Context(object):
         if not self.cell:
             raise ContextError('Cell is not specified.')
 
-        return self._resolve_srv('_http._tcp.cellapi.' + self.cell + '.cell')
+        return self._srv_to_urls(self.cell_api_srv(self.cell),
+                                 'http')
+
+    def state_api_srv(self, cellname):
+        """Resolve state API SRV records."""
+        target = '_http._tcp.stateapi.{}.cell'.format(cellname)
+        srv_recs = self._resolve_srv(target)
+
+        if not srv_recs:
+            raise ContextError('No srv records found: %s' % target)
+
+        return srv_recs
 
     def state_api(self, restapi=None):
         """Resolve state API endpoints."""
@@ -188,7 +212,18 @@ class Context(object):
         if not self.cell:
             raise ContextError('Cell is not specified.')
 
-        return self._resolve_srv('_http._tcp.stateapi.' + self.cell + '.cell')
+        return self._srv_to_urls(self.state_api_srv(self.cell),
+                                 'http')
+
+    def ws_api_srv(self, cellname):
+        """Resolve state API SRV records."""
+        target = '_ws._tcp.wsapi.{}.cell'.format(cellname)
+        srv_recs = self._resolve_srv(target)
+
+        if not srv_recs:
+            raise ContextError('No srv records found: %s' % target)
+
+        return srv_recs
 
     def ws_api(self, wsapi=None):
         """Resolve state API endpoints."""
@@ -198,20 +233,27 @@ class Context(object):
         if not self.cell:
             raise ContextError('Cell is not specified.')
 
-        return self._resolve_srv('_ws._tcp.wsapi.' + self.cell + '.cell')
+        return self._srv_to_urls(self.ws_api_srv(self.cell),
+                                 'ws')
+
+    def admin_api_srv(self):
+        """Resolve admin API SRV records."""
+        for scope in self.admin_api_scope:
+            try:
+                result = self._resolve_srv('_http._tcp.adminapi.' + scope)
+                if result:
+                    return result
+            except ContextError:
+                pass
+
+        raise ContextError('no admin api found.')
 
     def admin_api(self, restapi=None):
         """Resolve Admin REST API endpoints."""
         if restapi:
             return [restapi]
 
-        for scope in self.admin_api_scope:
-            try:
-                return self._resolve_srv('_http._tcp.adminapi.' + scope)
-            except ContextError:
-                pass
-
-        raise ContextError('no admin api found.')
+        return self._srv_to_urls(self.admin_api_srv(), 'http')
 
     def resolve(self, cellname=None):
         """Resolve Zookeeper connection string by cell name."""
@@ -225,20 +267,19 @@ class Context(object):
             raise ContextError('Cell is not specified.')
 
         if not self.ldap.url:
-            ldap_srv_rec = dnsutils.srv('_ldap._tcp.%s.%s' % (cellname,
-                                                              self.dns_domain))
+            ldap_srv_rec = dnsutils.srv('_ldap._tcp.%s.%s' %
+                                        (cellname, self.dns_domain))
             self.ldap.url = ','.join([
                 'ldap://%s:%s' % (rec[0], rec[1])
                 for rec in ldap_srv_rec
             ])
 
-        while self.resolvers:
+        cell_resolved = False
+        while self.resolvers and not cell_resolved:
             resolver = self.resolvers.pop(0)
-            resolver(cellname)
-            if self.zk.url:
-                break
+            cell_resolved = resolver(cellname)
 
-        if not self.zk.url:
+        if not cell_resolved:
             raise ContextError('Unable to resolve cell: %s' % cellname)
 
         self.cell = cellname
@@ -277,7 +318,11 @@ class Context(object):
             )
             self.cell = cellname
         except ldap3.LDAPNoSuchObjectResult:
-            _LOGGER.debug('Cell not defined in LDAP: %s', cellname)
+            exception = ContextError(
+                'Cell not defined in LDAP {}'.format(cellname)
+            )
+            _LOGGER.debug(str(exception))
+            raise exception
 
         return bool(self.zk.url)
 

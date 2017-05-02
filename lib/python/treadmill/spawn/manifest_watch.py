@@ -49,7 +49,7 @@ class ManifestWatch(object):
         """Tells the svscan instance to rescan the given scan dir."""
         _LOGGER.debug('Scanning directory %r', scan_dir)
         try:
-            subproc.check_call(['s6-svscanctl', '-a', scan_dir])
+            subproc.check_call(['s6_svscanctl', '-a', scan_dir])
         except subprocess.CalledProcessError as ex:
             _LOGGER.warning(ex)
 

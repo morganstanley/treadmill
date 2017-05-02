@@ -11,7 +11,7 @@ def init():
 
     @click.command('sysapps')
     def check_sysapps():
-        """Checkout API."""
+        """Checkout system apps health."""
         return sysapps.test
 
     return check_sysapps

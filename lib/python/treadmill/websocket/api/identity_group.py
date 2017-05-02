@@ -23,7 +23,7 @@ class IdentityGroupAPI(object):
         @schema.schema({'$ref': 'websocket/identity_group.json#/message'})
         def subscribe(message):
             """Return filter based on message payload."""
-            identity_group = message.get('identity-group') or '*'
+            identity_group = message.get('identity-group', '*')
 
             return [(os.path.join('/identity-groups', identity_group), '*')]
 

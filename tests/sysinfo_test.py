@@ -12,7 +12,7 @@ import tests.treadmill_test_deps  # pylint: disable=W0611
 import mock
 
 import treadmill
-import treadmill.appmgr
+import treadmill.appenv
 from treadmill import sysinfo
 
 
@@ -223,7 +223,7 @@ power management: [8]
         # Access protected members
         # pylint: disable=W0212
         mock_tm_env = mock.Mock(
-            spec_set=treadmill.appmgr.AppEnvironment,
+            spec_set=treadmill.appenv.AppEnvironment,
             svc_cgroup=mock.Mock(
                 spec_set=treadmill.services._base_service.ResourceService,
             ),

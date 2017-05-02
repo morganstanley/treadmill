@@ -5,7 +5,8 @@ import errno
 import logging
 import select
 
-from treadmill.dirwatch import dirwatch_base
+from . import dirwatch_base
+
 from treadmill.syscall import inotify
 
 _LOGGER = logging.getLogger(__name__)

@@ -24,6 +24,7 @@ import threading
 
 if os.name != 'nt':
     import fcntl
+    import pwd
 
 from collections import namedtuple
 
@@ -32,8 +33,8 @@ import jinja2
 
 import treadmill
 
-# E0611: No name 'subproc' in module 'treadmill'
-from . import subproc  # pylint: disable=E0611
+from treadmill import subproc
+from treadmill import osnoop
 
 
 threading._DummyThread._Thread__stop = lambda x: 0  # pylint: disable=W0212
@@ -194,8 +195,10 @@ def distro():
 
 def touch(filename):
     """'Touch' a filename."""
-    with open(filename, 'a') as f:
-        os.fchown(f.fileno(), -1, -1)
+    try:
+        os.utime(filename, None)
+    except OSError:
+        open(filename, 'a').close()
 
 
 class FileLock(object):
@@ -466,6 +469,7 @@ def from_base_n(base_num, base=None, alphabet=None):
     return num
 
 
+@osnoop.windows
 def report_ready():
     """Reports the service as ready for s6-svwait -U."""
     try:
@@ -480,6 +484,7 @@ def report_ready():
         _LOGGER.warn('notification-fd does not exist.')
 
 
+@osnoop.windows
 def drop_privileges(uid_name='nobody'):
     """Drop root privileges."""
     if os.getuid() != 0:
@@ -487,7 +492,6 @@ def drop_privileges(uid_name='nobody'):
         return
 
     # Get the uid/gid from the name
-    import pwd
     running_uid = pwd.getpwnam(uid_name).pw_uid
 
     # Remove group privileges
@@ -511,6 +515,14 @@ _SIG2NAME = {getattr(signal, attr): attr for attr in dir(signal)
 def signal2name(num):
     """Convert signal number to signal name."""
     return _SIG2NAME.get(num, num)
+
+
+def term_signal():
+    """Gets the term signal for the os."""
+    if os.name == 'nt':
+        return signal.SIGBREAK
+    else:
+        return signal.SIGTERM
 
 
 def make_signal_flag(*signals):

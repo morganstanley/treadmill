@@ -5,7 +5,7 @@ from __future__ import absolute_import
 import functools
 import logging
 
-from . import utils
+from treadmill import utils
 
 
 _LOGGER = logging.getLogger(__name__)

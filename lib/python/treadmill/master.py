@@ -49,8 +49,9 @@ def resources(data):
 
 def get_data_retention(data):
     """Returns data retention timeout in seconds."""
-    if 'data_retention_timeout' in data:
-        return utils.to_seconds(data['data_retention_timeout'])
+    data_retention_timeout = data.get('data_retention_timeout')
+    if data_retention_timeout is not None:
+        return utils.to_seconds(data_retention_timeout)
     else:
         return None
 
@@ -131,6 +132,7 @@ class Master(object):
             z.SERVERS: None,
             z.STRATEGIES: None,
             z.TASKS: None,
+            z.TASKS_HISTORY: None,
             z.VERSION_ID: None,
             z.ZOOKEEPER: None,
             z.BLACKEDOUT_SERVERS: [_SERVERS_ACL],
@@ -222,7 +224,7 @@ class Master(object):
 
             assert 'parent' in data
             parentname = data['parent']
-            label = data.get('label', None)
+            label = data.get('partition', None)
             up_since = data.get('up_since', int(time.time()))
 
             partition = self.cell.partitions[label]
@@ -291,7 +293,7 @@ class Master(object):
             assert 'parent' in data
             assert data['parent'] in self.buckets
 
-            label = data.get('label')
+            label = data.get('partition')
 
             up_since = data.get('up_since', time.time())
             partition = self.cell.partitions[label]
@@ -370,7 +372,7 @@ class Master(object):
             return
 
         for obj in data:
-            label = obj.get('label')
+            label = obj.get('partition')
             name = obj['name']
 
             _LOGGER.info('Loading allocation: %s, label: %s', name, label)
@@ -1122,12 +1124,12 @@ def list_servers(zkclient):
     return sorted(zkclient.get_children(z.SERVERS))
 
 
-def update_server_attrs(zkclient, server_id, traits, label):
+def update_server_attrs(zkclient, server_id, traits, partition):
     """Updates server traits."""
     node = z.path.server(server_id)
     data = zkutils.get(zkclient, node)
     data['traits'] = traits
-    data['label'] = label
+    data['partition'] = partition
 
     if zkutils.update(zkclient, node, data, check_content=True):
         create_event(zkclient, 0, 'servers', [server_id])

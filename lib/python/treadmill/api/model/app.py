@@ -46,6 +46,8 @@ def models(api):
         'cpu': fields.String(description='CPU'),
         'disk': fields.String(description='Disk size'),
         'services': fields.List(fields.Nested(service)),
+        'image': fields.String(description='Image'),
+        'entry_point': fields.String(description='Entry Point'),
         'environ': fields.List(fields.Nested(environ)),
         'endpoints': fields.List(fields.Nested(endpoint)),
         'ephemeral_ports': fields.Nested(ephemeral_ports),

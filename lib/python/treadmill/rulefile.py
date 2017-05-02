@@ -1,4 +1,5 @@
-"""Functions for handling the network rules directory files"""
+"""Functions for handling the network rules directory files."""
+
 from __future__ import absolute_import
 
 import errno
@@ -7,8 +8,8 @@ import logging
 import os
 import re
 
-from . import firewall
-from . import fs
+from treadmill import firewall
+from treadmill import fs
 
 
 _LOGGER = logging.getLogger(__name__)

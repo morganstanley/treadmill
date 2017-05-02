@@ -9,36 +9,6 @@ from treadmill import tests as chk
 from treadmill import zknamespace as z
 
 
-def mk_is_present(server, server_endpoints):
-    """Make is_present test function."""
-
-    def _is_present(self):
-        """Check nodeinfo endpoint registered for the server."""
-        self.assertIn(server, server_endpoints)
-
-    _is_present.__doc__ = '{} nodeinfo is present.'.format(server)
-    return _is_present
-
-
-def mk_is_up(zkclient, server, server_endpoints):
-    """Make is up test function."""
-
-    def _is_up(self):
-        """Check nodeinfo is up."""
-        hostport, _metadata = zkclient.get(z.join_zookeeper_path(
-            z.ENDPOINTS, 'root', server_endpoints[server]))
-
-        host, port = hostport.split(':')
-
-        url = 'http://%s:%s' % (host, port)
-        print url
-        self.assertTrue(chk.connect(host, port))
-        self.assertTrue(chk.url_check(url))
-
-    _is_up.__doc__ = '{} nodeinfo is up.'.format(server)
-    return _is_up
-
-
 def test():
     """Create server test class."""
 
@@ -54,16 +24,24 @@ def test():
         """Checks server nodeinfo API."""
 
     server = None
-    for idx, server in enumerate(servers):
-        chk.add_test(
-            NodeinfoTest,
-            mk_is_present(server, server_endpoints),
-            '{}_present.', idx
-        )
-        chk.add_test(
-            NodeinfoTest,
-            mk_is_up(zkclient, server, server_endpoints),
-            '{}_up.', idx
-        )
+    for server in servers:
+
+        @chk.T(NodeinfoTest, server=server, server_endpoints=server_endpoints)
+        def _is_present(self, server, server_endpoints):
+            """Nodeinfo is present for server: {server}."""
+            self.assertIn(server, server_endpoints)
+
+        @chk.T(NodeinfoTest, server=server, server_endpoints=server_endpoints)
+        def _is_up(self, server, server_endpoints):
+            """Nodeinfo is up for server: {server}."""
+            hostport, _metadata = zkclient.get(z.join_zookeeper_path(
+                z.ENDPOINTS, 'root', server_endpoints[server]))
+
+            host, port = hostport.split(':')
+
+            url = 'http://%s:%s' % (host, port)
+            print url
+            self.assertTrue(chk.connect(host, port))
+            self.assertTrue(chk.url_check(url))
 
     return NodeinfoTest

@@ -31,17 +31,18 @@ import logging
 import os
 import time
 
-from . import appmgr
-from . import fs
-from . import dirwatch
-from . import logcontext as lc
-from . import subproc
+from treadmill import appenv
+from treadmill import appcfg
+from treadmill import fs
+from treadmill import dirwatch
+from treadmill import logcontext as lc
+from treadmill import subproc
 
 if os.name == 'nt':
     from .syscall import winsymlink  # pylint: disable=W0611
 
-from .appmgr import configure as app_cfg
-from .appmgr import abort as app_abort
+from treadmill.appcfg import configure as app_cfg
+from treadmill.appcfg import abort as app_abort
 
 _LOGGER = lc.Adapter(logging.getLogger(__name__))
 
@@ -60,7 +61,7 @@ class AppCfgMgr(object):
 
     def __init__(self, root):
         _LOGGER.info('init appcfgmgr: %s', root)
-        self.tm_env = appmgr.AppEnvironment(root=root)
+        self.tm_env = appenv.AppEnvironment(root=root)
         self._is_active = False
 
     @property
@@ -103,7 +104,7 @@ class AppCfgMgr(object):
                     )
                     # Calculate the container names from every event file
                     cached_containers = {
-                        appmgr.eventfile_unique_name(filename)
+                        appcfg.eventfile_unique_name(filename)
                         for filename in cached_files
                     }
                     # Calculate the instance names from every event running
@@ -240,7 +241,7 @@ class AppCfgMgr(object):
         }
         # Calculate the container names from every event file
         cached_containers = {
-            appmgr.eventfile_unique_name(filename)
+            appcfg.eventfile_unique_name(filename)
             for filename in cached_files
         }
         # Calculate the instance names from every event running link
@@ -386,7 +387,7 @@ class AppCfgMgr(object):
         """Notify the supervisor of new instances to run."""
         subproc.check_call(
             [
-                's6-svscanctl',
+                's6_svscanctl',
                 '-an',
                 self.tm_env.running_dir
             ]
@@ -402,7 +403,7 @@ class AppCfgMgr(object):
                 for _ in range(10):
                     res = subproc.call(
                         [
-                            's6-svok',
+                            's6_svok',
                             instance_run_link,
                         ]
                     )
@@ -414,7 +415,7 @@ class AppCfgMgr(object):
                 # Bring the instance up.
                 subproc.check_call(
                     [
-                        's6-svc',
+                        's6_svc',
                         '-uO',
                         instance_run_link,
                     ]

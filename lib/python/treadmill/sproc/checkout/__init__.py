@@ -141,7 +141,7 @@ def init():
             except Exception:  # pylint: disable=W0703
                 _LOGGER.exception('Checkout plugin not found.')
 
-        time.sleep(random.randint(0, 60))
+        # time.sleep(random.randint(0, 60))
 
         while True:
 

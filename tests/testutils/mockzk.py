@@ -207,7 +207,9 @@ class MockZookeeperTestCase(unittest.TestCase):
 
             watches[(zkpath, states.EventType.CHILD)] = watch
             if isinstance(content, dict):
-                return sorted(content.keys())
+                # Ignore "system" keys (.data, .metadata)
+                children = [k for k in content.keys() if not k.startswith('.')]
+                return sorted(children)
             else:
                 return []
 

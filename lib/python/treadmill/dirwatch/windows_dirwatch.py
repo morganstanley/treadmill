@@ -11,7 +11,7 @@ import win32con  # pylint: disable=E0401
 import win32event  # pylint: disable=E0401
 import win32file  # pylint: disable=E0401
 
-from treadmill.dirwatch import dirwatch_base
+from . import dirwatch_base
 
 _BUFFER_SIZE = 32768
 _INVALID_HANDLE_VALUE = -1

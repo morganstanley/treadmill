@@ -32,7 +32,7 @@ class Cleanup(object):
         """Tells the svscan instance to nuke the given scan dir."""
         _LOGGER.debug('Nuking directory %r', scan_dir)
         try:
-            subproc.check_call(['s6-svscanctl', '-an', scan_dir])
+            subproc.check_call(['s6_svscanctl', '-an', scan_dir])
         except subprocess.CalledProcessError as ex:
             _LOGGER.warning(ex)
 

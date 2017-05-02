@@ -21,6 +21,23 @@ def init(api, cors, impl):
 
     app_ns = api.namespace('app', description='Local app REST operations')
 
+    req_parser = api.parser()
+    req_parser.add_argument('start',
+                            default=0, help='The index (inclusive) of'
+                            ' the first line from the log file to return.'
+                            ' Index is zero based.',
+                            location='args', required=False, type=int)
+    req_parser.add_argument('limit',
+                            help='The number of lines to return. '
+                            '-1 (the default) means no limit ie. return all'
+                            ' the lines in the file from "start".',
+                            location='args', required=False, type=int)
+    req_parser.add_argument('order',
+                            choices=('asc', 'desc'), default='asc',
+                            help="The order of the log lines to return. 'asc':"
+                            " chronological, 'desc': reverse chronological",
+                            location='args', required=False, type=str)
+
     @app_ns.route('/',)
     class _AppList(restplus.Resource):
         """Local app list resource."""
@@ -43,22 +60,30 @@ def init(api, cors, impl):
     class _AppSystemLog(restplus.Resource):
         """Local app details resource."""
 
-        @webutils.raw_get_api(api, cors)
+        @webutils.raw_get_api(api, cors, parser=req_parser)
         def get(self, app, uniq, component):
             """Return content of system component log.."""
+            args = req_parser.parse_args()
             return flask.Response(
-                impl.log.get('/'.join([app, uniq, 'sys', component])),
+                impl.log.get('/'.join([app, uniq, 'sys', component]),
+                             start=args.get('start'),
+                             limit=args.get('limit'),
+                             order=args.get('order')),
                 mimetype='text/plain')
 
     @app_ns.route('/<app>/<uniq>/service/<service>',)
     class _AppServiceLog(restplus.Resource):
         """Local app details resource."""
 
-        @webutils.raw_get_api(api, cors)
+        @webutils.raw_get_api(api, cors, parser=req_parser)
         def get(self, app, uniq, service):
             """Return content of system component log.."""
+            args = req_parser.parse_args()
             return flask.Response(
-                impl.log.get('/'.join([app, uniq, 'app', service])),
+                impl.log.get('/'.join([app, uniq, 'app', service]),
+                             start=args.get('start'),
+                             limit=args.get('limit'),
+                             order=args.get('order')),
                 mimetype='text/plain')
 
     archive_ns = api.namespace('archive',

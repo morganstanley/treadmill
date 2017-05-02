@@ -25,47 +25,29 @@ def _thiscell(url):
     return zkclient.exists(z.path.server(host))
 
 
-def srv_records_test(cls, name, urls):
-    """API srv records test."""
-
-    def test_count(self):
-        """Checks api srv records count > 0."""
-        print 'urls:', urls
-        self.assertTrue(len(urls) > 0)
-
-    test_count.__doc__ = ''
-    chk.add_test(cls, test_count, '{} count is ok', name)
-
-
-def api_test(cls, name, url):
-    """Tests api."""
-
-    def test_is_up(self):
-        """Test api host/port is up."""
-        print url
-        host, port = _to_hostport(url)
-        self.assertTrue(chk.connect(host, port))
-
-    def test_is_ok(self):
-        """Test api health."""
-        print url
-        self.assertTrue(chk.url_check(url))
-
-    test_is_ok.__doc__ = url
-    test_is_up.__doc__ = url
-
-    chk.add_test(cls, test_is_up, '{} is up', name)
-    chk.add_test(cls, test_is_ok, '{} is ok', name)
-
-
 def test():
     """Check system API."""
 
-    adminapi = [url for url in context.GLOBAL.admin_api(None)
-                if _thiscell(url)]
-    cellapi = context.GLOBAL.cell_api(None)
-    stateapi = context.GLOBAL.state_api(None)
-    wsapi = context.GLOBAL.ws_api(None)
+    try:
+        adminapi = [url for url in context.GLOBAL.admin_api(None)
+                    if _thiscell(url)]
+    except context.ContextError:
+        adminapi = []
+
+    try:
+        cellapi = context.GLOBAL.cell_api(None)
+    except context.ContextError:
+        cellapi = []
+
+    try:
+        stateapi = context.GLOBAL.state_api(None)
+    except context.ContextError:
+        stateapi = []
+
+    try:
+        wsapi = context.GLOBAL.ws_api(None)
+    except context.ContextError:
+        wsapi = []
 
     class APITest(unittest.TestCase):
         """API Test."""
@@ -74,8 +56,27 @@ def test():
                        ('cellapi', cellapi),
                        ('stateapi', stateapi),
                        ('wsapi', wsapi)]:
-        srv_records_test(APITest, name, urls)
+        @chk.T(APITest, urls=urls, name=name)
+        def _test_count(self, urls, name):
+            """Checks {name} srv records count > 0."""
+            print '%s: %r' % (name, urls)
+            self.assertTrue(len(urls) > 0)
+
         for url in urls:
-            api_test(APITest, name, url)
+
+            @chk.T(APITest, url=url, name=name)
+            def _test_is_up(self, url, name):
+                """Test {name} - {url} is up."""
+                del name
+                print url
+                host, port = _to_hostport(url)
+                self.assertTrue(chk.connect(host, port))
+
+            @chk.T(APITest, url=url, name=name)
+            def _test_is_ok(self, url, name):
+                """Test {name} - {url} is healthy."""
+                del name
+                print url
+                self.assertTrue(chk.url_check(url))
 
     return APITest

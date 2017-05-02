@@ -9,9 +9,12 @@ import logging
 import time
 
 import requests
+import requests_unixsocket
 import requests_kerberos
 import simplejson.scanner
 
+# to support unixscoket for URL
+requests_unixsocket.monkeypatch()
 
 _NUM_OF_RETRIES = 5
 
@@ -24,6 +27,8 @@ _LOGGER = logging.getLogger(__name__)
 _DEFAULT_REQUEST_TIMEOUT = 10
 
 _DEFAULT_CONNECT_TIMEOUT = .5
+
+_CONNECTION_ERROR_STATUS_CODE = 599
 
 
 def _msg(response):
@@ -112,13 +117,6 @@ def _handle_error(url, response):
         raise handlers[response.status_code]
 
 
-def _should_retry(response):
-    """Check if response should retry."""
-    return response.status_code in [httplib.INTERNAL_SERVER_ERROR,
-                                    httplib.BAD_GATEWAY,
-                                    httplib.SERVICE_UNAVAILABLE]
-
-
 def _call(url, method, payload=None, headers=None, auth=_KERBEROS_AUTH,
           proxies=None, timeout=None, stream=None):
     """Call REST url with the supplied method and optional payload"""
@@ -131,6 +129,9 @@ def _call(url, method, payload=None, headers=None, auth=_KERBEROS_AUTH,
             timeout=timeout, stream=stream
         )
         _LOGGER.debug('response: %r', response)
+    except requests.exceptions.ConnectionError:
+        _LOGGER.debug('Connection error: %r', url)
+        return False, None, _CONNECTION_ERROR_STATUS_CODE
     except requests.exceptions.Timeout:
         _LOGGER.debug('Request timeout: %r', timeout)
         return False, None, httplib.REQUEST_TIMEOUT
@@ -138,11 +139,10 @@ def _call(url, method, payload=None, headers=None, auth=_KERBEROS_AUTH,
     if response.status_code == httplib.OK:
         return True, response, httplib.OK
 
-    if _should_retry(response):
-        _LOGGER.debug('Retry: %s', response.status_code)
-        return False, response, response.status_code
-
+    # Raise an appropirate exception for certain status codes (and never retry)
     _handle_error(url, response)
+
+    # Everything else can be retried, just as connection error and req. timeout
     return False, response, response.status_code
 
 
@@ -165,25 +165,28 @@ def _call_list(urls, method, payload=None, headers=None, auth=_KERBEROS_AUTH,
 def _call_list_with_retry(urls, method, payload, headers, auth, proxies,
                           retries, timeout=None, stream=None):
     """Call list of supplied URLs with retry."""
-    attempts = []
     if timeout is None:
-        timeout = _DEFAULT_REQUEST_TIMEOUT
+        if method == 'get':
+            timeout = _DEFAULT_REQUEST_TIMEOUT
+        else:
+            timeout = None
 
-    attempt = 0
+    retry = 0
+    attempts = []
     while True:
         success, response = _call_list(
             urls, method, payload, headers, auth, proxies,
-            timeout=(_DEFAULT_CONNECT_TIMEOUT + attempt, timeout),
+            timeout=(_DEFAULT_CONNECT_TIMEOUT + retry, timeout),
             stream=stream
         )
         if success:
             return response
 
+        retry += 1
         attempts.extend(response)
-        if len(attempts) > retries:
+        if retry >= retries:
             raise MaxRequestRetriesError(attempts)
 
-        attempt += 1
         time.sleep(1)
 
 

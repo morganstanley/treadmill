@@ -236,6 +236,7 @@ class MasterTest(mockzk.MockZookeeperTestCase):
                     'disk': '128G',
                     'cpu': '400%',
                     'affinity': 'foo.bar',
+                    'data_retention_timeout': None,
                 },
             },
         }
@@ -831,9 +832,9 @@ class MasterTest(mockzk.MockZookeeperTestCase):
         zkclient = kazoo.client.KazooClient()
         kazoo.client.KazooClient.create.return_value = '/events/000-servers-1'
 
-        master.update_server_features(zkclient, 'foo.ms.com', ['webauthd'])
+        master.update_server_features(zkclient, 'foo.ms.com', ['test'])
         kazoo.client.KazooClient.set.assert_has_calls(
-            [mock.call('/servers/foo.ms.com', 'features: [webauthd]\n')],
+            [mock.call('/servers/foo.ms.com', 'features: [test]\n')],
             any_order=True
         )
 

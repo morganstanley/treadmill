@@ -13,12 +13,12 @@ import tempfile
 if os.name != 'nt':
     import pwd
 
-from . import exc
-from . import utils
-from . import subproc
+from treadmill import exc
+from treadmill import utils
+from treadmill import subproc
 
 if os.name != 'nt':
-    from .syscall import unshare
+    from treadmill.syscall import unshare
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -43,14 +43,19 @@ def mkdir_safe(path, mode=0777):
         created.
     :type path:
         ``str``
+    :return:
+        ``True`` if the directory was created
+    :rtype:
+        ``Boolean``
     """
     try:
         os.makedirs(path, mode=mode)
-
+        return True
     except OSError as err:
         # If dir already exists, no problem. Otherwise raise
         if err.errno != errno.EEXIST:
             raise
+        return False
 
 
 def mkfile_safe(path):

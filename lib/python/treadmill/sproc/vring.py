@@ -1,4 +1,5 @@
 """Treadmill vring manager."""
+
 from __future__ import absolute_import
 
 import signal
@@ -9,7 +10,8 @@ import yaml
 
 import click
 
-from treadmill import appmgr
+from treadmill import appenv
+from treadmill import appcfg
 from treadmill import context
 from treadmill import discovery
 from treadmill import logcontext as lc
@@ -31,7 +33,7 @@ def init():
     def vring_cmd(approot, manifest):
         """Run vring manager."""
         context.GLOBAL.zk.conn.add_listener(zkutils.exit_on_disconnect)
-        tm_env = appmgr.AppEnvironment(approot)
+        tm_env = appenv.AppEnvironment(approot)
         app = yaml.load(stream=manifest)
 
         with lc.LogContext(_LOGGER, app['name'], lc.ContainerAdapter) as log:
@@ -77,7 +79,7 @@ def init():
                 sys.exit(-1)
             pattern = rules[0]['pattern']
 
-            app_unique_name = appmgr.manifest_unique_name(app)
+            app_unique_name = appcfg.manifest_unique_name(app)
 
             app_discovery = discovery.Discovery(context.GLOBAL.zk.conn,
                                                 pattern, '*')

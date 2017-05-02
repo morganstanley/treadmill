@@ -2,6 +2,7 @@
 
 Collects Treadmill metrics and sends them to Graphite.
 """
+
 from __future__ import absolute_import
 
 import glob
@@ -11,7 +12,7 @@ import time
 
 import click
 
-from treadmill import appmgr
+from treadmill import appenv
 from treadmill import exc
 from treadmill import fs
 from treadmill import rrdutils
@@ -46,10 +47,10 @@ def init():
                   envvar='TREADMILL_APPROOT', required=True)
     def metrics(step, approot):
         """Collect node and container metrics."""
-        app_env = appmgr.AppEnvironment(root=approot)
+        tm_env = appenv.AppEnvironment(root=approot)
 
-        app_metrics_dir = os.path.join(app_env.metrics_dir, 'apps')
-        core_metrics_dir = os.path.join(app_env.metrics_dir, 'core')
+        app_metrics_dir = os.path.join(tm_env.metrics_dir, 'apps')
+        core_metrics_dir = os.path.join(tm_env.metrics_dir, 'core')
         fs.mkdir_safe(app_metrics_dir)
         fs.mkdir_safe(core_metrics_dir)
 
@@ -105,14 +106,14 @@ def init():
                 rrdclient.update(rrdfile, svc_metrics)
 
             seen_apps = set()
-            for app_dir in glob.glob('%s/*' % app_env.apps_dir):
+            for app_dir in glob.glob('%s/*' % tm_env.apps_dir):
                 if not os.path.isdir(app_dir):
                     continue
 
                 app_unique_name = os.path.basename(app_dir)
                 seen_apps.add(app_unique_name)
                 try:
-                    localdisk = app_env.svc_localdisk.get(app_unique_name)
+                    localdisk = tm_env.svc_localdisk.get(app_unique_name)
                     blkio_major_minor = '{major}:{minor}'.format(
                         major=localdisk['dev_major'],
                         minor=localdisk['dev_minor'],

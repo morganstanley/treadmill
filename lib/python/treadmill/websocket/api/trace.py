@@ -9,6 +9,7 @@ import logging
 
 from treadmill import schema
 from treadmill.apptrace import events as traceevents
+from treadmill.websocket import utils
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -17,20 +18,18 @@ _LOGGER = logging.getLogger(__name__)
 class TraceAPI(object):
     """Handler for /trace topic."""
 
-    def __init__(self):
+    def __init__(self, sow_db=None):
         """init"""
+        self.sow_db = sow_db
 
         @schema.schema({'$ref': 'websocket/trace.json#/message'})
         def subscribe(message):
             """Return filter based on message payload."""
-            app_filter = message['filter']
+            parsed_filter = utils.parse_message_filter(message['filter'])
 
-            if '#' not in app_filter:
-                app_filter += '#*'
-
-            app_name, instanceid = app_filter.split('#', 1)
-
-            return [(os.path.join('/tasks', app_name, instanceid), '*')]
+            return [(os.path.join('/tasks',
+                                  parsed_filter.appname,
+                                  parsed_filter.instanceid), '*')]
 
         def on_event(filename, _operation, content):
             """Event handler."""
@@ -65,4 +64,4 @@ class TraceAPI(object):
 
 def init():
     """API module init."""
-    return [('/trace', TraceAPI())]
+    return [('/trace', TraceAPI(sow_db='.tasks-sow.db'))]

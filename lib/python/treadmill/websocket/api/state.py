@@ -9,6 +9,7 @@ import os
 import yaml
 
 from treadmill import schema
+from treadmill.websocket import utils
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -23,11 +24,9 @@ class RunningAPI(object):
         @schema.schema({'$ref': 'websocket/state.json#/message'})
         def subscribe(message):
             """Return filter based on message payload."""
-            app_filter = message['filter']
-            if '#' not in app_filter:
-                app_filter += '#*'
+            parsed_filter = utils.parse_message_filter(message['filter'])
 
-            return [('/running', app_filter)]
+            return [('/running', parsed_filter.filter)]
 
         def on_event(filename, _operation, content):
             """Event handler."""
@@ -54,11 +53,9 @@ class ScheduledAPI(object):
         @schema.schema({'$ref': 'websocket/state.json#/message'})
         def subscribe(message):
             """Return filter based on message payload."""
-            app_filter = message['filter']
-            if app_filter.find('#') == -1:
-                app_filter += '#*'
+            parsed_filter = utils.parse_message_filter(message['filter'])
 
-            return [('/scheduled', app_filter)]
+            return [('/scheduled', parsed_filter.filter)]
 
         def on_event(filename, _operation, content):
             """Event handler."""
