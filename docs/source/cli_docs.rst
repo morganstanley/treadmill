@@ -549,13 +549,14 @@ Module: treadmill.cli.aws
 		  Manage treadmill cell on AWS
 		
 		Options:
-		  --create           Create a new treadmill cell on AWS
-		  --destroy          Destroy treadmill cell on AWS
-		  --playbook TEXT    Playbok file
-		  --inventory TEXT   Inventory file
-		  --key-file TEXT    AWS ssh pem file
-		  --aws-config TEXT  AWS config file
-		  --help             Show this message and exit.
+		  --create                       Create a new treadmill cell on AWS
+		  --destroy                      Destroy treadmill cell on AWS
+		  --playbook TEXT                Playbok file
+		  --inventory TEXT               Inventory file
+		  --key-file TEXT                AWS ssh pem file
+		  --aws-config TEXT              AWS config file
+		  --with-freeipa / --no-freeipa  Create Cell with freeIPA
+		  --help                         Show this message and exit.
 
 		Usage: aws init [OPTIONS]
 		
