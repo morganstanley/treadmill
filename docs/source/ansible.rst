@@ -17,7 +17,7 @@ Roles
 ^^^^^^
 Roles are the way of organizing playbooks.
 
-**For ex:** *deploy/instance.yml* playbook calls *instance* and *dynamic-inventory* roles.
+**For ex:** *deploy/master.yml* playbook calls *instance* and *dynamic-inventory* roles.
 
 * **templates:** jinja2 templates in the templates directory of a role *(deploy/roles/master/templates/zoo.cfg)*
 
@@ -36,8 +36,8 @@ Inventory
 An inventory file contains a list of hosts.
 
 * *deploy/controller.inventory* file contains the mapping of *controller* to localhost. Hence we have used *controller* as *hosts* to run a play on localhost.
-* For provisioning masters/nodes, we are creating a dynamic inventory of hosts by filtering them out. For ex - *ec2masterinstances, ec2nodeinstances.*
+* For provisioning masters/nodes, we are creating a dynamic inventory of hosts by filtering them out. For ex - *ec2instances.*
 
 Config file
 ^^^^^^^^^^^^
-Configuration file for AWS *(deploy/aws.yml)*
+Configuration file for AWS *(deploy/config/aws.yml)*

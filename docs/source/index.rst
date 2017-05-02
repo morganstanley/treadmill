@@ -3,16 +3,16 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Welcome to Treadmill-OSS's documentation!
+Welcome to Treadmill documentation!
 =========================================
 
 .. toctree::
 
    setup
-   ansible
    aws_manual
    cli_docs
    dev
+   ansible
 
 Indices and tables
 ==================

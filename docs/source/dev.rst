@@ -1,7 +1,15 @@
 =================================================
-Build Treadmill Binary
+Treadmill Binary
 =================================================
+
+**Install PEX (Python EXecutable):**
+
 ::
 
-   pip install git+https://github.com/thoughtworksinc/pex#egg=pex
+   pex install git+https://github.com/thoughtworksinc/pex#egg=pex
+
+**Build:**
+
+::
+
    pex . -o treadmill -e treadmill.console:run -v
