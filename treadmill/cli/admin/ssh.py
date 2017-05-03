@@ -119,7 +119,7 @@ def init():
         for (app, hostport) in app_discovery.items():
             _LOGGER.info('%s :: %s', app, hostport)
             if hostport:
-                host, port = hostport.split(':')
+                host, port = hostport.split(b':')
                 run_ssh(host, port, ssh, list(command))
 
     return ssh
