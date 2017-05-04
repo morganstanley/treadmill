@@ -64,7 +64,10 @@ Vagrant.configure("2") do |config|
   # Enable provisioning with a shell script. Additional provisioners such as
   # Puppet, Chef, Ansible, Salt, and Docker are also available. Please see the
   # documentation for more information about their specific syntax and use.
-
+  config.vm.provider "virtualbox" do |v|
+    v.memory = 1024*8
+    v.cpus = 4
+  end
   config.vm.synced_folder "../treadmill", "/home/centos/treadmill"
   config.vm.synced_folder "../treadmill-pid1", "/home/centos/treadmill-pid1"
 end
