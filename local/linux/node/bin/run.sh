@@ -10,23 +10,8 @@ RM={{ rm }}
 IONICE={{ ionice }}
 
 
-for SVC in `$LS {{ dir }}/init`; do
-    if [ ! -d {{ treadmill }}/local/linux/node/init/$SVC ]; then
-        $RM -rf {{ dir }}/init/$SVC
-    else
-        $ECHO $SVC configuration is up to date.
-    fi
-done
-
-unset KRB5CCNAME
-unset KRB5_KTNAME
-
 # Setup /a so that NFS works inside the containers
 {{ treadmill }}/sbin/configure_mounts.sh
-
-# Do a one time generation of the host ticket before starting services. There
-# will be a service in charge or keeping tickets refreshed.
-{{ treadmill }}/sbin/host_tickets.sh -o {{ dir }}/spool/krb5cc_host
 
 export PATH={{ s6 }}/bin:${PATH}
 
