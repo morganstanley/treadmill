@@ -105,7 +105,7 @@ class AppTrace(object):
                              for event_node in event_nodes])
 
         for timestamp, source, event_type, event_data in all_events:
-            if timestamp <= self._last_event:
+            if float(timestamp) <= float(self._last_event):
                 continue
 
             self._process_event(timestamp, source, event_type, event_data, ctx)

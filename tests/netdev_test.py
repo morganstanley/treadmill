@@ -69,7 +69,7 @@ class NetDevTest(unittest.TestCase):
         """
         mock_file = mock_open.return_value
         mock_filectx = mock_file.__enter__.return_value
-        mock_filectx.read.return_value = b'up\n'
+        mock_filectx.read.return_value = 'up\n'
 
         res = netdev.dev_state('foo')
 

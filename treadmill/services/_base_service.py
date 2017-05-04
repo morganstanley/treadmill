@@ -189,7 +189,7 @@ class ResourceServiceClient(object):
                     svc_req_uuid = f.read().strip()
             except IOError as err:
                 if err.errno == errno.ENOENT:
-                    log.warning('Resource %r does not exist', rsrc_id)
+                    log.logger.warning('Resource %r does not exist', rsrc_id)
                     return
                 raise
             self._serviceinst.clt_del_request(svc_req_uuid)
