@@ -72,17 +72,7 @@ class MasterBootstrap(LinuxBootstrap):
             defaults
         )
         self.master_id = int(master_id)
-        self.defaults.update({'master-id': self.master_id})
 
     @property
     def _bin_path(self):
         return os.path.join('treadmill', 'bin', 'run.sh')
-
-    @property
-    def _params(self):
-        """Overrides master params with current master."""
-        params = super(MasterBootstrap, self)._params  # pylint: disable=W0212
-        for master in params['masters']:  # pylint: disable=E1136
-            if master['idx'] == self.master_id:
-                params.update({'me': master})
-        return params

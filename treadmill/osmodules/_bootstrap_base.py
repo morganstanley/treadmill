@@ -29,7 +29,7 @@ class BootstrapBase(object):
 
     def install(self):
         """Installs the services."""
-        params = self._params
+        params = self.defaults
         params = self._interpolate(params, params)
         self._install(params)
 
@@ -145,23 +145,3 @@ class BootstrapBase(object):
                         self._update(tgt_file, self._render(src.read(),
                                                             params))
                     self._update_stat(src_file, tgt_file)
-
-    @property
-    def _params(self):
-        """Parameters for both node and master."""
-        cellname = context.GLOBAL.cell
-        admin_cell = admin.Cell(context.GLOBAL.ldap.conn)
-        params = {}
-        params.update(self.defaults)
-        params.update(admin_cell.get(cellname))
-        params.update({
-            'cell': cellname,
-            'zookeeper': context.GLOBAL.zk.url,
-            'ldap': context.GLOBAL.ldap.url,
-            'dns_domain': context.GLOBAL.dns_domain,
-            'ldap_search_base': context.GLOBAL.ldap.search_base,
-            'treadmill': treadmill.TREADMILL,
-            'treadmillid': params['username'],
-            'dir': self.dst_dir
-        })
-        return params
