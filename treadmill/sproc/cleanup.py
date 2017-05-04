@@ -73,7 +73,7 @@ def init():
                             ]
                         )
                     except subprocess.CalledProcessError:
-                        log.exception(
+                        log.logger.exception(
                             'Fatal error running %r.',
                             treadmill.TREADMILL_BIN
                         )

@@ -193,6 +193,7 @@ class LVMTest(unittest.TestCase):
             [
                 'lvm', 'lvcreate',
                 '--autobackup', 'n',
+                '--wipesignatures', 'y',
                 '--size', '1024B',
                 '--name', 'some_volume',
                 'some_group',

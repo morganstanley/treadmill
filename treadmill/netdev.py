@@ -68,10 +68,10 @@ class DevState(enum.Enum):
     # Class has no __init__ method
     # pylint: disable=W0232
 
-    UP = b'up'  # pylint: disable=C0103
-    DOWN = b'down'
-    UNKNOWN = b'unknown'
-    LOWERLAYERDOWN = b'lowerlayerdown'
+    UP = 'up'  # pylint: disable=C0103
+    DOWN = 'down'
+    UNKNOWN = 'unknown'
+    LOWERLAYERDOWN = 'lowerlayerdown'
 
 
 def dev_state(devname):
