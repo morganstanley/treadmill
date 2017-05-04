@@ -6,6 +6,7 @@ cell: local
 zookeeper: zookeeper://foo@127.0.0.1:2181
 ldap: ldap://0.0.0.0:1389
 ldap_search_base: ou=treadmill,dc=tw,dc=treadmill
+treadmill_exe_whitelist: /home/centos/treadmill/etc/linux.exe.config
 masters:
 - hostname: localhost.localdomain
   idx: 1
