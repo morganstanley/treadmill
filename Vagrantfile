@@ -70,4 +70,5 @@ Vagrant.configure("2") do |config|
   end
   config.vm.synced_folder "../treadmill", "/home/centos/treadmill"
   config.vm.synced_folder "../treadmill-pid1", "/home/centos/treadmill-pid1"
+  config.vm.provision "shell", path: "./scripts/vagrant_bootstrap.sh"
 end
