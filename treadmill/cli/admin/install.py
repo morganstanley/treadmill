@@ -40,8 +40,7 @@ def _load_ldap_config():
         'dns_domain': context.GLOBAL.dns_domain,
         'ldap_search_base': context.GLOBAL.ldap.search_base,
         'treadmill': treadmill.TREADMILL,
-        'treadmillid': params['username'],
-        'dir': self.dst_dir
+        'treadmillid': params['username']
     }
 
 
@@ -76,6 +75,8 @@ def init():
 
         node_config = 'local/linux/node.config.yml'
         params = _load_configs(config, node_config)
+
+        params.update({'dir': install_dir})
 
         if use_ldap:
             params.update(_load_ldap_config())
