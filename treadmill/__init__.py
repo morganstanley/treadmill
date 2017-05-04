@@ -45,3 +45,4 @@ if not os.environ.get('TREADMILL_EXE_WHITELIST', None):
 TREADMILL_LDAP = os.environ.get('TREADMILL_LDAP')
 TREADMILL_DEPLOY_PACKAGE = os.path.join(treadmill.__path__[0], '../deploy/')
 os.environ['ANSIBLE_CONFIG'] = deploy_path_join('ansible.cfg')
+os.environ['PYTHON_EGG_CACHE'] = '/tmp/.python-eggs'
