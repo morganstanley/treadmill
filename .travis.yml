@@ -9,7 +9,7 @@ install:
 - pip install tox
 
 script:
-- tox
+- tox -vv
 
 after_success:
   - coverage combine
