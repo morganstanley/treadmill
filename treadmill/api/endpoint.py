@@ -98,12 +98,12 @@ class API(object):
                 if not fnmatch.fnmatch(name, full_pattern):
                     continue
                 appname, proto, endpoint = name.split(':')
-                host, port = hostport.split(':')
+                host, port = hostport.split(b':')
                 filtered.append({'name': proid + '.' + appname,
                                  'proto': proto,
                                  'endpoint': endpoint,
-                                 'host': host,
-                                 'port': port})
+                                 'host': host.decode(),
+                                 'port': port.decode()})
 
             return sorted(filtered, key=lambda item: item['name'])
 

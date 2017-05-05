@@ -296,6 +296,9 @@ def _cleanup_network(tm_env, app, network_client):
         _LOGGER.warning('network never allocated')
         return
 
+    if app_network is None:
+        return
+
     # Unconfigure passthrough
     if hasattr(app, 'passthrough'):
         _LOGGER.info('Deleting passthrough for: %r',

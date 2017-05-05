@@ -113,7 +113,7 @@ class NetworkResourceService(BaseResourceServiceImpl):
 
     def synchronize(self):
         modified = False
-        for app_unique_name in self._devices.keys():
+        for app_unique_name in list(self._devices):
             if not self._devices[app_unique_name].get('stale', False):
                 continue
 

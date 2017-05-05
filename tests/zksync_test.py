@@ -47,9 +47,9 @@ class ZkSyncTest(mockzk.MockZookeeperTestCase):
 
         zk_content = {
             'a': {
-                'x': '1',
-                'y': '2',
-                'z': '3',
+                'x': b'1',
+                'y': b'2',
+                'z': b'3',
             },
         }
 
@@ -68,8 +68,8 @@ class ZkSyncTest(mockzk.MockZookeeperTestCase):
         self.assertNotIn('/a/x', zk2fs_sync.watches)
 
         # Common files are ignored in sync, 'x' content will not be updated.
-        zk_content['a']['x'] = '123'
-        zk_content['a']['q'] = 'qqq'
+        zk_content['a']['x'] = b'123'
+        zk_content['a']['q'] = b'qqq'
         zk2fs_sync._children_watch('/a', ['x', 'y', 'z', 'q'],
                                    False,
                                    zk2fs_sync._default_on_add,
@@ -95,9 +95,9 @@ class ZkSyncTest(mockzk.MockZookeeperTestCase):
         # pylint: disable=W0212
         zk_content = {
             'a': {
-                'x': '1',
-                'y': '2',
-                'z': '3',
+                'x': b'1',
+                'y': b'2',
+                'z': b'3',
             },
         }
 
@@ -127,9 +127,9 @@ class ZkSyncTest(mockzk.MockZookeeperTestCase):
         # pylint: disable=W0212
         zk_content = {
             'a': {
-                'x': '1',
-                'y': '2',
-                'z': '3',
+                'x': b'1',
+                'y': b'2',
+                'z': b'3',
             },
         }
         mock_stat = collections.namedtuple('ZkStat', ['last_modified'])(0)
@@ -140,7 +140,7 @@ class ZkSyncTest(mockzk.MockZookeeperTestCase):
 
         event = kazoo.protocol.states.WatchedEvent(
             'CREATED', 'CONNECTED', '/a/x')
-        zk2fs_sync._data_watch('/a/x', 'aaa', mock_stat, event)
+        zk2fs_sync._data_watch('/a/x', b'aaa', mock_stat, event)
 
         self._check_file('a/x', 'aaa')
 
@@ -151,7 +151,7 @@ class ZkSyncTest(mockzk.MockZookeeperTestCase):
 
         event = kazoo.protocol.states.WatchedEvent(
             'CREATED', 'CONNECTED', '/a/x')
-        zk2fs_sync._data_watch('/a/x', 'aaa', mock_stat, event)
+        zk2fs_sync._data_watch('/a/x', b'aaa', mock_stat, event)
         self._check_file('a/x', 'aaa')
 
         zk2fs_sync._data_watch('/a/x', None, None, None)

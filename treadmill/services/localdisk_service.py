@@ -136,7 +136,7 @@ class LocalDiskResourceService(BaseResourceServiceImpl):
         """Make sure that all stale volumes are removed.
         """
         modified = False
-        for uniqueid in self._volumes.keys():
+        for uniqueid in list(self._volumes):
             if not self._volumes[uniqueid].get('stale', False):
                 continue
             modified = True

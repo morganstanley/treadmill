@@ -54,7 +54,7 @@ class Zk2Fs(object):
         with tempfile.NamedTemporaryFile(dir=os.path.dirname(fpath),
                                          delete=False,
                                          prefix='.tmp',
-                                         mode='w') as temp:
+                                         mode='wb') as temp:
             temp.write(data)
             os.fchmod(temp.fileno(), 0o644)
         os.utime(temp.name, (stat.last_modified, stat.last_modified))
