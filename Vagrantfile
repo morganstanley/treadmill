@@ -74,6 +74,7 @@ Vagrant.configure("2") do |config|
     master.vm.network 'forwarded_port', guest: 2181, host: 2181
     master.vm.network 'forwarded_port', guest: 1389, host: 1389
     master.vm.network :private_network, ip: "10.10.10.10"
+    master.vm.hostname = 'master'
   end
 
   config.vm.define :node do |node|
@@ -83,6 +84,7 @@ Vagrant.configure("2") do |config|
     end
     node.vm.provision "shell", path: "./scripts/vagrant_node.sh"
     node.vm.network :private_network, ip: "10.10.10.11"
+    node.vm.hostname = 'node'
   end
 
   config.vm.synced_folder "../treadmill", "/home/centos/treadmill"
