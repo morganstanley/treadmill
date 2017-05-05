@@ -64,11 +64,27 @@ Vagrant.configure("2") do |config|
   # Enable provisioning with a shell script. Additional provisioners such as
   # Puppet, Chef, Ansible, Salt, and Docker are also available. Please see the
   # documentation for more information about their specific syntax and use.
-  config.vm.provider "virtualbox" do |v|
-    v.memory = 1024*8
-    v.cpus = 4
+
+  config.vm.define :master do |master|
+    master.vm.provider "virtualbox" do |v|
+      v.memory = 1024*2
+      v.cpus = 2
+    end
+    master.vm.provision "shell", path: "./scripts/vagrant_master.sh"
+    master.vm.network 'forwarded_port', guest: 2181, host: 2181
+    master.vm.network 'forwarded_port', guest: 1389, host: 1389
+    master.vm.network :private_network, ip: "10.10.10.10"
   end
+
+  config.vm.define :node do |node|
+    node.vm.provider "virtualbox" do |v|
+      v.memory = 1024*6
+      v.cpus = 2
+    end
+    node.vm.provision "shell", path: "./scripts/vagrant_node.sh"
+    node.vm.network :private_network, ip: "10.10.10.11"
+  end
+
   config.vm.synced_folder "../treadmill", "/home/centos/treadmill"
   config.vm.synced_folder "../treadmill-pid1", "/home/centos/treadmill-pid1"
-  config.vm.provision "shell", path: "./scripts/vagrant_bootstrap.sh"
 end
