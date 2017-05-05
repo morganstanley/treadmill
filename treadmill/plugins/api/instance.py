@@ -6,7 +6,7 @@ Adds proid and environment attributes based on request context.
 def add_attributes(rsrc_id, manifest):
     """Add additional attributes to the manifest."""
     proid = rsrc_id[0:rsrc_id.find('.')]
-    environment = 'dev'
+    environment = 'prod'
     updated = {
         'proid': proid,
         'environment': environment
