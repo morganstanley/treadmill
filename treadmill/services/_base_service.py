@@ -766,6 +766,7 @@ class ResourceService(object):
             # TODO: We should also validate the req_id format
             utils.validate(req_data, impl.PAYLOAD_SCHEMA)
             res = impl.on_create_request(req_id, req_data)
+            _LOGGER.debug('created %r', req_id)
 
         except exc.InvalidInputError as err:
             _LOGGER.error('Invalid request data: %r: %s', req_data, err)
@@ -779,8 +780,6 @@ class ResourceService(object):
         if res is None:
             # Request was not actioned
             return False
-
-        _LOGGER.debug('created %r', req_id)
 
         with tempfile.NamedTemporaryFile(dir=filepath,
                                          delete=False,

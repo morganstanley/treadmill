@@ -10,3 +10,4 @@
     - libcgroup-tools
     - lvm2*
     - conntrack-tools
+    - rrdtool-devel
