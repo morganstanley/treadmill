@@ -187,9 +187,11 @@ def run(tm_env, container_dir, watchdog, terminated):
             """Helper function to bind source to target in the same root"""
             # FIXME(boysson): This name mount_bind() have conter-intuitive
             #                 arguments ordering.
-            fs.mount_bind(root_dir, tgt,
-                          target='%s/%s' % (root_dir, src),
-                          bind_opt='--bind')
+            src_path = os.path.join(root_dir, src)
+            if os.path.exists(src_path):
+                fs.mount_bind(root_dir, tgt,
+                            target=src_path,
+                            bind_opt='--bind')
 
         # Override the /etc/resolv.conf, so that container always uses
         # dnscache.
@@ -504,13 +506,15 @@ def _create_root_dir(tm_env, container_dir, root_dir, app):
 
     # Always use our own resolv.conf. Safe to rbind, as we are running in
     # private mount subsystem by now.
-    subproc.check_call(
-        [
-            'mount', '-n', '--bind',
-            os.path.join(tm_env.root, 'etc/resolv.conf'),
-            '/etc/resolv.conf'
-        ]
-    )
+    resolv_conf_path = os.path.join(tm_env.root, 'etc/resolv.conf')
+    if os.path.exists(resolv_conf_path):
+        subproc.check_call(
+            [
+                'mount', '-n', '--bind',
+                resolv_conf_path,
+                '/etc/resolv.conf'
+            ]
+        )
 
 
 def _share_cgroup_info(app, root_dir):
