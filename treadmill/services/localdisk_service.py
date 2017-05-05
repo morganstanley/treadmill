@@ -379,16 +379,11 @@ def _init_block_dev(img_location, reserve='2G'):
     # volume group by a file)
     _init_loopback_devices()
 
-    try:
-        loop_dev = _loop_dev_for(filename)
-
-    except subprocess.CalledProcessError:
-        # The file doesn't exist.
-        loop_dev = None
-        _create_image(TREADMILL_IMG, img_location, reserve)
-
-    # Assign a loop device (if not already assigned)
+    loop_dev = _loop_dev_for(filename)
     if loop_dev is None:
+        # The file doesn't exist.
+        _create_image(TREADMILL_IMG, img_location, reserve)
+        # Assign a loop device (if not already assigned)
         # Create the loop device
         subproc.check_call(
             [
@@ -465,17 +460,19 @@ def _loop_dev_for(filename):
         ``str``
     :returns:
         Name of the loop device or None if not found
-    :raises:
-        subprocess.CalledProcessError if the file doesn't exist
     """
     filename = os.path.realpath(filename)
-    loop_dev = subproc.check_output(
-        [
-            'losetup',
-            '-j',
-            filename
-        ]
-    )
+    try:
+        loop_dev = subproc.check_output(
+            [
+                'losetup',
+                '-j',
+                filename
+            ]
+        )
+    except subprocess.CalledProcessError:
+        return None
+
     loop_dev = loop_dev.strip()
 
     match = re.match(
