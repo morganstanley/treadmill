@@ -71,8 +71,6 @@ Vagrant.configure("2") do |config|
       v.cpus = 2
     end
     master.vm.provision "shell", path: "./scripts/vagrant_master.sh"
-    master.vm.network 'forwarded_port', guest: 2181, host: 2181
-    master.vm.network 'forwarded_port', guest: 1389, host: 1389
     master.vm.network :private_network, ip: "10.10.10.10"
     master.vm.hostname = 'master'
   end
