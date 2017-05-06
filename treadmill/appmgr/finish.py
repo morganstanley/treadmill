@@ -348,7 +348,7 @@ def _cleanup_network(tm_env, app, network_client):
                                          port=port)
             )
             dnatrule = firewall.DNATRule(proto='tcp',
-                                         orig_ip=tm_env.host_ip,
+                                         orig_ip=app.host_ip,
                                          orig_port=port,
                                          new_ip=app_network['vip'],
                                          new_port=port)
