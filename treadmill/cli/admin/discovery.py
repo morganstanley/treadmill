@@ -27,16 +27,17 @@ def _iterate(discovery_iter, check_state, sep):
                 sock.settimeout(1)
 
                 try:
-                    host, port = hostport.split(':')
+                    host, port = hostport.split(b':')
                     sock.connect((host, int(port)))
                     sock.close()
                     state = 'up'
                 except socket.error:
                     state = 'down'
 
-            record = [app, hostport]
+            record = [app, hostport.decode()]
             if state:
                 record.append(state)
+
             output = sep.join(record)
         else:
             output = app
