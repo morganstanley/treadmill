@@ -112,7 +112,7 @@ def init():
         for sig in range(1, signal.NSIG):
             try:
                 signal.signal(sig, signal.SIG_DFL)
-            except RuntimeError:
+            except OSError:
                 pass
 
         # TODO: not sure how to handle mutliple instances.
