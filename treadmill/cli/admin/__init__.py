@@ -54,9 +54,12 @@ def init():
     """Return top level command handler."""
 
     @click.group(cls=cli.make_multi_command(__name__))
-    @click.option('--ldap', envvar='TREADMILL_LDAP')
+    @click.option('--zookeeper', required=False,
+                  envvar='TREADMILL_ZOOKEEPER',
+                  callback=cli.handle_context_opt,
+                  expose_value=False)
     @click.pass_context
-    def run(ctx, ldap):
+    def run(ctx):
         """Admin commands."""
         cli.init_logger('admin.yml')
 
@@ -66,8 +69,5 @@ def init():
 
         logging.getLogger('treadmill').setLevel(log_level)
         logging.getLogger().setLevel(log_level)
-
-        if ldap:
-            context.GLOBAL.ldap.url = ldap
 
     return run
