@@ -11,7 +11,6 @@ import click
 from .. import appmgr
 from .. import idirwatch
 from .. import logcontext as lc
-from .. import subproc
 
 import treadmill
 
@@ -64,7 +63,7 @@ def init():
                             'invoking treadmill.TREADMILL_BIN script: %r',
                             treadmill.TREADMILL_BIN
                         )
-                        subproc.check_call(
+                        subprocess.check_call(
                             [
                                 treadmill.TREADMILL_BIN,
                                 'sproc',
