@@ -11,9 +11,7 @@ import os
 import pkgutil
 import stat
 import time
-import urllib.request
 import urllib.parse
-import urllib.error
 
 # Pylint warning re string being deprecated
 #
