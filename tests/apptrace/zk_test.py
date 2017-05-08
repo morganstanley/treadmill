@@ -1,14 +1,8 @@
-"""
-Unit test for Treadmill ZK apptrace module.
+"""Unit test for Treadmill ZK apptrace module.
 """
 
 import unittest
-
 import sqlite3
-
-# Disable W0611: Unused import
-import tests.treadmill_test_deps  # pylint: disable=W0611
-from tests.testutils import mockzk
 
 import mock
 import kazoo
@@ -16,6 +10,8 @@ import kazoo.client
 
 import treadmill
 from treadmill.apptrace import zk
+
+from tests.testutils import mockzk
 
 
 class AppTraceZKTest(mockzk.MockZookeeperTestCase):
@@ -59,7 +55,7 @@ class AppTraceZKTest(mockzk.MockZookeeperTestCase):
     @mock.patch('kazoo.client.KazooClient', mock.Mock())
     @mock.patch('tempfile.NamedTemporaryFile', mock.MagicMock())
     @mock.patch('sqlite3.connect', mock.Mock())
-    @mock.patch('__builtin__.open', mock.mock_open(read_data='test'))
+    @mock.patch('builtins.open', mock.mock_open(read_data='test'))
     @mock.patch('os.unlink', mock.Mock())
     def test_task_db_add_upload_size(self):
         """"Tests adding rows to task DB and uploading to ZK if enough rows."""
@@ -86,7 +82,7 @@ class AppTraceZKTest(mockzk.MockZookeeperTestCase):
     @mock.patch('kazoo.client.KazooClient', mock.Mock())
     @mock.patch('tempfile.NamedTemporaryFile', mock.MagicMock())
     @mock.patch('sqlite3.connect', mock.Mock())
-    @mock.patch('__builtin__.open', mock.mock_open(read_data='test'))
+    @mock.patch('builtins.open', mock.mock_open(read_data='test'))
     @mock.patch('os.unlink', mock.Mock())
     def test_task_db_add_upload_close(self):
         """"Tests adding rows to task DB and uploading to ZK on close."""
@@ -107,7 +103,7 @@ class AppTraceZKTest(mockzk.MockZookeeperTestCase):
     @mock.patch('kazoo.client.KazooClient', mock.Mock())
     @mock.patch('tempfile.NamedTemporaryFile', mock.MagicMock())
     @mock.patch('sqlite3.connect', mock.Mock())
-    @mock.patch('__builtin__.open', mock.mock_open(read_data='test'))
+    @mock.patch('builtins.open', mock.mock_open(read_data='test'))
     @mock.patch('os.unlink', mock.Mock())
     def test_task_db_add_close_empty(self):
         """"Tests closing empty task DB (should not upload anything)."""

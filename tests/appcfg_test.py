@@ -7,9 +7,6 @@ import shutil
 import tempfile
 import unittest
 
-# Disable W0611: Unused import
-import tests.treadmill_test_deps  # pylint: disable=W0611
-
 from treadmill import appcfg
 from treadmill import fs
 
@@ -29,7 +26,8 @@ class AppCfgTest(unittest.TestCase):
         """Helper method to create app.yaml file in the event directory."""
         fs.mkdir_safe(os.path.dirname(event))
         with tempfile.NamedTemporaryFile(dir=os.path.dirname(event),
-                                         delete=False) as f:
+                                         delete=False,
+                                         mode='w') as f:
             f.write(manifest_str)
         os.rename(f.name, event)
 

@@ -1,0 +1,5 @@
+{% for instance in instance_facts_master.instances %}
+{% if instance.public_ip_address == inventory_hostname %}
+{{instance.tags.instance_number}}
+{% endif %}
+{% endfor %}

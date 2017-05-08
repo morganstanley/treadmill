@@ -2,14 +2,11 @@
 Unit test for cgutils module.
 """
 
-import __builtin__
+import builtins
 import os
 import shutil
 import tempfile
 import unittest
-
-# Disable W0611: Unused import
-import tests.treadmill_test_deps  # pylint: disable=W0611
 
 import mock
 
@@ -28,7 +25,7 @@ class CGutilsTest(unittest.TestCase):
         if self.root and os.path.isdir(self.root):
             shutil.rmtree(self.root)
 
-    @mock.patch('__builtin__.open')
+    @mock.patch('builtins.open')
     @mock.patch('treadmill.cgroups.makepath', mock.Mock())
     @mock.patch('treadmill.cgroups.set_value', mock.Mock())
     @mock.patch('treadmill.syscall.eventfd.eventfd',
@@ -49,7 +46,7 @@ class CGutilsTest(unittest.TestCase):
         treadmill.cgroups.makepath.assert_called_with(
             'memory', 'some_cgrp', 'memory.oom_control'
         )
-        __builtin__.open.assert_called_with('mock_oom_control')
+        builtins.open.assert_called_with('mock_oom_control')
         treadmill.cgroups.set_value.assert_called_with(
             'memory', 'some_cgrp', 'cgroup.event_control',
             # '<eventfd_fd> <oom_control_fd>'
@@ -57,6 +54,7 @@ class CGutilsTest(unittest.TestCase):
         )
         # Should be returning the eventfd socket
         self.assertEqual(res, 42)
+
 
 if __name__ == '__main__':
     unittest.main()

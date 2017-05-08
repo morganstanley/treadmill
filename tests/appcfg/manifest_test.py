@@ -1,14 +1,10 @@
-"""
-Unit test for treadmill.appcfg.manifest
+"""Unit test for treadmill.appcfg.manifest
 """
 
 import os
 import shutil
 import tempfile
 import unittest
-
-# Disable W0611: Unused import
-import tests.treadmill_test_deps  # pylint: disable=W0611
 
 import mock
 
@@ -125,7 +121,6 @@ class AppCfgManifestTest(unittest.TestCase):
 
     @mock.patch('treadmill.appcfg.gen_uniqueid', mock.Mock(return_value='42'))
     @mock.patch('treadmill.appcfg.manifest.read', mock.Mock())
-    @mock.patch('treadmill.proiddb.environment', mock.Mock(return_value='dev'))
     @mock.patch('treadmill.subproc._check', mock.Mock(return_value=True))
     @mock.patch('treadmill.subproc.get_aliases',
                 mock.Mock(return_value={'sshd': '/path/to/sshd'}))
@@ -363,6 +358,7 @@ class AppCfgManifestTest(unittest.TestCase):
 
         with self.assertRaises(exc.InvalidInputError):
             app_manifest.load(self.tm_env, event_filename0)
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -1,0 +1,9 @@
+---
+- name: Create VPC Subnet
+  ec2_vpc_subnet:
+    vpc_id: "{{ vpc_info.vpc.id }}"
+    cidr: "{{ vpc.subnet.cidr }}"
+    az: "{{ vpc.subnet.az }}"
+    tags: { "Name":"{{ vpc.subnet.name }}" }
+    region: "{{ vpc.region }}"
+  register: subnet_info

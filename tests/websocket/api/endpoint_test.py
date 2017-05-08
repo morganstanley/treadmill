@@ -1,11 +1,7 @@
-"""
-Unit test for endpoint websocket API.
+"""Unit test for endpoint websocket API.
 """
 
 import unittest
-
-# Disable W0611: Unused import
-import tests.treadmill_test_deps  # pylint: disable=W0611
 
 import jsonschema
 
@@ -62,13 +58,13 @@ class WSEndpointAPITest(unittest.TestCase):
             "'endpoint_name' was unexpected"
         ):
             api.subscribe({'topic': '/endpoints',
-                           'filter': 'foo!',
+                           'filter': 'foo.*',
                            'proto': 'tcp',
                            'endpoint_name': 'http'})
 
         with self.assertRaisesRegexp(
             jsonschema.exceptions.ValidationError,
-            "None is not of type u'string'"
+            "None is not of type 'string'"
         ):
             api.subscribe({'topic': '/endpoints',
                            'filter': 'foo.*',

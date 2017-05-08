@@ -1,0 +1,27 @@
+language: python
+
+env:
+- TOXENV=py34
+- TOXENV=flake8
+
+install:
+- sudo touch /etc/ld.so.preload
+- pip install tox
+
+script:
+- tox
+
+after_success:
+  - coverage combine
+  - codecov
+
+notifications:
+  email: false
+
+# Don't fail on trunk versions.
+matrix:
+  allow_failures:
+    - env: TOX_ENV=py34
+
+notifications:
+  email: false

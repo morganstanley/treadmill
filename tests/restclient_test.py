@@ -2,10 +2,7 @@
 """
 
 import unittest
-import httplib
-
-# Disable W0611: Unused import
-import tests.treadmill_test_deps  # pylint: disable=W0611
+import http.client
 
 import mock
 import simplejson.scanner as sjs
@@ -25,19 +22,19 @@ class RESTClientTest(unittest.TestCase):
                 return_value=mock.MagicMock(requests.Response))
     def test_get_ok(self, resp_mock):
         """Test treadmill.restclient.get OK (200)"""
-        resp_mock.return_value.status_code = httplib.OK
+        resp_mock.return_value.status_code = http.client.OK
         resp_mock.return_value.text = 'foo'
 
         resp = restclient.get('http://foo.com', '/')
 
         self.assertIsNotNone(resp)
-        self.assertEquals(resp.text, 'foo')
+        self.assertEqual(resp.text, 'foo')
 
     @mock.patch('requests.get',
                 return_value=mock.MagicMock(requests.Response))
     def test_get_404(self, resp_mock):
         """Test treadmill.restclient.get NOT_FOUND (404)"""
-        resp_mock.return_value.status_code = httplib.NOT_FOUND
+        resp_mock.return_value.status_code = http.client.NOT_FOUND
 
         with self.assertRaises(restclient.NotFoundError):
             restclient.get('http://foo.com', '/')
@@ -46,7 +43,7 @@ class RESTClientTest(unittest.TestCase):
                 return_value=mock.MagicMock(requests.Response))
     def test_get_302(self, resp_mock):
         """Test treadmill.restclient.get FOUND (302)"""
-        resp_mock.return_value.status_code = httplib.FOUND
+        resp_mock.return_value.status_code = http.client.FOUND
 
         with self.assertRaises(restclient.AlreadyExistsError):
             restclient.get('http://foo.com', '/')
@@ -55,7 +52,7 @@ class RESTClientTest(unittest.TestCase):
                 return_value=mock.MagicMock(requests.Response))
     def test_get_424(self, resp_mock):
         """Test treadmill.restclient.get FAILED_DEPENDENCY (424)"""
-        resp_mock.return_value.status_code = httplib.FAILED_DEPENDENCY
+        resp_mock.return_value.status_code = http.client.FAILED_DEPENDENCY
         resp_mock.return_value.json.return_value = {}
 
         with self.assertRaises(restclient.ValidationError):
@@ -65,7 +62,7 @@ class RESTClientTest(unittest.TestCase):
                 return_value=mock.MagicMock(requests.Response))
     def test_get_401(self, resp_mock):
         """Test treadmill.restclient.get UNAUTHORIZED (401)"""
-        resp_mock.return_value.status_code = httplib.UNAUTHORIZED
+        resp_mock.return_value.status_code = http.client.UNAUTHORIZED
         resp_mock.return_value.json.return_value = {}
 
         with self.assertRaises(restclient.NotAuthorizedError):
@@ -75,7 +72,7 @@ class RESTClientTest(unittest.TestCase):
                 return_value=mock.MagicMock(requests.Response))
     def test_get_bad_json(self, resp_mock):
         """Test treadmill.restclient.get bad JSON"""
-        resp_mock.return_value.status_code = httplib.INTERNAL_SERVER_ERROR
+        resp_mock.return_value.status_code = http.client.INTERNAL_SERVER_ERROR
         resp_mock.return_value.text = '{"bad json"'
         resp_mock.return_value.json.side_effect = sjs.JSONDecodeError(
             'Foo', '{"bad json"', 1
@@ -150,7 +147,7 @@ class RESTClientTest(unittest.TestCase):
     @mock.patch('requests.get', return_value=mock.MagicMock(requests.Response))
     def test_retry_on_503(self, resp_mock):
         """Test retry for status code that should be retried (e.g. 503)"""
-        resp_mock.return_value.status_code = httplib.SERVICE_UNAVAILABLE
+        resp_mock.return_value.status_code = http.client.SERVICE_UNAVAILABLE
 
         with self.assertRaises(restclient.MaxRequestRetriesError):
             restclient.get('http://foo.com', '/')
@@ -158,7 +155,7 @@ class RESTClientTest(unittest.TestCase):
     @mock.patch('requests.get', return_value=mock.MagicMock(requests.Response))
     def test_default_timeout_get(self, resp_mock):
         """Tests that default timeout for get request is set correctly."""
-        resp_mock.return_value.status_code = httplib.OK
+        resp_mock.return_value.status_code = http.client.OK
         resp_mock.return_value.text = 'foo'
         restclient.get('http://foo.com', '/')
         resp_mock.assert_called_with(
@@ -170,7 +167,7 @@ class RESTClientTest(unittest.TestCase):
                 return_value=mock.MagicMock(requests.Response))
     def test_default_timeout_delete(self, resp_mock):
         """Tests that default timeout for delete request is set correctly."""
-        resp_mock.return_value.status_code = httplib.OK
+        resp_mock.return_value.status_code = http.client.OK
         resp_mock.return_value.text = 'foo'
         restclient.delete('http://foo.com', '/')
         resp_mock.assert_called_with(
@@ -182,7 +179,7 @@ class RESTClientTest(unittest.TestCase):
                 return_value=mock.MagicMock(requests.Response))
     def test_default_timeout_post(self, resp_mock):
         """Tests that default timeout for post request is set correctly."""
-        resp_mock.return_value.status_code = httplib.OK
+        resp_mock.return_value.status_code = http.client.OK
         resp_mock.return_value.text = 'foo'
         restclient.post('http://foo.com', '/', '')
         resp_mock.assert_called_with(
@@ -193,7 +190,7 @@ class RESTClientTest(unittest.TestCase):
     @mock.patch('requests.put', return_value=mock.MagicMock(requests.Response))
     def test_default_timeout_put(self, resp_mock):
         """Tests that default timeout for put request is set correctly."""
-        resp_mock.return_value.status_code = httplib.OK
+        resp_mock.return_value.status_code = http.client.OK
         resp_mock.return_value.text = 'foo'
         restclient.put('http://foo.com', '/', '')
         resp_mock.assert_called_with(

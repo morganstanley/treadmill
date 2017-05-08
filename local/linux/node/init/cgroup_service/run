@@ -10,4 +10,3 @@
 {{ _alias.s6_envdir }} -i -- ./env
 
 /bin/sh -l ./data/app_start
-

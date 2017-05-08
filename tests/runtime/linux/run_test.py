@@ -1,5 +1,4 @@
-"""
-Unit test for treadmill.runtime.linux._run
+"""Unit test for treadmill.runtime.linux._run
 """
 
 # Disable C0302: Too many lines in module.
@@ -15,9 +14,6 @@ import tempfile
 import unittest
 
 from collections import namedtuple
-
-# Disable W0611: Unused import
-import tests.treadmill_test_deps  # pylint: disable=W0611
 
 import mock
 
@@ -967,12 +963,12 @@ class LinuxRuntimeRunTest(unittest.TestCase):
                 bind_opt='--bind',
                 target=os.path.join(app_dir, 'root/.etc/ld.so.preload')
             ),
-            mock.call(
-                os.path.join(app_dir, 'root'),
-                '/etc/pam.d/sshd',
-                bind_opt='--bind',
-                target=os.path.join(app_dir, 'root/.etc/pam.d/sshd')
-            ),
+            # mock.call(
+            #     os.path.join(app_dir, 'root'),
+            #     '/etc/pam.d/sshd',
+            #     bind_opt='--bind',
+            #     target=os.path.join(app_dir, 'root/.etc/pam.d/sshd')
+            # ),
         ])
 
         self.assertTrue(mock_watchdog.remove.called)
@@ -1234,7 +1230,7 @@ class LinuxRuntimeRunTest(unittest.TestCase):
         )
 
         self.assertTrue(os.path.exists(os.path.join(base_dir, 'sys')))
-        with open(os.path.join(base_dir, 'sys', 'toberemoved'), 'w+') as _f:
+        with open(os.path.join(base_dir, 'sys', 'toberemoved'), 'w+'):
             pass
 
         self.assertTrue(

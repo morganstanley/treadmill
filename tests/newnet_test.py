@@ -6,9 +6,6 @@ import multiprocessing
 import os
 import unittest
 
-# Disable W0611: Unused import
-import tests.treadmill_test_deps  # pylint: disable=W0611
-
 import mock
 
 import treadmill
@@ -155,6 +152,7 @@ class NewnetTest(unittest.TestCase):
                           '-o eth0  -j SNAT --to-source 192.168.0.100'),
             ]
         )
+
 
 if __name__ == '__main__':
     unittest.main()

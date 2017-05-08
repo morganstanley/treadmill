@@ -1,0 +1,321 @@
+---
+attributeTypes:
+  affinity-level:
+    desc: Treadmill affinity level
+    type: str
+  affinity-limit:
+    desc: Treadmill affinity limit
+    type: int
+  allocation:
+    desc: Treadmill allocation
+    type: str
+  app:
+    desc: Treadmill application
+    type: str
+  archive-server:
+    desc: Treadmill server
+    type: str
+  archive-username:
+    desc: Treadmill borrowed exactName from DBIS
+    type: str
+  cell:
+    desc: Treadmill cell
+    type: str
+  cpu:
+    desc: Treadmill CPU
+    ignore_case: true
+    type: str
+  data:
+    desc: Treadmill data
+    type: str
+  disk:
+    desc: Treadmill disk
+    ignore_case: true
+    type: str
+  endpoint-name:
+    desc: Treadmill endpoint name
+    type: str
+  endpoint-pattern:
+    desc: Treadmill endpoint pattern
+    type: str
+  endpoint-port:
+    desc: Treadmill endpoint port
+    type: int
+  endpoint-type:
+    desc: Treadmill endpoint type
+    type: str
+  endpoint-proto:
+    desc: Treadmill endpoint protocol
+    type: str
+  environment:
+    desc: Treadmill environment
+    type: str
+  envvar-name:
+    desc: Environment variable name
+    type: str
+  envvar-value:
+    desc: Environment variable value
+    type: str
+  feature:
+    desc: Treadmill feature
+    type: str
+  label:
+    desc: Treadmill server and allocation label
+    type: str
+  location:
+    desc: Treadmill location
+    type: str
+  master-idx:
+    desc: Master index
+    type: int
+  master-hostname:
+    desc: Treadmill master hostname
+    type: str
+  master-zk-client-port:
+    desc: Zookeeper client port
+    type: int
+  master-zk-election-port:
+    desc: Zookeeper leader election port
+    type: int
+  master-zk-followers-port:
+    desc: Zookeeper followers port
+    type: int
+  master-zk-jmx-port:
+    desc: Zookeeper jmx port
+    type: int
+  max-utilization:
+    desc: Treadmill max utilization
+    type: str
+  memory:
+    desc: Treadmill memory
+    ignore_case: true
+    type: str
+  pattern:
+    desc: Treadmill pattern
+    type: str
+  priority:
+    desc: Treadmill priority
+    type: int
+  rank:
+    desc: Treadmill rank
+    type: int
+  root:
+    desc: Treadmill root
+    type: str
+  server:
+    desc: Treadmill server
+    type: str
+  service-command:
+    desc: Treadmill command
+    type: str
+  service-name:
+    desc: Treadmill service
+    type: str
+  service-root:
+    desc: Treadmill service run as root flag
+    type: bool
+  service-restart-limit:
+    desc: Treadmill restart count limit
+    type: int
+  service-restart-interval:
+    desc: Treadmill restart count limit interval
+    type: int
+  ssq-namespace:
+    desc: Treadmill SSQ namespace
+    type: str
+  system:
+    desc: Treadmill system
+    type: int
+  tenant:
+    desc: Treadmill tenant
+    type: str
+  ticket:
+    desc: Treadmill prestashed ticket (userIDs)
+    type: str
+  trait:
+    desc: Treadmill server and allocation trait
+    type: str
+  username:
+    desc: Treadmill borrowed exactName from DBIS
+    type: str
+  version:
+    desc: Treadmill version
+    type: str
+  vring-cell:
+    desc: VRing cell name
+    type: str
+  vring-rule-endpoint:
+    desc: Vring rule endpoint name
+    type: str
+  vring-rule-pattern:
+    desc: Vring rule application pattern
+    type: str
+  identity-group:
+    desc: Treadmill Identity Group
+    type: str
+  shared-ip:
+    desc: Treadmill shared IP
+    type: bool
+  app-group:
+    desc: Treadmill App Group
+    type: str
+  group-type:
+    desc: Treadmill App Group Type
+    type: str
+  data:
+    desc: Treadmill App Group Data
+    type: str
+  dns:
+    desc: Treadmill DNS
+    type: str
+  rest-server:
+    desc: Treadmill REST (nameful) servers/ports
+    type: str
+  fqdn:
+    desc: Treadmill DNS FQDN
+    type: str
+  zkurl:
+    desc: Treadmill DNS (nameful) Zookeeper URL
+    type: str
+  ttl:
+    desc: Treadmill DNS Zone TTL
+    type: str
+  nameservers:
+    desc: Treadmill DNS Zone name servers
+    type: str
+  passthrough:
+    desc: App passthrough servers
+    type: str
+  ephemeral-ports-tcp:
+    desc: Ephemeral TCP ports count
+    type: int
+  ephemeral-ports-udp:
+    desc: Ephemeral UDP ports count
+    type: int
+  schedule-once:
+    desc: Schedule once attribute
+    type: bool
+  data-retention-timeout:
+    desc: Data retention timeout
+    ignore_case: true
+    type: str
+dn: cn={1}treadmill,cn=schema,cn=config
+objectClasses:
+  tmAllocation:
+    desc: Treadmill Allocation
+    must:
+    - allocation
+    may:
+    - environment
+  tmCellAllocation:
+    desc: Treadmill Cell Allocation
+    must:
+    - cell
+    may:
+    - cpu
+    - disk
+    - label
+    - max-utilization
+    - memory
+    - pattern
+    - priority
+    - rank
+    - trait
+  tmApp:
+    desc: Treadmill Application
+    must:
+    - app
+    may:
+    - cpu
+    - disk
+    - memory
+    - username
+    - service-name
+    - service-command
+    - service-root
+    - service-restart-limit
+    - service-restart-interval
+    - endpoint-name
+    - endpoint-port
+    - endpoint-type
+    - endpoint-proto
+    - envvar-name
+    - envvar-value
+    - identity-group
+    - ticket
+    - feature
+    - shared-ip
+    - affinity-level
+    - affinity-limit
+    - vring-cell
+    - vring-rule-endpoint
+    - vring-rule-pattern
+    - passthrough
+    - ephemeral-ports-tcp
+    - ephemeral-ports-udp
+    - schedule-once
+    - data-retention-timeout
+  tmCell:
+    desc: Treadmill Cell
+    must:
+    - cell
+    may:
+    - archive-server
+    - archive-username
+    - location
+    - ssq-namespace
+    - username
+    - version
+    - root
+    - master-idx
+    - master-hostname
+    - master-zk-client-port
+    - master-zk-jmx-port
+    - master-zk-followers-port
+    - master-zk-election-port
+  tmServer:
+    desc: Treadmill Server
+    must:
+    - server
+    may:
+    - cell
+    - data
+    - label
+    - trait
+  tmTenant:
+    desc: Treadmill Tenant
+    must:
+    - tenant
+    may:
+    - system
+  tmEndpoint:
+    desc: Treadmill Endpoint
+    must:
+    - endpoint-name
+    may:
+    - endpoint-pattern
+    - endpoint-port
+    - endpoint-type
+  tmAppGroup:
+    desc: Treadmill App Group
+    must:
+    - app-group
+    may:
+    - group-type
+    - cell
+    - pattern
+    - data
+    - endpoint-name
+  tmDNS:
+    desc: Treadmill DNS Server
+    must:
+    - dns
+    may:
+    - server
+    - location
+    - rest-server
+    - zkurl
+    - fqdn
+    - ttl
+    - nameservers
+...

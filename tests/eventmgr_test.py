@@ -8,8 +8,6 @@ import shutil
 import tempfile
 import unittest
 
-# Disable W0611: Unused import
-import tests.treadmill_test_deps  # pylint: disable=W0611
 from tests.testutils import mockzk
 
 import kazoo
@@ -204,7 +202,7 @@ class EventMgrTest(mockzk.MockZookeeperTestCase):
 
         with open(appcache) as f:
             data = yaml.load(f.read())
-            self.assertEquals(data['identity'], 1)
+            self.assertEqual(data['identity'], 1)
 
 
 if __name__ == '__main__':

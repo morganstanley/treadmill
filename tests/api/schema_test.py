@@ -8,9 +8,6 @@ Unit test for treadmill.api input validation.
 import copy
 import unittest
 
-# Disable W0611: Unused import
-import tests.treadmill_test_deps  # pylint: disable=W0611
-
 import jsonschema
 import jsonpointer
 import mock
@@ -285,7 +282,7 @@ class ApiSchemaTest(unittest.TestCase):
         _ok(api.list, 'my-001-cell', 'ccc')
 
         _fail(api.list, 'my-(001-cell', None)
-        _fail(api.list, 'my-001-cell', 'x'*33)
+        _fail(api.list, 'my-001-cell', 'x' * 33)
 
     @mock.patch('treadmill.context.AdminContext.conn',
                 mock.Mock(return_value=None))
@@ -452,6 +449,7 @@ class ApiSchemaTest(unittest.TestCase):
         _fail(api.create, 'foo.bla', _patch(good, '/count', -1))
         _fail(api.create, 'foo.bla', _patch(good, '/count', 1001))
         _fail(api.create, 'foo.bla', _patch(good, '/count', '1'))
+
 
 if __name__ == '__main__':
     unittest.main()

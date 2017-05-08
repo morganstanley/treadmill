@@ -3,9 +3,6 @@
 
 import unittest
 
-# Disable W0611: Unused import
-import tests.treadmill_test_deps  # pylint: disable=W0611
-
 import ldap3
 import mock
 
@@ -61,7 +58,7 @@ class ContextTest(unittest.TestCase):
             ]
         }
         ctx3.resolve('somecell')
-        self.assertEquals(
+        self.assertEqual(
             'zookeeper://tmtest@xxx:123,yyy:345/treadmill/somecell',
             ctx3.zk.url
         )
@@ -88,11 +85,11 @@ class ContextTest(unittest.TestCase):
             ('ldaphost', 1234, 10, 10)
         ]
         ctx1.resolve('somecell')
-        self.assertEquals(
+        self.assertEqual(
             'zookeeper://tmtest@xxx:123,yyy:345/treadmill/somecell',
             ctx1.zk.url
         )
-        self.assertEquals(
+        self.assertEqual(
             'ldap://ldaphost:1234',
             ctx1.ldap.url
         )
@@ -103,7 +100,7 @@ class ContextTest(unittest.TestCase):
         ctx2.cell = 'somecell'
         # Disable E1102: not callable
         ctx2.zk.conn()  # pylint: disable=E1102
-        self.assertEquals(
+        self.assertEqual(
             'zookeeper://tmtest@xxx:123,yyy:345/treadmill/somecell',
             ctx2.zk.url
         )
@@ -118,22 +115,24 @@ class ContextTest(unittest.TestCase):
         ctx.dns_domain = 'a'
         ctx.admin_api_scope = ['ny.campus', 'na.region']
         ctx.cell = 'b'
-        self.assertEquals(set(['http://xxx:123', 'http://yyy:234']),
-                          set(ctx.cell_api()))
+        self.assertEqual(
+            set(['http://xxx:123', 'http://yyy:234']),
+            set(ctx.cell_api())
+        )
         treadmill.dnsutils.srv.assert_called_with(
             '_http._tcp.cellapi.b.cell.a'
         )
 
-        self.assertEquals(['x:8080'], ctx.cell_api('x:8080'))
+        self.assertEqual(['x:8080'], ctx.cell_api('x:8080'))
 
         ctx.cell = None
         self.assertRaises(context.ContextError, ctx.cell_api)
-        self.assertEquals(['x:8080'], ctx.cell_api('x:8080'))
+        self.assertEqual(['x:8080'], ctx.cell_api('x:8080'))
 
         ctx.cell = 'a'
         ctx.dns_domain = None
         self.assertRaises(context.ContextError, ctx.cell_api)
-        self.assertEquals(['x:8080'], ctx.cell_api('x:8080'))
+        self.assertEqual(['x:8080'], ctx.cell_api('x:8080'))
 
         ctx.dns_domain = 'a.com'
         treadmill.dnsutils.srv.return_value = []

@@ -4,7 +4,8 @@
 # Runs as root.
 #
 
-exec {{ treadmill }}/bin/treadmill sproc \
+exec {{ treadmill_bin }} \
+    sproc \
     --cell {{ cell }} \
     monitor node_services \
     --approot {{ dir }} \

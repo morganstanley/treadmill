@@ -3,9 +3,6 @@
 
 import timeit
 
-# Disable W0611: Unused import
-import tests.treadmill_test_deps  # pylint: disable=W0611
-
 # XXX(boysson): Test needs update to new Scheduler API
 # XXX: from treadmill import scheduler
 
@@ -23,10 +20,10 @@ def schedule(sched):
             else:
                 evicted = evicted + 1
 
-        print 'scheduled: ', new_placement, ', evicted: ', evicted
+        print('scheduled: ', new_placement, ', evicted: ', evicted)
 
     interval = timeit.timeit(stmt=_schedule, number=1)
-    print 'time  :', interval
+    print('time  :', interval)
 
 
 # XXX(boysson): Test needs update to new Scheduler API

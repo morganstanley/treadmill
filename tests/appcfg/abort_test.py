@@ -1,14 +1,10 @@
-"""
-Unit test for treadmill.appcfg.abort
+"""Unit test for treadmill.appcfg.abort
 """
 
 import os
 import shutil
 import tempfile
 import unittest
-
-# Disable W0611: Unused import
-import tests.treadmill_test_deps  # pylint: disable=W0611
 
 import kazoo
 import mock
@@ -54,15 +50,16 @@ class AppCfgAbortTest(unittest.TestCase):
         kazoo.client.KazooClient.create.reset()
         kazoo.client.KazooClient.delete.reset()
 
-        app_abort.abort(self.tm_env, manifest_file, exc=StandardError('test'))
+        app_abort.abort(self.tm_env, manifest_file, exc=Exception('test'))
         treadmill.appevents.post.assert_called_with(
             mock.ANY,
             events.AbortedTraceEvent(
                 instanceid='proid.myapp#001',
-                why='StandardError',
+                why='Exception',
                 payload=None,
             ),
         )
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -1,0 +1,234 @@
+# AUTO-GENERATED FILE - DO NOT EDIT!! Use ldapmodify.
+# CRC32 21d6abda
+dn: cn={1}treadmill
+objectClass: olcConfig
+objectClass: olcSchemaConfig
+objectClass: top
+cn: {1}treadmill
+structuralObjectClass: olcSchemaConfig
+entryUUID: 8131ae82-ad47-1036-9cdf-f5e2e5c7d28f
+creatorsName: cn=admin,{{ domain | regex_replace('(.*)\\.(.*)', 'dc=\\1,dc=\\2') }}
+createTimestamp: 20170404055843Z
+olcAttributeTypes: {0}( 1.3.6.1.4.1.360.10.6.1.1 NAME 'envvar-name' DESC 'En
+ vironment variable name' SYNTAX 1.3.6.1.4.1.1466.115.121.1.15 EQUALITY case
+ ExactMatch SUBSTR caseExactSubstringsMatch )
+olcAttributeTypes: {1}( 1.3.6.1.4.1.360.10.6.1.34 NAME 'affinity-limit' DESC
+  'Treadmill affinity limit' SYNTAX 1.3.6.1.4.1.1466.115.121.1.27 EQUALITY i
+ ntegerMatch )
+olcAttributeTypes: {2}( 1.3.6.1.4.1.360.10.6.1.53 NAME 'affinity-level' DESC
+  'Treadmill affinity level' SYNTAX 1.3.6.1.4.1.1466.115.121.1.15 EQUALITY c
+ aseExactMatch SUBSTR caseExactSubstringsMatch )
+olcAttributeTypes: {3}( 1.3.6.1.4.1.360.10.6.1.35 NAME 'data-retention-timeo
+ ut' DESC 'Data retention timeout' SYNTAX 1.3.6.1.4.1.1466.115.121.1.15 EQUA
+ LITY caseIgnoreMatch SUBSTR caseIgnoreSubstringsMatch )
+olcAttributeTypes: {4}( 1.3.6.1.4.1.360.10.6.1.45 NAME 'zkurl' DESC 'Treadmi
+ ll DNS (nameful) Zookeeper URL' SYNTAX 1.3.6.1.4.1.1466.115.121.1.15 EQUALI
+ TY caseExactMatch SUBSTR caseExactSubstringsMatch )
+olcAttributeTypes: {5}( 1.3.6.1.4.1.360.10.6.1.36 NAME 'service-restart-inte
+ rval' DESC 'Treadmill restart count limit interval' SYNTAX 1.3.6.1.4.1.1466
+ .115.121.1.27 EQUALITY integerMatch )
+olcAttributeTypes: {6}( 1.3.6.1.4.1.360.10.6.1.2 NAME 'service-restart-limit
+ ' DESC 'Treadmill restart count limit' SYNTAX 1.3.6.1.4.1.1466.115.121.1.27
+  EQUALITY integerMatch )
+olcAttributeTypes: {7}( 1.3.6.1.4.1.360.10.6.1.38 NAME 'passthrough' DESC 'A
+ pp passthrough servers' SYNTAX 1.3.6.1.4.1.1466.115.121.1.15 EQUALITY caseE
+ xactMatch SUBSTR caseExactSubstringsMatch )
+olcAttributeTypes: {8}( 1.3.6.1.4.1.360.10.6.1.44 NAME 'app-group' DESC 'Tre
+ admill App Group' SYNTAX 1.3.6.1.4.1.1466.115.121.1.15 EQUALITY caseExactMa
+ tch SUBSTR caseExactSubstringsMatch )
+olcAttributeTypes: {9}( 1.3.6.1.4.1.360.10.6.1.39 NAME 'service-name' DESC '
+ Treadmill service' SYNTAX 1.3.6.1.4.1.1466.115.121.1.15 EQUALITY caseExactM
+ atch SUBSTR caseExactSubstringsMatch )
+olcAttributeTypes: {10}( 1.3.6.1.4.1.360.10.6.1.4 NAME 'cell' DESC 'Treadmil
+ l cell' SYNTAX 1.3.6.1.4.1.1466.115.121.1.15 EQUALITY caseExactMatch SUBSTR
+  caseExactSubstringsMatch )
+olcAttributeTypes: {11}( 1.3.6.1.4.1.360.10.6.1.5 NAME 'ttl' DESC 'Treadmill
+  DNS Zone TTL' SYNTAX 1.3.6.1.4.1.1466.115.121.1.15 EQUALITY caseExactMatch
+  SUBSTR caseExactSubstringsMatch )
+olcAttributeTypes: {12}( 1.3.6.1.4.1.360.10.6.1.52 NAME 'master-zk-election-
+ port' DESC 'Zookeeper leader election port' SYNTAX 1.3.6.1.4.1.1466.115.121
+ .1.27 EQUALITY integerMatch )
+olcAttributeTypes: {13}( 1.3.6.1.4.1.360.10.6.1.6 NAME 'rest-server' DESC 'T
+ readmill REST (nameful) servers/ports' SYNTAX 1.3.6.1.4.1.1466.115.121.1.15
+  EQUALITY caseExactMatch SUBSTR caseExactSubstringsMatch )
+olcAttributeTypes: {14}( 1.3.6.1.4.1.360.10.6.1.7 NAME 'cpu' DESC 'Treadmill
+  CPU' SYNTAX 1.3.6.1.4.1.1466.115.121.1.15 EQUALITY caseIgnoreMatch SUBSTR 
+ caseIgnoreSubstringsMatch )
+olcAttributeTypes: {15}( 1.3.6.1.4.1.360.10.6.1.8 NAME 'shared-ip' DESC 'Tre
+ admill shared IP' SYNTAX 1.3.6.1.4.1.1466.115.121.1.7 )
+olcAttributeTypes: {16}( 1.3.6.1.4.1.360.10.6.1.51 NAME 'identity-group' DES
+ C 'Treadmill Identity Group' SYNTAX 1.3.6.1.4.1.1466.115.121.1.15 EQUALITY 
+ caseExactMatch SUBSTR caseExactSubstringsMatch )
+olcAttributeTypes: {17}( 1.3.6.1.4.1.360.10.6.1.40 NAME 'environment' DESC '
+ Treadmill environment' SYNTAX 1.3.6.1.4.1.1466.115.121.1.15 EQUALITY caseEx
+ actMatch SUBSTR caseExactSubstringsMatch )
+olcAttributeTypes: {18}( 1.3.6.1.4.1.360.10.6.1.41 NAME 'dns' DESC 'Treadmil
+ l DNS' SYNTAX 1.3.6.1.4.1.1466.115.121.1.15 EQUALITY caseExactMatch SUBSTR 
+ caseExactSubstringsMatch )
+olcAttributeTypes: {19}( 1.3.6.1.4.1.360.10.6.1.9 NAME 'version' DESC 'Tread
+ mill version' SYNTAX 1.3.6.1.4.1.1466.115.121.1.15 EQUALITY caseExactMatch 
+ SUBSTR caseExactSubstringsMatch )
+olcAttributeTypes: {20}( 1.3.6.1.4.1.360.10.6.1.42 NAME 'endpoint-port' DESC
+  'Treadmill endpoint port' SYNTAX 1.3.6.1.4.1.1466.115.121.1.27 EQUALITY in
+ tegerMatch )
+olcAttributeTypes: {21}( 1.3.6.1.4.1.360.10.6.1.10 NAME 'schedule-once' DESC
+  'Schedule once attribute' SYNTAX 1.3.6.1.4.1.1466.115.121.1.7 )
+olcAttributeTypes: {22}( 1.3.6.1.4.1.360.10.6.1.11 NAME 'archive-username' D
+ ESC 'Treadmill borrowed exactName from DBIS' SYNTAX 1.3.6.1.4.1.1466.115.12
+ 1.1.15 EQUALITY caseExactMatch SUBSTR caseExactSubstringsMatch )
+olcAttributeTypes: {23}( 1.3.6.1.4.1.360.10.6.1.3 NAME 'system' DESC 'Treadm
+ ill system' SYNTAX 1.3.6.1.4.1.1466.115.121.1.27 EQUALITY integerMatch )
+olcAttributeTypes: {24}( 1.3.6.1.4.1.360.10.6.1.12 NAME 'envvar-value' DESC 
+ 'Environment variable value' SYNTAX 1.3.6.1.4.1.1466.115.121.1.15 EQUALITY 
+ caseExactMatch SUBSTR caseExactSubstringsMatch )
+olcAttributeTypes: {25}( 1.3.6.1.4.1.360.10.6.1.13 NAME 'ticket' DESC 'Tread
+ mill prestashed ticket (userIDs)' SYNTAX 1.3.6.1.4.1.1466.115.121.1.15 EQUA
+ LITY caseExactMatch SUBSTR caseExactSubstringsMatch )
+olcAttributeTypes: {26}( 1.3.6.1.4.1.360.10.6.1.24 NAME 'endpoint-pattern' D
+ ESC 'Treadmill endpoint pattern' SYNTAX 1.3.6.1.4.1.1466.115.121.1.15 EQUAL
+ ITY caseExactMatch SUBSTR caseExactSubstringsMatch )
+olcAttributeTypes: {27}( 1.3.6.1.4.1.360.10.6.1.16 NAME 'server' DESC 'Tread
+ mill server' SYNTAX 1.3.6.1.4.1.1466.115.121.1.15 EQUALITY caseExactMatch S
+ UBSTR caseExactSubstringsMatch )
+olcAttributeTypes: {28}( 1.3.6.1.4.1.360.10.6.1.46 NAME 'tenant' DESC 'Tread
+ mill tenant' SYNTAX 1.3.6.1.4.1.1466.115.121.1.15 EQUALITY caseExactMatch S
+ UBSTR caseExactSubstringsMatch )
+olcAttributeTypes: {29}( 1.3.6.1.4.1.360.10.6.1.15 NAME 'service-command' DE
+ SC 'Treadmill command' SYNTAX 1.3.6.1.4.1.1466.115.121.1.15 EQUALITY caseEx
+ actMatch SUBSTR caseExactSubstringsMatch )
+olcAttributeTypes: {30}( 1.3.6.1.4.1.360.10.6.1.17 NAME 'master-hostname' DE
+ SC 'Treadmill master hostname' SYNTAX 1.3.6.1.4.1.1466.115.121.1.15 EQUALIT
+ Y caseExactMatch SUBSTR caseExactSubstringsMatch )
+olcAttributeTypes: {31}( 1.3.6.1.4.1.360.10.6.1.18 NAME 'endpoint-type' DESC
+  'Treadmill endpoint type' SYNTAX 1.3.6.1.4.1.1466.115.121.1.15 EQUALITY ca
+ seExactMatch SUBSTR caseExactSubstringsMatch )
+olcAttributeTypes: {32}( 1.3.6.1.4.1.360.10.6.1.48 NAME 'root' DESC 'Treadmi
+ ll root' SYNTAX 1.3.6.1.4.1.1466.115.121.1.15 EQUALITY caseExactMatch SUBST
+ R caseExactSubstringsMatch )
+olcAttributeTypes: {33}( 1.3.6.1.4.1.360.10.6.1.49 NAME 'endpoint-proto' DES
+ C 'Treadmill endpoint protocol' SYNTAX 1.3.6.1.4.1.1466.115.121.1.15 EQUALI
+ TY caseExactMatch SUBSTR caseExactSubstringsMatch )
+olcAttributeTypes: {34}( 1.3.6.1.4.1.360.10.6.1.19 NAME 'rank' DESC 'Treadmi
+ ll rank' SYNTAX 1.3.6.1.4.1.1466.115.121.1.27 EQUALITY integerMatch )
+olcAttributeTypes: {35}( 1.3.6.1.4.1.360.10.6.1.20 NAME 'app' DESC 'Treadmil
+ l application' SYNTAX 1.3.6.1.4.1.1466.115.121.1.15 EQUALITY caseExactMatch
+  SUBSTR caseExactSubstringsMatch )
+olcAttributeTypes: {36}( 1.3.6.1.4.1.360.10.6.1.61 NAME 'trait' DESC 'Treadm
+ ill server and allocation trait' SYNTAX 1.3.6.1.4.1.1466.115.121.1.15 EQUAL
+ ITY caseExactMatch SUBSTR caseExactSubstringsMatch )
+olcAttributeTypes: {37}( 1.3.6.1.4.1.360.10.6.1.21 NAME 'vring-rule-pattern'
+  DESC 'Vring rule application pattern' SYNTAX 1.3.6.1.4.1.1466.115.121.1.15
+  EQUALITY caseExactMatch SUBSTR caseExactSubstringsMatch )
+olcAttributeTypes: {38}( 1.3.6.1.4.1.360.10.6.1.22 NAME 'feature' DESC 'Trea
+ dmill feature' SYNTAX 1.3.6.1.4.1.1466.115.121.1.15 EQUALITY caseExactMatch
+  SUBSTR caseExactSubstringsMatch )
+olcAttributeTypes: {39}( 1.3.6.1.4.1.360.10.6.1.23 NAME 'master-idx' DESC 'M
+ aster index' SYNTAX 1.3.6.1.4.1.1466.115.121.1.27 EQUALITY integerMatch )
+olcAttributeTypes: {40}( 1.3.6.1.4.1.360.10.6.1.54 NAME 'label' DESC 'Treadm
+ ill server and allocation label' SYNTAX 1.3.6.1.4.1.1466.115.121.1.15 EQUAL
+ ITY caseExactMatch SUBSTR caseExactSubstringsMatch )
+olcAttributeTypes: {41}( 1.3.6.1.4.1.360.10.6.1.55 NAME 'endpoint-name' DESC
+  'Treadmill endpoint name' SYNTAX 1.3.6.1.4.1.1466.115.121.1.15 EQUALITY ca
+ seExactMatch SUBSTR caseExactSubstringsMatch )
+olcAttributeTypes: {42}( 1.3.6.1.4.1.360.10.6.1.56 NAME 'master-zk-followers
+ -port' DESC 'Zookeeper followers port' SYNTAX 1.3.6.1.4.1.1466.115.121.1.27
+  EQUALITY integerMatch )
+olcAttributeTypes: {43}( 1.3.6.1.4.1.360.10.6.1.47 NAME 'master-zk-client-po
+ rt' DESC 'Zookeeper client port' SYNTAX 1.3.6.1.4.1.1466.115.121.1.27 EQUAL
+ ITY integerMatch )
+olcAttributeTypes: {44}( 1.3.6.1.4.1.360.10.6.1.25 NAME 'group-type' DESC 'T
+ readmill App Group Type' SYNTAX 1.3.6.1.4.1.1466.115.121.1.15 EQUALITY case
+ ExactMatch SUBSTR caseExactSubstringsMatch )
+olcAttributeTypes: {45}( 1.3.6.1.4.1.360.10.6.1.26 NAME 'memory' DESC 'Tread
+ mill memory' SYNTAX 1.3.6.1.4.1.1466.115.121.1.15 EQUALITY caseIgnoreMatch 
+ SUBSTR caseIgnoreSubstringsMatch )
+olcAttributeTypes: {46}( 1.3.6.1.4.1.360.10.6.1.27 NAME 'archive-server' DES
+ C 'Treadmill server' SYNTAX 1.3.6.1.4.1.1466.115.121.1.15 EQUALITY caseExac
+ tMatch SUBSTR caseExactSubstringsMatch )
+olcAttributeTypes: {47}( 1.3.6.1.4.1.360.10.6.1.62 NAME 'fqdn' DESC 'Treadmi
+ ll DNS FQDN' SYNTAX 1.3.6.1.4.1.1466.115.121.1.15 EQUALITY caseExactMatch S
+ UBSTR caseExactSubstringsMatch )
+olcAttributeTypes: {48}( 1.3.6.1.4.1.360.10.6.1.57 NAME 'max-utilization' DE
+ SC 'Treadmill max utilization' SYNTAX 1.3.6.1.4.1.1466.115.121.1.15 EQUALIT
+ Y caseExactMatch SUBSTR caseExactSubstringsMatch )
+olcAttributeTypes: {49}( 1.3.6.1.4.1.360.10.6.1.50 NAME 'master-zk-jmx-port'
+  DESC 'Zookeeper jmx port' SYNTAX 1.3.6.1.4.1.1466.115.121.1.27 EQUALITY in
+ tegerMatch )
+olcAttributeTypes: {50}( 1.3.6.1.4.1.360.10.6.1.28 NAME 'data' DESC 'Treadmi
+ ll App Group Data' SYNTAX 1.3.6.1.4.1.1466.115.121.1.15 EQUALITY caseExactM
+ atch SUBSTR caseExactSubstringsMatch )
+olcAttributeTypes: {51}( 1.3.6.1.4.1.360.10.6.1.29 NAME 'username' DESC 'Tre
+ admill borrowed exactName from DBIS' SYNTAX 1.3.6.1.4.1.1466.115.121.1.15 E
+ QUALITY caseExactMatch SUBSTR caseExactSubstringsMatch )
+olcAttributeTypes: {52}( 1.3.6.1.4.1.360.10.6.1.43 NAME 'service-root' DESC 
+ 'Treadmill service run as root flag' SYNTAX 1.3.6.1.4.1.1466.115.121.1.7 )
+olcAttributeTypes: {53}( 1.3.6.1.4.1.360.10.6.1.59 NAME 'ephemeral-ports-udp
+ ' DESC 'Ephemeral UDP ports count' SYNTAX 1.3.6.1.4.1.1466.115.121.1.27 EQU
+ ALITY integerMatch )
+olcAttributeTypes: {54}( 1.3.6.1.4.1.360.10.6.1.30 NAME 'priority' DESC 'Tre
+ admill priority' SYNTAX 1.3.6.1.4.1.1466.115.121.1.27 EQUALITY integerMatch
+  )
+olcAttributeTypes: {55}( 1.3.6.1.4.1.360.10.6.1.31 NAME 'vring-cell' DESC 'V
+ Ring cell name' SYNTAX 1.3.6.1.4.1.1466.115.121.1.15 EQUALITY caseExactMatc
+ h SUBSTR caseExactSubstringsMatch )
+olcAttributeTypes: {56}( 1.3.6.1.4.1.360.10.6.1.58 NAME 'disk' DESC 'Treadmi
+ ll disk' SYNTAX 1.3.6.1.4.1.1466.115.121.1.15 EQUALITY caseIgnoreMatch SUBS
+ TR caseIgnoreSubstringsMatch )
+olcAttributeTypes: {57}( 1.3.6.1.4.1.360.10.6.1.32 NAME 'nameservers' DESC '
+ Treadmill DNS Zone name servers' SYNTAX 1.3.6.1.4.1.1466.115.121.1.15 EQUAL
+ ITY caseExactMatch SUBSTR caseExactSubstringsMatch )
+olcAttributeTypes: {58}( 1.3.6.1.4.1.360.10.6.1.37 NAME 'location' DESC 'Tre
+ admill location' SYNTAX 1.3.6.1.4.1.1466.115.121.1.15 EQUALITY caseExactMat
+ ch SUBSTR caseExactSubstringsMatch )
+olcAttributeTypes: {59}( 1.3.6.1.4.1.360.10.6.1.14 NAME 'vring-rule-endpoint
+ ' DESC 'Vring rule endpoint name' SYNTAX 1.3.6.1.4.1.1466.115.121.1.15 EQUA
+ LITY caseExactMatch SUBSTR caseExactSubstringsMatch )
+olcAttributeTypes: {60}( 1.3.6.1.4.1.360.10.6.1.60 NAME 'ssq-namespace' DESC
+  'Treadmill SSQ namespace' SYNTAX 1.3.6.1.4.1.1466.115.121.1.15 EQUALITY ca
+ seExactMatch SUBSTR caseExactSubstringsMatch )
+olcAttributeTypes: {61}( 1.3.6.1.4.1.360.10.6.1.33 NAME 'allocation' DESC 'T
+ readmill allocation' SYNTAX 1.3.6.1.4.1.1466.115.121.1.15 EQUALITY caseExac
+ tMatch SUBSTR caseExactSubstringsMatch )
+olcAttributeTypes: {62}( 1.3.6.1.4.1.360.10.6.1.63 NAME 'ephemeral-ports-tcp
+ ' DESC 'Ephemeral TCP ports count' SYNTAX 1.3.6.1.4.1.1466.115.121.1.27 EQU
+ ALITY integerMatch )
+olcAttributeTypes: {63}( 1.3.6.1.4.1.360.10.6.1.64 NAME 'pattern' DESC 'Trea
+ dmill pattern' SYNTAX 1.3.6.1.4.1.1466.115.121.1.15 EQUALITY caseExactMatch
+  SUBSTR caseExactSubstringsMatch )
+olcObjectClasses: {0}( 1.3.6.1.4.1.360.10.6.2.1 NAME 'tmAllocation' DESC 'Tr
+ eadmill Allocation' SUP top STRUCTURAL MUST ( allocation ) MAY  ( environme
+ nt ) )
+olcObjectClasses: {1}( 1.3.6.1.4.1.360.10.6.2.2 NAME 'tmCellAllocation' DESC
+  'Treadmill Cell Allocation' SUP top STRUCTURAL MUST ( cell ) MAY  ( cpu $ 
+ disk $ label $ max-utilization $ memory $ pattern $ priority $ rank $ trait
+  ) )
+olcObjectClasses: {2}( 1.3.6.1.4.1.360.10.6.2.9 NAME 'tmTenant' DESC 'Treadm
+ ill Tenant' SUP top STRUCTURAL MUST ( tenant ) MAY  ( system ) )
+olcObjectClasses: {3}( 1.3.6.1.4.1.360.10.6.2.3 NAME 'tmEndpoint' DESC 'Trea
+ dmill Endpoint' SUP top STRUCTURAL MUST ( endpoint-name ) MAY  ( endpoint-p
+ attern $ endpoint-port $ endpoint-type ) )
+olcObjectClasses: {4}( 1.3.6.1.4.1.360.10.6.2.8 NAME 'tmDNS' DESC 'Treadmill
+  DNS Server' SUP top STRUCTURAL MUST ( dns ) MAY  ( server $ location $ res
+ t-server $ zkurl $ fqdn $ ttl $ nameservers ) )
+olcObjectClasses: {5}( 1.3.6.1.4.1.360.10.6.2.4 NAME 'tmCell' DESC 'Treadmil
+ l Cell' SUP top STRUCTURAL MUST ( cell ) MAY  ( archive-server $ archive-us
+ ername $ location $ ssq-namespace $ username $ version $ root $ master-idx 
+ $ master-hostname $ master-zk-client-port $ master-zk-jmx-port $ master-zk-
+ followers-port $ master-zk-election-port ) )
+olcObjectClasses: {6}( 1.3.6.1.4.1.360.10.6.2.5 NAME 'tmApp' DESC 'Treadmill
+  Application' SUP top STRUCTURAL MUST ( app ) MAY  ( cpu $ disk $ memory $ 
+ username $ service-name $ service-command $ service-root $ service-restart-
+ limit $ service-restart-interval $ endpoint-name $ endpoint-port $ endpoint
+ -type $ endpoint-proto $ envvar-name $ envvar-value $ identity-group $ tick
+ et $ feature $ shared-ip $ affinity-level $ affinity-limit $ vring-cell $ v
+ ring-rule-endpoint $ vring-rule-pattern $ passthrough $ ephemeral-ports-tcp
+  $ ephemeral-ports-udp $ schedule-once $ data-retention-timeout ) )
+olcObjectClasses: {7}( 1.3.6.1.4.1.360.10.6.2.6 NAME 'tmServer' DESC 'Treadm
+ ill Server' SUP top STRUCTURAL MUST ( server ) MAY  ( cell $ data $ label $
+  trait ) )
+olcObjectClasses: {8}( 1.3.6.1.4.1.360.10.6.2.7 NAME 'tmAppGroup' DESC 'Trea
+ dmill App Group' SUP top STRUCTURAL MUST ( app-group ) MAY  ( group-type $ 
+ cell $ pattern $ data $ endpoint-name ) )
+entryCSN: 20170404055907.588127Z#000000#000#000000
+modifiersName: cn=admin,{{ domain | regex_replace('(.*)\\.(.*)', 'dc=\\1,dc=\\2') }}
+modifyTimestamp: 20170404055907Z

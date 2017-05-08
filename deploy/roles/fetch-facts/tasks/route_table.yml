@@ -1,0 +1,8 @@
+---
+- name: Gather Route Table Details
+  ec2_vpc_route_table_facts:
+    filters:
+      vpc-id: "{{vpc_id}}"
+      association.main: "false"
+    region: "{{vpc.region}}"
+  register: route_tables_facts

@@ -1,0 +1,19 @@
+---
+- name: Add route53 DNS Zone
+  route53_zone:
+    zone: "{{domain}}"
+    state: present
+    vpc_region: "{{vpc.region}}"
+    vpc_id: "{{vpc_id}}"
+
+- name: Add entry to Route53  
+  route53:
+    command: create
+    zone: "{{domain}}"
+    private_zone: true
+    vpc_id: "{{vpc_id}}"
+    type: A
+    record: "{{item.1.tags.Name}}{{item.0 + 1}}.{{domain}}."
+    value: "{{item.1.private_ip}}"
+    overwrite: yes
+  with_indexed_items: "{{created_instances.tagged_instances}}"

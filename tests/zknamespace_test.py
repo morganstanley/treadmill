@@ -3,9 +3,6 @@
 
 import unittest
 
-# Disable W0611: Unused import
-import tests.treadmill_test_deps  # pylint: disable=W0611
-
 from treadmill import zknamespace as z
 
 
@@ -16,10 +13,10 @@ class ZknamespaceTest(unittest.TestCase):
         """Checks zookeeper path construction."""
 
         path = z.join_zookeeper_path('/root', 'node')
-        self.assertEquals('/root/node', path)
+        self.assertEqual('/root/node', path)
 
         path = z.join_zookeeper_path('/root', 'node1', 'node2')
-        self.assertEquals('/root/node1/node2', path)
+        self.assertEqual('/root/node1/node2', path)
 
 
 if __name__ == "__main__":

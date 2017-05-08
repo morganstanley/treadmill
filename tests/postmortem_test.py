@@ -6,9 +6,6 @@ import shutil
 import tempfile
 import unittest
 
-# Disable W0611: Unused import
-import tests.treadmill_test_deps  # pylint: disable=W0611
-
 import mock
 
 from treadmill import postmortem
@@ -58,7 +55,7 @@ class postmortemTest(unittest.TestCase):
         # XXX(boysson): Should be all os.path.join below
         archive_file = '%s/archive.tar' % self.archive_root
         real_file = postmortem.collect(self.tmroot, archive_file)
-        self.assertEquals(real_file, '%s/archive.tar.gz' % self.archive_root)
+        self.assertEqual(real_file, '%s/archive.tar.gz' % self.archive_root)
 
         shutil.copyfile.assert_any_call(
             '%s/init/server_init/log/current' % self.tmroot,

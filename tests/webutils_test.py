@@ -3,9 +3,6 @@
 
 import unittest
 
-# Disable W0611: Unused import
-import tests.treadmill_test_deps  # pylint: disable=W0611
-
 import flask
 
 from treadmill import webutils
@@ -32,13 +29,13 @@ class WebUtilsTest(unittest.TestCase):
             return flask.jsonify({'apps': 1})
 
         resp = app.test_client().get('/xxx')
-        self.assertEquals(resp.mimetype, 'application/json')
-        self.assertEquals({'apps': 1}, flask.json.loads(resp.data))
+        self.assertEqual(resp.mimetype, 'application/json')
+        self.assertEqual({'apps': 1}, flask.json.loads(resp.data))
 
         resp = app.test_client().get('/xxx?callback=foo')
-        self.assertEquals(resp.mimetype, 'application/json')
+        self.assertEqual(resp.mimetype, 'application/json')
         expected = 'foo({"apps":1})'
-        self.assertEquals(expected, trimall(resp.data))
+        self.assertEqual(expected, trimall(resp.get_data(as_text=True)))
 
     def test_cors(self):
         """Tests cors decorator."""
@@ -52,18 +49,18 @@ class WebUtilsTest(unittest.TestCase):
             return flask.jsonify({'apps': 1})
 
         resp = app.test_client().get('/xxx')
-        self.assertEquals(resp.mimetype, 'application/json')
-        self.assertEquals({'apps': 1}, flask.json.loads(resp.data))
+        self.assertEqual(resp.mimetype, 'application/json')
+        self.assertEqual({'apps': 1}, flask.json.loads(resp.data))
 
         self.assertIn('Access-Control-Allow-Origin', resp.headers)
-        self.assertEquals('*', resp.headers['Access-Control-Allow-Origin'])
+        self.assertEqual('*', resp.headers['Access-Control-Allow-Origin'])
 
     def test_wants_json_resp(self):
         """Tests the accept header evaluation."""
         app = flask.Flask(__name__)
         app.testing = True
 
-        with app.test_request_context(headers=[('Accept', 'application/json; '
+        with app.test_request_context(headers=[('Accept', 'application/json, '
                                                           'text/plain')]):
             self.assertTrue(webutils.wants_json_resp(flask.request))
 
