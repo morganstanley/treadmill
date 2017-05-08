@@ -42,7 +42,7 @@ class RRDClient(object):
         _LOGGER.info('Initializing rrdclient: %s', path)
         sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         sock.connect(path)
-        self.rrd = sock.makefile()
+        self.rrd = sock.makefile('rw')
 
     def command(self, line, oneway=False):
         """Sends rrd command and checks the output."""
@@ -50,7 +50,6 @@ class RRDClient(object):
 
         if not line.startswith('UPDATE'):
             _LOGGER.info('rrd command: %s', line)
-
         self.rrd.write(line + '\n')
         self.rrd.flush()
 
