@@ -635,6 +635,10 @@ class AppMgrRunTest(unittest.TestCase):
     @mock.patch('treadmill.subproc.check_call', mock.Mock())
     @mock.patch('treadmill.utils.rootdir',
                 mock.Mock(return_value='/treadmill'))
+    @mock.patch('os.path.exists', mock.Mock(
+        side_effect=lambda path: True if 'root/.etc' in path else
+        path_exists(path)
+    ))
     def test_run(self):
         """Tests appmgr.run sequence, which will result in supervisor exec.
         """
