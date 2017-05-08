@@ -439,8 +439,7 @@ class LocalDiskServiceTest(unittest.TestCase):
         # pylint: disable=W0212
 
         localdisk_service._loop_dev_for.side_effect = [
-            subprocess.CalledProcessError(returncode=1, cmd='losetup'),
-            '/dev/test'
+            None, '/dev/test'
         ]
 
         res = localdisk_service._init_block_dev('/bar', '2G')
