@@ -25,6 +25,8 @@ from treadmill import fs
 
 from treadmill.appmgr import run as app_run
 
+path_exists = os.path.exists
+
 
 class AppMgrRunTest(unittest.TestCase):
     """Tests for teadmill.appmgr."""
@@ -67,6 +69,10 @@ class AppMgrRunTest(unittest.TestCase):
                 mock.Mock(return_value='/test_treadmill'))
     @mock.patch('shutil.copytree', mock.Mock())
     @mock.patch('shutil.copyfile', mock.Mock())
+    @mock.patch('os.path.exists', mock.Mock(
+        side_effect=lambda path: True if 'resolv.conf' in path else
+        path_exists(path)
+    ))
     def test__create_root_dir(self):
         """Test creation on the container root directory."""
         # Access protected module _create_root_dir
