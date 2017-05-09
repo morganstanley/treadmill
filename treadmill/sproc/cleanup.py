@@ -11,7 +11,6 @@ import click
 from treadmill import appenv
 from treadmill import dirwatch
 from treadmill import logcontext as lc
-from treadmill import subproc
 
 import treadmill
 

@@ -88,7 +88,10 @@ class LinuxRuntime(runtime_base.RuntimeBase):
 
         try:
             app_presence.register()
-            _get_tickets(manifest['name'], manifest, self.container_dir)
+
+            if manifest.get('tickets', None):
+                _get_tickets(manifest['name'], manifest, self.container_dir)
+
             _start_service_sup(self.container_dir)
         except exc.ContainerSetupError as err:
             app_abort.abort(

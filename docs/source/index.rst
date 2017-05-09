@@ -8,7 +8,7 @@ Welcome to Treadmill documentation!
 
 .. toctree::
 
-   setup
+   getting_started
    aws_manual
    cli_docs
    dev

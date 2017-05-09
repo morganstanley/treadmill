@@ -10,4 +10,5 @@ services:
 endpoints:
   - name: http
     port: 8000
+    type: infra
 

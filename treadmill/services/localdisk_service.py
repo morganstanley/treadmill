@@ -386,7 +386,7 @@ def _init_block_dev(img_location, img_size='-2G'):
     loop_dev = _loop_dev_for(filename)
     if loop_dev is None:
         # The file doesn't exist.
-        _create_image(TREADMILL_IMG, img_location, reserve)
+        _create_image(TREADMILL_IMG, img_location, img_size)
         # Assign a loop device (if not already assigned)
         # Create the loop device
         subproc.check_call(

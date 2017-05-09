@@ -2,11 +2,6 @@
 treadmill_host_ticket: /treadmill/spool/krb5cc_host
 broken_nodes_percent: 5%
 treadmillid: treadmld
-cell: local
-zookeeper: zookeeper://foo@10.10.10.10:2181
-ldap: ldap://10.10.10.10:1389
-ldap_search_base: ou=treadmill,dc=tw,dc=treadmill
-treadmill_exe_whitelist: /home/centos/treadmill/etc/linux.exe.config
 masters:
 - hostname: localhost.localdomain
   idx: 1

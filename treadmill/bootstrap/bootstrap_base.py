@@ -7,10 +7,7 @@ import logging
 import os
 import tempfile
 import jinja2
-import treadmill
 
-from treadmill import admin
-from treadmill import context
 from treadmill import fs
 
 _LOGGER = logging.getLogger(__name__)

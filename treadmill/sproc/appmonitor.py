@@ -131,13 +131,13 @@ def _run_sync():
         """Watch app monitors."""
 
         monitors = set(children)
-        extra = state['monitors'].viewkeys() - monitors
+        extra = state['monitors'].keys() - monitors
         for name in extra:
             _LOGGER.info('Removing extra monitor: %r', name)
             if state['monitors'].pop(name, None) is None:
                 _LOGGER.warn('Failed to remove non-existent monitor: %r', name)
 
-        missing = monitors - state['monitors'].viewkeys()
+        missing = monitors - state['monitors'].keys()
 
         for name in missing:
             _LOGGER.info('Adding missing monitor: %s', name)

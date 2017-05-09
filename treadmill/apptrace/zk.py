@@ -180,7 +180,7 @@ class TaskDB(object):
             with open(self.name, 'rb') as f:
                 db_node = zkutils.create(
                     self.zkclient, db_node_path, zlib.compress(
-                        f.read().encode('utf-8')
+                        f.read()
                     ),
                     sequence=True
                 )

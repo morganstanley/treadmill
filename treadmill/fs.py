@@ -302,6 +302,8 @@ def make_rootfs(newroot, proid):
         '/usr',
         '/var/tmp/treadmill/env',
         '/var/tmp/treadmill/spool',
+        '/home',
+        '/var/empty'
     ]
 
     emptydirs = [
@@ -311,7 +313,7 @@ def make_rootfs(newroot, proid):
         '/var/spool/tickets',
         '/var/spool/tokens',
         '/var/tmp',
-        '/var/tmp/cores',
+        '/var/tmp/cores'
     ]
 
     stickydirs = [
@@ -342,9 +344,7 @@ def make_rootfs(newroot, proid):
                      '/var/spool/tokens']:
         mount_tmpfs(newroot_norm, tmpfsdir, '4M')
 
-    userdirs = [
-        '/home',
-    ]
+    userdirs = []
 
     pwnam = pwd.getpwnam(proid)
     for directory in userdirs:

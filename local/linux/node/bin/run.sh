@@ -11,7 +11,7 @@ IONICE={{ ionice }}
 
 
 # Setup /a so that NFS works inside the containers
-{{ treadmill }}/sbin/configure_mounts.sh
+#{{ treadmill }}/sbin/configure_mounts.sh
 
 export PATH={{ s6 }}/bin:${PATH}
 

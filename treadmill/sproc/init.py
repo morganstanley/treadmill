@@ -108,7 +108,7 @@ def init():
 
         # Delete the node
         zkutils.ensure_deleted(zkclient, zk_presence_path)
-        zkclient.remove_listener(zkutils.exit_on_lost)
+        zkclient.remove_listener(_exit_clear_watchdog_on_lost)
         zkclient.stop()
         zkclient.close()
 
@@ -231,10 +231,9 @@ def _init_kernel_watchdog():
 
     if os.name == 'nt':
         return None
-
     try:
         kwd = open('/dev/watchdog', 'wb', buffering=0)
-        kwd.write('1')
+        kwd.write(b'1')
     except (OSError, IOError) as err:
         if err.errno != errno.ENOENT:
             raise
@@ -251,7 +250,7 @@ def _stroke_kernel_watchdog():
         return None
 
     if _KERNEL_WATCHDOG is not None:
-        _KERNEL_WATCHDOG.write('1')
+        _KERNEL_WATCHDOG.write(b'1')
 
 
 def _clear_kernel_watchdog():
@@ -265,7 +264,7 @@ def _clear_kernel_watchdog():
         return
 
     if _KERNEL_WATCHDOG is not None:
-        _KERNEL_WATCHDOG.write('V')
+        _KERNEL_WATCHDOG.write(b'V')
         _KERNEL_WATCHDOG.close()
         _KERNEL_WATCHDOG = None
 

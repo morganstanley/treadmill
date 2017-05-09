@@ -75,6 +75,7 @@ class LinuxRuntimeRunTest(unittest.TestCase):
                 mock.Mock(return_value='/test_treadmill'))
     @mock.patch('shutil.copytree', mock.Mock())
     @mock.patch('shutil.copyfile', mock.Mock())
+    @mock.patch('shutil.rmtree', mock.Mock())
     @mock.patch('os.path.exists', mock.Mock(
         side_effect=lambda path: True if 'resolv.conf' in path else
         path_exists(path)
@@ -814,6 +815,8 @@ class LinuxRuntimeRunTest(unittest.TestCase):
         side_effect=lambda path: True if 'root/.etc' in path else
         path_exists(path)
     ))
+    @mock.patch('treadmill.subproc.resolve',
+                mock.Mock(return_value='/tmp/treadmill_bind_preload.so'))
     def test_run(self):
         """Tests linux.run sequence, which will result in supervisor exec.
         """
@@ -945,7 +948,7 @@ class LinuxRuntimeRunTest(unittest.TestCase):
         # Ephemeral LDPRELOAD
         treadmill.runtime.linux._run._prepare_ldpreload.assert_called_with(
             os.path.join(app_dir, 'root'),
-            ['/some/$LIB/treadmill_bind_preload.so']
+            ['/tmp/treadmill_bind_preload.so']
         )
         # Misc bind mounts
         treadmill.fs.mount_bind.assert_has_calls([

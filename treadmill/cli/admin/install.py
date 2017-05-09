@@ -7,42 +7,33 @@ import yaml
 
 import treadmill
 from treadmill import bootstrap
-from treadmill.bootstrap.linux_bootstrap import NodeBootstrap, MasterBootstrap
-from treadmill.bootstrap.linux_bootstrap import HAProxyBootstrap, SpawnBootstrap
 from treadmill import cli
 from treadmill import context
 
 
 def _load_configs(config, default_file):
-    allconfigs = [
+    all_configs = [
         os.path.join(treadmill.TREADMILL, 'etc/linux.aliases'),
         os.path.join(treadmill.TREADMILL, default_file)
     ]
 
     for filename in config:
-        allconfigs.append(filename)
+        all_configs.append(filename)
 
     params = {}
-    for filename in allconfigs:
+    for filename in all_configs:
         with open(filename) as f:
             params.update(yaml.load(f.read()))
 
-    return params
-
-
-def _load_ldap_config():
-    """Parameters for both node and master."""
-    cellname = context.GLOBAL.cell
-    admin_cell = admin.Cell(context.GLOBAL.ldap.conn)
-    return {
-        'cell': cellname,
+    params.update({
+        'cell': context.GLOBAL.cell,
         'zookeeper': context.GLOBAL.zk.url,
         'ldap': context.GLOBAL.ldap.url,
         'dns_domain': context.GLOBAL.dns_domain,
         'ldap_search_base': context.GLOBAL.ldap.search_base,
         'treadmill': treadmill.TREADMILL,
-        'treadmillid': params['username']
-    }
+    })
+    return params
 
 
 def init():
@@ -57,7 +48,6 @@ def init():
                   envvar='TREADMILL_CELL',
                   callback=cli.handle_context_opt,
                   expose_value=False)
-    @click.pass_context
     @click.option('--aliases', type=click.File(), multiple=True)
     @click.pass_context
     def install(ctx, aliases):
@@ -67,7 +57,12 @@ def init():
             [os.path.abspath(x.name) for x in aliases])
 
         linux_aliases = os.path.join(treadmill.TREADMILL, 'etc/linux.aliases')
-        aliases_path = linux_aliases + ':' + aliases_path
+
+        if aliases_path:
+            aliases_path = linux_aliases + ':' + aliases_path
+        else:
+            aliases_path = linux_aliases
+
         ctx.obj['COMMON_DEFAULTS'] = {
             'aliases_path': aliases_path
         }
@@ -81,13 +76,6 @@ def init():
         ctx.obj['COMMON_DEFAULTS']['_alias'] = aliases_data
         # TODO(boysson): remove the below once all templates are cleaned up
         ctx.obj['COMMON_DEFAULTS'].update(aliases_data)
-
-        for conf in config:
-            ctx.obj['COMMON_DEFAULTS'].update(yaml.load(stream=conf))
-
-        if override:
-            ctx.obj['COMMON_DEFAULTS'].update(override)
-
         os.environ['TREADMILL'] = treadmill.TREADMILL
         os.environ['TREADMILL_ALIASES_PATH'] = aliases_path
 
@@ -98,24 +86,21 @@ def init():
     @click.option('--run/--no-run', is_flag=True, default=False)
     @click.option('--config', type=click.File(), multiple=True)
     @click.option('--override', required=False, type=cli.DICT)
-    @click.option('--use-ldap', is_flag=True, default=False)
     @click.pass_context
-    def node(ctx, install_dir, run, config, override, use_ldap):
+    def node(ctx, install_dir, run, config, override):
         """Installs Treadmill node."""
 
         node_config = 'local/linux/node.config.yml'
         params = _load_configs(config, node_config)
         if override:
-             params.update(override)
+            params.update(override)
 
         params.update({'dir': install_dir})
 
-        if use_ldap:
-            params.update(_load_ldap_config())
-
+        ctx.obj['COMMON_DEFAULTS'].update(params)
         node_bootstrap = bootstrap.NodeBootstrap(
             install_dir,
-            params,
+            ctx.obj['COMMON_DEFAULTS'],
         )
 
         node_bootstrap.install()
@@ -136,19 +121,17 @@ def init():
                       type=click.Choice(['1', '2', '3']))
         @click.option('--config', type=click.File(), multiple=True)
         @click.option('--override', required=False, type=cli.DICT)
-        @click.option('--use-ldap', is_flag=True, default=False)
         @click.pass_context
-        def master(ctx, install_dir, run, master_id, config, overrride, use_ldap):
+        def master(ctx, install_dir, run,
+                   master_id, config, override):
             """Installs Treadmill master."""
 
             master_config_file = 'local/linux/master.config.yml'
 
             params = _load_configs(config, master_config_file)
-            if use_ldap:
-                params.update(_load_ldap_config())
+
             if override:
                 params.update(override)
-
 
             params.update({
                 'master-id': master_id,
@@ -161,9 +144,11 @@ def init():
                 if master['idx'] == int(master_id):
                     params.update({'me': master})
 
+            ctx.obj['COMMON_DEFAULTS'].update(params)
+
             master_bootstrap = bootstrap.MasterBootstrap(
                 install_dir,
-                params,
+                ctx.obj['COMMON_DEFAULTS'],
                 master_id
             )
             master_bootstrap.install()
@@ -181,7 +166,7 @@ def init():
         @click.option('--run/--no-run', is_flag=True, default=False)
         @click.option('--override', required=False, type=cli.DICT)
         @click.pass_context
-        def spawn(ctx, install_dir, run):
+        def spawn(ctx, install_dir, run, override):
             """Installs Treadmill spawn."""
             if override:
                 ctx.obj['COMMON_DEFAULTS'].update(override)
@@ -205,7 +190,7 @@ def init():
         @click.option('--run/--no-run', is_flag=True, default=False)
         @click.option('--override', required=False, type=cli.DICT)
         @click.pass_context
-        def haproxy(ctx, install_dir, run):
+        def haproxy(ctx, install_dir, run, override):
             """Installs Treadmill haproxy."""
             if override:
                 ctx.obj['COMMON_DEFAULTS'].update(override)

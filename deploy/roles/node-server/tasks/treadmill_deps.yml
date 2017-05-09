@@ -10,9 +10,6 @@
 - name: Make the mount private
   command: "mount --make-rprivate /"
 
-- name: Make local disk volume
-  shell: "dd if=/dev/zero of={{app_root}}/treadmill.img seek=$((1024*1024*20)) count=1"
-
 - name: Configure sshd_config
   replace:
     dest: /etc/ssh/sshd_config

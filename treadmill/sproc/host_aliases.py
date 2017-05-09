@@ -45,7 +45,7 @@ def _generate(aliases, original, dest):
     """Generate target hosts file."""
     _LOGGER.info('Generating: %s', dest)
     with open(dest, 'w+') as f:
-        f.write(original)
+        f.write(original.decode())
         for alias, hostname in aliases.items():
             try:
                 ipaddr, fqdn = _canonical(hostname)

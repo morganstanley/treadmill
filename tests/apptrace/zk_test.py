@@ -55,7 +55,7 @@ class AppTraceZKTest(mockzk.MockZookeeperTestCase):
     @mock.patch('kazoo.client.KazooClient', mock.Mock())
     @mock.patch('tempfile.NamedTemporaryFile', mock.MagicMock())
     @mock.patch('sqlite3.connect', mock.Mock())
-    @mock.patch('builtins.open', mock.mock_open(read_data='test'))
+    @mock.patch('builtins.open', mock.mock_open(read_data=b'test'))
     @mock.patch('os.unlink', mock.Mock())
     def test_task_db_add_upload_size(self):
         """"Tests adding rows to task DB and uploading to ZK if enough rows."""
@@ -82,7 +82,7 @@ class AppTraceZKTest(mockzk.MockZookeeperTestCase):
     @mock.patch('kazoo.client.KazooClient', mock.Mock())
     @mock.patch('tempfile.NamedTemporaryFile', mock.MagicMock())
     @mock.patch('sqlite3.connect', mock.Mock())
-    @mock.patch('builtins.open', mock.mock_open(read_data='test'))
+    @mock.patch('builtins.open', mock.mock_open(read_data=b'test'))
     @mock.patch('os.unlink', mock.Mock())
     def test_task_db_add_upload_close(self):
         """"Tests adding rows to task DB and uploading to ZK on close."""

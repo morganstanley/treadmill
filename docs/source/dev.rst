@@ -6,7 +6,7 @@ Treadmill Binary
 
 ::
 
-   pex install git+https://github.com/thoughtworksinc/pex#egg=pex
+   pip install git+https://github.com/thoughtworksinc/pex#egg=pex
 
 **Build:**
 
