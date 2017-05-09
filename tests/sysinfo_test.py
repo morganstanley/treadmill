@@ -9,7 +9,7 @@ from collections import namedtuple
 import mock
 
 import treadmill
-import treadmill.appmgr
+import treadmill.appenv
 from treadmill import sysinfo
 
 
@@ -91,6 +91,8 @@ Hugepagesize:     2048 kB
         self.assertEqual(400, du.total)
         self.assertEqual(80, du.free)
 
+    @mock.patch('treadmill.cgroups.get_cpuset_cores',
+                mock.Mock(return_value=range(0, 4)))
     def test_bogomips(self):
         """Mock test for mem info."""
         cpuinfo = """
@@ -207,11 +209,9 @@ power management: [8]
     @mock.patch('time.time', mock.Mock(return_value=50))
     @mock.patch('treadmill.cgroups.get_value',
                 mock.Mock(return_value=42 * 1024 ** 2))
-    @mock.patch('treadmill.sysinfo.BMIPS_PER_CPU', 1)
-    @mock.patch('treadmill.sysinfo.total_bogomips',
+    @mock.patch('treadmill.cgroups.get_cpu_shares',
                 mock.Mock(return_value=2))
-    @mock.patch('treadmill.sysinfo._app_cpu_shares_prct',
-                mock.Mock(return_value=1.0))  # 100% is available to TM apps.
+    @mock.patch('treadmill.sysinfo.BMIPS_PER_CPU', 1)
     @mock.patch('treadmill.syscall.sysinfo.sysinfo',
                 mock.Mock(return_value=namedtuple('mock_si', ['uptime'])(42)))
     def test_node_info(self):
@@ -220,7 +220,7 @@ power management: [8]
         # Access protected members
         # pylint: disable=W0212
         mock_tm_env = mock.Mock(
-            spec_set=treadmill.appmgr.AppEnvironment,
+            spec_set=treadmill.appenv.AppEnvironment,
             svc_cgroup=mock.Mock(
                 spec_set=treadmill.services._base_service.ResourceService,
             ),
@@ -247,26 +247,6 @@ power management: [8]
                 'disk': '100M',   # As returned by localdisk service
                 'up_since': 8,
             }
-        )
-
-    @mock.patch('treadmill.cgroups.get_value', mock.Mock())
-    def test__app_cpu_shares_prct(self):
-        """Test available cpu shares calculation.
-        """
-        # Access protected members
-        # pylint: disable=W0212
-        treadmill.cgroups.get_value.side_effect = [
-            2500,  # system
-            7500,  # treadmill
-            2000,  # core
-            2000,  # apps
-        ]
-
-        res = sysinfo._app_cpu_shares_prct()
-
-        self.assertEqual(
-            res,
-            0.375,  # 0.75 (tm/sys split) * 0.5 (core/apps split)
         )
 
 

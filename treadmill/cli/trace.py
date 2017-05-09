@@ -1,25 +1,56 @@
 """Treadmill trace CLI."""
 
 
-import json
 import logging
-import socket
 import sys
 import urllib.request
 import urllib.parse
 import urllib.error
-
-import websocket as ws_client
 
 import click
 
 from treadmill import cli
 from treadmill import context
 from treadmill import restclient
+from treadmill.websocket import client as ws_client
 
 from treadmill.apptrace import (events, printer)
 
 _LOGGER = logging.getLogger(__name__)
+
+
+def _trace_loop(ctx, app, snapshot):
+    """Instance trace loop."""
+    trace_printer = printer.AppTracePrinter()
+
+    def on_message(result):
+        """Callback to process trace message."""
+        event = events.AppTraceEvent.from_dict(result['event'])
+        if event is None:
+            return False
+
+        trace_printer.process(event)
+        if isinstance(event, events.DeletedTraceEvent):
+            return False
+
+        return True
+
+    def on_error(result):
+        """Callback to process errors."""
+        click.echo('Error: %s' % result['_error'], err=True)
+
+    try:
+        return ws_client.ws_loop(
+            ctx['wsapi'],
+            {'topic': '/trace',
+             'filter': app},
+            snapshot,
+            on_message,
+            on_error
+        )
+    except ws_client.ConnectionError:
+        click.echo('Could not connect to any Websocket APIs', err=True)
+        sys.exit(-1)
 
 
 def init():
@@ -96,42 +127,6 @@ def init():
                     instanceid=sorted(trace_info['instances'])[-1]
                 )
 
-        apis = context.GLOBAL.ws_api(ctx['wsapi'])
-        ws = None
-        for api in apis:
-            try:
-                ws = ws_client.create_connection(api)
-                _LOGGER.debug('Using API %s', api)
-                break
-            except socket.error:
-                _LOGGER.debug('Could not connect to %s, trying next SRV '
-                              'record', api)
-                continue
-
-        if not ws:
-            click.echo('Could not connect to any Websocket APIs', err=True)
-            sys.exit(-1)
-
-        ws.send(json.dumps({'topic': '/trace',
-                            'filter': app,
-                            'snapshot': snapshot}))
-
-        trace_printer = printer.AppTracePrinter()
-        while True:
-            reply = ws.recv()
-            if not reply:
-                break
-            result = json.loads(reply)
-            if '_error' in result:
-                click.echo('Error: %s' % result['_error'], err=True)
-                break
-
-            event = events.AppTraceEvent.from_dict(result['event'])
-            if event is None:
-                continue
-
-            trace_printer.process(event)
-
-        ws.close()
+        return _trace_loop(ctx, app, snapshot)
 
     return trace

@@ -1,60 +1,80 @@
 """Firewall rule representation"""
 
+ANY_IP = '0.0.0.0/0'
+ANY_PORT = 0
+
 
 class DNATRule(object):
     """Definition of a DNAT Rule
 
-    :param proto:
-        Proto for the redirection
-    :type proto:
-        ``str``
-    :param orig_ip:
-        Original destination IP to be rewriten.
-    :type orig_ip:
-        ``str``
-    :param orig_port:
-        Original destination prot to be rewriten.
-    :type orig_port:
-        ``str``
-    :param new_ip:
+    :param ``str`` new_dst_ip:
         New destination IP.
-    :type new_ip:
-        ``str``
-    :param new_port:
+    :param ``int`` new_dst_port:
         New destination port.
-    :type new_port:
-        ``str``
+    :param ``str`` proto:
+        Proto for the redirection
+    :param ``str`` src_ip:
+        Original source IP.
+    :param ``int`` src_port:
+        Original source port.
+    :param ``str`` dst_ip:
+        Original destination IP to be rewriten.
+    :param ``int`` dst_port:
+        Original destination port to be rewriten.
     """
     __slots__ = (
         'proto',
-        'orig_ip',
-        'orig_port',
+        'dst_ip',
+        'dst_port',
+        'src_ip',
+        'src_port',
         'new_ip',
         'new_port',
     )
 
-    def __init__(self, proto, orig_ip, orig_port, new_ip, new_port):
+    def __init__(self, proto, new_ip, new_port,
+                 src_ip=ANY_IP, src_port=ANY_PORT,
+                 dst_ip=ANY_IP, dst_port=ANY_PORT):
+        if src_ip is None:
+            src_ip = ANY_IP
+        if src_port is None:
+            src_port = ANY_PORT
+        if dst_ip is None:
+            dst_ip = ANY_IP
+        if dst_port is None:
+            dst_port = ANY_PORT
         self.proto = proto
-        self.orig_ip = orig_ip
-        self.orig_port = orig_port
+        self.src_ip = src_ip
+        self.src_port = int(src_port)
+        self.dst_ip = dst_ip
+        self.dst_port = int(dst_port)
         self.new_ip = new_ip
-        self.new_port = new_port
+        self.new_port = int(new_port)
 
     def __repr__(self):
-        return '{cls}({proto}:{origip}:{origport}->{newip}:{newport})'.format(
-            cls=self.__class__.__name__,
+        return (
+            '{cls}({proto}:'
+            '{src_ip}:{src_port}:{dst_ip}:{dst_port}'
+            '->D{new_ip}:{new_port})'
+        ).format(
+            cls=type(self).__name__,
             proto=self.proto,
-            origip=self.orig_ip,
-            origport=self.orig_port,
-            newip=self.new_ip,
-            newport=self.new_port,
+            src_ip=('*' if self.src_ip is ANY_IP else self.src_ip),
+            src_port=(self.src_port or '*'),
+            dst_ip=('*' if self.dst_ip is ANY_IP else self.dst_ip),
+            dst_port=(self.dst_port or '*'),
+            new_ip=self.new_ip,
+            new_port=self.new_port,
         )
 
     def __eq__(self, other):
         return (
+            type(self) is type(other) and
             self.proto == other.proto and
-            self.orig_ip == other.orig_ip and
-            self.orig_port == other.orig_port and
+            self.src_ip == other.src_ip and
+            self.src_port == other.src_port and
+            self.dst_ip == other.dst_ip and
+            self.dst_port == other.dst_port and
             self.new_ip == other.new_ip and
             self.new_port == other.new_port
         )
@@ -62,15 +82,110 @@ class DNATRule(object):
     def __hash__(self):
         return hash(
             (
+                type(self),
                 self.proto,
-                self.orig_ip,
-                self.orig_port,
+                self.src_ip,
+                self.src_port,
+                self.dst_ip,
+                self.dst_port,
                 self.new_ip,
                 self.new_port,
             )
         )
 
 
+class SNATRule(object):
+    """Definition of a SNAT Rule
+
+    :param ``str`` new_ip:
+        New source IP.
+    :param ``str`` new_port:
+        New source port.
+    :param ``str`` proto:
+        Proto for the redirection
+    :param ``str`` src_ip:
+        Original source IP to be rewriten.
+    :param ``int`` src_port:
+        Original source port to be rewriten.
+    :param ``str`` dst_ip:
+        Original destination IP.
+    :param ``int`` dst_port:
+        Original destination port.
+    """
+    __slots__ = (
+        'proto',
+        'dst_ip',
+        'dst_port',
+        'src_ip',
+        'src_port',
+        'new_ip',
+        'new_port',
+    )
+
+    def __init__(self, proto, new_ip, new_port,
+                 src_ip=ANY_IP, src_port=ANY_PORT,
+                 dst_ip=ANY_IP, dst_port=ANY_PORT):
+        if src_ip is None:
+            src_ip = ANY_IP
+        if src_port is None:
+            src_port = ANY_PORT
+        if dst_ip is None:
+            dst_ip = ANY_IP
+        if dst_port is None:
+            dst_port = ANY_PORT
+
+        self.proto = proto
+        self.src_ip = src_ip
+        self.src_port = int(src_port)
+        self.dst_ip = dst_ip
+        self.dst_port = int(dst_port)
+        self.new_ip = new_ip
+        self.new_port = int(new_port)
+
+    def __repr__(self):
+        return (
+            '{cls}({proto}:'
+            '{src_ip}:{src_port}:{dst_ip}:{dst_port}'
+            '->S{new_ip}:{new_port})'
+        ).format(
+            cls=type(self).__name__,
+            proto=self.proto,
+            src_ip=('*' if self.src_ip is ANY_IP else self.src_ip),
+            src_port=(self.src_port or '*'),
+            dst_ip=('*' if self.dst_ip is ANY_IP else self.dst_ip),
+            dst_port=(self.dst_port or '*'),
+            new_ip=self.new_ip,
+            new_port=self.new_port,
+        )
+
+    def __eq__(self, other):
+        return (
+            type(self) is type(other) and
+            self.proto == other.proto and
+            self.src_ip == other.src_ip and
+            self.src_port == other.src_port and
+            self.dst_ip == other.dst_ip and
+            self.dst_port == other.dst_port and
+            self.new_ip == other.new_ip and
+            self.new_port == other.new_port
+        )
+
+    def __hash__(self):
+        return hash(
+            (
+                type(self),
+                self.proto,
+                self.src_ip,
+                self.src_port,
+                self.dst_ip,
+                self.dst_port,
+                self.new_ip,
+                self.new_port,
+            )
+        )
+
+
+# TODO(boysson): Fold PassThroughRule a kind of DNAT rule
 class PassThroughRule(object):
     """Definition of a PassThrough rule
 
@@ -101,6 +216,7 @@ class PassThroughRule(object):
 
     def __eq__(self, other):
         return (
+            type(self) is type(other) and
             self.src_ip == other.src_ip and
             self.dst_ip == other.dst_ip
         )

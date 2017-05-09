@@ -18,7 +18,10 @@
                 "type": "string"
             },
             "endpoint": { "$ref": "common.json#/endpoint" },
-            "environment": { "$ref": "common.json#/environment" },
+            "environment": {
+                "type": "string",
+                "pattern": "^dev$|^prod$"
+            },
             "lbenv": {
                 "type": "string",
                 "pattern": "^qa$|^prod$"

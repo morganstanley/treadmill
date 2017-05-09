@@ -24,6 +24,10 @@ def init(api, cors, impl):
 
     request_model, response_model = app_model.models(api)
 
+    match_parser = api.parser()
+    match_parser.add_argument('match', help='A glob match on an app name',
+                              location='args', required=False,)
+
     @namespace.route(
         '/',
     )
@@ -32,11 +36,12 @@ def init(api, cors, impl):
 
         @webutils.get_api(api, cors,
                           marshal=api.marshal_list_with,
-                          resp_model=response_model)
+                          resp_model=response_model,
+                          parser=match_parser)
         def get(self):
             """Returns list of configured applications."""
-            ret = impl.list()
-            return ret
+            args = match_parser.parse_args()
+            return impl.list(args.get('match'))
 
     @namespace.route('/<app>')
     @api.doc(params={'app': 'Application ID/Name'})

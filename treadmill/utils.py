@@ -1,17 +1,18 @@
-"""Useful utility functions."""
-
-
-import signal
+"""Useful utility functions.
+"""
 
 import datetime
+import functools
 import hashlib
 import locale
 import logging
 import os
 import pkgutil
+import signal
 import stat
 import time
 import urllib.parse
+from collections import namedtuple
 
 # Pylint warning re string being deprecated
 #
@@ -21,18 +22,18 @@ import string
 # see:
 # http://stackoverflow.com/questions/13193278/understand-python-threading-bug
 import threading
-from functools import reduce
-from collections import namedtuple
+
 import yaml
 import jinja2
 
 import treadmill
 
-# E0611: No name 'subproc' in module 'treadmill'
-from . import subproc  # pylint: disable=E0611
+from treadmill import subproc
+from treadmill import osnoop
 
 if os.name != 'nt':
     import fcntl
+    import pwd
 
 
 threading._DummyThread._Thread__stop = lambda x: 0  # pylint: disable=W0212
@@ -63,8 +64,11 @@ def create_script(path, templatename, mode=EXEC_MODE, *args, **kwargs):
     template = JINJA2_ENV.get_template(templatename)
 
     all_kwargs = {}
-    if subproc.EXECUTABLES:
-        all_kwargs.update(subproc.EXECUTABLES)
+
+    executables = subproc.get_aliases()
+    if executables:
+        all_kwargs.update(executables)
+
     all_kwargs.update(kwargs)
 
     with open(path, 'w') as f:
@@ -189,8 +193,10 @@ def distro():
 
 def touch(filename):
     """'Touch' a filename."""
-    with open(filename, 'a') as f:
-        os.fchown(f.fileno(), -1, -1)
+    try:
+        os.utime(filename, None)
+    except OSError:
+        open(filename, 'a').close()
 
 
 class FileLock(object):
@@ -461,6 +467,7 @@ def from_base_n(base_num, base=None, alphabet=None):
     return num
 
 
+@osnoop.windows
 def report_ready():
     """Reports the service as ready for s6-svwait -U."""
     try:
@@ -475,6 +482,7 @@ def report_ready():
         _LOGGER.warn('notification-fd does not exist.')
 
 
+@osnoop.windows
 def drop_privileges(uid_name='nobody'):
     """Drop root privileges."""
     if os.getuid() != 0:
@@ -482,7 +490,6 @@ def drop_privileges(uid_name='nobody'):
         return
 
     # Get the uid/gid from the name
-    import pwd
     running_uid = pwd.getpwnam(uid_name).pw_uid
 
     # Remove group privileges
@@ -508,6 +515,14 @@ def signal2name(num):
     return _SIG2NAME.get(num, num)
 
 
+def term_signal():
+    """Gets the term signal for the os."""
+    if os.name == 'nt':
+        return signal.SIGBREAK
+    else:
+        return signal.SIGTERM
+
+
 def make_signal_flag(*signals):
     """Return a flag that will be set when process is signaled."""
     _LOGGER.info('Configuring signal flag: %r', signals)
@@ -525,7 +540,7 @@ def make_signal_flag(*signals):
 
 def compose(*funcs):
     """Compose functions."""
-    return lambda x: reduce(lambda v, f: f(v), reversed(funcs), x)
+    return lambda x: functools.reduce(lambda v, f: f(v), reversed(funcs), x)
 
 
 def modules_in_pkg(pkg):

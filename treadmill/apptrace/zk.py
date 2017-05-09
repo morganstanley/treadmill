@@ -3,13 +3,14 @@
 
 import fnmatch
 import logging
+import tempfile
 import os
-import time
-
-import kazoo
+import sqlite3
+import zlib
 
 from treadmill import exc
 from treadmill import zknamespace as z
+from treadmill import zkutils
 
 from . import events as traceevents
 
@@ -125,71 +126,157 @@ class AppTrace(object):
             self._callback.process(event, ctx)
 
 
-def cleanup(zkclient, expire_after, max_events=1024):
-    """Iterates over tasks nodes and deletes all that are expired."""
-    # Enumerate all tasks.
-    tasks = set(zkclient.get_children('/tasks'))
-    scheduled = set(zkclient.get_children('/scheduled'))
-
-    for task in tasks:
-        task_node = os.path.join('/tasks', task)
-        instances = set(zkclient.get_children(task_node))
-
-        # Filter out instances that are not running
-        finished = set([instance for instance in instances
-                        if '#'.join([task, instance]) not in scheduled])
-
-        for instance in instances:
-            instance_node = os.path.join(task_node, instance)
-            _LOGGER.info('Processing task: %s/%s', task_node, instance)
-            events = sorted([tuple(reversed(node.rsplit('-', 1)))
-                             for node in zkclient.get_children(instance_node)])
-            # Maintain at most N events
-            if len(events) > max_events:
-                extra = len(events) - max_events
-                _LOGGER.info('Deleting extra events for node: %s %s',
-                             instance_node, extra)
-
-                for event in events[:extra]:
-                    ev_node = '-'.join(reversed(event))
-                    ev_fullpath = os.path.join(task_node, instance, ev_node)
-
-                    zkclient.delete(ev_fullpath)
-
-            if instance in finished:
-                # Check last event time stamp, and it if is > expired, mark
-                # the whole node as expired.
-                expired = False
-                if not events:
-                    expired = True
-                else:
-                    last_ev_node = '-'.join(reversed(events[-1]))
-                    last_ev_fullpath = os.path.join(task_node,
-                                                    instance,
-                                                    last_ev_node)
-                    _data, metadata = zkclient.get(last_ev_fullpath)
-                    if metadata.last_modified + expire_after < time.time():
-                        _LOGGER.info('Instance %s expired.', instance)
-                        expired = True
-
-                # If xpired, delete all events and then delete the task node.
-                if expired:
-                    _LOGGER.info('Deleting instance node: %s', instance_node)
-                    zkclient.delete(instance_node, recursive=True)
-
-        try:
-            zkclient.delete('/tasks/' + task)
-            _LOGGER.info('/tasks/%s empty, deleting.', task)
-        except kazoo.exceptions.NotEmptyError:
-            _LOGGER.info('/tasks/%s not empty.', task)
-
-
 def list_history(zkclient, app_pattern):
     """List all historical tasks for given app name."""
     tasks = []
-    for app in zkclient.get_children('/tasks'):
+    for app in zkclient.get_children(z.TASKS):
         if fnmatch.fnmatch(app, app_pattern):
-            instances = zkclient.get_children(os.path.join('/tasks', app))
+            instances = zkclient.get_children(z.path.task(app))
             tasks.extend([app + '#' + instance for instance in instances])
 
     return tasks
+
+
+class TaskDB(object):
+    """Create task DB snapshots and upload to ZK."""
+
+    _CREATE_TASKS_TABLE = """
+    create table tasks (path text, timestamp integer, data text)
+    """
+
+    _INSERT_TASK = 'insert into tasks values(?, ?, ?)'
+
+    _SNAPSHOT_SIZE = 10000  # Approx number of rows in one snapshot.
+
+    def __init__(self, zkclient):
+        self.zkclient = zkclient
+        self.name = None
+        self.conn = None
+        self.cur = None
+        self.rows_count = 0
+
+    def _open(self):
+        """Create empty database and open connection."""
+        with tempfile.NamedTemporaryFile(delete=False) as f:
+            pass
+
+        self.name = f.name
+        self.conn = sqlite3.connect(f.name)
+        self.cur = self.conn.cursor()
+        self.cur.execute(self._CREATE_TASKS_TABLE)
+        self.rows_count = 0
+
+        _LOGGER.info('Initialized task_db snapshot: %s', self.name)
+
+    def _close(self):
+        """Close database, compress and upload to ZK."""
+        _LOGGER.info('Closing task_db snapshot: %s, total rows: %s',
+                     self.name, self.rows_count)
+        self.conn.commit()
+        self.conn.close()
+
+        if self.rows_count > 0:
+            db_node_path = z.path.tasks_history('tasks.db.gzip-')
+            with open(self.name, 'rb') as f:
+                db_node = zkutils.create(
+                    self.zkclient, db_node_path, zlib.compress(
+                        f.read().encode('utf-8')
+                    ),
+                    sequence=True
+                )
+                _LOGGER.info('Uploaded compressed task_db snapshot: %s to: %s',
+                             self.name, db_node)
+
+        os.unlink(self.name)
+        self.name = None
+        self.conn = None
+        self.cur = None
+        self.rows_count = 0
+
+    def add(self, rows, close=False):
+        """Add rows to the database as transaction, upload when enough rows."""
+        if not self.conn:
+            self._open()
+
+        _LOGGER.info('task_db: added %s rows to: %s', len(rows), self.name)
+        self.cur.executemany(self._INSERT_TASK, rows)
+        self.rows_count += len(rows)
+        self.conn.commit()
+
+        if close or self.rows_count > self._SNAPSHOT_SIZE:
+            self._close()
+            return True
+        else:
+            return False
+
+
+def _delete_all(zkclient, to_be_deleted, recursive=True):
+    """Delete a list of paths."""
+    for path in to_be_deleted:
+        _LOGGER.info('Removing: %s (cleanup)', path)
+        zkutils.ensure_deleted(zkclient, path, recursive)
+
+
+def _cleanup_tasks(zkclient):
+    """Move finished tasks (with trace) to tasks history.
+
+    Tasks history is chunked into a compressed sqlite snapshots of about 200KB.
+    """
+    task_db = TaskDB(zkclient)
+
+    rows = []
+    to_be_deleted = []
+
+    tasks = zkclient.get_children(z.TASKS)
+    for task in tasks:
+        instances = sorted(zkclient.get_children(z.path.task(task)))
+        fullnames = ['%s#%s' % (task, instance) for instance in instances]
+        finished = [fullname for fullname in fullnames
+                    if not zkclient.exists(z.path.scheduled(fullname))]
+
+        for fullname in finished:
+            # Archive instance data, it's a summary info used by the state API.
+            data, stat = zkclient.get(z.path.task(fullname))
+            timestamp = int(stat.last_modified)
+            rows.append((z.path.task(fullname), timestamp, data))
+
+            # Archive instance trace, parse timestamp from event (as in zk2fs).
+            events = zkclient.get_children(z.path.task(fullname))
+            for event in events:
+                when, _rest = event.split(',', 1)
+                timestamp = int(float(when))
+                rows.append((z.path.task(fullname, event), timestamp, None))
+
+            # Commit after 1k rows, upload after 10k rows, delete data from ZK.
+            to_be_deleted.append(z.path.task(fullname))
+            if len(rows) > 1000:
+                uploaded = task_db.add(rows)
+                rows = []
+                if uploaded:
+                    _delete_all(zkclient, to_be_deleted)
+                    to_be_deleted = []
+
+    # Add remaining rows.
+    task_db.add(rows, close=True)
+    _delete_all(zkclient, to_be_deleted)
+
+
+_MAX_TASKS_HISTORY_SIZE = 1000  # Max number of snapshots.
+
+
+def _cleanup_tasks_history(zkclient):
+    """Delete old tasks history, keep last MAX_TASKS_HISTORY_SIZE snapshots."""
+    tasks_history = sorted(zkclient.get_children(z.TASKS_HISTORY))
+
+    to_be_deleted = [
+        z.path.tasks_history(old_tasks_history)
+        for old_tasks_history in tasks_history[:-_MAX_TASKS_HISTORY_SIZE]
+    ]
+
+    _delete_all(zkclient, to_be_deleted, recursive=False)
+
+
+def cleanup(zkclient):
+    """Run single gc cycle."""
+    _cleanup_tasks(zkclient)
+    _cleanup_tasks_history(zkclient)

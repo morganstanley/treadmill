@@ -35,8 +35,10 @@ def init():
                          'expect <appname>/<uniq>/service/<servicename>')
 
         if bool(host) ^ bool(uniq != 'running'):
-            cli.bad_exit('Usage: .../running/... and --host '
-                         'are mutually exclusive.')
+            cli.bad_exit('Usage: Either request logs from a running service'
+                         ' with <appname>/running/service/<servicename> or'
+                         ' provide a hostname with --host and'
+                         ' <appname>/<uniq>/service/<servicename>')
 
         apis = context.GLOBAL.state_api(api)
 

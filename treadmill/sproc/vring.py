@@ -1,6 +1,5 @@
 """Treadmill vring manager."""
 
-
 import signal
 import sys
 
@@ -9,12 +8,14 @@ import yaml
 
 import click
 
-from .. import context
-from .. import discovery
-from .. import logcontext as lc
-from .. import utils
-from .. import vring
-from .. import zkutils
+from treadmill import appenv
+from treadmill import appcfg
+from treadmill import context
+from treadmill import discovery
+from treadmill import logcontext as lc
+from treadmill import utils
+from treadmill import vring
+from treadmill import zkutils
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -24,14 +25,18 @@ def init():
     """Top level command handler."""
 
     @click.command(name='vring')
+    @click.option('--approot', type=click.Path(exists=True),
+                  envvar='TREADMILL_APPROOT', required=True)
     @click.argument('manifest', type=click.File('rb'))
-    def vring_cmd(manifest):
+    def vring_cmd(approot, manifest):
         """Run vring manager."""
         context.GLOBAL.zk.conn.add_listener(zkutils.exit_on_disconnect)
-        app = yaml.load(manifest.read())
+        tm_env = appenv.AppEnvironment(approot)
+        app = yaml.load(stream=manifest)
 
         with lc.LogContext(_LOGGER, app['name'], lc.ContainerAdapter) as log:
 
+            # TODO(boysson): Remove all validation from here.
             utils.validate(app, [('vring', True, dict)])
             ring = app['vring']
             utils.validate(ring, [('rules', True, list), ('cells', True,
@@ -42,9 +47,6 @@ def init():
                              context.GLOBAL.cell)
                 sys.exit(-1)
 
-            ringname = 'TM_OUTPUT_RING_%d' % ring['cells'].index(
-                context.GLOBAL.cell)
-
             rules = ring['rules']
             for rule in rules:
                 utils.validate(rule, [('pattern', True, str),
@@ -53,7 +55,10 @@ def init():
             # Create translation for endpoint name to expected port #.
             routing = {}
             for endpoint in app.get('endpoints', []):
-                routing[endpoint['name']] = endpoint['port']
+                routing[endpoint['name']] = {
+                    'port': endpoint['port'],
+                    'proto': endpoint['proto']
+                }
 
             # Check that all ring endpoints are listed in the manifest.
             vring_endpoints = set()
@@ -72,6 +77,8 @@ def init():
                 sys.exit(-1)
             pattern = rules[0]['pattern']
 
+            app_unique_name = appcfg.manifest_unique_name(app)
+
             app_discovery = discovery.Discovery(context.GLOBAL.zk.conn,
                                                 pattern, '*')
             app_discovery.sync()
@@ -86,7 +93,13 @@ def init():
                 except RuntimeError:
                     pass
 
-            vring.init(ringname)
-            vring.run(ringname, routing, vring_endpoints, app_discovery)
+            vring.run(
+                routing,
+                vring_endpoints,
+                app_discovery,
+                tm_env.rules,
+                app['network']['vip'],
+                app_unique_name,
+            )
 
     return vring_cmd

@@ -84,30 +84,119 @@ class RESTClientTest(unittest.TestCase):
 
     @mock.patch('time.sleep', mock.Mock())
     @mock.patch('treadmill.restclient._handle_error', mock.Mock())
-    @mock.patch('treadmill.restclient._should_retry',
-                mock.Mock(return_value=True))
     @mock.patch('requests.get', mock.Mock())
     def test_retry(self):
         """Tests retry logic."""
 
-        self.assertRaises(
-            restclient.MaxRequestRetriesError,
-            restclient.get,
-            ['http://foo.com', 'http://bla.com'], '/xxx', retries=2)
+        with self.assertRaises(restclient.MaxRequestRetriesError) as cm:
+            restclient.get(
+                ['http://foo.com', 'http://bar.com'],
+                '/baz',
+                retries=3
+            )
+        err = cm.exception
+        self.assertEquals(len(err.attempts), 6)
 
         # Requests are done in order, by because other methods are being
         # callled, to make test simpler, any_order is set to True so that
         # test will pass.
         requests.get.assert_has_calls([
-            mock.call('http://foo.com/xxx', json=None, proxies=None,
-                      headers=None, auth=mock.ANY, timeout=(.5, 10)),
-            mock.call('http://bla.com/xxx', json=None, proxies=None,
-                      headers=None, auth=mock.ANY, timeout=(.5, 10)),
-            mock.call('http://foo.com/xxx', json=None, proxies=None,
-                      headers=None, auth=mock.ANY, timeout=(1.5, 10)),
-            mock.call('http://bla.com/xxx', json=None, proxies=None,
-                      headers=None, auth=mock.ANY, timeout=(1.5, 10)),
+            mock.call('http://foo.com/baz', json=None, proxies=None,
+                      headers=None, auth=mock.ANY, timeout=(.5, 10),
+                      stream=None),
+            mock.call('http://bar.com/baz', json=None, proxies=None,
+                      headers=None, auth=mock.ANY, timeout=(.5, 10),
+                      stream=None),
+            mock.call('http://foo.com/baz', json=None, proxies=None,
+                      headers=None, auth=mock.ANY, timeout=(1.5, 10),
+                      stream=None),
+            mock.call('http://bar.com/baz', json=None, proxies=None,
+                      headers=None, auth=mock.ANY, timeout=(1.5, 10),
+                      stream=None),
+            mock.call('http://foo.com/baz', json=None, proxies=None,
+                      headers=None, auth=mock.ANY, timeout=(2.5, 10),
+                      stream=None),
+            mock.call('http://bar.com/baz', json=None, proxies=None,
+                      headers=None, auth=mock.ANY, timeout=(2.5, 10),
+                      stream=None),
         ], any_order=True)
+        self.assertEquals(requests.get.call_count, 6)
+
+    @mock.patch('time.sleep', mock.Mock())
+    @mock.patch('requests.get',
+                side_effect=requests.exceptions.ConnectionError)
+    def test_retry_on_connection_error(self, _):
+        """Test retry on connection error"""
+
+        with self.assertRaises(restclient.MaxRequestRetriesError) as cm:
+            restclient.get('http://foo.com', '/')
+        err = cm.exception
+        self.assertEquals(len(err.attempts), 5)
+
+    @mock.patch('time.sleep', mock.Mock())
+    @mock.patch('requests.get', side_effect=requests.exceptions.Timeout)
+    def test_retry_on_request_timeout(self, _):
+        """Test retry on request timeout"""
+
+        with self.assertRaises(restclient.MaxRequestRetriesError) as cm:
+            restclient.get('http://foo.com', '/')
+        err = cm.exception
+        self.assertEquals(len(err.attempts), 5)
+
+    @mock.patch('time.sleep', mock.Mock())
+    @mock.patch('requests.get', return_value=mock.MagicMock(requests.Response))
+    def test_retry_on_503(self, resp_mock):
+        """Test retry for status code that should be retried (e.g. 503)"""
+        resp_mock.return_value.status_code = http.client.SERVICE_UNAVAILABLE
+
+        with self.assertRaises(restclient.MaxRequestRetriesError):
+            restclient.get('http://foo.com', '/')
+
+    @mock.patch('requests.get', return_value=mock.MagicMock(requests.Response))
+    def test_default_timeout_get(self, resp_mock):
+        """Tests that default timeout for get request is set correctly."""
+        resp_mock.return_value.status_code = http.client.OK
+        resp_mock.return_value.text = 'foo'
+        restclient.get('http://foo.com', '/')
+        resp_mock.assert_called_with(
+            'http://foo.com/', stream=None, auth=mock.ANY,
+            headers=None, json=None, timeout=(0.5, 10), proxies=None
+        )
+
+    @mock.patch('requests.delete',
+                return_value=mock.MagicMock(requests.Response))
+    def test_default_timeout_delete(self, resp_mock):
+        """Tests that default timeout for delete request is set correctly."""
+        resp_mock.return_value.status_code = http.client.OK
+        resp_mock.return_value.text = 'foo'
+        restclient.delete('http://foo.com', '/')
+        resp_mock.assert_called_with(
+            'http://foo.com/', stream=None, auth=mock.ANY,
+            headers=None, json=None, timeout=(0.5, None), proxies=None
+        )
+
+    @mock.patch('requests.post',
+                return_value=mock.MagicMock(requests.Response))
+    def test_default_timeout_post(self, resp_mock):
+        """Tests that default timeout for post request is set correctly."""
+        resp_mock.return_value.status_code = http.client.OK
+        resp_mock.return_value.text = 'foo'
+        restclient.post('http://foo.com', '/', '')
+        resp_mock.assert_called_with(
+            'http://foo.com/', stream=None, auth=mock.ANY,
+            headers=None, json='', timeout=(0.5, None), proxies=None
+        )
+
+    @mock.patch('requests.put', return_value=mock.MagicMock(requests.Response))
+    def test_default_timeout_put(self, resp_mock):
+        """Tests that default timeout for put request is set correctly."""
+        resp_mock.return_value.status_code = http.client.OK
+        resp_mock.return_value.text = 'foo'
+        restclient.put('http://foo.com', '/', '')
+        resp_mock.assert_called_with(
+            'http://foo.com/', stream=None, auth=mock.ANY,
+            headers=None, json='', timeout=(0.5, None), proxies=None
+        )
 
 
 if __name__ == '__main__':

@@ -62,6 +62,12 @@ attributeTypes:
   label:
     desc: Treadmill server and allocation label
     type: str
+  partition:
+    desc: Treadmill partition
+    type: str
+  down-threshold:
+    desc: Treadmill partition down threshold
+    type: int
   location:
     desc: Treadmill location
     type: str
@@ -215,12 +221,22 @@ objectClasses:
     - cpu
     - disk
     - label
+    - partition
     - max-utilization
     - memory
     - pattern
     - priority
     - rank
     - trait
+  tmPartition:
+    desc: Treadmill Partition
+    must:
+    - partition
+    may:
+    - cpu
+    - disk
+    - memory
+    - down-threshold
   tmApp:
     desc: Treadmill Application
     must:
@@ -273,6 +289,7 @@ objectClasses:
     - master-zk-jmx-port
     - master-zk-followers-port
     - master-zk-election-port
+    - data
   tmServer:
     desc: Treadmill Server
     must:
@@ -281,6 +298,7 @@ objectClasses:
     - cell
     - data
     - label
+    - partition
     - trait
   tmTenant:
     desc: Treadmill Tenant

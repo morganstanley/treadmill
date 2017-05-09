@@ -9,11 +9,7 @@
         "update": {
             "type": "object",
             "properties": {
-                "priority": {
-                    "type": "integer",
-                    "minimum": 0,
-                    "maximum": 100
-                }
+                "priority": { "$ref": "common.json#/priority" }
             },
             "required": ["priority"],
             "additionalProperties": false

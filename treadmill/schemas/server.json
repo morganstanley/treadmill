@@ -15,8 +15,8 @@
                 "type": "array",
                 "items": { "$ref": "common.json#/trait" }
             },
-            "label": {
-                "$ref": "common.json#/label"
+            "partition": {
+                "$ref": "common.json#/partition"
             },
             "parameters": {
                 "type": "array",

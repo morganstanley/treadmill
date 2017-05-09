@@ -1,10 +1,12 @@
 """Implementation of AppGroup API"""
 
 
-from .. import context
-from .. import schema
-from .. import authz
-from .. import admin
+import fnmatch
+
+from treadmill import context
+from treadmill import schema
+from treadmill import authz
+from treadmill import admin
 
 
 class API(object):
@@ -50,9 +52,17 @@ class API(object):
             _admin_app_group().delete(rsrc_id)
             return None
 
-        def _list():
+        def _list(match=None):
             """List configured applications."""
-            return _admin_app_group().list({})
+            if match is None:
+                match = '*'
+
+            app_groups = _admin_app_group().list({})
+            filtered = [
+                app_group for app_group in app_groups
+                if fnmatch.fnmatch(app_group['_id'], match)
+            ]
+            return sorted(filtered)
 
         self.get = get
         self.create = create

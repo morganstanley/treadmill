@@ -1,0 +1,8 @@
+#!/bin/sh
+
+exec 2>&1
+
+exec {{ treadmill_spawn_finish }} -d
+     {%- if stop %} --stop {% endif %}
+     {%- if reconnect %} --reconnect {{ reconnect_timeout }} {% endif %} \
+     {{ id }} {{ cellapi }} {{ cleanup }} "$1"

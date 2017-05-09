@@ -1,5 +1,5 @@
 """
-Unit test for Treadmill presense module.
+Unit test for Treadmill linux runtime presence module.
 """
 
 import os
@@ -8,6 +8,8 @@ import shutil
 import tempfile
 import time
 import unittest
+
+from tests.testutils import mockzk
 
 import mock
 import kazoo
@@ -18,7 +20,6 @@ import treadmill
 from treadmill import exc
 from treadmill import presence
 from treadmill.apptrace import events
-from treadmill.test import mockzk
 
 PROCCGROUPS = """#subsys_name	hierarchy	num_cgroups	enabled
 cpuset	6	1	1

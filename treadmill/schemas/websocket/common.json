@@ -1,0 +1,20 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "message": {
+        "topic": {
+            "type": "string",
+            "pattern": "^/[a-z\\-]+$"
+        },
+        "since": {
+            "type": "integer"
+        },
+        "snapshot": {
+            "type": "boolean"
+        },
+        "filter": {
+            "type": "string",
+            "maxLength": 137,
+            "pattern": "^[\\w\\-\\.#@\\*\\[\\]\\?]+$"
+        }
+    }
+}

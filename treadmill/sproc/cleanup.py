@@ -8,16 +8,17 @@ import subprocess
 
 import click
 
-from .. import appmgr
-from .. import idirwatch
-from .. import logcontext as lc
+from treadmill import appenv
+from treadmill import dirwatch
+from treadmill import logcontext as lc
+from treadmill import subproc
 
 import treadmill
 
 _LOGGER = lc.ContainerAdapter(logging.getLogger(__name__))
 
 # FIXME(boysson): This extremely high timeout value comes from the fact that we
-#                 have a very high watchdog value in appmgr.finish.
+#                 have a very high watchdog value in runtime.
 _WATCHDOG_HEARTBEAT_SEC = 5 * 60
 
 # Maximum number of cleanup request to process per cycle. Be careful of
@@ -35,10 +36,10 @@ def init():
                   envvar='TREADMILL_APPROOT', required=True)
     def top(approot):
         """Start cleanup process."""
-        app_env = appmgr.AppEnvironment(root=approot)
+        tm_env = appenv.AppEnvironment(root=approot)
 
         # Setup the watchdog
-        watchdog_lease = app_env.watchdogs.create(
+        watchdog_lease = tm_env.watchdogs.create(
             name='svc-{svc_name}'.format(svc_name=_SERVICE_NAME),
             timeout='{hb:d}s'.format(hb=_WATCHDOG_HEARTBEAT_SEC),
             content='Service {svc_name!r} failed'.format(
@@ -47,7 +48,7 @@ def init():
 
         def _on_created(path):
             """Callback invoked with new cleanup file appears."""
-            fullpath = os.path.join(app_env.cleanup_dir, path)
+            fullpath = os.path.join(tm_env.cleanup_dir, path)
             with lc.LogContext(_LOGGER, os.path.basename(path),
                                lc.ContainerAdapter) as log:
                 if not os.path.islink(fullpath):
@@ -85,11 +86,11 @@ def init():
 
                 os.unlink(fullpath)
 
-        watcher = idirwatch.DirWatcher(app_env.cleanup_dir)
+        watcher = dirwatch.DirWatcher(tm_env.cleanup_dir)
         watcher.on_created = _on_created
 
         # Before starting, capture all already pending cleanups
-        leftover = glob.glob(os.path.join(app_env.cleanup_dir, '*'))
+        leftover = glob.glob(os.path.join(tm_env.cleanup_dir, '*'))
         # and "fake" a created event on all of them
         for pending_cleanup in leftover:
             _on_created(pending_cleanup)

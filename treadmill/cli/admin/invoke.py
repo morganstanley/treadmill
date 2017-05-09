@@ -1,5 +1,5 @@
-"""Implementation of treadmill-admin CLI plugin."""
-
+"""Implementation of treadmill-admin CLI plugin.
+"""
 
 import pwd
 
@@ -12,7 +12,7 @@ import click
 import jsonschema
 import yaml
 
-from treadmill import authz
+from treadmill import authz as authz_mod
 from treadmill import cli
 from treadmill import context
 
@@ -21,7 +21,7 @@ class Context(object):
     """CLI context."""
 
     def __init__(self):
-        self.authorizer = authz.NullAuthorizer()
+        self.authorizer = authz_mod.NullAuthorizer()
 
     def authorize(self, resource, action, args, kwargs):
         """Invoke internal authorizer."""
@@ -85,7 +85,7 @@ def make_command(parent, name, func):
             click.echo(input_err, err=True)
         except jsonschema.exceptions.RefResolutionError as res_error:
             click.echo(res_error, err=True)
-        except authz.AuthorizationError as auth_err:
+        except authz_mod.AuthorizationError as auth_err:
             click.echo('Not authorized.', err=True)
             click.echo(auth_err, err=True)
         except TypeError as type_err:
@@ -155,16 +155,20 @@ def init():
     ctx = Context()
 
     @click.group()
-    @click.option('--auth/--no-auth', is_flag=True, default=True)
+    @click.option('--authz', required=False)
     @click.option('--cell', required=True,
                   envvar='TREADMILL_CELL',
                   callback=cli.handle_context_opt,
                   expose_value=False)
-    def invoke(auth):
+    def invoke(authz):
         """Directly invoke Treadmill API without REST."""
-        if auth:
-            user_clbk = lambda: pwd.getpwuid(os.getuid()).pw_name
-            ctx.authorizer = authz.PluginAuthorizer(user_clbk)
+        if authz is not None:
+            ctx.authorizer = authz_mod.ClientAuthorizer(
+                lambda: pwd.getpwuid(os.getuid()).pw_name,
+                authz
+            )
+        else:
+            ctx.authorizer = authz_mod.NullAuthorizer()
 
         if cli.OUTPUT_FORMAT == 'pretty':
             raise click.BadParameter('must use --outfmt [json|yaml]')

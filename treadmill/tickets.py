@@ -1,8 +1,6 @@
 """Handles ticket forwarding from the ticket master to the node."""
 
-
 import pwd
-
 import base64
 import hashlib
 import logging
@@ -12,9 +10,14 @@ import shutil
 import stat
 import subprocess
 import tempfile
+
 from twisted.internet import reactor
 from twisted.internet import protocol
 
+import kazoo
+import kazoo.client
+
+from . import exc
 from . import gssapiprotocol
 from . import sysinfo
 from . import subproc
@@ -183,6 +186,7 @@ class TicketLocker(object):
         - Read list of principals from the application manifest.
         - Send back ticket files for each princ, base64 encoded.
         """
+        _LOGGER.info('Processing request from %s: %s', princ, appname)
         if not princ or not princ.startswith('host/'):
             _LOGGER.error('Host principal expected, got: %s.', princ)
             return
@@ -193,18 +197,25 @@ class TicketLocker(object):
             _LOGGER.error('App %s not scheduled on node %s', appname, hostname)
             return
 
-        appnode = z.path.scheduled(appname)
-        app = zkutils.with_retry(
-            zkutils.get, self.zkclient, appnode)
-
-        principals = set(app.get('tickets', []))
         tkt_dict = dict()
-        for princ in principals:
-            tkt_file = os.path.join(self.tkt_spool_dir, princ)
-            if os.path.exists(tkt_file):
-                with open(tkt_file) as f:
-                    encoded = base64.urlsafe_b64encode(f.read())
-                    tkt_dict[princ] = encoded
+        try:
+            appnode = z.path.scheduled(appname)
+            app = zkutils.with_retry(zkutils.get, self.zkclient, appnode)
+
+            tickets = set(app.get('tickets', []))
+            _LOGGER.info('App tickets: %s: %r', appname, tickets)
+            for ticket in tickets:
+                tkt_file = os.path.join(self.tkt_spool_dir, ticket)
+                if os.path.exists(tkt_file):
+                    with open(tkt_file) as f:
+                        encoded = base64.urlsafe_b64encode(f.read())
+                        tkt_dict[ticket] = encoded
+                else:
+                    _LOGGER.warn('Ticket file does not exist: %s', tkt_file)
+
+        except kazoo.client.NoNodeError:
+            _LOGGER.info('App does not exist: %s', appname)
+
         return tkt_dict
 
 
@@ -220,12 +231,13 @@ def run_server(locker):
     class TicketLockerServer(gssapiprotocol.GSSAPILineServer):
         """Ticket locker server."""
 
+        @exc.exit_on_unhandled
         def got_line(self, line):
             """Callback on received line."""
             appname = line
             tkts = locker.process_request(self.peer(), appname)
-            _LOGGER.info('Sending tickets for: %r', tkts.keys())
             if tkts:
+                _LOGGER.info('Sending tickets for: %r', tkts.keys())
                 for princ, encoded in tkts.items():
                     if encoded:
                         _LOGGER.info('Sending ticket: %s:%s',
@@ -235,6 +247,9 @@ def run_server(locker):
                     else:
                         _LOGGER.info('Sending ticket %s, None', princ)
                         self.write('%s:' % princ)
+            else:
+                _LOGGER.info('No tickets found for app: %s', appname)
+
             self.write('')
 
     class TicketLockerServerFactory(protocol.Factory):

@@ -24,14 +24,14 @@ def init(api, cors, impl):
         api, __name__, 'Trace REST operations'
     )
 
-    trace_info_model = {
+    model = {
         'name': fields.String(description='Application name'),
         'instances': fields.List(
             fields.String(description='Instance IDs')
         ),
     }
-    response_model = api.model(
-        'RespState', trace_info_model
+    trace_model = api.model(
+        'Trace', model
     )
 
     @namespace.route('/<app_name>')
@@ -42,7 +42,7 @@ def init(api, cors, impl):
 
         @webutils.get_api(api, cors,
                           marshal=api.marshal_with,
-                          resp_model=response_model)
+                          resp_model=trace_model)
         def get(self, app_name):
             """Return trace information of a Treadmill application.
             """

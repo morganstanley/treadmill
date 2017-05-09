@@ -1,13 +1,12 @@
-#!/bin/sh
+#!{{ _alias.execlineb }} -P
 
-# Script to start the synchronization job that updates the set of Treadmill
-# nodes for use by the firewall.
-# Runs as root with host principal creds.
-#
+{{ _alias.redirfd }} -r 0 /dev/null
+{{ _alias.fdmove }} -c 2 1
 
-exec 2>&1
+# Set to single execution so that we can enforce restart policies
+{{ _alias.if }} { {{ _alias.s6_svc }} -o . }
 
-# This service needs host tickets
-export KRB5CCNAME="FILE:$TREADMILL_HOST_TICKET"
+{{ _alias.s6_envdir }} -i -- {{ dir }}/env
+{{ _alias.s6_envdir }} -i -- ./env
 
-exec {{ treadmill }} sproc --cgroup . firewall node_sync
+/bin/sh -l ./data/app_start

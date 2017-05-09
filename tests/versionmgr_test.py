@@ -7,13 +7,14 @@ import unittest
 import tempfile
 import shutil
 
+from tests.testutils import mockzk
+
 import kazoo
 import kazoo.client
 import mock
 
 from treadmill import zkutils
 from treadmill import versionmgr
-from treadmill.test import mockzk
 
 
 class VersionMgrTest(mockzk.MockZookeeperTestCase):

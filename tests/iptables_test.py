@@ -41,26 +41,31 @@ class IptablesTest(unittest.TestCase):
         'ipset_state.save'
     )
 
-    DNAT_NAT_TABLE_SAVE = os.path.join(
+    NAT_TABLE_SAVE = os.path.join(
         os.path.dirname(__file__),
-        'iptables_test_dnat_nat_table.save'
+        'iptables_test_nat_table.save'
     )
 
     def setUp(self):
-        # Note: These two match the content of DNAT_NAT_TABLE_SAVE
+        # Note: These two match the content of NAT_TABLE_SAVE
         self.dnat_rules = set([
-            firewall.DNATRule('udp',
-                              '172.31.81.67', 5002,
-                              '192.168.1.13', 8000),
-            firewall.DNATRule('tcp',
-                              '172.31.81.67', 5000,
-                              '192.168.0.11', 8000),
-            firewall.DNATRule('tcp',
-                              '172.31.81.67', 5003,
-                              '192.168.1.13', 22),
-            firewall.DNATRule('tcp',
-                              '172.31.81.67', 5001,
-                              '192.168.0.11', 22),
+            firewall.DNATRule(proto='udp',
+                              dst_ip='172.31.81.67', dst_port=5002,
+                              new_ip='192.168.1.13', new_port=8000),
+            firewall.DNATRule(proto='tcp',
+                              dst_ip='172.31.81.67', dst_port=5000,
+                              new_ip='192.168.0.11', new_port=8000),
+            firewall.DNATRule(proto='tcp',
+                              dst_ip='172.31.81.67', dst_port=5003,
+                              new_ip='192.168.1.13', new_port=22),
+            firewall.DNATRule(proto='tcp',
+                              dst_ip='172.31.81.67', dst_port=5001,
+                              new_ip='192.168.0.11', new_port=22),
+        ])
+        self.snat_rules = set([
+            firewall.SNATRule(proto='udp',
+                              src_ip='192.168.0.3', src_port=22,
+                              new_ip='172.31.81.67', new_port=5001),
         ])
         self.passthrough_rules = set([
             firewall.PassThroughRule(src_ip='10.197.19.18',
@@ -128,11 +133,22 @@ class IptablesTest(unittest.TestCase):
         )
 
     @mock.patch('treadmill.subproc.check_call', mock.Mock())
+    def test_delete_raw_rule(self):
+        """Test deleting an iptable rule."""
+        iptables.delete_raw_rule('nat', 'OUTPUT', '-j FOO')
+
+        treadmill.subproc.check_call.assert_called_with(
+            ['iptables', '-t', 'nat', '-D', 'OUTPUT', '-j', 'FOO']
+        )
+
+    @mock.patch('treadmill.subproc.check_call', mock.Mock())
     @mock.patch('treadmill.subproc.check_output', mock.Mock())
-    def test_add_rule_safe(self):
+    def test_add_raw_rule_safe(self):
         """Test adding iptable rule (safe)."""
         treadmill.subproc.check_output.return_value = ''
+
         iptables.add_raw_rule('nat', 'OUTPUT', '-j FOO', safe=True)
+
         treadmill.subproc.check_output.assert_called_with(
             ['iptables', '-t', 'nat', '-S', 'OUTPUT']
         )
@@ -141,55 +157,30 @@ class IptablesTest(unittest.TestCase):
         )
         treadmill.subproc.check_output.reset_mock()
         treadmill.subproc.check_call.reset_mock()
-
+        ##
         treadmill.subproc.check_output.return_value = '-A OUTPUT -j FOO'
+
         iptables.add_raw_rule('nat', 'OUTPUT', '-j FOO', safe=True)
+
         treadmill.subproc.check_output.assert_called_with(
             ['iptables', '-t', 'nat', '-S', 'OUTPUT']
         )
         self.assertEqual(0, treadmill.subproc.check_call.call_count)
 
-    @mock.patch('treadmill.subproc.check_call', mock.Mock())
-    def test_delete_raw_rule(self):
-        """Test deleting an iptable rule."""
-        iptables.delete_dnat_rule(firewall.DNATRule('tcp',
-                                                    '1.1.1.1', 123,
-                                                    '2.2.2.2', 345),
-                                  'SOME_RULE')
-
-        treadmill.subproc.check_call.assert_called_with([
-            'iptables', '-t', 'nat', '-D', 'SOME_RULE',
-            '-d', '1.1.1.1', '-p', 'tcp', '-m', 'tcp', '--dport', '123',
-            '-j', 'DNAT', '--to-destination', '2.2.2.2:345'])
-
-    @mock.patch('treadmill.subproc.check_call', mock.Mock())
-    def test_delete_rule_nonexist(self):
-        """Test dnat rule deleting when the rule does not exist."""
-        treadmill.subproc.check_call.side_effect = \
-            subprocess.CalledProcessError(returncode=1, output='', cmd='')
-
-        iptables.delete_dnat_rule(firewall.DNATRule('tcp',
-                                                    '1.1.1.1', 123,
-                                                    '2.2.2.2', 345),
-                                  'SOME_RULE')
-
-        treadmill.subproc.check_call.assert_called_with([
-            'iptables', '-t', 'nat', '-D', 'SOME_RULE',
-            '-d', '1.1.1.1', '-p', 'tcp', '-m', 'tcp', '--dport', '123',
-            '-j', 'DNAT', '--to-destination', '2.2.2.2:345'])
-
     @mock.patch('treadmill.iptables.add_raw_rule', mock.Mock())
     def test_add_dnat_rule(self):
         """Test dnat rule addition."""
-        iptables.add_dnat_rule(firewall.DNATRule('tcp',
-                                                 '1.1.1.1', 123,
-                                                 '2.2.2.2', 345),
-                               'SOME_RULE',
-                               safe=True)
+        iptables.add_dnat_rule(
+            firewall.DNATRule(proto='tcp',
+                              dst_ip='1.1.1.1', dst_port=123,
+                              new_ip='2.2.2.2', new_port=345),
+            'SOME_RULE',
+            safe=True
+        )
 
         treadmill.iptables.add_raw_rule.assert_called_with(
             'nat', 'SOME_RULE',
-            ('-d 1.1.1.1 -p tcp -m tcp --dport 123'
+            ('-s 0.0.0.0/0 -d 1.1.1.1 -p tcp -m tcp --dport 123'
              ' -j DNAT --to-destination 2.2.2.2:345'),
             True
         )
@@ -197,15 +188,70 @@ class IptablesTest(unittest.TestCase):
     @mock.patch('treadmill.iptables.delete_raw_rule', mock.Mock())
     def test_delete_dnat_rule(self):
         """Test dnat rule deletion."""
-        iptables.delete_dnat_rule(firewall.DNATRule('tcp',
-                                                    '1.1.1.1', 123,
-                                                    '2.2.2.2', 345),
-                                  'SOME_RULE')
+        iptables.delete_dnat_rule(
+            firewall.DNATRule(proto='tcp',
+                              dst_ip='1.1.1.1', dst_port=123,
+                              new_ip='2.2.2.2', new_port=345),
+            'SOME_RULE'
+        )
 
         treadmill.iptables.delete_raw_rule.assert_called_with(
             'nat', 'SOME_RULE',
-            ('-d 1.1.1.1 -p tcp -m tcp --dport 123'
+            ('-s 0.0.0.0/0 -d 1.1.1.1 -p tcp -m tcp --dport 123'
              ' -j DNAT --to-destination 2.2.2.2:345')
+        )
+
+    @mock.patch('treadmill.subproc.check_call', mock.Mock())
+    def test_delete_dnat_rule_nonexist(self):
+        """Test dnat rule deleting when the rule does not exist."""
+        treadmill.subproc.check_call.side_effect = \
+            subprocess.CalledProcessError(returncode=1, output='', cmd='')
+
+        iptables.delete_dnat_rule(
+            firewall.DNATRule(proto='tcp',
+                              dst_ip='1.1.1.1', dst_port=123,
+                              new_ip='2.2.2.2', new_port=345),
+            'SOME_RULE',
+        )
+
+        treadmill.subproc.check_call.assert_called_with([
+            'iptables', '-t', 'nat', '-D', 'SOME_RULE',
+            '-s', '0.0.0.0/0', '-d', '1.1.1.1', '-p', 'tcp', '-m', 'tcp',
+            '--dport', '123',
+            '-j', 'DNAT', '--to-destination', '2.2.2.2:345'])
+
+    @mock.patch('treadmill.iptables.add_raw_rule', mock.Mock())
+    def test_add_snat_rule(self):
+        """Test snat rule addition."""
+        iptables.add_snat_rule(
+            firewall.SNATRule(proto='tcp',
+                              src_ip='1.1.1.1', src_port=123,
+                              new_ip='2.2.2.2', new_port=345),
+            'SOME_RULE',
+            safe=True
+        )
+
+        treadmill.iptables.add_raw_rule.assert_called_with(
+            'nat', 'SOME_RULE',
+            ('-s 1.1.1.1 -d 0.0.0.0/0 -p tcp -m tcp --sport 123'
+             ' -j SNAT --to-source 2.2.2.2:345'),
+            True
+        )
+
+    @mock.patch('treadmill.iptables.delete_raw_rule', mock.Mock())
+    def test_delete_snat_rule(self):
+        """Test snat rule deletion."""
+        iptables.delete_snat_rule(
+            firewall.SNATRule(proto='tcp',
+                              src_ip='1.1.1.1', src_port=123,
+                              new_ip='2.2.2.2', new_port=345),
+            'SOME_RULE'
+        )
+
+        treadmill.iptables.delete_raw_rule.assert_called_with(
+            'nat', 'SOME_RULE',
+            ('-s 1.1.1.1 -d 0.0.0.0/0 -p tcp -m tcp --sport 123'
+             ' -j SNAT --to-source 2.2.2.2:345')
         )
 
     @mock.patch('treadmill.iptables.add_ip_set', mock.Mock())
@@ -219,10 +265,10 @@ class IptablesTest(unittest.TestCase):
         iptables.add_mark_rule('2.2.2.2', 'dev')
 
         treadmill.iptables.add_ip_set.assert_called_with(
-            iptables._SET_NONPROD_CONTAINERS, '2.2.2.2'
+            iptables.SET_NONPROD_CONTAINERS, '2.2.2.2'
         )
         treadmill.iptables.test_ip_set.assert_called_with(
-            iptables._SET_PROD_CONTAINERS, '2.2.2.2'
+            iptables.SET_PROD_CONTAINERS, '2.2.2.2'
         )
 
         treadmill.iptables.add_ip_set.reset_mock()
@@ -231,10 +277,10 @@ class IptablesTest(unittest.TestCase):
         iptables.add_mark_rule('3.3.3.3', 'prod')
 
         treadmill.iptables.add_ip_set.assert_called_with(
-            iptables._SET_PROD_CONTAINERS, '3.3.3.3'
+            iptables.SET_PROD_CONTAINERS, '3.3.3.3'
         )
         treadmill.iptables.test_ip_set.assert_called_with(
-            iptables._SET_NONPROD_CONTAINERS, '3.3.3.3'
+            iptables.SET_NONPROD_CONTAINERS, '3.3.3.3'
         )
 
     @mock.patch('treadmill.iptables.add_ip_set', mock.Mock())
@@ -258,7 +304,7 @@ class IptablesTest(unittest.TestCase):
         iptables.delete_mark_rule('2.2.2.2', 'dev')
 
         treadmill.iptables.rm_ip_set.assert_called_with(
-            iptables._SET_NONPROD_CONTAINERS, '2.2.2.2'
+            iptables.SET_NONPROD_CONTAINERS, '2.2.2.2'
         )
         treadmill.iptables.rm_ip_set.reset_mock()
 
@@ -266,20 +312,22 @@ class IptablesTest(unittest.TestCase):
         iptables.delete_mark_rule('4.4.4.4', 'prod')
 
         treadmill.iptables.rm_ip_set.assert_called_with(
-            iptables._SET_PROD_CONTAINERS, '4.4.4.4'
+            iptables.SET_PROD_CONTAINERS, '4.4.4.4'
         )
 
     @mock.patch('treadmill.iptables.add_dnat_rule', mock.Mock())
     @mock.patch('treadmill.iptables.delete_dnat_rule', mock.Mock())
-    @mock.patch('treadmill.iptables.get_current_dnat_rules', mock.Mock())
+    @mock.patch('treadmill.iptables._get_current_dnat_rules', mock.Mock())
     def test_dnat_up_to_date(self):
-        """Tests DNAT setup when configuration is up to date."""
-        treadmill.iptables.get_current_dnat_rules.return_value = \
+        """Tests DNAT setup when configuration is up to date.
+        """
+        # Disable W0212: Test access protected members.
+        # pylint: disable=W0212
+        treadmill.iptables._get_current_dnat_rules.return_value = \
             self.dnat_rules
-        redirects = self.dnat_rules
 
         iptables.configure_dnat_rules(
-            redirects,
+            self.dnat_rules,
             iptables.PREROUTING_DNAT
         )
 
@@ -288,63 +336,183 @@ class IptablesTest(unittest.TestCase):
 
     @mock.patch('treadmill.iptables.add_dnat_rule', mock.Mock())
     @mock.patch('treadmill.iptables.delete_dnat_rule', mock.Mock())
-    @mock.patch('treadmill.iptables.get_current_dnat_rules', mock.Mock())
+    @mock.patch('treadmill.iptables._get_current_dnat_rules', mock.Mock())
     def test_dnat_missing_rule(self):
-        """Tests DNAT setup when new rule needs to be created."""
-        treadmill.iptables.get_current_dnat_rules.return_value = \
+        """Tests DNAT setup when new rule needs to be created.
+        """
+        # Disable W0212: Test access protected members.
+        # pylint: disable=W0212
+        treadmill.iptables._get_current_dnat_rules.return_value = \
             self.dnat_rules
-        missing_rule = firewall.DNATRule('tcp',
-                                         '172.31.81.67', 5004,
-                                         '192.168.2.15', 22)
-        redirects = self.dnat_rules | set([missing_rule, ])
+        desired_rules = (
+            self.dnat_rules |
+            set([
+                firewall.DNATRule('tcp',
+                                  '172.31.81.67', 5004,
+                                  '192.168.2.15', 22),
+            ])
+        )
 
         iptables.configure_dnat_rules(
-            redirects,
+            desired_rules,
             iptables.PREROUTING_DNAT
         )
 
         treadmill.iptables.add_dnat_rule.assert_called_with(
-            missing_rule,
+            firewall.DNATRule('tcp',
+                              '172.31.81.67', 5004,
+                              '192.168.2.15', 22),
             chain=iptables.PREROUTING_DNAT
         )
         self.assertEqual(0, treadmill.iptables.delete_dnat_rule.call_count)
 
     @mock.patch('treadmill.iptables.add_dnat_rule', mock.Mock())
     @mock.patch('treadmill.iptables.delete_dnat_rule', mock.Mock())
-    @mock.patch('treadmill.iptables.get_current_dnat_rules', mock.Mock())
+    @mock.patch('treadmill.iptables._get_current_dnat_rules', mock.Mock())
     def test_dnat_extra_rule(self):
         """Tests DNAT setup when rule needs to be removed."""
-        treadmill.iptables.get_current_dnat_rules.return_value = \
+        # Disable W0212: Test access protected members.
+        # pylint: disable=W0212
+        treadmill.iptables._get_current_dnat_rules.return_value = (
+            self.dnat_rules |
+            set([
+                firewall.DNATRule('tcp',
+                                  '172.31.81.67', 5004,
+                                  '192.168.2.15', 22),
+            ])
+        )
+        desired_rules = (
             self.dnat_rules
-        extra_rule = firewall.DNATRule('tcp',
-                                       '172.31.81.67', 5003,
-                                       '192.168.1.13', 22)
-        redirects = self.dnat_rules - set([extra_rule, ])
+        )
 
         iptables.configure_dnat_rules(
-            redirects,
+            desired_rules,
             iptables.PREROUTING_DNAT
         )
 
         self.assertEqual(0, treadmill.iptables.add_dnat_rule.call_count)
         treadmill.iptables.delete_dnat_rule.assert_called_with(
-            extra_rule,
+            firewall.DNATRule('tcp',
+                              '172.31.81.67', 5004,
+                              '192.168.2.15', 22),
             chain=iptables.PREROUTING_DNAT,
         )
 
     @mock.patch('treadmill.subproc.check_output', mock.Mock())
-    def test_get_current_dnat_rules(self):
-        """Test query DNAT rules."""
+    def test__get_current_dnat_rules(self):
+        """Test query DNAT/SNAT rules."""
+        # Disable W0212: Test access protected members.
+        # pylint: disable=W0212
         treadmill.subproc.check_output.return_value = \
-            open(self.DNAT_NAT_TABLE_SAVE).read()
+            open(self.NAT_TABLE_SAVE).read()
 
-        rules = iptables.get_current_dnat_rules(iptables.PREROUTING_DNAT)
+        rules = iptables._get_current_dnat_rules(iptables.PREROUTING_DNAT)
 
         treadmill.subproc.check_output.assert_called_with(
             ['iptables',
              '-t', 'nat', '-S', iptables.PREROUTING_DNAT]
         )
         self.assertEqual(set(rules), self.dnat_rules)
+
+    @mock.patch('treadmill.iptables.add_snat_rule', mock.Mock())
+    @mock.patch('treadmill.iptables.delete_snat_rule', mock.Mock())
+    @mock.patch('treadmill.iptables._get_current_snat_rules', mock.Mock())
+    def test_snat_up_to_date(self):
+        """Tests SNAT setup when configuration is up to date.
+        """
+        # Disable W0212: Test access protected members.
+        # pylint: disable=W0212
+        treadmill.iptables._get_current_snat_rules.return_value = \
+            self.snat_rules
+
+        iptables.configure_snat_rules(
+            self.snat_rules,
+            iptables.POSTROUTING_SNAT
+        )
+
+        self.assertEquals(0, treadmill.iptables.add_snat_rule.call_count)
+        self.assertEquals(0, treadmill.iptables.delete_snat_rule.call_count)
+
+    @mock.patch('treadmill.iptables.add_snat_rule', mock.Mock())
+    @mock.patch('treadmill.iptables.delete_snat_rule', mock.Mock())
+    @mock.patch('treadmill.iptables._get_current_snat_rules', mock.Mock())
+    def test_snat_missing_rule(self):
+        """Tests DNAT setup when new rule needs to be created.
+        """
+        # Disable W0212: Test access protected members.
+        # pylint: disable=W0212
+        treadmill.iptables._get_current_snat_rules.return_value = \
+            self.snat_rules
+        desired_rules = (
+            self.snat_rules |
+            set([
+                firewall.SNATRule('tcp',
+                                  '172.31.81.67', 5004,
+                                  '192.168.2.15', 22),
+            ])
+        )
+
+        iptables.configure_snat_rules(
+            desired_rules,
+            iptables.POSTROUTING_SNAT
+        )
+
+        treadmill.iptables.add_snat_rule.assert_called_with(
+            firewall.SNATRule('tcp',
+                              '172.31.81.67', 5004,
+                              '192.168.2.15', 22),
+            chain=iptables.POSTROUTING_SNAT
+        )
+        self.assertEquals(0, treadmill.iptables.delete_snat_rule.call_count)
+
+    @mock.patch('treadmill.iptables.add_snat_rule', mock.Mock())
+    @mock.patch('treadmill.iptables.delete_snat_rule', mock.Mock())
+    @mock.patch('treadmill.iptables._get_current_snat_rules', mock.Mock())
+    def test_snat_extra_rule(self):
+        """Tests SNAT setup when rule needs to be removed.
+        """
+        # Disable W0212: Test access protected members.
+        # pylint: disable=W0212
+        treadmill.iptables._get_current_snat_rules.return_value = (
+            self.snat_rules |
+            set([
+                firewall.SNATRule('tcp',
+                                  '172.31.81.67', 5004,
+                                  '192.168.2.15', 22),
+            ])
+        )
+        desired_rules = (
+            self.snat_rules
+        )
+
+        iptables.configure_snat_rules(
+            desired_rules,
+            iptables.PREROUTING_DNAT
+        )
+
+        self.assertEquals(0, treadmill.iptables.add_snat_rule.call_count)
+        treadmill.iptables.delete_snat_rule.assert_called_with(
+            firewall.SNATRule('tcp',
+                              '172.31.81.67', 5004,
+                              '192.168.2.15', 22),
+            chain=iptables.PREROUTING_DNAT
+        )
+
+    @mock.patch('treadmill.subproc.check_output', mock.Mock())
+    def test__get_current_snat_rules(self):
+        """Test query DNAT/SNAT rules."""
+        # Disable W0212: Test access protected members.
+        # pylint: disable=W0212
+        treadmill.subproc.check_output.return_value = \
+            open(self.NAT_TABLE_SAVE).read()
+
+        rules = iptables._get_current_snat_rules(iptables.POSTROUTING_SNAT)
+
+        treadmill.subproc.check_output.assert_called_with(
+            ['iptables',
+             '-t', 'nat', '-S', iptables.POSTROUTING_SNAT]
+        )
+        self.assertEquals(set(rules), self.snat_rules)
 
     @mock.patch('treadmill.iptables.add_raw_rule', mock.Mock())
     def test_add_passthrough_rule(self):
@@ -389,11 +557,13 @@ class IptablesTest(unittest.TestCase):
 
     @mock.patch('treadmill.iptables.add_passthrough_rule', mock.Mock())
     @mock.patch('treadmill.iptables.delete_passthrough_rule', mock.Mock())
-    @mock.patch('treadmill.iptables.get_current_passthrough_rules',
+    @mock.patch('treadmill.iptables._get_current_passthrough_rules',
                 mock.Mock())
     def test_passthrough_up_to_date(self):
         """Tests PassThrough setup when configuration is up to date."""
-        treadmill.iptables.get_current_passthrough_rules.return_value = \
+        # Disable W0212: Test access protected members.
+        # pylint: disable=W0212
+        treadmill.iptables._get_current_passthrough_rules.return_value = \
             self.passthrough_rules
         passthroughs = self.passthrough_rules
 
@@ -411,11 +581,13 @@ class IptablesTest(unittest.TestCase):
 
     @mock.patch('treadmill.iptables.add_passthrough_rule', mock.Mock())
     @mock.patch('treadmill.iptables.delete_passthrough_rule', mock.Mock())
-    @mock.patch('treadmill.iptables.get_current_passthrough_rules',
+    @mock.patch('treadmill.iptables._get_current_passthrough_rules',
                 mock.Mock())
     def test_passthrough_missing_rule(self):
         """Tests PassThrough setup when new rule needs to be created."""
-        treadmill.iptables.get_current_passthrough_rules.return_value = \
+        # Disable W0212: Test access protected members.
+        # pylint: disable=W0212
+        treadmill.iptables._get_current_passthrough_rules.return_value = \
             self.passthrough_rules
         missing_rule = firewall.PassThroughRule(src_ip='10.197.19.20',
                                                 dst_ip='192.168.2.2'),
@@ -436,11 +608,13 @@ class IptablesTest(unittest.TestCase):
 
     @mock.patch('treadmill.iptables.add_passthrough_rule', mock.Mock())
     @mock.patch('treadmill.iptables.delete_passthrough_rule', mock.Mock())
-    @mock.patch('treadmill.iptables.get_current_passthrough_rules',
+    @mock.patch('treadmill.iptables._get_current_passthrough_rules',
                 mock.Mock())
     def test_passthrough_extra_rule(self):
         """Tests PassThrough setup when rule needs to be removed."""
-        treadmill.iptables.get_current_passthrough_rules.return_value = \
+        # Disable W0212: Test access protected members.
+        # pylint: disable=W0212
+        treadmill.iptables._get_current_passthrough_rules.return_value = \
             self.passthrough_rules
         extra_rule = firewall.PassThroughRule(src_ip='10.197.19.19',
                                               dst_ip='192.168.2.2')
@@ -484,12 +658,14 @@ class IptablesTest(unittest.TestCase):
         )
 
     @mock.patch('treadmill.subproc.check_output', mock.Mock())
-    def test_get_current_pt_rules(self):
+    def test__get_current_pt_rules(self):
         """Test query passthrough rules."""
+        # Disable W0212: Test access protected members.
+        # pylint: disable=W0212
         treadmill.subproc.check_output.return_value = \
-            open(self.DNAT_NAT_TABLE_SAVE).read()
+            open(self.NAT_TABLE_SAVE).read()
 
-        rules = iptables.get_current_passthrough_rules(
+        rules = iptables._get_current_passthrough_rules(
             iptables.PREROUTING_PASSTHROUGH
         )
 
@@ -557,21 +733,6 @@ class IptablesTest(unittest.TestCase):
         )
         self.assertEqual(
             0, treadmill.iptables.delete_dnat_rule.call_count
-        )
-
-    @mock.patch('treadmill.iptables.configure_dnat_rules', mock.Mock())
-    @mock.patch('treadmill.iptables.configure_passthrough_rules', mock.Mock())
-    def test_configure_rules(self):
-        """Test generic configuration"""
-        all_rules = self.dnat_rules | self.passthrough_rules
-
-        iptables.configure_rules(all_rules)
-
-        treadmill.iptables.configure_dnat_rules.assert_called_with(
-            self.dnat_rules
-        )
-        treadmill.iptables.configure_passthrough_rules.assert_called_with(
-            self.passthrough_rules
         )
 
     @mock.patch('treadmill.subproc.invoke', mock.Mock(return_value=(0, '')))

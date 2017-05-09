@@ -31,8 +31,8 @@ def init():
     @service.command()
     @click.option('--img-location',
                   help='Location of loopback image to back LVM group.')
-    @click.option('--reserve', default='2G',
-                  help='Amount of local disk space to set aside.')
+    @click.option('--img-size', default='-2G',
+                  help='Amount of local disk space to use for the image.')
     @click.option('--block-dev',
                   help='Use a block device to back LVM group.')
     @click.option('--default-read-bps', required=True,
@@ -43,7 +43,7 @@ def init():
                   help='Default read IO per second value.')
     @click.option('--default-write-iops', required=True, type=int,
                   help='Default write IO per second value.')
-    def localdisk(img_location, reserve, block_dev, default_read_bps,
+    def localdisk(img_location, img_size, block_dev, default_read_bps,
                   default_write_bps, default_read_iops,
                   default_write_iops):
         """Runs localdisk service."""
@@ -78,7 +78,7 @@ def init():
                 watchdogs_dir=os.path.join(root_dir,
                                            watchdogs_dir),
                 img_location=img_location,
-                reserve=reserve,
+                img_size=img_size,
                 default_read_bps=default_read_bps,
                 default_write_bps=default_write_bps,
                 default_read_iops=default_read_iops,

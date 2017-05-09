@@ -22,7 +22,7 @@ import yaml
 from .. import exc
 from .. import fs
 from .. import logcontext as lc
-from .. import idirwatch
+from .. import dirwatch
 from .. import utils
 from .. import watchdog
 
@@ -57,7 +57,7 @@ def _wait_for_file(filename, timeout=60 * 60):
 
     filedir = os.path.dirname(filename)
     # TODO: Fine tune the watcher mask for efficiency.
-    watcher = idirwatch.DirWatcher(filedir)
+    watcher = dirwatch.DirWatcher(filedir)
 
     now = time.time()
     end_time = now + timeout
@@ -121,17 +121,24 @@ class ResourceServiceClient(object):
         fs.mkdir_safe(clientdir)
         self._clientdir = os.path.realpath(clientdir)
 
-    def create(self, rsrc_id, rsrc_data):
-        """Request creation of a resource.
+    def put(self, rsrc_id, rsrc_data):
+        """Request creation/update of a resource.
 
         :param `str` rsrc_id:
             Unique identifier for the requested resource.
         :param `str` rsrc_data:
-            Parameters for the requested resource.
+            (New) Parameters for the requested resource.
         """
         req_dir = self._req_dirname(rsrc_id)
-        os.mkdir(req_dir)  # Will fail if request already exists
 
+        if fs.mkdir_safe(req_dir):
+            self._create(rsrc_id, rsrc_data, req_dir)
+        else:
+            self._update(rsrc_id, rsrc_data, req_dir)
+
+    def _create(self, rsrc_id, rsrc_data, req_dir):
+        """Request creation of a resource.
+        """
         with open(os.path.join(req_dir, _REQ_FILE), 'w') as f:
             os.fchmod(f.fileno(), 0o644)
             yaml.dump(rsrc_data,
@@ -153,15 +160,9 @@ class ResourceServiceClient(object):
                 os.fchmod(f.fileno(), 0o644)
                 f.write(svc_req_uuid)
 
-    def update(self, rsrc_id, rsrc_data):
+    def _update(self, rsrc_id, rsrc_data, req_dir):
         """Update an existing resource.
-
-        :param `str` rsrc_id:
-            Unique identifier for the requested resource.
-        :param `str` rsrc_data:
-            New paramters for the requested resource.
         """
-        req_dir = self._req_dirname(rsrc_id)
         with open(os.path.join(req_dir, self._REQ_UID_FILE)) as f:
             os.fchmod(f.fileno(), 0o644)
             svc_req_uuid = f.read().strip()
@@ -407,7 +408,7 @@ class ResourceService(object):
         # Run initialization
         impl.initialize(self._dir)
 
-        watcher = idirwatch.DirWatcher(self._rsrc_dir)
+        watcher = dirwatch.DirWatcher(self._rsrc_dir)
         # Call all the callbacks with the implementation instance
         watcher.on_created = functools.partial(self._on_created, impl)
         watcher.on_deleted = functools.partial(self._on_deleted, impl)
@@ -626,11 +627,7 @@ class ResourceService(object):
         """
         svc_req_lnk = os.path.join(self._rsrc_dir, req_id)
         _LOGGER.info('Unegistering %r: %r', req_id, svc_req_lnk)
-        try:
-            os.unlink(svc_req_lnk)
-        except OSError as err:
-            if err.errno != errno.ENOENT:
-                raise
+        fs.rm_safe(svc_req_lnk)
 
         return req_id
 
@@ -643,11 +640,7 @@ class ResourceService(object):
         _LOGGER.debug('Updating %r: %r',
                       req_id, svc_req_lnk)
         # Remove any reply if it exists
-        try:
-            os.unlink(os.path.join(svc_req_lnk, _REP_FILE))
-        except OSError as err:
-            if err.errno != errno.ENOENT:
-                raise
+        fs.rm_safe(os.path.join(svc_req_lnk, _REP_FILE))
 
         # NOTE(boysson): This does the equivalent of a touch on the symlink
         try:
@@ -672,7 +665,7 @@ class ResourceService(object):
             except OSError as err:
                 if err.errno == errno.ENOENT:
                     _LOGGER.warning('Deleting stale request: %r', svc)
-                    os.unlink(svc)
+                    fs.rm_safe(svc)
                 else:
                     raise
 
@@ -681,11 +674,7 @@ class ResourceService(object):
     def _create_status_socket(self):
         """Create a listening socket to process status requests.
         """
-        try:
-            os.unlink(self.status_sock)
-        except OSError as err:
-            if err.errno != errno.ENOENT:
-                raise
+        fs.rm_safe(self.status_sock)
         status_socket = socket.socket(
             family=socket.AF_UNIX,
             type=socket.SOCK_STREAM,
@@ -722,7 +711,7 @@ class ResourceService(object):
         )
 
         # Check if there were more events to process
-        if io_res and io_res[-1][0] == idirwatch.DirWatcherEvent.MORE_PENDING:
+        if io_res and io_res[-1][0] == dirwatch.DirWatcherEvent.MORE_PENDING:
             _LOGGER.debug('More requests events pending')
             os.write(self._io_eventfd, self._IO_EVENT_PENDING)
 
@@ -758,7 +747,7 @@ class ResourceService(object):
             if (err.errno == errno.ENOENT or
                     err.errno == errno.ENOTDIR):
                 _LOGGER.exception('Removing invalid request: %r', req_id)
-                os.unlink(filepath)
+                fs.rm_safe(filepath)
                 return
             raise
 

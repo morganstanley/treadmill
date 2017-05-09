@@ -1,5 +1,5 @@
-"""Treadmill commaand line helpers."""
-
+"""Treadmill commaand line helpers.
+"""
 
 import copy
 import json
@@ -45,11 +45,17 @@ def init_logger(name):
                        (log_conf_file, f.name), err=True)
 
 
-def make_multi_command(module_name):
+def make_multi_command(module_name, **click_args):
     """Make a Click multicommand from all submodules of the module."""
 
     class MCommand(click.MultiCommand):
         """Treadmill CLI driver."""
+
+        def __init__(self, *args, **kwargs):
+            if kwargs and click_args:
+                kwargs.update(click_args)
+
+            click.MultiCommand.__init__(self, *args, **kwargs)
 
         def list_commands(self, ctx):
             climod = importlib.import_module(module_name)
@@ -93,7 +99,10 @@ def handle_context_opt(ctx, param, value):
     of the global context.
     """
     if not value or ctx.resilient_parsing:
-        return
+        return None
+
+    if value == '-':
+        return None
 
     opt = param.name
     if opt == 'cell':
@@ -139,14 +148,13 @@ class _KeyValuePairs(click.ParamType):
         if value is None:
             return {}
 
-        items = value.split(',')
-        result = {}
-        for item in items:
-            if item.find('=') == -1:
-                self.fail('"%s" not a key/value pair, X=Y expected.' % item)
-            key, value = item.split('=')
-            result[key] = value
-        return result
+        items = re.split(r'(\w+=)', value)
+        items.pop(0)
+
+        keys = [key.rstrip('=') for key in items[0::2]]
+        values = [value.rstrip(',') for value in items[1::2]]
+
+        return dict(zip(keys, values))
 
 
 DICT = _KeyValuePairs()
@@ -277,6 +285,8 @@ def list_to_table(items, schema, header=True):
     """Display  list of items as table."""
     columns = [column for column, _, _ in schema]
     table = _make_table(columns, header=header)
+    if items is None:
+        items = []
     for item in items:
         row = []
         for column, key, fmt in schema:
@@ -400,11 +410,15 @@ class AppPrettyFormatter(object):
             ('interval', None, None),
         ])
 
-        command_fmt = lambda cmd: wrap_words(cmd.split(), 40, ' ', '\n   ')
         services_tbl = make_list_to_table([
             ('name', None, None),
+            ('root', None, None),
             ('restart', None, services_restart_tbl),
-            ('command', None, command_fmt),
+            (
+                'command',
+                None,
+                lambda cmd: wrap_words(cmd.split(), 40, ' ', '\n   ')
+            ),
         ])
 
         endpoints_tbl = make_list_to_table([
@@ -419,6 +433,21 @@ class AppPrettyFormatter(object):
             ('value', None, None),
         ])
 
+        vring_rules_tbl = make_list_to_table([
+            ('pattern', None, None),
+            ('endpoints', None, ','.join),
+        ])
+
+        vring_tbl = make_dict_to_table([
+            ('cells', None, ','.join),
+            ('rules', None, vring_rules_tbl),
+        ])
+
+        ephemeral_tbl = make_dict_to_table([
+            ('tcp', None, None),
+            ('udp', None, None),
+        ])
+
         schema = [
             ('name', '_id', None),
             ('memory', None, None),
@@ -427,10 +456,15 @@ class AppPrettyFormatter(object):
             ('tickets', None, None),
             ('features', None, None),
             ('identity-group', 'identity_group', None),
+            ('schedule-once', 'schedule_once', None),
             ('shared-ip', 'shared_ip', None),
+            ('ephemeral-ports', 'ephemeral_ports', ephemeral_tbl),
             ('services', None, services_tbl),
             ('endpoints', None, endpoints_tbl),
             ('environ', None, environ_tbl),
+            ('vring', None, vring_tbl),
+            ('passthrough', None, '\n'.join),
+            ('data-retention-timeout', 'data_retention_timeout', None),
         ]
 
         format_item = make_dict_to_table(schema)
@@ -497,7 +531,8 @@ class ServerPrettyFormatter(object):
             ('name', '_id', None),
             ('cell', None, None),
             ('traits', None, None),
-            ('label', None, None),
+            ('partition', None, None),
+            ('data', None, None),
         ]
 
         format_item = make_dict_to_table(schema)
@@ -519,9 +554,9 @@ class ServerNodePrettyFormatter(object):
                   ('memory', None, None),
                   ('cpu', None, None),
                   ('disk', None, None),
+                  ('partition', None, None),
                   ('parent', None, None),
-                  ('traits', None, None),
-                  ('valid_until', None, None)]
+                  ('traits', None, None)]
 
         format_item = make_dict_to_table(schema)
         format_list = make_list_to_table(schema)
@@ -595,6 +630,14 @@ class CellPrettyFormatter(object):
             ('zk-election-port', None, None),
         ])
 
+        partitions_tbl = make_list_to_table([
+            ('id', 'partition', None),
+            ('cpu', None, None),
+            ('disk', None, None),
+            ('memory', None, None),
+            ('down threshold', 'down-threshold', None),
+        ])
+
         schema = [
             ('name', '_id', None),
             ('version', None, None),
@@ -605,12 +648,15 @@ class CellPrettyFormatter(object):
             ('archive-username', None, None),
             ('ssq-namespace', None, None),
             ('masters', None, masters_tbl),
+            ('partitions', None, partitions_tbl),
+            ('data', None, yaml.dump),
         ]
 
         format_item = make_dict_to_table(schema)
 
         format_list = make_list_to_table([
             ('name', '_id', None),
+            ('location', None, None),
             ('version', None, None),
             ('username', None, None),
             ('root', None, None),
@@ -707,7 +753,7 @@ class AllocationPrettyFormatter(object):
 
         cell_tbl = make_list_to_table([
             ('cell', 'cell', None),
-            ('label', None, None),
+            ('partition', None, None),
             ('rank', None, None),
             ('max-utilization', None, None),
             ('memory', None, None),
@@ -775,6 +821,31 @@ class EndpointPrettyFormatter(object):
             return format_item(item)
 
 
+class PartitionPrettyFormatter(object):
+    """Pretty table partition formatter."""
+
+    @staticmethod
+    def format(item):
+        """Return pretty-formatted item."""
+
+        schema = [
+            ('id', 'partition', None),
+            ('cell', None, None),
+            ('cpu', None, None),
+            ('disk', None, None),
+            ('memory', None, None),
+            ('down threshold', 'down-threshold', None),
+        ]
+
+        format_item = make_dict_to_table(schema)
+        format_list = make_list_to_table(schema)
+
+        if isinstance(item, list):
+            return format_list(item)
+        else:
+            return format_item(item)
+
+
 def bad_exit(string, *args):
     """System exit non-zero with a string to sys.stderr.
 
@@ -782,7 +853,7 @@ def bad_exit(string, *args):
     if args:
         string = string % args
 
-    click.echo(click.style(string, fg='red'), err=True)
+    click.echo(string, err=True)
     sys.exit(-1)
 
 

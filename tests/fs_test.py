@@ -242,6 +242,17 @@ class FsTest(unittest.TestCase):
         )
 
     @mock.patch('treadmill.utils.rootdir', mock.Mock(return_value='tm_root'))
+    def test_archive_filesystem_empty(self):
+        """Test filesystem archiving"""
+        rootdir = os.path.join(self.root, 'apps', 'myapp.0', 'root')
+        fs.mkdir_safe(rootdir)
+        archive = os.path.join(self.root, 'arch.tar.bz2')
+
+        self.assertTrue(
+            treadmill.fs.archive_filesystem('/dev/myapp', rootdir, archive, [])
+        )
+
+    @mock.patch('treadmill.utils.rootdir', mock.Mock(return_value='tm_root'))
     @mock.patch('treadmill.subproc.call', mock.Mock(return_value=0))
     def test_archive_filesystem(self):
         """Test filesystem archiving"""

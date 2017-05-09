@@ -11,31 +11,39 @@ import treadmill
 
 _LOGGER = logging.getLogger(__name__)
 
-EXECUTABLES = None
+_EXECUTABLES = None
 _CLOSE_FDS = os.name != 'nt'
 
 
-class CommandWhitelistError(Exception):
-    """Error if not in whitelist."""
+class CommandAliasError(Exception):
+    """Error if not in aliases."""
     pass
 
 
-def _load():
-    """Load whitelist of external binaries that can invoked."""
-    bin_whitelists = os.environ.get('TREADMILL_EXE_WHITELIST')
-    assert bin_whitelists is not None
+def get_aliases():
+    """Load aliases of external binaries that can invoked."""
+    global _EXECUTABLES  # pylint: disable=W0603
+    if _EXECUTABLES:
+        return _EXECUTABLES
+
+    aliases_path = os.environ.get('TREADMILL_ALIASES_PATH')
+    assert aliases_path is not None
     # TODO: need to check that file is either owned by running proc
     #                or root.
-    _LOGGER.debug('Loading whitelist: %s', bin_whitelists)
+    _LOGGER.debug('Loading aliases path: %s', aliases_path)
 
     exes = {}
-    for bin_whitelist in bin_whitelists.split(':'):
-        _LOGGER.debug('Loading whitelist: %s', bin_whitelist)
-        with open(bin_whitelist) as f:
-            exes.update(yaml.load(f.read()))
+    for aliases in aliases_path.split(':'):
+        _LOGGER.debug('Loading aliases: %s', aliases)
+        with open(aliases) as f:
+            exes.update(yaml.load(stream=f))
 
-    global EXECUTABLES  # pylint: disable=W0603
-    EXECUTABLES = exes
+    tm = os.environ.get('TREADMILL')
+    if tm is not None:
+        exes['treadmill'] = tm
+
+    _EXECUTABLES = exes
+    return _EXECUTABLES
 
 
 def _check(path):
@@ -57,31 +65,30 @@ def resolve(exe):
     if exe.startswith(treadmill.TREADMILL):
         return exe
 
-    if EXECUTABLES is None:
-        _load()
+    executables = get_aliases()
 
-    if exe not in EXECUTABLES:
-        _LOGGER.critical('Not in whitelist: %s', exe)
-        raise CommandWhitelistError()
+    if exe not in executables:
+        _LOGGER.critical('Not in aliases: %s', exe)
+        raise CommandAliasError()
 
-    safe_exe = EXECUTABLES[exe]
+    safe_exe = executables[exe]
     if isinstance(safe_exe, list):
         for choice in safe_exe:
             if _check(choice):
                 return choice
         _LOGGER.critical('Cannot resolve: %s', exe)
-        raise CommandWhitelistError()
+        raise CommandAliasError()
     else:
         if not _check(safe_exe):
             print('Not found: ', exe, safe_exe)
             _LOGGER.critical('Command not found: %s, %s', exe, safe_exe)
-            raise CommandWhitelistError()
+            raise CommandAliasError()
 
     return safe_exe
 
 
-def _whitelist_command(cmdline):
-    """Checks that the command line is in the whitelist."""
+def _alias_command(cmdline):
+    """Checks that the command line is in the aliases."""
     safe_cmdline = list(cmdline)
     safe_cmdline.insert(0, resolve(safe_cmdline.pop(0)))
     return safe_cmdline
@@ -106,9 +113,9 @@ def check_call(cmdline, environ=(), runas=None, **kwargs):
     _LOGGER.debug('check_call environ: %r, runas: %r, %r',
                   environ, runas, cmdline)
 
-    args = _whitelist_command(cmdline)
+    args = _alias_command(cmdline)
     if runas:
-        s6_setguid = os.path.join(resolve('s6'), 'bin', 's6-setuidgid')
+        s6_setguid = resolve('s6_setuidgid')
         args = [s6_setguid, runas] + args
 
     # Setup a copy of the environ with the provided overrides
@@ -138,7 +145,7 @@ def check_output(cmdline, environ=(), **kwargs):
         ``dict``
     """
     _LOGGER.debug('check_output environ: %r, %r', environ, cmdline)
-    args = _whitelist_command(cmdline)
+    args = _alias_command(cmdline)
 
     # Setup a copy of the environ with the provided overrides
     cmd_environ = dict(os.environ.items())
@@ -171,7 +178,7 @@ def call(cmdline, environ=(), **kwargs):
         ``dict``
     """
     _LOGGER.debug('run: %r', cmdline)
-    args = _whitelist_command(cmdline)
+    args = _alias_command(cmdline)
 
     # Setup a copy of the environ with the provided overrides
     cmd_environ = dict(os.environ.items())
@@ -207,7 +214,7 @@ def invoke(cmd, cmd_input=None, use_except=False, **environ):
         :class:`subprocess.CalledProcessError`
     """
     _LOGGER.debug('invoke: %r', cmd)
-    args = _whitelist_command(cmd)
+    args = _alias_command(cmd)
 
     # Setup a copy of the environ with the provided overrides
     cmd_environ = dict(os.environ.items())
@@ -269,7 +276,7 @@ def invoke_return(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
         :class:`subprocess.CalledProcessError`
     """
     _LOGGER.debug('invoke: %r', cmd)
-    args = _whitelist_command(cmd)
+    args = _alias_command(cmd)
 
     # Setup a copy of the environ with the provided overrides
     cmd_environ = dict(os.environ.items())
@@ -290,7 +297,7 @@ def invoke_return(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
 def exec_pid1(cmd, ipc=True, mount=True, proc=True):
     """Exec command line under pid1."""
     pid1 = resolve('pid1')
-    safe_cmd = _whitelist_command(cmd)
+    safe_cmd = _alias_command(cmd)
     args = [pid1]
     if ipc:
         args.append('-i')
@@ -305,7 +312,7 @@ def exec_pid1(cmd, ipc=True, mount=True, proc=True):
 
 def safe_exec(cmd):
     """Exec command line using os.execvp."""
-    safe_cmd = _whitelist_command(cmd)
+    safe_cmd = _alias_command(cmd)
     _LOGGER.debug('safe_cmd: %r', safe_cmd)
 
     os.execvp(safe_cmd[0], safe_cmd)

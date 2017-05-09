@@ -5,6 +5,7 @@ import unittest
 from collections import namedtuple
 
 import kazoo
+import kazoo.client
 import mock
 
 import treadmill
@@ -58,6 +59,20 @@ class TicketLockerTest(unittest.TestCase):
         self.assertEqual(
             None,
             tkt_locker.process_request('aaa.xxx.com@y.com', 'foo#1234'))
+
+    @mock.patch('kazoo.client.KazooClient.exists',
+                mock.Mock(return_value=True))
+    @mock.patch('treadmill.zkutils.get', mock.Mock())
+    def test_process_request_noapp(self):
+        """Test processing ticket request."""
+        treadmill.zkutils.get.side_effect = kazoo.client.NoNodeError
+        tkt_locker = tickets.TicketLocker(kazoo.client.KazooClient(),
+                                          '/var/spool/tickets')
+
+        # With no node node error, result will be empty dict.
+        self.assertEquals(
+            {},
+            tkt_locker.process_request('host/aaa.xxx.com@y.com', 'foo#1234'))
 
 
 if __name__ == '__main__':

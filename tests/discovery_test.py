@@ -4,12 +4,13 @@ Unit test for appwatch.
 
 import unittest
 
+from tests.testutils import mockzk
+
 import kazoo
 import kazoo.client
 import mock
 
 from treadmill import discovery
-from treadmill.test import mockzk
 
 
 class DiscoveryTest(mockzk.MockZookeeperTestCase):

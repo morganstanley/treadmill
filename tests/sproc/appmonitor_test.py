@@ -20,8 +20,14 @@ class AppMonitorTest(unittest.TestCase):
                 'foo.baz': ['foo.baz#3', 'foo.baz.#4'],
             },
             'monitors': {
-                'foo.bar': 2,
-                'foo.baz': 2,
+                'foo.bar': {
+                    'count': 2,
+                    'next_tick': 0,
+                },
+                'foo.baz': {
+                    'count': 2,
+                    'next_tick': 0,
+                },
             }
         }
 
@@ -30,7 +36,10 @@ class AppMonitorTest(unittest.TestCase):
         self.assertFalse(instance_api.create.called)
         self.assertFalse(instance_api.delete.called)
 
-        state['monitors']['foo.bar'] = 3
+        state['monitors']['foo.bar'] = {
+            'count': 3,
+            'next_tick': 0
+        }
         appmonitor.reevaluate(instance_api, state)
         instance_api.create.assert_called_with('foo.bar', {}, count=1)
 

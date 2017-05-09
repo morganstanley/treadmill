@@ -1,5 +1,4 @@
 #!/bin/bash -e
-
 sudo mount --make-rprivate /
 
 id -u treadmld &>/dev/null || useradd treadmld

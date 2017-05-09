@@ -31,7 +31,7 @@ def init(api, cors, impl):
     }
 
     response_model = api.model(
-        'RespEndpoint', endpoint_model
+        'Endpoint', endpoint_model
     )
 
     @namespace.route(

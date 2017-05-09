@@ -30,10 +30,10 @@ class StateEnum(Enum):
 
 
 STATE_NODE_MAP = {
-    StateEnum.SCHEDULED.value:  z.SCHEDULED,
-    StateEnum.RUNNING.value:    z.RUNNING,
-    StateEnum.PENDING.value:    None,
-    StateEnum.STOPPED.value:    None,
+    StateEnum.SCHEDULED.value: z.SCHEDULED,
+    StateEnum.RUNNING.value: z.RUNNING,
+    StateEnum.PENDING.value: None,
+    StateEnum.STOPPED.value: None,
 }
 
 GLOB_CHAR = '*'

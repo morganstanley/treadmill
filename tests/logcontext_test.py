@@ -48,8 +48,15 @@ class ContainerAdapterTest(unittest.TestCase):
             self.ca._dec_unique_name('treadmld.app-dns-0000000019-z1DL'),
             ['treadmld.app-dns', '0000000019', 'z1DL'])
         self.assertEqual(
-            self.ca._dec_unique_name('not a full unique name'),
-            ['_', '_', '_'])
+            self.ca._dec_unique_name('proid.foo#1234'),
+            ['proid.foo', '1234', '_'])
+        self.assertEqual(
+            self.ca._dec_unique_name('proid.foo#1234/asdf'),
+            ['proid.foo', '1234', 'asdf'])
+        self.assertEqual(
+            len(self.ca._dec_unique_name('proid.foo#1234/asdf/baz')), 3)
+        self.assertEqual(
+            self.ca._dec_unique_name('something'), ['something', '_', '_'])
 
     def test_fmt(self):
         """Test the log representation of the 'extra' attribute

@@ -40,7 +40,7 @@ def init(api, cors, impl):
         'traits': fields.List(fields.String(description='Traits')),
         'assignments': fields.List(fields.Nested(assignment)),
     })
-    allocation_model = {
+    model = {
         '_id': fields.String(description='Name'),
         'environment': fields.String(
             description='App environment',
@@ -49,11 +49,8 @@ def init(api, cors, impl):
         'reservations': fields.List(fields.Nested(reservation)),
     }
 
-    request_model = api.model(
-        'ReqAllocation', allocation_model
-    )
-    response_model = api.model(
-        'RespAllocation', allocation_model
+    allocation_model = api.model(
+        'Allocation', model
     )
 
     @namespace.route('/')
@@ -62,7 +59,7 @@ def init(api, cors, impl):
 
         @webutils.get_api(api, cors,
                           marshal=api.marshal_list_with,
-                          resp_model=response_model)
+                          resp_model=allocation_model)
         def get(self):
             """Returns list of configured allocations."""
             return impl.list()
@@ -74,7 +71,7 @@ def init(api, cors, impl):
 
         @webutils.get_api(api, cors,
                           marshal=api.marshal_list_with,
-                          resp_model=response_model)
+                          resp_model=allocation_model)
         def get(self, tenant_id):
             """Returns the list of the tenant's allocations."""
             return impl.list(tenant_id)
@@ -89,14 +86,14 @@ def init(api, cors, impl):
 
         @webutils.get_api(api, cors,
                           marshal=api.marshal_with,
-                          resp_model=response_model)
+                          resp_model=allocation_model)
         def get(self, tenant_id, alloc_id):
             """Returns the allocation's details."""
             return impl.get(_alloc_id(tenant_id, alloc_id))
 
         @webutils.post_api(api, cors,
-                           req_model=request_model,
-                           resp_model=response_model)
+                           req_model=allocation_model,
+                           resp_model=allocation_model)
         def post(self, tenant_id, alloc_id):
             """Creates Treadmill allocation."""
             return impl.create(
@@ -119,14 +116,14 @@ def init(api, cors, impl):
 
         @webutils.get_api(api, cors,
                           marshal=api.marshal_with,
-                          resp_model=response_model)
+                          resp_model=allocation_model)
         def get(self, tenant_id, alloc_id, cell):
             """Returns the details of the reservation."""
             return impl.reservation.get('/'.join([tenant_id, alloc_id, cell]))
 
         @webutils.post_api(api, cors,
-                           req_model=request_model,
-                           resp_model=response_model)
+                           req_model=allocation_model,
+                           resp_model=allocation_model)
         def post(self, tenant_id, alloc_id, cell):
             """Creates a Treadmill reservation in the cell."""
             return impl.reservation.create(
@@ -135,8 +132,8 @@ def init(api, cors, impl):
             )
 
         @webutils.put_api(api, cors,
-                          req_model=request_model,
-                          resp_model=response_model)
+                          req_model=allocation_model,
+                          resp_model=allocation_model)
         def put(self, tenant_id, alloc_id, cell):
             """Updates Treadmill reservation configuration."""
             return impl.reservation.update(
@@ -166,7 +163,7 @@ def init(api, cors, impl):
 
         @webutils.get_api(api, cors,
                           marshal=api.marshal_with,
-                          resp_model=response_model)
+                          resp_model=allocation_model)
         def get(self, tenant_id, alloc_id, cell, pattern):
             """Returns the details of the reservation."""
             return impl.assignment.get(
@@ -174,8 +171,8 @@ def init(api, cors, impl):
             )
 
         @webutils.post_api(api, cors,
-                           req_model=request_model,
-                           resp_model=response_model)
+                           req_model=allocation_model,
+                           resp_model=allocation_model)
         def post(self, tenant_id, alloc_id, cell, pattern):
             """Creates a Treadmill reservation in the cell."""
             return impl.assignment.create(
@@ -184,8 +181,8 @@ def init(api, cors, impl):
             )
 
         @webutils.put_api(api, cors,
-                          req_model=request_model,
-                          resp_model=response_model)
+                          req_model=allocation_model,
+                          resp_model=allocation_model)
         def put(self, tenant_id, alloc_id, cell, pattern):
             """Updates Treadmill allocation assignment."""
             return impl.assignment.update(

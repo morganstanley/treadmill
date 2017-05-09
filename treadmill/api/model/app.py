@@ -23,12 +23,16 @@ def models(api):
         'type': fields.String(description='Type'),
         'proto': fields.String(description='Protocol'),
     })
+    ephemeral_ports = api.model('Ephemeral', {
+        'tcp': fields.Integer(description='TCP port count', required=False),
+        'udp': fields.Integer(description='UDP port count', required=False),
+    })
     environ = api.model('EnvironmentVars', {
         'name': fields.String(description='Name'),
         'value': fields.String(description='Value'),
     })
     vring_rule = api.model('VRingRule', {
-        'endpoints': fields.List(fields.Nested(endpoint)),
+        'endpoints': fields.List(fields.String(description='Endpoint names')),
         'pattern': fields.String(description='Pattern'),
     })
     vring = api.model('VRing', {
@@ -42,24 +46,26 @@ def models(api):
         'cpu': fields.String(description='CPU'),
         'disk': fields.String(description='Disk size'),
         'services': fields.List(fields.Nested(service)),
+        'image': fields.String(description='Image'),
+        'entry_point': fields.String(description='Entry Point'),
         'environ': fields.List(fields.Nested(environ)),
         'endpoints': fields.List(fields.Nested(endpoint)),
-        'ephemeral_ports': fields.Integer(description='Epemeral Ports'),
+        'ephemeral_ports': fields.Nested(ephemeral_ports),
         'tickets': fields.List(fields.String(description='Tickets')),
         'features': fields.List(fields.String(description='Features')),
+        'passthrough': fields.List(fields.String(description='Passthrough')),
         'identity_group': fields.String(description='Identity Group'),
         'archive': fields.List(fields.String(description='Archive')),
         'shared_ip': fields.Boolean(description='Shared IP'),
         'shared_network': fields.Boolean(description='Shared Network'),
         'schedule_once': fields.Boolean(description='Schedule Once'),
         'vring': fields.Nested(vring),
+        'data_retention_timeout': fields.String(
+            description='Data retention timeout'),
     }
 
-    request_model = api.model(
-        'Application', application
-    )
-    response_model = api.model(
+    app_model = api.model(
         'Application', application
     )
 
-    return (request_model, response_model)
+    return (app_model, app_model)

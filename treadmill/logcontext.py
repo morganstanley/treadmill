@@ -74,10 +74,16 @@ class ContainerAdapter(Adapter):
         instance id and unique id. Return dummy entries if not an app unique
         name is passed in params.
         """
-        parts = unique_name.rsplit('-', 2)
+        if '#' in unique_name:
+            parts = unique_name.split('#')
+            if '/' in parts[-1]:
+                parts[-1:] = parts[-1].split('/', 1)
+        else:
+            parts = unique_name.rsplit('-', 2)
 
-        if len(parts) != 3:
-            return ['_'] * 3
+        len_ = len(parts)
+        if len_ != 3:
+            parts[len_:3] = ['_'] * (3 - len_)
 
         return parts
 

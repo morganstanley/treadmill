@@ -1,0 +1,37 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "cell_name": { "$ref": "common.json#/cell" },
+    "host": {
+        "type": "string",
+        "format": "hostname"
+    },
+    "priority": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 65535
+    },
+    "weight": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 65535
+    },
+    "resource": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+            "targets": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                        "host": { "$ref": "#/host" },
+                        "port": { "$ref": "common.json#/port" },
+                        "priority": { "$ref": "#/priority" },
+                        "weight": { "$ref": "#/weight" }
+                    }
+                }
+            }
+        }
+    }
+}

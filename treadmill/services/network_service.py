@@ -61,8 +61,12 @@ class NetworkResourceService(BaseResourceServiceImpl):
         self._vips = vipfile.VipMgr(vips_dir, self._service_rsrc_dir)
         self._vips.garbage_collect()
 
-        # TODO: We should cleanup IP <-> Environment assignments here
-        #                as well for extra safety.
+        # Clear all environment assignments here. They will be re-assigned
+        # below.
+        iptables.init_set(iptables.SET_PROD_CONTAINERS,
+                          family='inet', hashsize=1024, maxelem=65536)
+        iptables.init_set(iptables.SET_NONPROD_CONTAINERS,
+                          family='inet', hashsize=1024, maxelem=65536)
 
         need_init = False
         try:
@@ -159,10 +163,6 @@ class NetworkResourceService(BaseResourceServiceImpl):
                 # VIPs allocation (the owner is the resource link)
                 ip = self._vips.alloc(rsrc_id)
 
-                # We can now mark ip traffic as belonging to the requested
-                # environment.
-                iptables.add_mark_rule(ip, environment)
-
                 # Create the interface pair
                 netdev.link_add_veth(veth0, veth1)
                 # Configure the links
@@ -187,6 +187,10 @@ class NetworkResourceService(BaseResourceServiceImpl):
                     'environment': environment,
                 }
             )
+
+            # We can now mark ip traffic as belonging to the requested
+            # environment.
+            iptables.add_mark_rule(ip, environment)
 
         result = {
             'vip': ip,

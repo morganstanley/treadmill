@@ -1,17 +1,14 @@
 """Treadmill discovery CLI."""
 
 
-import json
 import logging
 import socket
 import sys
 
-import websocket as ws_client
-
 import click
 
-from .. import cli
-from treadmill import context
+from treadmill import cli
+from treadmill.websocket import client as ws_client
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -27,48 +24,25 @@ def init():
                   envvar='TREADMILL_CELL',
                   callback=cli.handle_context_opt,
                   expose_value=False)
-    @click.option('--api', required=False, help='API url to use.',
+    @click.option('--wsapi', required=False, help='Websocket API.',
                   metavar='URL',
                   envvar='TREADMILL_WSAPI')
     @click.option('--check-state', is_flag=True, default=False)
     @click.option('--watch', is_flag=True, default=False)
     @click.option('--separator', default=' ')
     @click.argument('app')
-    @click.argument('endpoint', required=False, default='*')
-    def discovery(api, check_state, watch, separator, app, endpoint):
+    @click.argument('endpoint', required=False, default='*:*')
+    def discovery(wsapi, check_state, watch, separator, app, endpoint):
         """Show state of scheduled applications."""
-        ctx['api'] = api
-        apis = context.GLOBAL.ws_api(ctx['api'])
+        ctx['wsapi'] = wsapi
 
-        ws = None
-        for api in apis:
-            try:
-                ws = ws_client.create_connection(api)
-                _LOGGER.debug('Using API %s', api)
-                break
-            except socket.error:
-                _LOGGER.debug('Could not connect to %s, trying next SRV '
-                              'record', api)
-                continue
+        if ':' not in endpoint:
+            endpoint = '*:' + endpoint
 
-        if not ws:
-            click.echo('Could not connect to any Websocket APIs')
-            sys.exit(-1)
+        proto, endpoint_name = endpoint.split(':')
 
-        ws.send(json.dumps({'topic': '/endpoints',
-                            'filter': app,
-                            'proto': 'tcp',
-                            'endpoint': endpoint,
-                            'snapshot': not watch}))
-        while True:
-            reply = ws.recv()
-            if not reply:
-                break
-            result = json.loads(reply)
-            if '_error' in result:
-                click.echo('Error: %s' % result['_error'], err=True)
-                break
-
+        def on_message(result):
+            """Callback to process trace message."""
             instance = ':'.join([
                 result['name'], result['proto'], result['endpoint']
             ])
@@ -95,7 +69,25 @@ def init():
                 output = instance
 
             print(output)
+            return True
 
-        ws.close()
+        def on_error(result):
+            """Callback to process errors."""
+            click.echo('Error: %s' % result['_error'], err=True)
+
+        try:
+            return ws_client.ws_loop(
+                ctx['wsapi'],
+                {'topic': '/endpoints',
+                 'filter': app,
+                 'proto': proto,
+                 'endpoint': endpoint_name},
+                not watch,
+                on_message,
+                on_error
+            )
+        except ws_client.ConnectionError:
+            click.echo('Could not connect to any Websocket APIs', err=True)
+            sys.exit(-1)
 
     return discovery

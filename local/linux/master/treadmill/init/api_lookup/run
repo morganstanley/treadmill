@@ -1,0 +1,12 @@
+#!/bin/sh
+#
+# Starts api_lookup.
+#
+
+exec 2>&1
+
+exec                                                                        \
+    {{ s6 }}/bin/s6-setuidgid {{ treadmillid }}                             \
+    {{ treadmill_bin }} sproc                                               \
+        restapi                                                             \
+        -m api-lookup -c '.*' -p 5800

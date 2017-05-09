@@ -1,13 +1,12 @@
-#!/bin/sh
-#
-# Starts the svscan process for the supervised apps.
-# Runs as root
-#
+#!{{ _alias.execlineb }} -P
 
-exec 2>&1
+{{ _alias.redirfd }} -r 0 /dev/null
+{{ _alias.fdmove }} -c 2 1
 
-# Supervised apps will change ionice priority to 5/6 depending on app
-# environment.
-#
-# THe root svscan will continue to run with ionice 0.
-exec {{ s6 }}/bin/s6-svscan {{ dir }}/running
+# Set to single execution so that we can enforce restart policies
+{{ _alias.if }} { {{ _alias.s6_svc }} -o . }
+
+{{ _alias.s6_envdir }} -i -- {{ dir }}/env
+{{ _alias.s6_envdir }} -i -- ./env
+
+/bin/sh -l ./data/app_start

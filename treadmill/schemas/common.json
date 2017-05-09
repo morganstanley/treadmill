@@ -15,6 +15,10 @@
         "type": "string",
         "pattern": "^\\d+%$"
     },
+    "time_interval": {
+        "type": "string",
+        "pattern": "^\\d+[SsMmHhDdMmYy]$"
+    },
     "proid": {
         "type": "string",
         "maxLength": 16,
@@ -95,6 +99,11 @@
             }
         ]
     },
+    "priority": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 100
+    },
     "identity_group_id": {
         "type": "string",
         "maxLength": 128,
@@ -103,6 +112,17 @@
     "trait": {
         "type": "string",
         "maxLength": 32
+    },
+    "partition": {
+        "anyOf": [
+            {
+                "type": "string",
+                "maxLength": 32
+            },
+            {
+                "type": "null"
+            }
+        ]
     },
     "label": {
         "anyOf": [

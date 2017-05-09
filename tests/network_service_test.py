@@ -110,6 +110,7 @@ class NetworkServiceTest(unittest.TestCase):
             'tm0', True
         )
 
+    @mock.patch('treadmill.iptables.init_set', mock.Mock())
     @mock.patch('treadmill.netdev.bridge_brif',
                 mock.Mock(return_value=['foo', 'bar']))
     @mock.patch('treadmill.netdev.bridge_setfd', mock.Mock())
@@ -147,6 +148,15 @@ class NetworkServiceTest(unittest.TestCase):
             svc._service_rsrc_dir
         )
         self.assertTrue(mock_vipmgr_inst.garbage_collect.called)
+        treadmill.iptables.init_set.assert_has_calls(
+            [
+                mock.call(treadmill.iptables.SET_PROD_CONTAINERS,
+                          family='inet', hashsize=1024, maxelem=65536),
+                mock.call(treadmill.iptables.SET_NONPROD_CONTAINERS,
+                          family='inet', hashsize=1024, maxelem=65536),
+            ],
+            any_order=True
+        )
         treadmill.netdev.link_set_up.assert_has_calls(
             [
                 mock.call('tm0'),
@@ -186,6 +196,7 @@ class NetworkServiceTest(unittest.TestCase):
             'All devices must be unified with their IP and marked stale'
         )
 
+    @mock.patch('treadmill.iptables.init_set', mock.Mock())
     @mock.patch('treadmill.netdev.bridge_brif', mock.Mock(return_value=[]))
     @mock.patch('treadmill.netdev.bridge_setfd', mock.Mock())
     @mock.patch('treadmill.netdev.dev_conf_route_localnet_set', mock.Mock())
@@ -222,6 +233,15 @@ class NetworkServiceTest(unittest.TestCase):
             svc._service_rsrc_dir
         )
         self.assertTrue(mock_vipmgr_inst.garbage_collect.called)
+        treadmill.iptables.init_set.assert_has_calls(
+            [
+                mock.call(treadmill.iptables.SET_PROD_CONTAINERS,
+                          family='inet', hashsize=1024, maxelem=65536),
+                mock.call(treadmill.iptables.SET_NONPROD_CONTAINERS,
+                          family='inet', hashsize=1024, maxelem=65536),
+            ],
+            any_order=True
+        )
         treadmill.netdev.link_set_up.assert_called_with('tm0')
         self.assertTrue(svc._bridge_initialize.called)
         self.assertTrue(mock_vipmgr_inst.initialize.called)
@@ -297,6 +317,7 @@ class NetworkServiceTest(unittest.TestCase):
             ext_mtu=9000,
         )
         svc._vips = mock.Mock()
+        mockip = svc._vips.alloc.return_value
         request = {
             'environment': 'dev',
         }
@@ -333,7 +354,7 @@ class NetworkServiceTest(unittest.TestCase):
             {
                 'gateway': '192.168.254.254',
                 'veth': '0000000ID1234.1',
-                'vip': mock.ANY,
+                'vip': mockip,
             }
         )
         self.assertEqual(
@@ -341,10 +362,13 @@ class NetworkServiceTest(unittest.TestCase):
             {
                 request_id: {
                     'environment': 'dev',
-                    'ip': mock.ANY,
+                    'ip': mockip,
                     'test': 'me',
                 }
             }
+        )
+        treadmill.iptables.add_mark_rule.assert_called_with(
+            mockip, 'dev'
         )
 
     @mock.patch('treadmill.iptables.add_mark_rule', mock.Mock())
@@ -407,6 +431,9 @@ class NetworkServiceTest(unittest.TestCase):
                     'test': 'me',
                 }
             }
+        )
+        treadmill.iptables.add_mark_rule.assert_called_with(
+            'old_ip', 'dev'
         )
 
     @mock.patch('treadmill.iptables.delete_mark_rule', mock.Mock())

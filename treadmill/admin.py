@@ -7,6 +7,7 @@ import sys
 
 import collections
 import copy
+import json
 import hashlib
 import itertools
 import logging
@@ -83,6 +84,8 @@ def _entry_2_dict(entry, schema):
             obj[obj_field] = list(map(field_type[0], value))
         elif field_type == bool:
             obj[obj_field] = bool(util.strtobool(value[0].lower()))
+        elif field_type == dict:
+            obj[obj_field] = json.loads(value[0])
         else:
             obj[obj_field] = field_type(value[0])
 
@@ -91,6 +94,9 @@ def _entry_2_dict(entry, schema):
 
 def _dict_2_entry(obj, schema, option=None, option_value=None):
     """Converts dict to ldap entry."""
+    # TODO: refactor to eliminate too many branches warning.
+    #
+    # pylint: disable=R0912
     entry = dict()
 
     delete = False
@@ -126,6 +132,8 @@ def _dict_2_entry(obj, schema, option=None, option_value=None):
                     entry[ldap_field] = filtered
             elif field_type == bool:
                 entry[ldap_field] = [str(value).upper()]
+            elif field_type == dict:
+                entry[ldap_field] = [json.dumps(value)]
             else:
                 entry[ldap_field] = [str(value)]
 
@@ -442,9 +450,6 @@ class Admin(object):
 
         self._test_raise_exceptions()
 
-        if not self.ldap.response:
-            return
-
         for entry in self.ldap.response:
             yield str(entry['dn']), _dict_normalize(entry['attributes'])
 
@@ -507,10 +512,9 @@ class Admin(object):
                              attributes=['olcAttributeTypes',
                                          'olcObjectClasses'])
 
+        schema_dn, entry = next(result)
         if not result:
             return None
-
-        schema_dn, entry = next(result)
 
         attr_types = []
         for attr_type_s in entry.get('olcAttributeTypes', []):
@@ -923,7 +927,8 @@ class Server(LdapObject):
         ('server', '_id', str),
         ('cell', 'cell', str),
         ('trait', 'traits', [str]),
-        ('label', 'label', str),
+        ('partition', 'partition', str),
+        ('data', 'data', [str]),
     ]
 
     _oc = 'tmServer'
@@ -1014,11 +1019,17 @@ class Application(LdapObject):
         ('feature', 'features', [str]),
         ('identity-group', 'identity_group', str),
         ('shared-ip', 'shared_ip', bool),
+        ('passthrough', 'passthrough', [str]),
+        ('schedule-once', 'schedule_once', bool),
+        ('ephemeral-ports-tcp', 'ephemeral_ports_tcp', int),
+        ('ephemeral-ports-udp', 'ephemeral_ports_udp', int),
+        ('data-retention-timeout', 'data_retention_timeout', str),
     ]
 
     _svc_schema = [
         ('service-name', 'name', str),
         ('service-command', 'command', str),
+        ('service-root', 'root', bool),
     ]
 
     _svc_restart_schema = [
@@ -1048,6 +1059,15 @@ class Application(LdapObject):
         ('affinity-limit', 'limit', int),
     ]
 
+    _vring_schema = [
+        ('vring-cell', 'cells', [str]),
+    ]
+
+    _vring_rule_schema = [
+        ('vring-rule-endpoint', 'endpoints', [str]),
+        ('vring-rule-pattern', 'pattern', str),
+    ]
+
     _oc = 'tmApp'
     _ou = 'apps'
     _entity = 'app'
@@ -1055,13 +1075,18 @@ class Application(LdapObject):
     @staticmethod
     def schema():
         """Returns combined schema for retrieval."""
-        name_only = lambda schema_rec: (schema_rec[0], None, None)
-        return sum([list(map(name_only, Application._svc_schema)),
-                    list(map(name_only, Application._svc_restart_schema)),
-                    list(map(name_only, Application._endpoint_schema)),
-                    list(map(name_only, Application._environ_schema)),
-                    list(map(name_only, Application._affinity_schema))],
-                   Application._schema)
+        return sum(
+            [
+                [(r[0], None, None) for r in Application._svc_schema],
+                [(r[0], None, None) for r in Application._svc_restart_schema],
+                [(r[0], None, None) for r in Application._endpoint_schema],
+                [(r[0], None, None) for r in Application._environ_schema],
+                [(r[0], None, None) for r in Application._affinity_schema],
+                [(r[0], None, None) for r in Application._vring_schema],
+                [(r[0], None, None) for r in Application._vring_rule_schema],
+            ],
+            Application._schema
+        )
 
     def from_entry(self, entry, dn=None):
         """Converts LDAP app object to dict."""
@@ -1077,6 +1102,16 @@ class Application(LdapObject):
             grouped, 'tm-envvar-', Application._environ_schema)
         affinity_limits = _grouped_to_list_of_dict(
             grouped, 'tm-affinity-', Application._affinity_schema)
+        vring_rules = _grouped_to_list_of_dict(
+            grouped, 'tm-vring-rule-', Application._vring_rule_schema)
+
+        obj['ephemeral_ports'] = {}
+        if 'ephemeral_ports_tcp' in obj:
+            obj['ephemeral_ports']['tcp'] = obj['ephemeral_ports_tcp']
+            del obj['ephemeral_ports_tcp']
+        if 'ephemeral_ports_udp' in obj:
+            obj['ephemeral_ports']['udp'] = obj['ephemeral_ports_udp']
+            del obj['ephemeral_ports_udp']
 
         # Merge services and services restarts
         for service in services:
@@ -1090,6 +1125,9 @@ class Application(LdapObject):
         affinity_limits = {affinity['level']: affinity['limit']
                            for affinity in affinity_limits}
 
+        vring = _entry_2_dict(entry, Application._vring_schema)
+        vring['rules'] = vring_rules
+
         obj.update({
             'services': services,
             'endpoints': endpoints,
@@ -1097,11 +1135,24 @@ class Application(LdapObject):
             'affinity_limits': affinity_limits,
         })
 
+        if vring['cells'] or vring['rules']:
+            obj['vring'] = vring
+
         return obj
 
     def to_entry(self, obj):
         """Converts app dictionary to LDAP entry."""
+        if 'ephemeral_ports' in obj:
+            obj['ephemeral_ports_tcp'] = obj['ephemeral_ports'].get('tcp', 0)
+            obj['ephemeral_ports_udp'] = obj['ephemeral_ports'].get('udp', 0)
+
         entry = super(Application, self).to_entry(obj)
+
+        # Clean up
+        if 'ephemeral_ports_tcp' in obj:
+            del obj['ephemeral_ports_tcp']
+        if 'ephemeral_ports_udp' in obj:
+            del obj['ephemeral_ports_udp']
 
         for service in obj.get('services', []):
             service_entry = _dict_2_entry(
@@ -1150,6 +1201,15 @@ class Application(LdapObject):
 
             entry.update(aff_lim_entry)
 
+        vring = obj.get('vring')
+        if vring:
+            entry.update(_dict_2_entry(vring, Application._vring_schema))
+            for rule in vring.get('rules', []):
+                entry.update(_dict_2_entry(rule,
+                                           Application._vring_rule_schema,
+                                           'tm-vring-rule',
+                                           rule['pattern']))
+
         return entry
 
 
@@ -1169,14 +1229,17 @@ class Cell(LdapObject):
         ('master-zk-election-port', 'zk-election-port', int),
     ]
 
-    _schema = [('cell', '_id', str),
-               ('archive-server', 'archive-server', str),
-               ('archive-username', 'archive-username', str),
-               ('location', 'location', str),
-               ('ssq-namespace', 'ssq-namespace', str),
-               ('username', 'username', str),
-               ('version', 'version', str),
-               ('root', 'root', str)]
+    _schema = [
+        ('cell', '_id', str),
+        ('archive-server', 'archive-server', str),
+        ('archive-username', 'archive-username', str),
+        ('location', 'location', str),
+        ('ssq-namespace', 'ssq-namespace', str),
+        ('username', 'username', str),
+        ('version', 'version', str),
+        ('root', 'root', str),
+        ('data', 'data', dict),
+    ]
 
     _oc = 'tmCell'
     _ou = 'cells'
@@ -1185,9 +1248,25 @@ class Cell(LdapObject):
     @staticmethod
     def schema():
         """Returns combined schema for retrieval."""
-        name_only = lambda schema_rec: (schema_rec[0], None, None)
-        return (Cell._schema +
-                list(map(name_only, Cell._master_host_schema)))
+        return (
+            Cell._schema +
+            list(
+                map(
+                    lambda schema_rec: (schema_rec[0], None, None),
+                    Cell._master_host_schema
+                )
+            )
+        )
+
+    def get(self, ident):
+        """Gets cell given primary key."""
+        obj = super(Cell, self).get(ident)
+        obj['partitions'] = self.partitions(ident)
+        return obj
+
+    def partitions(self, ident):
+        """Retrieves all partitions for given cell."""
+        return self.children(ident, Partition)
 
     def from_entry(self, entry, dn=None):
         """Converts LDAP app object to dict."""
@@ -1214,6 +1293,20 @@ class Cell(LdapObject):
             entry.update(master_entry)
 
         return entry
+
+    def delete(self, ident):
+        """Deletes LDAP record."""
+        dn = self.dn(ident)
+        cell_partitions = self.admin.search(
+            search_base=dn,
+            search_filter='(objectclass=tmPartition)',
+            attributes=[]
+        )
+
+        for dn, _entry in cell_partitions:
+            self.admin.delete(dn)
+
+        return super(Cell, self).delete(ident)
 
 
 Cell.oc = staticmethod(lambda: Cell._oc)
@@ -1304,7 +1397,7 @@ class CellAllocation(LdapObject):
         ('max-utilization', 'max-utilization', str),
         ('rank', 'rank', int),
         ('trait', 'traits', [str]),
-        ('label', 'label', str),
+        ('partition', 'partition', str),
     ]
 
     _assign_schema = [
@@ -1319,9 +1412,15 @@ class CellAllocation(LdapObject):
     @staticmethod
     def schema():
         """Returns combined schema for retrieval."""
-        name_only = lambda schema_rec: (schema_rec[0], None, None)
-        return (CellAllocation._schema +
-                list(map(name_only, CellAllocation._assign_schema)))
+        return (
+            CellAllocation._schema +
+            list(
+                map(
+                    lambda schema_rec: (schema_rec[0], None, None),
+                    CellAllocation._assign_schema
+                )
+            )
+        )
 
     def dn(self, ident=None):
         """Object dn."""
@@ -1424,3 +1523,61 @@ class Allocation(LdapObject):
 Allocation.oc = staticmethod(lambda: Allocation._oc)
 Allocation.ou = staticmethod(lambda: Allocation._ou)
 Allocation.entity = staticmethod(lambda: Allocation._entity)
+
+
+def _dn2partition_id(dn):
+    """Converts cell partition dn to full id."""
+    parts = dn.split(',')
+    partition = parts.pop(0).split('=')[1]
+    cell = parts.pop(0).split('=')[1]
+
+    return (cell, partition)
+
+
+class Partition(LdapObject):
+    """Partition object."""
+
+    _schema = [
+        ('partition', '_id', str),
+        ('cpu', 'cpu', str),
+        ('disk', 'disk', str),
+        ('memory', 'memory', str),
+        ('down-threshold', 'down-threshold', int)
+    ]
+
+    _oc = 'tmPartition'
+    _ou = 'cells'
+    _entity = 'partition'
+
+    def dn(self, ident=None):
+        """Object dn."""
+        if not ident:
+            return self.admin.dn(['ou=%s' % self.ou()])
+
+        partition = ident[0]
+        cell = ident[1]
+
+        parts = [
+            '%s=%s' % ('partition', partition),
+            '%s=%s' % (Cell.entity(), cell),
+            'ou=%s' % Cell.ou(),
+        ]
+        return self.admin.dn(parts)
+
+    def from_entry(self, entry, dn=None):
+        """Converts cell allocation object to dict."""
+        obj = super(Partition, self).from_entry(entry, dn)
+
+        if dn:
+            cell, partition = _dn2partition_id(dn)
+
+            obj['partition'] = partition
+            obj['cell'] = cell
+
+        return obj
+
+
+Partition.schema = staticmethod(lambda: Partition._schema)
+Partition.oc = staticmethod(lambda: Partition._oc)
+Partition.ou = staticmethod(lambda: Partition._ou)
+Partition.entity = staticmethod(lambda: Partition._entity)

@@ -27,7 +27,7 @@ import yaml
 from .. import context
 from .. import exc
 from .. import firewall as fw
-from .. import idirwatch
+from .. import dirwatch
 from .. import iptables
 from .. import rulefile
 from .. import utils
@@ -84,7 +84,52 @@ def _update_nodes_change(data):
         iptables.destroy_set(new_set)
 
 
-# FIXME(boysson): This is *NOT* MS specific
+def _configure_rules(target):
+    """Configures iptables rules.
+
+    The input to the function is target state - a list of (chain, rule) tuples
+    that needs to be present.
+
+    The function will sync existing iptables configuration with the target
+    state, by adding/removing extra rules.
+
+    :param ``[tuple(chain, Tuple)]`` target:
+        Desired set of rules
+    """
+    chain_rules = {}
+    for chain, rule in target:
+        chain_rules.setdefault(chain, set()).add(rule)
+
+    for chain, rules in chain_rules.items():
+        if chain == iptables.PREROUTING_DNAT:
+            iptables.configure_dnat_rules(
+                rules,
+                chain=iptables.PREROUTING_DNAT
+            )
+        elif chain == iptables.POSTROUTING_SNAT:
+            iptables.configure_snat_rules(
+                rules,
+                chain=iptables.POSTROUTING_SNAT
+            )
+        elif chain == iptables.PREROUTING_PASSTHROUGH:
+            iptables.configure_passthrough_rules(
+                rules,
+                chain=iptables.PREROUTING_PASSTHROUGH
+            )
+        elif chain == iptables.VRING_DNAT:
+            iptables.configure_dnat_rules(
+                rules,
+                chain=iptables.VRING_DNAT
+            )
+        elif chain == iptables.VRING_SNAT:
+            iptables.configure_snat_rules(
+                rules,
+                chain=iptables.VRING_SNAT
+            )
+        else:
+            raise ValueError('Unknown rule chain %r' % chain)
+
+
 def _watcher(root_dir, rules_dir, containers_dir, watchdogs_dir):
     """Treadmill Firewall rule watcher.
     """
@@ -107,12 +152,13 @@ def _watcher(root_dir, rules_dir, containers_dir, watchdogs_dir):
 
     def on_created(path):
         """Invoked when a network rule is created."""
-        rule = os.path.basename(path)
-        _LOGGER.info('adding %s', rule)
+        rule_file = os.path.basename(path)
+        _LOGGER.info('adding %r', rule_file)
         # The rule is the filename
-        rule = rulemgr.get_rule(rule)
-        if rule:
-            iptables.add_rule(rule)
+        chain_rule = rulemgr.get_rule(rule_file)
+        if chain_rule is not None:
+            chain, rule = chain_rule
+            iptables.add_rule(rule, chain=chain)
             if isinstance(rule, fw.PassThroughRule):
                 passthrough[rule.src_ip] = (
                     passthrough.setdefault(rule.src_ip, 0) + 1
@@ -120,7 +166,7 @@ def _watcher(root_dir, rules_dir, containers_dir, watchdogs_dir):
                 _LOGGER.info('Adding passthrough %r', rule.src_ip)
                 iptables.add_ip_set(iptables.SET_PASSTHROUGHS, rule.src_ip)
         else:
-            _LOGGER.warning('Ignoring unparseable rule %r', rule)
+            _LOGGER.warning('Ignoring unparseable rule %r', rule_file)
 
     def on_deleted(path):
         """Invoked when a network rule is deleted."""
@@ -132,11 +178,12 @@ def _watcher(root_dir, rules_dir, containers_dir, watchdogs_dir):
             utils.sys_exit(1)
 
         # The rule is the filename
-        rule = os.path.basename(path)
-        _LOGGER.info('Removing %s', rule)
-        rule = rulemgr.get_rule(rule)
-        if rule:
-            iptables.delete_rule(rule=rule)
+        rule_file = os.path.basename(path)
+        _LOGGER.info('Removing %r', rule_file)
+        chain_rule = rulemgr.get_rule(rule_file)
+        if chain_rule is not None:
+            chain, rule = chain_rule
+            iptables.delete_rule(rule, chain=chain)
             if isinstance(rule, fw.PassThroughRule):
                 if passthrough[rule.src_ip] == 1:
                     # Remove the IPs from the passthrough set
@@ -147,19 +194,19 @@ def _watcher(root_dir, rules_dir, containers_dir, watchdogs_dir):
                     passthrough[rule.src_ip] -= 1
 
         else:
-            _LOGGER.warning('Ignoring unparseable file %r', rule)
+            _LOGGER.warning('Ignoring unparseable file %r', rule_file)
 
     _LOGGER.info('Monitoring dnat changes in %r', rulemgr.path)
-    watch = idirwatch.DirWatcher(rulemgr.path)
+    watch = dirwatch.DirWatcher(rulemgr.path)
     watch.on_created = on_created
     watch.on_deleted = on_deleted
 
     # now that we are watching, prime the rules
     current_rules = rulemgr.get_rules()
     # Bulk apply rules
-    iptables.configure_rules(current_rules)
+    _configure_rules(current_rules)
 
-    for rule in current_rules:
+    for _chain, rule in current_rules:
         if isinstance(rule, fw.PassThroughRule):
             passthrough[rule.src_ip] = (
                 passthrough.setdefault(rule.src_ip, 0) + 1

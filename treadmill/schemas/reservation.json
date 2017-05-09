@@ -11,8 +11,8 @@
             "cpu": { "$ref": "common.json#/cpu" },
             "disk": { "$ref": "common.json#/disk" },
             "rank": { "$ref": "common.json#/rank" },
-            "label": {
-                "$ref": "common.json#/label"
+            "partition": {
+                "$ref": "common.json#/partition"
             }
         }
     },
@@ -27,7 +27,7 @@
                 "memory": { "$ref": "#/resource/properties/memory" },
                 "cpu": { "$ref": "#/resource/properties/cpu" },
                 "disk": { "$ref": "#/resource/properties/disk" },
-                "label": { "$ref": "#/resource/properties/label"}
+                "partition": { "$ref": "#/resource/properties/partition"}
             }
         }
     }

@@ -109,15 +109,31 @@ def cpu_count():
     return multiprocessing.cpu_count()
 
 
-def _total_bogomips_linux():
-    """Return sum of bogomips value for all CPUs."""
+def available_cpu_count():
+    """Return number of CPUs available for treadmill."""
+    cores = cgroups.get_cpuset_cores('treadmill')
+    return len(cores)
+
+
+def bogomips_linux(cores):
+    """Return sum of bogomips value for cores."""
     total = 0
     with open('/proc/cpuinfo') as cpuinfo:
-        for line in cpuinfo.read().splitlines():
-            if line.startswith('bogomips'):
-                total += float(line.split(':')[1])
+        for cpu in cpuinfo.read().split('\n\n'):
+            for line in cpu.splitlines():
+                if line.startswith('processor'):
+                    if int(line.split(':')[1]) not in cores:
+                        break
+                if line.startswith('bogomips'):
+                    total += float(line.split(':')[1])
 
     return int(total)
+
+
+def _total_bogomips_linux():
+    """Return sum of bogomips value for all CPUs."""
+    cores = cgroups.get_cpuset_cores('treadmill')
+    return bogomips_linux(cores)
 
 
 def _total_bogomips_windows():
@@ -128,7 +144,21 @@ def _total_bogomips_windows():
 
 def hostname():
     """Hostname of the server."""
-    return socket.getfqdn().lower()
+    host_name = socket.gethostname()
+    port = 0
+    family = 0
+    socktype = 0
+    proto = 0
+
+    _family, _socktype, _proto, canonname, _sockaddr = socket.getaddrinfo(
+        host_name,
+        port,
+        family,
+        socktype,
+        proto,
+        socket.AI_CANONNAME)[0]
+
+    return canonname.lower()
 
 
 def _port_range_linux():
@@ -190,7 +220,7 @@ def _node_info_linux(tm_env):
     :param tm_env:
         Treadmill application environment
     :type tm_env:
-        `appmgr.AppEnvironment`
+        `appenv.AppEnvironment`
     """
     # Request status information from services (this may wait for the services
     # to be up).
@@ -203,8 +233,9 @@ def _node_info_linux(tm_env):
     # Each virtual "core" is then equated to 100 units.
     #
     # The formula is bmips / BMIPS_PER_CPU * 100
+    app_bogomips = cgroups.get_cpu_shares('treadmill/apps')
     cpucapacity = int(
-        (total_bogomips() * 100 / BMIPS_PER_CPU * _app_cpu_shares_prct())
+        (app_bogomips * 100 / BMIPS_PER_CPU)
     )
     # FIXME(boysson): Memory and CPU available to containers should come from
     #                 the cgroup service.
@@ -217,7 +248,7 @@ def _node_info_linux(tm_env):
     # Append units to all capacity info.
     info = {
         'memory': '%dM' % (memcapacity / _BYTES_IN_MB),
-        'disk':  '%dM' % (localdisk_status['size'] / _BYTES_IN_MB),
+        'disk': '%dM' % (localdisk_status['size'] / _BYTES_IN_MB),
         'cpu': '%d%%' % cpucapacity,
         'up_since': up_since(),
     }
@@ -231,7 +262,7 @@ def _node_info_windows(tm_env):
     :param tm_env:
         Treadmill application environment
     :type tm_env:
-        `appmgr.AppEnvironment`
+        `appenv.AppEnvironment`
     """
     # We normalize bogomips into logical "cores", each core == 5000 bmips.
     #
@@ -247,7 +278,7 @@ def _node_info_windows(tm_env):
     # Append units to all capacity info.
     info = {
         'memory': '%dM' % (memoryinfo.ullAvailPhys / _BYTES_IN_MB),
-        'disk':  '%dM' % (diskinfo.free / _BYTES_IN_MB),
+        'disk': '%dM' % (diskinfo.free / _BYTES_IN_MB),
         'cpu': '%d%%' % cpucapacity,
         'up_since': up_since(),
     }
@@ -269,30 +300,6 @@ def _uptime_windows():
 def up_since():
     """Returns time of last reboot."""
     return time.time() - uptime()
-
-
-def _app_cpu_shares_prct():
-    """Read cgroups to figure out the percentage of total CPU shares available
-    to Treadmill applications.
-    """
-    # FIXME(boysson): This should probably come from the cgroup service.
-    system_cpu_shares = float(
-        cgroups.get_value('cpu', 'system', 'cpu.shares')
-    )
-    tm_cpu_shares = float(
-        cgroups.get_value('cpu', 'treadmill', 'cpu.shares')
-    )
-    core_cpu_shares = float(
-        cgroups.get_value('cpu', 'treadmill/core', 'cpu.shares')
-    )
-    apps_cpu_shares = float(
-        cgroups.get_value('cpu', 'treadmill/apps', 'cpu.shares')
-    )
-
-    tm_percent = (tm_cpu_shares / (system_cpu_shares + tm_cpu_shares))
-    apps_percent = (apps_cpu_shares / (apps_cpu_shares + core_cpu_shares))
-
-    return apps_percent * tm_percent
 
 
 # pylint: disable=C0103

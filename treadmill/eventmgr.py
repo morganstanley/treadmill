@@ -24,13 +24,13 @@ import kazoo.client
 
 import yaml
 
-from . import appmgr
-from . import context
-from . import exc
-from . import fs
-from . import sysinfo
-from . import zkutils
-from . import zknamespace as z
+from treadmill import appenv
+from treadmill import context
+from treadmill import exc
+from treadmill import fs
+from treadmill import sysinfo
+from treadmill import zkutils
+from treadmill import zknamespace as z
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -50,7 +50,7 @@ class EventMgr(object):
 
     def __init__(self, root):
         _LOGGER.info('init eventmgr: %s', root)
-        self.tm_env = appmgr.AppEnvironment(root=root)
+        self.tm_env = appenv.AppEnvironment(root=root)
 
         self._hostname = sysinfo.hostname()
 

@@ -26,6 +26,9 @@ _LOGGER = lc.ContainerAdapter(logging.getLogger(__name__))
 #: server node start will fail
 TREADMILL_MIN_VG_SIZE = utils.size_to_bytes('100M')
 
+#: Minimum free disk space to leave for the OS
+TREADMILL_MIN_RESERVE_SIZE = utils.size_to_bytes('100M')
+
 #: Name of the Treadmill loopback image file
 TREADMILL_IMG = 'treadmill.img'
 
@@ -41,8 +44,8 @@ class LocalDiskResourceService(BaseResourceServiceImpl):
         '_default_write_bps',
         '_default_write_iops',
         '_img_location',
+        '_img_size',
         '_pending',
-        '_reserve',
         '_status',
         '_volumes',
     )
@@ -54,7 +57,7 @@ class LocalDiskResourceService(BaseResourceServiceImpl):
     #: Name of the Treadmill LVM volume group
     TREADMILL_VG = 'treadmill'
 
-    def __init__(self, block_dev=None, img_location=None, reserve='2G',
+    def __init__(self, block_dev=None, img_location=None, img_size='2G',
                  default_read_bps='20M', default_write_bps='20M',
                  default_read_iops=100, default_write_iops=100):
         super(LocalDiskResourceService, self).__init__()
@@ -63,11 +66,11 @@ class LocalDiskResourceService(BaseResourceServiceImpl):
 
         if block_dev is not None:
             self._block_dev = block_dev
-            self._reserve = None
+            self._img_size = None
             self._img_location = None
 
         elif img_location is not None:
-            self._reserve = reserve
+            self._img_size = img_size
             self._img_location = os.path.realpath(img_location)
             self._block_dev = None
 
@@ -104,7 +107,7 @@ class LocalDiskResourceService(BaseResourceServiceImpl):
 
             if self._block_dev is None:
                 self._block_dev = _init_block_dev(self._img_location,
-                                                  self._reserve)
+                                                  self._img_size)
 
             # Create the VG
             _init_vg(self.TREADMILL_VG, self._block_dev)
@@ -310,13 +313,13 @@ def _refresh_vg_status(group):
     """
     vg_info = lvm.vgdisplay(group=group)
     status = {
-        'name':         vg_info['name'],
-        'extent_size':  utils.size_to_bytes(
+        'name': vg_info['name'],
+        'extent_size': utils.size_to_bytes(
             '{kb}k'.format(kb=vg_info['extent_size'])
         ),
-        'extent_free':  vg_info['extent_free'],
-        'extent_nb':    vg_info['extent_nb'],
-        'size':         utils.size_to_bytes(
+        'extent_free': vg_info['extent_free'],
+        'extent_nb': vg_info['extent_nb'],
+        'size': utils.size_to_bytes(
             '{kb}k'.format(
                 kb=vg_info['extent_nb'] * vg_info['extent_size']
             )
@@ -357,7 +360,7 @@ def _init_vg(group, block_dev):
     lvm.vgactivate(group)
 
 
-def _init_block_dev(img_location, reserve='2G'):
+def _init_block_dev(img_location, img_size='-2G'):
     """Initialize a block_dev suitable to back the Treadmill Volume Group.
 
     The physical volume size will be auto-size based on the available capacity
@@ -367,9 +370,10 @@ def _init_block_dev(img_location, reserve='2G'):
         Path name to the file which is going to back the new volume group.
     :type img_location:
         ``str``
-    :param reserved:
-        Reserved amount of free filesystem space to leave to the OS, in bytes
-        or using a literal qualifier (e.g. "2G").
+    :param img_size:
+        Size of the image or reserved amount of free filesystem space
+        to leave to the OS if negative, in bytes or using a literal
+        qualifier (e.g. "2G").
     :type size:
         ``int`` or ``str``
     """
@@ -401,7 +405,7 @@ def _init_block_dev(img_location, reserve='2G'):
     return loop_dev
 
 
-def _create_image(img_name, img_location, reserve):
+def _create_image(img_name, img_location, img_size):
     """Create a sparse file of the appropriate size.
     """
     fs.mkdir_safe(img_location)
@@ -422,12 +426,18 @@ def _create_image(img_name, img_location, reserve):
                 raise
 
         available_size = sysinfo.disk_usage(img_location)
-        reserved_size = utils.size_to_bytes(reserve)
-        image_size_bytes = available_size.free - reserved_size
-        if available_size.free < (reserved_size + TREADMILL_MIN_VG_SIZE):
+        img_size_bytes = utils.size_to_bytes(img_size)
+        if img_size_bytes <= 0:
+            real_img_size = available_size.free - abs(img_size_bytes)
+        else:
+            real_img_size = img_size_bytes
+
+        if (real_img_size < TREADMILL_MIN_VG_SIZE or
+                available_size.free <
+                real_img_size + TREADMILL_MIN_RESERVE_SIZE):
             raise exc.NodeSetupError('Not enough free disk space')
 
-        if fs.create_excl(filename, image_size_bytes):
+        if fs.create_excl(filename, real_img_size):
             break
 
     if retries == 0:

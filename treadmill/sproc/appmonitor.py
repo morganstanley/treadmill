@@ -1,8 +1,6 @@
 """Syncronizes cell Zookeeper with LDAP data."""
 
-
 import logging
-import os
 import time
 import itertools
 import collections
@@ -13,32 +11,44 @@ import yaml
 
 from treadmill import context
 from treadmill import exc
-from treadmill import sysinfo
 from treadmill import authz
+from treadmill import zkutils
 from treadmill import zknamespace as z
 from treadmill.api import instance
 
 
 _LOGGER = logging.getLogger(__name__)
 
+_BACKOFF = 60
+
 
 def reevaluate(instance_api, state):
-    """Evaluate state and adjust app count."""
+    """Evaluate state and adjust app count based on monitor"""
 
     grouped = dict(state['scheduled'])
     monitors = dict(state['monitors'])
+    now = time.time()
 
-    for name, count in monitors.items():
+    for name, conf in monitors.items():
+
+        count = conf['count']
+        next_tick = conf['next_tick']
 
         current_count = len(grouped.get(name, []))
-        _LOGGER.debug('App: %s current: %s, target %s',
+        _LOGGER.debug('App: %r current: %d, target %d',
                       name, current_count, count)
 
         if count == current_count:
             continue
 
-        if count > current_count:
+        elif count > current_count:
+            if now < next_tick:
+                _LOGGER.debug('Skipping app %r until %f', name, next_tick)
+                continue
+
             # need to start more.
+            conf['next_tick'] = now + _BACKOFF
+
             needed = count - current_count
             try:
                 instance_api.create(name, {}, count=needed)
@@ -51,14 +61,12 @@ def reevaluate(instance_api, state):
             except Exception:  # pylint: disable=W0703
                 _LOGGER.exception('Unable to create instances: %s: %s',
                                   name, needed)
-
-        if count < current_count:
+        elif count < current_count:
             for extra in grouped[name][:current_count - count]:
                 try:
                     instance_api.delete(extra)
                 except Exception:  # pylint: disable=W0703
-                    _LOGGER.exception('Unable to delete instance: %s',
-                                      extra)
+                    _LOGGER.exception('Unable to delete instance: %r', extra)
 
 
 def _run_sync():
@@ -77,10 +85,15 @@ def _run_sync():
     def _scheduled_watch(children):
         """Watch scheduled instances."""
         scheduled = sorted(children)
-        appname_f = lambda n: n[:n.find('#')]
         grouped = collections.defaultdict(
             list,
-            {k: list(v) for k, v in itertools.groupby(scheduled, appname_f)}
+            {
+                k: list(v)
+                for k, v in itertools.groupby(
+                    scheduled,
+                    lambda n: n.rpartition('#')[0]
+                )
+            }
         )
         state['scheduled'] = grouped
         reevaluate(instance_api, state)
@@ -95,22 +108,20 @@ def _run_sync():
         def _monitor_data_watch(data, _stat, event):
             """Monitor individual monitor."""
             if (event and event.type == 'DELETED') or (data is None):
-                try:
-                    del state['monitors'][name]
-                except KeyError:
-                    pass
-
-                _LOGGER.info('Removing watch on deleted monitor: %s', name)
+                _LOGGER.info('Removing watch on deleted monitor: %r', name)
                 return False
 
             try:
                 count = yaml.load(data)['count']
             except Exception:  # pylint: disable=W0703
-                _LOGGER.exception('Invalid monitor: %s', name)
+                _LOGGER.exception('Invalid monitor: %r', name)
                 return False
 
             _LOGGER.info('Reconfigure monitor: %s, count: %s', name, count)
-            state['monitors'][name] = count
+            state['monitors'][name] = {
+                'count': count,
+                'next_tick': 0,
+            }
             reevaluate(instance_api, state)
             return True
 
@@ -120,12 +131,13 @@ def _run_sync():
         """Watch app monitors."""
 
         monitors = set(children)
-        extra = set(state['monitors'].keys()) - monitors
+        extra = state['monitors'].viewkeys() - monitors
         for name in extra:
-            _LOGGER.info('Removing extra monitor: %s', name)
-            del state['monitors'][name]
+            _LOGGER.info('Removing extra monitor: %r', name)
+            if state['monitors'].pop(name, None) is None:
+                _LOGGER.warn('Failed to remove non-existent monitor: %r', name)
 
-        missing = monitors - set(state['monitors'].keys())
+        missing = monitors - state['monitors'].viewkeys()
 
         for name in missing:
             _LOGGER.info('Adding missing monitor: %s', name)
@@ -134,7 +146,8 @@ def _run_sync():
     _LOGGER.info('Ready')
 
     while True:
-        time.sleep(6000)
+        time.sleep(1)
+        reevaluate(instance_api, state)
 
 
 def init():
@@ -145,10 +158,9 @@ def init():
                   help='Run without lock.')
     def top(no_lock):
         """Sync LDAP data with Zookeeper data."""
-        context.GLOBAL.zk.conn.ensure_path('/appmonitor-election')
-        me = '%s.%d' % (sysinfo.hostname(), os.getpid())
-        lock = context.GLOBAL.zk.conn.Lock('/appmonitor-election', me)
         if not no_lock:
+            lock = zkutils.make_lock(context.GLOBAL.zk.conn,
+                                     z.path.election(__name__))
             _LOGGER.info('Waiting for leader lock.')
             with lock:
                 _run_sync()

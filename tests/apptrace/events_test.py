@@ -407,7 +407,7 @@ class AppTraceEventsTest(unittest.TestCase):
             source='tests',
             instanceid='proid.foo#123',
             uniqueid='AAAA',
-            service='web',
+            service='web.web',
             payload={'foo': 'bar'}
         )
         self.assertEqual(
@@ -418,7 +418,7 @@ class AppTraceEventsTest(unittest.TestCase):
                 'source': 'tests',
                 'instanceid': 'proid.foo#123',
                 'uniqueid': 'AAAA',
-                'service': 'web',
+                'service': 'web.web',
                 'payload': {'foo': 'bar'},
             }
         )
@@ -429,7 +429,7 @@ class AppTraceEventsTest(unittest.TestCase):
                 'tests',
                 'proid.foo#123',
                 'service_running',
-                'AAAA.web',
+                'AAAA.web.web',
                 {'foo': 'bar'},
             )
         )
@@ -440,7 +440,7 @@ class AppTraceEventsTest(unittest.TestCase):
                 source='tests',
                 instanceid='proid.foo#123',
                 event_type='service_running',
-                event_data='AAAA.web',
+                event_data='AAAA.web.web',
                 payload={'foo': 'bar'}
             )
         )
@@ -453,7 +453,7 @@ class AppTraceEventsTest(unittest.TestCase):
             source='tests',
             instanceid='proid.foo#123',
             uniqueid='AAAA',
-            service='web',
+            service='web.x',
             rc=1,
             signal=2,
             payload={'foo': 'bar'}
@@ -466,7 +466,7 @@ class AppTraceEventsTest(unittest.TestCase):
                 'source': 'tests',
                 'instanceid': 'proid.foo#123',
                 'uniqueid': 'AAAA',
-                'service': 'web',
+                'service': 'web.x',
                 'rc': 1,
                 'signal': 2,
                 'payload': {'foo': 'bar'},
@@ -479,7 +479,7 @@ class AppTraceEventsTest(unittest.TestCase):
                 'tests',
                 'proid.foo#123',
                 'service_exited',
-                'AAAA.web.1.2',
+                'AAAA.web.x.1.2',
                 {'foo': 'bar'},
             )
         )
@@ -490,7 +490,7 @@ class AppTraceEventsTest(unittest.TestCase):
                 source='tests',
                 instanceid='proid.foo#123',
                 event_type='service_exited',
-                event_data='AAAA.web.1.2',
+                event_data='AAAA.web.x.1.2',
                 payload={'foo': 'bar'}
             )
         )

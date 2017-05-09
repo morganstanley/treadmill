@@ -1,6 +1,5 @@
 """Treadmill ZooKeeper helper functions."""
 
-
 import sys
 
 import os
@@ -19,10 +18,9 @@ import kazoo.security
 from kazoo.protocol import states
 import yaml
 
-from . import userutil
-from . import utils
-from . import sysinfo
-from . import trace
+from treadmill import userutil
+from treadmill import utils
+from treadmill import sysinfo
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -125,7 +123,6 @@ def make_default_acl(acls):
     return realacl
 
 
-@trace.disable
 def make_safe_create(zkclient):
     """Makes a wrapper for kazoo.client.create enforcing default acl."""
     _create = zkclient.create
@@ -140,7 +137,6 @@ def make_safe_create(zkclient):
     return safe_create
 
 
-@trace.disable
 def make_safe_ensure_path(zkclient):
     """Makes a wrapper for kazoo.client.ensure_path enforcing default acl."""
     ensure_path = zkclient.ensure_path
@@ -152,7 +148,6 @@ def make_safe_ensure_path(zkclient):
     return safe_ensure_path
 
 
-@trace.disable
 def make_safe_set_acls(zkclient):
     """Makes a wrapper for kazoo.client.set_acls enforcing default acl."""
     set_acls = zkclient.set_acls
@@ -574,3 +569,12 @@ def with_retry(func, *args, **kwargs):
     """Calls function with retry."""
     zk_retry = kazoo.retry.KazooRetry(ignore_expire=False, max_tries=5)
     return zk_retry(func, *args, **kwargs)
+
+
+def make_lock(zkclient, path):
+    """Make lock."""
+    _LOGGER.debug('Creating lock on: %s', path)
+    zkclient.ensure_path(path)
+    zkclient.add_listener(exit_on_disconnect)
+    me = '%s.%d' % (sysinfo.hostname(), os.getpid())
+    return zkclient.Lock(path, me)

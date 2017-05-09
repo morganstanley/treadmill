@@ -10,7 +10,7 @@ import kazoo.client
 import yaml
 
 from treadmill import exc
-from treadmill import idirwatch
+from treadmill import dirwatch
 from treadmill import sysinfo
 from treadmill import zkutils
 from treadmill import zknamespace as z
@@ -62,7 +62,7 @@ class AppEventsWatcher(object):
     def run(self):
         """Monitores events directory and publish events."""
 
-        watch = idirwatch.DirWatcher(self.events_dir)
+        watch = dirwatch.DirWatcher(self.events_dir)
         watch.on_created = self._on_created
 
         for eventfile in os.listdir(self.events_dir):
@@ -107,5 +107,19 @@ class AppEventsWatcher(object):
                 zkutils.ensure_deleted, self.zkclient,
                 scheduled_node
             )
+
+            # For terminal state, update the task node with exit summary.
+            try:
+                zkutils.with_retry(
+                    zkutils.update,
+                    self.zkclient,
+                    z.path.task(appname),
+                    {'state': event,
+                     'when': eventtime,
+                     'host': _HOSTNAME,
+                     'data': data}
+                )
+            except kazoo.client.NoNodeError:
+                _LOGGER.warn('Task node not found: %s', z.path.task(appname))
 
         os.unlink(path)

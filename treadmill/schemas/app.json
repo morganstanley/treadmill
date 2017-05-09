@@ -32,6 +32,22 @@
         "required": [ "name", "command" ],
         "additionalProperties": false
     },
+    "ephemeral_ports": {
+        "type": "object",
+        "properties": {
+            "tcp": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 255
+            },
+            "udp": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 255
+            }
+        },
+        "additionalProperties": false
+    },
     "endpoint": {
         "type": "object",
         "properties": {
@@ -94,6 +110,11 @@
                 "type": "array",
                 "items": { "$ref": "#/service" }
             },
+            "image": {
+                "type": "string",
+                "pattern": "^native:|docker://.+|http://.+|file://.+$"
+            },
+            "entry_point": { "type": "string" },
             "endpoints": {
                 "type": "array",
                 "items": { "$ref": "#/endpoint" }
@@ -102,11 +123,7 @@
                 "type": "array",
                 "items": { "$ref": "#/environ" }
             },
-            "ephemeral_ports": {
-                "type": "integer",
-                "minimum": 0,
-                "maximum": 250
-            },
+            "ephemeral_ports": { "$ref": "#/ephemeral_ports" },
             "tickets": {
                 "type": "array",
                 "items": { "$ref": "common.json#/ticket" }
@@ -162,12 +179,22 @@
                     "server": { "$ref": "#/limit" },
                     "required": []
                 }
-            }
+            },
+            "data_retention_timeout": { "$ref": "common.json#/time_interval" }
         }
     },
     "verbs": {
         "create": {
-            "required": ["memory", "cpu", "disk", "services"]
+            "allOf": [
+                { "required": [ "memory", "cpu", "disk" ] },
+                {
+                    "anyOf": [
+                        { "required": [ "services" ] },
+                        { "required": [ "image" ] }
+                    ]
+                }
+
+            ]
         },
         "update": {
             "required": []

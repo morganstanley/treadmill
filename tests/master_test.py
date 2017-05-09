@@ -1,5 +1,4 @@
-"""
-Unit test for treadmill master.
+"""Unit test for treadmill master.
 """
 
 # Disable C0302: Too many lines in the module
@@ -19,7 +18,8 @@ import treadmill
 import treadmill.exc
 from treadmill import master
 from treadmill import scheduler
-from treadmill.test import mockzk
+
+from tests.testutils import mockzk
 
 
 class MasterTest(mockzk.MockZookeeperTestCase):
@@ -237,6 +237,7 @@ class MasterTest(mockzk.MockZookeeperTestCase):
                     'disk': '128G',
                     'cpu': '400%',
                     'affinity': 'foo.bar',
+                    'data_retention_timeout': None,
                 },
             },
         }
@@ -569,19 +570,41 @@ class MasterTest(mockzk.MockZookeeperTestCase):
 
     @mock.patch('kazoo.client.KazooClient.get', mock.Mock())
     @mock.patch('kazoo.client.KazooClient.create', mock.Mock())
+    @mock.patch('time.time', mock.Mock(return_value=123.34))
+    @mock.patch('treadmill.sysinfo.hostname', mock.Mock(return_value='xxx'))
     def test_create_apps(self):
         """Tests app api."""
         zkclient = kazoo.client.KazooClient()
         kazoo.client.KazooClient.create.return_value = '/scheduled/foo.bar#12'
 
-        master.create_apps(zkclient, 'foo.bar', {}, 3)
+        master.create_apps(zkclient, 'foo.bar', {}, 2)
         kazoo.client.KazooClient.create.assert_has_calls(
-            [mock.call('/scheduled/foo.bar#',
-                       b'{}\n',
-                       makepath=True,
-                       sequence=True,
-                       ephemeral=False,
-                       acl=mock.ANY)] * 3)
+            [
+                mock.call('/scheduled/foo.bar#',
+                          b'{}\n',
+                          makepath=True,
+                          sequence=True,
+                          ephemeral=False,
+                          acl=mock.ANY),
+                mock.call('/tasks/foo.bar/12/123.34,xxx,pending,',
+                          b'',
+                          makepath=True,
+                          acl=mock.ANY),
+                # Mock call returns same instance (#12), so same task is
+                # created twice.
+                mock.call('/scheduled/foo.bar#',
+                          b'{}\n',
+                          makepath=True,
+                          sequence=True,
+                          ephemeral=False,
+                          acl=mock.ANY),
+                mock.call('/tasks/foo.bar/12/123.34,xxx,pending,',
+                          b'',
+                          makepath=True,
+                          acl=mock.ANY)
+            ],
+            any_order=True
+        )
 
     @mock.patch('kazoo.client.KazooClient.get', mock.Mock(
         return_value=('{}', None)))
@@ -607,6 +630,30 @@ class MasterTest(mockzk.MockZookeeperTestCase):
             '/events/001-apps-', mock.ANY,
             makepath=True, acl=mock.ANY, sequence=True, ephemeral=False
         )
+
+    @mock.patch('kazoo.client.KazooClient.get', mock.Mock(
+        return_value=('{}', None)))
+    @mock.patch('treadmill.zkutils.update', mock.Mock(return_value=None))
+    @mock.patch('treadmill.master.create_event', mock.Mock(return_value=None))
+    def test_update_app_priority_noop(self):
+        """Tests app api."""
+        zkclient = kazoo.client.KazooClient()
+
+        # kazoo.client.KazooClient.create.return_value = '/events/001-apps-1'
+        master.update_app_priorities(zkclient, {'foo.bar#1': 10,
+                                                'foo.bar#2': 20})
+        treadmill.zkutils.update.assert_has_calls(
+            [
+                mock.call(mock.ANY, '/scheduled/foo.bar#1', {'priority': 10},
+                          check_content=True),
+                mock.call(mock.ANY, '/scheduled/foo.bar#2', {'priority': 20},
+                          check_content=True),
+            ],
+            any_order=True
+        )
+
+        # Verify that event is placed correctly.
+        self.assertFalse(treadmill.master.create_event.called)
 
     @mock.patch('kazoo.client.KazooClient.get', mock.Mock(
         return_value=('{}', None)))
@@ -778,6 +825,29 @@ class MasterTest(mockzk.MockZookeeperTestCase):
         treadmill.zkutils.ensure_deleted.assert_called_with(
             mock.ANY,
             '/placement/test2.xx.com/xxx.app1#1234'
+        )
+
+    @mock.patch('kazoo.client.KazooClient.get', mock.Mock(
+        return_value=('{}', None)))
+    @mock.patch('kazoo.client.KazooClient.set', mock.Mock())
+    @mock.patch('kazoo.client.KazooClient.create', mock.Mock())
+    def test_update_server_features(self):
+        """Tests master.update_server_features()."""
+        zkclient = kazoo.client.KazooClient()
+        kazoo.client.KazooClient.create.return_value = '/events/000-servers-1'
+
+        master.update_server_features(zkclient, 'foo.ms.com', ['test'])
+        kazoo.client.KazooClient.set.assert_has_calls(
+            [
+                mock.call('/servers/foo.ms.com', b'features: [test]\n'),
+            ],
+            any_order=True
+        )
+
+        # Verify that event is placed correctly.
+        kazoo.client.KazooClient.create.assert_called_with(
+            '/events/000-servers-', mock.ANY,
+            makepath=True, acl=mock.ANY, sequence=True, ephemeral=False
         )
 
 

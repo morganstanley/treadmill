@@ -1,5 +1,5 @@
-"""Treadmill app configurator daemon, subscribes to eventmgr events."""
-
+"""Treadmill app configurator daemon, subscribes to eventmgr events.
+"""
 
 import click
 

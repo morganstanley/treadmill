@@ -100,7 +100,7 @@ def init():
 
     @allocation_grp.command()
     @click.option('-c', '--cell', help='Treadmill cell')
-    @click.option('-l', '--label', help='Allocation label')
+    @click.option('-p', '--partition', help='Allocation partition')
     @click.option('-r', '--rank', help='Allocation rank', type=int)
     @click.option('--memory', help='Memory demand.',
                   metavar='G|M',
@@ -113,11 +113,12 @@ def init():
                   callback=cli.validate_disk)
     @click.argument('allocation', required=True)
     @cli.ON_REST_EXCEPTIONS
-    def reserve(allocation, cell, label, rank, memory, cpu, disk):
+    def reserve(allocation, cell, partition, rank, memory, cpu, disk):
         """Reserve capacity on the cell."""
         restapi = context.GLOBAL.admin_api(ctx.get('api'))
 
-        if cell is None and any([memory, cpu, disk, rank is not None, label]):
+        if (cell is None and
+                any([memory, cpu, disk, rank is not None, partition])):
             raise click.UsageError(
                 'Must specify cell with modifying reservation.')
 
@@ -147,7 +148,7 @@ def init():
                     'memory': memory,
                     'disk': disk,
                     'cpu': cpu,
-                    'label': label,
+                    'partition': partition,
                     'rank': rank if rank is not None else 100
                 }
                 restclient.post(restapi, reservation_url, payload=payload)

@@ -59,7 +59,7 @@ class MetricsTest(unittest.TestCase):
                 mock.Mock(return_value=10))
     @mock.patch('treadmill.sysinfo.total_bogomips',
                 mock.Mock(return_value=100))
-    @mock.patch('treadmill.sysinfo.cpu_count',
+    @mock.patch('treadmill.sysinfo.available_cpu_count',
                 mock.Mock(return_value=1))
     @mock.patch('treadmill.cgutils.get_cpu_ratio',
                 mock.Mock(return_value=.5))

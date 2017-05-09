@@ -1,6 +1,7 @@
-# pylint: disable=C0103
+"""Master CLI plugin.
+"""
 
-"""Master CLI plugin."""
+# pylint: disable=C0103
 
 
 import click

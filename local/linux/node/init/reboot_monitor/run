@@ -1,13 +1,12 @@
-#!/bin/sh
-#
-# Starts Treadmill reboot monitor.
-# Runs as root.
-#
+#!{{ _alias.execlineb }} -P
 
-exec 2>&1
+{{ _alias.redirfd }} -r 0 /dev/null
+{{ _alias.fdmove }} -c 2 1
 
-# This service needs host tickets
-export KRB5CCNAME="FILE:$TREADMILL_HOST_TICKET"
+# Set to single execution so that we can enforce restart policies
+{{ _alias.if }} { {{ _alias.s6_svc }} -o . }
 
-exec {{ treadmill }} sproc --cgroup . \
-    reboot-monitor -- {{ dir }}/bin/reboot.sh
+{{ _alias.s6_envdir }} -i -- {{ dir }}/env
+{{ _alias.s6_envdir }} -i -- ./env
+
+/bin/sh -l ./data/app_start

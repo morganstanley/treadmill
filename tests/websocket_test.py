@@ -1,11 +1,13 @@
 """Unit test for websocket.
 """
 
+import json
 import unittest
 import tempfile
 import os
 import shutil
 import time
+import sqlite3
 
 import mock
 from tornado import gen
@@ -75,6 +77,8 @@ class PubSubTest(unittest.TestCase):
 
         with open(os.path.join(self.root, 'abc'), 'w+') as f:
             f.write('x')
+        with open(os.path.join(self.root, '.abc'), 'w+') as f:
+            f.write('x')
 
         pubsub.run(once=True)
 
@@ -82,6 +86,8 @@ class PubSubTest(unittest.TestCase):
         self.assertIn(('/abc', 'm', 'x'), handler1.events)
         self.assertIn(('/abc', 'c', 'x'), handler2.events)
         self.assertIn(('/abc', 'm', 'x'), handler2.events)
+        self.assertNotIn(('/.abc', 'c', 'x'), handler1.events)
+        self.assertNotIn(('/.abc', 'c', 'x'), handler2.events)
 
         # Simulate connection close.
         ws1.active.return_value = False
@@ -100,11 +106,16 @@ class PubSubTest(unittest.TestCase):
         pubsub = websocket.DirWatchPubSub(self.root)
         handler = mock.Mock()
         impl = mock.Mock()
+        impl.sow_db = None
         impl.on_event.return_value = {'echo': 1}
         open(os.path.join(self.root, 'xxx'), 'w+').close()
+        modified = int(os.stat(os.path.join(self.root, 'xxx')).st_mtime)
+
         pubsub._sow(self.root, '*', 0, handler, impl)
 
-        handler.write_message.assert_called_with('{"echo": 1}')
+        handler.write_message.assert_called_with(
+            {'echo': 1, 'when': modified},
+        )
         handler.write_message.reset_mock()
 
         pubsub._sow(self.root, '*', time.time() + 1, handler, impl)
@@ -112,8 +123,60 @@ class PubSubTest(unittest.TestCase):
         handler.write_message.reset_mock()
 
         pubsub._sow(self.root, '*', time.time() - 1, handler, impl)
-        handler.write_message.assert_called_with('{"echo": 1}')
+        handler.write_message.assert_called_with(
+            {'echo': 1, 'when': modified},
+        )
         handler.write_message.reset_mock()
+
+    @mock.patch('sqlite3.connect', mock.Mock())
+    def test_sow_fs_and_db(self):
+        """Tests sow from filesystem and database."""
+        # Access to protected member: _sow
+        #
+        # pylint: disable=W0212
+        pubsub = websocket.DirWatchPubSub(self.root)
+
+        handler = mock.Mock()
+
+        impl = mock.Mock()
+        impl.sow_db = '.tasks-sow.db'
+        impl.on_event.side_effect = [
+            {'echo': 1},
+            {'echo': 2},
+            {'echo': 3},
+            {'echo': 4},
+        ]
+        open(os.path.join(self.root, 'xxx'), 'w+').close()
+        modified = int(os.stat(os.path.join(self.root, 'xxx')).st_mtime)
+
+        conn_mock = mock.Mock()
+        cur_mock = mock.Mock()
+        sqlite3.connect.return_value = conn_mock
+        conn_mock.cursor.return_value = cur_mock
+        cur_mock.fetchall.return_value = [
+            ('/aaa', 1, ''),
+            ('/bbb', 2, ''),
+            ('/ccc', 3, ''),
+        ]
+
+        pubsub._sow(self.root, '*', 0, handler, impl)
+
+        impl.on_event.assert_has_calls(
+            [
+                mock.call('/aaa', None, ''),
+                mock.call('/bbb', None, ''),
+                mock.call('/ccc', None, ''),
+                mock.call('/xxx', None, ''),
+            ]
+        )
+        handler.write_message.assert_has_calls(
+            [
+                mock.call({'when': 1, 'echo': 1}),
+                mock.call({'when': 2, 'echo': 2}),
+                mock.call({'when': 3, 'echo': 3}),
+                mock.call({'when': modified, 'echo': 4}),
+            ]
+        )
 
 
 class WebSocketTest(AsyncHTTPTestCase):
@@ -161,6 +224,7 @@ class WebSocketTest(AsyncHTTPTestCase):
         open(os.path.join(self.root, 'xxx'), 'w+').close()
 
         echo_impl = mock.Mock()
+        echo_impl.sow_db = None
         echo_impl.subscribe.return_value = [('/', '*')]
         echo_impl.on_event.return_value = {'echo': 1}
         self.pubsub.impl['echo'] = echo_impl
@@ -170,7 +234,8 @@ class WebSocketTest(AsyncHTTPTestCase):
         ws.write_message(echo_msg)
         self.pubsub.run(once=True)
         response = yield ws.read_message()
-        self.assertEqual('{"echo": 1}', response)
+        self.assertEqual(1, json.loads(response)['echo'])
+        self.assertIn('when', json.loads(response))
 
     @gen_test
     def test_snapshot(self):
@@ -178,6 +243,7 @@ class WebSocketTest(AsyncHTTPTestCase):
         open(os.path.join(self.root, 'xxx'), 'w+').close()
 
         echo_impl = mock.Mock()
+        echo_impl.sow_db = None
         echo_impl.subscribe.return_value = [('/', '*')]
         echo_impl.on_event.return_value = {'echo': 1}
         self.pubsub.impl['echo'] = echo_impl
@@ -187,7 +253,10 @@ class WebSocketTest(AsyncHTTPTestCase):
         ws.write_message(echo_msg)
         self.pubsub.run(once=True)
         response = yield ws.read_message()
-        self.assertEqual('{"echo": 1}', response)
+
+        self.assertEqual(1, json.loads(response)['echo'])
+        self.assertIn('when', json.loads(response))
+
         response = yield ws.read_message()
         self.assertIsNone(response)
 

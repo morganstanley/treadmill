@@ -1,5 +1,5 @@
-"""Websocket API."""
-
+"""Websocket API.
+"""
 
 import collections
 import datetime
@@ -11,11 +11,14 @@ import threading
 import urllib.parse
 import os
 import time
+import sqlite3
+import contextlib
+import operator
 
 import json
 import tornado.websocket
 
-from treadmill import idirwatch
+from treadmill import dirwatch
 from treadmill import exc
 from treadmill import fs
 
@@ -122,7 +125,7 @@ class DirWatchPubSub(object):
         self.impl = dict()
         self.root = root
 
-        self.watcher = idirwatch.DirWatcher()
+        self.watcher = dirwatch.DirWatcher()
         self.watcher.on_created = self._on_created
         self.watcher.on_deleted = self._on_deleted
         self.watcher.on_modified = self._on_modified
@@ -144,26 +147,48 @@ class DirWatchPubSub(object):
     @exc.exit_on_unhandled
     def _on_created(self, filename):
         """On file created callback."""
+        if os.path.basename(filename)[0] == '.':
+            return
         _LOGGER.debug('created: %s', filename)
         self._handle('c', filename)
 
     @exc.exit_on_unhandled
     def _on_modified(self, filename):
         """On file modified callback."""
+        if os.path.basename(filename)[0] == '.':
+            return
         _LOGGER.debug('modified: %s', filename)
         self._handle('m', filename)
 
     @exc.exit_on_unhandled
     def _on_deleted(self, filename):
         """On file deleted callback."""
+        # Ignore (.) files, as they are temporary or "system".
+        if os.path.basename(filename)[0] == '.':
+            return
+
+        # If .done is present, deleted files indicate that they are being
+        # moved to sow database, ignore.
+        if os.path.exists(os.path.join(os.path.dirname(filename), '.done')):
+            return
+
+        # The protocol to move files to sow database is:
+        #  - delete all file but .done - there events will be ignored because
+        #    .done is present
+        #  - delete .done file - will be ignored because starts with (.).
+        #  - delete directory (ignored).
+        if os.path.isdir(filename):
+            return
+
         _LOGGER.debug('deleted: %s', filename)
-        self._notify(filename, 'd', None)
+        self._notify(filename, 'd', None, time.time())
 
     def _handle(self, operation, filename):
         """Read file event, notify all handlers."""
         _LOGGER.debug('modified: %s', filename)
 
         try:
+            when = int(os.stat(filename).st_mtime)
             with open(filename) as f:
                 content = f.read()
         except IOError as err:
@@ -172,10 +197,11 @@ class DirWatchPubSub(object):
 
             operation = 'd'
             content = None
+            when = int(time.time())
 
-        self._notify(filename, operation, content)
+        self._notify(filename, operation, content, when)
 
-    def _notify(self, path, operation, content):
+    def _notify(self, path, operation, content, when):
         """Notify all handlers of the change."""
         root_len = len(self.root)
         directory = os.path.dirname(path)
@@ -185,46 +211,84 @@ class DirWatchPubSub(object):
             if not handler.active():
                 continue
 
+            _LOGGER.debug('filename: %s', filename)
+            _LOGGER.debug('pattern: %s', pattern)
             if fnmatch.fnmatch(filename, pattern):
                 try:
                     payload = impl.on_event(path[root_len:],
                                             operation,
                                             content)
                     if payload is not None:
-                        handler.write_message(json.dumps(payload))
-                except Exception as err:  # pylint: disable=W0703
-                    _LOGGER.exception('ahh')
-                    handler.send_error_msg(str(err))
+                        payload['when'] = when
+                        handler.write_message(payload)
+                except Exception as err:
+                    _LOGGER.exception('Error handling event')
+                    handler.send_error_msg(
+                        '{cls}: {err}'.format(
+                            cls=type(err).__name__,
+                            err=str(err)
+                        )
+                    )
 
     def _sow(self, directory, pattern, since, handler, impl):
         """Publish state of the world."""
-        root_len = len(self.root)
+        fs_sow = self._get_fs_sow(directory, pattern, since)
 
-        files = glob.glob(os.path.join(directory, pattern))
-        files.sort(key=os.path.getmtime)
+        sow_db = getattr(impl, 'sow_db', None)
+        if sow_db:
+            db_sow = self._get_db_sow(sow_db, directory, pattern, since)
+        else:
+            db_sow = []
 
-        for filename in files:
-            content = None
+        sow = sorted(set(fs_sow) | set(db_sow), key=operator.itemgetter(1))
+        print('sow', repr(sow))
+
+        for item in sow:
+            path, when, content = item
             try:
-                stat = os.stat(filename)
-                if stat.st_mtime < since:
-                    continue
-                with open(filename) as f:
-                    content = f.read()
-            except IOError as io_err:
-                # Ignore deleted files.
-                if io_err.errno != errno.ENOENT:
-                    raise
-            except OSError as os_err:
-                # if we get
-                if os_err.errno != errno.ENOENT:
-                    raise
-            try:
-                payload = impl.on_event(filename[root_len:], None, content)
+                payload = impl.on_event(path, None, content)
                 if payload is not None:
-                    handler.write_message(json.dumps(payload))
+                    payload['when'] = when
+                    print(repr(payload))
+                    handler.write_message(payload)
             except Exception as err:  # pylint: disable=W0703
                 handler.send_error_msg(str(err))
+
+    def _get_fs_sow(self, directory, pattern, since):
+        """Get state of the world from filesystem."""
+        root_len = len(self.root)
+        fs_glob = os.path.join(directory, pattern)
+
+        fs_sow = []
+        files = glob.glob(fs_glob)
+        files.sort(key=os.path.getmtime)
+        for filename in files:
+            try:
+                stat = os.stat(filename)
+                with open(filename) as f:
+                    content = f.read()
+                if stat.st_mtime >= since:
+                    path, when = filename[root_len:], int(stat.st_mtime)
+                    fs_sow.append((path, when, content))
+            except (IOError, OSError) as err:
+                # Ignore deleted files.
+                if err.errno != errno.ENOENT:
+                    raise
+        return fs_sow
+
+    def _get_db_sow(self, sow_db, directory, pattern, since):
+        """Get state of the world from database."""
+        root_len = len(self.root)
+        db = os.path.join(self.root, sow_db)
+        db_glob = os.path.join(directory[root_len:], pattern)
+
+        with contextlib.closing(sqlite3.connect(db)) as conn:
+            cur = conn.cursor()
+            cur.execute("select path, timestamp, ifnull(data, '') from sow"
+                        " where path glob ? and timestamp >= ?"
+                        " order by timestamp", (db_glob, since))
+            db_sow = cur.fetchall()
+        return db_sow
 
     def _gc(self):
         """Remove disconnected websocket handlers."""

@@ -19,7 +19,8 @@ class WSRunningAPITest(unittest.TestCase):
     def test_subscribe(self):
         """Test subscription registration."""
         self.assertEquals(
-            self.api.subscribe({'filter': 'foo.bar#1234'}),
+            self.api.subscribe({'topic': '/trace',
+                                'filter': 'foo.bar#1234'}),
             [('/tasks/foo.bar/1234', '*')]
         )
 
@@ -30,7 +31,7 @@ class WSRunningAPITest(unittest.TestCase):
         mock_event = events.AppTraceEvent.from_data.return_value
         self.assertEquals(
             self.api.on_event(
-                '/tasks/foo.bar/1234/a,b,c,d',
+                '/tasks/foo.bar/1234/123.04,b,c,d',
                 None,
                 'xxx'
             ),
@@ -40,7 +41,7 @@ class WSRunningAPITest(unittest.TestCase):
             }
         )
         events.AppTraceEvent.from_data.assert_called_with(
-            timestamp='a',
+            timestamp=123.04,
             source='b',
             instanceid='foo.bar#1234',
             event_type='c',

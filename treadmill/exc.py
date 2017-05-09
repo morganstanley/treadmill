@@ -3,7 +3,7 @@
 import functools
 import logging
 
-from . import utils
+from treadmill import utils
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -31,6 +31,11 @@ class ContainerSetupError(TreadmillError):
 
 class NodeSetupError(TreadmillError):
     """Fatal error, indicating problem initializing the node environment"""
+    pass
+
+
+class FileNotFoundError(TreadmillError):
+    """Thrown if the file cannot be found on the host."""
     pass
 
 

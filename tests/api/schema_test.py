@@ -234,6 +234,16 @@ class ApiSchemaTest(unittest.TestCase):
                                             'foo'))
         _fail(api.create, 'foo.bla', _patch(good, '/affinity_limits/foo', 1))
 
+        # Data retention.
+        _ok(api.create, 'f.b', _patch(good, '/data_retention_timeout', '1s'))
+        _ok(api.create, 'f.b', _patch(good, '/data_retention_timeout', '12m'))
+        _ok(api.create, 'f.b', _patch(good, '/data_retention_timeout', '12h'))
+        _ok(api.create, 'f.b', _patch(good, '/data_retention_timeout', '12d'))
+        _ok(api.create, 'f.b', _patch(good, '/data_retention_timeout', '12m'))
+        _ok(api.create, 'f.b', _patch(good, '/data_retention_timeout', '12y'))
+        _fail(api.create, 'f.b', _patch(good, '/data_retention_timeout', 12))
+        _fail(api.create, 'f.b', _patch(good, '/data_retention_timeout', 'm'))
+
     @mock.patch('treadmill.context.AdminContext.conn',
                 mock.Mock(return_value=None))
     def test_server_create(self):
@@ -246,12 +256,12 @@ class ApiSchemaTest(unittest.TestCase):
         _ok(api.create, 'xxx.xx.com', good)
         # FIXME(boysson) _fail(api.create, 'x(xx.xx.com', good)
 
-        good.update({'label': None})
+        good.update({'partition': None})
         _ok(api.create, 'xxx.xx.com', good)
 
-        good.update({'label': 'xxx'})
+        good.update({'partition': 'xxx'})
         _ok(api.create, 'xxx.xx.com', good)
-        _fail(api.create, 'xxx.xx.com', _patch(good, '/label', 1))
+        _fail(api.create, 'xxx.xx.com', _patch(good, '/partition', 1))
 
         good.update({'cell': 'my-001-cell'})
         _ok(api.create, 'xxx.xx.com', good)
@@ -338,7 +348,7 @@ class ApiSchemaTest(unittest.TestCase):
         _ok(api.create, 'aaa/prod/cell', good)
 
         good.update({
-            'label': 'xxx'
+            'partition': 'xxx'
         })
         _ok(api.create, 'aaa/prod/cell', good)
 
@@ -348,7 +358,7 @@ class ApiSchemaTest(unittest.TestCase):
 
         good['memory'] = '2G'
         good['disk'] = '1G'
-        good['label'] = 'yyy'
+        good['partition'] = 'yyy'
 
         _ok(api.update, 'aaa/prod/cell', good)
         _fail(api.update, 'aaa/prod/cell', _patch(good, '/environment', 'qa'))

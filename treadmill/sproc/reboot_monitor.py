@@ -81,6 +81,12 @@ def init():
                 _LOGGER.info('Deleting server presence: %s', presence_path)
                 zkutils.ensure_deleted(zkclient, presence_path)
 
+                _LOGGER.info('Checking blackout list.')
+                zk_blackout_path = z.path.blackedout_server(hostname)
+                while zkclient.exists(zk_blackout_path):
+                    _LOGGER.info('Node blacked out - will wait.')
+                    time.sleep(60)
+
                 _LOGGER.info('exec: %r', reboot_cmd)
                 os.execvp(reboot_cmd[0], reboot_cmd)
             else:

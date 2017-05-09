@@ -11,6 +11,7 @@ from flask_restplus import fields
 
 # Disable E0611: No 'name' in module
 from treadmill import webutils  # pylint: disable=E0611
+# pylint: disable=E0611,E0401
 from treadmill.api.model import app as app_model
 from treadmill.api.model import error as error_model
 
@@ -30,7 +31,7 @@ def init(api, cors, impl):
     count_parser = api.parser()
     count_parser.add_argument('count', type=int, default=1, location='args')
 
-    instances_resp_model = api.model('InstanceResp', {
+    instances_resp_model = api.model('Instances', {
         'instances': fields.List(fields.String(description='Instances')),
     })
 
@@ -38,11 +39,11 @@ def init(api, cors, impl):
         '_id': fields.String(description='Application ID'),
         'priority': fields.Integer(description='Priority'),
     })
-    bulk_update_inst_req = api.model('BulkUpdateInstanceReq', {
+    bulk_update_inst_req = api.model('ReqBulkUpdateInstance', {
         'instances': fields.List(fields.Nested(inst_prio)),
     })
 
-    bulk_del_inst_req = api.model('BulkDeleteInstanceReq', {
+    bulk_del_inst_req = api.model('ReqBulkDeleteInstance', {
         'instances': fields.List(fields.String(description='Application ID')),
     })
 
@@ -53,13 +54,23 @@ def init(api, cors, impl):
     bulk_update_resp = api.clone(
         'ApplicationWithError', app_response_model, error_model_resp)
 
-    update_resp = api.model('UpdateInstanceResp', {
+    app_prio = api.clone(
+        'AppInstance', app_response_model, {
+            'priority': fields.Integer(description='Priority'),
+        }
+    )
+
+    update_resp = api.model('UpdateInstance', {
         'instances': fields.List(fields.Nested(bulk_update_resp)),
     })
 
-    prio_request_model = api.model('InstancePriorityReq', {
+    prio_request_model = api.model('ReqInstancePriority', {
         'priority': fields.List(fields.Integer(description='Priority')),
     })
+
+    match_parser = api.parser()
+    match_parser.add_argument('match', help='A glob match on an app name',
+                              location='args', required=False,)
 
     @namespace.route(
         '/',
@@ -68,11 +79,13 @@ def init(api, cors, impl):
         """Treadmill Instance resource"""
 
         @webutils.get_api(api, cors,
-                          marshal=api.marshal_list_with,
-                          resp_model=instances_resp_model)
+                          marshal=api.marshal_with,
+                          resp_model=instances_resp_model,
+                          parser=match_parser)
         def get(self):
             """Returns list of configured applications."""
-            return dict(instances=impl.list())
+            args = match_parser.parse_args()
+            return dict(instances=impl.list(args.get('match')))
 
     @namespace.route(
         '/_bulk/delete',
@@ -128,7 +141,7 @@ def init(api, cors, impl):
 
         @webutils.get_api(api, cors,
                           marshal=api.marshal_with,
-                          resp_model=app_response_model)
+                          resp_model=app_prio)
         def get(self, instance_id):
             """Return Treadmill instance configuration."""
             instance = impl.get(instance_id)

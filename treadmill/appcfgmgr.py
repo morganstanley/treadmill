@@ -24,20 +24,21 @@ Upon change, appcfgmgr will do the following:
    to run and will start all the new apps.
 """
 
-
 import errno
 import glob
 import logging
 import os
 import time
 
-from . import appmgr
-from . import fs
-from . import idirwatch
-from . import logcontext as lc
-from . import subproc
-from .appmgr import configure as app_cfg
-from .appmgr import abort as app_abort
+from treadmill import appenv
+from treadmill import appcfg
+from treadmill import fs
+from treadmill import dirwatch
+from treadmill import logcontext as lc
+from treadmill import subproc
+
+from treadmill.appcfg import configure as app_cfg
+from treadmill.appcfg import abort as app_abort
 
 if os.name == 'nt':
     from .syscall import winsymlink  # noqa: F401
@@ -59,7 +60,7 @@ class AppCfgMgr(object):
 
     def __init__(self, root):
         _LOGGER.info('init appcfgmgr: %s', root)
-        self.tm_env = appmgr.AppEnvironment(root=root)
+        self.tm_env = appenv.AppEnvironment(root=root)
         self._is_active = False
 
     @property
@@ -81,7 +82,7 @@ class AppCfgMgr(object):
             content='Service %r failed' % self.name
         )
 
-        watch = idirwatch.DirWatcher(self.tm_env.cache_dir)
+        watch = dirwatch.DirWatcher(self.tm_env.cache_dir)
         watch.on_created = self._on_created
         watch.on_modified = self._on_modified
         watch.on_deleted = self._on_deleted
@@ -102,7 +103,7 @@ class AppCfgMgr(object):
                     )
                     # Calculate the container names from every event file
                     cached_containers = {
-                        appmgr.eventfile_unique_name(filename)
+                        appcfg.eventfile_unique_name(filename)
                         for filename in cached_files
                     }
                     # Calculate the instance names from every event running
@@ -175,8 +176,7 @@ class AppCfgMgr(object):
                             instance_name)
             return
 
-        else:
-            self._configure(instance_name)
+        elif self._configure(instance_name):
             self._refresh_supervisor(instance_names=[instance_name])
 
     def _on_deleted(self, event_file):
@@ -240,7 +240,7 @@ class AppCfgMgr(object):
         }
         # Calculate the container names from every event file
         cached_containers = {
-            appmgr.eventfile_unique_name(filename)
+            appcfg.eventfile_unique_name(filename)
             for filename in cached_files
         }
         # Calculate the instance names from every event running link
@@ -292,8 +292,8 @@ class AppCfgMgr(object):
                 self.tm_env.running_dir,
                 instance_name
             )
-            self._configure(instance_name)
-            added_instances.add(instance_name)
+            if self._configure(instance_name):
+                added_instances.add(instance_name)
 
         _LOGGER.debug('End resuld: %r / %r - %r + %r',
                       cached_containers,
@@ -311,10 +311,10 @@ class AppCfgMgr(object):
 
         - Runs app_configure --approot <rootdir> cache/<instance>
 
-        :param instance_name:
+        :param ``str`` instance_name:
             Name of the instance to configure
-        :type instance_name:
-            ``str``
+        :returns ``bool``:
+            True for successfully configured container.
         """
         event_file = os.path.join(
             self.tm_env.cache_dir,
@@ -329,11 +329,13 @@ class AppCfgMgr(object):
                     container_dir,
                     os.path.join(self.tm_env.running_dir, instance_name)
                 )
+                return True
 
             except Exception as err:  # pylint: disable=W0703
                 _LOGGER.exception('Error configuring (%r)', event_file)
                 app_abort.abort(self.tm_env, event_file, err)
                 fs.rm_safe(event_file)
+                return False
 
     def _terminate(self, instance_name):
         """Removes application from the supervised running list.
@@ -384,7 +386,7 @@ class AppCfgMgr(object):
         """Notify the supervisor of new instances to run."""
         subproc.check_call(
             [
-                's6-svscanctl',
+                's6_svscanctl',
                 '-an',
                 self.tm_env.running_dir
             ]
@@ -400,7 +402,7 @@ class AppCfgMgr(object):
                 for _ in range(10):
                     res = subproc.call(
                         [
-                            's6-svok',
+                            's6_svok',
                             instance_run_link,
                         ]
                     )
@@ -412,7 +414,7 @@ class AppCfgMgr(object):
                 # Bring the instance up.
                 subproc.check_call(
                     [
-                        's6-svc',
+                        's6_svc',
                         '-uO',
                         instance_run_link,
                     ]

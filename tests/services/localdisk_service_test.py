@@ -40,7 +40,7 @@ class LocalDiskServiceTest(unittest.TestCase):
 
         svc = localdisk_service.LocalDiskResourceService(
             img_location='/image_dir',
-            reserve=42,
+            img_size=42,
         )
         treadmill.lvm.vgactivate.return_value = True
 
@@ -94,7 +94,7 @@ class LocalDiskServiceTest(unittest.TestCase):
 
         svc = localdisk_service.LocalDiskResourceService(
             img_location='/image_dir',
-            reserve=42,
+            img_size=42,
         )
         treadmill.lvm.vgactivate.side_effect = \
             subprocess.CalledProcessError(returncode=5, cmd='lvm')
@@ -155,7 +155,7 @@ class LocalDiskServiceTest(unittest.TestCase):
         """
         svc = localdisk_service.LocalDiskResourceService(
             img_location='/image_dir',
-            reserve=42,
+            img_size=42,
         )
 
         self.assertEqual(
@@ -172,7 +172,7 @@ class LocalDiskServiceTest(unittest.TestCase):
 
         svc = localdisk_service.LocalDiskResourceService(
             img_location='/image_dir',
-            reserve=42,
+            img_size=42,
         )
         svc._status = {'test': 'me'}
 
@@ -195,7 +195,7 @@ class LocalDiskServiceTest(unittest.TestCase):
 
         svc = localdisk_service.LocalDiskResourceService(
             img_location='/image_dir',
-            reserve=42,
+            img_size=42,
         )
         svc._status = {
             'extent_size': 4 * 1024 ** 3,
@@ -270,7 +270,7 @@ class LocalDiskServiceTest(unittest.TestCase):
 
         svc = localdisk_service.LocalDiskResourceService(
             img_location='/image_dir',
-            reserve=42,
+            img_size=42,
         )
         svc._status = {
             'extent_size': 4 * 1024 ** 3,
@@ -350,7 +350,7 @@ class LocalDiskServiceTest(unittest.TestCase):
 
         svc = localdisk_service.LocalDiskResourceService(
             img_location='/image_dir',
-            reserve=42,
+            img_size=42,
         )
         request_id = 'myproid.test-0-ID1234'
 
@@ -465,7 +465,7 @@ class LocalDiskServiceTest(unittest.TestCase):
         # Access to a protected member _create_image
         # pylint: disable=W0212
 
-        localdisk_service._create_image('foo', '/bar', '2G')
+        localdisk_service._create_image('foo', '/bar', '-2G')
 
         treadmill.fs.mkdir_safe.assert_called_with('/bar')
         os.stat.assert_called_with('/bar/foo')

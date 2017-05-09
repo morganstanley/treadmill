@@ -18,7 +18,7 @@ from treadmill import fs
 class AppCfgMgrTest(unittest.TestCase):
     """Mock test for treadmill.appcfgmgr.AppCfgMgr."""
 
-    @mock.patch('treadmill.appmgr.AppEnvironment', mock.Mock(autospec=True))
+    @mock.patch('treadmill.appenv.AppEnvironment', mock.Mock(autospec=True))
     @mock.patch('treadmill.watchdog.Watchdog', mock.Mock(autospec=True))
     def setUp(self):
         self.root = tempfile.mkdtemp()
@@ -42,38 +42,39 @@ class AppCfgMgrTest(unittest.TestCase):
         if self.root and os.path.isdir(self.root):
             shutil.rmtree(self.root)
 
-    @mock.patch('treadmill.appmgr.configure.configure',
+    @mock.patch('treadmill.appcfg.configure.configure',
                 mock.Mock(return_value='/test/foo'))
-    @mock.patch('treadmill.appmgr.configure.schedule', mock.Mock())
+    @mock.patch('treadmill.appcfg.configure.schedule', mock.Mock())
     def test__configure(self):
         """Tests application configuration event."""
         # Access to a protected member _configure of a client class
         # pylint: disable=W0212
 
-        self.appcfgmgr._configure('foo#1')
+        res = self.appcfgmgr._configure('foo#1')
 
-        treadmill.appmgr.configure.configure.assert_called_with(
+        treadmill.appcfg.configure.configure.assert_called_with(
             self.appcfgmgr.tm_env,
             os.path.join(self.cache, 'foo#1'),
         )
-        treadmill.appmgr.configure.schedule.assert_called_with(
+        treadmill.appcfg.configure.schedule.assert_called_with(
             '/test/foo',
             os.path.join(self.running, 'foo#1'),
         )
+        self.assertTrue(res)
 
-    @mock.patch('treadmill.appmgr.abort.abort', mock.Mock())
-    @mock.patch('treadmill.appmgr.configure.configure', mock.Mock())
+    @mock.patch('treadmill.appcfg.abort.abort', mock.Mock())
+    @mock.patch('treadmill.appcfg.configure.configure', mock.Mock())
     @mock.patch('treadmill.fs.rm_safe', mock.Mock())
     def test__configure_failure(self):
         """Tests application configuration failure event."""
         # Access to a protected member _configure of a client class
         # pylint: disable=W0212
 
-        treadmill.appmgr.configure.configure.side_effect = Exception('Boom')
+        treadmill.appcfg.configure.configure.side_effect = Exception('Boom')
 
-        self.appcfgmgr._configure('foo#1')
+        res = self.appcfgmgr._configure('foo#1')
 
-        treadmill.appmgr.abort.abort.assert_called_with(
+        treadmill.appcfg.abort.abort.assert_called_with(
             self.appcfgmgr.tm_env,
             os.path.join(self.cache, 'foo#1'),
             mock.ANY,
@@ -81,6 +82,7 @@ class AppCfgMgrTest(unittest.TestCase):
         treadmill.fs.rm_safe.assert_called_with(
             os.path.join(self.cache, 'foo#1')
         )
+        self.assertFalse(res)
 
     @mock.patch('treadmill.subproc.check_call', mock.Mock())
     @mock.patch('treadmill.utils.rootdir',
@@ -111,7 +113,7 @@ class AppCfgMgrTest(unittest.TestCase):
     @mock.patch('treadmill.appcfgmgr.AppCfgMgr._refresh_supervisor',
                 mock.Mock())
     @mock.patch('treadmill.appcfgmgr.AppCfgMgr._terminate', mock.Mock())
-    @mock.patch('treadmill.appmgr.eventfile_unique_name', mock.Mock())
+    @mock.patch('treadmill.appcfg.eventfile_unique_name', mock.Mock())
     def test__synchronize_noop(self):
         """Tests synchronize when there is nothing to do.
         """
@@ -124,7 +126,7 @@ class AppCfgMgrTest(unittest.TestCase):
             uniquename = uniquename.replace('#', '-')
             uniquename += '_1234'
             return uniquename
-        treadmill.appmgr.eventfile_unique_name.side_effect = _fake_unique_name
+        treadmill.appcfg.eventfile_unique_name.side_effect = _fake_unique_name
         for app in ('proid.app#0', 'proid.app#1', 'proid.app#2'):
             # Create cache/ entry
             with open(os.path.join(self.cache, app), 'w'):
@@ -156,7 +158,7 @@ class AppCfgMgrTest(unittest.TestCase):
     @mock.patch('treadmill.appcfgmgr.AppCfgMgr._refresh_supervisor',
                 mock.Mock())
     @mock.patch('treadmill.appcfgmgr.AppCfgMgr._terminate', mock.Mock())
-    @mock.patch('treadmill.appmgr.eventfile_unique_name', mock.Mock())
+    @mock.patch('treadmill.appcfg.eventfile_unique_name', mock.Mock())
     def test__synchronize_config(self):
         """Tests synchronize when there are apps to configure.
         """
@@ -170,7 +172,7 @@ class AppCfgMgrTest(unittest.TestCase):
             uniquename = uniquename.replace('#', '-')
             uniquename += '_1234'
             return uniquename
-        treadmill.appmgr.eventfile_unique_name.side_effect = _fake_unique_name
+        treadmill.appcfg.eventfile_unique_name.side_effect = _fake_unique_name
         for app in ('proid.app#0', 'proid.app#1', 'proid.app#2'):
             # Create cache/ entry
             with open(os.path.join(self.cache, app), 'w'):
@@ -197,7 +199,7 @@ class AppCfgMgrTest(unittest.TestCase):
     @mock.patch('treadmill.appcfgmgr.AppCfgMgr._terminate', mock.Mock())
     @mock.patch('treadmill.appcfgmgr.AppCfgMgr._refresh_supervisor',
                 mock.Mock())
-    @mock.patch('treadmill.appmgr.eventfile_unique_name', mock.Mock())
+    @mock.patch('treadmill.appcfg.eventfile_unique_name', mock.Mock())
     def test__synchronize_term(self):
         """Tests synchronize when there are apps to terminate.
         """
@@ -211,7 +213,7 @@ class AppCfgMgrTest(unittest.TestCase):
             uniquename = uniquename.replace('#', '-')
             uniquename += '_1234'
             return uniquename
-        treadmill.appmgr.eventfile_unique_name.side_effect = _fake_unique_name
+        treadmill.appcfg.eventfile_unique_name.side_effect = _fake_unique_name
         for app in ('proid.app#0', 'proid.app#1', 'proid.app#2'):
             # Create app/ dir
             uniquename = _fake_unique_name(app)
@@ -239,7 +241,7 @@ class AppCfgMgrTest(unittest.TestCase):
     @mock.patch('treadmill.appcfgmgr.AppCfgMgr._refresh_supervisor',
                 mock.Mock())
     @mock.patch('treadmill.appcfgmgr.AppCfgMgr._terminate', mock.Mock())
-    @mock.patch('treadmill.appmgr.eventfile_unique_name', mock.Mock())
+    @mock.patch('treadmill.appcfg.eventfile_unique_name', mock.Mock())
     def test__synchronize_with_files(self):
         """Tests that sync leaves files that are not symlinks as is.
         """
@@ -263,7 +265,7 @@ class AppCfgMgrTest(unittest.TestCase):
     @mock.patch('treadmill.appcfgmgr.AppCfgMgr._refresh_supervisor',
                 mock.Mock())
     @mock.patch('treadmill.appcfgmgr.AppCfgMgr._terminate', mock.Mock())
-    @mock.patch('treadmill.appmgr.eventfile_unique_name', mock.Mock())
+    @mock.patch('treadmill.appcfg.eventfile_unique_name', mock.Mock())
     def test__synchronize_broken_link(self):
         """Tests that sync cleans up broken symlinks.
         """
@@ -277,7 +279,7 @@ class AppCfgMgrTest(unittest.TestCase):
             uniquename = uniquename.replace('#', '-')
             uniquename += '_1234'
             return uniquename
-        treadmill.appmgr.eventfile_unique_name.side_effect = _fake_unique_name
+        treadmill.appcfg.eventfile_unique_name.side_effect = _fake_unique_name
         # Create cache/ entry
         with open(os.path.join(self.cache, 'foo#1'), 'w'):
             pass
@@ -313,21 +315,21 @@ class AppCfgMgrTest(unittest.TestCase):
             [
                 mock.call(
                     [
-                        's6-svscanctl',
+                        's6_svscanctl',
                         '-an',
                         self.running
                     ]
                 ),
                 mock.call(
                     [
-                        's6-svc',
+                        's6_svc',
                         '-uO',
                         os.path.join(self.running, 'foo#1'),
                     ]
                 ),
                 mock.call(
                     [
-                        's6-svc',
+                        's6_svc',
                         '-uO',
                         os.path.join(self.running, 'bar#2'),
                     ]
@@ -340,31 +342,31 @@ class AppCfgMgrTest(unittest.TestCase):
             [
                 mock.call(
                     [
-                        's6-svok',
+                        's6_svok',
                         os.path.join(self.running, 'foo#1'),
                     ]
                 ),
                 mock.call(
                     [
-                        's6-svok',
+                        's6_svok',
                         os.path.join(self.running, 'foo#1'),
                     ]
                 ),
                 mock.call(
                     [
-                        's6-svok',
+                        's6_svok',
                         os.path.join(self.running, 'foo#1'),
                     ]
                 ),
                 mock.call(
                     [
-                        's6-svok',
+                        's6_svok',
                         os.path.join(self.running, 'bar#2'),
                     ]
                 ),
                 mock.call(
                     [
-                        's6-svok',
+                        's6_svok',
                         os.path.join(self.running, 'bar#2'),
                     ]
                 ),

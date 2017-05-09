@@ -24,7 +24,7 @@ __path__ = pkgutil.extend_path(__path__, __name__)
 _LOGGER = logging.getLogger(__name__)
 
 
-def init(apis, title=None, cors_origin=None):
+def init(apis, title=None, cors_origin=None, authz_arg=None):
     """Module initialization."""
 
     blueprint = flask.Blueprint('v1', __name__)
@@ -34,6 +34,14 @@ def init(apis, title=None, cors_origin=None):
                        description="Treadmill REST API Documentation")
 
     error_handlers.register(api)
+
+    # load up any external error_handlers
+    try:
+        err_handlers_plugin = importlib.import_module(
+            'treadmill.plugins.rest.error_handlers')
+        err_handlers_plugin.init(api)
+    except ImportError as err:
+        _LOGGER.warn('Unable to load error_handlers plugin: %s', err)
 
     @blueprint.route('/docs/', endpoint='docs')
     def _swagger_ui():
@@ -70,22 +78,34 @@ def init(apis, title=None, cors_origin=None):
         """Get current user from the request."""
         return flask.request.environ.get('REMOTE_USER')
 
-    authorizer = authz.PluginAuthorizer(user_clbk)
+    if authz_arg is None:
+        authorizer = authz.NullAuthorizer()
+    else:
+        authorizer = authz.ClientAuthorizer(user_clbk, authz_arg)
 
+    endpoints = []
     for apiname in apis:
         try:
             apimod = apiname.replace('-', '_')
             _LOGGER.info('Loading api: %s', apimod)
 
             api_restmod = importlib.import_module(
-                'treadmill.rest.api.' + apimod)
+                '.'.join(['treadmill', 'rest', 'api', apimod])
+            )
             api_implmod = importlib.import_module(
-                'treadmill.api.' + apimod)
+                '.'.join(['treadmill', 'api', apimod])
+            )
 
             api_impl = api_implmod.init(authorizer)
-            api_restmod.init(api, cors, api_impl)
+            endpoint = api_restmod.init(api, cors, api_impl)
+            if endpoint is None:
+                endpoint = apiname.replace('_', '-').replace('.', '/')
+            if not endpoint.startswith('/'):
+                endpoint = '/' + endpoint
+
+            endpoints.append(endpoint)
 
         except ImportError as err:
             _LOGGER.warn('Unable to load %s api: %s', apimod, err)
 
-    return ['/' + _apimod.replace('_', '-') for _apimod in apis]
+    return endpoints

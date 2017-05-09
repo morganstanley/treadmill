@@ -56,7 +56,7 @@ class TreadmillTest(unittest.TestCase):
 
     def test_treadmill_exe_whitelist_exists(self):
         importlib.reload(treadmill)
-        self.assertIsNotNone(os.environ.get('TREADMILL_EXE_WHITELIST'))
+        self.assertIsNotNone(os.environ.get('TREADMILL_ALIASES_PATH'))
 
     @mock.patch('treadmill.cli.os.path.exists')
     def test_deploy_path_join(self, exists_mock):

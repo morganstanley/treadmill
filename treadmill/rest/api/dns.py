@@ -22,7 +22,7 @@ def init(api, cors, impl):
 
     server_model = fields.String(description='Server')
 
-    dns_model = {
+    model = {
         '_id': fields.String(
             description='Name',
             max_length=32),
@@ -34,8 +34,8 @@ def init(api, cors, impl):
         'ttl': fields.String(description='Time To Live'),
     }
 
-    response_model = api.model(
-        'RespDNS', dns_model
+    dns_model = api.model(
+        'DNS', model
     )
 
     @namespace.route('/')
@@ -44,7 +44,7 @@ def init(api, cors, impl):
 
         @webutils.get_api(api, cors,
                           marshal=api.marshal_list_with,
-                          resp_model=response_model)
+                          resp_model=dns_model)
         def get(self):
             """Returns list of configured DNS servers."""
             return impl.list()
@@ -56,7 +56,7 @@ def init(api, cors, impl):
 
         @webutils.get_api(api, cors,
                           marshal=api.marshal_with,
-                          resp_model=response_model)
+                          resp_model=dns_model)
         def get(self, dns):
             """Return Treadmill cell configuration."""
             return impl.get(dns)

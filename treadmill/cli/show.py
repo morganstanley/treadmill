@@ -8,7 +8,7 @@ import urllib.error
 
 import click
 
-from .. import cli
+from treadmill import cli
 from treadmill import restclient
 from treadmill import context
 

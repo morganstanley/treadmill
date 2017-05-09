@@ -1,0 +1,18 @@
+#!/bin/sh
+#
+# Starts treadmill locker monitor.
+# Runs as root with host principal creds.
+#
+
+exec 2>&1
+
+# This service needs host tickets
+export KRB5CCNAME="FILE:/treadmill/spool/krb5cc_host"
+
+# Pick up new environment.
+export PEX_ROOT=/tmp/.pex_{{ treadmillid }}
+
+exec                                                                        \
+    {{ treadmill_bin }} sproc                                              \
+    tickets locker                                                          \
+    --tkt-spool-dir /treadmill/spool/tickets

@@ -108,7 +108,7 @@ class BaseServiceTest(unittest.TestCase):
         )
 
     @mock.patch('select.poll', autospec=True)
-    @mock.patch('treadmill.idirwatch.DirWatcher', autospec=True)
+    @mock.patch('treadmill.dirwatch.DirWatcher', autospec=True)
     @mock.patch('treadmill.services._base_service.ResourceService'
                 '._create_status_socket',
                 mock.Mock(return_value='status_socket'))

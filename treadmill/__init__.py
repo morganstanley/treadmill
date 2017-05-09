@@ -1,5 +1,5 @@
-"""Treadmill module."""
-
+"""Treadmill module.
+"""
 
 import os
 import pkgutil
@@ -38,9 +38,9 @@ else:
     TREADMILL_BIN = os.path.join('/bin', _TREADMILL_SCRIPT)
     TREADMILL = __root_join('..')
 
-if not os.environ.get('TREADMILL_EXE_WHITELIST', None):
-    os.environ['TREADMILL_EXE_WHITELIST'] = \
-        os.path.join(TREADMILL, 'etc/linux.exe.config')
+if not os.environ.get('TREADMILL_ALIASES_PATH', None):
+    os.environ['TREADMILL_ALIASES_PATH'] = \
+        os.path.join(TREADMILL, 'etc/linux.aliases')
 
 TREADMILL_LDAP = os.environ.get('TREADMILL_LDAP')
 TREADMILL_DEPLOY_PACKAGE = os.path.join(treadmill.__path__[0], '../deploy/')

@@ -28,10 +28,12 @@ def server_group(parent):
     @click.option('-c', '--cell', help='Treadmll cell')
     @click.option('-t', '--traits', help='List of server traits',
                   multiple=True, default=[])
-    @click.option('-l', '--label', help='Server label')
+    @click.option('-p', '--partition', help='Server partition')
+    @click.option('-d', '--data', help='Server specific data as key=value '
+                  'comma separated list', type=cli.LIST)
     @click.argument('server')
     @cli.admin.ON_EXCEPTIONS
-    def configure(cell, traits, server, label):
+    def configure(cell, traits, server, partition, data):
         """Create, get or modify server configuration"""
         admin_srv = admin.Server(context.GLOBAL.ldap.conn)
 
@@ -40,10 +42,14 @@ def server_group(parent):
             attrs['cell'] = cell
         if traits:
             attrs['traits'] = cli.combine(traits)
-        if label:
-            if label == '-':
-                label = None
-            attrs['label'] = label
+        if partition:
+            if partition == '-':
+                partition = None
+            attrs['partition'] = partition
+        if data:
+            if data == ['-']:
+                data = None
+            attrs['data'] = data
 
         if attrs:
             try:
@@ -60,14 +66,14 @@ def server_group(parent):
     @click.option('-c', '--cell', help='Treadmll cell.')
     @click.option('-t', '--traits', help='List of server traits',
                   multiple=True, default=[])
-    @click.option('-l', '--label', help='Server label')
+    @click.option('-p', '--partition', help='Server partition')
     @cli.admin.ON_EXCEPTIONS
-    def _list(cell, traits, label):
+    def _list(cell, traits, partition):
         """List servers"""
         admin_srv = admin.Server(context.GLOBAL.ldap.conn)
         servers = admin_srv.list({'cell': cell,
                                   'traits': cli.combine(traits),
-                                  'label': label})
+                                  'partition': partition})
         cli.out(formatter(servers))
 
     @server.command()
@@ -418,7 +424,7 @@ def init_group(parent):
 
 
 def cell_group(parent):
-    """Configures server CLI group"""
+    """Configures cell CLI group"""
     # Disable too many branches warning.
     #
     # pylint: disable=R0912
@@ -438,16 +444,25 @@ def cell_group(parent):
     @click.option('--archive-server', help='Archive server.')
     @click.option('--archive-username', help='Archive username.')
     @click.option('--ssq-namespace', help='SSQ namespace.')
+    @click.option('-d', '--data', help='Cell specific data in YAML',
+                  type=click.File('rb'))
+    @click.option('-m', '--manifest', help='Load cell from manifest file.',
+                  type=click.File('rb'))
     @click.argument('cell')
     @cli.admin.ON_EXCEPTIONS
     def configure(cell, version, root, location, username, archive_server,
-                  archive_username, ssq_namespace):
+                  archive_username, ssq_namespace, data, manifest):
         """Create, get or modify cell configuration"""
         admin_cell = admin.Cell(context.GLOBAL.ldap.conn)
         attrs = {}
+        if manifest:
+            attrs = yaml.load(manifest.read())
+
         if version:
             attrs['version'] = version
         if root:
+            if root == '-':
+                root = None
             attrs['root'] = root
         if location:
             attrs['location'] = location
@@ -459,6 +474,8 @@ def cell_group(parent):
             attrs['archive-username'] = archive_username
         if ssq_namespace:
             attrs['ssq-namespace'] = ssq_namespace
+        if data:
+            attrs['data'] = yaml.load(data.read())
 
         if attrs:
             try:
@@ -677,12 +694,12 @@ def ldap_allocations_group(parent):
     @click.option('-u', '--max-utilization',
                   help='Max utilization.', type=float)
     @click.option('-t', '--traits', help='Allocation traits', type=cli.LIST)
-    @click.option('-l', '--label', help='Allocation label')
+    @click.option('-p', '--partition', help='Allocation partition')
     @click.option('--cell', help='Cell.', required=True)
     @click.argument('allocation')
     @cli.admin.ON_EXCEPTIONS
     def reserve(allocation, cell, memory, cpu, disk, rank, max_utilization,
-                traits, label):
+                traits, partition):
         """Reserve capacity on a given cell"""
         admin_cell_alloc = admin.CellAllocation(context.GLOBAL.ldap.conn)
         data = {}
@@ -698,10 +715,10 @@ def ldap_allocations_group(parent):
             data['max_utilization'] = max_utilization
         if traits:
             data['traits'] = cli.combine(traits)
-        if label:
-            if label == '-':
-                label = None
-            data['label'] = label
+        if partition:
+            if partition == '-':
+                partition = None
+            data['partition'] = partition
 
         try:
             admin_cell_alloc.create([cell, allocation], data)
@@ -771,6 +788,83 @@ def ldap_allocations_group(parent):
     del configure
 
 
+def partition_group(parent):
+    """Configures Partition CLI group"""
+    formatter = cli.make_formatter(cli.PartitionPrettyFormatter)
+
+    @parent.group()
+    @click.option('--cell', required=True,
+                  envvar='TREADMILL_CELL',
+                  is_eager=True, callback=cli.handle_context_opt,
+                  expose_value=False)
+    def partition():
+        """Manage partitions"""
+        pass
+
+    @partition.command()
+    @click.option('-m', '--memory', help='Memory.',
+                  callback=cli.validate_memory)
+    @click.option('-c', '--cpu', help='CPU.',
+                  callback=cli.validate_cpu)
+    @click.option('-d', '--disk', help='Disk.',
+                  callback=cli.validate_disk)
+    @click.option('-t', '--down-threshold', help='Down threshold.')
+    @click.argument('label')
+    @cli.admin.ON_EXCEPTIONS
+    def configure(memory, cpu, disk, down_threshold, label):
+        """Create, get or modify partition configuration"""
+        cell = context.GLOBAL.cell
+        admin_part = admin.Partition(context.GLOBAL.ldap.conn)
+
+        attrs = {}
+        if memory:
+            attrs['memory'] = memory
+        if cpu:
+            attrs['cpu'] = cpu
+        if disk:
+            attrs['disk'] = disk
+        if down_threshold:
+            attrs['down-threshold'] = down_threshold
+
+        if attrs:
+            try:
+                admin_part.create([label, cell], attrs)
+            except ldap3.LDAPEntryAlreadyExistsResult:
+                admin_part.update([label, cell], attrs)
+
+        try:
+            cli.out(formatter(admin_part.get([label, cell])))
+        except ldap3.LDAPNoSuchObjectResult:
+            click.echo('Partition does not exist: %s' % label, err=True)
+
+    @partition.command(name='list')
+    @cli.admin.ON_EXCEPTIONS
+    def _list():
+        """List partitions"""
+        cell = context.GLOBAL.cell
+        admin_cell = admin.Cell(context.GLOBAL.ldap.conn)
+        partitions = admin_cell.partitions(cell)
+
+        cli.out(formatter(partitions))
+
+    @partition.command()
+    @click.argument('label')
+    @cli.admin.ON_EXCEPTIONS
+    def delete(label):
+        """Delete a partition"""
+        cell = context.GLOBAL.cell
+        admin_part = admin.Partition(context.GLOBAL.ldap.conn)
+
+        try:
+            admin_part.delete([label, cell])
+        except ldap3.LDAPNoSuchObjectResult:
+            click.echo('Partition does not exist: %s' % label, err=True)
+
+    del configure
+    del _list
+    del delete
+
+
 def init():
     """Return top level command handler"""
 
@@ -786,6 +880,7 @@ def init():
     app_groups_group(ldap_group)
     ldap_tenant_group(ldap_group)
     ldap_allocations_group(ldap_group)
+    partition_group(ldap_group)
 
     # Low level ldap access.
     direct_group(ldap_group)

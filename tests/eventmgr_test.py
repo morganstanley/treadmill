@@ -8,6 +8,8 @@ import shutil
 import tempfile
 import unittest
 
+from tests.testutils import mockzk
+
 import kazoo
 import mock
 import yaml
@@ -15,7 +17,6 @@ import yaml
 import treadmill
 from treadmill import context
 from treadmill import eventmgr
-from treadmill.test import mockzk
 
 
 class MockEvent(object):
@@ -44,7 +45,7 @@ class MockStat(object):
 class EventMgrTest(mockzk.MockZookeeperTestCase):
     """Mock test for treadmill.eventmgr.EventMgr."""
 
-    @mock.patch('treadmill.appmgr.AppEnvironment', mock.Mock(autospec=True))
+    @mock.patch('treadmill.appenv.AppEnvironment', mock.Mock(autospec=True))
     @mock.patch('treadmill.watchdog.Watchdog', mock.Mock(autospec=True))
     def setUp(self):
         self.root = tempfile.mkdtemp()

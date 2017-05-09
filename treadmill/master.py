@@ -16,12 +16,12 @@ import re
 import kazoo
 
 from . import appevents
-from . import sysinfo
 from . import utils
 from . import zkutils
 from . import exc
 from . import zknamespace as z
 from . import scheduler
+from . import sysinfo
 
 from .apptrace import events as traceevents
 
@@ -49,8 +49,9 @@ def resources(data):
 
 def get_data_retention(data):
     """Returns data retention timeout in seconds."""
-    if 'data_retention_timeout' in data:
-        return utils.to_seconds(data['data_retention_timeout'])
+    data_retention_timeout = data.get('data_retention_timeout')
+    if data_retention_timeout is not None:
+        return utils.to_seconds(data_retention_timeout)
     else:
         return None
 
@@ -131,6 +132,7 @@ class Master(object):
             z.SERVERS: None,
             z.STRATEGIES: None,
             z.TASKS: None,
+            z.TASKS_HISTORY: None,
             z.VERSION_ID: None,
             z.ZOOKEEPER: None,
             z.BLACKEDOUT_SERVERS: [_SERVERS_ACL],
@@ -222,7 +224,7 @@ class Master(object):
 
             assert 'parent' in data
             parentname = data['parent']
-            label = data.get('label', None)
+            label = data.get('partition', None)
             up_since = data.get('up_since', int(time.time()))
 
             partition = self.cell.partitions[label]
@@ -291,7 +293,7 @@ class Master(object):
             assert 'parent' in data
             assert data['parent'] in self.buckets
 
-            label = data.get('label')
+            label = data.get('partition')
 
             up_since = data.get('up_since', time.time())
             partition = self.cell.partitions[label]
@@ -370,16 +372,19 @@ class Master(object):
             return
 
         for obj in data:
-            label = obj.get('label')
+            label = obj.get('partition')
             name = obj['name']
 
             _LOGGER.info('Loading allocation: %s, label: %s', name, label)
 
             alloc = self.cell.partitions[label].allocation
+            alloc.label = label
+
             for part in re.split('[/:]', name):
                 alloc = alloc.get_sub_alloc(part)
                 capacity = resources(obj)
                 alloc.update(capacity, obj['rank'], obj.get('max-utilization'))
+                alloc.label = label
 
             for assignment in obj.get('assignments', []):
                 pattern = assignment['pattern'] + '[#]' + ('[0-9]' * 10)
@@ -796,9 +801,7 @@ class Master(object):
     @exc.exit_on_unhandled
     def run(self):
         """Runs the master (once it is elected leader)."""
-        self.zkclient.ensure_path('/master-election')
-        me = '%s.%d' % (sysinfo.hostname(), os.getpid())
-        lock = self.zkclient.Lock('/master-election', me)
+        lock = zkutils.make_lock(self.zkclient, z.path.election(__name__))
         _LOGGER.info('Waiting for leader lock.')
         with lock:
             self.run_real()
@@ -990,7 +993,7 @@ def create_event(zkclient, priority, event, payload):
 
 def create_apps(zkclient, app_id, app, count):
     """Schedules new apps."""
-    app_ids = []
+    instance_ids = []
     acl = zkutils.make_role_acl('servers', 'rwcd')
     for _idx in range(0, count):
         node_path = zkutils.put(zkclient,
@@ -998,9 +1001,23 @@ def create_apps(zkclient, app_id, app, count):
                                 app,
                                 sequence=True,
                                 acl=[acl])
-        app_ids.append(os.path.basename(node_path))
+        instance_id = os.path.basename(node_path)
 
-    return app_ids
+        # Create task for the app, and put it in pending state.
+        task_node = z.path.task(
+            instance_id,
+            '{time},{hostname},pending,'.format(time=time.time(),
+                                                hostname=sysinfo.hostname())
+        )
+        try:
+            zkclient.create(task_node, b'',
+                            acl=[_SERVERS_ACL], makepath=True)
+        except kazoo.client.NodeExistsError:
+            pass
+
+        instance_ids.append(instance_id)
+
+    return instance_ids
 
 
 def delete_apps(zkclient, app_ids):
@@ -1028,14 +1045,23 @@ def list_running_apps(zkclient):
 
 def update_app_priorities(zkclient, updates):
     """Updates app priority."""
+    modified = []
     for app_id, priority in updates.items():
         assert 0 <= priority <= 100
 
         app = get_app(zkclient, app_id)
-        app['priority'] = priority
-        zkutils.update(zkclient, _app_node(app_id), app)
+        if app is None:
+            # app does not exist.
+            continue
 
-    create_event(zkclient, 1, 'apps', list(updates.keys()))
+        app['priority'] = priority
+
+        if zkutils.update(zkclient, _app_node(app_id), app,
+                          check_content=True):
+            modified.append(app_id)
+
+    if modified:
+        create_event(zkclient, 1, 'apps', modified)
 
 
 def create_bucket(zkclient, bucket_id, parent_id, traits=0):
@@ -1098,12 +1124,12 @@ def list_servers(zkclient):
     return sorted(zkclient.get_children(z.SERVERS))
 
 
-def update_server_attrs(zkclient, server_id, traits, label):
+def update_server_attrs(zkclient, server_id, traits, partition):
     """Updates server traits."""
     node = z.path.server(server_id)
     data = zkutils.get(zkclient, node)
     data['traits'] = traits
-    data['label'] = label
+    data['partition'] = partition
 
     if zkutils.update(zkclient, node, data, check_content=True):
         create_event(zkclient, 0, 'servers', [server_id])
@@ -1120,6 +1146,16 @@ def update_server_capacity(zkclient, server_id,
         data['cpu'] = cpu
     if disk:
         data['disk'] = disk
+
+    if zkutils.update(zkclient, node, data, check_content=True):
+        create_event(zkclient, 0, 'servers', [server_id])
+
+
+def update_server_features(zkclient, server_id, features):
+    """Updates server features."""
+    node = z.path.server(server_id)
+    data = zkutils.get(zkclient, node)
+    data['features'] = features
 
     if zkutils.update(zkclient, node, data, check_content=True):
         create_event(zkclient, 0, 'servers', [server_id])
