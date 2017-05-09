@@ -190,8 +190,8 @@ def run(tm_env, container_dir, watchdog, terminated):
             src_path = os.path.join(root_dir, src)
             if os.path.exists(src_path):
                 fs.mount_bind(root_dir, tgt,
-                            target=src_path,
-                            bind_opt='--bind')
+                              target=src_path,
+                              bind_opt='--bind')
 
         # Override the /etc/resolv.conf, so that container always uses
         # dnscache.

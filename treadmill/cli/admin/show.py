@@ -20,7 +20,6 @@ def init():
                   envvar='TREADMILL_CELL',
                   callback=cli.handle_context_opt,
                   expose_value=False)
-
     @click.option('--zookeeper', required=False,
                   envvar='TREADMILL_ZOOKEEPER',
                   callback=cli.handle_context_opt,

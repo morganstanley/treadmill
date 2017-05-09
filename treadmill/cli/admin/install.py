@@ -29,6 +29,7 @@ def _load_configs(config, default_file):
 
     return params
 
+
 def _load_ldap_config():
     """Parameters for both node and master."""
     cellname = context.GLOBAL.cell
@@ -48,7 +49,6 @@ def init():
     """Return top level command handler."""
 
     @click.group()
-
     @click.option('--zookeeper', required=False,
                   envvar='TREADMILL_ZOOKEEPER',
                   callback=cli.handle_context_opt,
@@ -97,8 +97,8 @@ def init():
         @install.command()
         @click.option('--install-dir',
                       default=lambda: os.path.join(
-                      bootstrap.default_install_dir(),
-                      "treadmill_master"))
+                          bootstrap.default_install_dir(),
+                          "treadmill_master"))
         @click.option('--run/--no-run', is_flag=True, default=False)
         @click.option('--master-id', required=True,
                       type=click.Choice(['1', '2', '3']))
@@ -113,7 +113,6 @@ def init():
             params = _load_configs(config, master_config_file)
             if use_ldap:
                 params.update(_load_ldap_config())
-
 
             params.update({
                 'master-id': master_id,

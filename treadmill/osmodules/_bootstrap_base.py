@@ -6,13 +6,7 @@ import errno
 import logging
 import os
 import tempfile
-
 import jinja2
-
-import treadmill
-
-from .. import admin
-from .. import context
 from .. import fs
 
 
