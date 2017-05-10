@@ -9,9 +9,6 @@ import subprocess
 import tempfile
 import unittest
 
-# Disable W0611: Unused import
-import tests.treadmill_test_deps  # pylint: disable=W0611
-
 import mock
 
 import treadmill
@@ -201,7 +198,7 @@ class LocalDiskServiceTest(unittest.TestCase):
             img_size=42,
         )
         svc._status = {
-            'extent_size': 4*1024**3,
+            'extent_size': 4 * 1024 ** 3,
             'extent_free': 512,
         }
         request = {
@@ -220,7 +217,7 @@ class LocalDiskServiceTest(unittest.TestCase):
         treadmill.lvm.lvcreate.assert_called_with(
             volume='ID1234',
             group='treadmill',
-            size_in_bytes=100*1024*1024,
+            size_in_bytes=100 * 1024 * 1024,
         )
         self.assertTrue(
             treadmill.services.localdisk_service._refresh_vg_status.called
@@ -276,7 +273,7 @@ class LocalDiskServiceTest(unittest.TestCase):
             img_size=42,
         )
         svc._status = {
-            'extent_size': 4*1024**3,
+            'extent_size': 4 * 1024 ** 3,
             'extent_free': 512,
         }
         treadmill.lvm.lvdisplay.return_value = {
@@ -442,8 +439,7 @@ class LocalDiskServiceTest(unittest.TestCase):
         # pylint: disable=W0212
 
         localdisk_service._loop_dev_for.side_effect = [
-            subprocess.CalledProcessError(returncode=1, cmd='losetup'),
-            '/dev/test'
+            None, '/dev/test'
         ]
 
         res = localdisk_service._init_block_dev('/bar', '2G')
@@ -461,7 +457,7 @@ class LocalDiskServiceTest(unittest.TestCase):
     @mock.patch('treadmill.fs.create_excl', mock.Mock())
     @mock.patch('treadmill.fs.mkdir_safe', mock.Mock())
     @mock.patch('treadmill.sysinfo.disk_usage', mock.Mock(
-        return_value=collections.namedtuple('struct', 'free')(10*1024**3)
+        return_value=collections.namedtuple('struct', 'free')(10 * 1024 ** 3)
     ))
     def test__create_image(self):
         """Test image file creation.
@@ -476,8 +472,9 @@ class LocalDiskServiceTest(unittest.TestCase):
         os.unlink.assert_called_with('/bar/foo')
         treadmill.fs.create_excl.assert_called_with(
             '/bar/foo',
-            10*1024**3 - 2*1024**3,  # 10G free - 2G reserve
+            (10 * 1024 ** 3) - (2 * 1024 ** 3),  # 10G free - 2G reserve
         )
+
 
 if __name__ == '__main__':
     unittest.main()

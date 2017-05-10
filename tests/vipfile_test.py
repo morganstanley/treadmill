@@ -7,9 +7,6 @@ import tempfile
 import threading
 import unittest
 
-# Disable W0611: Unused import
-import tests.treadmill_test_deps  # pylint: disable=W0611
-
 from treadmill import vipfile
 
 
@@ -21,7 +18,7 @@ class VipFileTest(unittest.TestCase):
         self.vips_dir = os.path.join(self.root, 'vips')
         owner_dirs = os.path.join(self.root, 'owners')
         os.mkdir(owner_dirs)
-        for owner in xrange(0, 15):
+        for owner in range(0, 15):
             with open(os.path.join(owner_dirs, str(owner)), 'w'):
                 pass
         self.vips = vipfile.VipMgr(self.vips_dir, owner_dirs)
@@ -40,7 +37,7 @@ class VipFileTest(unittest.TestCase):
             vips.add(ip0)
 
         threads = []
-        for i in xrange(0, 15):
+        for i in range(0, 15):
             threads.append(threading.Thread(target=alloc_thread, args=(i,)))
 
         for thread in threads:
@@ -49,7 +46,7 @@ class VipFileTest(unittest.TestCase):
         for thread in threads:
             thread.join()
 
-        self.assertEquals(len(threads), len(vips))
+        self.assertEqual(len(threads), len(vips))
 
     def test_free(self):
         """Tests freeing the resource."""

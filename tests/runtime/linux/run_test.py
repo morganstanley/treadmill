@@ -1,5 +1,4 @@
-"""
-Unit test for treadmill.runtime.linux._run
+"""Unit test for treadmill.runtime.linux._run
 """
 
 # Disable C0302: Too many lines in module.
@@ -16,9 +15,6 @@ import unittest
 
 from collections import namedtuple
 
-# Disable W0611: Unused import
-import tests.treadmill_test_deps  # pylint: disable=W0611
-
 import mock
 
 import treadmill
@@ -32,6 +28,8 @@ from treadmill import iptables
 from treadmill import utils
 
 from treadmill.runtime.linux import _run as app_run
+
+path_exists = os.path.exists
 
 
 class LinuxRuntimeRunTest(unittest.TestCase):
@@ -78,6 +76,10 @@ class LinuxRuntimeRunTest(unittest.TestCase):
     @mock.patch('shutil.copytree', mock.Mock())
     @mock.patch('shutil.copyfile', mock.Mock())
     @mock.patch('shutil.rmtree', mock.Mock())
+    @mock.patch('os.path.exists', mock.Mock(
+        side_effect=lambda path: True if 'resolv.conf' in path else
+        path_exists(path)
+    ))
     def test__create_root_dir(self):
         """Test creation on the container root directory."""
         # Access protected module _create_root_dir
@@ -809,11 +811,12 @@ class LinuxRuntimeRunTest(unittest.TestCase):
     @mock.patch('treadmill.subproc.check_call', mock.Mock())
     @mock.patch('treadmill.utils.rootdir',
                 mock.Mock(return_value='/treadmill'))
-    @mock.patch('treadmill.subproc.get_aliases',
-                mock.Mock(return_value={
-                    'treadmill_bind_preload.so':
-                        '/some/$LIB/treadmill_bind_preload.so'
-                }))
+    @mock.patch('os.path.exists', mock.Mock(
+        side_effect=lambda path: True if 'root/.etc' in path else
+        path_exists(path)
+    ))
+    @mock.patch('treadmill.subproc.resolve',
+                mock.Mock(return_value='/tmp/treadmill_bind_preload.so'))
     def test_run(self):
         """Tests linux.run sequence, which will result in supervisor exec.
         """
@@ -945,7 +948,7 @@ class LinuxRuntimeRunTest(unittest.TestCase):
         # Ephemeral LDPRELOAD
         treadmill.runtime.linux._run._prepare_ldpreload.assert_called_with(
             os.path.join(app_dir, 'root'),
-            ['/some/$LIB/treadmill_bind_preload.so']
+            ['/tmp/treadmill_bind_preload.so']
         )
         # Misc bind mounts
         treadmill.fs.mount_bind.assert_has_calls([
@@ -967,12 +970,12 @@ class LinuxRuntimeRunTest(unittest.TestCase):
                 bind_opt='--bind',
                 target=os.path.join(app_dir, 'root/.etc/ld.so.preload')
             ),
-            mock.call(
-                os.path.join(app_dir, 'root'),
-                '/etc/pam.d/sshd',
-                bind_opt='--bind',
-                target=os.path.join(app_dir, 'root/.etc/pam.d/sshd')
-            ),
+            # mock.call(
+            #     os.path.join(app_dir, 'root'),
+            #     '/etc/pam.d/sshd',
+            #     bind_opt='--bind',
+            #     target=os.path.join(app_dir, 'root/.etc/pam.d/sshd')
+            # ),
         ])
 
         self.assertTrue(mock_watchdog.remove.called)
@@ -1234,7 +1237,7 @@ class LinuxRuntimeRunTest(unittest.TestCase):
         )
 
         self.assertTrue(os.path.exists(os.path.join(base_dir, 'sys')))
-        with open(os.path.join(base_dir, 'sys', 'toberemoved'), 'w+') as _f:
+        with open(os.path.join(base_dir, 'sys', 'toberemoved'), 'w+'):
             pass
 
         self.assertTrue(

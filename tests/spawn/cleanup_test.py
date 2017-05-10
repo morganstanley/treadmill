@@ -1,11 +1,9 @@
-"""Unit test for treadmill.spawn.cleanup."""
+"""Unit test for treadmill.spawn.cleanup.
+"""
 
 import os
 import shutil
 import unittest
-
-# Disable W0611: Unused import
-import tests.treadmill_test_deps  # pylint: disable=W0611
 
 import mock
 
@@ -51,6 +49,7 @@ class CleanupTest(unittest.TestCase):
 
         treadmill.spawn.cleanup.Cleanup._on_created \
                  .assert_called_with('/does/not/exist/cleanup/job1')
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -1,0 +1,20 @@
+---
+- name: Set up public subnet route table
+  ec2_vpc_route_table_facts:
+    filters:
+      association.subnet-id: "{{ subnet_info.subnet.id }}"
+    region: "{{ vpc.region }}"
+  register: route_id_info
+
+- name: Create route table
+  ec2_vpc_route_table:
+    vpc_id: "{{ vpc_info.vpc.id }}"
+    region: "{{ vpc.region }}"
+    route_table_id: route_id_info.route_tables[0].id
+    routes:
+      - dest: 0.0.0.0/0
+        gateway_id: "{{ igw.gateway_id }}"
+    subnets:
+      - "{{ subnet_info.subnet.id }}"
+  register: public_route_table
+  when: route_id_info.route_tables|length == 0

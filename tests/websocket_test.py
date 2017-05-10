@@ -9,9 +9,6 @@ import shutil
 import time
 import sqlite3
 
-# Disable W0611: Unused import
-import tests.treadmill_test_deps  # pylint: disable=W0611
-
 import mock
 from tornado import gen
 from tornado import web
@@ -69,11 +66,11 @@ class PubSubTest(unittest.TestCase):
         pubsub.register('/', '*', ws1, handler1, True)
         pubsub.register('/', 'a*', ws2, handler2, True)
 
-        self.assertEquals(2, len(pubsub.handlers[self.root]))
+        self.assertEqual(2, len(pubsub.handlers[self.root]))
 
         self.assertIn(('/aaa', None, ''), handler1.events)
         self.assertIn(('/xxx', None, ''), handler1.events)
-        self.assertEquals(
+        self.assertEqual(
             [('/aaa', None, '')],
             handler2.events
         )
@@ -96,7 +93,7 @@ class PubSubTest(unittest.TestCase):
         ws1.active.return_value = False
 
         pubsub.run(once=True)
-        self.assertEquals(1, len(pubsub.handlers[self.root]))
+        self.assertEqual(1, len(pubsub.handlers[self.root]))
 
         pubsub.register('/new_dir', 'bbb', ws2, handler2, True)
         self.assertTrue(os.path.exists(os.path.join(self.root, 'new_dir')))
@@ -117,7 +114,7 @@ class PubSubTest(unittest.TestCase):
         pubsub._sow(self.root, '*', 0, handler, impl)
 
         handler.write_message.assert_called_with(
-            json.dumps({'echo': 1, 'when': modified}),
+            {'echo': 1, 'when': modified},
         )
         handler.write_message.reset_mock()
 
@@ -127,7 +124,7 @@ class PubSubTest(unittest.TestCase):
 
         pubsub._sow(self.root, '*', time.time() - 1, handler, impl)
         handler.write_message.assert_called_with(
-            json.dumps({'echo': 1, 'when': modified}),
+            {'echo': 1, 'when': modified},
         )
         handler.write_message.reset_mock()
 
@@ -143,8 +140,12 @@ class PubSubTest(unittest.TestCase):
 
         impl = mock.Mock()
         impl.sow_db = '.tasks-sow.db'
-        impl.on_event.return_value = {'echo': 1}
-
+        impl.on_event.side_effect = [
+            {'echo': 1},
+            {'echo': 2},
+            {'echo': 3},
+            {'echo': 4},
+        ]
         open(os.path.join(self.root, 'xxx'), 'w+').close()
         modified = int(os.stat(os.path.join(self.root, 'xxx')).st_mtime)
 
@@ -160,22 +161,20 @@ class PubSubTest(unittest.TestCase):
 
         pubsub._sow(self.root, '*', 0, handler, impl)
 
-        self.assertEquals(
-            impl.on_event.call_args_list,
+        impl.on_event.assert_has_calls(
             [
                 mock.call('/aaa', None, ''),
                 mock.call('/bbb', None, ''),
                 mock.call('/ccc', None, ''),
-                mock.call('/xxx', None, '')
+                mock.call('/xxx', None, ''),
             ]
         )
-        self.assertEquals(
-            handler.write_message.call_args_list,
+        handler.write_message.assert_has_calls(
             [
-                mock.call('{"when": 1, "echo": 1}'),
-                mock.call('{"when": 2, "echo": 1}'),
-                mock.call('{"when": 3, "echo": 1}'),
-                mock.call('{"when": %s, "echo": 1}' % modified)
+                mock.call({'when': 1, 'echo': 1}),
+                mock.call({'when': 2, 'echo': 2}),
+                mock.call({'when': 3, 'echo': 3}),
+                mock.call({'when': modified, 'echo': 4}),
             ]
         )
 
@@ -235,7 +234,7 @@ class WebSocketTest(AsyncHTTPTestCase):
         ws.write_message(echo_msg)
         self.pubsub.run(once=True)
         response = yield ws.read_message()
-        self.assertEquals(1, json.loads(response)['echo'])
+        self.assertEqual(1, json.loads(response)['echo'])
         self.assertIn('when', json.loads(response))
 
     @gen_test
@@ -255,7 +254,7 @@ class WebSocketTest(AsyncHTTPTestCase):
         self.pubsub.run(once=True)
         response = yield ws.read_message()
 
-        self.assertEquals(1, json.loads(response)['echo'])
+        self.assertEqual(1, json.loads(response)['echo'])
         self.assertIn('when', json.loads(response))
 
         response = yield ws.read_message()

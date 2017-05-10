@@ -1,14 +1,10 @@
-"""
-Unit test for treadmill.appenv
+"""Unit test for treadmill.appenv
 """
 
 import os
 import shutil
 import tempfile
 import unittest
-
-# Disable W0611: Unused import
-import tests.treadmill_test_deps  # pylint: disable=W0611
 
 import mock
 
@@ -48,6 +44,7 @@ class AppEnvTest(unittest.TestCase):
         self.tm_env.initialize()
         self.assertFalse(os.kill.called)
         treadmill.iptables.initialize.assert_called_with('172.31.81.67')
+
 
 if __name__ == '__main__':
     unittest.main()

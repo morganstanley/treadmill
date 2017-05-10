@@ -8,9 +8,6 @@ import tempfile
 import time
 import unittest
 
-# Disable W0611: Unused import
-import tests.treadmill_test_deps  # pylint: disable=W0611
-
 import mock
 
 import treadmill
@@ -107,7 +104,7 @@ class AppCfgMgrTest(unittest.TestCase):
         self.assertFalse(
             os.path.exists(os.path.join(self.running, 'proid.app#0'))
         )
-        self.assertEquals(
+        self.assertEqual(
             os.readlink(os.path.join(self.cleanup, 'proid.app-0_1234')),
             os.path.join(self.apps, 'proid.app-0_1234')
         )
@@ -132,7 +129,7 @@ class AppCfgMgrTest(unittest.TestCase):
         treadmill.appcfg.eventfile_unique_name.side_effect = _fake_unique_name
         for app in ('proid.app#0', 'proid.app#1', 'proid.app#2'):
             # Create cache/ entry
-            with open(os.path.join(self.cache, app), 'w') as _f:
+            with open(os.path.join(self.cache, app), 'w'):
                 pass
             # Create app/ dir
             uniquename = _fake_unique_name(app)
@@ -178,7 +175,7 @@ class AppCfgMgrTest(unittest.TestCase):
         treadmill.appcfg.eventfile_unique_name.side_effect = _fake_unique_name
         for app in ('proid.app#0', 'proid.app#1', 'proid.app#2'):
             # Create cache/ entry
-            with open(os.path.join(self.cache, app), 'w') as _f:
+            with open(os.path.join(self.cache, app), 'w'):
                 pass
             uniquename = _fake_unique_name(app)
             os.mkdir(os.path.join(self.apps, uniquename))
@@ -251,7 +248,7 @@ class AppCfgMgrTest(unittest.TestCase):
         # Access to a protected member _synchronize of a client class
         # pylint: disable=W0212
 
-        with open(os.path.join(self.running, 'xxx'), 'w') as _f:
+        with open(os.path.join(self.running, 'xxx'), 'w'):
             pass
 
         self.appcfgmgr._synchronize()
@@ -284,7 +281,7 @@ class AppCfgMgrTest(unittest.TestCase):
             return uniquename
         treadmill.appcfg.eventfile_unique_name.side_effect = _fake_unique_name
         # Create cache/ entry
-        with open(os.path.join(self.cache, 'foo#1'), 'w') as _f:
+        with open(os.path.join(self.cache, 'foo#1'), 'w'):
             pass
         # Create a broken running/ symlink
         os.symlink(os.path.join(self.apps, 'foo-1_1234'),
@@ -311,7 +308,7 @@ class AppCfgMgrTest(unittest.TestCase):
         # pylint: disable=W0212
 
         self.appcfgmgr._refresh_supervisor(
-            instance_names=set(['foo#1', 'bar#2'])
+            instance_names=['foo#1', 'bar#2']
         )
 
         treadmill.subproc.check_call.assert_has_calls(
@@ -337,7 +334,8 @@ class AppCfgMgrTest(unittest.TestCase):
                         os.path.join(self.running, 'bar#2'),
                     ]
                 ),
-            ]
+            ],
+            any_order=True
         )
         # Make sure we did the right amount of retries
         treadmill.subproc.call.assert_has_calls(
@@ -372,7 +370,8 @@ class AppCfgMgrTest(unittest.TestCase):
                         os.path.join(self.running, 'bar#2'),
                     ]
                 ),
-            ]
+            ],
+            any_order=True
         )
         self.assertEqual(
             time.sleep.call_count,

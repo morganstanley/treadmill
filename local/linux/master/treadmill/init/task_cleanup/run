@@ -6,5 +6,10 @@
 exec 2>&1
 
 export KRB5CCNAME=FILE:/var/spool/tickets/{{ treadmillid }}
-exec {{ s6 }}/bin/s6-setuidgid {{ treadmillid }} \
-    {{ treadmill }}/bin/treadmill sproc --cell {{ cell }} task cleanup
+export PEX_ROOT=/tmp/.pex_{{ treadmillid }}
+
+exec                                                                        \
+    {{ s6 }}/bin/s6-setuidgid {{ treadmillid }}                             \
+    {{ treadmill_bin }} sproc                                               \
+        --cell {{ cell }}                                                   \
+        task cleanup

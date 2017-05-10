@@ -1,0 +1,3 @@
+---
+- include: "{{item}}.yml"
+  with_items: "{{resources}}"

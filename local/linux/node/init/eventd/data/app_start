@@ -6,4 +6,5 @@
 
 # This service needs host tickets
 
-exec {{ treadmill }}/bin/treadmill sproc --cgroup . eventdaemon
+exec {{ treadmill_bin }} \
+    sproc --cgroup . eventdaemon

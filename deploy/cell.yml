@@ -1,0 +1,6 @@
+---
+- include: vpc.yml
+- include: freeipa.yml
+  when: freeipa
+- include: master.yml
+- include: node.yml

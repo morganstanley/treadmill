@@ -1,5 +1,4 @@
-"""
-Unit test for monitor
+"""Unit tests for monitor
 """
 
 import os
@@ -8,9 +7,6 @@ import tempfile
 import unittest
 
 from collections import namedtuple
-
-# Disable W0611: Unused import
-import tests.treadmill_test_deps  # pylint: disable=W0611
 
 import mock
 import yaml
@@ -334,7 +330,7 @@ class MonitorRestartPolicyTest(unittest.TestCase):
         self.assertEquals(mock_policy._last_signal, 0)
         self.assertEquals(os.unlink.call_count, 0)
 
-    @mock.patch('__builtin__.open', autospec=True)
+    @mock.patch('builtins.open', autospec=True)
     @mock.patch('treadmill.fs.mkdir_safe', mock.Mock(spec_set=True))
     @mock.patch('yaml.load', mock.Mock(spec_set=True))
     def test_register(self, mock_open):
@@ -459,6 +455,7 @@ class MonitorRestartPolicyTest(unittest.TestCase):
                 'timestamp': 42.123,
             }
         )
+
 
 if __name__ == '__main__':
     unittest.main()

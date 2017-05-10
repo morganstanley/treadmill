@@ -1,14 +1,10 @@
-"""
-Unit test for S6 services
+"""Unit test for S6 services
 """
 
 import os
 import shutil
 import tempfile
 import unittest
-
-# Disable W0611: Unused import
-import tests.treadmill_test_deps  # pylint: disable=W0611
 
 import mock
 
@@ -45,19 +41,19 @@ class ServiceTest(unittest.TestCase):
         """
         mock_svc_dir = os.path.join(self.root, 'my_svc')
         os.mkdir(mock_svc_dir)
-        with open(os.path.join(mock_svc_dir, 'type'), 'a') as f:
+        with open(os.path.join(mock_svc_dir, 'type'), 'w') as f:
             f.write('longrun')
-        with open(os.path.join(mock_svc_dir, 'run'), 'a') as f:
+        with open(os.path.join(mock_svc_dir, 'run'), 'w') as f:
             f.write('mock run script')
-        with open(os.path.join(mock_svc_dir, 'down'), 'a') as f:
+        with open(os.path.join(mock_svc_dir, 'down'), 'w') as f:
             pass
-        with open(os.path.join(mock_svc_dir, 'notification-fd'), 'a') as f:
+        with open(os.path.join(mock_svc_dir, 'notification-fd'), 'w') as f:
             f.write('42')
         os.mkdir(os.path.join(mock_svc_dir, 'data'))
         os.mkdir(os.path.join(mock_svc_dir, 'env'))
-        with open(os.path.join(mock_svc_dir, 'env', 'HOME'), 'a') as f:
+        with open(os.path.join(mock_svc_dir, 'env', 'HOME'), 'w') as f:
             f.write('/my/home\n')
-        with open(os.path.join(mock_svc_dir, 'env', 'FOO'), 'a') as f:
+        with open(os.path.join(mock_svc_dir, 'env', 'FOO'), 'w') as f:
             f.write('bar\n')
 
         mock_svc = services.Service.from_dir(mock_svc_dir)

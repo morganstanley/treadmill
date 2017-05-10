@@ -4,7 +4,8 @@
 # Runs as root.
 #
 
-exec {{ treadmill }}/bin/treadmill sproc --cgroup . \
+exec {{ treadmill_bin }} \
+    sproc --cgroup . \
     service --root-dir {{ dir }} network \
 {%- if network_device %}
     --device {{ network_device }} \

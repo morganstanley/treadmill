@@ -1,11 +1,9 @@
-"""Unit test for treadmill.spawn.tree."""
+"""Unit test for treadmill.spawn.tree.
+"""
 
 import os
 import shutil
 import unittest
-
-# Disable W0611: Unused import
-import tests.treadmill_test_deps  # pylint: disable=W0611
 
 import mock
 
@@ -33,6 +31,7 @@ class TreeTest(unittest.TestCase):
         self.assertEquals(8, fs.mkdir_safe.call_count)
         self.assertEquals(6, utils.create_script.call_count)
         self.assertEquals(2, shutil.rmtree.call_count)
+
 
 if __name__ == '__main__':
     unittest.main()

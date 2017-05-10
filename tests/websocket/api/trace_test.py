@@ -4,9 +4,6 @@ Unit test for trace websocket API.
 
 import unittest
 
-# Disable W0611: Unused import
-import tests.treadmill_test_deps  # pylint: disable=W0611
-
 import mock
 
 from treadmill.apptrace import events
@@ -51,6 +48,7 @@ class WSRunningAPITest(unittest.TestCase):
             event_data='d',
             payload='xxx'
         )
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -4,8 +4,6 @@ Unit test for appwatch.
 
 import unittest
 
-# Disable W0611: Unused import
-import tests.treadmill_test_deps  # pylint: disable=W0611
 from tests.testutils import mockzk
 
 import kazoo
@@ -55,11 +53,11 @@ class DiscoveryTest(mockzk.MockZookeeperTestCase):
         app_discovery.exit_loop()
 
         expected = {}
-        for (endpoint, hostport) in app_discovery.iteritems():
+        for (endpoint, hostport) in app_discovery.items():
             expected[endpoint] = hostport
 
-        self.assertEquals(expected, {'appproid.foo.1#0:tcp:http': 'xxx:123',
-                                     'appproid.foo.2#0:tcp:http': 'xxx:123'})
+        self.assertEqual(expected, {'appproid.foo.1#0:tcp:http': 'xxx:123',
+                                    'appproid.foo.2#0:tcp:http': 'xxx:123'})
 
     @mock.patch('treadmill.zkutils.connect', mock.Mock(
         return_value=kazoo.client.KazooClient()))
@@ -79,10 +77,10 @@ class DiscoveryTest(mockzk.MockZookeeperTestCase):
     def test_pattern(self):
         """Checks instance aware pattern construction."""
         app_discovery = discovery.Discovery(None, 'appproid.foo', 'http')
-        self.assertEquals('foo#*', app_discovery.pattern)
+        self.assertEqual('foo#*', app_discovery.pattern)
 
         app_discovery = discovery.Discovery(None, 'appproid.foo#1', 'http')
-        self.assertEquals('foo#1', app_discovery.pattern)
+        self.assertEqual('foo#1', app_discovery.pattern)
 
 
 if __name__ == '__main__':

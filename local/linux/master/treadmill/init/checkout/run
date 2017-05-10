@@ -12,8 +12,10 @@ export KRB5CCNAME=FILE:/var/spool/tickets/{{ treadmillid }}
 
 {{ mkdir }} -p $OUTDIR
 
-exec {{ treadmill }}/bin/treadmill sproc checkout \
-      --outdir $OUTDIR \
-      --port 0 \
-      --plugin treadmill.plugins.sproc.checkout \
-      api zk sysapps servers ldap dns capacity
+exec                                                                        \
+    {{ treadmill_bin }} sproc                                               \
+        checkout                                                            \
+          --outdir $OUTDIR                                                  \
+          --port 0                                                          \
+          --plugin treadmill.plugins.sproc.checkout                         \
+          api zk sysapps servers ldap dns capacity

@@ -4,9 +4,6 @@ Unit test for identity_group websocket API.
 
 import unittest
 
-# Disable W0611: Unused import
-import tests.treadmill_test_deps  # pylint: disable=W0611
-
 import jsonschema
 
 from treadmill.websocket.api import identity_group
@@ -44,7 +41,7 @@ class WSIdentityGroupAPITest(unittest.TestCase):
 
         with self.assertRaisesRegexp(
             jsonschema.exceptions.ValidationError,
-            "None is not of type u'string'"
+            "None is not of type 'string'"
         ):
             api.subscribe({'topic': '/identity-groups',
                            'identity-group': None})

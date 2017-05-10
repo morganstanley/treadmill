@@ -11,3 +11,4 @@ localdisk_default_read_bps: 20M
 localdisk_default_read_iops: 100
 localdisk_default_write_bps: 20M
 localdisk_default_write_iops: 100
+treadmillid: treadmld

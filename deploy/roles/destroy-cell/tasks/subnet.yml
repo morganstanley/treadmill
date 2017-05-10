@@ -1,0 +1,7 @@
+---
+- name: Destroy subnet
+  ec2_vpc_subnet:
+    state: absent
+    vpc_id: "{{ vpc_id }}"
+    cidr: "{{ vpc.subnet.cidr }}"
+    region: "{{ vpc.region }}"

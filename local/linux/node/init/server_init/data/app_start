@@ -18,4 +18,5 @@ fi
 
 # This service needs host tickets
 
-exec {{ treadmill }}/bin/treadmill sproc --cgroup . init --zkid zkid.pickle
+exec {{ treadmill_bin }} \
+    sproc --cgroup . init --zkid zkid.pickle

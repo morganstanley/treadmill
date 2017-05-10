@@ -1,0 +1,7 @@
+---
+- name: Destroy the VPC
+  ec2_vpc_net_custom:
+    state: absent
+    name: "{{ vpc.name }}"
+    cidr_block: "{{ vpc.cidr }}"
+    region: "{{ vpc.region }}"

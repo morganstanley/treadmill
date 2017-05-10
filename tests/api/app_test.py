@@ -2,9 +2,6 @@
 
 import unittest
 
-# Disable W0611: Unused import
-import tests.treadmill_test_deps  # pylint: disable=W0611
-
 import mock
 
 from treadmill import admin
@@ -51,7 +48,7 @@ class ApiAppTest(unittest.TestCase):
             'cpu': '100%',
             'memory': '1G',
             'disk': '1G',
-            'tickets': [u'a@realm1', u'b@realm2'],
+            'tickets': ['a@realm1', 'b@realm2'],
             'features': [],
             'services': [
                 {
