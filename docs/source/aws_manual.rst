@@ -1,6 +1,8 @@
 Treadmill on AWS
 ==========================================================
 
+Assuming a box(vagrant/local machine) has the treadmill binary installed:
+
 List treadmill AWS commands
 ::
 
@@ -20,7 +22,11 @@ This creates deploy directory in the current directory. Make changes to benefit.
 
 ----------------------------------------------------------
 
-Create a Deployment Manifest
+Create a Key Pair
+^^^^^^^^^^^^^^^^^
+Create a key pair in aws console under EC2 Service and download the pem file required to ssh into master/node boxes.
+
+Update a Deployment Manifest
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Edit *deploy/config/aws.yml*:
@@ -52,8 +58,11 @@ Other default values can also be changed if required.
 
 ----------------------------------------------------------
 
+
 Set AWS Credentials
 ^^^^^^^^^^^^^^^^^^^
+Assuming a user is present on AWS Account having AmazonEC2FullAccess, AmazonVPCFullAccess and AmazonRoute53FullAccess:
+
 Export AWS security credentials
 
 ::
@@ -63,28 +72,37 @@ Export AWS security credentials
 
 ----------------------------------------------------------
 
-Create/Destroy Treadmill Cell
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-**Create:**
+Create Treadmill Cell
+^^^^^^^^^^^^^^^^^^^^^
 
 ::
 
-  treadmill aws cell --create --key-file <path/to/pem/file>
+  treadmill aws cell --create --key-file --with-freeipa <path/to/pem/file>
 
   --playbook      default: deploy/cell.yml
   --inventory     default: deploy/controller.inventory
   --aws-config    default: deploy/config/aws.yml
+  --with-freeipa  default: no-freeipa
 
-**Destroy:**
+This will create 1 freeipa server, 3 masters and 1 node in the cell(vpc).
+All the master and node services should be running.
+
+SSH and Schedule an App
+^^^^^^^^^^^^^^^^^^^^^^^
+SSH in master/node using the downloaded pem file
+
+**ssh**
 
 ::
 
-  treadmill aws cell --destroy
+  ssh -i <path/to/pem/file> centos@<master/node>_ip
 
-  --playbook      default: deploy/destroy-cell.yml
-  --inventory     default: deploy/controller.inventory
-  --aws-config    default: deploy/config/aws.yml
+**schedule**
+
+::
+
+  treadmill admin master app schedule --env prod --proid treadmld --manifest <manifest_file> treadmld.foo
+
 
 ----------------------------------------------------------
 
@@ -98,5 +116,17 @@ Provision Node-Server in treadmill CELL on AWS
   treadmill aws node --create --key-file <path/to/pem/file>
 
   --playbook      default: deploy/node.yml
+  --inventory     default: deploy/controller.inventory
+  --aws-config    default: deploy/config/aws.yml
+
+
+Destroy Treadmill Cell
+^^^^^^^^^^^^^^^^^^^^^^
+
+::
+
+  treadmill aws cell --destroy
+
+  --playbook      default: deploy/destroy-cell.yml
   --inventory     default: deploy/controller.inventory
   --aws-config    default: deploy/config/aws.yml
