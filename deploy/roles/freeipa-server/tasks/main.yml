@@ -31,7 +31,7 @@
     ipaserver_admin_password: "{{lookup_result.stdout}}"
 
 - name: Create treadmill credential directory
-  file: path="{{'/'.join(freeipa_server.remote_admin_pwd_file.split('/')[0:-1])}} state=directory
+  file: path="{{'/'.join(freeipa_server.remote_admin_pwd_file.split('/')[0:-1])}}" state=directory
 
 - name: Copy credential file on FreeIPA server
   copy: src="{{freeipa_server.local_admin_pwd_file}}" dest="{{freeipa_server.remote_admin_pwd_file}}"
