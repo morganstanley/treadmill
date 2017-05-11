@@ -1,5 +1,5 @@
 domain: tw.treadmill
-treadmill_version: 0.0.1
+treadmill_version: 0.1.0
 master:
   name: treadmillmaster
   exact_count: 3
