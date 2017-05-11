@@ -24,7 +24,6 @@ Setup
 ::
 
 	cd treadmill
-	git checkout merge_ch
 	vagrant up --provision
 
 -------------------------------------------------------------------------
@@ -39,7 +38,7 @@ Master
    sudo su
    cd /home/centos/treadmill
    source ../env/bin/activate
-   treadmill admin install master --master-id 1 --run
+   treadmill admin install --profile vagrant master --master-id 1 --run
 
 -------------------------------------------------------------------------
 
@@ -52,7 +51,7 @@ Node
    sudo su
    cd /home/centos/treadmill
    source ../env/bin/activate
-   treadmill admin install node --run
+   treadmill admin install --profile vagrant node --run
 
 -------------------------------------------------------------------------
 
@@ -88,5 +87,5 @@ SSH
 .. _VirtualBox: https://www.virtualbox.org/wiki/Downloads
 .. _Vagrant: https://www.vagrantup.com/docs/installation/
 .. _Guest Additions Plugin: https://github.com/dotless-de/vagrant-vbguest
-.. _treadmill: https://github.com/ThoughtWorksInc/treadmill.git
+.. _treadmill: https://github.com/Morgan-Stanley/treadmill
 .. _treadmill_pid1: https://github.com/Morgan-Stanley/treadmill-pid1
