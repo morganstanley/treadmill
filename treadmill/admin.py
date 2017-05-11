@@ -381,7 +381,7 @@ def _ldap_args():
 
     with open(_TREADMILL_CONFIG_PATH) as f:
         treadmill_conf = yaml.load(f)
-        freeipa_conf = treadmill_conf.get('freeipa')
+        freeipa_conf = treadmill_conf.get('freeipa_server')
         if freeipa_conf.get('authentication').lower() == 'simple':
             defaults['user'] = _admin_ldap_user(treadmill_conf.get('domain'))
             defaults['authentication'] = ldap3.SIMPLE

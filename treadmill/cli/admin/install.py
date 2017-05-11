@@ -49,14 +49,22 @@ def init():
                   callback=cli.handle_context_opt,
                   expose_value=False)
     @click.option('--aliases', type=click.File(), multiple=True)
+    @click.option('--profile',
+                  help='load aws or vagrant profile')
     @click.pass_context
-    def install(ctx, aliases):
+    def install(ctx, aliases, profile):
         """Installs Treadmill."""
 
         aliases_path = ":".join(
             [os.path.abspath(x.name) for x in aliases])
 
         linux_aliases = os.path.join(treadmill.TREADMILL, 'etc/linux.aliases')
+
+        if profile:
+            linux_aliases = linux_aliases + ':' + os.path.join(
+                treadmill.TREADMILL,
+                'etc/linux.' + profile + '.aliases'
+            )
 
         if aliases_path:
             aliases_path = linux_aliases + ':' + aliases_path
@@ -70,8 +78,10 @@ def init():
         aliases_data = {}
         for conf in aliases:
             aliases_data.update(yaml.load(conf.read()))
-        with open(linux_aliases) as f:
-            aliases_data.update(yaml.load(f.read()))
+
+        for _aliases in linux_aliases.split(':'):
+            with open(_aliases) as f:
+                aliases_data.update(yaml.load(f.read()))
 
         ctx.obj['COMMON_DEFAULTS']['_alias'] = aliases_data
         # TODO(boysson): remove the below once all templates are cleaned up
