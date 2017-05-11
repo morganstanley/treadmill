@@ -55,12 +55,12 @@ Node
 
 -------------------------------------------------------------------------
 
-Schedule an App (e.g. python webserver - port8000 )
+Schedule an App (e.g. python webserver - port 8000 )
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 ::
 
-   treadmill admin master app schedule --env prod --proid treadmld --manifest deploy/manfiest.yml treadmld.foo
+   treadmill admin master app schedule --env prod --proid treadmld --manifest deploy/manifest.yml treadmld.foo
 
 
 -------------------------------------------------------------------------
@@ -70,7 +70,16 @@ Trace
 
 ::
 
-   treadmill admin trace < appname >
+   treadmill admin trace <appname>
+
+-------------------------------------------------------------------------
+
+Discovery
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+::
+
+   treadmill admin discovery <appname> --check-state
 
 -------------------------------------------------------------------------
 
@@ -79,7 +88,7 @@ SSH
 
 ::
 
-   treadmill admin ssh < appname >
+   treadmill admin ssh <appname>
 
 -------------------------------------------------------------------------
 
