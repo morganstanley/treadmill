@@ -23,7 +23,7 @@ def _open_side_effect_for_simple_auth(path, *args):
         return io.StringIO(
             """
             domain: tm.treadmill
-            freeipa:
+            freeipa_server:
                 authentication: simple
                 remote_admin_pwd_file: /root/.treadmill_ldap
             """)
@@ -38,7 +38,7 @@ def _open_side_effect_for_sasl_auth(path, *args):
         return io.StringIO(
             """
             domain: tm.treadmill
-            freeipa:
+            freeipa_server:
                 authentication: sasl
                 remote_admin_pwd_file: /root/.treadmill/.ldap
             """)
