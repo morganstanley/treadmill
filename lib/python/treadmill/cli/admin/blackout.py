@@ -1,5 +1,6 @@
 """Kills all connections from a given treadmill server."""
 from __future__ import absolute_import
+from __future__ import print_function
 
 import logging
 import re
@@ -58,7 +59,7 @@ def _list_server_blackouts(zkclient, fmt):
 
     for when, server, reason in reversed(sorted(blacked_out)):
         reason = '-' if reason is None else reason
-        print formatter.format(utils.strftime_utc(when), server, reason)
+        print(formatter.format(utils.strftime_utc(when), server, reason))
 
 
 def _clear_server_blackout(zkclient, server):
@@ -96,7 +97,7 @@ def _list_blackedout_apps(zkclient):
     """List blackedout apps."""
     try:
         for blacklisted in zkclient.get_children(z.BLACKEDOUT_APPS):
-            print blacklisted
+            print(blacklisted)
     except kazoo.client.NoNodeError:
         pass
 

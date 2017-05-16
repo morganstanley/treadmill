@@ -1307,9 +1307,9 @@ class Cell(Bucket):
             if app in evicted:
                 assert app.has_identity()
 
-                evicted_from = evicted[app]
+                evicted_from, app_expiry = evicted[app]
                 del evicted[app]
-                if evicted_from.restore(app):
+                if evicted_from.restore(app, app_expiry):
                     app.evicted = False
                     continue
 
@@ -1333,7 +1333,8 @@ class Cell(Bucket):
                     assert evicted_app.server in servers
                     evicted_app_server = servers[evicted_app.server]
 
-                    evicted[evicted_app] = evicted_app_server
+                    evicted[evicted_app] = (evicted_app_server,
+                                            evicted_app.placement_expiry)
                     evicted_app_server.remove(evicted_app.name)
 
                     # TODO: we need to check affinity limit constraints on

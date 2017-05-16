@@ -1,5 +1,6 @@
 """Waits for Treadmill application completion."""
 from __future__ import absolute_import
+from __future__ import print_function
 
 import sys
 
@@ -21,21 +22,21 @@ _LOGGER = logging.getLogger(__name__)
 
 def print_yaml(obj):
     """Print yaml wih correct options."""
-    print yaml.dump(obj,
+    print(yaml.dump(obj,
                     default_flow_style=False,
                     explicit_start=True,
-                    explicit_end=True)
+                    explicit_end=True))
 
 
 class _AppTraceEventsOnly(events.AppTraceEventHandler):
     """Handler used to integrate trace events into final state of the container
     """
 
-    def on_scheduled(self, when, instanceid, server):
+    def on_scheduled(self, when, instanceid, server, why):
         """Invoked when task is scheduled."""
         pass
 
-    def on_pending(self, when, instanceid):
+    def on_pending(self, when, instanceid, why):
         """Invoked when task is pending."""
         pass
 
@@ -50,11 +51,11 @@ class _AppTraceEventsOnly(events.AppTraceEventHandler):
     def on_finished(self, when, instanceid, server, signal, exitcode):
         """Invoked when task is finished."""
         if exitcode > 255:
-            print '%s - %s killed, signal: %s' % (
+            print('%s - %s killed, signal: %s' % (
                 utils.strftime_utc(when),
                 instanceid,
                 utils.signal2name(signal)
-            )
+            ))
             self.ctx.update(
                 {
                     'signal': signal,
@@ -63,11 +64,11 @@ class _AppTraceEventsOnly(events.AppTraceEventHandler):
                 }
             )
         else:
-            print '%s - %s exited, return code: %s' % (
+            print('%s - %s exited, return code: %s' % (
                 utils.strftime_utc(when),
                 instanceid,
                 exitcode
-            )
+            ))
             self.ctx.update(
                 {
                     'exitcode': exitcode,
@@ -92,21 +93,21 @@ class _AppTraceEventsOnly(events.AppTraceEventHandler):
                           exitcode, signal):
         """Suppress stdout/err info."""
         if exitcode > 255:
-            print '%s - %s/%s/service/%s killed, signal: %s' % (
+            print('%s - %s/%s/service/%s killed, signal: %s' % (
                 utils.strftime_utc(when),
                 instanceid,
                 uniqueid,
                 service,
                 utils.signal2name(signal)
-            )
+            ))
         else:
-            print '%s - %s/%s/service/%s exited, return code: %s' % (
+            print('%s - %s/%s/service/%s exited, return code: %s' % (
                 utils.strftime_utc(when),
                 instanceid,
                 uniqueid,
                 service,
                 exitcode
-            )
+            ))
 
 
 def init():

@@ -14,19 +14,19 @@ class UtilsTest(unittest.TestCase):
     def test_parse_message_filter(self):
         """Test parsing message filter."""
         parsed_filter = utils.parse_message_filter('*')
-        self.assertEquals(parsed_filter.filter, '*#*')
-        self.assertEquals(parsed_filter.appname, '*')
-        self.assertEquals(parsed_filter.instanceid, '*')
+        self.assertEqual(parsed_filter.filter, '*#*')
+        self.assertEqual(parsed_filter.appname, '*')
+        self.assertEqual(parsed_filter.instanceid, '*')
 
         parsed_filter = utils.parse_message_filter('treadmld.cellapi')
-        self.assertEquals(parsed_filter.filter, 'treadmld.cellapi#*')
-        self.assertEquals(parsed_filter.appname, 'treadmld.cellapi')
-        self.assertEquals(parsed_filter.instanceid, '*')
+        self.assertEqual(parsed_filter.filter, 'treadmld.cellapi#*')
+        self.assertEqual(parsed_filter.appname, 'treadmld.cellapi')
+        self.assertEqual(parsed_filter.instanceid, '*')
 
         parsed_filter = utils.parse_message_filter('treadmld.cellapi#12345')
-        self.assertEquals(parsed_filter.filter, 'treadmld.cellapi#12345')
-        self.assertEquals(parsed_filter.appname, 'treadmld.cellapi')
-        self.assertEquals(parsed_filter.instanceid, '12345')
+        self.assertEqual(parsed_filter.filter, 'treadmld.cellapi#12345')
+        self.assertEqual(parsed_filter.appname, 'treadmld.cellapi')
+        self.assertEqual(parsed_filter.instanceid, '12345')
 
 
 if __name__ == '__main__':

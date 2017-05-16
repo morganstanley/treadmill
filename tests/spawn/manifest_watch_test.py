@@ -49,12 +49,14 @@ class ManifestWatchTest(unittest.TestCase):
 
         watch._create_instance('test.yml')
 
-        self.assertEquals(3, treadmill.fs.mkdir_safe.call_count)
-        self.assertEquals(2, treadmill.utils.create_script.call_count)
-        self.assertEquals(1, treadmill.fs.symlink_safe.call_count)
-        self.assertEquals(2, mock_open.call_count)
-        self.assertEquals(1, treadmill.spawn.manifest_watch.ManifestWatch
-                          ._scan.call_count)
+        self.assertEqual(3, treadmill.fs.mkdir_safe.call_count)
+        self.assertEqual(2, treadmill.utils.create_script.call_count)
+        self.assertEqual(1, treadmill.fs.symlink_safe.call_count)
+        self.assertEqual(2, mock_open.call_count)
+        self.assertEqual(
+            1,
+            treadmill.spawn.manifest_watch.ManifestWatch._scan.call_count
+        )
 
     @mock.patch('os.listdir', mock.Mock())
     @mock.patch('os.path.exists', mock.Mock(return_value=True))

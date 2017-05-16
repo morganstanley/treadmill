@@ -1,5 +1,4 @@
-"""
-Unit test for treadmill.appcfg.manifest
+"""Unit test for treadmill.appcfg.manifest
 """
 
 import os
@@ -28,7 +27,6 @@ class AppCfgManifestTest(unittest.TestCase):
         context.GLOBAL.zk.url = 'zookeeper://foo@foo:123'
         self.tm_env = mock.Mock(
             cell='testcell',
-            host_ip='1.2.3.4',
             zkurl='zookeeper://foo@foo:123',
         )
 
@@ -68,15 +66,15 @@ class AppCfgManifestTest(unittest.TestCase):
 
         treadmill.appcfg.manifest.read.assert_called_with(event_filename0)
         treadmill.appcfg.gen_uniqueid.assert_called_with(event_filename0)
-        self.assertEquals(app0['name'], 'proid.myapp#0')
-        self.assertEquals(app0['type'], 'native')
-        self.assertEquals(app0['app'], 'proid.myapp')
-        self.assertEquals(app0['proid'], 'foo')
-        self.assertEquals(app0['environment'], 'dev')
-        self.assertEquals(app0['cpu'], 100)
-        self.assertEquals(app0['memory'], '100M')
-        self.assertEquals(app0['disk'], '100G')
-        self.assertEquals(
+        self.assertEqual(app0['name'], 'proid.myapp#0')
+        self.assertEqual(app0['type'], 'native')
+        self.assertEqual(app0['app'], 'proid.myapp')
+        self.assertEqual(app0['proid'], 'foo')
+        self.assertEqual(app0['environment'], 'dev')
+        self.assertEqual(app0['cpu'], 100)
+        self.assertEqual(app0['memory'], '100M')
+        self.assertEqual(app0['disk'], '100G')
+        self.assertEqual(
             app0['services'],
             [
                 {
@@ -90,7 +88,7 @@ class AppCfgManifestTest(unittest.TestCase):
                 },
             ]
         )
-        self.assertEquals(
+        self.assertEqual(
             app0['system_services'],
             [
                 {
@@ -107,7 +105,7 @@ class AppCfgManifestTest(unittest.TestCase):
                 },
             ],
         )
-        self.assertEquals(
+        self.assertEqual(
             app0['endpoints'],
             [
                 {
@@ -118,10 +116,9 @@ class AppCfgManifestTest(unittest.TestCase):
                 },
             ]
         )
-        self.assertEquals(app0['uniqueid'], '42')
-        self.assertEquals(app0['host_ip'], '1.2.3.4')
-        self.assertEquals(app0['cell'], 'testcell')
-        self.assertEquals(app0['zookeeper'], 'zookeeper://foo@foo:123')
+        self.assertEqual(app0['uniqueid'], '42')
+        self.assertEqual(app0['cell'], 'testcell')
+        self.assertEqual(app0['zookeeper'], 'zookeeper://foo@foo:123')
 
     @mock.patch('treadmill.appcfg.gen_uniqueid', mock.Mock(return_value='42'))
     @mock.patch('treadmill.appcfg.manifest.read', mock.Mock())
@@ -181,8 +178,8 @@ class AppCfgManifestTest(unittest.TestCase):
 
         app0 = app_manifest.load(self.tm_env, event_filename0)
 
-        self.assertEquals(app0['type'], 'native')
-        self.assertEquals(
+        self.assertEqual(app0['type'], 'native')
+        self.assertEqual(
             app0['services'],
             [
                 {
@@ -205,7 +202,7 @@ class AppCfgManifestTest(unittest.TestCase):
                 },
             ]
         )
-        self.assertEquals(
+        self.assertEqual(
             app0['system_services'],
             [
                 {
@@ -223,9 +220,9 @@ class AppCfgManifestTest(unittest.TestCase):
                 },
             ]
         )
-        self.assertEquals(app0['shared_ip'], False)
-        self.assertEquals(app0['shared_network'], False)
-        self.assertEquals(
+        self.assertEqual(app0['shared_ip'], False)
+        self.assertEqual(app0['shared_network'], False)
+        self.assertEqual(
             app0['endpoints'],
             [
                 {
@@ -254,12 +251,12 @@ class AppCfgManifestTest(unittest.TestCase):
                 },
             ]
         )
-        self.assertEquals(app0['passthrough'], [])
-        self.assertEquals(app0['vring']['cells'], [])
-        self.assertEquals(app0['identity'], None)
-        self.assertEquals(app0['identity_group'], None)
-        self.assertEquals(app0['environ'], [])
-        self.assertEquals(app0['ephemeral_ports'], {'tcp': 2, 'udp': 0})
+        self.assertEqual(app0['passthrough'], [])
+        self.assertEqual(app0['vring']['cells'], [])
+        self.assertEqual(app0['identity'], None)
+        self.assertEqual(app0['identity_group'], None)
+        self.assertEqual(app0['environ'], [])
+        self.assertEqual(app0['ephemeral_ports'], {'tcp': 2, 'udp': 0})
 
     @mock.patch('treadmill.appcfg.gen_uniqueid', mock.Mock(return_value='42'))
     @mock.patch('treadmill.appcfg.manifest.read', mock.Mock())
@@ -293,7 +290,7 @@ class AppCfgManifestTest(unittest.TestCase):
         event_filename0 = os.path.join(self.root, 'proid.myapp#0')
 
         app0 = app_manifest.load(self.tm_env, event_filename0)
-        self.assertEquals(app0['environ'], [{'name': 'xxx', 'value': 'yyy'}])
+        self.assertEqual(app0['environ'], [{'name': 'xxx', 'value': 'yyy'}])
 
     @mock.patch('treadmill.appcfg.gen_uniqueid', mock.Mock(return_value='42'))
     @mock.patch('treadmill.appcfg.manifest.read', mock.Mock())
@@ -315,8 +312,8 @@ class AppCfgManifestTest(unittest.TestCase):
         event_filename0 = os.path.join(self.root, 'proid.myapp#0')
 
         app0 = app_manifest.load(self.tm_env, event_filename0)
-        self.assertEquals(app0['image'], 'docker://test')
-        self.assertEquals(app0['type'], 'docker')
+        self.assertEqual(app0['image'], 'docker://test')
+        self.assertEqual(app0['type'], 'docker')
 
     @mock.patch('treadmill.appcfg.gen_uniqueid', mock.Mock(return_value='42'))
     @mock.patch('treadmill.appcfg.manifest.read', mock.Mock())
@@ -348,8 +345,8 @@ class AppCfgManifestTest(unittest.TestCase):
         event_filename0 = os.path.join(self.root, 'proid.myapp#0')
 
         app0 = app_manifest.load(self.tm_env, event_filename0)
-        self.assertEquals(app0['image'], 'http://test')
-        self.assertEquals(app0['type'], 'tar')
+        self.assertEqual(app0['image'], 'http://test')
+        self.assertEqual(app0['type'], 'tar')
 
         manifest = {
             'proid': 'foo',

@@ -1,12 +1,11 @@
-"""
-Verifies system apps are running.
+"""Verifies system apps are running.
 """
 
 import unittest
 
 from treadmill import admin
 from treadmill import context
-from treadmill import tests as chk
+from treadmill import checkout as chk
 from treadmill import zknamespace as z
 
 

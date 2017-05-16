@@ -31,14 +31,18 @@ class CliTest(unittest.TestCase):
         tbl = cli.make_dict_to_table(schema)
         list_tbl = cli.make_list_to_table(schema)
 
-        self.assertEquals(_lines(tbl({'a': 1, 'b': 2, 'c': [1, 2, 3]})),
-                          ['A  :  1',
-                           'b  :  2',
-                           'c  :  1,2,3'])
+        self.assertEqual(
+            _lines(tbl({'a': 1, 'b': 2, 'c': [1, 2, 3]})),
+            ['A  :  1',
+             'b  :  2',
+             'c  :  1,2,3']
+        )
 
-        self.assertEquals(_lines(list_tbl([{'a': 1, 'b': 2, 'c': [1, 2, 3]}])),
-                          ['A  b  c',
-                           '1  2  1,2,3'])
+        self.assertEqual(
+            _lines(list_tbl([{'a': 1, 'b': 2, 'c': [1, 2, 3]}])),
+            ['A  b  c',
+             '1  2  1,2,3']
+        )
 
     @mock.patch('click.echo', mock.Mock())
     @mock.patch('sys.exit', mock.Mock())
@@ -79,7 +83,7 @@ class CliTest(unittest.TestCase):
 
     def test_combine(self):
         """Test combining lists."""
-        self.assertEquals(None, cli.combine(['-']))
+        self.assertEqual(None, cli.combine(['-']))
 
 if __name__ == '__main__':
     unittest.main()

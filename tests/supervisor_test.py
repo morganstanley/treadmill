@@ -85,28 +85,34 @@ class SupervisorTest(unittest.TestCase):
         # Disable W0212: accessing protected member
         # pylint: disable=W0212
 
-        self.assertEquals({'since': 990,
-                           'state': 'up',
-                           'intended': 'up',
-                           'pid': 123},
-                          supervisor._parse_state('up (pid 123) 10 seconds\n'))
-        self.assertEquals({'since': 900,
-                           'state': 'up',
-                           'intended': 'down',
-                           'pid': 123},
-                          supervisor._parse_state('up (pid 123) 100 seconds'
-                                                  ' normally down\n'))
-        self.assertEquals({'since': 900,
-                           'state': 'down',
-                           'intended': 'down',
-                           'pid': None},
-                          supervisor._parse_state('down 100 seconds'))
-        self.assertEquals({'since': 900,
-                           'state': 'down',
-                           'intended': 'up',
-                           'pid': None},
-                          supervisor._parse_state('down 100 seconds'
-                                                  ' normally up'))
+        self.assertEqual(
+            {'since': 990,
+             'state': 'up',
+             'intended': 'up',
+             'pid': 123},
+            supervisor._parse_state('up (pid 123) 10 seconds\n')
+        )
+        self.assertEqual(
+            {'since': 900,
+             'state': 'up',
+             'intended': 'down',
+             'pid': 123},
+            supervisor._parse_state('up (pid 123) 100 seconds normally down\n')
+        )
+        self.assertEqual(
+            {'since': 900,
+             'state': 'down',
+             'intended': 'down',
+             'pid': None},
+            supervisor._parse_state('down 100 seconds')
+        )
+        self.assertEqual(
+            {'since': 900,
+             'state': 'down',
+             'intended': 'up',
+             'pid': None},
+            supervisor._parse_state('down 100 seconds normally up')
+        )
 
     @mock.patch('treadmill.subproc.check_call', mock.Mock(return_value=0))
     def test_wait(self):

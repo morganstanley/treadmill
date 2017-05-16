@@ -3,7 +3,7 @@ from __future__ import absolute_import
 
 import click
 
-from treadmill.tests import api
+from treadmill.checkout import api
 
 
 def init():

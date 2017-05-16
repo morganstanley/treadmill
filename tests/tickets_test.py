@@ -39,7 +39,7 @@ class TicketLockerTest(unittest.TestCase):
         treadmill.gssapiprotocol.GSSAPILineClient.read.side_effect = (
             lambda: lines.pop(0))
         reply = tickets.request_tickets(kazoo.client.KazooClient(), 'myapp')
-        self.assertEquals([tickets.Ticket('foo@bar', 'abcd')], reply)
+        self.assertEqual([tickets.Ticket('foo@bar', 'abcd')], reply)
 
     @mock.patch('kazoo.client.KazooClient.exists',
                 mock.Mock(return_value=True))
@@ -51,7 +51,7 @@ class TicketLockerTest(unittest.TestCase):
                                           '/var/spool/tickets')
 
         # With no ticket in /var/spool/tickets, result will be empty dict
-        self.assertEquals(
+        self.assertEqual(
             {},
             tkt_locker.process_request('host/aaa.xxx.com@y.com', 'foo#1234'))
 
@@ -59,7 +59,7 @@ class TicketLockerTest(unittest.TestCase):
             '/placement/aaa.xxx.com/foo#1234')
 
         # Invalid (non host) principal
-        self.assertEquals(
+        self.assertEqual(
             None,
             tkt_locker.process_request('aaa.xxx.com@y.com', 'foo#1234'))
 
@@ -73,7 +73,7 @@ class TicketLockerTest(unittest.TestCase):
                                           '/var/spool/tickets')
 
         # With no node node error, result will be empty dict.
-        self.assertEquals(
+        self.assertEqual(
             {},
             tkt_locker.process_request('host/aaa.xxx.com@y.com', 'foo#1234'))
 

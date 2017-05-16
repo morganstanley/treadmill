@@ -103,13 +103,15 @@ def init():
         )
 
     @service.command()
-    @click.option('--device', default='eth0', type=str,
+    @click.option('--ext-device', default='eth0', type=str,
                   help='Externally visible network device.')
-    @click.option('--mtu', default=None, type=int,
+    @click.option('--ext-ip', default=None, type=str,
+                  help='External network IPv4.')
+    @click.option('--ext-mtu', default=None, type=int,
                   help='External network MTU.')
-    @click.option('--speed', default=None, type=int,
+    @click.option('--ext-speed', default=None, type=int,
                   help='External network speeds (bps).')
-    def network(device, mtu, speed):
+    def network(ext_device, ext_ip, ext_mtu, ext_speed):
         """Runs the network service.
         """
         root_dir = local_ctx['root-dir']
@@ -123,9 +125,10 @@ def init():
         svc.run(
             watchdogs_dir=os.path.join(root_dir,
                                        watchdogs_dir),
-            ext_device=device,
-            ext_mtu=mtu,
-            ext_speed=speed,
+            ext_device=ext_device,
+            ext_ip=ext_ip,
+            ext_mtu=ext_mtu,
+            ext_speed=ext_speed
         )
 
     del localdisk

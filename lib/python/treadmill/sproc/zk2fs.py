@@ -1,10 +1,8 @@
 """Syncronize Zookeeper with file system."""
 from __future__ import absolute_import
 
-import fnmatch
 import logging
 import os
-import re
 import shutil
 import time
 import zlib
@@ -18,7 +16,6 @@ from treadmill import fs
 from treadmill import context
 from treadmill import zknamespace as z
 from treadmill import utils
-from treadmill import zkutils
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -37,108 +34,66 @@ def _on_del_identity(zk2fs_sync, zkpath):
     shutil.rmtree(fpath)
 
 
-def _on_add_proid(zk2fs_sync, zkpath):
+def _on_add_endpoint_proid(zk2fs_sync, zkpath):
     """Invoked when new proid is added to endpoints."""
     _LOGGER.info('Added proid: %s', zkpath)
     zk2fs_sync.sync_children(zkpath, watch_data=True)
 
 
-def _on_del_proid(zk2fs_sync, zkpath):
+def _on_del_endpoint_proid(zk2fs_sync, zkpath):
     """Invoked when proid is removed from endpoints (never)."""
     fpath = zk2fs_sync.fpath(zkpath)
     _LOGGER.info('Removed proid: %s', os.path.basename(fpath))
     shutil.rmtree(fpath)
 
 
-def _on_add_instance(zk2fs_sync, zkpath):
-    """Invoked when new instance is added to app."""
-
-    def need_task_watch(zkpath):
-        """Checks if the task is still scheduled, no need to watch if not."""
-        _rest, app, instance_id = zkpath.rsplit('/', 2)
-        instance = '%s#%s' % (app, instance_id)
-
-        # If instance is in scheduled, we need the watch.
-        scheduled_node = z.path.scheduled(instance)
-        exists = bool(zk2fs_sync.zkclient.exists(scheduled_node))
-        _LOGGER.debug('Need task watch: %s - %s', zkpath, exists)
-        return exists
-
-    def cont_task_watch(zkpath, children):
-        """Do not renew watch if task is in terminal state."""
-        if not children:
-            return True
-
-        last = children[-1]
-        _eventtime, _appname, event, _data = last.split(',', 4)
-        if event == 'deleted':
-            _LOGGER.info('Terminating watch for task: %s', zkpath)
-            return False
-
-    def touch_file(zkpath):
-        """Process immutable trace callback.
-
-        Touch file and set modified time to match timestamp of the trace event.
-        """
-        fpath = zk2fs_sync.fpath(zkpath)
-        event = os.path.basename(fpath)
-        try:
-            timestamp, _rest = event.split(',', 1)
-            utils.touch(fpath)
-            timestamp = int(float(timestamp))
-            os.utime(fpath, (timestamp, timestamp))
-        except ValueError:
-            _LOGGER.warn('Incorrect trace format: %s', zkpath)
-            zkutils.ensure_deleted(zk2fs_sync.zkclient, zkpath, recursive=True)
-
-    _LOGGER.info('Added instance: %s', zkpath)
+def _on_add_trace_shard(zk2fs_sync, zkpath):
+    """Invoked when new shard is added to trace."""
+    _LOGGER.info('Added trace shard: %s', zkpath)
     zk2fs_sync.sync_children(
         zkpath,
-        need_watch_predicate=need_task_watch,
-        cont_watch_predicate=cont_task_watch,
-        on_add=touch_file
+        on_add=lambda p: _on_add_trace_event(zk2fs_sync, p),
+        on_del=lambda p: None,
+        watch_data=False
     )
 
 
-def _on_del_instance(zk2fs_sync, zkpath):
-    """Invoked when instance is removed from app."""
+def _on_del_trace_shard(zk2fs_sync, zkpath):
+    """Invoked when trace shard is removed (never)."""
+    del zk2fs_sync
+    _LOGGER.critical('Removed trace shard: %s', zkpath)
+
+
+def _on_add_trace_event(zk2fs_sync, zkpath):
+    """Invoked when trace event is added."""
     fpath = zk2fs_sync.fpath(zkpath)
-    _LOGGER.info('Removed instance: %s', os.path.basename(fpath))
-    shutil.rmtree(fpath)
-
-
-def _on_add_app(zk2fs_sync, zkpath, reobj):
-    """Invoked when new app is added to tasks."""
-    fpath = zk2fs_sync.fpath(zkpath)
-    app_name = os.path.basename(fpath)
-    if reobj.match(app_name):
-        _LOGGER.info('Added app: %s', app_name)
-        zk2fs_sync.sync_children(
-            zkpath,
-            on_add=lambda p: _on_add_instance(zk2fs_sync, p),
-            on_del=lambda p: _on_del_instance(zk2fs_sync, p),
-        )
-
-
-def _on_del_app(zk2fs_sync, zkpath, reobj):
-    """Invoked when app is removed from tasks."""
-    fpath = zk2fs_sync.fpath(zkpath)
-    app_name = os.path.basename(fpath)
-    if reobj.match(app_name):
-        _LOGGER.info('Removed app: %s', app_name)
-        shutil.rmtree(fpath)
+    # Extract timestemp.
+    #
+    _name, timestamp, _rest = os.path.basename(fpath).split(',', 2)
+    with tempfile.NamedTemporaryFile(dir=os.path.dirname(fpath),
+                                     delete=False,
+                                     prefix='.tmp') as temp:
+        os.fchmod(temp.fileno(), 0o644)
+    utime = int(float(timestamp))
+    os.utime(temp.name, (utime, utime))
+    os.rename(temp.name, fpath)
 
 
 _CREATE_SOW_TABLE = """
-create table sow (path text primary key, timestamp integer, data text, db text)
+CREATE TABLE sow (
+    path TEXT PRIMARY KEY,
+    timestamp INTEGER,
+    data TEXT,
+    source TEXT
+)
 """
 
 
-_MERGE_TASKS_SCRIPT = """
-attach '%s' as task_db;
+_MERGE_TRACE_STMT = """
+ATTACH '%s' AS temp_trace_db;
 BEGIN;
-insert or ignore into sow
-    select path, timestamp, data, '%s' from task_db.tasks;
+INSERT OR IGNORE INTO sow
+    SELECT path, timestamp, data, '%s' FROM temp_trace_db.trace;
 COMMIT;
 """
 
@@ -159,39 +114,44 @@ def _copy_sow_db(sow_db):
     return f_out.name
 
 
-def _merge_sow_db(sow_db, merge_script):
+def _merge_sow_db(sow_db, fname, zkpath):
     """Merge data into state of the world database using merge script."""
+    merge_stmt = _MERGE_TRACE_STMT % (fname, zkpath)
+
     sow_db_copy = _copy_sow_db(sow_db)
     with sqlite3.connect(sow_db_copy) as conn:
-        conn.executescript(merge_script)
+        conn.executescript(merge_stmt)
     conn.close()
     os.rename(sow_db_copy, sow_db)
 
 
-def _on_add_task_db(zk2fs_sync, zkpath, sow_db):
-    """Called when new task DB snapshot is added."""
-    zk2fs_sync.sync_data(zkpath)
-    fpath = zk2fs_sync.fpath(zkpath)
+def _on_add_trace_db(zk2fs_sync, zkpath, sow_db):
+    """Called when new trace DB snapshot is added."""
+    _LOGGER.info('Added trace db snapshot: %s', zkpath)
+    data, _metadata = zk2fs_sync.zkclient.get(zkpath)
     with tempfile.NamedTemporaryFile(delete=False, mode='wb') as f:
-        with open(fpath, 'rb') as f_compressed:
-            f.write(zlib.decompress(f_compressed.read()))
+        f.write(zlib.decompress(data))
 
-    merge_script = _MERGE_TASKS_SCRIPT % (f.name, zkpath)
-    _merge_sow_db(sow_db, merge_script)
+    _merge_sow_db(sow_db, f.name, zkpath)
 
-    os.unlink(f.name)
+    # Now that sow is up to date, cleanup records from file system.
+    with sqlite3.connect(f.name) as conn:
+        cursor = conn.cursor()
+        for row in cursor.execute('SELECT path FROM trace'):
+            fpath = os.path.join(zk2fs_sync.fsroot, row[0][1:])
+            fs.rm_safe(fpath)
+
+    fs.rm_safe(f.name)
+    utils.touch(zk2fs_sync.fpath(zkpath))
 
 
-def _on_del_task_db(zk2fs_sync, zkpath, sow_db):
-    """Called when task DB snapshot is deleted."""
-    fpath = zk2fs_sync.fpath(zkpath)
-    fs.rm_safe(fpath)
-
+def _on_del_trace_db(zk2fs_sync, zkpath, sow_db):
+    """Called when trace DB snapshot is deleted."""
     sow_db_copy = _copy_sow_db(sow_db)
     with sqlite3.connect(sow_db_copy) as conn:
-        conn.execute("delete from sow where db = ?", (zkpath,))
-    conn.close()
+        conn.execute('DELETE FROM sow WHERE source = ?', (zkpath,))
     os.rename(sow_db_copy, sow_db)
+    fs.rm_safe(zk2fs_sync.fpath(zkpath))
 
 
 def init():
@@ -214,11 +174,12 @@ def init():
                   is_flag=True, default=False)
     @click.option('--placement', help='Sync placement.',
                   is_flag=True, default=False)
-    @click.option('--tasks', help='Sync trace with app pattern.')
+    @click.option('--trace', help='Sync trace.',
+                  is_flag=True, default=False)
     @click.option('--once', help='Sync once and exit.',
                   is_flag=True, default=False)
     def zk2fs_cmd(root, endpoints, identity_groups, appgroups, running,
-                  scheduled, servers, placement, tasks, once):
+                  scheduled, servers, placement, trace, once):
         """Starts appcfgmgr process."""
 
         fs.mkdir_safe(root)
@@ -234,8 +195,8 @@ def init():
         if endpoints:
             zk2fs_sync.sync_children(
                 z.ENDPOINTS,
-                on_add=lambda p: _on_add_proid(zk2fs_sync, p),
-                on_del=lambda p: _on_del_proid(zk2fs_sync, p))
+                on_add=lambda p: _on_add_endpoint_proid(zk2fs_sync, p),
+                on_del=lambda p: _on_del_endpoint_proid(zk2fs_sync, p))
 
         if identity_groups:
             zk2fs_sync.sync_children(
@@ -252,26 +213,22 @@ def init():
         if placement:
             zk2fs_sync.sync_placement(z.path.placement(), watch_data=True)
 
-        if tasks:
-            regex = fnmatch.translate(tasks)
-            _LOGGER.info('Using pattern: %s', regex)
-            reobj = re.compile(regex)
-
+        if trace:
             zk2fs_sync.sync_children(
-                z.TASKS,
-                on_add=lambda p: _on_add_app(zk2fs_sync, p, reobj),
-                on_del=lambda p: _on_del_app(zk2fs_sync, p, reobj),
+                z.TRACE,
+                on_add=lambda p: _on_add_trace_shard(zk2fs_sync, p),
+                on_del=lambda p: _on_del_trace_shard(zk2fs_sync, p)
             )
 
-            tasks_sow_db = os.path.join(zk2fs_sync.fsroot, '.tasks-sow.db')
-            _LOGGER.info('Using tasks sow db: %s', tasks_sow_db)
-            if not os.path.exists(tasks_sow_db):
-                _init_sow_db(tasks_sow_db)
+            trace_sow_db = os.path.join(zk2fs_sync.fsroot, '.trace-sow.db')
+            _LOGGER.info('Using trace sow db: %s', trace_sow_db)
+            if not os.path.exists(trace_sow_db):
+                _init_sow_db(trace_sow_db)
 
             zk2fs_sync.sync_children(
-                z.TASKS_HISTORY,
-                on_add=lambda p: _on_add_task_db(zk2fs_sync, p, tasks_sow_db),
-                on_del=lambda p: _on_del_task_db(zk2fs_sync, p, tasks_sow_db),
+                z.TRACE_HISTORY,
+                on_add=lambda p: _on_add_trace_db(zk2fs_sync, p, trace_sow_db),
+                on_del=lambda p: _on_del_trace_db(zk2fs_sync, p, trace_sow_db),
             )
 
         zk2fs_sync.mark_ready()

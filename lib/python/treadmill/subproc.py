@@ -80,7 +80,6 @@ def resolve(exe):
         raise CommandAliasError()
     else:
         if not _check(safe_exe):
-            print 'Not found: ', exe, safe_exe
             _LOGGER.critical('Command not found: %s, %s', exe, safe_exe)
             raise CommandAliasError()
 

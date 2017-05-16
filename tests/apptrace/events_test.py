@@ -104,6 +104,7 @@ class AppTraceEventsTest(unittest.TestCase):
             source='tests',
             instanceid='proid.foo#123',
             where='here',
+            why='because',
             payload={'foo': 'bar'}
         )
         self.assertEqual(
@@ -114,6 +115,7 @@ class AppTraceEventsTest(unittest.TestCase):
                 'source': 'tests',
                 'instanceid': 'proid.foo#123',
                 'where': 'here',
+                'why': 'because',
                 'payload': {'foo': 'bar'},
             }
         )
@@ -124,7 +126,7 @@ class AppTraceEventsTest(unittest.TestCase):
                 'tests',
                 'proid.foo#123',
                 'scheduled',
-                'here',
+                'here:because',
                 {'foo': 'bar'},
             )
         )
@@ -135,7 +137,7 @@ class AppTraceEventsTest(unittest.TestCase):
                 source='tests',
                 instanceid='proid.foo#123',
                 event_type='scheduled',
-                event_data='here',
+                event_data='here:because',
                 payload={'foo': 'bar'}
             )
         )
@@ -144,6 +146,7 @@ class AppTraceEventsTest(unittest.TestCase):
         """Pending event operations.
         """
         event = events.PendingTraceEvent(
+            why='created',
             timestamp=2,
             source='tests',
             instanceid='proid.foo#123',
@@ -157,6 +160,7 @@ class AppTraceEventsTest(unittest.TestCase):
                 'source': 'tests',
                 'instanceid': 'proid.foo#123',
                 'payload': {'foo': 'bar'},
+                'why': 'created',
             }
         )
         self.assertEqual(
@@ -166,7 +170,7 @@ class AppTraceEventsTest(unittest.TestCase):
                 'tests',
                 'proid.foo#123',
                 'pending',
-                None,
+                'created',
                 {'foo': 'bar'},
             )
         )
@@ -177,7 +181,7 @@ class AppTraceEventsTest(unittest.TestCase):
                 source='tests',
                 instanceid='proid.foo#123',
                 event_type='pending',
-                event_data='',
+                event_data='created',
                 payload={'foo': 'bar'}
             )
         )
@@ -252,7 +256,7 @@ class AppTraceEventsTest(unittest.TestCase):
                 'tests',
                 'proid.foo#123',
                 'deleted',
-                None,
+                '',
                 {'foo': 'bar'},
             )
         )

@@ -131,17 +131,6 @@ def run(tm_env, container_dir, manifest, watchdog, terminated):
         # pylint: disable=R0915,R0912
         log.info('Running %r', container_dir)
 
-        # Allocate dynamic ports
-        #
-        # Ports are taken from ephemeral range, by binding to socket to port 0.
-        #
-        # Sockets are then put into global list, so that they are not closed
-        # at gc time, and address remains in use for the lifetime of the
-        # supervisor.
-        sockets = _allocate_network_ports(
-            tm_env.host_ip, manifest
-        )
-
         unique_name = appcfg.manifest_unique_name(manifest)
         # First wait for the network device to be ready
         network_client = tm_env.svc_network.make_client(
@@ -155,6 +144,17 @@ def run(tm_env, container_dir, manifest, watchdog, terminated):
             'ip0': app_network['gateway'],
             'ip1': app_network['vip'],
         }
+
+        # Allocate dynamic ports
+        #
+        # Ports are taken from ephemeral range, by binding to socket to port 0.
+        #
+        # Sockets are then put into global list, so that they are not closed
+        # at gc time, and address remains in use for the lifetime of the
+        # supervisor.
+        sockets = _allocate_network_ports(
+            app_network['external_ip'], manifest
+        )
 
         # Save the manifest with allocated vip and ports in the state
         state_file = os.path.join(container_dir, _STATE_YML)
@@ -254,19 +254,19 @@ def _unshare_network(tm_env, app):
     # Configure DNAT rules while on host network.
     for endpoint in app.endpoints:
         _LOGGER.info('Creating DNAT rule: %s:%s -> %s:%s',
-                     tm_env.host_ip,
+                     app.network.external_ip,
                      endpoint.real_port,
                      app.network.vip,
                      endpoint.port)
         dnatrule = firewall.DNATRule(proto=endpoint.proto,
-                                     dst_ip=tm_env.host_ip,
+                                     dst_ip=app.network.external_ip,
                                      dst_port=endpoint.real_port,
                                      new_ip=app.network.vip,
                                      new_port=endpoint.port)
         snatrule = firewall.SNATRule(proto=endpoint.proto,
                                      src_ip=app.network.vip,
                                      src_port=endpoint.port,
-                                     new_ip=tm_env.host_ip,
+                                     new_ip=app.network.external_ip,
                                      new_port=endpoint.real_port)
         tm_env.rules.create_rule(chain=iptables.PREROUTING_DNAT,
                                  rule=dnatrule,
@@ -299,10 +299,10 @@ def _unshare_network(tm_env, app):
 
     for port in app.ephemeral_ports.tcp:
         _LOGGER.info('Creating ephemeral DNAT rule: %s:%s -> %s:%s',
-                     tm_env.host_ip, port,
+                     app.network.external_ip, port,
                      app.network.vip, port)
         dnatrule = firewall.DNATRule(proto='tcp',
-                                     dst_ip=tm_env.host_ip,
+                                     dst_ip=app.network.external_ip,
                                      dst_port=port,
                                      new_ip=app.network.vip,
                                      new_port=port)
@@ -317,10 +317,10 @@ def _unshare_network(tm_env, app):
 
     for port in app.ephemeral_ports.udp:
         _LOGGER.info('Creating ephemeral DNAT rule: %s:%s -> %s:%s',
-                     tm_env.host_ip, port,
+                     app.network.external_ip, port,
                      app.network.vip, port)
         dnatrule = firewall.DNATRule(proto='udp',
-                                     dst_ip=tm_env.host_ip,
+                                     dst_ip=app.network.external_ip,
                                      dst_port=port,
                                      new_ip=app.network.vip,
                                      new_port=port)
@@ -355,7 +355,7 @@ def _unshare_network(tm_env, app):
 
     service_ip = None
     if app.shared_ip:
-        service_ip = tm_env.host_ip
+        service_ip = app.network.external_ip
 
     # Unshare network and create virtual device
     newnet.create_newnet(app.network.veth,
@@ -379,7 +379,7 @@ def _create_environ_dir(env_dir, app):
         'TREADMILL_CELL': app.cell,
         'TREADMILL_APP': app.app,
         'TREADMILL_INSTANCEID': app.task,
-        'TREADMILL_HOST_IP': app.host_ip,
+        'TREADMILL_HOST_IP': app.network.external_ip,
         'TREADMILL_IDENTITY': app.identity,
         'TREADMILL_IDENTITY_GROUP': app.identity_group,
         'TREADMILL_PROID': app.proid,
@@ -396,7 +396,7 @@ def _create_environ_dir(env_dir, app):
         [str(port) for port in app.ephemeral_ports.udp]
     )
 
-    env['TREADMILL_CONTAINER_IP'] = app.vip.ip1
+    env['TREADMILL_CONTAINER_IP'] = app.network.vip
 
     # Override appenv with mandatory treadmill environment.
     supervisor.create_environ_dir(

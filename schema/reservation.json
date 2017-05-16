@@ -18,17 +18,10 @@
     },
     "verbs": {
         "create": {
-            "required": [ "memory", "cpu", "disk" ]
+            "required": [ "memory", "cpu", "disk", "partition" ]
         },
         "update": {
-            "type": "object",
-            "additionalProperties": false,
-            "properties": {
-                "memory": { "$ref": "#/resource/properties/memory" },
-                "cpu": { "$ref": "#/resource/properties/cpu" },
-                "disk": { "$ref": "#/resource/properties/disk" },
-                "partition": { "$ref": "#/resource/properties/partition"}
-            }
+            "required": [ "memory", "cpu", "disk", "partition" ]
         }
     }
 }

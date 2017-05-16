@@ -1,5 +1,6 @@
 """Interpolate template files."""
 from __future__ import absolute_import
+from __future__ import print_function
 
 import os
 
@@ -25,6 +26,6 @@ def init():
         for param in params:
             data.update(yaml.load(param.read()))
 
-        print env.get_template(os.path.basename(inputfile)).render(data)
+        print(env.get_template(os.path.basename(inputfile)).render(data))
 
     return interpolate

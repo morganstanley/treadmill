@@ -329,7 +329,7 @@ def _cleanup_network(tm_env, app, network_client):
         tm_env.rules.unlink_rule(
             chain=iptables.PREROUTING_DNAT,
             rule=firewall.DNATRule(proto=endpoint.proto,
-                                   dst_ip=app.host_ip,
+                                   dst_ip=app_network['external_ip'],
                                    dst_port=endpoint.real_port,
                                    new_ip=app_network['vip'],
                                    new_port=endpoint.port),
@@ -340,7 +340,7 @@ def _cleanup_network(tm_env, app, network_client):
             rule=firewall.SNATRule(proto=endpoint.proto,
                                    src_ip=app_network['vip'],
                                    src_port=endpoint.port,
-                                   new_ip=tm_env.host_ip,
+                                   new_ip=app_network['external_ip'],
                                    new_port=endpoint.real_port),
             owner=unique_name,
         )
@@ -359,12 +359,18 @@ def _cleanup_network(tm_env, app, network_client):
             )
 
     _cleanup_ephemeral_ports(
-        tm_env, unique_name,
-        app_network['vip'], app.ephemeral_ports.tcp, 'tcp'
+        tm_env,
+        unique_name,
+        app_network['external_ip'],
+        app_network['vip'],
+        app.ephemeral_ports.tcp, 'tcp'
     )
     _cleanup_ephemeral_ports(
-        tm_env, unique_name,
-        app_network['vip'], app.ephemeral_ports.udp, 'udp'
+        tm_env,
+        unique_name,
+        app_network['external_ip'],
+        app_network['vip'],
+        app.ephemeral_ports.udp, 'udp'
     )
 
     # Terminate any entries in the conntrack table
@@ -373,7 +379,8 @@ def _cleanup_network(tm_env, app, network_client):
     network_client.delete(unique_name)
 
 
-def _cleanup_ephemeral_ports(tm_env, unique_name, vip, ports, proto):
+def _cleanup_ephemeral_ports(tm_env, unique_name,
+                             external_ip, vip, ports, proto):
     """Cleanup firewall rules for ports."""
     for port in ports:
         # We treat ephemeral ports as infra, consistent with current
@@ -385,7 +392,7 @@ def _cleanup_ephemeral_ports(tm_env, unique_name, vip, ports, proto):
                                          port=port)
         )
         dnatrule = firewall.DNATRule(proto=proto,
-                                     dst_ip=tm_env.host_ip,
+                                     dst_ip=external_ip,
                                      dst_port=port,
                                      new_ip=vip,
                                      new_port=port)

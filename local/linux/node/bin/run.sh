@@ -11,6 +11,8 @@ IONICE={{ ionice }}
 
 
 for SVC in `$LS {{ dir }}/init`; do
+    # Clean the exits directories on start
+    $RM -f {{ dir }}/init/$SVC/data/exits/*
     if [ ! -d {{ treadmill }}/local/linux/node/init/$SVC ]; then
         $RM -rf {{ dir }}/init/$SVC
     else

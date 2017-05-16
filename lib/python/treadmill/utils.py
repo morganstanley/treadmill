@@ -1,5 +1,6 @@
 """Useful utility functions."""
 from __future__ import absolute_import
+from __future__ import print_function
 
 import signal
 
@@ -159,7 +160,7 @@ def dump_yaml(obj):
 
 def print_yaml(obj):
     """Print yaml wih correct options."""
-    print dump_yaml(obj)
+    print(dump_yaml(obj))
 
 
 def hashcmp(file1, file2):

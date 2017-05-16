@@ -33,14 +33,16 @@ class SysinfoTest(unittest.TestCase):
         # this makes this assert unusable
         expected_progs = ['setup.py', 'altnose.py', 'sysinfo_test.py']
         if expected not in expected_progs:
-            self.assertEquals(expected, proc_info.filename)
-        self.assertEquals(os.getppid(), proc_info.ppid)
+            self.assertEqual(expected, proc_info.filename)
+        self.assertEqual(os.getppid(), proc_info.ppid)
 
         # We do not check the starttime, but just verify that calling
         # proc_info twice returns same starttime, which can be used as part of
         # process signature.
-        self.assertEquals(proc_info.starttime,
-                          sysinfo.proc_info(os.getpid()).starttime)
+        self.assertEqual(
+            proc_info.starttime,
+            sysinfo.proc_info(os.getpid()).starttime
+        )
 
     def test_mem_info(self):
         """Mock test for mem info."""
@@ -81,7 +83,7 @@ Hugepagesize:     2048 kB
         with mock.patch('__builtin__.open', open_mock, create=True):
             meminfo = sysinfo.mem_info()
 
-        self.assertEquals(7992596, meminfo.total)
+        self.assertEqual(7992596, meminfo.total)
 
     @mock.patch('os.statvfs', mock.Mock())
     def test_disk_usage(self):
@@ -91,8 +93,8 @@ Hugepagesize:     2048 kB
             'f_blocks f_bavail, f_frsize')(100, 20, 4)
         du = sysinfo.disk_usage('/var/tmp')
         os.statvfs.assert_called_with('/var/tmp')
-        self.assertEquals(400, du.total)
-        self.assertEquals(80, du.free)
+        self.assertEqual(400, du.total)
+        self.assertEqual(80, du.free)
 
     @mock.patch('treadmill.cgroups.get_cpuset_cores',
                 mock.Mock(return_value=range(0, 4)))
@@ -207,7 +209,7 @@ power management: [8]
         # bogomips  : 6384.10
         # -------------------
         # total     : 25539.659999999996
-        self.assertEquals(25539, bogomips)
+        self.assertEqual(25539, bogomips)
 
     @mock.patch('time.time', mock.Mock(return_value=50))
     @mock.patch('treadmill.cgroups.get_value',
@@ -242,13 +244,15 @@ power management: [8]
 
         mock_tm_env.svc_localdisk.status.assert_called_with(timeout=30)
         mock_tm_env.svc_cgroup.status.assert_called_with(timeout=30)
-        self.assertEquals(
+        self.assertEqual(
             res,
             {
                 'cpu': '200%',    # 100% of 2 cores is available
                 'memory': '42M',  # As read from cgroup
                 'disk': '100M',   # As returned by localdisk service
                 'up_since': 8,
+                'network': mock_tm_env.svc_network.status.return_value,
+                'localdisk': mock_tm_env.svc_localdisk.status.return_value,
             }
         )
 

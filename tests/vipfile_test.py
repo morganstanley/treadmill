@@ -49,7 +49,7 @@ class VipFileTest(unittest.TestCase):
         for thread in threads:
             thread.join()
 
-        self.assertEquals(len(threads), len(vips))
+        self.assertEqual(len(threads), len(vips))
 
     def test_free(self):
         """Tests freeing the resource."""

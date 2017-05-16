@@ -2,6 +2,7 @@
 
 """Master CLI plugin."""
 from __future__ import absolute_import
+from __future__ import print_function
 
 import click
 import kazoo
@@ -33,10 +34,10 @@ def view_group(parent):
         pd.set_option('display.max_rows', None)
         if output is not None and len(output):
             if cli.OUTPUT_FORMAT == 'csv':
-                print output.to_csv()
+                print(output.to_csv())
             else:
                 pd.set_option('expand_frame_repr', False)
-                print output
+                print(output)
 
     def _load():
         """Load cell information."""
@@ -48,7 +49,7 @@ def view_group(parent):
         cell_master.load_servers(readonly=True)
         cell_master.load_allocations()
         cell_master.load_strategies()
-        cell_master.load_apps(readonly=True)
+        cell_master.load_apps()
         cell_master.load_identity_groups()
         cell_master.load_placement_data()
 

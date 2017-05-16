@@ -61,6 +61,8 @@ _TYPE_2_SUBSTR = {
 _TREADMILL_ATTR_OID_PREFIX = '1.3.6.1.4.1.360.10.6.1.'
 _TREADMILL_OBJCLS_OID_PREFIX = '1.3.6.1.4.1.360.10.6.2.'
 
+DEFAULT_PARTITION = '_default'
+
 
 def _entry_2_dict(entry, schema):
     """Convert LDAP entry like object to dict."""
@@ -908,6 +910,15 @@ class Server(LdapObject):
     _ou = 'servers'
     _entity = 'server'
 
+    def from_entry(self, entry, dn=None):
+        """Converts LDAP app object to dict."""
+        obj = super(Server, self).from_entry(entry, dn)
+
+        if 'partition' not in obj:
+            obj['partition'] = DEFAULT_PARTITION
+
+        return obj
+
 # pylint: disable=W0212
 Server.schema = staticmethod(lambda: Server._schema)
 Server.oc = staticmethod(lambda: Server._oc)
@@ -990,6 +1001,7 @@ class Application(LdapObject):
         ('feature', 'features', [str]),
         ('identity-group', 'identity_group', str),
         ('shared-ip', 'shared_ip', bool),
+        ('shared-network', 'shared_network', bool),
         ('passthrough', 'passthrough', [str]),
         ('schedule-once', 'schedule_once', bool),
         ('ephemeral-ports-tcp', 'ephemeral_ports_tcp', int),
@@ -1406,6 +1418,16 @@ class CellAllocation(LdapObject):
             'assignments': assignments,
         })
 
+        if 'cpu' not in obj:
+            obj['cpu'] = '0%'
+        if 'memory' not in obj:
+            obj['memory'] = '0G'
+        if 'disk' not in obj:
+            obj['disk'] = '0G'
+
+        if 'partition' not in obj:
+            obj['partition'] = DEFAULT_PARTITION
+
         return obj
 
     def to_entry(self, obj):
@@ -1528,6 +1550,13 @@ class Partition(LdapObject):
 
             obj['partition'] = partition
             obj['cell'] = cell
+
+        if 'cpu' not in obj:
+            obj['cpu'] = '0%'
+        if 'memory' not in obj:
+            obj['memory'] = '0G'
+        if 'disk' not in obj:
+            obj['disk'] = '0G'
 
         return obj
 

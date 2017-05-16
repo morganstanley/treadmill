@@ -15,6 +15,7 @@ import time
 import sqlite3
 import contextlib
 import operator
+import heapq
 
 import json
 from enum import Enum
@@ -222,7 +223,7 @@ class DirWatchPubSub(object):
                                             content)
                     if payload is not None:
                         payload['when'] = when
-                        handler.write_message(json.dumps(payload))
+                        handler.write_message(payload)
                 except StandardError as err:
                     _LOGGER.exception('Error handling event')
                     handler.send_error_msg(
@@ -234,34 +235,57 @@ class DirWatchPubSub(object):
 
     def _sow(self, directory, pattern, since, handler, impl):
         """Publish state of the world."""
-        fs_sow = self._get_fs_sow(directory, pattern, since)
+        if since is None:
+            since = 0
 
-        sow_db = getattr(impl, 'sow_db', None)
-        if sow_db:
-            db_sow = self._get_db_sow(sow_db, directory, pattern, since)
-        else:
-            db_sow = []
-
-        sow = sorted(set(fs_sow) | set(db_sow), key=operator.itemgetter(1))
-
-        for item in sow:
-            path, when, content = item
+        def _publish(item):
+            when, path, content = item
             try:
-                payload = impl.on_event(path, None, content)
+                payload = impl.on_event(str(path), None, content)
                 if payload is not None:
                     payload['when'] = when
-                    handler.write_message(json.dumps(payload))
+                    handler.write_message(payload)
             except Exception as err:  # pylint: disable=W0703
                 handler.send_error_msg(str(err))
+
+        db_records = []
+        fs_records = self._get_fs_sow(directory, pattern, since)
+
+        sow_db = getattr(impl, 'sow_db', None)
+        conn = None
+        try:
+            if sow_db:
+                dbpath = os.path.join(self.root, sow_db)
+                db_glob = os.path.join(directory[len(self.root):], pattern)
+
+                _LOGGER.info('Using sow db: %s, glob: %s', dbpath, db_glob)
+
+                conn = sqlite3.connect(dbpath)
+                select_stmt = ('SELECT timestamp, path, data FROM sow'
+                               ' WHERE path GLOB ? AND timestamp >= ?'
+                               ' ORDER BY timestamp')
+                db_records = conn.execute(select_stmt, (db_glob, since,))
+
+            # Merge db and fs records, removing duplicates.
+            prev_path = None
+            for item in heapq.merge(db_records, fs_records):
+                _when, path, _content = item
+                if path == prev_path:
+                    continue
+                prev_path = path
+                _publish(item)
+        finally:
+            if conn:
+                conn.close()
 
     def _get_fs_sow(self, directory, pattern, since):
         """Get state of the world from filesystem."""
         root_len = len(self.root)
         fs_glob = os.path.join(directory, pattern)
 
-        fs_sow = []
         files = glob.glob(fs_glob)
-        files.sort(key=os.path.getmtime)
+
+        items = []
         for filename in files:
             try:
                 stat = os.stat(filename)
@@ -269,30 +293,16 @@ class DirWatchPubSub(object):
                     content = f.read()
                 if stat.st_mtime >= since:
                     path, when = filename[root_len:], int(stat.st_mtime)
-                    fs_sow.append((path, when, content))
+                    items.append((when, path, content))
             except (IOError, OSError) as err:
                 # Ignore deleted files.
                 if err.errno != errno.ENOENT:
                     raise
-        return fs_sow
 
-    def _get_db_sow(self, sow_db, directory, pattern, since):
-        """Get state of the world from database."""
-        root_len = len(self.root)
-        db = os.path.join(self.root, sow_db)
-        db_glob = os.path.join(directory[root_len:], pattern)
-
-        with contextlib.closing(sqlite3.connect(db)) as conn:
-            cur = conn.cursor()
-            cur.execute("select path, timestamp, ifnull(data, '') from sow"
-                        " where path glob ? and timestamp >= ?"
-                        " order by timestamp", (db_glob, since))
-            db_sow = cur.fetchall()
-        return db_sow
+        return sorted(items)
 
     def _gc(self):
         """Remove disconnected websocket handlers."""
-        _LOGGER.info('Running gc.')
         for directory in list(self.handlers.viewkeys()):
             handlers = [(pattern, handler, impl)
                         for pattern, handler, impl in self.handlers[directory]

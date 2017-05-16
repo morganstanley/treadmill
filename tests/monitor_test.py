@@ -53,7 +53,7 @@ class MonitorTest(unittest.TestCase):
 
         treadmill.supervisor.open_service.assert_called_with(self.root)
         mock_pol_inst.register.assert_called_with(mock_svc)
-        self.assertEquals(
+        self.assertEqual(
             mon._service_policies[mock_reg_handle],
             mock_pol_inst
         )
@@ -105,7 +105,7 @@ class MonitorTest(unittest.TestCase):
         mon._on_created('/some/dir/svc/data/exits/1.111,2,3')
 
         self.assertTrue(mock_pol_inst.process.called)
-        self.assertEquals(mon._down_reason, {'mock': 'data'})
+        self.assertEqual(mon._down_reason, {'mock': 'data'})
         self.assertFalse(treadmill.monitor.Monitor._add_service.called)
 
     @mock.patch('os.listdir', mock.Mock(spec_set=True, return_value=['baz']))
@@ -146,7 +146,7 @@ class MonitorTest(unittest.TestCase):
                 mock.call('/some/dir/baz'),
             ]
         )
-        self.assertEquals(
+        self.assertEqual(
             treadmill.monitor.Monitor._add_service.call_count,
             3
         )
@@ -183,7 +183,7 @@ class MonitorNodeDownTest(unittest.TestCase):
         )
 
         # This MonitorDownAction stops the monitor.
-        self.assertEquals(res, True)
+        self.assertEqual(res, True)
         self.assertTrue(
             os.path.exists(os.path.join(self.root, 'Monitor-mock_service'))
         )
@@ -211,11 +211,11 @@ class MonitorRestartPolicyTest(unittest.TestCase):
 
         res = mock_policy._check_policy()
 
-        self.assertEquals(res, monitor.MonitorRestartPolicyResult.NOOP)
+        self.assertEqual(res, monitor.MonitorRestartPolicyResult.NOOP)
         self.assertIsNone(mock_policy._last_timestamp)
         self.assertIsNone(mock_policy._last_rc)
         self.assertIsNone(mock_policy._last_signal)
-        self.assertEquals(os.unlink.call_count, 0)
+        self.assertEqual(os.unlink.call_count, 0)
 
     @mock.patch('os.unlink', mock.Mock(spec_set=True))
     def test__check_policy_restart(self):
@@ -238,11 +238,11 @@ class MonitorRestartPolicyTest(unittest.TestCase):
 
         res = mock_policy._check_policy()
 
-        self.assertEquals(res, monitor.MonitorRestartPolicyResult.RESTART)
-        self.assertEquals(mock_policy._last_timestamp, 130.35)
-        self.assertEquals(mock_policy._last_rc, 1)
-        self.assertEquals(mock_policy._last_signal, 0)
-        self.assertEquals(
+        self.assertEqual(res, monitor.MonitorRestartPolicyResult.RESTART)
+        self.assertEqual(mock_policy._last_timestamp, 130.35)
+        self.assertEqual(mock_policy._last_rc, 1)
+        self.assertEqual(mock_policy._last_signal, 0)
+        self.assertEqual(
             os.unlink.call_count,
             # We should remove extra exit records past 2 times the policy limit
             len(failure_ts) - 2 * mock_policy._policy_limit
@@ -273,11 +273,11 @@ class MonitorRestartPolicyTest(unittest.TestCase):
 
         res = mock_policy._check_policy()
 
-        self.assertEquals(res, monitor.MonitorRestartPolicyResult.RESTART)
-        self.assertEquals(mock_policy._last_timestamp, 1492807113.934)
-        self.assertEquals(mock_policy._last_rc, 1)
-        self.assertEquals(mock_policy._last_signal, 0)
-        self.assertEquals(os.unlink.call_count, 0)
+        self.assertEqual(res, monitor.MonitorRestartPolicyResult.RESTART)
+        self.assertEqual(mock_policy._last_timestamp, 1492807113.934)
+        self.assertEqual(mock_policy._last_rc, 1)
+        self.assertEqual(mock_policy._last_signal, 0)
+        self.assertEqual(os.unlink.call_count, 0)
 
     @mock.patch('os.unlink', mock.Mock(spec_set=True))
     def test__check_policy_fail(self):
@@ -300,11 +300,11 @@ class MonitorRestartPolicyTest(unittest.TestCase):
 
         res = mock_policy._check_policy()
 
-        self.assertEquals(res, monitor.MonitorRestartPolicyResult.FAIL)
-        self.assertEquals(mock_policy._last_timestamp, 130.35)
-        self.assertEquals(mock_policy._last_rc, 1)
-        self.assertEquals(mock_policy._last_signal, 0)
-        self.assertEquals(os.unlink.call_count, 0)
+        self.assertEqual(res, monitor.MonitorRestartPolicyResult.FAIL)
+        self.assertEqual(mock_policy._last_timestamp, 130.35)
+        self.assertEqual(mock_policy._last_rc, 1)
+        self.assertEqual(mock_policy._last_signal, 0)
+        self.assertEqual(os.unlink.call_count, 0)
 
     @mock.patch('os.unlink', mock.Mock(spec_set=True))
     def test__check_policy_fail_edge(self):
@@ -328,11 +328,11 @@ class MonitorRestartPolicyTest(unittest.TestCase):
 
         res = mock_policy._check_policy()
 
-        self.assertEquals(res, monitor.MonitorRestartPolicyResult.FAIL)
-        self.assertEquals(mock_policy._last_timestamp, 1.111)
-        self.assertEquals(mock_policy._last_rc, 1)
-        self.assertEquals(mock_policy._last_signal, 0)
-        self.assertEquals(os.unlink.call_count, 0)
+        self.assertEqual(res, monitor.MonitorRestartPolicyResult.FAIL)
+        self.assertEqual(mock_policy._last_timestamp, 1.111)
+        self.assertEqual(mock_policy._last_rc, 1)
+        self.assertEqual(mock_policy._last_signal, 0)
+        self.assertEqual(os.unlink.call_count, 0)
 
     @mock.patch('__builtin__.open', autospec=True)
     @mock.patch('treadmill.fs.mkdir_safe', mock.Mock(spec_set=True))
@@ -360,7 +360,7 @@ class MonitorRestartPolicyTest(unittest.TestCase):
             os.path.join(self.root, 'exits')
         )
         # Registration should return the exits folder to watch
-        self.assertEquals(
+        self.assertEqual(
             res,
             os.path.join(self.root, 'exits')
         )
@@ -384,8 +384,8 @@ class MonitorRestartPolicyTest(unittest.TestCase):
 
         res = mock_policy.process()
 
-        self.assertEquals(res, True)
-        self.assertEquals(treadmill.subproc.check_call.call_count, 0)
+        self.assertEqual(res, True)
+        self.assertEqual(treadmill.subproc.check_call.call_count, 0)
 
     @mock.patch('treadmill.monitor.MonitorRestartPolicy._check_policy',
                 mock.Mock(spec_set=True))
@@ -406,8 +406,8 @@ class MonitorRestartPolicyTest(unittest.TestCase):
 
         res = mock_policy.process()
 
-        self.assertEquals(res, True)
-        self.assertEquals(treadmill.subproc.check_call.call_count, 1)
+        self.assertEqual(res, True)
+        self.assertEqual(treadmill.subproc.check_call.call_count, 1)
         treadmill.subproc.check_call.assert_called_with(
             [
                 's6_svc',
@@ -435,8 +435,8 @@ class MonitorRestartPolicyTest(unittest.TestCase):
 
         res = mock_policy.process()
 
-        self.assertEquals(res, False)
-        self.assertEquals(treadmill.subproc.check_call.call_count, 0)
+        self.assertEqual(res, False)
+        self.assertEqual(treadmill.subproc.check_call.call_count, 0)
 
     def test_fail_reason(self):
         """Test failure reason extraction from the policy.
@@ -450,7 +450,7 @@ class MonitorRestartPolicyTest(unittest.TestCase):
         mock_policy._last_rc = 2
         mock_policy._last_signal = 9
 
-        self.assertEquals(
+        self.assertEqual(
             mock_policy.fail_reason,
             {
                 'service': 'mock_service',

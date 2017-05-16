@@ -3,7 +3,7 @@ from __future__ import absolute_import
 
 import click
 
-from treadmill.tests import capacity
+from treadmill.checkout import capacity
 
 
 def init():

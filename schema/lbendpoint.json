@@ -3,7 +3,7 @@
     "resource_id": {
         "type": "string",
         "maxLength": 60,
-        "pattern": "^[a-z0-9\\-]+(\\.[a-z0-9\\-]+)*$"
+        "pattern": "^[a-z0-9\\-]+(\\.[a-zA-Z0-9\\-]+)*$"
     },
     "resource": {
         "type": "object",
@@ -11,8 +11,7 @@
         "properties": {
             "cells": {
                 "type": "array",
-                "items": { "$ref": "common.json#/cell" },
-                "minItems": 1
+                "items": { "$ref": "common.json#/cell" }
             },
             "pattern": {
                 "type": "string"

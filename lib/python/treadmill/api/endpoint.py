@@ -49,27 +49,28 @@ class API(object):
 
     def __init__(self):
 
-        zkclient = context.GLOBAL.zk.conn
-
         cell_state = dict()
 
-        @exc.exit_on_unhandled
-        @zkclient.ChildrenWatch(z.ENDPOINTS)
-        def _watch_endpoints(proids):
-            """Watch /endpoints nodes."""
+        if context.GLOBAL.cell is not None:
+            zkclient = context.GLOBAL.zk.conn
 
-            current = set(cell_state.keys())
-            target = set(proids)
+            @exc.exit_on_unhandled
+            @zkclient.ChildrenWatch(z.ENDPOINTS)
+            def _watch_endpoints(proids):
+                """Watch /endpoints nodes."""
 
-            for proid in current - target:
-                del cell_state[proid]
+                current = set(cell_state.keys())
+                target = set(proids)
 
-            for proid in target - current:
-                if proid not in cell_state:
-                    cell_state[proid] = {}
-                make_endpoint_watcher(zkclient, cell_state, proid)
+                for proid in current - target:
+                    del cell_state[proid]
 
-            return True
+                for proid in target - current:
+                    if proid not in cell_state:
+                        cell_state[proid] = {}
+                    make_endpoint_watcher(zkclient, cell_state, proid)
+
+                return True
 
         def _list(pattern, proto, endpoint):
             """List endpoints state."""

@@ -97,16 +97,6 @@ def register(api):
                 'status': httplib.BAD_REQUEST}
         return resp, httplib.BAD_REQUEST, _cors_headers()
 
-    @api.errorhandler(exc.TreadmillError)
-    def _treadmill_exc(err):
-        """Treadmill exception handler."""
-        _LOGGER.exception('Treadmill error: %r', err)
-        resp = {
-            'message': err.message,
-            'status': httplib.INTERNAL_SERVER_ERROR
-        }
-        return resp, httplib.INTERNAL_SERVER_ERROR, _cors_headers()
-
     @api.errorhandler(exc.InvalidInputError)
     def _invalid_input_exc(err):
         """InvalidInputError exception handler."""
@@ -116,6 +106,16 @@ def register(api):
             'status': httplib.BAD_REQUEST
         }
         return resp, httplib.BAD_REQUEST, _cors_headers()
+
+    @api.errorhandler(exc.TreadmillError)
+    def _treadmill_exc(err):
+        """Treadmill exception handler."""
+        _LOGGER.exception('Treadmill error: %r', err)
+        resp = {
+            'message': err.message,
+            'status': httplib.INTERNAL_SERVER_ERROR
+        }
+        return resp, httplib.INTERNAL_SERVER_ERROR, _cors_headers()
 
     def _internal_server_error(err):
         """Unhandled exception handler."""

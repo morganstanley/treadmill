@@ -1,5 +1,6 @@
 """Reports memory utilization details for given container."""
 from __future__ import absolute_import
+from __future__ import print_function
 
 import os
 import prettytable
@@ -51,13 +52,13 @@ def init():
         total = sum([info['total'] for info in memusage.values()])
         table.add_row(['', '', '', '', ''])
         table.add_row(['Total:', '', '', '', readable(total)])
-        print table
+        print(table)
 
         memusage, softmem, hardmem = cgutils.cgrp_meminfo(cgroup)
-        print ''
-        print 'memory.usage     : ', readable(memusage)
-        print 'memory.softlimit : ', readable(softmem)
-        print 'memory.hardlimit : ', readable(hardmem)
+        print('')
+        print('memory.usage     : ', readable(memusage))
+        print('memory.softlimit : ', readable(softmem))
+        print('memory.hardlimit : ', readable(hardmem))
 
     del psmem_cmd
     return diag

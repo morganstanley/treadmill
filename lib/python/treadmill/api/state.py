@@ -40,6 +40,26 @@ def watch_running(zkclient, cell_state):
     _LOGGER.info('Loaded running.')
 
 
+def watch_finished(zkclient, cell_state):
+    """Watch finished instances."""
+
+    @exc.exit_on_unhandled
+    @zkclient.ChildrenWatch(z.path.finished())
+    def _watch_finished(finished):
+        """Watch /finished nodes."""
+        for instance in finished:
+            if instance in cell_state.finished:
+                continue
+            finished_data = zkutils.get_default(
+                zkclient,
+                z.path.finished(instance),
+                {}
+            )
+            cell_state.finished[instance] = finished_data
+
+    _LOGGER.info('Loaded finished.')
+
+
 def watch_placement(zkclient, cell_state):
     """Watch placement."""
 
@@ -71,134 +91,41 @@ def watch_placement(zkclient, cell_state):
     _LOGGER.info('Loaded placement.')
 
 
-def watch_task_instance(zkclient, cell_state, instance):
-    """Watch individual task instance."""
+def watch_finished_history(zkclient, cell_state):
+    """Watch finished historical snapshots."""
 
-    @exc.exit_on_unhandled
-    @zkclient.DataWatch(z.path.task(instance))
-    def _watch_task(data, _stat, event):
-        """Watch for task data."""
-        if data is None or event == 'DELETED':
-            if instance in cell_state.tasks:
-                del cell_state.tasks[instance]
-            return False
-
-        cell_state.tasks[instance] = yaml.load(data)
-        cont_watch = bool(zkclient.exists(
-            z.path.scheduled(instance)
-        ))
-        _LOGGER.info('Continue watch on %s: %s',
-                     z.path.task(instance),
-                     cont_watch)
-        return cont_watch
-
-
-def watch_task(zkclient, cell_state, scheduled, task):
-    """Watch individual task."""
-    task_node = z.join_zookeeper_path(z.TASKS, task)
-
-    # Establish watch on task instances.
-
-    @exc.exit_on_unhandled
-    @zkclient.ChildrenWatch(task_node)
-    def _watch_task_instances(instance_ids):
-
-        instance = None
-        for instance_id in instance_ids:
-            instance = '#'.join([task, instance_id])
-
-            # Either watch is established or data is acquired.
-            if instance in cell_state.tasks:
-                continue
-
-            # On first load, optimize lookup by preloading state
-            # of all scheduled instances.
-            #
-            # Once initial load is done, scheduled will be cleared.
-            if scheduled:
-                need_watch = instance in scheduled
-            else:
-                need_watch = zkclient.exists(
-                    z.path.scheduled(instance)
-                )
-
-            if need_watch:
-                watch_task_instance(zkclient, cell_state, instance)
-            else:
-                data = zkutils.get_default(zkclient, z.path.task(instance))
-                cell_state.tasks[instance] = data
-
-        return True
-
-
-def watch_tasks(zkclient, cell_state):
-    """Watch tasks."""
-
-    @exc.exit_on_unhandled
-    @zkclient.ChildrenWatch(z.TASKS)
-    def _watch_tasks(tasks):
-        """Watch /tasks nodes."""
-        scheduled = set(zkclient.get_children(z.SCHEDULED))
-
-        for task in tasks:
-            if task not in cell_state.watches:
-                watch_task(zkclient, cell_state, scheduled, task)
-                cell_state.watches.add(task)
-
-        scheduled.clear()
-        return True
-
-    _LOGGER.info('Loaded tasks.')
-
-
-def watch_tasks_history(zkclient, cell_state):
-    """Watch tasks history.
-
-    Load summary info from tasks history snapshots. Keep track of changes.
-    """
-    if not zkclient.exists(z.TASKS_HISTORY):
-        _LOGGER.warn('Not loading tasks history, no node: %s', z.TASKS_HISTORY)
-        return
-
-    loaded_tasks_history = {}
+    loaded_snapshots = set()
+    _len_finished = len('/finished/')
 
     def _get_instance(path):
-        return '#'.join(path[len(z.TASKS) + 1:].rsplit('/', 1))
+        """Get instance from finished node name."""
+        return path[_len_finished:]
 
     @exc.exit_on_unhandled
-    @zkclient.ChildrenWatch(z.TASKS_HISTORY)
-    def _watch_tasks_history(tasks_history):
-        """Watch /tasks.history nodes."""
-        for db_node in set(tasks_history) - set(loaded_tasks_history):
-            _LOGGER.debug('Loading tasks history from: %s', db_node)
-            db_node_path = z.path.tasks_history(db_node)
-            data, _stat = zkclient.get(db_node_path)
-            loaded_tasks_history[db_node] = []
+    @zkclient.ChildrenWatch(z.FINISHED_HISTORY)
+    def _watch_finished_snapshots(snapshots):
+        """Watch /finished.history nodes."""
+        for db_node in set(snapshots) - loaded_snapshots:
+            _LOGGER.debug('Loading snapshot: %s', db_node)
+            data, _stat = zkclient.get(z.path.finished_history(db_node))
 
             with tempfile.NamedTemporaryFile(delete=False, mode='wb') as f:
                 f.write(zlib.decompress(data))
+
             conn = sqlite3.connect(f.name)
             cur = conn.cursor()
-            for row in cur.execute('select path, data from tasks'
-                                   ' where data is not null'):
+            for row in cur.execute('select path, data from finished;'):
                 path, data = row
                 instance = _get_instance(path)
                 if data:
                     data = yaml.load(data)
-                cell_state.tasks_history[instance] = data
-                loaded_tasks_history[db_node].append(instance)
+                cell_state.finished[instance] = data
             conn.close()
             os.unlink(f.name)
 
-        for db_node in set(loaded_tasks_history) - set(tasks_history):
-            _LOGGER.debug('Unloading tasks history from: %s', db_node)
-            for instance in loaded_tasks_history[db_node]:
-                del cell_state.tasks_history[instance]
-            del loaded_tasks_history[db_node]
-
         return True
 
-    _LOGGER.info('Loaded tasks history.')
+    _LOGGER.info('Loaded finished snapshots.')
 
 
 class CellState(object):
@@ -207,17 +134,19 @@ class CellState(object):
     __slots__ = (
         'running',
         'placement',
-        'tasks',
-        'tasks_history',
+        'finished',
         'watches',
     )
 
     def __init__(self):
         self.running = []
         self.placement = {}
-        self.tasks = {}
-        self.tasks_history = {}
+        self.finished = {}
         self.watches = set()
+
+    def get_finished(self, rsrc_id):
+        """Select finished state if present."""
+        return self.finished.get(rsrc_id)
 
 
 class API(object):
@@ -225,18 +154,18 @@ class API(object):
 
     def __init__(self):
 
-        zkclient = context.GLOBAL.zk.conn
+        if context.GLOBAL.cell is not None:
+            zkclient = context.GLOBAL.zk.conn
+            cell_state = CellState()
 
-        cell_state = CellState()
+            _LOGGER.info('Initializing api.')
 
-        _LOGGER.info('Initializing api.')
+            watch_running(zkclient, cell_state)
+            watch_placement(zkclient, cell_state)
+            watch_finished(zkclient, cell_state)
+            watch_finished_history(zkclient, cell_state)
 
-        watch_running(zkclient, cell_state)
-        watch_placement(zkclient, cell_state)
-        watch_tasks(zkclient, cell_state)
-        watch_tasks_history(zkclient, cell_state)
-
-        def _list(match=None):
+        def _list(match=None, finished=False):
             """List instances state."""
             if match is None:
                 match = '*'
@@ -247,6 +176,17 @@ class API(object):
                 for name, item in cell_state.placement.iteritems()
                 if fnmatch.fnmatch(name, match)
             ]
+
+            if finished:
+                for name, data in cell_state.finished.iteritems():
+                    if fnmatch.fnmatch(name, match):
+                        item = {
+                            'name': name,
+                            'state': 'finihsed'
+                        }
+                        item.update(data)
+                        filtered.append(item)
+
             return sorted(filtered, key=lambda item: item['name'])
 
         @schema.schema({'$ref': 'instance.json#/resource_id'})
@@ -256,12 +196,7 @@ class API(object):
             if rsrc_id in cell_state.placement:
                 data = cell_state.placement[rsrc_id]
             else:
-                data = (cell_state.tasks.get(rsrc_id) or
-                        cell_state.tasks_history.get(rsrc_id))
-                if data and data.get('state') == 'finished':
-                    rc, signal = data.get('data', '255.255').split('.')
-                    data['exitcode'] = rc
-                    data['signal'] = signal
+                data = cell_state.get_finished(rsrc_id)
 
             if data:
                 data.update({'name': rsrc_id})

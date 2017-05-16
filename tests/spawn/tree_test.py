@@ -30,9 +30,9 @@ class TreeTest(unittest.TestCase):
         tree = spawn_tree.Tree('/does/not/exist', 2, 5)
         tree.create()
 
-        self.assertEquals(8, fs.mkdir_safe.call_count)
-        self.assertEquals(6, utils.create_script.call_count)
-        self.assertEquals(2, shutil.rmtree.call_count)
+        self.assertEqual(8, fs.mkdir_safe.call_count)
+        self.assertEqual(6, utils.create_script.call_count)
+        self.assertEqual(2, shutil.rmtree.call_count)
 
 if __name__ == '__main__':
     unittest.main()

@@ -41,6 +41,8 @@ def init(api, cors, impl):
     match_parser = api.parser()
     match_parser.add_argument('match', help='A glob match on an app name',
                               location='args', required=False,)
+    match_parser.add_argument('finished', help='Flag to include finished apps',
+                              location='args', required=False,)
 
     inst_parser = api.parser()
     inst_parser.add_argument('instances', type=list,
@@ -61,7 +63,7 @@ def init(api, cors, impl):
         def get(self):
             """Return all state."""
             args = match_parser.parse_args()
-            return impl.list(args.get('match'))
+            return impl.list(args.get('match'), args.get('finished'))
 
         @webutils.post_api(api, cors,
                            marshal=api.marshal_list_with,

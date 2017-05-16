@@ -85,25 +85,25 @@ class RulefileTest(unittest.TestCase):
         # Pylint warning re accessing protected class member.
         # pylint: disable=W0212
 
-        self.assertEquals(
+        self.assertEqual(
             rulefile.RuleMgr._filenameify(
                 'SOME_CHAIN', self.tcpdnatrule
             ),
             'SOME_CHAIN:dnat:tcp:*:*:1.1.1.1:123-2.2.2.2:234'
         )
-        self.assertEquals(
+        self.assertEqual(
             rulefile.RuleMgr._filenameify(
                 'SOME_CHAIN', self.udpdnatrule
             ),
             'SOME_CHAIN:dnat:udp:*:*:1.1.1.1:123-2.2.2.2:234'
         )
-        self.assertEquals(
+        self.assertEqual(
             rulefile.RuleMgr._filenameify(
                 'SOME_CHAIN', self.udpsnatrule
             ),
             'SOME_CHAIN:snat:udp:1.1.1.1:123:*:*-2.2.2.2:234'
         )
-        self.assertEquals(
+        self.assertEqual(
             rulefile.RuleMgr._filenameify(
                 'SOME_CHAIN', self.passthroughrule
             ),
@@ -113,29 +113,29 @@ class RulefileTest(unittest.TestCase):
     def test_get_rule(self):
         """Test parsing a given rule specs.
         """
-        self.assertEquals(
+        self.assertEqual(
             self.rules.get_rule(
                 'TEST_CHAIN:dnat:tcp:*:*:1.1.1.1:123-2.2.2.2:234'
             ),
             ('TEST_CHAIN', self.tcpdnatrule),
         )
-        self.assertEquals(
+        self.assertEqual(
             self.rules.get_rule(
                 'TEST_CHAIN:dnat:udp:*:*:1.1.1.1:123-2.2.2.2:234'
             ),
             ('TEST_CHAIN', self.udpdnatrule),
         )
-        self.assertEquals(
+        self.assertEqual(
             self.rules.get_rule(
                 'TEST_CHAIN:snat:udp:1.1.1.1:123:*:*-2.2.2.2:234'
             ),
             ('TEST_CHAIN', self.udpsnatrule),
         )
-        self.assertEquals(
+        self.assertEqual(
             self.rules.get_rule('TEST_CHAIN:passthrough:3.3.3.3-4.4.4.4'),
             ('TEST_CHAIN', self.passthroughrule),
         )
-        self.assertEquals(
+        self.assertEqual(
             self.rules.get_rule('not_a_rule'),
             None,
         )
@@ -150,7 +150,7 @@ class RulefileTest(unittest.TestCase):
             )
         )
         # Ensure the rule link points to its owner app
-        self.assertEquals(
+        self.assertEqual(
             os.path.realpath(
                 os.path.join(
                     self.rules_dir,
@@ -169,7 +169,7 @@ class RulefileTest(unittest.TestCase):
                 os.path.join(self.rules_dir, self.tcpdnatfile)
             )
         )
-        self.assertEquals(
+        self.assertEqual(
             os.path.realpath(
                 os.path.join(
                     self.rules_dir,
@@ -251,7 +251,7 @@ class RulefileTest(unittest.TestCase):
         rules = self.rules.get_rules()
         self.assertIn(('SOME_CHAIN', self.tcpdnatrule), rules)
         self.assertIn(('SOME_CHAIN', self.udpsnatrule), rules)
-        self.assertEquals(3, len(rules))
+        self.assertEqual(3, len(rules))
 
 
 if __name__ == '__main__':

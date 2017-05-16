@@ -22,7 +22,7 @@
 #     if client.connect():
 #
 #         client.write('Hi')
-#         print client.read()
+#         print(client.read())
 #
 #     client.disconnect()
 #

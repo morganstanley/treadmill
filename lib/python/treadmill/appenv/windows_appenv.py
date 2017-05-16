@@ -17,15 +17,11 @@ class WindowsAppEnvironment(appenv.AppEnvironment):
         Path to the root directory of the Treadmill environment
     :type root:
         `str`
-    :param host_ip:
-        Optional ip address of the host
-    :type host_ip:
-        `str`
     """
 
-    def __init__(self, root, host_ip=None):
-        super(WindowsAppEnvironment, self).__init__(root, host_ip)
+    def __init__(self, root):
+        super(WindowsAppEnvironment, self).__init__(root)
 
-    def initialize(self):
+    def initialize(self, _params):
         """One time initialization of the Treadmill environment."""
         _LOGGER.info('Initializing once.')

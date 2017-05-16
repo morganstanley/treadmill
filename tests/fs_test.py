@@ -327,7 +327,7 @@ class FsTest(unittest.TestCase):
         with open(os.path.join(tardir, 'file'), 'w+'):
             pass
 
-        self.assertEquals(
+        self.assertEqual(
             fs.tar(archive, tardir).name,
             archive,
             'fs.tar runs successfully'
@@ -337,13 +337,13 @@ class FsTest(unittest.TestCase):
             'fs.tar creates a tarfile'
         )
 
-        self.assertEquals(
+        self.assertEqual(
             fs.tar(archive, tardir2).name,
             archive,
             'fs.tar will succeed if tarfile already exists'
         )
 
-        self.assertEquals(
+        self.assertEqual(
             fs.tar(archive, tardir, compression='gzip').name,
             "%s.gz" % archive,
             'fs.tar with gzip runs successfully'
@@ -376,7 +376,7 @@ class FsTest(unittest.TestCase):
         with open(os.path.join(tardir, 'file'), 'w+'):
             pass
 
-        self.assertEquals(
+        self.assertEqual(
             fs.tar(archive, [tardir, tardir2], compression='gzip').name,
             '%s.gz' % archive,
             'fs.tar runs successfully'

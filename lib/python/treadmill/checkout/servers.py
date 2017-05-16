@@ -1,11 +1,12 @@
+"""Verifies server health.
 """
-Verifies server health.
-"""
+
+from __future__ import print_function
 
 import unittest
 
 from treadmill import context
-from treadmill import tests as chk
+from treadmill import checkout as chk
 from treadmill import zknamespace as z
 
 
@@ -40,7 +41,7 @@ def test():
             host, port = hostport.split(':')
 
             url = 'http://%s:%s' % (host, port)
-            print url
+            print(url)
             self.assertTrue(chk.connect(host, port))
             self.assertTrue(chk.url_check(url))
 

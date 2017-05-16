@@ -1,5 +1,4 @@
-"""
-Unit test for treadmill.runtime.linux._run
+"""Unit test for treadmill.runtime.linux._run
 """
 
 # Disable C0302: Too many lines in module.
@@ -43,7 +42,6 @@ class LinuxRuntimeRunTest(unittest.TestCase):
         self.root = tempfile.mkdtemp()
         self.tm_env = mock.Mock(
             root=self.root,
-            host_ip='172.31.81.67',
             svc_cgroup=mock.Mock(
                 spec_set=treadmill.services._base_service.ResourceService,
             ),
@@ -464,7 +462,7 @@ class LinuxRuntimeRunTest(unittest.TestCase):
             'prod', '0.0.0.0', socket.SOCK_STREAM, 3
         )
 
-        self.assertEquals(3, len(sockets))
+        self.assertEqual(3, len(sockets))
 
     @mock.patch('socket.socket.bind', mock.Mock())
     def test__allocate_sockets_fail(self):
@@ -531,28 +529,42 @@ class LinuxRuntimeRunTest(unittest.TestCase):
 
         # in the updated manifest, make sure that real_port is specificed from
         # the ephemeral range as returnd by getsockname.
-        self.assertEquals(8000,
-                          manifest['endpoints'][0]['port'])
-        self.assertEquals(50001,
-                          manifest['endpoints'][0]['real_port'])
-
-        self.assertEquals(60001,
-                          manifest['endpoints'][1]['port'])
-        self.assertEquals(60001,
-                          manifest['endpoints'][1]['real_port'])
-
-        self.assertEquals(5353,
-                          manifest['endpoints'][2]['port'])
-        self.assertEquals(12345,
-                          manifest['endpoints'][2]['real_port'])
-
-        self.assertEquals(54321,
-                          manifest['endpoints'][3]['port'])
-        self.assertEquals(54321,
-                          manifest['endpoints'][3]['real_port'])
-
-        self.assertEquals([10000, 10001, 10002],
-                          manifest['ephemeral_ports']['tcp'])
+        self.assertEqual(
+            8000,
+            manifest['endpoints'][0]['port']
+        )
+        self.assertEqual(
+            50001,
+            manifest['endpoints'][0]['real_port']
+        )
+        self.assertEqual(
+            60001,
+            manifest['endpoints'][1]['port']
+        )
+        self.assertEqual(
+            60001,
+            manifest['endpoints'][1]['real_port']
+        )
+        self.assertEqual(
+            5353,
+            manifest['endpoints'][2]['port']
+        )
+        self.assertEqual(
+            12345,
+            manifest['endpoints'][2]['real_port']
+        )
+        self.assertEqual(
+            54321,
+            manifest['endpoints'][3]['port']
+        )
+        self.assertEqual(
+            54321,
+            manifest['endpoints'][3]['real_port']
+        )
+        self.assertEqual(
+            [10000, 10001, 10002],
+            manifest['ephemeral_ports']['tcp']
+        )
 
     @mock.patch('treadmill.iptables.add_ip_set', mock.Mock())
     @mock.patch('treadmill.newnet.create_newnet', mock.Mock())
@@ -570,8 +582,8 @@ class LinuxRuntimeRunTest(unittest.TestCase):
                     'veth': 'id1234.0',
                     'vip': '192.168.1.1',
                     'gateway': '192.168.254.254',
+                    'external_ip': '172.31.81.67',
                 },
-                'host_ip': '172.31.81.67',
                 'shared_ip': True,
                 'ephemeral_ports': {
                     'tcp': [],
@@ -665,7 +677,8 @@ class LinuxRuntimeRunTest(unittest.TestCase):
                 'network': {
                     'veth': 'id1234.0',
                     'vip': '192.168.0.2',
-                    'gateway': '192.168.254.254'
+                    'gateway': '192.168.254.254',
+                    'external_ip': '172.31.81.67',
                 },
                 'shared_ip': False,
                 'endpoints': [
@@ -831,7 +844,6 @@ class LinuxRuntimeRunTest(unittest.TestCase):
                 'zzz'
             ],
             'memory': '100M',
-            'host_ip': '172.31.81.67',
             'uniqueid': 'ID1234',
             'services': [
                 {
@@ -875,6 +887,7 @@ class LinuxRuntimeRunTest(unittest.TestCase):
             'vip': '2.2.2.2',
             'gateway': '1.1.1.1',
             'veth': 'testveth.0',
+            'external_ip': '172.31.81.67',
         }
         mock_nwrk_client.wait.return_value = network
 
@@ -892,13 +905,6 @@ class LinuxRuntimeRunTest(unittest.TestCase):
         )
 
         # Check that port allocation is correctly called.
-        # XXX(boysson): potential mock bug: assert_call expects the vip since
-        #               manifest is modified in place even though the vip are
-        #               allocated *after*.
-        manifest['vip'] = {
-            'ip0': '1.1.1.1',
-            'ip1': '2.2.2.2',
-        }
         manifest['network'] = network
         manifest['ephemeral_ports'] = {'tcp': ['1', '2', '3']}
         treadmill.runtime.linux._run._allocate_network_ports\
@@ -1010,7 +1016,6 @@ class LinuxRuntimeRunTest(unittest.TestCase):
                 'zzz'
             ],
             'memory': '100M',
-            'host_ip': '172.31.81.67',
             'system_services': [],
             'environment': 'dev',
             'uniqueid': 'ID1234',
@@ -1050,6 +1055,7 @@ class LinuxRuntimeRunTest(unittest.TestCase):
             'vip': '2.2.2.2',
             'gateway': '1.1.1.1',
             'veth': 'testveth.0',
+            'external_ip': '172.31.81.67',
         }
         mock_nwrk_client.wait.return_value = network
         rootdir = os.path.join(app_dir, 'root')
@@ -1134,6 +1140,7 @@ class LinuxRuntimeRunTest(unittest.TestCase):
             'vip': '2.2.2.2',
             'gateway': '1.1.1.1',
             'veth': 'testveth.0',
+            'external_ip': '172.31.81.67',
         }
         mock_nwrk_client.wait.return_value = network
 
@@ -1162,8 +1169,8 @@ class LinuxRuntimeRunTest(unittest.TestCase):
                                                          '/foo/2.so'])
         newfile = open(os.path.join(self.root,
                                     '.etc', 'ld.so.preload')).readlines()
-        self.assertEquals('/foo/2.so\n', newfile[-1])
-        self.assertEquals('/foo/1.so\n', newfile[-2])
+        self.assertEqual('/foo/2.so\n', newfile[-1])
+        self.assertEqual('/foo/1.so\n', newfile[-2])
 
     @mock.patch('pwd.getpwnam', mock.Mock(
         return_value=namedtuple(

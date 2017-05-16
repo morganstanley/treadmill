@@ -490,7 +490,7 @@ def cell_group(parent):
 
     @cell.command()
     @click.option('--idx', help='Master index.',
-                  type=click.Choice(['1', '2', '3']),
+                  type=click.Choice(['1', '2', '3', '4', '5']),
                   required=True)
     @click.option('--hostname', help='Master hostname.',
                   required=True)
