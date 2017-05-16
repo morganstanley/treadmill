@@ -1,6 +1,7 @@
+"""Checks ldap infrastructure.
 """
-Checks ldap infrastructure.
-"""
+
+from __future__ import print_function
 
 import unittest
 import os
@@ -9,7 +10,7 @@ import time
 import logging
 
 from treadmill import admin
-from treadmill import tests as chk
+from treadmill import checkout as chk
 from treadmill import sysinfo
 
 
@@ -63,7 +64,7 @@ def test(ldap_urls, search_base):
             @chk.T(cls, url=url, other_url=other_url, search_base=search_base)
             def _test_replication(self, search_base, url, other_url):
                 """Check ldap replication {url} -> {other_url}."""
-                print 'Checking %s' % url
+                print('Checking %s' % url)
 
                 time.sleep(2)
 

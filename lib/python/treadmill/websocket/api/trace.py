@@ -4,12 +4,11 @@ A WebSocket handler for Treadmill trace.
 
 from __future__ import absolute_import
 
-import os
 import logging
 
 from treadmill import schema
+from treadmill import zknamespace as z
 from treadmill.apptrace import events as traceevents
-from treadmill.websocket import utils
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -25,37 +24,39 @@ class TraceAPI(object):
         @schema.schema({'$ref': 'websocket/trace.json#/message'})
         def subscribe(message):
             """Return filter based on message payload."""
-            parsed_filter = utils.parse_message_filter(message['filter'])
-
-            return [(os.path.join('/tasks',
-                                  parsed_filter.appname,
-                                  parsed_filter.instanceid), '*')]
+            instanceid = message['filter']
+            subscription = [
+                (z.path.trace(instanceid), '%s,*' % instanceid)
+            ]
+            _LOGGER.info('Addind trace subscription: %s', subscription)
+            return subscription
 
         def on_event(filename, _operation, content):
             """Event handler."""
-            if not filename.startswith('/tasks/'):
+            if not filename.startswith('/trace/'):
                 return
 
-            appname, instanceid, info = filename[len('/tasks/'):].split('/', 2)
-            timestamp, src_host, event_type, event_data = info.split(',', 3)
+            _shard, event = filename[len('/trace/'):].split('/')
+            (instanceid,
+             timestamp,
+             src_host,
+             event_type,
+             event_data) = event.split(',', 4)
 
-            event = traceevents.AppTraceEvent.from_data(
+            trace_event = traceevents.AppTraceEvent.from_data(
                 timestamp=float(timestamp),
                 source=src_host,
-                instanceid='{appname}#{instanceid}'.format(
-                    appname=appname,
-                    instanceid=instanceid
-                ),
+                instanceid=instanceid,
                 event_type=event_type,
                 event_data=event_data,
                 payload=content
             )
-            if event is None:
+            if trace_event is None:
                 return
 
             return {
                 'topic': '/trace',
-                'event': event.to_dict()
+                'event': trace_event.to_dict()
             }
 
         self.subscribe = subscribe
@@ -64,4 +65,4 @@ class TraceAPI(object):
 
 def init():
     """API module init."""
-    return [('/trace', TraceAPI(sow_db='.tasks-sow.db'))]
+    return [('/trace', TraceAPI(sow_db='.trace-sow.db'))]

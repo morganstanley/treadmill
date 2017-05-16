@@ -4,7 +4,6 @@ from __future__ import absolute_import
 import abc
 import logging
 import os
-import socket
 
 import six
 
@@ -23,10 +22,6 @@ class AppEnvironment(object):
         Path to the root directory of the Treadmill environment
     :type root:
         `str`
-    :param host_ip:
-        Optional ip address of the host
-    :type host_ip:
-        `str`
     """
 
     __slots__ = (
@@ -36,7 +31,6 @@ class AppEnvironment(object):
         'cache_dir',
         'cleanup_dir',
         'init_dir',
-        'host_ip',
         'metrics_dir',
         'pending_cleanup_dir',
         'root',
@@ -57,7 +51,7 @@ class AppEnvironment(object):
     WATCHDOG_DIR = 'watchdogs'
     APP_EVENTS_DIR = 'appevents'
 
-    def __init__(self, root, host_ip=None):
+    def __init__(self, root):
         self.root = root
 
         self.apps_dir = os.path.join(self.root, self.APPS_DIR)
@@ -72,12 +66,6 @@ class AppEnvironment(object):
         self.pending_cleanup_dir = os.path.join(self.root,
                                                 self.PENDING_CLEANUP_DIR)
 
-        if host_ip is not None:
-            self.host_ip = host_ip
-        else:
-            hostname = socket.gethostname()
-            self.host_ip = socket.gethostbyname(hostname)
-
         self.watchdogs = watchdog.Watchdog(self.watchdog_dir)
 
         fs.mkdir_safe(self.apps_dir)
@@ -90,6 +78,11 @@ class AppEnvironment(object):
         fs.mkdir_safe(self.archives_dir)
 
     @abc.abstractmethod
-    def initialize(self):
-        """One time initialization of the Treadmill environment."""
+    def initialize(self, params):
+        """One time initialization of the Treadmill environment.
+
+        :params ``dict`` params:
+            dictionary of parameters passed to the OS specific
+            `meth:initialize` implementation.
+        """
         pass

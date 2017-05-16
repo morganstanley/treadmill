@@ -5,7 +5,7 @@ import click
 
 from treadmill import cli
 from treadmill import context
-from treadmill.tests import ldap as ldap_test
+from treadmill.checkout import ldap as ldap_test
 
 
 def init():

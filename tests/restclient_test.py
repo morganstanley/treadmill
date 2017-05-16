@@ -31,7 +31,7 @@ class RESTClientTest(unittest.TestCase):
         resp = restclient.get('http://foo.com', '/')
 
         self.assertIsNotNone(resp)
-        self.assertEquals(resp.text, 'foo')
+        self.assertEqual(resp.text, 'foo')
 
     @mock.patch('requests.get',
                 return_value=mock.MagicMock(requests.Response))
@@ -98,7 +98,7 @@ class RESTClientTest(unittest.TestCase):
                 retries=3
             )
         err = cm.exception
-        self.assertEquals(len(err.attempts), 6)
+        self.assertEqual(len(err.attempts), 6)
 
         # Requests are done in order, by because other methods are being
         # callled, to make test simpler, any_order is set to True so that
@@ -123,7 +123,7 @@ class RESTClientTest(unittest.TestCase):
                       headers=None, auth=mock.ANY, timeout=(2.5, 10),
                       stream=None),
         ], any_order=True)
-        self.assertEquals(requests.get.call_count, 6)
+        self.assertEqual(requests.get.call_count, 6)
 
     @mock.patch('time.sleep', mock.Mock())
     @mock.patch('requests.get',
@@ -134,7 +134,7 @@ class RESTClientTest(unittest.TestCase):
         with self.assertRaises(restclient.MaxRequestRetriesError) as cm:
             restclient.get('http://foo.com', '/')
         err = cm.exception
-        self.assertEquals(len(err.attempts), 5)
+        self.assertEqual(len(err.attempts), 5)
 
     @mock.patch('time.sleep', mock.Mock())
     @mock.patch('requests.get', side_effect=requests.exceptions.Timeout)
@@ -144,7 +144,7 @@ class RESTClientTest(unittest.TestCase):
         with self.assertRaises(restclient.MaxRequestRetriesError) as cm:
             restclient.get('http://foo.com', '/')
         err = cm.exception
-        self.assertEquals(len(err.attempts), 5)
+        self.assertEqual(len(err.attempts), 5)
 
     @mock.patch('time.sleep', mock.Mock())
     @mock.patch('requests.get', return_value=mock.MagicMock(requests.Response))

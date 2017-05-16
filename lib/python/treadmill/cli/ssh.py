@@ -75,7 +75,7 @@ def run_putty(host, port, sshcmd, command):
 
     _LOGGER.debug('Starting ssh: %s', ssh)
     try:
-        if os.path.basename(sshcmd).tolower() == 'putty.exe':
+        if os.path.basename(sshcmd).lower() == 'putty.exe':
             os.execvp(ssh[0], ssh)
         else:
             subprocess.call(ssh)

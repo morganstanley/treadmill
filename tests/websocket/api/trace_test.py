@@ -21,10 +21,10 @@ class WSRunningAPITest(unittest.TestCase):
 
     def test_subscribe(self):
         """Test subscription registration."""
-        self.assertEquals(
+        self.assertEqual(
             self.api.subscribe({'topic': '/trace',
                                 'filter': 'foo.bar#1234'}),
-            [('/tasks/foo.bar/1234', '*')]
+            [('/trace/00D2', 'foo.bar#1234,*')]
         )
 
     @mock.patch('treadmill.apptrace.events.AppTraceEvent',
@@ -32,9 +32,9 @@ class WSRunningAPITest(unittest.TestCase):
     def test_on_event(self):
         """Tests payload generation."""
         mock_event = events.AppTraceEvent.from_data.return_value
-        self.assertEquals(
+        self.assertEqual(
             self.api.on_event(
-                '/tasks/foo.bar/1234/123.04,b,c,d',
+                '/trace/00C2/foo.bar#1234,123.04,b,c,d',
                 None,
                 'xxx'
             ),

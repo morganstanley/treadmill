@@ -2,6 +2,7 @@
 Treadmill Endpoint REST api.
 """
 from __future__ import absolute_import
+from __future__ import print_function
 
 import flask_restplus as restplus
 from flask_restplus import fields
@@ -47,7 +48,6 @@ def init(api, cors, impl):
         def get(self, pattern):
             """Return all endpoints"""
             ret = impl.list(pattern, None, None)
-            print ret
             return ret
 
     @namespace.route('/<pattern>/<proto>/<endpoint>')
@@ -65,5 +65,4 @@ def init(api, cors, impl):
         def get(self, pattern, proto, endpoint):
             """Return Treadmill app endpoint state"""
             ret = impl.list(pattern, proto, endpoint)
-            print ret
             return ret

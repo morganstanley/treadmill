@@ -40,7 +40,7 @@ def post(events_dir, event):
         time.time(),
         instanceid,
         event_type,
-        ('' if event_data is None else event_data)
+        event_data
     )
     with tempfile.NamedTemporaryFile(dir=events_dir,
                                      delete=False,
@@ -88,11 +88,11 @@ class AppEventsWatcher(object):
         eventtime, appname, event, data = localpath.split(',', 4)
         with open(path) as f:
             eventnode = '%s,%s,%s,%s' % (eventtime, _HOSTNAME, event, data)
-            _LOGGER.debug('Creating %s', z.path.task(appname, eventnode))
+            _LOGGER.debug('Creating %s', z.path.trace(appname, eventnode))
             try:
                 zkutils.with_retry(
                     self.zkclient.create,
-                    z.path.task(appname, eventnode),
+                    z.path.trace(appname, eventnode),
                     f.read(),
                     acl=[_SERVERS_ACL],
                     makepath=True
@@ -101,25 +101,23 @@ class AppEventsWatcher(object):
                 pass
 
         if event in ['aborted', 'killed', 'finished']:
+            # For terminal state, update the finished node with exit summary.
+            zkutils.with_retry(
+                zkutils.put,
+                self.zkclient,
+                z.path.finished(appname),
+                {'state': event,
+                 'when': eventtime,
+                 'host': _HOSTNAME,
+                 'data': data},
+                acl=[_SERVERS_ACL],
+            )
+
             scheduled_node = z.path.scheduled(appname)
             _LOGGER.info('Unscheduling, event=%s: %s', event, scheduled_node)
             zkutils.with_retry(
                 zkutils.ensure_deleted, self.zkclient,
                 scheduled_node
             )
-
-            # For terminal state, update the task node with exit summary.
-            try:
-                zkutils.with_retry(
-                    zkutils.update,
-                    self.zkclient,
-                    z.path.task(appname),
-                    {'state': event,
-                     'when': eventtime,
-                     'host': _HOSTNAME,
-                     'data': data}
-                )
-            except kazoo.client.NoNodeError:
-                _LOGGER.warn('Task node not found: %s', z.path.task(appname))
 
         os.unlink(path)

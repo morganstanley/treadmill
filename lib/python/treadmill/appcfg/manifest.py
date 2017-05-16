@@ -27,11 +27,11 @@ def read(filename):
     return manifest
 
 
-def load(tm_env, event):
+def load(_tm_env, event):
     """Loads the app event file, ensuring it is in valid format, and supplement
     it into a full Treadmill manifest.
 
-    :param tm_env:
+    :param _tm_env:
         Full path to the application node event in the zookeeper cache.
      :type event:
         ``treadmill.appenv.App``
@@ -65,6 +65,7 @@ def load(tm_env, event):
         ('memory', True, str),
         ('disk', True, str),
     ]
+
     utils.validate(manifest, schema)
     manifest['system_services'] = []
     manifest['name'] = name
@@ -102,8 +103,6 @@ def load(tm_env, event):
 
     _add_ssh_system_service(manifest)
     _add_features(manifest)
-
-    manifest['host_ip'] = tm_env.host_ip
 
     def _set_default(attr, value, obj=None):
         """Set default manifest attribute if it is not present."""

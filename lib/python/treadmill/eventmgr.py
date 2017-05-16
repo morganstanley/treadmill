@@ -73,6 +73,7 @@ class EventMgr(object):
         watchdog_lease.heartbeat()
 
         zkclient = context.GLOBAL.zk.conn
+        zkclient.add_listener(zkutils.exit_on_lost)
 
         seen = zkclient.handler.event_object()
         # Start not ready

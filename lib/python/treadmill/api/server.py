@@ -17,19 +17,17 @@ class API(object):
             return admin.Server(context.GLOBAL.ldap.conn)
 
         @schema.schema(
-            cell={'anyOf': [{'type': 'null'}, {'$ref': 'common.json#/cell'}]},
+            cell={'anyOf': [
+                {'type': 'null'},
+                {'$ref': 'server.json#/resource/properties/cell'}
+            ]},
             partition={'anyOf': [
                 {'type': 'null'},
                 {'$ref': 'server.json#/resource/properties/partition'}
             ]}
         )
-        # () will not pass validation, but it is indication for introspection
-        # that the required type is list.
-        def _list(cell=None, partition=()):
+        def _list(cell=None, partition=None):
             """List servers by cell and/or features."""
-            if partition == ():
-                partition = None
-
             filter_ = {}
             if cell:
                 filter_['cell'] = cell

@@ -25,14 +25,18 @@ PARTITIONS = '/partitions'
 REBOOTS = '/reboots'
 SERVER_PRESENCE = '/server.presence'
 STRATEGIES = '/strategies'
-TASKS = '/tasks'
-TASKS_HISTORY = '/tasks.history'
+FINISHED = '/finished'
+FINISHED_HISTORY = '/finished.history'
+TRACE = '/trace'
+TRACE_HISTORY = '/trace.history'
 TICKET_LOCKER = '/ticket-locker'
 TREADMILL = '/treadmill'
 VERSION = '/version'
 VERSION_ID = '/version-id'
 ZOOKEEPER = '/zookeeper'
 ELECTION = '/election'
+
+TRACE_SHARDS_COUNT = 256
 
 
 def join_zookeeper_path(root, *child):
@@ -46,9 +50,28 @@ def _make_path_f(zkpath):
 
 
 @staticmethod
-def _path_task(instancename, *components):
-    """Returns path of a task object for given app instance."""
-    return '/'.join([TASKS] + instancename.split('#') + list(components))
+def _path_trace_shard(shard_id):
+    """Returns path of a trace shard."""
+    shard = '{:04X}'.format(int(shard_id) % TRACE_SHARDS_COUNT)
+    return '/'.join([TRACE, shard])
+
+
+def trace_shards():
+    """Return list of trace shards."""
+    return ['/'.join([TRACE, '{:04X}'.format(idx)])
+            for idx in xrange(0, TRACE_SHARDS_COUNT)]
+
+
+@staticmethod
+def _path_trace(instancename, event=None):
+    """Returns path of a trace object for given app instance."""
+    instance_id = instancename[instancename.find('#') + 1:]
+    shard = '{:04X}'.format(int(instance_id) % TRACE_SHARDS_COUNT)
+    if event:
+        nodename = '%s,%s' % (instancename, event)
+        return '/'.join([TRACE, shard, nodename])
+    else:
+        return '/'.join([TRACE, shard])
 
 
 @staticmethod
@@ -122,9 +145,12 @@ path.version = _make_path_f(VERSION)
 path.version_id = _make_path_f(VERSION_ID)
 path.zookeeper = _make_path_f(ZOOKEEPER)
 path.election = _make_path_f(ELECTION)
-path.tasks_history = _make_path_f(TASKS_HISTORY)
+path.finished = _make_path_f(FINISHED)
+path.finished_history = _make_path_f(FINISHED_HISTORY)
+path.trace_history = _make_path_f(TRACE_HISTORY)
+path.trace_shard = _make_path_f(TRACE)
 
 # Special methods
 path.endpoint = _path_endpoint
 path.endpoint_proid = _path_endpoint_proid
-path.task = _path_task
+path.trace = _path_trace

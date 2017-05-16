@@ -107,7 +107,7 @@ class AppCfgMgrTest(unittest.TestCase):
         self.assertFalse(
             os.path.exists(os.path.join(self.running, 'proid.app#0'))
         )
-        self.assertEquals(
+        self.assertEqual(
             os.readlink(os.path.join(self.cleanup, 'proid.app-0_1234')),
             os.path.join(self.apps, 'proid.app-0_1234')
         )

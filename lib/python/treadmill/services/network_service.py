@@ -1,4 +1,5 @@
-"""Bridge based network management service."""
+"""Bridge based network management service.
+"""
 
 from __future__ import absolute_import
 
@@ -6,6 +7,8 @@ import errno
 import logging
 import os
 import subprocess
+
+import netifaces
 
 from .. import logcontext as lc
 from .. import netdev
@@ -21,6 +24,8 @@ class NetworkResourceService(BaseResourceServiceImpl):
     """Network link resource service.
     """
     __slots__ = (
+        'ext_device',
+        'ext_ip',
         'ext_mtu',
         'ext_speed',
         '_bridge_mtu',
@@ -38,12 +43,13 @@ class NetworkResourceService(BaseResourceServiceImpl):
     _TM_DEV1 = 'tm1'
     _TM_IP = '192.168.254.254'
 
-    def __init__(self, ext_device, ext_mtu=None, ext_speed=None):
+    def __init__(self, ext_device, ext_ip=None, ext_mtu=None, ext_speed=None):
         super(NetworkResourceService, self).__init__()
 
         self._vips = None
         self._devices = {}
         self._bridge_mtu = 0
+        self.ext_device = ext_device
         # Read external device info
         if ext_mtu is None:
             self.ext_mtu = netdev.dev_mtu(ext_device)
@@ -53,6 +59,10 @@ class NetworkResourceService(BaseResourceServiceImpl):
             self.ext_speed = netdev.dev_speed(ext_device)
         else:
             self.ext_speed = ext_speed
+        if ext_ip is None:
+            self.ext_ip = _device_ip(ext_device)
+        else:
+            self.ext_ip = ext_ip
 
     def initialize(self, service_dir):
         super(NetworkResourceService, self).initialize(service_dir)
@@ -137,10 +147,12 @@ class NetworkResourceService(BaseResourceServiceImpl):
         status = {
             'bridge_dev': self._TMBR_DEV,
             'bridge_mtu': self._bridge_mtu,
-            'int_dev': self._TM_DEV0,
-            'int_ip': self._TM_IP,
-            'ext_mtu': self.ext_mtu,
-            'ext_speed': self.ext_speed,
+            'internal_device': self._TM_DEV0,
+            'internal_ip': self._TM_IP,
+            'external_device': self.ext_device,
+            'external_ip': self.ext_ip,
+            'external_mtu': self.ext_mtu,
+            'external_speed': self.ext_speed,
         }
         status['devices'] = self._devices
         return status
@@ -198,6 +210,7 @@ class NetworkResourceService(BaseResourceServiceImpl):
             'vip': ip,
             'veth': veth1,
             'gateway': self._TM_IP,
+            'external_ip': self.ext_ip,
         }
         return result
 
@@ -302,3 +315,16 @@ def _devive_from_rsrc_id(app_unique_name):
     veth1 = '{id:>013s}.1'.format(id=uniqueid)
 
     return (veth0, veth1)
+
+
+def _device_ip(device):
+    """Return the IPv4 address assigned to a give device.
+
+    :param ``str``:
+        Device name
+    :returns:
+        ``str`` - IPv4 address of the device
+    """
+    ifaddresses = netifaces.ifaddresses(device)
+    # XXX: (boysson) We are taking the first IPv4 assigned to the device.
+    return ifaddresses[netifaces.AF_INET][0]['addr']

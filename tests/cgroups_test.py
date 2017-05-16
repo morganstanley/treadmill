@@ -313,7 +313,7 @@ class CGroupsTest(unittest.TestCase):
         treadmill.cgroups.get_value.assert_called_with(
             'blkio', 'mycgrp', 'blkio.throttle.io_service_bytes'
         )
-        self.assertEquals(
+        self.assertEqual(
             data['253:6'],
             {
                 'Read': 331776,
@@ -337,7 +337,7 @@ class CGroupsTest(unittest.TestCase):
         treadmill.cgroups.get_value.assert_called_with(
             'blkio', 'mycgrp', 'blkio.throttle.io_serviced'
         )
-        self.assertEquals(
+        self.assertEqual(
             data['253:6'],
             {
                 'Read': 81,

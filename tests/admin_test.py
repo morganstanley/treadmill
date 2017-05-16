@@ -24,10 +24,10 @@ class AdminTest(unittest.TestCase):
     def test_and_query(self):
         """Test."""
         query = admin.AndQuery('a', 1)
-        self.assertEquals('(a=1)', str(query))
+        self.assertEqual('(a=1)', str(query))
 
         query('b', '*')
-        self.assertEquals('(&(a=1)(b=*))', str(query))
+        self.assertEqual('(&(a=1)(b=*))', str(query))
 
     def test_entry_to_dict(self):
         """Test entry to dict conversion."""
@@ -40,41 +40,51 @@ class AdminTest(unittest.TestCase):
             ('d', 'd', dict),
         ]
 
-        self.assertEquals({'a': '1', 'b': ['x'], 'C': 1},
-                          admin._entry_2_dict({'a': ['1'],
-                                               'b': ['x'],
-                                               'c': ['1']}, schema))
+        self.assertEqual(
+            {'a': '1', 'b': ['x'], 'C': 1},
+            admin._entry_2_dict({'a': ['1'],
+                                 'b': ['x'],
+                                 'c': ['1']}, schema)
+        )
 
-        self.assertEquals({'a': '1', 'b': ['x'], 'd': {'x': 1}},
-                          admin._entry_2_dict({'a': ['1'],
-                                               'b': ['x'],
-                                               'd': ['{"x": 1}']}, schema))
+        self.assertEqual(
+            {'a': '1', 'b': ['x'], 'd': {'x': 1}},
+            admin._entry_2_dict({'a': ['1'],
+                                 'b': ['x'],
+                                 'd': ['{"x": 1}']}, schema)
+        )
 
-        self.assertEquals({'a': ['1'], 'b': ['x'], 'c': ['1']},
-                          admin._dict_2_entry({'a': '1',
-                                               'b': ['x'],
-                                               'C': 1}, schema))
+        self.assertEqual(
+            {'a': ['1'], 'b': ['x'], 'c': ['1']},
+            admin._dict_2_entry({'a': '1',
+                                 'b': ['x'],
+                                 'C': 1}, schema)
+        )
 
-        self.assertEquals({'a': ['1'], 'd': ['{"x": 1}']},
-                          admin._dict_2_entry({'a': '1',
-                                               'd': {'x': 1}}, schema))
+        self.assertEqual(
+            {'a': ['1'], 'd': ['{"x": 1}']},
+            admin._dict_2_entry({'a': '1',
+                                 'd': {'x': 1}}, schema)
+        )
 
     def test_group_by_opt(self):
         """Tests group by attribute option."""
         # Disable W0212: Test access protected members of admin module.
         # pylint: disable=W0212
-        self.assertEquals({'a': [('xxx', 'a', ['1']),
-                                 ('yyy', 'a', ['2'])],
-                           'b': [('xxx', 'b', ['3'])]},
-                          admin._group_entry_by_opt({'xxx;a': ['1'],
-                                                     'xxx;b': ['3'],
-                                                     'yyy;a': ['2']}))
+        self.assertEqual(
+            {'a': [('xxx', 'a', ['1']),
+                   ('yyy', 'a', ['2'])],
+             'b': [('xxx', 'b', ['3'])]},
+            admin._group_entry_by_opt({'xxx;a': ['1'],
+                                       'xxx;b': ['3'],
+                                       'yyy;a': ['2']})
+        )
 
     def test_grouped_to_list_of_dict(self):
         """Test conversion of grouped by opt elements to dicts."""
         # Disable W0212: Test access protected members of admin module.
         # pylint: disable=W0212
-        self.assertEquals(
+        self.assertEqual(
             [{'name': 'http', 'port': 80}, {'name': 'tcp', 'port': 1000}],
             admin._grouped_to_list_of_dict(
                 {'tm-ep-1': [('name', 'tm-ep-1', ['http']),
@@ -91,7 +101,7 @@ class AdminTest(unittest.TestCase):
         # Access to protected member.
         #
         # pylint: disable=W0212
-        self.assertEquals(
+        self.assertEqual(
             {'aaa': ['a']},
             admin._remove_empty({'aaa': ['a'], 'b': [], 'c': {'a': []}})
         )
@@ -136,7 +146,9 @@ class AdminTest(unittest.TestCase):
             'ephemeral_ports': {
                 'tcp': 5,
                 'udp': 10,
-            }
+            },
+            'shared_ip': True,
+            'shared_network': True
         }
 
         md5_a = hashlib.md5('a').hexdigest()
@@ -180,9 +192,11 @@ class AdminTest(unittest.TestCase):
             'affinity-limit;tm-affinity-' + md5_rack: ['2'],
             'ephemeral-ports-tcp': ['5'],
             'ephemeral-ports-udp': ['10'],
+            'shared-ip': ['TRUE'],
+            'shared-network': ['TRUE']
         }
 
-        self.assertEquals(ldap_entry, admin.Application(None).to_entry(app))
+        self.assertEqual(ldap_entry, admin.Application(None).to_entry(app))
 
         # When converting to entry, None are skipped, and unicode is converted
         # to str.
@@ -192,7 +206,7 @@ class AdminTest(unittest.TestCase):
         # Account for default restart values
         app['services'][1]['restart'] = {'limit': 5, 'interval': 60}
         app['services'][2]['restart']['interval'] = 60
-        self.assertEquals(app, admin.Application(None).from_entry(ldap_entry))
+        self.assertEqual(app, admin.Application(None).from_entry(ldap_entry))
 
     def test_app_to_entry_and_back(self):
         """Test converting app to/from entry populating default values."""
@@ -223,14 +237,14 @@ class AdminTest(unittest.TestCase):
         }
 
         admin_app = admin.Application(None)
-        self.assertEquals(
+        self.assertEqual(
             expected,
             admin_app.from_entry(admin_app.to_entry(app))
         )
 
         app['services'][0]['root'] = True
         expected['services'][0]['root'] = True
-        self.assertEquals(
+        self.assertEqual(
             expected,
             admin_app.from_entry(admin_app.to_entry(app))
         )
@@ -251,7 +265,7 @@ class AdminTest(unittest.TestCase):
             }]
         }
 
-        self.assertEquals(
+        self.assertEqual(
             expected,
             admin_app.from_entry(admin_app.to_entry(app))
         )
@@ -259,7 +273,7 @@ class AdminTest(unittest.TestCase):
         app['passthrough'] = ['xxx.x.com', 'yyy.x.com']
         expected['passthrough'] = ['xxx.x.com', 'yyy.x.com']
 
-        self.assertEquals(
+        self.assertEqual(
             expected,
             admin_app.from_entry(admin_app.to_entry(app))
         )
@@ -275,7 +289,7 @@ class AdminTest(unittest.TestCase):
         app['schedule_once'] = True
         expected['schedule_once'] = True
 
-        self.assertEquals(
+        self.assertEqual(
             expected,
             admin_app.from_entry(admin_app.to_entry(app))
         )
@@ -283,7 +297,7 @@ class AdminTest(unittest.TestCase):
         app['data_retention_timeout'] = '30m'
         expected['data_retention_timeout'] = '30m'
 
-        self.assertEquals(
+        self.assertEqual(
             expected,
             admin_app.from_entry(admin_app.to_entry(app))
         )
@@ -293,6 +307,7 @@ class AdminTest(unittest.TestCase):
         srv = {
             '_id': 'xxx',
             'cell': 'yyy',
+            'partition': 'p',
             'traits': ['a', 'b', 'c'],
             'data': ['a=1', 'b=2'],
         }
@@ -300,12 +315,13 @@ class AdminTest(unittest.TestCase):
         ldap_entry = {
             'server': ['xxx'],
             'cell': ['yyy'],
+            'partition': ['p'],
             'trait': ['a', 'b', 'c'],
             'data': ['a=1', 'b=2'],
         }
 
-        self.assertEquals(ldap_entry, admin.Server(None).to_entry(srv))
-        self.assertEquals(srv, admin.Server(None).from_entry(ldap_entry))
+        self.assertEqual(ldap_entry, admin.Server(None).to_entry(srv))
+        self.assertEqual(srv, admin.Server(None).from_entry(ldap_entry))
 
     def test_cell_to_entry(self):
         """Tests conversion of cell to ldap entry."""
@@ -329,8 +345,10 @@ class AdminTest(unittest.TestCase):
             'data': ['foo=bar', 'x=y'],
         }
         cell_admin = admin.Cell(None)
-        self.assertEquals(cell,
-                          cell_admin.from_entry(cell_admin.to_entry(cell)))
+        self.assertEqual(
+            cell,
+            cell_admin.from_entry(cell_admin.to_entry(cell))
+        )
 
     def test_schema(self):
         """Test schema parsing."""
@@ -366,7 +384,7 @@ class AdminTest(unittest.TestCase):
 
         admin_obj.ldap.bind()
 
-        self.assertEquals(
+        self.assertEqual(
             {
                 'dn': 'cn={1}treadmill,cn=schema,cn=config',
                 'objectClasses': {
@@ -424,15 +442,15 @@ class TenantTest(unittest.TestCase):
             'system': ['3032'],
         }
 
-        self.assertEquals(ldap_entry, self.tnt.to_entry(tenant))
-        self.assertEquals(tenant, self.tnt.from_entry(ldap_entry))
+        self.assertEqual(ldap_entry, self.tnt.to_entry(tenant))
+        self.assertEqual(tenant, self.tnt.from_entry(ldap_entry))
 
         tenant = {'tenant': 'foo:bar', 'systems': [3032]}
         ldap_entry = {
             'tenant': ['foo:bar'],
             'system': ['3032'],
         }
-        self.assertEquals(tenant, self.tnt.from_entry(ldap_entry))
+        self.assertEqual(tenant, self.tnt.from_entry(ldap_entry))
         self.assertTrue(
             self.tnt.dn('foo:bar').startswith(
                 'tenant=bar,tenant=foo,ou=allocations,'))
@@ -457,7 +475,7 @@ class AllocationTest(unittest.TestCase):
         ldap_entry = {
             'environment': ['prod'],
         }
-        self.assertEquals(ldap_entry, self.alloc.to_entry(obj))
+        self.assertEqual(ldap_entry, self.alloc.to_entry(obj))
 
     @mock.patch('treadmill.admin.Admin.search', mock.Mock())
     @mock.patch('treadmill.admin.LdapObject.get', mock.Mock(return_value={}))
@@ -483,10 +501,10 @@ class AllocationTest(unittest.TestCase):
             search_filter='(objectclass=tmCellAllocation)',
             attributes=mock.ANY
         )
-        self.assertEquals(obj['reservations'][0]['cell'], 'xxx')
-        self.assertEquals(obj['reservations'][0]['disk'], '2G')
-        self.assertEquals(obj['reservations'][0]['rank'], 100)
-        self.assertEquals(obj['reservations'][0]['traits'], ['a', 'b'])
+        self.assertEqual(obj['reservations'][0]['cell'], 'xxx')
+        self.assertEqual(obj['reservations'][0]['disk'], '2G')
+        self.assertEqual(obj['reservations'][0]['rank'], 100)
+        self.assertEqual(obj['reservations'][0]['traits'], ['a', 'b'])
         self.assertIn(
             {'pattern': 'ppp.ttt', 'priority': 80},
             obj['reservations'][0]['assignments'])
@@ -523,8 +541,8 @@ class PartitionTest(unittest.TestCase):
             'down-threshold': ['42'],
         }
 
-        self.assertEquals(ldap_entry, self.part.to_entry(obj))
-        self.assertEquals(obj, self.part.from_entry(ldap_entry))
+        self.assertEqual(ldap_entry, self.part.to_entry(obj))
+        self.assertEqual(obj, self.part.from_entry(ldap_entry))
 
 
 if __name__ == '__main__':

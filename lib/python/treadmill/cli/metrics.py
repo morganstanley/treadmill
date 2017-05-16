@@ -143,14 +143,29 @@ def _rrdfile(outdir, *fname_parts):
     return os.path.join(outdir, '-'.join(fname_parts) + '.rrd')
 
 
-def _get_app_metrics(endpoint, instance, uniq='running', outdir=None):
+def _get_app_rsrc(instance, admin_api=None, cell_api=None):
+    """Return the application's reserved resources from the manifest."""
+    try:
+        mf = restclient.get(context.GLOBAL.cell_api(cell_api),
+                            '/instance/%s' % urllib.quote(instance)).json()
+    except restclient.NotFoundError:
+        mf = restclient.get(context.GLOBAL.admin_api(admin_api),
+                            '/app/%s' % instance).json()
+
+    return {rsrc: mf[rsrc] for rsrc in ('cpu', 'disk', 'memory')
+            if rsrc in mf}
+
+
+def _get_app_metrics(endpoint, instance, uniq='running', outdir=None,
+                     cell_api=None):
     """Retreives app metrics."""
     fs.mkdir_safe(outdir)
+    reserved_rsrc = _get_app_rsrc(instance, cell_api)
 
     api = 'http://{}'.format(endpoint['hostport'])
 
     _download_rrd(api, _metrics_url(instance, uniq),
-                  _rrdfile(outdir, instance, uniq))
+                  _rrdfile(outdir, instance, uniq), reserved_rsrc)
 
 
 def _get_server_metrics(endpoint, server, services=None, outdir=None):
@@ -166,7 +181,7 @@ def _get_server_metrics(endpoint, server, services=None, outdir=None):
         _download_rrd(api, _metrics_url(svc), _rrdfile(outdir, server, svc))
 
 
-def _download_rrd(nodeinfo_url, metrics_url, rrdfile):
+def _download_rrd(nodeinfo_url, metrics_url, rrdfile, reserved_rsrc=None):
     """Get rrd file and store in output directory."""
     _LOGGER.info('Download metrics from %s/%s', nodeinfo_url, metrics_url)
     try:
@@ -175,7 +190,8 @@ def _download_rrd(nodeinfo_url, metrics_url, rrdfile):
             for chunk in resp.iter_content(chunk_size=128):
                 f.write(chunk)
 
-        rrdutils.gen_graph(rrdfile, rrdutils.RRDTOOL, show_mem_limit=False)
+        rrdutils.gen_graph(rrdfile, rrdutils.RRDTOOL,
+                           reserved_rsrc=reserved_rsrc)
     except restclient.NotFoundError as err:
         _LOGGER.error('%s', err)
         cli.bad_exit('Metrics not found: %s', err)
@@ -189,6 +205,10 @@ def init():
     ctx = {}
 
     @click.group()
+    @click.option('--cell-api',
+                  envvar='TREADMILL_CELLAPI',
+                  help='Cell API url to use.',
+                  required=False)
     @click.option('--api',
                   envvar='TREADMILL_STATEAPI',
                   help='State API url to use.',
@@ -204,8 +224,9 @@ def init():
                   required=True,
                   type=click.Path(exists=True))
     @click.option('--ws-api', help='Websocket API url to use.', required=False)
-    def metrics(api=None, outdir=None, ws_api=None):
+    def metrics(cell_api, api, outdir, ws_api):
         """Retrieve node / app metrics."""
+        ctx['cell_api'] = cell_api
         ctx['nodeinf_eps'] = _find_nodeinfo_endpoints(api)
         ctx['outdir'] = outdir
         ctx['ws_api'] = ws_api
@@ -224,7 +245,8 @@ def init():
         for inst, host in instances.iteritems():
             endpoint = _get_endpoint_for_host(ctx['nodeinf_eps'], host)
 
-            _get_app_metrics(endpoint, inst, outdir=ctx['outdir'])
+            _get_app_metrics(endpoint, inst, outdir=ctx['outdir'],
+                             cell_api=ctx['cell_api'])
 
     @metrics.command()
     @cli.ON_REST_EXCEPTIONS
@@ -245,7 +267,8 @@ def init():
         for inst, host in instances.iteritems():
             endpoint = _get_endpoint_for_host(ctx['nodeinf_eps'], host)
 
-            _get_app_metrics(endpoint, inst, uniq, outdir=ctx['outdir'])
+            _get_app_metrics(endpoint, inst, uniq, outdir=ctx['outdir'],
+                             cell_api=ctx['cell_api'])
 
     @metrics.command()
     @cli.ON_REST_EXCEPTIONS

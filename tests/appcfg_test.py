@@ -1,5 +1,4 @@
-"""
-Unit test for treadmill.appcfg
+"""Unit test for treadmill.appcfg
 """
 
 import os

@@ -28,16 +28,16 @@ class HttpTest(unittest.TestCase):
         self.assertIsNone(req.get_data())
 
         req = http.make_request('http://xxx', 'POST', '', None)
-        self.assertEquals(0, len(req.get_data()))
+        self.assertEqual(0, len(req.get_data()))
 
         req = http.make_request('http://xxx', 'POST', 'abc', None)
-        self.assertEquals(3, len(req.get_data()))
+        self.assertEqual(3, len(req.get_data()))
 
         req = http.make_request('http://xxx', 'POST', '', [('xxx', 'yyy'),
                                                            ('foo',)])
 
-        self.assertEquals('yyy', req.get_header('Xxx'))
-        self.assertEquals('1', req.get_header('Foo'))
+        self.assertEqual('yyy', req.get_header('Xxx'))
+        self.assertEqual('1', req.get_header('Foo'))
 
 
 if __name__ == '__main__':

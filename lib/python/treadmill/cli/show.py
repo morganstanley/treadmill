@@ -1,5 +1,6 @@
 """Manage Treadmill app manifest."""
 from __future__ import absolute_import
+from __future__ import print_function
 
 import logging
 import urllib
@@ -20,27 +21,39 @@ _ENDPOINT_FORMATTER = cli.make_formatter(cli.EndpointPrettyFormatter)
 _APP_FORMATTER = cli.make_formatter(cli.AppPrettyFormatter)
 
 
-def _show_state(apis, match):
+def _show_state(apis, match, finished):
     """Show cell state."""
     url = '/state/'
+    query = []
     if match:
-        url += '?' + urllib.urlencode([('match', match)])
+        query.append(('match', match))
+    if finished:
+        query.append(('finished', '1'))
+
+    if query:
+        url += '?' + '&'.join([urllib.urlencode([param]) for param in query])
 
     response = restclient.get(apis, url)
     cli.out(_STATE_FORMATTER(response.json()))
 
 
-def _show_list(apis, match, states):
+def _show_list(apis, match, states, finished=False):
     """Show list of instnces in given state."""
     url = '/state/'
+    query = []
     if match:
-        url += '?' + urllib.urlencode([('match', match)])
+        query.append(('match', match))
+    if finished:
+        query.append(('finished', '1'))
+
+    if query:
+        url += '?' + '&'.join([urllib.urlencode([param]) for param in query])
 
     response = restclient.get(apis, url)
     names = [item['name']
              for item in response.json() if item['state'] in states]
     for name in names:
-        print name
+        print(name)
 
 
 def _show_endpoints(apis, pattern, endpoint, proto):
@@ -93,10 +106,12 @@ def init():
     @show.command()
     @cli.ON_REST_EXCEPTIONS
     @click.option('--match', help='Application name pattern match')
-    def state(match):
+    @click.option('--finished', is_flag=True, default=False,
+                  help='Show finished instances.')
+    def state(match, finished):
         """Show state of Treadmill scheduled instances."""
         apis = context.GLOBAL.state_api(ctx['api'])
-        return _show_state(apis, match)
+        return _show_state(apis, match, finished)
 
     @show.command()
     @cli.ON_REST_EXCEPTIONS
@@ -113,6 +128,14 @@ def init():
         """Show running instances."""
         apis = context.GLOBAL.state_api(ctx['api'])
         return _show_list(apis, match, ['running'])
+
+    @show.command()
+    @cli.ON_REST_EXCEPTIONS
+    @click.option('--match', help='Application name pattern match')
+    def finished(match):
+        """Show finished instances."""
+        apis = context.GLOBAL.state_api(ctx['api'])
+        return _show_list(apis, match, ['finished'], finished=True)
 
     @show.command()
     @cli.ON_REST_EXCEPTIONS
@@ -152,6 +175,7 @@ def init():
     del running
     del scheduled
     del pending
+    del finished
     del instance
     del state
     del endpoints

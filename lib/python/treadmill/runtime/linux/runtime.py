@@ -91,11 +91,11 @@ class LinuxRuntime(runtime_base.RuntimeBase):
             app_presence.register()
             _get_tickets(manifest['name'], manifest, self.container_dir)
             _start_service_sup(self.container_dir)
-        except exc.ContainerSetupError as err:
+        except exc.ContainerSetupError:
             app_abort.abort(
                 self.tm_env,
                 manifest['name'],
-                reason=str(err)
+                reason='container_setup_error',
             )
 
         # If tickets are not ok, app will be aborted. Waiting for tickets

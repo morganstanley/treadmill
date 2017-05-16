@@ -17,16 +17,21 @@ def init(api, cors, impl):
 
     namespace = webutils.namespace(api, __name__, 'Server REST operations')
 
+    req_parser = api.parser()
+    req_parser.add_argument('cell', help='Cell',
+                            location='args', required=False)
+    req_parser.add_argument('partition', help='Partition',
+                            location='args', required=False)
+
     @namespace.route('/',)
     class _ServerList(restplus.Resource):
         """Treadmill Server resource"""
 
-        @webutils.get_api(api, cors)
+        @webutils.get_api(api, cors, parser=req_parser)
         def get(self):
             """Returns list of configured servers."""
-            return impl.list(
-                flask.request.args.get('cell'),
-                flask.request.args.getlist('features'))
+            args = req_parser.parse_args()
+            return impl.list(args.get('cell'), args.get('partition'))
 
     @namespace.route('/<server_id>')
     class _ServerResource(restplus.Resource):

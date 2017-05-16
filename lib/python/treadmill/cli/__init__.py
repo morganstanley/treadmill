@@ -318,7 +318,7 @@ def out(string, *args):
     if args:
         string = string % args
 
-    print string
+    click.echo(string)
 
 
 def handle_exceptions(exclist):

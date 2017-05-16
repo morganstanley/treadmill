@@ -1,5 +1,6 @@
 """Trace treadmill application events."""
 from __future__ import absolute_import
+from __future__ import print_function
 
 import sys
 
@@ -18,7 +19,7 @@ _LOGGER = logging.getLogger()
 
 
 def _iterate(discovery_iter, check_state, sep):
-    """Iterate and print discovered endpoints."""
+    """Iterate and output discovered endpoints."""
     for (app, hostport) in discovery_iter:
         if hostport:
             state = ''
@@ -41,7 +42,7 @@ def _iterate(discovery_iter, check_state, sep):
         else:
             output = app
 
-        print output.strip()
+        print(output.strip())
         sys.stdout.flush()
 
 

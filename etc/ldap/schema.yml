@@ -162,6 +162,9 @@ attributeTypes:
   shared-ip:
     desc: Treadmill shared IP
     type: bool
+  shared-network:
+    desc: Treadmill shared network
+    type: bool
   app-group:
     desc: Treadmill App Group
     type: str
@@ -261,6 +264,7 @@ objectClasses:
     - ticket
     - feature
     - shared-ip
+    - shared-network
     - affinity-level
     - affinity-limit
     - vring-cell

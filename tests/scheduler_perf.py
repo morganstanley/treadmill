@@ -1,6 +1,8 @@
 """Performance test for treadmill.scheduler
 """
 
+from __future__ import print_function
+
 import timeit
 
 # Disable W0611: Unused import
@@ -14,7 +16,7 @@ def schedule(sched):
     """Helper function to run the scheduler."""
 
     def _schedule():
-        """Run the scheduler, print some stats."""
+        """Run the scheduler, output some stats."""
         new_placement = 0
         evicted = 0
         for event in sched.schedule():
@@ -23,10 +25,10 @@ def schedule(sched):
             else:
                 evicted = evicted + 1
 
-        print 'scheduled: ', new_placement, ', evicted: ', evicted
+        print('scheduled: ', new_placement, ', evicted: ', evicted)
 
     interval = timeit.timeit(stmt=_schedule, number=1)
-    print 'time  :', interval
+    print('time  :', interval)
 
 
 # XXX(boysson): Test needs update to new Scheduler API
@@ -34,9 +36,9 @@ def schedule(sched):
 # XXX: def test_reschedule(nodes_count, app_count, attempts, affinity):
 # XXX:     """Add high priority apps on top of low priority with full capacity.
 # XXX:     """
-# XXX:     print 'nodes: %s, apps: %s, attempts: %s' % (nodes_count,
+# XXX:     print('nodes: %s, apps: %s, attempts: %s' % (nodes_count,
 # XXX:                                                  app_count,
-# XXX:                                                  attempts)
+# XXX:                                                  attempts))
 # XXX:     cell = scheduler.Cell(3)
 # XXX:     for idx in xrange(0, nodes_count):
 # XXX:         node = scheduler.Node('node' + str(idx), [48, 48, 48])
@@ -64,9 +66,9 @@ def schedule(sched):
 # XXX:
 # XXX: def test_affinity(nodes_count, app_count, affinity_limit):
 # XXX:     """Add more apps than nodes count to test affinity limit algo."""
-# XXX:     print 'node: %s, apps: %s, affinity_limit %s' % (nodes_count,
+# XXX:     print('node: %s, apps: %s, affinity_limit %s' % (nodes_count,
 # XXX:                                                      app_count,
-# XXX:                                                      affinity_limit)
+# XXX:                                                      affinity_limit))
 # XXX:
 # XXX:     cell = scheduler.Cell(3)
 # XXX:     for idx in xrange(0, nodes_count):

@@ -7,7 +7,7 @@ import os
 import pwd
 
 from treadmill import context
-from treadmill import tests as chk
+from treadmill import checkout as chk
 
 
 def test():

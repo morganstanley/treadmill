@@ -50,11 +50,16 @@ class MasterTest(mockzk.MockZookeeperTestCase):
 
     def test_resource_parsing(self):
         """Tests parsing resources."""
-        self.assertEquals([0, 0, 0], master.resources({}))
-        self.assertEquals([1, 0, 0], master.resources({'memory': '1M'}))
-        self.assertEquals([1, 10, 1024], master.resources({'memory': '1M',
-                                                           'cpu': '10%',
-                                                           'disk': '1G'}))
+        self.assertEqual([0, 0, 0], master.resources({}))
+        self.assertEqual([1, 0, 0], master.resources({'memory': '1M'}))
+        self.assertEqual(
+            [1, 10, 1024],
+            master.resources(
+                {'memory': '1M',
+                 'cpu': '10%',
+                 'disk': '1G'}
+            )
+        )
 
     @mock.patch('kazoo.client.KazooClient.get', mock.Mock())
     @mock.patch('kazoo.client.KazooClient.exists', mock.Mock())
@@ -182,15 +187,19 @@ class MasterTest(mockzk.MockZookeeperTestCase):
         self.master.load_buckets()
         self.master.load_servers()
 
-        self.assertEquals((scheduler.State.down, 100),
-                          self.master.servers['test.xx.com'].get_state())
+        self.assertEqual(
+            (scheduler.State.down, 100),
+            self.master.servers['test.xx.com'].get_state()
+        )
 
         zk_content['server.presence']['test.xx.com'] = {}
 
         time.time.return_value = 200
         self.master.adjust_server_state('test.xx.com')
-        self.assertEquals((scheduler.State.up, 200),
-                          self.master.servers['test.xx.com'].get_state())
+        self.assertEqual(
+            (scheduler.State.up, 200),
+            self.master.servers['test.xx.com'].get_state()
+        )
 
     @mock.patch('kazoo.client.KazooClient.get', mock.Mock())
     def test_load_allocations(self):
@@ -213,20 +222,19 @@ class MasterTest(mockzk.MockZookeeperTestCase):
         root = self.master.cell.partitions[None].allocation
         self.assertIn('treadmill', root.sub_allocations)
         leaf_alloc = root.get_sub_alloc('treadmill').get_sub_alloc('dev')
-        self.assertEquals(100, leaf_alloc.rank)
-        self.assertEquals(1024, leaf_alloc.reserved[0])
-        self.assertEquals(100, leaf_alloc.reserved[1])
-        self.assertEquals(1024, leaf_alloc.reserved[2])
+        self.assertEqual(100, leaf_alloc.rank)
+        self.assertEqual(1024, leaf_alloc.reserved[0])
+        self.assertEqual(100, leaf_alloc.reserved[1])
+        self.assertEqual(1024, leaf_alloc.reserved[2])
 
         assignments = self.master.assignments
-        self.assertEquals(
+        self.assertEqual(
             (10, leaf_alloc),
             assignments['treadmlx.*[#]' + '[0-9]' * 10]
         )
 
     @mock.patch('kazoo.client.KazooClient.get', mock.Mock())
     @mock.patch('kazoo.client.KazooClient.get_children', mock.Mock())
-    @mock.patch('treadmill.master.Master._create_task', mock.Mock())
     def test_load_apps(self):
         """Tests loading application data."""
         zk_content = {
@@ -244,12 +252,12 @@ class MasterTest(mockzk.MockZookeeperTestCase):
         self.master.load_apps()
 
         self.assertIn('foo.bar#1234', self.master.cell.apps)
-        self.assertEquals(self.master.cell.apps['foo.bar#1234'].priority, 1)
+        self.assertEqual(self.master.cell.apps['foo.bar#1234'].priority, 1)
 
         zk_content['scheduled']['foo.bar#1234']['priority'] = 5
         self.master.load_apps()
-        self.assertEquals(len(self.master.cell.apps), 1)
-        self.assertEquals(self.master.cell.apps['foo.bar#1234'].priority, 5)
+        self.assertEqual(len(self.master.cell.apps), 1)
+        self.assertEqual(self.master.cell.apps['foo.bar#1234'].priority, 5)
 
     @mock.patch('kazoo.client.KazooClient.get', mock.Mock())
     @mock.patch('kazoo.client.KazooClient.get_children', mock.Mock())
@@ -352,7 +360,6 @@ class MasterTest(mockzk.MockZookeeperTestCase):
     @mock.patch('treadmill.zkutils.ensure_exists', mock.Mock())
     @mock.patch('treadmill.zkutils.ensure_deleted', mock.Mock())
     @mock.patch('treadmill.zkutils.put', mock.Mock())
-    @mock.patch('treadmill.master.Master._create_task', mock.Mock())
     def test_restore_placement(self):
         """Tests application placement."""
         zk_content = {
@@ -435,12 +442,14 @@ class MasterTest(mockzk.MockZookeeperTestCase):
         self.assertFalse(treadmill.zkutils.ensure_deleted.called)
         self.assertFalse(treadmill.zkutils.ensure_exists.called)
 
-        self.assertEquals(self.master.cell.apps['xxx.app1#1234'].identity, 1)
-        self.assertEquals(
-            self.master.cell.apps['xxx.app1#1234'].identity_group, 'xxx.app1')
-        self.assertEquals(
+        self.assertEqual(self.master.cell.apps['xxx.app1#1234'].identity, 1)
+        self.assertEqual(
+            self.master.cell.apps['xxx.app1#1234'].identity_group, 'xxx.app1'
+        )
+        self.assertEqual(
             self.master.cell.identity_groups['xxx.app1'].available,
-            set([0, 2, 3, 4]))
+            set([0, 2, 3, 4])
+        )
 
     @mock.patch('kazoo.client.KazooClient.get', mock.Mock())
     @mock.patch('kazoo.client.KazooClient.exists', mock.Mock())
@@ -448,7 +457,6 @@ class MasterTest(mockzk.MockZookeeperTestCase):
     @mock.patch('treadmill.zkutils.ensure_exists', mock.Mock())
     @mock.patch('treadmill.zkutils.ensure_deleted', mock.Mock())
     @mock.patch('treadmill.zkutils.put', mock.Mock())
-    @mock.patch('treadmill.master.Master._create_task', mock.Mock())
     def test_restore_with_integrity_err(self):
         """Tests application placement."""
         zk_content = {
@@ -584,7 +592,7 @@ class MasterTest(mockzk.MockZookeeperTestCase):
                       sequence=True,
                       ephemeral=False,
                       acl=mock.ANY),
-            mock.call('/tasks/foo.bar/12/123.34,xxx,pending,',
+            mock.call('/trace/000C/foo.bar#12,123.34,xxx,pending,created',
                       '',
                       makepath=True,
                       acl=mock.ANY),
@@ -596,7 +604,7 @@ class MasterTest(mockzk.MockZookeeperTestCase):
                       sequence=True,
                       ephemeral=False,
                       acl=mock.ANY),
-            mock.call('/tasks/foo.bar/12/123.34,xxx,pending,',
+            mock.call('/trace/000C/foo.bar#12,123.34,xxx,pending,created',
                       '',
                       makepath=True,
                       acl=mock.ANY)
@@ -678,7 +686,6 @@ class MasterTest(mockzk.MockZookeeperTestCase):
     @mock.patch('treadmill.zkutils.ensure_exists', mock.Mock())
     @mock.patch('treadmill.zkutils.ensure_deleted', mock.Mock())
     @mock.patch('treadmill.zkutils.put', mock.Mock())
-    @mock.patch('treadmill.master.Master._create_task', mock.Mock())
     @mock.patch('time.time', mock.Mock())
     def test_check_reboot(self):
         """Tests reboot checks."""
@@ -755,7 +762,7 @@ class MasterTest(mockzk.MockZookeeperTestCase):
         self.master.load_schedule()
 
         # Valid until is rounded to the end of day - reboot time + 21
-        self.assertEquals(
+        self.assertEqual(
             self.master.servers['test1.xx.com'].valid_until,
             self.master.servers['test2.xx.com'].valid_until
         )

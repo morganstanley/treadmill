@@ -32,7 +32,7 @@ class RunTest(unittest.TestCase):
     def test_run_nameonly(self):
         """Test cli.run no manifest."""
         result = self.runner.invoke(self.cli, ['--cell', 'xx', 'proid.app'])
-        self.assertEquals(result.exit_code, 0)
+        self.assertEqual(result.exit_code, 0)
         treadmill.restclient.post.assert_called_with(
             ['http://xxx:1234'],
             '/instance/proid.app?count=1',
@@ -60,7 +60,7 @@ class RunTest(unittest.TestCase):
                 '--cell', 'xx', 'proid.app',
                 '--manifest', f.name,
             ])
-            self.assertEquals(result.exit_code, 0)
+            self.assertEqual(result.exit_code, 0)
             treadmill.restclient.post.assert_called_with(
                 ['http://xxx:1234'],
                 '/instance/proid.app?count=1',
@@ -73,7 +73,7 @@ class RunTest(unittest.TestCase):
                 '--memory', '333M',
                 '--manifest', f.name,
             ])
-            self.assertEquals(result.exit_code, 0)
+            self.assertEqual(result.exit_code, 0)
             treadmill.restclient.post.assert_called_with(
                 ['http://xxx:1234'],
                 '/instance/proid.app?count=1',

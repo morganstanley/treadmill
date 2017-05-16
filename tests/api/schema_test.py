@@ -73,10 +73,12 @@ class ApiSchemaTest(unittest.TestCase):
 
     def test_helpers(self):
         """Test helper methods."""
-        self.assertEquals({'a': 1}, _patch({'a': 2}, '/a', 1))
-        self.assertEquals({}, _without({'a': 2}, ['a']))
-        self.assertEquals({'a': [{}]},
-                          _without({'a': [{'a': 1}]}, ['a'], path='/a/0'))
+        self.assertEqual({'a': 1}, _patch({'a': 2}, '/a', 1))
+        self.assertEqual({}, _without({'a': 2}, ['a']))
+        self.assertEqual(
+            {'a': [{}]},
+            _without({'a': [{'a': 1}]}, ['a'], path='/a/0')
+        )
 
     @mock.patch('treadmill.context.AdminContext.conn',
                 mock.Mock(return_value=None))
@@ -347,12 +349,8 @@ class ApiSchemaTest(unittest.TestCase):
             'memory': '1G',
             'cpu': '100%',
             'disk': '1G',
+            'partition': 'xxx',
         }
-        _ok(api.create, 'aaa/prod/cell', good)
-
-        good.update({
-            'partition': 'xxx'
-        })
         _ok(api.create, 'aaa/prod/cell', good)
 
         # Update

@@ -18,19 +18,19 @@ class WSIdentityGroupAPITest(unittest.TestCase):
     def test_subscribe(self):
         """Test subscription registration."""
         api = identity_group.IdentityGroupAPI()
-        self.assertEquals(
+        self.assertEqual(
             [('/identity-groups/foo.bar', '*')],
             api.subscribe({'topic': '/identity-groups',
                            'identity-group': 'foo.bar'})
         )
 
-        self.assertEquals(
+        self.assertEqual(
             [('/identity-groups/foo.*', '*')],
             api.subscribe({'topic': '/identity-groups',
                            'identity-group': 'foo.*'})
         )
 
-        self.assertEquals(
+        self.assertEqual(
             [('/identity-groups/*', '*')],
             api.subscribe({'topic': '/identity-groups'})
         )
@@ -52,7 +52,7 @@ class WSIdentityGroupAPITest(unittest.TestCase):
     def test_on_event(self):
         """Tests payload generation."""
         api = identity_group.IdentityGroupAPI()
-        self.assertEquals(
+        self.assertEqual(
             {'topic': '/identity-groups',
              'identity-group': 'foo.bar',
              'identity': 3,
@@ -65,7 +65,7 @@ class WSIdentityGroupAPITest(unittest.TestCase):
                 '{"host": "xxx.xx.com", "app": "foo.bar#123"}'
             )
         )
-        self.assertEquals(
+        self.assertEqual(
             {'topic': '/identity-groups',
              'identity-group': 'foo.bar',
              'identity': 3,

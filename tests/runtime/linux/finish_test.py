@@ -1,5 +1,4 @@
-"""
-Unit test for treadmill.runtime.linux._finish.
+"""Unit test for treadmill.runtime.linux._finish.
 """
 
 import datetime
@@ -38,7 +37,6 @@ class LinuxRuntimeFinishTest(unittest.TestCase):
         self.root = tempfile.mkdtemp()
         self.tm_env = mock.Mock(
             root=self.root,
-            host_ip='172.31.81.67',
             # nfs_dir=os.path.join(self.root, 'mnt', 'nfs'),
             apps_dir=os.path.join(self.root, 'apps'),
             archives_dir=os.path.join(self.root, 'archives'),
@@ -99,7 +97,6 @@ class LinuxRuntimeFinishTest(unittest.TestCase):
             'cpu': '100%',
             'disk': '100G',
             'environment': 'dev',
-            'host_ip': '172.31.81.67',
             'memory': '100M',
             'name': 'proid.myapp#001',
             'proid': 'foo',
@@ -155,6 +152,7 @@ class LinuxRuntimeFinishTest(unittest.TestCase):
             'vip': '192.168.0.2',
             'gateway': '192.168.254.254',
             'veth': 'testveth.0',
+            'external_ip': '172.31.81.67',
         }
         mock_nwrk_client.get.return_value = network
         app_dir = os.path.join(self.tm_env.apps_dir, app_unique_name)
@@ -344,7 +342,6 @@ class LinuxRuntimeFinishTest(unittest.TestCase):
             'cpu': '100%',
             'disk': '100G',
             'environment': 'dev',
-            'host_ip': '172.31.81.67',
             'memory': '100M',
             'name': 'proid.myapp#001',
             'proid': 'foo',
@@ -392,6 +389,7 @@ class LinuxRuntimeFinishTest(unittest.TestCase):
             'vip': '192.168.0.2',
             'gateway': '192.168.254.254',
             'veth': 'testveth.0',
+            'external_ip': '172.31.81.67',
         }
         mock_nwrk_client.get.return_value = network
         app_dir = os.path.join(self.tm_env.apps_dir, app_unique_name)
@@ -503,6 +501,7 @@ class LinuxRuntimeFinishTest(unittest.TestCase):
             'vip': '192.168.0.2',
             'gateway': '192.168.254.254',
             'veth': 'testveth.0',
+            'external_ip': '172.31.81.67',
         }
         mock_nwrk_client.get.return_value = network
         app_dir = os.path.join(self.root, 'apps', app_unique_name)
@@ -581,7 +580,6 @@ class LinuxRuntimeFinishTest(unittest.TestCase):
             'cpu': '100%',
             'disk': '100G',
             'environment': 'dev',
-            'host_ip': '172.31.81.67',
             'memory': '100M',
             'name': 'proid.myapp#001',
             'proid': 'foo',
@@ -768,7 +766,7 @@ class LinuxRuntimeFinishTest(unittest.TestCase):
 
         tar = tarfile.open(sys_archive)
         files = sorted([member.name for member in tar.getmembers()])
-        self.assertEquals(
+        self.assertEqual(
             files,
             ['a.rrd', 'a.yml', 'log/current',
              'sys/bla/log/current', 'sys/foo/log/current']
@@ -777,7 +775,7 @@ class LinuxRuntimeFinishTest(unittest.TestCase):
 
         tar = tarfile.open(app_archive)
         files = sorted([member.name for member in tar.getmembers()])
-        self.assertEquals(
+        self.assertEqual(
             files,
             ['services/xxx/log/current']
         )

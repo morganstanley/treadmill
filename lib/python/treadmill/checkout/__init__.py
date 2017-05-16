@@ -1,5 +1,7 @@
 """Checkout utilities."""
 
+from __future__ import print_function
+
 import unittest
 import socket
 import pkgutil
@@ -50,7 +52,7 @@ def connect(host, port):
 
 def telnet(host, port, expect='SSH', timeout=1):
     """Check telnet to host:port succeeds."""
-    print 'telnet %s %s, expect: %s' % (host, port, expect)
+    print('telnet %s %s, expect: %s' % (host, port, expect))
     telnet_client = telnetlib.Telnet(host, port, timeout=timeout)
     telnet_client.read_until(expect, timeout=timeout)
     telnet_client.close()
