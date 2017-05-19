@@ -3,56 +3,56 @@
 
 import timeit
 import random
+import time
 
 from treadmill import scheduler
+from treadmill import utils
 
 
-def schedule(sched):
-    """Helper function to run the scheduler."""
+def resources(data):
+    """Convert resource demand/capacity spec into resource vector."""
+    parsers = {
+        'memory': utils.megabytes,
+        'disk': utils.megabytes,
+        'cpu': utils.cpu_units
+    }
 
-    def _schedule():
-        """Run the scheduler, print some stats."""
-        new_placement = 0
-        evicted = 0
-        for event in sched.schedule():
-            if event.node:
-                new_placement = new_placement + 1
-            else:
-                evicted = evicted + 1
-
-        print('scheduled: ', new_placement, ', evicted: ', evicted)
-
-    interval = timeit.timeit(stmt=_schedule, number=1)
-    print('time  :', interval)
-
+    return [parsers[k](data.get(k, 0)) for k in ['memory', 'cpu', 'disk']]
 
 # XXX(boysson): Test needs update to new Scheduler API
 # XXX:
 def test_reschedule(nodes_count, app_count, attempts, affinity):
     """Add high priority apps on top of low priority with full capacity.
     """
-    print('nodes: %s, apps: %s, attempts: %s' % (nodes_count,
-                                                 app_count,
-                                                 attempts))
+    # print('nodes: %s, apps: %s, attempts: %s' % (nodes_count,
+    #                                              app_count,
+    #                                              attempts))
     scheduler.DIMENSION_COUNT = 3
-    cell = scheduler.Cell(3)
+    cell = scheduler.Cell("local", labels=set([None]))
     for idx in range(0, nodes_count):
-        node = scheduler.Node('node' + str(idx), 0, 0)
+        node = scheduler.Server('node' + str(idx), resources({
+            "memory": "2G",
+            "disk": "20G",
+            "cpu": "90%"
+        }), time.time() * 2)
         cell.add_node(node)
-
-    alloc = scheduler.Allocation([10, 10, 10])
 
     for attempt in range(0, attempts):
         for app_idx in range(0, app_count):
             prio = attempt * 5 + random.randint(0, 5)
-            demand = [random.randint(1, 48),
-                      random.randint(1, 48),
-                      random.randint(1, 48)]
+            demand = resources({
+                "memory": "1G",
+                "disk": "10G",
+                "cpu": "40%"
+            })
             name = 'app_%s.%s' % (attempt, app_idx)
-            cell.add_app(alloc, scheduler.Application(name, prio,
-                                                      demand, affinity=affinity(app_idx)))
-
-        cell.schedule()
+            alloc = scheduler.Allocation([10, 10, 10])
+            alloc.label = "test"
+            app = scheduler.Application(name, prio, demand, affinity=affinity(app_idx))
+            cell.add_app(alloc, app)
+            cell.partitions[None] = scheduler.Partition()
+            cell.partitions[None].allocation = alloc
+            cell.schedule()
 
 
 # XXX(boysson): Test needs update to new Scheduler API
@@ -89,8 +89,10 @@ def test_reschedule(nodes_count, app_count, attempts, affinity):
 
 
 if __name__ == '__main__':
-    print(timeit.timeit("test_reschedule(500, 1000, 5, affinity=lambda idx: None)",
-                        setup="from __main__ import test_reschedule", number=250))
+    for i in range(500, 1001):
+        if i % 10 ==0:
+            print(i, timeit.timeit("test_reschedule(500, %s, 5, affinity=lambda idx: None)" % i,
+                                setup="from __main__ import test_reschedule", number=10))
 #     test_reschedule(1000, 1000, 3, affinity=str)
 #     test_reschedule(1000, 3000, 3, affinity=lambda idx: str(idx % 5))
 #     test_affinity(500, 1000, 1)

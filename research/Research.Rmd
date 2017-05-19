@@ -1,0 +1,91 @@
+---
+title: "Research on Treamill Scheduler"
+output: html_notebook
+author: Ce Gao
+organization: Shanghai Jiao Tong University
+---
+
+## Perior state-of-the-art implemenetation
+
+The architecture of scheduler is simple, which has two strategies: spread and pack.
+
+In the spread mode, the scheduler will select a new node to run the app. And spread mode is the default mode in treadmill.
+
+In the pack mode, the scheduler will select the same node until the node has no capacity.
+
+```{python, eval=FALSE, include=FALSE}
+class SpreadStrategy(Strategy):
+    """Spread strategy will suggest new node for each subsequent placement."""
+    __slots__ = (
+        'current_idx',
+        'node',
+    )
+
+    def __init__(self, node):
+        self.current_idx = 0
+        self.node = node
+
+    def suggested_node(self):
+        """Suggest next node from the cycle."""
+        for _ in range(0, len(self.node.children)):
+            if self.current_idx == len(self.node.children):
+                self.current_idx = 0
+
+            current = self.node.children[self.current_idx]
+            self.current_idx += 1
+            if current:
+                return current
+        # Not a single non-none node.
+        return None
+
+    def next_node(self):
+        """Suggest next node from the cycle."""
+        return self.suggested_node()
+
+
+class PackStrategy(Strategy):
+    """Pack strategy will suggest same node until it is full."""
+    __slots__ = (
+        'current_idx',
+        'node',
+    )
+
+    def __init__(self, node):
+        self.current_idx = 0
+        self.node = node
+
+    def suggested_node(self):
+        """Suggest same node as previous placement."""
+        for _ in range(0, len(self.node.children)):
+            if self.current_idx == len(self.node.children):
+                self.current_idx = 0
+            node = self.node.children[self.current_idx]
+            if node:
+                return node
+
+        return None
+
+    def next_node(self):
+        """Suggest next node from the cycle."""
+        self.current_idx += 1
+        return self.suggested_node()
+```
+
+### Evualuation of perior implementation
+
+#### Schedle apps in 500 nodes
+
+```{r Schedule apps in 500 nodes, echo=FALSE, message=FALSE, warning=FALSE}
+library(plotly)
+
+dt <- read.table("500-node-from-500-to-1000-app/500-node-from-500-to-1000-app.txt", 
+                 sep="\t",
+                 col.names=c("number", "time", "time10"),
+                 fill=FALSE,
+                 strip.white=TRUE)
+
+p1 <- plotly::plot_ly(x = dt$number, y = dt$time, color = dt$time) %>%
+  add_lines(name = ~"1")
+subplot(p1)
+```
+
