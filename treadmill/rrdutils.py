@@ -63,7 +63,7 @@ class RRDClient(object):
             return
 
         reply = self.rrd.readline()
-        status, _msg = reply.split(b' ', 1)
+        status, _msg = reply.split(' ', 1)
         status = int(status)
 
         if status < 0:
