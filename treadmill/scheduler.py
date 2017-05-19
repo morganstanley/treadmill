@@ -19,6 +19,7 @@ import enum
 import numpy as np
 from functools import reduce
 
+# logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
 _LOGGER = logging.getLogger(__name__)
 
 MAX_PRIORITY = 100
