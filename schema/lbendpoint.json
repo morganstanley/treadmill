@@ -43,8 +43,7 @@
     },
     "verbs": {
         "create": {
-            "required": ["endpoint", "pattern", "environment",
-                         "lbenv"]
+            "required": ["endpoint", "pattern", "lbenv"]
         },
         "update": {
             "required": ["lbenv"]

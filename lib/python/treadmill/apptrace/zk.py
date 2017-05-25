@@ -253,3 +253,23 @@ def cleanup_finished(zkclient, batch_size, expires_after):
             'finished',
             batch
         )
+
+
+def _cleanup(zkclient, path, max_count):
+    """Cleanup old nodes given path."""
+    nodes = sorted(zkclient.get_children(path))
+    extra = len(nodes) - max_count
+    if extra > 0:
+        for node in nodes[0:extra]:
+            zkutils.ensure_deleted(zkclient,
+                                   z.join_zookeeper_path(path, node))
+
+
+def cleanup_trace_history(zkclient, max_count):
+    """Cleanup trace history."""
+    _cleanup(zkclient, z.TRACE_HISTORY, max_count)
+
+
+def cleanup_finished_history(zkclient, max_count):
+    """Cleanup trace history."""
+    _cleanup(zkclient, z.FINISHED_HISTORY, max_count)

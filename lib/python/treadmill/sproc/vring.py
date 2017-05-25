@@ -6,7 +6,7 @@ import signal
 import sys
 
 import logging
-import yaml
+import json
 
 import click
 
@@ -29,12 +29,13 @@ def init():
     @click.command(name='vring')
     @click.option('--approot', type=click.Path(exists=True),
                   envvar='TREADMILL_APPROOT', required=True)
-    @click.argument('manifest', type=click.File('rb'))
+    @click.argument('manifest', type=click.Path(exists=True, readable=True))
     def vring_cmd(approot, manifest):
         """Run vring manager."""
         context.GLOBAL.zk.conn.add_listener(zkutils.exit_on_disconnect)
         tm_env = appenv.AppEnvironment(approot)
-        app = yaml.load(stream=manifest)
+        with open(manifest, 'rb') as fd:
+            app = json.load(fd)
 
         with lc.LogContext(_LOGGER, app['name'], lc.ContainerAdapter) as log:
 

@@ -6,7 +6,7 @@ from __future__ import absolute_import
 import httplib
 
 import flask_restplus as restplus
-from flask_restplus import fields
+from flask_restplus import fields, inputs
 
 # Disable E0611: No 'name' in module
 from treadmill import webutils  # pylint: disable=E0611
@@ -32,6 +32,7 @@ def init(api, cors, impl):
         'when': fields.Float(description='Timestamp of event'),
         'signal': fields.Integer(description='Kill signal'),
         'exitcode': fields.Integer(description='Service exitcode'),
+        'oom': fields.Boolean(description='Out of memory'),
     }
 
     state_model = api.model(
@@ -42,7 +43,8 @@ def init(api, cors, impl):
     match_parser.add_argument('match', help='A glob match on an app name',
                               location='args', required=False,)
     match_parser.add_argument('finished', help='Flag to include finished apps',
-                              location='args', required=False,)
+                              location='args', required=False,
+                              type=inputs.boolean, default=False)
 
     inst_parser = api.parser()
     inst_parser.add_argument('instances', type=list,

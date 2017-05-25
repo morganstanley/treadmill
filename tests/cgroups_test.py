@@ -53,6 +53,22 @@ class CGroupsTest(unittest.TestCase):
         if self.root and os.path.isdir(self.root):
             shutil.rmtree(self.root)
 
+    @mock.patch('treadmill.cgroups.get_data',
+                mock.Mock(side_effect=['2', '1\n2', '-1', '']))
+    def test_get_value(self):
+        """Test cgroup value fetching"""
+        value = cgroups.get_value('memory', 'foo', 'memory,usage_in_bytes')
+        self.assertEqual(value, 2)
+
+        value = cgroups.get_value('memory', 'foo', 'memory,usage_in_bytes')
+        self.assertEqual(value, 1)
+
+        value = cgroups.get_value('memory', 'foo', 'memory,usage_in_bytes')
+        self.assertEqual(value, 0)
+
+        value = cgroups.get_value('memory', 'foo', 'memory,usage_in_bytes')
+        self.assertEqual(value, 0)
+
     @mock.patch('treadmill.cgroups.get_mountpoint',
                 mock.Mock(return_value='/cgroups'))
     @mock.patch('os.makedirs', mock.Mock())
@@ -135,7 +151,7 @@ class CGroupsTest(unittest.TestCase):
 
     @mock.patch('treadmill.cgroups.create', mock.Mock())
     @mock.patch('treadmill.cgroups.set_value', mock.Mock())
-    @mock.patch('treadmill.cgroups.get_value',
+    @mock.patch('treadmill.cgroups.get_data',
                 mock.Mock(side_effect=['0', '0', '', '1024', '512']))
     @mock.patch('treadmill.sysinfo.cpu_count',
                 mock.Mock(return_value=4))
@@ -180,9 +196,9 @@ class CGroupsTest(unittest.TestCase):
                  mock.call('cpu', 'treadmill/apps',
                            'cpu.shares', treadmill_apps_cpu_shares),
                  mock.call('cpuset', 'system',
-                           'cpuset.mems', '0'),
+                           'cpuset.mems', 0),
                  mock.call('cpuset', 'treadmill',
-                           'cpuset.mems', '0'),
+                           'cpuset.mems', 0),
                  mock.call('cpuset', 'treadmill',
                            'cpuset.cpus', '0-3'),
                  mock.call('cpuset', 'system',
@@ -300,17 +316,17 @@ class CGroupsTest(unittest.TestCase):
         rv = cgutils.cgrps_meminfo()
         self.assertEqual(rv, (20, 10, 30))
 
-    @mock.patch('treadmill.cgroups.get_value', mock.Mock())
+    @mock.patch('treadmill.cgroups.get_data', mock.Mock())
     def test_get_blkio_bps_info(self):
         """Test reading of blkio throttle information."""
 
         with open(self._BLKIO_THROTTLE_BPS) as f:
             data = f.read()
-            treadmill.cgroups.get_value.side_effect = [data]
+            treadmill.cgroups.get_data.side_effect = [data]
 
         data = cgroups.get_blkio_info('mycgrp', 'bps')
 
-        treadmill.cgroups.get_value.assert_called_with(
+        treadmill.cgroups.get_data.assert_called_with(
             'blkio', 'mycgrp', 'blkio.throttle.io_service_bytes'
         )
         self.assertEqual(
@@ -324,17 +340,17 @@ class CGroupsTest(unittest.TestCase):
             }
         )
 
-    @mock.patch('treadmill.cgroups.get_value', mock.Mock())
+    @mock.patch('treadmill.cgroups.get_data', mock.Mock())
     def test_get_blkio_iops_info(self):
         """Test reading of blkio throttle information."""
 
         with open(self._BLKIO_THROTTLE_IOPS) as f:
             data = f.read()
-            treadmill.cgroups.get_value.side_effect = [data]
+            treadmill.cgroups.get_data.side_effect = [data]
 
         data = cgroups.get_blkio_info('mycgrp', 'iops')
 
-        treadmill.cgroups.get_value.assert_called_with(
+        treadmill.cgroups.get_data.assert_called_with(
             'blkio', 'mycgrp', 'blkio.throttle.io_serviced'
         )
         self.assertEqual(

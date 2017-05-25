@@ -118,6 +118,7 @@ class Context(object):
         'ldap',
         'zk',
         'dns_domain',
+        'dns_server',
         'admin_api_scope',
         'ctx_plugin',
         'resolvers',
@@ -126,6 +127,7 @@ class Context(object):
     def __init__(self):
         self.cell = None
         self.dns_domain = None
+        self.dns_server = None
         self.ldap = AdminContext(self.resolve)
         self.zk = ZkContext(self.resolve)
         self.admin_api_scope = (None, None)
@@ -160,7 +162,9 @@ class Context(object):
         if not self.dns_domain:
             raise ContextError('Treadmill DNS domain not specified.')
 
-        result = dnsutils.srv(srv_rec + '.' + self.dns_domain)
+        result = dnsutils.srv(
+            srv_rec + '.' + self.dns_domain, self.dns_server
+        )
         random.shuffle(result)
         return result
 
@@ -267,8 +271,10 @@ class Context(object):
             raise ContextError('Cell is not specified.')
 
         if not self.ldap.url:
-            ldap_srv_rec = dnsutils.srv('_ldap._tcp.%s.%s' %
-                                        (cellname, self.dns_domain))
+            ldap_srv_rec = dnsutils.srv(
+                '_ldap._tcp.%s.%s' % (cellname, self.dns_domain),
+                self.dns_server
+            )
             self.ldap.url = ','.join([
                 'ldap://%s:%s' % (rec[0], rec[1])
                 for rec in ldap_srv_rec
@@ -288,9 +294,12 @@ class Context(object):
         """Resolve Zookeeper connection string from DNS."""
         if not self.dns_domain:
             _LOGGER.warn('DNS domain is not set.')
-            zkurl_rec = dnsutils.txt('zk.%s' % (cellname))
+            zkurl_rec = dnsutils.txt('zk.%s' % (cellname), self.dns_server)
         else:
-            zkurl_rec = dnsutils.txt('zk.%s.%s' % (cellname, self.dns_domain))
+            zkurl_rec = dnsutils.txt(
+                'zk.%s.%s' % (cellname, self.dns_domain),
+                self.dns_server
+            )
 
         if zkurl_rec:
             self.cell = cellname

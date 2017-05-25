@@ -64,7 +64,7 @@ def init():
     @click.pass_context
     def run(ctx, ldap):
         """Admin commands."""
-        cli.init_logger('admin.yml')
+        cli.init_logger('admin.conf')
 
         log_level = logging.WARN
         if ctx.obj.get('logging.debug'):

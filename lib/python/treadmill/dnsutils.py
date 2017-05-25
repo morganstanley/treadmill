@@ -59,26 +59,29 @@ def _build_result_set(answer):
     return result_set
 
 
-def make_resolver(dns_host, dns_port, nameservers=None):
+def make_resolver(dns_server=None):
     """Returns DNS resolver."""
     resolver = dns.resolver.Resolver()
-    resolver.port = dns_port
-    if nameservers:
-        resolver.nameservers = nameservers
-    else:
-        resolver.nameservers = [socket.gethostbyname(dns_host)]
+
+    # handle dns host and port override
+    if dns_server:
+        if dns_server[0] and all(dns_server[0]):
+            resolver.nameservers = [socket.gethostbyname(host)
+                                    for host in dns_server[0]]
+        if dns_server[1]:
+            resolver.port = dns_server[1]
+
     return resolver
 
 
 # Code from dyndns/resolve.py
 # TODO: remove once dyndns project is opensourced
-def query(name, rdatatype, resolver=None):
+def query(name, rdatatype, dns_server=None):
     """Send query to supplied DNS resolver
 
     :return: None if no results could be found
     """
-    if not resolver:
-        resolver = dns.resolver.Resolver()
+    resolver = make_resolver(dns_server)
 
     query_str = '%s IN %s' % (name, dns.rdatatype.to_text(rdatatype))
     try:
@@ -102,80 +105,80 @@ def query(name, rdatatype, resolver=None):
 # C0103: Invalid name "aa" for type method (should match
 # [a-z_][a-z0-9_]{2,30}$)
 # pylint: disable=C0103
-def a(label, resolver=None):
+def a(label, dns_server=None):
     """Resolve an A resource record
 
     :param label: label to lookup
     :type zone: str
 
-    :param resolver: your own dns.resolver.Resolver
-    :type resolver: dns.resolver.Resolver
+    :param dns_server: dns host and port information
+    :type dns_server: (list, int)
 
     :return: list of IPs
     """
-    return map(str, query(label, dns.rdatatype.A, resolver))
+    return map(str, query(label, dns.rdatatype.A, dns_server))
 
 
-def cname(label, resolver=None):
+def cname(label, dns_server=None):
     """Resolve a CNAME resource record
 
     :param label: label to lookup
     :type zone: str
 
-    :param resolver: your own dns.resolver.Resolver
-    :type resolver: dns.resolver.Resolver
+    :param dns_server: dns host and port information
+    :type dns_server: (list, int)
 
     :return: a list of cnames
     """
-    return map(str, query(label, dns.rdatatype.CNAME, resolver))
+    return map(str, query(label, dns.rdatatype.CNAME, dns_server))
 
 
-def srv(label, resolver=None):
+def srv(label, dns_server=None):
     """Resolve a CNAME resource record
 
     :param label: label to lookup
     :type zone: str
 
-    :param resolver: your own dns.resolver.Resolver
-    :type resolver: dns.resolver.Resolver
+    :param dns_server: dns host and port information
+    :type dns_server: (list, int)
 
     :return: a list of tuples (ip, port, prio, weight)
     """
-    return _build_result_set(query(label, dns.rdatatype.SRV, resolver))
+    return _build_result_set(query(label, dns.rdatatype.SRV, dns_server))
 
 
-def txt(label, resolver=None):
+def txt(label, dns_server=None):
     """Resolve a TXT resource record
 
     :param label: label to lookup
     :type zone: str
 
-    :param resolver: your own dns.resolver.Resolver
-    :type resolver: dns.resolver.Resolver
+    :param dns_server: dns host and port information
+    :type dns_server: (list, int)
 
     :return: list txt record
     """
     return [str(rec).strip('"')
-            for rec in query(label, dns.rdatatype.TXT, resolver)]
+            for rec in query(label, dns.rdatatype.TXT, dns_server)]
 
 
-def soa(label, resolver=None):
+def soa(label, dns_server=None):
     """Resolve a SOA resource record
 
     :param label: label to lookup
     :type zone: str
 
-    :param resolver: your own dns.resolver.Resolver
-    :type resolver: dns.resolver.Resolver
+    :param dns_server: dns host and port information
+    :type dns_server: (list, int)
 
     :return: a list of soa records
     """
-    return query(label, dns.rdatatype.SOA, resolver)
+    return query(label, dns.rdatatype.SOA, dns_server)
 
 
-def ns(fqdn, resolver=None):
+def ns(fqdn, dns_server=None):
     """Resolve DNS zone."""
-    return map(str, query(fqdn, dns.rdatatype.NS, resolver))
+    return map(str, query(fqdn, dns.rdatatype.NS, dns_server))
 
 
 def srv_target_to_dict(srv_rec):

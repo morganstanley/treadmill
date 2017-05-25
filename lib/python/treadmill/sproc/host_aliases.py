@@ -66,14 +66,14 @@ def init():
     @click.command()
     @click.option('--aliases-dir', type=click.Path(exists=True),
                   required=True)
-    @click.argument('source', type=click.File('rb'))
+    @click.argument('source', type=click.Path(exists=True, readable=True))
     @click.argument('dest')
     def hosts_aliases_cmd(aliases_dir, source, dest):
         """Manage /etc/hosts aliases."""
 
         aliases = {}
-        with source:
-            original = source.read()
+        with open(source, 'rb') as fd:
+            original = fd.read()
 
         def _on_created(path):
             """Callback invoked when new alias is created."""

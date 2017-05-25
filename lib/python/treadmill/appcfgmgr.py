@@ -17,7 +17,7 @@ Treadmill runs svscan process poiting to 'services' directory.
 
 Upon change, appcfgmgr will do the following:
 
- - for each new manifest, create apps/<app> directory, app.yml file and
+ - for each new manifest, create apps/<app> directory, app.json file and
    symlink from running/<app> to apps/<app_uniqueid>.
  - for each app that is not in the scheduled list, remove the symlink
  - trigger svscanctl -an, which will stop all apps that are no longer scheduled

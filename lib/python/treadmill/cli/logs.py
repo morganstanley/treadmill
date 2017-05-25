@@ -66,6 +66,9 @@ def _find_uniq_instance(instance, uniq, ws_api=None):
     history = _get_instance_trace(instance, uniq, ws_api)
     _LOGGER.debug('Instance %s/%s trace: %s', instance, uniq, history)
 
+    # keep only those items from which uniq can be found out
+    history = [item for item in history if hasattr(item, 'uniqueid')]
+
     if not history:
         return {}
 
@@ -117,7 +120,7 @@ def init():
                   help='State API url to use.',
                   metavar='URL',
                   required=False)
-    @click.argument('app')
+    @click.argument('app-or-svc')
     @click.option('--cell',
                   callback=cli.handle_context_opt,
                   envvar='TREADMILL_CELL',
@@ -130,10 +133,6 @@ def init():
                   help='The name of the service for which the logs are '
                        'to be retreived',
                   required=False)
-    @click.option('--sys',
-                  help='The name of the system component for which the logs '
-                       'are to be retrieved',
-                  required=False)
     @click.option('--uniq',
                   default='running',
                   help="The container id. Specify this if you look for a "
@@ -143,14 +142,33 @@ def init():
                   help='Websocket API url to use.',
                   metavar='URL',
                   required=False)
-    def logs(api, app, host, service, sys, uniq, ws_api):
-        """View application logs."""
-        logtype = 'service' if service else 'sys'
+    def logs(api, app_or_svc, host, service, uniq, ws_api):
+        """View application's service logs.
 
-        logname = service or sys
+        Arguments are expected to be specified a) either as one string or b)
+        parts defined one-by-one ie.:
+
+        a) <appname>/<uniq or running>/service/<servicename>
+
+        b) <appname> --uniq <uniq> --service <servicename>
+
+        Eg.:
+
+        a) proid.foo#1234/xz9474as8/service/my-echo
+
+        b) proid.foo#1234 --uniq xz9474as8 --service my-echo
+
+        For the latest log simply omit 'uniq':
+
+        proid.foo#1234 --service my-echo
+        """
+        try:
+            app, uniq, logtype, logname = app_or_svc.split('/', 3)
+        except ValueError:
+            app, uniq, logtype, logname = app_or_svc, uniq, 'service', service
+
         if logname is None:
-            cli.bad_exit("Please specify either the 'service' or 'sys'"
-                         "parameter.")
+            cli.bad_exit("Please specify the 'service' parameter.")
 
         if host is None:
             instance = None

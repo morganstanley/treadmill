@@ -39,11 +39,12 @@ def init():
 
     @top.command()
     @click.argument('path')
-    @click.argument('payload', type=click.File('rb'))
+    @click.argument('payload', type=click.Path(exists=True, readable=True))
     @cli.ON_REST_EXCEPTIONS
     def post(path, payload):
         """REST POST request."""
-        request = yaml.load(payload.read())
+        with open(payload, 'rb') as fd:
+            request = yaml.load(fd.read())
         response = restclient.post(ctx['api'], path, payload=request)
 
         formatter = cli.make_formatter(None)
@@ -51,11 +52,12 @@ def init():
 
     @top.command()
     @click.argument('path')
-    @click.argument('payload', type=click.File('rb'))
+    @click.argument('payload', type=click.Path(exists=True, readable=True))
     @cli.ON_REST_EXCEPTIONS
     def put(path, payload):
         """REST PUT request."""
-        request = yaml.load(payload.read())
+        with open(payload, 'rb') as fd:
+            request = yaml.load(fd.read())
         response = restclient.put(ctx['api'], path, payload=request)
 
         formatter = cli.make_formatter(None)

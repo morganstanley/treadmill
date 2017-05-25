@@ -64,11 +64,36 @@ def set_value(subsystem, group, pseudofile, value):
         f.write(str(value))
 
 
-def get_value(subsystem, group, pseudofile):
-    """Reads the value of cgroup parameter."""
+def get_data(subsystem, group, pseudofile):
+    """Reads the data of cgroup parameter."""
     fullpath = makepath(subsystem, group, pseudofile)
     with open(fullpath) as f:
         return f.read().strip()
+
+
+def safe_int(num_str):
+    """ safely parse a value from cgroup pseudofile into an int"""
+    value = int(num_str.split('\n')[0].strip(), base=10)
+
+    # not able to have value less than 0
+    if value < 0:
+        value = 0
+
+    return value
+
+
+def get_value(subsystem, group, pseudofile):
+    """Reads the data and convert to value of cgroup parameter.
+    returns: int
+    """
+    data = get_data(subsystem, group, pseudofile)
+    try:
+        return safe_int(data)
+    except ValueError:
+        _LOGGER.exception('Invalid data from %s[%s]: %r',
+                          subsystem, group, data)
+        return 0
+
 
 _BLKIO_THROTTLE_TYPES = {
     'bps': 'blkio.throttle.io_service_bytes',
@@ -80,7 +105,7 @@ def get_blkio_info(cgrp, kind):
     """Get blkio throttle info."""
     assert kind in _BLKIO_THROTTLE_TYPES
 
-    blkio_data = get_value('blkio', cgrp, _BLKIO_THROTTLE_TYPES[kind])
+    blkio_data = get_data('blkio', cgrp, _BLKIO_THROTTLE_TYPES[kind])
     blkio_info = {}
     for entry in blkio_data.split('\n'):
         if not entry or entry.startswith('Total'):
@@ -94,8 +119,7 @@ def get_blkio_info(cgrp, kind):
 
 def get_cpu_shares(cgrp):
     """Get cpu shares"""
-    shares = get_value('cpu', cgrp, 'cpu.shares')
-    return int(shares)
+    return get_value('cpu', cgrp, 'cpu.shares')
 
 
 def set_cpu_shares(cgrp, shares):
@@ -106,7 +130,7 @@ def set_cpu_shares(cgrp, shares):
 def get_cpuset_cores(cgrp):
     """Get list of enabled cores."""
     cores = []
-    cpuset = get_value('cpuset', cgrp, 'cpuset.cpus')
+    cpuset = get_data('cpuset', cgrp, 'cpuset.cpus')
     for entry in cpuset.split(','):
         cpus = entry.split('-')
         if len(cpus) == 1:

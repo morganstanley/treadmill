@@ -115,6 +115,7 @@ class AdminTest(unittest.TestCase):
             'disk': '1G',
             'tickets': [u'a', None, 'b'],
             'features': [],
+            'args': [],
             'environ': [{'name': 'a', 'value': 'b'}],
             'services': [
                 {
@@ -234,6 +235,7 @@ class AdminTest(unittest.TestCase):
             'cpu': '100%',
             'passthrough': [],
             'ephemeral_ports': {},
+            'args': []
         }
 
         admin_app = admin.Application(None)

@@ -3,6 +3,7 @@ from __future__ import absolute_import
 
 import os
 import pkgutil
+import sys
 import yaml
 
 import click
@@ -23,8 +24,12 @@ def init():
                   help='Target installation directory.',
                   envvar='TREADMILL_APPROOT')
     @click.option('--cell', required=True, envvar='TREADMILL_CELL')
-    @click.option('--aliases', required=True, type=click.File(), multiple=True)
-    @click.option('--config', required=False, type=click.File(), multiple=True)
+    @click.option('--aliases', required=True,
+                  type=click.Path(exists=True, readable=True),
+                  multiple=True)
+    @click.option('--config', required=False,
+                  type=click.Path(exists=True, readable=True, allow_dash=True),
+                  multiple=True)
     @click.option('--override', required=False, type=cli.DICT)
     @click.pass_context
     def install(ctx, install_dir, cell, aliases, config, override):
@@ -36,8 +41,14 @@ def init():
             context.GLOBAL.cell = cell
             context.GLOBAL.resolve(cell)
 
-        aliases_path = ":".join(
-            [os.path.abspath(x.name) for x in aliases])
+        path_list = []
+        aliases_data = {}
+        for conf in aliases:
+            with open(conf, 'r') as fd:
+                path_list.append(os.path.abspath(fd.name))
+                aliases_data.update(yaml.load(fd.read()))
+
+        aliases_path = ":".join(path_list)
 
         ctx.obj['PARAMS'] = {
             'aliases_path': aliases_path,
@@ -50,16 +61,16 @@ def init():
             'dir': install_dir,
         }
 
-        aliases_data = {}
-        for conf in aliases:
-            aliases_data.update(yaml.load(conf.read()))
-
         ctx.obj['PARAMS']['_alias'] = aliases_data
         # TODO(boysson): remove the below once all templates are cleaned up
         ctx.obj['PARAMS'].update(aliases_data)
 
         for conf in config:
-            ctx.obj['PARAMS'].update(yaml.load(stream=conf))
+            if conf == '-':
+                ctx.obj['PARAMS'].update(yaml.load(stream=sys.stdin))
+            else:
+                with open(conf, 'r') as fd:
+                    ctx.obj['PARAMS'].update(yaml.load(stream=fd))
 
         if override:
             ctx.obj['PARAMS'].update(override)

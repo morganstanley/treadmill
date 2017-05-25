@@ -2,6 +2,7 @@
 
 from __future__ import absolute_import
 
+import ConfigParser
 import logging
 import logging.config
 import os
@@ -15,7 +16,6 @@ except ImportError:
 
 import click
 import requests
-import yaml
 
 # pylint complains about imports from treadmill not grouped, but import
 # dependencies need to come first.
@@ -34,6 +34,10 @@ from treadmill import cli
 @click.group(cls=cli.make_multi_command('treadmill.cli'))
 @click.option('--dns-domain', required=False,
               envvar='TREADMILL_DNS_DOMAIN',
+              callback=cli.handle_context_opt,
+              is_eager=True,
+              expose_value=False)
+@click.option('--dns-server', required=False, envvar='TREADMILL_DNS_SERVER',
               callback=cli.handle_context_opt,
               is_eager=True,
               expose_value=False)
@@ -65,18 +69,16 @@ def run(ctx, with_proxy, outfmt, debug):
     if outfmt:
         cli.OUTPUT_FORMAT = outfmt
 
-    # Default logging to cli.yml, at CRITICAL, unless --debug
+    # Default logging to cli.conf, at CRITICAL, unless --debug
     cli_log_conf_file = os.path.join(treadmill.TREADMILL, 'etc', 'logging',
-                                     'cli.yml')
+                                     'cli.conf')
     try:
-        with open(cli_log_conf_file, 'r') as fh:
-            log_config = yaml.load(fh)
-            logging.config.dictConfig(log_config)
-    except IOError:
+        logging.config.fileConfig(cli_log_conf_file)
+    except ConfigParser.Error:
         with tempfile.NamedTemporaryFile(delete=False) as f:
             traceback.print_exc(file=f)
-            click.echo('Unable to load log conf: %s [ %s ]' %
-                       (cli_log_conf_file, f.name), err=True)
+            click.echo('Error parsing log conf: %s' %
+                       cli_log_conf_file, err=True)
         return
 
     if debug:

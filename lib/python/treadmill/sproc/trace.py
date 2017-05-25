@@ -29,6 +29,12 @@ FINISHED_BATCH = 5000
 # Default trace expiration - 5min.
 FINISHED_EXPIRE_AFTER = 5 * 60
 
+# Default msx finished history count.
+FINISHED_HISTORY_MAX_COUNT = 50
+
+# Default max trace history count.
+TRACE_HISTORY_MAX_COUNT = 30
+
 
 def init():
     """Top level command handler."""
@@ -45,14 +51,26 @@ def init():
                   type=int, default=TRACE_BATCH)
     @click.option('--trace-expire-after', help='Expire after (sec).',
                   type=int, default=TRACE_EXPIRE_AFTER)
+    @click.option('--trace-history-max-count',
+                  help='Max trace history to keep.',
+                  type=int, default=TRACE_HISTORY_MAX_COUNT)
     @click.option('--finished-batch-size', help='Batch size.',
                   type=int, default=FINISHED_BATCH)
     @click.option('--finished-expire-after', help='Expire after (sec).',
                   type=int, default=FINISHED_EXPIRE_AFTER)
+    @click.option('--finished-history-max-count',
+                  help='Max finished history to keep.',
+                  type=int, default=FINISHED_HISTORY_MAX_COUNT)
     @click.option('--no-lock', is_flag=True, default=False,
                   help='Run without lock.')
-    def cleanup(interval, trace_batch_size, trace_expire_after,
-                finished_batch_size, finished_expire_after, no_lock):
+    def cleanup(interval,
+                trace_batch_size,
+                trace_expire_after,
+                trace_history_max_count,
+                finished_batch_size,
+                finished_expire_after,
+                finished_history_max_count,
+                no_lock):
         """Cleans up old traces."""
 
         def _cleanup():
@@ -68,6 +86,15 @@ def init():
                     finished_batch_size,
                     finished_expire_after
                 )
+                zk.cleanup_trace_history(
+                    context.GLOBAL.zk.conn,
+                    trace_history_max_count
+                )
+                zk.cleanup_finished_history(
+                    context.GLOBAL.zk.conn,
+                    finished_history_max_count
+                )
+
                 _LOGGER.info('Finished cleanup, sleep %s sec', interval)
                 time.sleep(interval)
 

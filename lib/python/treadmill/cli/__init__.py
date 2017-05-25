@@ -1,6 +1,7 @@
 """Treadmill commaand line helpers."""
 from __future__ import absolute_import
 
+import ConfigParser
 import copy
 import json
 import importlib
@@ -33,15 +34,12 @@ def init_logger(name):
     """Initialize logger."""
     log_conf_file = os.path.join(treadmill.TREADMILL, 'etc', 'logging', name)
     try:
-        with open(log_conf_file, 'r') as fh:
-            log_config = yaml.load(fh)
-            logging.config.dictConfig(log_config)
-
-    except IOError:
+        logging.config.fileConfig(log_conf_file)
+    except ConfigParser.Error:
         with tempfile.NamedTemporaryFile(delete=False) as f:
             traceback.print_exc(file=f)
-            click.echo('Unable to load log conf: %s [ %s ]' %
-                       (log_conf_file, f.name), err=True)
+            click.echo('Error parsing log conf: %s' %
+                       log_conf_file, err=True)
 
 
 def make_multi_command(module_name, **click_args):
@@ -58,18 +56,10 @@ def make_multi_command(module_name, **click_args):
 
         def list_commands(self, ctx):
             climod = importlib.import_module(module_name)
-            commands = set()
-            for path in climod.__path__:
-                for filename in os.listdir(path):
-                    if filename == '__init__.py':
-                        continue
-
-                    if filename.endswith('.py'):
-                        commands.add(filename[:-3])
-
-                    if os.path.isdir(os.path.join(path, filename)):
-                        commands.add(filename)
-
+            commands = set(
+                [modulename for _loader, modulename, _ispkg
+                 in pkgutil.iter_modules(climod.__path__)]
+            )
             return sorted([cmd.replace('_', '-') for cmd in commands])
 
         def get_command(self, ctx, name):
@@ -97,6 +87,15 @@ def handle_context_opt(ctx, param, value):
     The only side effect of consuming these options are setting attributes
     of the global context.
     """
+
+    def parse_dns_server(dns_server):
+        """Parse dns server string"""
+        if ':' in dns_server:
+            hosts_port = dns_server.split(':')
+            return (hosts_port[0].split(','), int(hosts_port[1]))
+        else:
+            return (dns_server.split(','), None)
+
     if not value or ctx.resilient_parsing:
         return None
 
@@ -108,6 +107,8 @@ def handle_context_opt(ctx, param, value):
         context.GLOBAL.cell = value
     elif opt == 'dns_domain':
         context.GLOBAL.dns_domain = value
+    elif opt == 'dns_server':
+        context.GLOBAL.dns_server = parse_dns_server(value)
     elif opt == 'ldap':
         context.GLOBAL.ldap.url = value
     elif opt == 'ldap_search_base':

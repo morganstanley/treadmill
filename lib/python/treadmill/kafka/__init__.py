@@ -250,4 +250,5 @@ def get_master_brokers(cell, domain):
     """
     label = '_kafka._tcp.{0}.{1}'.format(cell, domain)
     return ['{0}:{1}'.format(host, port)
-            for (host, port, _prio, _weight) in dnsutils.srv(label)]
+            for (host, port, _prio, _weight) in dnsutils.srv(
+                label, context.GLOBAL.dns_server)]

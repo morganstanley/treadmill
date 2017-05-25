@@ -44,7 +44,7 @@ class MetricsTest(unittest.TestCase):
                 mock.Mock(return_value=(10, 12, 13)))
     @mock.patch('treadmill.cgutils.pids_in_cgroup',
                 mock.Mock(return_value=[]))
-    @mock.patch('treadmill.cgroups.get_value',
+    @mock.patch('treadmill.cgroups.get_data',
                 mock.Mock(return_value=STATINFO))
     @mock.patch('time.time', mock.Mock(return_value=1234))
     def test_read_memory_stats(self):

@@ -241,11 +241,11 @@ def _node_info_linux(tm_env):
     cpucapacity = int(
         (app_bogomips * 100 / BMIPS_PER_CPU)
     )
-    memcapacity = int(cgroups.get_value(
+    memcapacity = cgroups.get_value(
         'memory',
         'treadmill/apps',
         'memory.limit_in_bytes'
-    ))
+    )
 
     # Append units to all capacity info.
     info = {

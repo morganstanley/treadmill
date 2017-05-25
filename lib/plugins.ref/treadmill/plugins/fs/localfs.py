@@ -6,37 +6,41 @@ import stat
 # pylint: disable=E0611
 from treadmill import fs
 
-
-def init(_rootdir):
-    """Init filesystem layout."""
-    pass
+from treadmill.runtime.linux.image import fs as image_fs
 
 
-def configure(_approot, newroot, _app):
+class LocalFilesystemPlugin(image_fs.FilesystemPluginBase):
     """Configure layout in chroot."""
-    newroot_norm = fs.norm_safe(newroot)
-    mounts = [
-    ]
+    def __init__(self, tm_env):
+        super(LocalFilesystemPlugin, self).__init__(tm_env)
 
-    emptydirs = [
-        '/u',
-        '/var/account',
-        '/var/empty',
-        '/var/lock',
-        '/var/log',
-        '/var/run',
-    ]
+    def init(self):
+        pass
 
-    stickydirs = [
-        '/opt',
-    ]
+    def configure(self, root_dir, app):
+        newroot_norm = fs.norm_safe(root_dir)
+        mounts = [
+        ]
 
-    for mount in mounts:
-        if os.path.exists(mount):
-            fs.mount_bind(newroot_norm, mount)
+        emptydirs = [
+            '/u',
+            '/var/account',
+            '/var/empty',
+            '/var/lock',
+            '/var/log',
+            '/var/run',
+        ]
 
-    for directory in emptydirs:
-        fs.mkdir_safe(newroot_norm + directory)
+        stickydirs = [
+            '/opt',
+        ]
 
-    for directory in stickydirs:
-        os.chmod(newroot_norm + directory, 0777 | stat.S_ISVTX)
+        for mount in mounts:
+            if os.path.exists(mount):
+                fs.mount_bind(newroot_norm, mount)
+
+        for directory in emptydirs:
+            fs.mkdir_safe(newroot_norm + directory)
+
+        for directory in stickydirs:
+            os.chmod(newroot_norm + directory, 0777 | stat.S_ISVTX)

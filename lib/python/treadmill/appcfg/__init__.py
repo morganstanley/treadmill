@@ -14,6 +14,8 @@ from treadmill import utils
 
 _LOGGER = logging.getLogger(__name__)
 
+APP_JSON = 'app.json'
+
 
 class AppType(enum.Enum):
     """The type of application."""

@@ -67,16 +67,12 @@ def _on_del_trace_shard(zk2fs_sync, zkpath):
 def _on_add_trace_event(zk2fs_sync, zkpath):
     """Invoked when trace event is added."""
     fpath = zk2fs_sync.fpath(zkpath)
-    # Extract timestemp.
-    #
+
+    # Extract timestamp.
     _name, timestamp, _rest = os.path.basename(fpath).split(',', 2)
-    with tempfile.NamedTemporaryFile(dir=os.path.dirname(fpath),
-                                     delete=False,
-                                     prefix='.tmp') as temp:
-        os.fchmod(temp.fileno(), 0o644)
     utime = int(float(timestamp))
-    os.utime(temp.name, (utime, utime))
-    os.rename(temp.name, fpath)
+
+    zksync.write_data(fpath, None, utime, raise_err=False)
 
 
 _CREATE_SOW_TABLE = """

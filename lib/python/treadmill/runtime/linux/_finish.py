@@ -22,6 +22,7 @@ from treadmill import firewall
 from treadmill import fs
 from treadmill import iptables
 from treadmill import logcontext as lc
+from treadmill import runtime
 from treadmill import rrdutils
 from treadmill import services
 from treadmill import subproc
@@ -33,39 +34,18 @@ from treadmill import zkutils
 
 from treadmill.apptrace import events
 
-from treadmill.appcfg import manifest as app_manifest
-
 
 _LOGGER = lc.ContainerAdapter(logging.getLogger(__name__))
 
-_APP_YML = 'app.yml'
-_STATE_YML = 'state.yml'
 _ARCHIVE_LIMIT = utils.size_to_bytes('1G')
 
 
-def finish(tm_env, zkclient, container_dir):
+def finish(tm_env, zkclient, container_dir, watchdog):
     """Frees allocated resources and mark then as available.
-
-    :param tm_env:
-        Treadmill application environment
-    :type tm_env:
-        `appenv.AppEnvironment`
-    :param container_dir:
-        Full path to the application container directory
-    :type container_dir:
-        ``str``
     """
-
-    # FIXME(boysson): Clean should be done inside the container. The watchdog
-    #                 value below is inflated to account for the extra
-    #                 archiving time.
-    name_dir = os.path.basename(container_dir)
-    with lc.LogContext(_LOGGER, name_dir, lc.ContainerAdapter) as log:
+    with lc.LogContext(_LOGGER, os.path.basename(container_dir),
+                       lc.ContainerAdapter) as log:
         log.info('finishing %r', container_dir)
-        watchdog_name = '{name}-{app}'.format(name=__name__,
-                                              app=name_dir)
-        watchdog = tm_env.watchdogs.create(watchdog_name, '5m', 'Cleanup of '
-                                           '%r stalled' % container_dir)
 
         _stop_container(container_dir)
 
@@ -78,11 +58,11 @@ def finish(tm_env, zkclient, container_dir):
         # scheduler that the server is ready to accept new load.
         exitinfo, aborted, aborted_reason = _collect_exit_info(container_dir)
 
-        app = _load_app(container_dir, _STATE_YML)
+        app = runtime.load_app(container_dir)
         if app:
             _cleanup(tm_env, zkclient, container_dir, app)
         else:
-            app = _load_app(container_dir, _APP_YML)
+            app = runtime.load_app(container_dir, appcfg.APP_JSON)
 
         if app:
             # All resources are cleaned up. If the app terminated inside the
@@ -125,23 +105,6 @@ def _collect_exit_info(container_dir):
             aborted_reason = f.read()
 
     return exitinfo, aborted, aborted_reason
-
-
-def _load_app(container_dir, app_yml):
-    """Load app from original manifest, pre-configured."""
-    manifest_file = os.path.join(container_dir, app_yml)
-
-    try:
-        manifest = app_manifest.read(manifest_file)
-        _LOGGER.debug('Manifest: %r', manifest)
-        return utils.to_obj(manifest)
-
-    except IOError as err:
-        if err.errno != errno.ENOENT:
-            raise
-
-        _LOGGER.critical('Manifest file does not exit: %r', manifest_file)
-        return None
 
 
 def _stop_container(container_dir):
@@ -235,7 +198,7 @@ def _cleanup(tm_env, zkclient, container_dir, app):
 
     # Destroy the volume
     try:
-        localdisk = localdisk_client.delete(unique_name)
+        localdisk_client.delete(unique_name)
     except (IOError, OSError) as err:
         if err.errno == errno.ENOENT:
             pass
@@ -531,8 +494,9 @@ def _archive_logs(tm_env, container_dir):
         for metric in metrics:
             _add(f, metric)
 
-        cfgs = glob.glob(os.path.join(container_dir, '*.yml'))
-        for cfg in cfgs:
+        yml_cfgs = glob.glob(os.path.join(container_dir, '*.yml'))
+        json_cfgs = glob.glob(os.path.join(container_dir, '*.json'))
+        for cfg in yml_cfgs + json_cfgs:
             _add(f, cfg)
 
         _add(f, os.path.join(container_dir, 'log', 'current'))

@@ -7,9 +7,7 @@ import os
 import click
 
 from treadmill import appenv
-from treadmill import logcontext as lc
 from treadmill import runtime as app_runtime
-from treadmill import utils
 
 from treadmill.appcfg import abort as app_abort
 
@@ -26,29 +24,17 @@ def init():
     @click.argument('container_dir', type=click.Path(exists=True))
     def run(approot, runtime, container_dir):
         """Runs container given a container dir."""
-        # Intercept SIGTERM from s6 supervisor, so that initialization is not
-        # left in broken state.
-        with lc.LogContext(_LOGGER, os.path.basename(container_dir),
-                           lc.ContainerAdapter) as log:
-            terminated = utils.make_signal_flag(utils.term_signal())
-            tm_env = None
-            try:
-                log.info('run %r %r', approot, container_dir)
-                tm_env = appenv.AppEnvironment(approot)
+        # Make sure container_dir is a fully resolved path.
+        container_dir = os.path.realpath(container_dir)
 
-                app_runtime.get_runtime(runtime, tm_env, container_dir).run(
-                    terminated
-                )
+        _LOGGER.info('run %r %r', approot, container_dir)
 
-                # If we reach here, the application was terminated.
+        tm_env = appenv.AppEnvironment(approot)
+        try:
+            app_runtime.get_runtime(runtime, tm_env, container_dir).run()
 
-            except Exception as exc:  # pylint: disable=W0703
-                if not terminated:
-                    log.critical('Failed to start, app will be aborted.',
-                                 exc_info=True)
-                    app_abort.flag_aborted(tm_env, container_dir, exc)
-                else:
-                    log.info('Exception while handling term, ignore.',
-                             exc_info=True)
+        except Exception as exc:  # pylint: disable=W0703
+            _LOGGER.exception('Failed to start, app will be aborted.')
+            app_abort.flag_aborted(tm_env, container_dir, exc)
 
     return run

@@ -103,7 +103,8 @@ def app_group(parent):
             print(appname)
 
     @app.command()
-    @click.option('-m', '--manifest', type=click.File('rb'), required=True)
+    @click.option('-m', '--manifest',
+                  type=click.Path(exists=True, readable=True), required=True)
     @click.option('--env', help='Proid environment.', required=True,
                   type=click.Choice(['dev', 'qa', 'uat', 'prod']))
     @click.option('--proid', help='Proid.', required=True)
@@ -112,7 +113,8 @@ def app_group(parent):
     @cli.admin.ON_EXCEPTIONS
     def schedule(app, manifest, count, env, proid):
         """Schedule app(s) on the cell master"""
-        data = yaml.load(manifest.read())
+        with open(manifest, 'rb') as fd:
+            data = yaml.load(fd.read())
         # TODO: should we delete all potential attributes starting
         #                with _ ?
         if '_id' in data:

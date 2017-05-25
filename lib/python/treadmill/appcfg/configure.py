@@ -10,7 +10,7 @@ import tempfile
 if os.name == 'posix':
     import pwd
 
-import yaml
+import json
 
 import treadmill
 from treadmill import appevents
@@ -24,8 +24,6 @@ from treadmill.apptrace import events
 
 _LOGGER = logging.getLogger(__name__)
 
-_APP_YML = 'app.yml'
-
 
 def configure(tm_env, event):
     """Creates directory necessary for starting the application.
@@ -37,7 +35,7 @@ def configure(tm_env, event):
         - (treadmill root)
           - apps
             - (app unique name)
-              - app.yml
+              - app.json
                 run
                 finish
                 log/run
@@ -83,9 +81,9 @@ def configure(tm_env, event):
     )
 
     # Store the app int the container_dir
-    app_yml = os.path.join(container_dir, _APP_YML)
-    with open(app_yml, 'w') as f:
-        yaml.dump(manifest_data, stream=f)
+    app_json = os.path.join(container_dir, appcfg.APP_JSON)
+    with open(app_json, 'w') as f:
+        json.dump(manifest_data, f)
 
     # Mark the container as defaulting to down state
     utils.touch(os.path.join(container_dir, 'down'))

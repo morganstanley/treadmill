@@ -64,7 +64,8 @@ class AppCfgManifestTest(unittest.TestCase):
 
         app0 = app_manifest.load(self.tm_env, event_filename0)
 
-        treadmill.appcfg.manifest.read.assert_called_with(event_filename0)
+        treadmill.appcfg.manifest.read.assert_called_with(event_filename0,
+                                                          'yaml')
         treadmill.appcfg.gen_uniqueid.assert_called_with(event_filename0)
         self.assertEqual(app0['name'], 'proid.myapp#0')
         self.assertEqual(app0['type'], 'native')

@@ -18,7 +18,7 @@ from treadmill import zknamespace as z
 
 _LOGGER = logging.getLogger(__name__)
 
-_SERVERS_ACL = zkutils.make_role_acl('servers', 'rwcd')
+_SERVERS_ACL = zkutils.make_role_acl('servers', 'rwcda')
 
 _HOSTNAME = sysinfo.hostname()
 
