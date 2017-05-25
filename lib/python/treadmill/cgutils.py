@@ -122,14 +122,13 @@ def create_treadmill_cgroups(system_cpu_shares,
 
     cgroups.create('memory', 'system')
     cgroups.create('memory', 'treadmill')
-    if cgroups.get_value('memory', 'treadmill',
-                         'memory.use_hierarchy').strip() != '1':
+    if cgroups.get_value('memory', 'treadmill', 'memory.use_hierarchy') != 1:
         cgroups.set_value('memory', 'treadmill', 'memory.use_hierarchy', '1')
     set_memory_hardlimit('treadmill', treadmill_mem)
 
     oom_value = 'oom_kill_disable 0\nunder_oom 0\n'
-    if cgroups.get_value('memory', 'treadmill',
-                         'memory.oom_control') != oom_value:
+    if cgroups.get_data('memory', 'treadmill',
+                        'memory.oom_control') != oom_value:
         cgroups.set_value('memory', 'treadmill',
                           'memory.oom_control', '0')
 
@@ -142,13 +141,13 @@ def create_treadmill_cgroups(system_cpu_shares,
 
     # It is possible to use qualifiers in the input, for calculation of the
     # difference, get memory limits in bytes as defined in cgroup.
-    total_mem_bytes = int(cgroups.get_value('memory',
-                                            'treadmill',
-                                            'memory.limit_in_bytes'))
+    total_mem_bytes = cgroups.get_value('memory',
+                                        'treadmill',
+                                        'memory.limit_in_bytes')
 
-    core_mem_bytes = int(cgroups.get_value('memory',
-                                           'treadmill/core',
-                                           'memory.limit_in_bytes'))
+    core_mem_bytes = cgroups.get_value('memory',
+                                       'treadmill/core',
+                                       'memory.limit_in_bytes')
 
     apps_mem_bytes = (total_mem_bytes - core_mem_bytes)
     set_memory_hardlimit('treadmill/apps', apps_mem_bytes)
@@ -254,8 +253,8 @@ def reset_memory_limit_in_bytes():
         List of unique application names to expunge from the system.
     """
     total_soft_mem = float(total_soft_memory_limits())
-    total_hard_mem = int(cgroups.get_value('memory', 'treadmill/apps',
-                                           'memory.limit_in_bytes'))
+    total_hard_mem = cgroups.get_value('memory', 'treadmill/apps',
+                                       'memory.limit_in_bytes')
     basepath = cgroups.makepath('memory', 'treadmill/apps')
 
     _LOGGER.info('total_soft_mem: %r, total_hard_mem: %r',
@@ -298,10 +297,6 @@ def cgrp_meminfo(cgrp):
                                 'memory.soft_limit_in_bytes')
     hardmem = cgroups.get_value('memory', cgrp,
                                 'memory.limit_in_bytes')
-
-    memusage = int(memusage)
-    softmem = int(softmem)
-    hardmem = int(hardmem)
 
     return (memusage, softmem, hardmem)
 

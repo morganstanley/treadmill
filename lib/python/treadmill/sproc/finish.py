@@ -24,6 +24,8 @@ def init():
     @click.argument('container_dir', type=click.Path(exists=True))
     def finish(approot, runtime, container_dir):
         """Finish treadmill application on the node."""
+
+        # Run with finish context as finish runs in cleanup.
         with lc.LogContext(_LOGGER, os.path.basename(container_dir),
                            lc.ContainerAdapter) as log:
             log.info('finish (approot %s)', approot)

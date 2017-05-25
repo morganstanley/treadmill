@@ -18,8 +18,14 @@ attributeTypes:
   archive-username:
     desc: Treadmill borrowed exactName from DBIS
     type: str
+  args:
+    desc: Treadmill command arguments
+    type: str
   cell:
     desc: Treadmill cell
+    type: str
+  command:
+    desc: Treadmill entry point
     type: str
   cpu:
     desc: Treadmill CPU
@@ -55,6 +61,9 @@ attributeTypes:
     type: str
   envvar-value:
     desc: Environment variable value
+    type: str
+  image:
+    desc: Treadmill image uri
     type: str
   feature:
     desc: Treadmill feature
@@ -249,6 +258,9 @@ objectClasses:
     - disk
     - memory
     - username
+    - image
+    - command
+    - args
     - service-name
     - service-command
     - service-root

@@ -9,7 +9,7 @@ import os
 import tarfile
 import thread
 
-import yaml
+import json
 
 from treadmill import exc
 from treadmill import appenv
@@ -193,10 +193,10 @@ class _MetricsAPI(object):
         if uniq == 'running':
             arch_extract = False
             # find out uniq ...
-            state_yml = os.path.join(self.tm_env().running_dir, app,
-                                     'state.yml')
-            with open(state_yml) as f:
-                uniq = yaml.load(f.read())['uniqueid']
+            state_json = os.path.join(self.tm_env().running_dir, app,
+                                      'state.json')
+            with open(state_json) as f:
+                uniq = json.load(f)['uniqueid']
 
         return self._app_rrd_file(app, uniq, arch_extract)
 
@@ -377,22 +377,22 @@ class API(object):
             instance, uniq = uniqid.split('/')
             if uniq == 'running':
                 fname = os.path.join(tm_env().running_dir, instance,
-                                     'state.yml')
+                                     'state.json')
             else:
                 fname = os.path.join(
-                    _app_path(tm_env(), instance, uniq), 'state.yml')
+                    _app_path(tm_env(), instance, uniq), 'state.json')
 
             try:
                 with open(fname) as f:
-                    return yaml.load(f.read())
+                    return json.load(f)
             except EnvironmentError as err:
                 if uniq == 'running' or err.errno != errno.ENOENT:
                     raise
 
                 fname = _archive_path(tm_env(), 'sys', instance, uniq)
                 with tarfile.open(fname) as archive:
-                    member = archive.extractfile('state.yml')
-                    return yaml.load(member.read())
+                    member = archive.extractfile('state.json')
+                    return json.load(member)
 
         class _ArchiveAPI(object):
             """Access to archive files."""

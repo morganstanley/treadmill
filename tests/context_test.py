@@ -123,7 +123,7 @@ class ContextTest(unittest.TestCase):
             set(ctx.cell_api())
         )
         treadmill.dnsutils.srv.assert_called_with(
-            '_http._tcp.cellapi.b.cell.a'
+            '_http._tcp.cellapi.b.cell.a', mock.ANY
         )
 
         self.assertEqual(['x:8080'], ctx.cell_api('x:8080'))
@@ -141,8 +141,8 @@ class ContextTest(unittest.TestCase):
         treadmill.dnsutils.srv.return_value = []
         self.assertRaises(context.ContextError, ctx.admin_api)
         treadmill.dnsutils.srv.assert_has_calls([
-            mock.call('_http._tcp.adminapi.ny.campus.a.com'),
-            mock.call('_http._tcp.adminapi.na.region.a.com'),
+            mock.call('_http._tcp.adminapi.ny.campus.a.com', mock.ANY),
+            mock.call('_http._tcp.adminapi.na.region.a.com', mock.ANY),
         ])
 
 

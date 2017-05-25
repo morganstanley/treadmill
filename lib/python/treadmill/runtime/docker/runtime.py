@@ -23,7 +23,7 @@ class DockerRuntime(runtime_base.RuntimeBase):
         # TODO: Docker
         raise Exception("Not implemented.")
 
-    def _finish(self):
+    def _finish(self, watchdog, terminated):
         # TODO: Docker
         raise Exception("Not implemented.")
 

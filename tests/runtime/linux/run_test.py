@@ -4,17 +4,12 @@
 # Disable C0302: Too many lines in module.
 # pylint: disable=C0302
 
-import errno
 import os
-import pwd
 import shutil
 import socket
 import stat
 import tempfile
 import unittest
-
-from collections import namedtuple
-
 # Disable W0611: Unused import
 import tests.treadmill_test_deps  # pylint: disable=W0611
 
@@ -24,11 +19,11 @@ import treadmill
 import treadmill.rulefile
 
 from treadmill import appcfg
-from treadmill import exc
 from treadmill import firewall
-from treadmill import fs
 from treadmill import iptables
 from treadmill import utils
+
+from treadmill.syscall import unshare
 
 from treadmill.runtime.linux import _run as app_run
 
@@ -62,26 +57,22 @@ class LinuxRuntimeRunTest(unittest.TestCase):
 
     @mock.patch('pwd.getpwnam', mock.Mock())
     @mock.patch('os.chown', mock.Mock())
-    @mock.patch('treadmill.fs.chroot_init', mock.Mock())
     @mock.patch('treadmill.fs.create_filesystem', mock.Mock())
     @mock.patch('treadmill.fs.test_filesystem', mock.Mock(return_value=False))
-    @mock.patch('treadmill.fs.make_rootfs', mock.Mock())
     @mock.patch('treadmill.fs.mkdir_safe', mock.Mock())
-    @mock.patch('treadmill.fs.configure_plugins', mock.Mock())
     @mock.patch('treadmill.fs.mount_bind', mock.Mock())
     @mock.patch('treadmill.fs.mount_filesystem', mock.Mock())
     @mock.patch('treadmill.subproc.check_call', mock.Mock())
     @mock.patch('treadmill.utils.rootdir',
                 mock.Mock(return_value='/test_treadmill'))
-    @mock.patch('shutil.copytree', mock.Mock())
-    @mock.patch('shutil.copyfile', mock.Mock())
-    @mock.patch('shutil.rmtree', mock.Mock())
+    @mock.patch('treadmill.syscall.unshare.unshare', mock.Mock())
     def test__create_root_dir(self):
         """Test creation on the container root directory."""
         # Access protected module _create_root_dir
         # pylint: disable=W0212
         app = utils.to_obj(
             {
+                'type': 'native',
                 'proid': 'myproid',
                 'name': 'myproid.test#0',
                 'uniqueid': 'ID1234',
@@ -96,47 +87,23 @@ class LinuxRuntimeRunTest(unittest.TestCase):
             'block_dev': '/dev/foo',
         }
         mock_ld_client.wait.return_value = localdisk
+
         treadmill.runtime.linux._run._create_root_dir(self.tm_env,
                                                       container_dir,
                                                       '/some/root_dir',
                                                       app)
 
-        treadmill.fs.chroot_init.assert_called_with('/some/root_dir')
         treadmill.fs.create_filesystem.assert_called_with('/dev/foo')
+        unshare.unshare.assert_called_with(unshare.CLONE_NEWNS)
         treadmill.fs.mount_filesystem('/dev/foo', '/some/root_dir')
-        treadmill.fs.make_rootfs.assert_called_with('/some/root_dir',
-                                                    'myproid')
-        treadmill.fs.configure_plugins.assert_called_with(
-            self.root,
-            '/some/root_dir',
-            app
-        )
-        shutil.rmtree.assert_called_with(
-            '/some/root_dir/.etc'
-        )
-        shutil.copytree.assert_called_with(
-            os.path.join(self.tm_env.root, 'etc'),
-            '/some/root_dir/.etc'
-        )
-        shutil.copyfile.assert_has_calls([
-            mock.call('/etc/hosts', '/some/root_dir/.etc/hosts'),
-            mock.call('/etc/hosts', '/some/root_dir/.etc/hosts.original'),
-        ])
-
-        treadmill.subproc.check_call.assert_has_calls([
-            mock.call(
-                [
-                    'mount', '-n', '--bind',
-                    os.path.join(self.tm_env.root, 'etc/resolv.conf'),
-                    '/etc/resolv.conf'
-                ]
-            )
-        ])
 
     @mock.patch('treadmill.cgroups.join', mock.Mock())
     def test_apply_cgroup_limits(self):
         """Test cgroup creation."""
+        # Disable W0212: Access to a protected member
+        # pylint: disable=W0212
         manifest = {
+            'type': 'native',
             'proid': 'foo',
             'environment': 'dev',
             'shared_network': False,
@@ -180,7 +147,7 @@ class LinuxRuntimeRunTest(unittest.TestCase):
         app_dir = os.path.join(self.root, 'apps', app_unique_name)
         os.makedirs(app_dir)
 
-        app_run.apply_cgroup_limits(
+        app_run._apply_cgroup_limits(
             self.tm_env,
             app_dir,
             manifest
@@ -225,356 +192,16 @@ class LinuxRuntimeRunTest(unittest.TestCase):
             any_order=True
         )
 
-    @mock.patch('treadmill.cgroups.makepath',
-                mock.Mock(return_value='/test/cgroup/path'))
-    @mock.patch('treadmill.fs.mkdir_safe', mock.Mock())
-    @mock.patch('treadmill.fs.mount_bind', mock.Mock())
-    def test__share_cgroup_info(self):
-        """Test sharing of cgroup information with the container."""
-        # Access protected module _share_cgroup_info
-        # pylint: disable=W0212
-        app = utils.to_obj(
-            {
-                'name': 'myproid.test#0',
-                'uniqueid': 'ID1234',
-            }
-        )
-
-        treadmill.runtime.linux._run._share_cgroup_info(app, '/some/root_dir')
-
-        # Check that cgroup mountpoint exists inside the container.
-        treadmill.fs.mkdir_safe.assert_has_calls([
-            mock.call('/some/root_dir/cgroup/memory')
-        ])
-        treadmill.fs.mount_bind.assert_has_calls([
-            mock.call('/some/root_dir', '/cgroup/memory', '/test/cgroup/path')
-        ])
-
-    @mock.patch('pwd.getpwnam', mock.Mock(
-        return_value=namedtuple(
-            'pwnam',
-            ['pw_uid', 'pw_dir', 'pw_shell']
-        )(3, '/', '/bin/sh')))
-    @mock.patch('treadmill.fs.mkdir_safe', mock.Mock())
-    @mock.patch('treadmill.fs.mount_bind', mock.Mock())
-    @mock.patch('treadmill.supervisor.create_service', mock.Mock())
-    @mock.patch('treadmill.utils.create_script', mock.Mock())
-    @mock.patch('treadmill.utils.touch', mock.Mock())
-    @mock.patch('treadmill.utils.rootdir',
-                mock.Mock(return_value='/test_treadmill'))
-    @mock.patch('treadmill.subproc.get_aliases', mock.Mock(return_value={
-        'chroot': '/bin/ls', 'pid1': '/bin/ls'}))
-    def test__create_supervision_tree(self):
-        """Test creation of the supervision tree."""
-        # Access protected module _create_supervision_tree
-        # pylint: disable=W0212
-        app = utils.to_obj(
-            {
-                'proid': 'myproid',
-                'name': 'myproid.test#0',
-                'uniqueid': 'ID1234',
-                'environment': 'prod',
-                'services': [
-                    {
-                        'name': 'command1',
-                        'command': '/path/to/command',
-                        'restart': {
-                            'limit': 3,
-                            'interval': 60,
-                        },
-                    }, {
-                        'name': 'command2',
-                        'command': '/path/to/other/command',
-                        'restart': {
-                            'limit': 3,
-                            'interval': 60,
-                        },
-                    }
-                ],
-                'system_services': [
-                    {
-                        'name': 'command3',
-                        'command': '/path/to/sbin/command',
-                        'restart': {
-                            'limit': 5,
-                            'interval': 60,
-                        },
-                    }, {
-                        'name': 'command4',
-                        'command': '/path/to/other/sbin/command',
-                        'restart': {
-                            'limit': 5,
-                            'interval': 60,
-                        },
-                    }
-                ],
-                'vring': {
-                    'cells': ['a', 'b']
-                },
-            }
-        )
-        base_dir = '/some/dir'
-
-        treadmill.runtime.linux._run._create_supervision_tree(
-            base_dir,
-            app
-        )
-
-        treadmill.fs.mkdir_safe.assert_has_calls([
-            mock.call('/some/dir/root/services'),
-            mock.call('/some/dir/services'),
-            mock.call('/some/dir/sys/.s6-svscan'),
-            mock.call('/some/dir/services/.s6-svscan'),
-            mock.call('/some/dir/services/command1/log'),
-            mock.call('/some/dir/services/command2/log'),
-            mock.call('/some/dir/services/command3/log'),
-            mock.call('/some/dir/services/command4/log'),
-            mock.call('/some/dir/sys/vring.a'),
-            mock.call('/some/dir/sys/vring.a/log'),
-            mock.call('/some/dir/sys/vring.b'),
-            mock.call('/some/dir/sys/vring.b/log'),
-            mock.call('/some/dir/sys/monitor'),
-            mock.call('/some/dir/sys/monitor/log'),
-            mock.call('/some/dir/sys/register'),
-            mock.call('/some/dir/sys/register/log'),
-            mock.call('/some/dir/sys/hostaliases'),
-            mock.call('/some/dir/sys/hostaliases/log'),
-            mock.call('/some/dir/sys/start_container'),
-            mock.call('/some/dir/sys/start_container/log'),
-        ])
-        treadmill.fs.mount_bind.assert_called_with(
-            '/some/dir/root', '/services', '/some/dir/services',
-        )
-
-        pwd.getpwnam.assert_has_calls(
-            [
-                mock.call('myproid'),
-                mock.call('root')
-            ],
-            any_order=True
-        )
-
-        treadmill.supervisor.create_service.assert_has_calls([
-            # user services
-            mock.call('/some/dir/services',
-                      'myproid',
-                      mock.ANY, mock.ANY,
-                      'command1',
-                      '/path/to/command',
-                      as_root=True,
-                      down=True,
-                      envdirs=['/environ/app', '/environ/sys'],
-                      env='prod'),
-            mock.call('/some/dir/services',
-                      'myproid',
-                      mock.ANY, mock.ANY,
-                      'command2',
-                      '/path/to/other/command',
-                      as_root=True,
-                      down=True,
-                      envdirs=['/environ/app', '/environ/sys'],
-                      env='prod'),
-            # system services
-            mock.call('/some/dir/services',
-                      'root',
-                      mock.ANY, mock.ANY,
-                      'command3',
-                      '/path/to/sbin/command',
-                      as_root=True,
-                      down=False,
-                      envdirs=['/environ/sys'],
-                      env='prod'),
-            mock.call('/some/dir/services',
-                      'root',
-                      mock.ANY, mock.ANY,
-                      'command4',
-                      '/path/to/other/sbin/command',
-                      as_root=True,
-                      down=False,
-                      envdirs=['/environ/sys'],
-                      env='prod')
-        ])
-
-        treadmill.utils.create_script.assert_has_calls([
-            mock.call('/some/dir/sys/.s6-svscan/finish',
-                      'svscan.finish',
-                      timeout=mock.ANY),
-            mock.call('/some/dir/services/.s6-svscan/finish',
-                      'svscan.finish',
-                      timeout=mock.ANY),
-            mock.call('/some/dir/services/command1/log/run', 'logger.run'),
-            mock.call('/some/dir/services/command2/log/run', 'logger.run'),
-            mock.call('/some/dir/services/command3/log/run', 'logger.run'),
-            mock.call('/some/dir/services/command4/log/run', 'logger.run'),
-            mock.call('/some/dir/sys/vring.a/run',
-                      'supervisor.run_sys',
-                      cmd=mock.ANY),
-            mock.call('/some/dir/sys/vring.a/log/run',
-                      'logger.run'),
-            mock.call('/some/dir/sys/vring.b/run',
-                      'supervisor.run_sys',
-                      cmd=mock.ANY),
-            mock.call('/some/dir/sys/vring.b/log/run',
-                      'logger.run'),
-            mock.call('/some/dir/sys/monitor/run',
-                      'supervisor.run_sys',
-                      cmd=mock.ANY),
-            mock.call('/some/dir/sys/monitor/log/run',
-                      'logger.run'),
-            mock.call('/some/dir/sys/register/run',
-                      'supervisor.run_sys',
-                      cmd=mock.ANY),
-            mock.call('/some/dir/sys/register/log/run',
-                      'logger.run'),
-            mock.call('/some/dir/sys/hostaliases/run',
-                      'supervisor.run_sys',
-                      cmd=mock.ANY),
-            mock.call('/some/dir/sys/hostaliases/log/run',
-                      'logger.run'),
-            mock.call(
-                '/some/dir/sys/start_container/run',
-                'supervisor.run_sys',
-                cmd=('/bin/ls /some/dir/root /bin/ls '
-                     '-m -p -i s6-svscan /services')
-            ),
-            mock.call('/some/dir/sys/start_container/log/run',
-                      'logger.run'),
-        ])
-        treadmill.utils.touch.assert_has_calls([
-            mock.call('/some/dir/sys/start_container/down'),
-        ])
-
-    @mock.patch('socket.socket.bind', mock.Mock())
-    def test__allocate_sockets(self):
-        """Test allocating sockets.
-        """
-        # access protected module _allocate_sockets
-        # pylint: disable=w0212
-
-        socket.socket.bind.side_effect = [
-            socket.error(errno.EADDRINUSE, 'In use'),
-            mock.DEFAULT,
-            mock.DEFAULT,
-            mock.DEFAULT
-        ]
-
-        sockets = treadmill.runtime.linux._run._allocate_sockets(
-            'prod', '0.0.0.0', socket.SOCK_STREAM, 3
-        )
-
-        self.assertEqual(3, len(sockets))
-
-    @mock.patch('socket.socket.bind', mock.Mock())
-    def test__allocate_sockets_fail(self):
-        """Test allocating sockets when all are taken.
-        """
-        # access protected module _allocate_sockets
-        # pylint: disable=w0212
-
-        socket.socket.bind.side_effect = socket.error(errno.EADDRINUSE,
-                                                      'In use')
-
-        with self.assertRaises(exc.ContainerSetupError):
-            treadmill.runtime.linux._run._allocate_sockets(
-                'prod', '0.0.0.0', socket.SOCK_STREAM, 3
-            )
-
-    @mock.patch('socket.socket', mock.Mock(autospec=True))
-    @mock.patch('treadmill.runtime.linux._run._allocate_sockets', mock.Mock())
-    def test__allocate_network_ports(self):
-        """Test network port allocation.
-        """
-        # access protected module _allocate_network_ports
-        # pylint: disable=w0212
-        treadmill.runtime.linux._run._allocate_sockets.side_effect = \
-            lambda _x, _y, _z, count: [socket.socket()] * count
-        mock_socket = socket.socket.return_value
-        mock_socket.getsockname.side_effect = [
-            ('unused', 50001),
-            ('unused', 60001),
-            ('unused', 10000),
-            ('unused', 10001),
-            ('unused', 10002),
-            ('unused', 12345),
-            ('unused', 54321),
-        ]
-        manifest = {
-            'environment': 'dev',
-            'endpoints': [
-                {
-                    'name': 'http',
-                    'port': 8000,
-                    'proto': 'tcp',
-                }, {
-                    'name': 'ssh',
-                    'port': 0,
-                    'proto': 'tcp',
-                }, {
-                    'name': 'dns',
-                    'port': 5353,
-                    'proto': 'udp',
-                }, {
-                    'name': 'port0',
-                    'port': 0,
-                    'proto': 'udp',
-                }
-            ],
-            'ephemeral_ports': {'tcp': 3, 'udp': 0},
-        }
-
-        treadmill.runtime.linux._run._allocate_network_ports(
-            '1.2.3.4',
-            manifest
-        )
-
-        # in the updated manifest, make sure that real_port is specificed from
-        # the ephemeral range as returnd by getsockname.
-        self.assertEqual(
-            8000,
-            manifest['endpoints'][0]['port']
-        )
-        self.assertEqual(
-            50001,
-            manifest['endpoints'][0]['real_port']
-        )
-        self.assertEqual(
-            60001,
-            manifest['endpoints'][1]['port']
-        )
-        self.assertEqual(
-            60001,
-            manifest['endpoints'][1]['real_port']
-        )
-        self.assertEqual(
-            5353,
-            manifest['endpoints'][2]['port']
-        )
-        self.assertEqual(
-            12345,
-            manifest['endpoints'][2]['real_port']
-        )
-        self.assertEqual(
-            54321,
-            manifest['endpoints'][3]['port']
-        )
-        self.assertEqual(
-            54321,
-            manifest['endpoints'][3]['real_port']
-        )
-        self.assertEqual(
-            [10000, 10001, 10002],
-            manifest['ephemeral_ports']['tcp']
-        )
-
     @mock.patch('treadmill.iptables.add_ip_set', mock.Mock())
     @mock.patch('treadmill.newnet.create_newnet', mock.Mock())
     def test__unshare_network_simple(self):
         """Tests unshare network sequence.
         """
-        # Access protected module _create_supervision_tree
+        # Disable W0212: Access to a protected member
         # pylint: disable=W0212
         app = utils.to_obj(
             {
+                'type': 'native',
                 'name': 'proid.test#0',
                 'uniqueid': 'ID1234',
                 'environment': 'dev',
@@ -667,10 +294,11 @@ class LinuxRuntimeRunTest(unittest.TestCase):
     @mock.patch('treadmill.newnet.create_newnet', mock.Mock())
     def test__unshare_network_complex(self):
         """Test unshare network advanced sequence (ephemeral/passthrough)."""
-        # Access protected module _create_supervision_tree
+        # Disable W0212: Access to a protected member
         # pylint: disable=W0212
         app = utils.to_obj(
             {
+                'type': 'native',
                 'name': 'myproid.test#0',
                 'environment': 'dev',
                 'uniqueid': 'ID1234',
@@ -807,17 +435,13 @@ class LinuxRuntimeRunTest(unittest.TestCase):
 
     @mock.patch('shutil.copy', mock.Mock())
     @mock.patch('shutil.copytree', mock.Mock())
-    @mock.patch('treadmill.runtime.linux._run._allocate_network_ports',
-                mock.Mock())
-    @mock.patch('treadmill.runtime.linux._run._create_environ_dir',
-                mock.Mock())
+    @mock.patch('treadmill.runtime.allocate_network_ports', mock.Mock())
     @mock.patch('treadmill.runtime.linux._run._create_root_dir', mock.Mock())
-    @mock.patch('treadmill.runtime.linux._run._create_supervision_tree',
-                mock.Mock())
-    @mock.patch('treadmill.runtime.linux._run._prepare_ldpreload', mock.Mock())
-    @mock.patch('treadmill.runtime.linux._run._share_cgroup_info', mock.Mock())
     @mock.patch('treadmill.runtime.linux._run._unshare_network', mock.Mock())
+    @mock.patch('treadmill.runtime.linux._run._apply_cgroup_limits',
+                mock.Mock())
     @mock.patch('treadmill.fs.mount_bind', mock.Mock())
+    @mock.patch('treadmill.runtime.linux.image.get_image_repo', mock.Mock())
     @mock.patch('treadmill.supervisor.exec_root_supervisor', mock.Mock())
     @mock.patch('treadmill.subproc.check_call', mock.Mock())
     @mock.patch('treadmill.utils.rootdir',
@@ -830,9 +454,10 @@ class LinuxRuntimeRunTest(unittest.TestCase):
     def test_run(self):
         """Tests linux.run sequence, which will result in supervisor exec.
         """
-        # access protected module _allocate_network_ports
-        # pylint: disable=w0212
+        # Disable W0212: Access to a protected member
+        # pylint: disable=W0212
         manifest = {
+            'type': 'native',
             'shared_network': False,
             'ephemeral_ports': {
                 'tcp': 3,
@@ -892,13 +517,16 @@ class LinuxRuntimeRunTest(unittest.TestCase):
         mock_nwrk_client.wait.return_value = network
 
         def _fake_allocate_network_ports(_ip, manifest):
-            """Mimick inplace manifest modification in _allocate_network_ports.
+            """Mimick inplace manifest modification in allocate_network_ports.
             """
             manifest['ephemeral_ports'] = {'tcp': ['1', '2', '3']}
             return mock.DEFAULT
-        treadmill.runtime.linux._run._allocate_network_ports.side_effect = \
+        treadmill.runtime.allocate_network_ports.side_effect = \
             _fake_allocate_network_ports
         mock_watchdog = mock.Mock()
+        mock_image = mock.Mock()
+
+        treadmill.runtime.linux.image.get_image_repo.return_value = mock_image
 
         app_run.run(
             self.tm_env, app_dir, manifest, mock_watchdog, terminated=()
@@ -907,25 +535,19 @@ class LinuxRuntimeRunTest(unittest.TestCase):
         # Check that port allocation is correctly called.
         manifest['network'] = network
         manifest['ephemeral_ports'] = {'tcp': ['1', '2', '3']}
-        treadmill.runtime.linux._run._allocate_network_ports\
+        treadmill.runtime.allocate_network_ports\
             .assert_called_with(
                 '172.31.81.67', manifest,
             )
         # Make sure, post modification, that the manifest is readable by other.
-        st = os.stat(os.path.join(app_dir, 'state.yml'))
+        st = os.stat(os.path.join(app_dir, 'state.json'))
         self.assertTrue(st.st_mode & stat.S_IRUSR)
         self.assertTrue(st.st_mode & stat.S_IRGRP)
         self.assertTrue(st.st_mode & stat.S_IROTH)
         self.assertTrue(st.st_mode & stat.S_IWUSR)
         self.assertFalse(st.st_mode & stat.S_IWGRP)
         self.assertFalse(st.st_mode & stat.S_IWOTH)
-        # State yml is what is copied in the container
-        shutil.copy.assert_called_with(
-            os.path.join(app_dir, 'state.yml'),
-            os.path.join(app_dir, 'root', 'app.yml'),
-        )
 
-        # Network unshare
         app = utils.to_obj(manifest)
         treadmill.runtime.linux._run._unshare_network.assert_called_with(
             self.tm_env, app
@@ -935,66 +557,20 @@ class LinuxRuntimeRunTest(unittest.TestCase):
             self.tm_env,
             app_dir,
             os.path.join(app_dir, 'root'),
-            app,
+            app
         )
-        # XXX(boysson): Missing environ_dir/manifest_dir tests
-        # Create supervision tree
-        treadmill.runtime.linux._run._create_supervision_tree\
-            .assert_called_with(
-                app_dir,
-                app
-            )
-        treadmill.runtime.linux._run._share_cgroup_info.assert_called_with(
-            app,
-            os.path.join(app_dir, 'root'),
-        )
-        # Ephemeral LDPRELOAD
-        treadmill.runtime.linux._run._prepare_ldpreload.assert_called_with(
-            os.path.join(app_dir, 'root'),
-            ['/some/$LIB/treadmill_bind_preload.so']
-        )
-        # Misc bind mounts
-        treadmill.fs.mount_bind.assert_has_calls([
-            mock.call(
-                os.path.join(app_dir, 'root'),
-                '/etc/resolv.conf',
-                bind_opt='--bind',
-                target=os.path.join(app_dir, 'root/.etc/resolv.conf')
-            ),
-            mock.call(
-                os.path.join(app_dir, 'root'),
-                '/etc/hosts',
-                bind_opt='--bind',
-                target=os.path.join(app_dir, 'root/.etc/hosts')
-            ),
-            mock.call(
-                os.path.join(app_dir, 'root'),
-                '/etc/ld.so.preload',
-                bind_opt='--bind',
-                target=os.path.join(app_dir, 'root/.etc/ld.so.preload')
-            ),
-            mock.call(
-                os.path.join(app_dir, 'root'),
-                '/etc/pam.d/sshd',
-                bind_opt='--bind',
-                target=os.path.join(app_dir, 'root/.etc/pam.d/sshd')
-            ),
-        ])
 
         self.assertTrue(mock_watchdog.remove.called)
 
+    @mock.patch('pwd.getpwnam', mock.Mock())
     @mock.patch('shutil.copy', mock.Mock())
-    @mock.patch('treadmill.runtime.linux._run._allocate_network_ports',
-                mock.Mock())
-    @mock.patch('treadmill.runtime.linux._run._create_environ_dir',
+    @mock.patch('treadmill.runtime.allocate_network_ports',
                 mock.Mock())
     @mock.patch('treadmill.runtime.linux._run._create_root_dir', mock.Mock())
-    @mock.patch('treadmill.runtime.linux._run._create_supervision_tree',
-                mock.Mock())
-    @mock.patch('treadmill.runtime.linux._run._prepare_ldpreload', mock.Mock())
-    @mock.patch('treadmill.runtime.linux._run._share_cgroup_info', mock.Mock())
     @mock.patch('treadmill.runtime.linux._run._unshare_network', mock.Mock())
-    @mock.patch('treadmill.fs.configure_plugins', mock.Mock())
+    @mock.patch('treadmill.runtime.linux._run._apply_cgroup_limits',
+                mock.Mock())
+    @mock.patch('treadmill.runtime.linux.image.get_image_repo', mock.Mock())
     @mock.patch('treadmill.fs.mount_bind', mock.Mock())
     @mock.patch('treadmill.supervisor.exec_root_supervisor', mock.Mock())
     @mock.patch('treadmill.subproc.check_call', mock.Mock())
@@ -1004,9 +580,8 @@ class LinuxRuntimeRunTest(unittest.TestCase):
         """Tests linux.run without ephemeral ports in manifest."""
         # Modify app manifest so that it does not contain ephemeral ports,
         # make sure that .etc/ld.so.preload is not created.
-        # access protected module _allocate_network_ports
-        # pylint: disable=w0212
         manifest = {
+            'type': 'native',
             'shared_network': False,
             'disk': '100G',
             'name': 'proid.myapp#0',
@@ -1061,11 +636,11 @@ class LinuxRuntimeRunTest(unittest.TestCase):
         rootdir = os.path.join(app_dir, 'root')
 
         def _fake_allocate_network_ports(_ip, manifest):
-            """Mimick inplace manifest modification in _allocate_network_ports.
+            """Mimick inplace manifest modification in allocate_network_ports.
             """
             manifest['ephemeral_ports'] = {'tcp': 0, 'udp': 0}
             return mock.DEFAULT
-        treadmill.runtime.linux._run._allocate_network_ports.side_effect = \
+        treadmill.runtime.allocate_network_ports.side_effect = \
             _fake_allocate_network_ports
         mock_watchdog = mock.Mock()
 
@@ -1080,18 +655,14 @@ class LinuxRuntimeRunTest(unittest.TestCase):
         )
         self.assertTrue(mock_watchdog.remove.called)
 
+    @mock.patch('pwd.getpwnam', mock.Mock())
     @mock.patch('shutil.copy', mock.Mock())
-    @mock.patch('treadmill.runtime.linux._run._allocate_network_ports',
-                mock.Mock())
-    @mock.patch('treadmill.runtime.linux._run._create_environ_dir',
-                mock.Mock())
+    @mock.patch('treadmill.runtime.allocate_network_ports', mock.Mock())
     @mock.patch('treadmill.runtime.linux._run._create_root_dir', mock.Mock())
-    @mock.patch('treadmill.runtime.linux._run._create_supervision_tree',
-                mock.Mock())
-    @mock.patch('treadmill.runtime.linux._run._prepare_ldpreload', mock.Mock())
-    @mock.patch('treadmill.runtime.linux._run._share_cgroup_info', mock.Mock())
     @mock.patch('treadmill.runtime.linux._run._unshare_network', mock.Mock())
-    @mock.patch('treadmill.fs.configure_plugins', mock.Mock())
+    @mock.patch('treadmill.runtime.linux._run._apply_cgroup_limits',
+                mock.Mock())
+    @mock.patch('treadmill.runtime.linux.image.get_image_repo', mock.Mock())
     @mock.patch('treadmill.fs.mount_bind', mock.Mock())
     @mock.patch('treadmill.supervisor.exec_root_supervisor', mock.Mock())
     @mock.patch('treadmill.subproc.check_call', mock.Mock())
@@ -1100,9 +671,8 @@ class LinuxRuntimeRunTest(unittest.TestCase):
     def test_run_ticket_failure(self):
         """Tests linux.run sequence, which will result in supervisor exec.
         """
-        # access protected module _allocate_network_ports
-        # pylint: disable=w0212
         manifest = {
+            'type': 'native',
             'shared_network': False,
             'disk': '100G',
             'name': 'proid.myapp#0',
@@ -1145,11 +715,11 @@ class LinuxRuntimeRunTest(unittest.TestCase):
         mock_nwrk_client.wait.return_value = network
 
         def _fake_allocate_network_ports(_ip, manifest):
-            """Mimick inplace manifest modification in _allocate_network_ports.
+            """Mimick inplace manifest modification in allocate_network_ports.
             """
             manifest['ephemeral_ports'] = {'tcp': 0, 'udp': 0}
             return mock.DEFAULT
-        treadmill.runtime.linux._run._allocate_network_ports.side_effect = \
+        treadmill.runtime.allocate_network_ports.side_effect = \
             _fake_allocate_network_ports
         # Make sure that despite ticket absence there is no throw.
         mock_watchdog = mock.Mock()
@@ -1159,101 +729,6 @@ class LinuxRuntimeRunTest(unittest.TestCase):
         )
 
         self.assertTrue(mock_watchdog.remove.called)
-
-    def test__prepare_ldpreload(self):
-        """Test generation of the etc/ldpreload file."""
-        # access protected module _prepare_ldpreload
-        # pylint: disable=w0212
-        treadmill.runtime.linux._run._prepare_ldpreload(self.root,
-                                                        ['/foo/1.so',
-                                                         '/foo/2.so'])
-        newfile = open(os.path.join(self.root,
-                                    '.etc', 'ld.so.preload')).readlines()
-        self.assertEqual('/foo/2.so\n', newfile[-1])
-        self.assertEqual('/foo/1.so\n', newfile[-2])
-
-    @mock.patch('pwd.getpwnam', mock.Mock(
-        return_value=namedtuple(
-            'pwnam',
-            ['pw_uid', 'pw_dir', 'pw_shell']
-        )(3, '/', '/bin/sh')))
-    @mock.patch('treadmill.fs.mount_bind', mock.Mock())
-    @mock.patch('treadmill.utils.rootdir', mock.Mock(return_value='/some/dir'))
-    @mock.patch('treadmill.subproc.resolve', mock.Mock(return_value=''))
-    @mock.patch('treadmill.subproc.get_aliases', mock.Mock(return_value={}))
-    def test_sysdir_cleanslate(self):
-        """Verifies that sys directories are always clean slate."""
-        # Disable access to protected member warning.
-        #
-        # pylint: disable=W0212
-
-        base_dir = os.path.join(self.root, 'some/dir')
-        fs.mkdir_safe(base_dir)
-        app = utils.to_obj(
-            {
-                'proid': 'myproid',
-                'name': 'myproid.test#0',
-                'uniqueid': 'ID1234',
-                'environment': 'prod',
-                'services': [
-                    {
-                        'name': 'command1',
-                        'command': '/path/to/command',
-                        'restart': {
-                            'limit': 3,
-                            'interval': 60,
-                        },
-                    }, {
-                        'name': 'command2',
-                        'command': '/path/to/other/command',
-                        'restart': {
-                            'limit': 3,
-                            'interval': 60,
-                        },
-                    }
-                ],
-                'system_services': [
-                    {
-                        'name': 'command3',
-                        'command': '/path/to/sbin/command',
-                        'restart': {
-                            'limit': 3,
-                            'interval': 60,
-                        },
-                    }, {
-                        'name': 'command4',
-                        'command': '/path/to/other/sbin/command',
-                        'restart': {
-                            'limit': 3,
-                            'interval': 60,
-                        },
-                    }
-                ],
-                'vring': {
-                    'cells': [],
-                },
-            }
-        )
-
-        treadmill.runtime.linux._run._create_supervision_tree(
-            base_dir,
-            app
-        )
-
-        self.assertTrue(os.path.exists(os.path.join(base_dir, 'sys')))
-        with open(os.path.join(base_dir, 'sys', 'toberemoved'), 'w+') as _f:
-            pass
-
-        self.assertTrue(
-            os.path.exists(os.path.join(base_dir, 'sys', 'toberemoved')))
-
-        treadmill.runtime.linux._run._create_supervision_tree(
-            base_dir,
-            app
-        )
-        self.assertTrue(os.path.exists(os.path.join(base_dir, 'sys')))
-        self.assertFalse(
-            os.path.exists(os.path.join(base_dir, 'sys', 'toberemoved')))
 
 
 if __name__ == '__main__':

@@ -145,8 +145,30 @@ class CellState(object):
         self.watches = set()
 
     def get_finished(self, rsrc_id):
-        """Select finished state if present."""
-        return self.finished.get(rsrc_id)
+        """Get finished state if present."""
+        data = self.finished.get(rsrc_id)
+        if not data:
+            return None
+
+        state = {
+            'host': data['host'],
+            'state': data['state'],
+            'when': data['when']
+        }
+        if data['state'] == 'finished' and data['data']:
+            try:
+                rc, signal = map(int, data['data'].split('.'))
+                if rc > 255:
+                    state['signal'] = signal
+                else:
+                    state['exitcode'] = rc
+            except ValueError:
+                _LOGGER.warn('Unexpected finished state data for %s: %s',
+                             rsrc_id, data['data'])
+
+        state['oom'] = data['state'] == 'killed' and data['data'] == 'oom'
+
+        return state
 
 
 class API(object):
@@ -178,13 +200,11 @@ class API(object):
             ]
 
             if finished:
-                for name, data in cell_state.finished.iteritems():
+                for name in cell_state.finished.iterkeys():
                     if fnmatch.fnmatch(name, match):
-                        item = {
-                            'name': name,
-                            'state': 'finihsed'
-                        }
-                        item.update(data)
+                        state = cell_state.get_finished(name)
+                        item = {'name': name}
+                        item.update(state)
                         filtered.append(item)
 
             return sorted(filtered, key=lambda item: item['name'])
@@ -192,16 +212,17 @@ class API(object):
         @schema.schema({'$ref': 'instance.json#/resource_id'})
         def get(rsrc_id):
             """Get instance state."""
-            data = None
             if rsrc_id in cell_state.placement:
-                data = cell_state.placement[rsrc_id]
+                state = cell_state.placement[rsrc_id]
             else:
-                data = cell_state.get_finished(rsrc_id)
+                state = cell_state.get_finished(rsrc_id)
 
-            if data:
-                data.update({'name': rsrc_id})
+            if not state:
+                return None
 
-            return data
+            res = {'name': rsrc_id}
+            res.update(state)
+            return res
 
         self.list = _list
         self.get = get

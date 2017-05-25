@@ -7,11 +7,11 @@ import os
 
 import six
 
+from treadmill import appcfg
 from treadmill import exc
+from treadmill import utils
 
 from treadmill.appcfg import manifest as app_manifest
-
-_APP_YML = 'app.yml'
 
 
 @six.add_metaclass(abc.ABCMeta)
@@ -49,25 +49,35 @@ class RuntimeBase(object):
         """
         pass
 
+    def run_timeout(self, _manifest):
+        """The run watchdog timeout.
+
+        :param manifest:
+            The application manifest.
+        :type manifest:
+            ``dict``
+        :returns:
+            The timeout as a string
+        :rtype:
+            ``str``
+        """
+        return '60s'
+
     @abc.abstractmethod
     def _run(self, manifest, watchdog, terminated):
         """Prepares container environment and exec's container."""
         pass
 
-    def run(self, terminated):
+    def run(self):
         """Prepares container environment and exec's container
 
         The function is intended to be invoked from 'run' script and never
         returns.
 
-        :param terminated:
-            Flag where terminated signal will accumulate.
-        :param terminated:
-            ``set``
         :returns:
             This function never returns
         """
-        manifest_file = os.path.join(self.container_dir, _APP_YML)
+        manifest_file = os.path.join(self.container_dir, appcfg.APP_JSON)
         manifest = app_manifest.read(manifest_file)
         if not self._can_run(manifest):
             raise exc.ContainerSetupError(
@@ -77,21 +87,55 @@ class RuntimeBase(object):
                 )
             )
 
-        watchdog_name = 'app_run-%s' % os.path.basename(self.container_dir)
+        # Intercept SIGTERM from supervisor, so that initialization is not
+        # left in broken state.
+        terminated = utils.make_signal_flag(utils.term_signal())
+
+        unique_name = appcfg.manifest_unique_name(manifest)
+        watchdog_name = 'app_run-%s' % unique_name
         self.watchdog = self.tm_env.watchdogs.create(
-            watchdog_name, '60s',
-            'Run of {0} stalled'.format(self.container_dir))
+            watchdog_name, self.run_timeout(manifest),
+            'Run of {container_dir!r} stalled'.format(
+                container_dir=self.container_dir
+            )
+        )
 
         self._run(manifest, self.watchdog, terminated)
 
+    @property
+    def finish_timeout(self):
+        """The finish watchdog timeout.
+
+        :returns:
+            The timeout as a string
+        :rtype:
+            ``str``
+        """
+        # FIXME: The watchdog value below is inflated to account for
+        #        the extra archiving time.
+        return '5m'
+
     @abc.abstractmethod
-    def _finish(self):
+    def _finish(self, watchdog, terminated):
         """Frees allocated resources and mark then as available."""
         pass
 
     def finish(self):
         """Frees allocated resources and mark then as available."""
-        self._finish()
+
+        # Intercept SIGTERM from supervisor, so that finish is not
+        # left in broken state.
+        terminated = utils.make_signal_flag(utils.term_signal())
+
+        # FIXME(boysson): The watchdog value below is inflated to account for
+        #                 the extra archiving time.
+        watchdog_name = 'app_finish-%s' % os.path.basename(self.container_dir)
+        self.watchdog = self.tm_env.watchdogs.create(
+            watchdog_name, self.finish_timeout,
+            'Cleanup of {0} stalled'.format(self.container_dir)
+        )
+
+        self._finish(self.watchdog, terminated)
 
     @abc.abstractmethod
     def _register(self, manifest, refresh_interval=None):

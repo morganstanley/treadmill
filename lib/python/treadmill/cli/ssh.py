@@ -128,15 +128,13 @@ def init():
     @click.option('--wait', help='Wait until the app starts up',
                   is_flag=True, default=False)
     @click.option('--ssh', help='SSH client to use.',
-                  type=click.File('rb'))
+                  type=click.Path(exists=True, readable=True))
     @click.argument('app')
     @click.argument('command', nargs=-1)
     def ssh(wsapi, api, ssh, app, command, wait):
         """SSH into Treadmill container."""
         if ssh is None:
             ssh = _DEFAULT_SSH
-        else:
-            ssh = ssh.name
 
         if wait:
             return _wait_for_app(wsapi, ssh, app, command)

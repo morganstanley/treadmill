@@ -1,24 +1,18 @@
-"""Implements functions for setting up container chroot and file system."""
+"""File system utilities such as making dirs/files and mounts etc."""
 
 from __future__ import absolute_import
 
 import errno
-import importlib
 import logging
 import os
 import stat
 import tarfile
 import tempfile
 
-if os.name != 'nt':
-    import pwd
-
 from treadmill import exc
+from treadmill import osnoop
 from treadmill import utils
 from treadmill import subproc
-
-if os.name != 'nt':
-    from treadmill.syscall import unshare
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -131,42 +125,9 @@ def create_excl(filename, size=0, mode=(stat.S_IRUSR | stat.S_IWUSR)):
 
 
 ###############################################################################
-# chroot
-
-def chroot_init(newroot):
-    """Prepares the file system for subsequent chroot.
-
-    - Unshares mount subsystem.
-    - Creates directory that will serve as new root.
-
-    :param newroot:
-        Path to the intended root dir of the chroot environment
-    :type newroot:
-        ``str``
-    :returns:
-        Normalized path to the new root dir
-    :rtype:
-        ``str``
-    """
-    # Make sure new root is valid argument.
-    newroot_norm = norm_safe(newroot)
-    # Creates directory that will serve as new root.
-    mkdir_safe(newroot_norm)
-    # Unshare the mount namespace
-    unshare.unshare(unshare.CLONE_NEWNS)
-    return newroot_norm
-
-
-def chroot_finalize(newroot):
-    """Finalizes file system setup by chrooting into the new environment."""
-    newroot_norm = norm_safe(newroot)
-    os.chroot(newroot_norm)
-    os.chdir('/')
-
-
-###############################################################################
 # mount
 
+@osnoop.windows
 def mount_filesystem(block_dev, target_dir):
     """Mount filesystem on target directory.
 
@@ -176,6 +137,7 @@ def mount_filesystem(block_dev, target_dir):
     subproc.check_call(['mount', '-n', block_dev, target_dir])
 
 
+@osnoop.windows
 def mount_bind(newroot, mount, target=None, bind_opt=None):
     """Mounts directory in the new root.
 
@@ -227,6 +189,7 @@ def mount_bind(newroot, mount, target=None, bind_opt=None):
     )
 
 
+@osnoop.windows
 def mount_tmpfs(newroot, path, size):
     """Mounts directory on tmpfs."""
     while path.startswith('/'):
@@ -235,137 +198,20 @@ def mount_tmpfs(newroot, path, size):
                         '-t', 'tmpfs', 'tmpfs', os.path.join(newroot, path)])
 
 
-def _iter_plugins():
-    """Iterate over configured plugins."""
-    fsplugins = importlib.import_module('treadmill.plugins.fs')
-    for path in fsplugins.__path__:
-        _LOGGER.info('Processing plugins: %s', path)
-        for filename in os.listdir(path):
-            if filename == '__init__.py':
-                continue
-
-            if not filename.endswith('.py'):
-                continue
-
-            name = 'treadmill.plugins.fs.' + filename[:-3]
-            _LOGGER.info('Loading: %s', name)
-            mod = importlib.import_module(name)
-            yield mod
-
-
-def init_plugins(rootdir):
-    """Initialize plugins."""
-    for mod in _iter_plugins():
-        mod.init(rootdir)
-
-
-def configure_plugins(rootdir, newroot, app):
-    """Configure each plugin in pre-chrooted environment."""
-    # Load fs plugins
-    for mod in _iter_plugins():
-        mod.configure(rootdir, newroot, app)
-
-
-###############################################################################
-# Container layout
-
-def make_rootfs(newroot, proid):
-    """Initializes directory structure for the container in a new root.
-
-    - Bind directories in parent / (with exceptions - see below.)
-    - Skip /tmp, create /tmp in the new root with correct permissions.
-    - Selectively create / bind /var.
-      - /var/tmp (new)
-      - /var/logs (new)
-      - /var/spool - create empty with dirs.
-    - Bind everything in /var, skipping /spool/tickets
-
-    :param newroot:
-        Path where the new root device will be mounted
-    :type newroot:
-        ``str``
-    :param proid:
-        Proid who will own the new root
-    :type proid:
-        ``str``
-    """
-    newroot_norm = norm_safe(newroot)
-    mounts = [
-        '/bin',
-        '/common',
-        '/dev',
-        '/etc',
-        '/lib',
-        '/lib64',
-        '/mnt',
-        '/proc',
-        '/sbin',
-        '/srv',
-        '/sys',
-        '/usr',
-        '/var/tmp/treadmill/env',
-        '/var/tmp/treadmill/spool',
-    ]
-
-    emptydirs = [
-        '/tmp',
-        '/opt',
-        '/var/spool/keytabs',
-        '/var/spool/tickets',
-        '/var/spool/tokens',
-        '/var/tmp',
-        '/var/tmp/cores',
-    ]
-
-    stickydirs = [
-        '/tmp',
-        '/opt',
-        '/var/spool/keytabs',
-        '/var/spool/tickets',
-        '/var/spool/tokens',
-        '/var/tmp',
-        '/var/tmp/cores/',
-    ]
-
-    for mount in mounts:
-        if os.path.exists(mount):
-            mount_bind(newroot_norm, mount)
-
-    for directory in emptydirs:
-        mkdir_safe(newroot_norm + directory)
-
-    for directory in stickydirs:
-        os.chmod(newroot_norm + directory, 0777 | stat.S_ISVTX)
-
-    # Mount .../tickets .../keytabs on tempfs, so that they will be cleaned
-    # up when the container exits.
-    #
-    # TODO: Do we need to have a single mount for all tmpfs dirs?
-    for tmpfsdir in ['/var/spool/tickets', '/var/spool/keytabs',
-                     '/var/spool/tokens']:
-        mount_tmpfs(newroot_norm, tmpfsdir, '4M')
-
-    userdirs = [
-        '/home',
-    ]
-
-    pwnam = pwd.getpwnam(proid)
-    for directory in userdirs:
-        mkdir_safe(newroot_norm + directory)
-        os.chown(newroot_norm + directory, pwnam.pw_uid, pwnam.pw_gid)
-
-
 ###############################################################################
 # Block device
 
+@osnoop.windows
 def dev_maj_min(block_dev):
     """Returns major/minor device numbers for the given block device."""
     dev_stat = os.stat(os.path.realpath(block_dev))
-    return (os.major(dev_stat.st_rdev), os.minor(dev_stat.st_rdev))
+    return os.major(dev_stat.st_rdev), os.minor(dev_stat.st_rdev)
 
 
 ###############################################################################
 # Filesystem management
+
+@osnoop.windows
 def create_filesystem(block_dev):
     """Create a new filesystem for an application of a given size formatted as
     ext3.
@@ -386,6 +232,7 @@ def create_filesystem(block_dev):
     )
 
 
+@osnoop.windows
 def test_filesystem(block_dev):
     """Test the existence of a filesystem on a given block device.
 
@@ -409,6 +256,7 @@ def test_filesystem(block_dev):
     return bool(res == 0)
 
 
+@osnoop.windows
 def archive_filesystem(block_dev, rootdir, archive, files):
     """Archive the filesystem of an application
 

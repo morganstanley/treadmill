@@ -11,6 +11,8 @@ from treadmill import iptables
 from treadmill import rulefile
 from treadmill import services
 
+from treadmill.runtime.linux.image import fs as image_fs
+
 _LOGGER = logging.getLogger(__name__)
 
 
@@ -88,4 +90,4 @@ class LinuxAppEnvironment(appenv.AppEnvironment):
         self.rules.initialize()
 
         # Initialize FS plugins.
-        fs.init_plugins(self.root)
+        image_fs.init_plugins(self)

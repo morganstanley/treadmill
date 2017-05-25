@@ -1,16 +1,19 @@
 """Configures NFS inside the container."""
 
-
-def init(rootdir):
-    """Pre mount NFS shares for private nfs namespace to a Treadmill known
-    location.
-
-    This is done to avoid NFS delays at container create time."""
-    del rootdir
+from treadmill.runtime.linux.image import fs as image_fs
 
 
-def configure(approot, newroot, app):
+class NFSFilesystemPlugin(image_fs.FilesystemPluginBase):
     """Mounts nfs based on container environment."""
-    del approot
-    del newroot
-    del app
+    def __init__(self, tm_env):
+        super(NFSFilesystemPlugin, self).__init__(tm_env)
+
+    def init(self):
+        """Pre mount NFS shares for private nfs namespace to a Treadmill known
+        location.
+
+        This is done to avoid NFS delays at container create time."""
+        pass
+
+    def configure(self, root_dir, app):
+        pass

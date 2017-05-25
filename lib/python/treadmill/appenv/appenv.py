@@ -38,6 +38,7 @@ class AppEnvironment(object):
         'app_events_dir',
         'watchdogs',
         'watchdog_dir',
+        'images_dir'
     )
 
     APPS_DIR = 'apps'
@@ -50,6 +51,7 @@ class AppEnvironment(object):
     METRICS_DIR = 'metrics'
     WATCHDOG_DIR = 'watchdogs'
     APP_EVENTS_DIR = 'appevents'
+    IMAGES_DIR = 'images'
 
     def __init__(self, root):
         self.root = root
@@ -62,6 +64,7 @@ class AppEnvironment(object):
         self.app_events_dir = os.path.join(self.root, self.APP_EVENTS_DIR)
         self.metrics_dir = os.path.join(self.root, self.METRICS_DIR)
         self.archives_dir = os.path.join(self.root, self.ARCHIVES_DIR)
+        self.images_dir = os.path.join(self.root, self.IMAGES_DIR)
         self.init_dir = os.path.join(self.root, self.INIT_DIR)
         self.pending_cleanup_dir = os.path.join(self.root,
                                                 self.PENDING_CLEANUP_DIR)
@@ -76,6 +79,7 @@ class AppEnvironment(object):
         fs.mkdir_safe(self.app_events_dir)
         fs.mkdir_safe(self.metrics_dir)
         fs.mkdir_safe(self.archives_dir)
+        fs.mkdir_safe(self.init_dir)
 
     @abc.abstractmethod
     def initialize(self, params):

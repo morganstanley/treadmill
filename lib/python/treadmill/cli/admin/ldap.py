@@ -106,13 +106,14 @@ def dns_group(parent):  # pylint: disable=R0912
     @click.option('--server', help='Server name',
                   required=False, type=cli.LIST)
     @click.option('-m', '--manifest', help='Load DNS from manifest file',
-                  type=click.File('rb'), required=True)
+                  type=click.Path(exists=True, readable=True), required=True)
     @cli.admin.ON_EXCEPTIONS
     def configure(name, server, manifest):
         """Create, get or modify Critical DNS quorum"""
         admin_dns = admin.DNS(context.GLOBAL.ldap.conn)
 
-        data = yaml.load(manifest.read())
+        with open(manifest, 'rb') as fd:
+            data = yaml.load(fd.read())
 
         if server is not None:
             data['server'] = server
@@ -281,14 +282,15 @@ def app_group(parent):
 
     @app.command()
     @click.option('-m', '--manifest', help='Application manifest.',
-                  type=click.File('rb'))
+                  type=click.Path(exists=True, readable=True))
     @click.argument('app')
     @cli.admin.ON_EXCEPTIONS
     def configure(app, manifest):
         """Create, get or modify an app configuration"""
         admin_app = admin.Application(context.GLOBAL.ldap.conn)
         if manifest:
-            data = yaml.load(manifest.read())
+            with open(manifest, 'rb') as fd:
+                data = yaml.load(fd.read())
             try:
                 admin_app.create(app, data)
             except ldap3.LDAPEntryAlreadyExistsResult:
@@ -329,12 +331,13 @@ def schema_group(parent):
 
     @parent.command()
     @click.option('-l', '--load', help='Schema (YAML) file.',
-                  type=click.File('rb'))
+                  type=click.Path(exists=True, readable=True))
     @cli.admin.ON_EXCEPTIONS
     def schema(load):
         """View or update LDAP schema"""
         if load:
-            schema = yaml.load(load.read())
+            with open(load, 'rb') as fd:
+                schema = yaml.load(fd.read())
             context.GLOBAL.ldap.conn.update_schema(schema)
 
         schema_obj = context.GLOBAL.ldap.conn.schema()
@@ -445,9 +448,9 @@ def cell_group(parent):
     @click.option('--archive-username', help='Archive username.')
     @click.option('--ssq-namespace', help='SSQ namespace.')
     @click.option('-d', '--data', help='Cell specific data in YAML',
-                  type=click.File('rb'))
+                  type=click.Path(exists=True, readable=True))
     @click.option('-m', '--manifest', help='Load cell from manifest file.',
-                  type=click.File('rb'))
+                  type=click.Path(exists=True, readable=True))
     @click.argument('cell')
     @cli.admin.ON_EXCEPTIONS
     def configure(cell, version, root, location, username, archive_server,
@@ -456,7 +459,8 @@ def cell_group(parent):
         admin_cell = admin.Cell(context.GLOBAL.ldap.conn)
         attrs = {}
         if manifest:
-            attrs = yaml.load(manifest.read())
+            with open(manifest, 'rb') as fd:
+                attrs = yaml.load(fd.read())
 
         if version:
             attrs['version'] = version
@@ -475,7 +479,8 @@ def cell_group(parent):
         if ssq_namespace:
             attrs['ssq-namespace'] = ssq_namespace
         if data:
-            attrs['data'] = yaml.load(data.read())
+            with open(data, 'rb') as fd:
+                attrs['data'] = yaml.load(fd.read())
 
         if attrs:
             try:
