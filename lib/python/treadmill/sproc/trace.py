@@ -30,10 +30,10 @@ FINISHED_BATCH = 5000
 FINISHED_EXPIRE_AFTER = 5 * 60
 
 # Default msx finished history count.
-FINISHED_HISTORY_MAX_COUNT = 50
+FINISHED_HISTORY_MAX_COUNT = 100
 
 # Default max trace history count.
-TRACE_HISTORY_MAX_COUNT = 30
+TRACE_HISTORY_MAX_COUNT = 100
 
 
 def init():

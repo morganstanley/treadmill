@@ -166,7 +166,7 @@ def init():
 
     @allocation_grp.command()
     @click.option('-c', '--cell', help='Treadmill cell', required=True)
-    @click.option('--pattern', help='Application pattern.')
+    @click.option('--pattern', help='Application pattern.', required=True)
     @click.option('--priority', help='Assignment priority.', type=int)
     @click.option('--delete', help='Delete assignment.',
                   is_flag=True, default=False)
@@ -178,6 +178,11 @@ def init():
         url = '/allocation/%s/assignment/%s/%s' % (allocation,
                                                    cell,
                                                    pattern)
+
+        if not delete and priority is None:
+            raise click.UsageError(
+                'Must specify priority when creating/modifying assignments.')
+
         if delete:
             restclient.delete(restapi, url)
         else:

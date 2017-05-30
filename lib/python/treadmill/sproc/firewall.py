@@ -13,10 +13,11 @@ updated in Zookeeper.
 """
 from __future__ import absolute_import
 
+import functools
 import logging
+import os
 import socket
 import time
-import os
 
 import click
 import yaml
@@ -96,36 +97,44 @@ def _configure_rules(target):
     :param ``[tuple(chain, Tuple)]`` target:
         Desired set of rules
     """
+    chain_configure_callbacks = {
+        iptables.PREROUTING_DNAT:
+            functools.partial(
+                iptables.configure_dnat_rules,
+                chain=iptables.PREROUTING_DNAT
+            ),
+        iptables.POSTROUTING_SNAT:
+            functools.partial(
+                iptables.configure_snat_rules,
+                chain=iptables.POSTROUTING_SNAT
+            ),
+        iptables.PREROUTING_PASSTHROUGH:
+            functools.partial(
+                iptables.configure_passthrough_rules,
+                chain=iptables.PREROUTING_PASSTHROUGH
+            ),
+        iptables.VRING_DNAT:
+            functools.partial(
+                iptables.configure_dnat_rules,
+                chain=iptables.VRING_DNAT
+            ),
+        iptables.VRING_SNAT:
+            functools.partial(
+                iptables.configure_snat_rules,
+                chain=iptables.VRING_SNAT
+            ),
+    }
+    for chain in chain_configure_callbacks:
+        iptables.create_chain('nat', chain)
+
     chain_rules = {}
     for chain, rule in target:
         chain_rules.setdefault(chain, set()).add(rule)
 
     for chain, rules in chain_rules.items():
-        if chain == iptables.PREROUTING_DNAT:
-            iptables.configure_dnat_rules(
-                rules,
-                chain=iptables.PREROUTING_DNAT
-            )
-        elif chain == iptables.POSTROUTING_SNAT:
-            iptables.configure_snat_rules(
-                rules,
-                chain=iptables.POSTROUTING_SNAT
-            )
-        elif chain == iptables.PREROUTING_PASSTHROUGH:
-            iptables.configure_passthrough_rules(
-                rules,
-                chain=iptables.PREROUTING_PASSTHROUGH
-            )
-        elif chain == iptables.VRING_DNAT:
-            iptables.configure_dnat_rules(
-                rules,
-                chain=iptables.VRING_DNAT
-            )
-        elif chain == iptables.VRING_SNAT:
-            iptables.configure_snat_rules(
-                rules,
-                chain=iptables.VRING_SNAT
-            )
+        if chain in chain_configure_callbacks:
+            chain_configure_callbacks[chain](rules)
+
         else:
             raise ValueError('Unknown rule chain %r' % chain)
 

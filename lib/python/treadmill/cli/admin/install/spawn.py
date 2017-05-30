@@ -6,7 +6,6 @@ import logging
 
 import click
 
-import treadmill
 from treadmill import bootstrap
 
 if os.name != 'nt':
@@ -37,7 +36,7 @@ def init():
 
         spawn_tree.Tree(dst_dir).create()
         bootstrap.install(
-            os.path.join(treadmill.TREADMILL, 'local', 'linux', 'spawn'),
+            'spawn',
             dst_dir,
             ctx.obj['PARAMS'],
             run=run_script

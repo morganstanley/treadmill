@@ -6,7 +6,6 @@ import logging
 
 import click
 
-import treadmill
 from treadmill import bootstrap
 
 
@@ -36,7 +35,7 @@ def init():
             run_sh = os.path.join(dst_dir, 'treadmill', 'bin', 'run.sh')
 
         bootstrap.install(
-            os.path.join(treadmill.TREADMILL, 'local', 'linux', 'master'),
+            'master',
             dst_dir,
             ctx.obj['PARAMS'],
             run=run_sh

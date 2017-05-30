@@ -176,6 +176,13 @@ def _upload_batch(zkclient, db_node_path, dbname, batch):
             ),
             batch
         )
+        conn.executescript(
+            """
+            CREATE INDEX path_timestamp_idx on %s (path, timestamp);
+
+            PRAGMA query_only = TRUE;
+            """ % dbname
+        )
     conn.close()
 
     with open(f.name, 'rb') as f:

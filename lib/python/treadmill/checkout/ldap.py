@@ -17,7 +17,7 @@ from treadmill import sysinfo
 _LOGGER = logging.getLogger(__name__)
 
 
-def mk_test_cls(sysproid, search_base, url):
+def mk_test_cls(sysproid, ldap_suffix, url):
     """Make test class."""
 
     class LdapTest(unittest.TestCase):
@@ -36,7 +36,7 @@ def mk_test_cls(sysproid, search_base, url):
                 ]
             }
 
-            conn = admin.Admin(url, search_base)
+            conn = admin.Admin(url, ldap_suffix)
             conn.connect()
 
             self.admin_app = admin.Application(conn)
@@ -48,7 +48,7 @@ def mk_test_cls(sysproid, search_base, url):
     return LdapTest
 
 
-def test(ldap_urls, search_base):
+def test(ldap_urls, ldap_suffix):
     """Create sysapps test class."""
 
     sysproid = os.environ.get('TREADMILL_ID', pwd.getpwuid(os.getuid())[0])
@@ -57,18 +57,18 @@ def test(ldap_urls, search_base):
 
     for url in ldap_urls:
 
-        cls = mk_test_cls(sysproid, search_base, url)
+        cls = mk_test_cls(sysproid, ldap_suffix, url)
 
         for other_url in ldap_urls:
 
-            @chk.T(cls, url=url, other_url=other_url, search_base=search_base)
-            def _test_replication(self, search_base, url, other_url):
+            @chk.T(cls, url=url, other_url=other_url, ldap_suffix=ldap_suffix)
+            def _test_replication(self, ldap_suffix, url, other_url):
                 """Check ldap replication {url} -> {other_url}."""
                 print('Checking %s' % url)
 
                 time.sleep(2)
 
-                other_conn = admin.Admin(other_url, search_base)
+                other_conn = admin.Admin(other_url, ldap_suffix)
                 other_conn.connect()
                 other_admin_app = admin.Application(other_conn)
 

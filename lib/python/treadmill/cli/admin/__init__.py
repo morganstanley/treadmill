@@ -44,6 +44,7 @@ def _handle_no_such_ldap_obj(err):
 
 ON_EXCEPTIONS = cli.handle_exceptions([
     (ldap3.LDAPInsufficientAccessRightsResult, 'Error: access denied.'),
+    (ldap3.LDAPBindError, 'Error: invalid credentials.'),
     (ldap3.LDAPNoSuchObjectResult, _handle_no_such_ldap_obj),
     (kazoo.exceptions.NoAuthError, 'Error: not authorized.'),
     (kazoo.exceptions.NoNodeError, 'Error: resource does not exist.'),

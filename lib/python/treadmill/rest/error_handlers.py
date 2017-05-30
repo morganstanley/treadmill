@@ -107,6 +107,16 @@ def register(api):
         }
         return resp, httplib.BAD_REQUEST, _cors_headers()
 
+    @api.errorhandler(exc.NotFoundError)
+    def _not_found_exc(err):
+        """NotFoundError exception handler."""
+        _LOGGER.exception('Not found error: %r', err)
+        resp = {
+            'message': err.message,
+            'status': httplib.NOT_FOUND
+        }
+        return resp, httplib.NOT_FOUND, _cors_headers()
+
     @api.errorhandler(exc.TreadmillError)
     def _treadmill_exc(err):
         """Treadmill exception handler."""

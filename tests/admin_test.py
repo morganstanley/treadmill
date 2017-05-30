@@ -417,11 +417,11 @@ class AdminTest(unittest.TestCase):
     @mock.patch('ldap3.Connection.add', mock.Mock())
     def test_init(self):
         """Tests init logic."""
-        admin_obj = admin.Admin(None, None)
+        admin_obj = admin.Admin(None, 'dc=test,dc=com')
         admin_obj.ldap = ldap3.Connection(ldap3.Server('fake'),
                                           client_strategy=ldap3.MOCK_SYNC)
 
-        admin_obj.init('test.com')
+        admin_obj.init()
 
         dn_list = [arg[0][0] for arg in admin_obj.ldap.add.call_args_list]
 
@@ -434,7 +434,7 @@ class TenantTest(unittest.TestCase):
     """Tests Tenant ldapobject routines."""
 
     def setUp(self):
-        self.tnt = admin.Tenant(admin.Admin(None, 'ou=treadmill,dc=xx,dc=com'))
+        self.tnt = admin.Tenant(admin.Admin(None, 'dc=xx,dc=com'))
 
     def test_to_entry(self):
         """Tests convertion of tenant dictionary to ldap entry."""
@@ -463,7 +463,7 @@ class AllocationTest(unittest.TestCase):
 
     def setUp(self):
         self.alloc = admin.Allocation(
-            admin.Admin(None, 'ou=treadmill,dc=xx,dc=com'))
+            admin.Admin(None, 'dc=xx,dc=com'))
 
     def test_dn(self):
         """Tests allocation identity to dn mapping."""
@@ -498,10 +498,10 @@ class AllocationTest(unittest.TestCase):
         ]
         obj = self.alloc.get('foo:bar/prod1')
         treadmill.admin.Admin.search.assert_called_with(
+            attributes=mock.ANY,
             search_base='allocation=prod1,tenant=bar,tenant=foo,'
                         'ou=allocations,ou=treadmill,dc=xx,dc=com',
             search_filter='(objectclass=tmCellAllocation)',
-            attributes=mock.ANY
         )
         self.assertEqual(obj['reservations'][0]['cell'], 'xxx')
         self.assertEqual(obj['reservations'][0]['disk'], '2G')
@@ -517,7 +517,7 @@ class PartitionTest(unittest.TestCase):
 
     def setUp(self):
         self.part = admin.Partition(
-            admin.Admin(None, 'ou=treadmill,dc=xx,dc=com'))
+            admin.Admin(None, 'dc=xx,dc=com'))
 
     def test_dn(self):
         """Test partition identity to dn mapping."""

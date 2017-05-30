@@ -23,7 +23,6 @@ import tornado.websocket
 
 from treadmill import dirwatch
 from treadmill import exc
-from treadmill import fs
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -99,8 +98,8 @@ def make_handler(pubsub):
 
                 since = message.get('since', 0)
                 snapshot = message.get('snapshot', False)
-                for directory, pattern in impl.subscribe(message):
-                    pubsub.register(directory, pattern, self, impl, since)
+                for watch, pattern in impl.subscribe(message):
+                    pubsub.register(watch, pattern, self, impl, since)
                 if snapshot:
                     self.close()
 
@@ -123,29 +122,42 @@ def make_handler(pubsub):
 class DirWatchPubSub(object):
     """Pubsub dirwatch events."""
 
-    def __init__(self, root):
-        self.handlers = collections.defaultdict(list)
-        self.impl = dict()
+    def __init__(self, root, impl=None, watches=None):
         self.root = root
+        self.impl = impl or {}
+        self.watches = watches or []
 
         self.watcher = dirwatch.DirWatcher()
         self.watcher.on_created = self._on_created
         self.watcher.on_deleted = self._on_deleted
         self.watcher.on_modified = self._on_modified
 
+        self.watch_dirs = set()
+        for watch in self.watches:
+            watch_dirs = self._get_watch_dirs(watch)
+            self.watch_dirs.update(watch_dirs)
+        for directory in self.watch_dirs:
+            _LOGGER.info('Added permanent dir watcher: %s', directory)
+            self.watcher.add_dir(directory)
+
         self.ws = make_handler(self)
+        self.handlers = collections.defaultdict(list)
 
-    def register(self, directory, pattern, ws_handler, impl, since):
+    def register(self, watch, pattern, ws_handler, impl, since):
         """Register handler with pattern."""
-        norm_path = os.path.realpath(os.path.join(self.root,
-                                                  directory.lstrip('/')))
-        if not self.handlers[norm_path]:
-            _LOGGER.info('Added dir watcher: %s', directory)
-            fs.mkdir_safe(norm_path)
-            self.watcher.add_dir(norm_path)
+        watch_dirs = self._get_watch_dirs(watch)
+        for directory in watch_dirs:
+            if ((not self.handlers[directory] and
+                 directory not in self.watch_dirs)):
+                _LOGGER.info('Added dir watcher: %s', directory)
+                self.watcher.add_dir(directory)
 
-        self.handlers[norm_path].append((pattern, ws_handler, impl))
-        self._sow(norm_path, pattern, since, ws_handler, impl)
+            self.handlers[directory].append((pattern, ws_handler, impl))
+        self._sow(watch, pattern, since, ws_handler, impl)
+
+    def _get_watch_dirs(self, watch):
+        pathname = os.path.realpath(os.path.join(self.root, watch.lstrip('/')))
+        return [path for path in glob.glob(pathname) if os.path.isdir(path)]
 
     @exc.exit_on_unhandled
     def _on_created(self, filename):
@@ -233,7 +245,20 @@ class DirWatchPubSub(object):
                         )
                     )
 
-    def _sow(self, directory, pattern, since, handler, impl):
+    def _db_records(self, dbpath, sow_table, db_glob, since):
+        """Get matching records from db."""
+        _LOGGER.info('Using sow db: %s, glob: %s', dbpath, db_glob)
+        conn = sqlite3.connect(dbpath)
+        select_stmt = ('''
+        SELECT timestamp, path, data FROM %s
+          WHERE path GLOB ? AND timestamp >= ?
+          ORDER BY timestamp''' % sow_table)
+
+        # Return open connection, as conn.execute is cursor iterator, not
+        # materialized list.
+        return conn, conn.execute(select_stmt, (db_glob, since,))
+
+    def _sow(self, watch, pattern, since, handler, impl):
         """Publish state of the world."""
         if since is None:
             since = 0
@@ -248,40 +273,45 @@ class DirWatchPubSub(object):
             except Exception as err:  # pylint: disable=W0703
                 handler.send_error_msg(str(err))
 
-        db_records = []
-        fs_records = self._get_fs_sow(directory, pattern, since)
+        db_connections = []
+        fs_records = self._get_fs_sow(watch, pattern, since)
 
-        sow_db = getattr(impl, 'sow_db', None)
-        conn = None
+        sow = getattr(impl, 'sow', None)
+        sow_table = getattr(impl, 'sow_table', 'sow')
         try:
-            if sow_db:
-                dbpath = os.path.join(self.root, sow_db)
-                db_glob = os.path.join(directory[len(self.root):], pattern)
+            records = []
+            if sow:
+                dbs = sorted(glob.glob(os.path.join(self.root, sow, '*')))
+                db_glob = os.path.join(watch, pattern)
 
-                _LOGGER.info('Using sow db: %s, glob: %s', dbpath, db_glob)
+                for db in dbs:
+                    if os.path.basename(db).startswith('.'):
+                        continue
 
-                conn = sqlite3.connect(dbpath)
-                select_stmt = ('SELECT timestamp, path, data FROM sow'
-                               ' WHERE path GLOB ? AND timestamp >= ?'
-                               ' ORDER BY timestamp')
-                db_records = conn.execute(select_stmt, (db_glob, since,))
+                    conn, db_cursor = self._db_records(db, sow_table, db_glob,
+                                                       since)
+                    records.append(db_cursor)
+                    db_connections.append(conn)
 
+            records.append(fs_records)
             # Merge db and fs records, removing duplicates.
             prev_path = None
-            for item in heapq.merge(db_records, fs_records):
+
+            for item in heapq.merge(*records):
                 _when, path, _content = item
                 if path == prev_path:
                     continue
                 prev_path = path
                 _publish(item)
         finally:
-            if conn:
-                conn.close()
+            for conn in db_connections:
+                if conn:
+                    conn.close()
 
-    def _get_fs_sow(self, directory, pattern, since):
+    def _get_fs_sow(self, watch, pattern, since):
         """Get state of the world from filesystem."""
         root_len = len(self.root)
-        fs_glob = os.path.join(directory, pattern)
+        fs_glob = os.path.join(self.root, watch.lstrip('/'), pattern)
 
         files = glob.glob(fs_glob)
 
@@ -308,7 +338,7 @@ class DirWatchPubSub(object):
                         for pattern, handler, impl in self.handlers[directory]
                         if handler.active()]
 
-            if not handlers:
+            if not handlers and directory not in self.watch_dirs:
                 _LOGGER.info('No active handlers for %s', directory)
                 self.watcher.remove_dir(directory)
 

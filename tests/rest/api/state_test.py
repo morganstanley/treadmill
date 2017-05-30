@@ -14,6 +14,7 @@ import mock
 
 import treadmill
 from treadmill import webutils
+from treadmill.rest import error_handlers
 from treadmill.rest.api import state
 
 
@@ -26,6 +27,8 @@ class StateTest(unittest.TestCase):
         self.app.testing = True
 
         api = restplus.Api(self.app)
+        error_handlers.register(api)
+
         cors = webutils.cors(origin='*',
                              content_type='application/json',
                              credentials=False)

@@ -41,6 +41,7 @@ class AppEnvTest(unittest.TestCase):
     @unittest.skipUnless(sys.platform == 'linux2', 'Requires Linux')
     @mock.patch('treadmill.iptables.initialize', mock.Mock())
     @mock.patch('treadmill.rulefile.RuleMgr.initialize', mock.Mock())
+    @mock.patch('treadmill.runtime.linux.image.fs.init_plugins', mock.Mock())
     def test_initialize_linux(self):
         """Test AppEnv environment initialization.
         """
