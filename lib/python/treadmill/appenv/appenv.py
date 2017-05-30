@@ -30,6 +30,7 @@ class AppEnvironment(object):
         'archives_dir',
         'cache_dir',
         'cleanup_dir',
+        'configs_dir',
         'init_dir',
         'metrics_dir',
         'pending_cleanup_dir',
@@ -45,6 +46,7 @@ class AppEnvironment(object):
     ARCHIVES_DIR = 'archives'
     CACHE_DIR = 'cache'
     CLEANUP_DIR = 'cleanup'
+    CONFIG_DIR = 'configs'
     INIT_DIR = 'init'
     PENDING_CLEANUP_DIR = 'pending_cleanup'
     RUNNING_DIR = 'running'
@@ -61,6 +63,7 @@ class AppEnvironment(object):
         self.running_dir = os.path.join(self.root, self.RUNNING_DIR)
         self.cache_dir = os.path.join(self.root, self.CACHE_DIR)
         self.cleanup_dir = os.path.join(self.root, self.CLEANUP_DIR)
+        self.configs_dir = os.path.join(self.root, self.CONFIG_DIR)
         self.app_events_dir = os.path.join(self.root, self.APP_EVENTS_DIR)
         self.metrics_dir = os.path.join(self.root, self.METRICS_DIR)
         self.archives_dir = os.path.join(self.root, self.ARCHIVES_DIR)
@@ -76,6 +79,7 @@ class AppEnvironment(object):
         fs.mkdir_safe(self.running_dir)
         fs.mkdir_safe(self.cache_dir)
         fs.mkdir_safe(self.cleanup_dir)
+        fs.mkdir_safe(self.configs_dir)
         fs.mkdir_safe(self.app_events_dir)
         fs.mkdir_safe(self.metrics_dir)
         fs.mkdir_safe(self.archives_dir)

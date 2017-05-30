@@ -31,10 +31,8 @@ class SupervisorTest(unittest.TestCase):
     def setUpClass(cls):
         aliases_path = os.environ.get('TREADMILL_ALIASES_PATH')
         if aliases_path is None:
-            aliases_path = os.path.abspath(
-                os.path.join(os.path.dirname(__file__), '..', 'etc',
-                             'linux.aliases'))
-            os.environ['TREADMILL_ALIASES_PATH'] = ':'.join(aliases_path)
+            os.environ['TREADMILL_ALIASES_PATH'] = (
+                'treadmill.bootstrap.aliases')
 
         os.environ['PATH'] = ':'.join(os.environ['PATH'].split(':') + [
             os.path.join(subproc.resolve('s6'), 'bin')

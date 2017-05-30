@@ -1,16 +1,11 @@
 """Implementation of treadmill-admin CLI plugin."""
 from __future__ import absolute_import
 
-import ConfigParser
 import logging
-import logging.config
 import os
-import tempfile
-import traceback
 
 import click
 
-import treadmill
 from treadmill import cli
 from .. import cgroups
 
@@ -56,15 +51,7 @@ def init():
     def run(ctx, cgroup):
         """Run system processes"""
         # Default logging to daemon.conf, at CRITICAL, unless --debug
-        log_conf_file = os.path.join(treadmill.TREADMILL, 'etc', 'logging',
-                                     'daemon.conf')
-        try:
-            logging.config.fileConfig(log_conf_file)
-        except ConfigParser.Error:
-            with tempfile.NamedTemporaryFile(delete=False) as f:
-                traceback.print_exc(file=f)
-                click.echo('Error parsing log conf: %s' %
-                           log_conf_file, err=True)
+        cli.init_logger('daemon.conf')
 
         log_level = None
         if ctx.obj.get('logging.debug'):

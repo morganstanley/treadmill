@@ -21,6 +21,7 @@ from tornado.testing import gen_test
 from tornado.websocket import websocket_connect
 
 from treadmill import websocket
+from treadmill import fs
 
 
 class DummyHandler(object):
@@ -98,9 +99,6 @@ class PubSubTest(unittest.TestCase):
         pubsub.run(once=True)
         self.assertEqual(1, len(pubsub.handlers[self.root]))
 
-        pubsub.register('/new_dir', 'bbb', ws2, handler2, True)
-        self.assertTrue(os.path.exists(os.path.join(self.root, 'new_dir')))
-
     def test_sow_since(self):
         """Tests sow since handling."""
         # Access to protected member: _sow
@@ -109,7 +107,7 @@ class PubSubTest(unittest.TestCase):
         pubsub = websocket.DirWatchPubSub(self.root)
         handler = mock.Mock()
         impl = mock.Mock()
-        impl.sow_db = None
+        impl.sow = None
         impl.on_event.side_effect = [
             {'echo': 1},
             {'echo': 2},
@@ -117,18 +115,18 @@ class PubSubTest(unittest.TestCase):
         open(os.path.join(self.root, 'xxx'), 'w+').close()
         modified = int(os.stat(os.path.join(self.root, 'xxx')).st_mtime)
 
-        pubsub._sow(self.root, '*', 0, handler, impl)
+        pubsub._sow('/', '*', 0, handler, impl)
 
         handler.write_message.assert_called_with(
             {'echo': 1, 'when': modified},
         )
         handler.write_message.reset_mock()
 
-        pubsub._sow(self.root, '*', time.time() + 1, handler, impl)
+        pubsub._sow('/', '*', time.time() + 1, handler, impl)
         self.assertFalse(handler.write_message.called)
         handler.write_message.reset_mock()
 
-        pubsub._sow(self.root, '*', time.time() - 1, handler, impl)
+        pubsub._sow('/', '*', time.time() - 1, handler, impl)
         handler.write_message.assert_called_with(
             {'echo': 2, 'when': modified},
         )
@@ -144,19 +142,24 @@ class PubSubTest(unittest.TestCase):
         handler = mock.Mock()
 
         impl = mock.Mock()
-        with tempfile.NamedTemporaryFile(dir=self.root,
+        sow_dir = os.path.join(self.root, '.sow', 'trace')
+        fs.mkdir_safe(sow_dir)
+
+        with tempfile.NamedTemporaryFile(dir=sow_dir,
                                          delete=False,
-                                         prefix='.tmp') as temp:
+                                         prefix='trace.db-') as temp:
             pass
-        impl.sow_db = os.path.basename(temp.name)
+        impl.sow = sow_dir
+        impl.sow_table = 'trace'
+
         conn = sqlite3.connect(temp.name)
-        conn.execute('CREATE TABLE sow ('
-                     ' path TEXT PRIMARY KEY,'
+        conn.execute('CREATE TABLE trace ('
+                     ' path TEXT,'
                      ' timestamp INTEGER,'
                      ' data TEXT,'
                      ' source TEXT)')
         conn.executemany(
-            'INSERT INTO sow (path, timestamp) values(?, ?)',
+            'INSERT INTO trace (path, timestamp) values(?, ?)',
             [('/aaa', 3),
              ('/bbb', 2),
              ('/ccc', 1)]
@@ -174,7 +177,7 @@ class PubSubTest(unittest.TestCase):
         open(os.path.join(self.root, 'xxx'), 'w+').close()
         modified = int(os.stat(os.path.join(self.root, 'xxx')).st_mtime)
 
-        pubsub._sow(self.root, '*', 0, handler, impl)
+        pubsub._sow('/', '*', 0, handler, impl)
 
         impl.on_event.assert_has_calls(
             [
@@ -192,6 +195,44 @@ class PubSubTest(unittest.TestCase):
                 mock.call({"when": modified, "echo": 4}),
             ]
         )
+
+    @mock.patch('glob.glob')
+    @mock.patch('os.path.isdir')
+    @mock.patch('treadmill.dirwatch.DirWatcher')
+    @mock.patch('treadmill.websocket.DirWatchPubSub._sow', mock.Mock())
+    def test_permanent_watches(self, watcher_cls_mock, isdir_mock, glob_mock):
+        """Tests permanent watches."""
+        # Access to protected member: _gc
+        #
+        # pylint: disable=W0212
+
+        # Add permanent watches
+        watcher_mock = mock.Mock()
+        watcher_cls_mock.return_value = watcher_mock
+        glob_mock.return_value = ['/root/test/foo', '/root/test/bar']
+        isdir_mock.side_effect = [True, False]
+
+        pubsub = websocket.DirWatchPubSub('/root', watches=['/test/*'])
+
+        glob_mock.assert_called_once_with('/root/test/*')
+        watcher_mock.add_dir.assert_called_once_with('/root/test/foo')
+
+        # Register on permanent watch should not add dir again
+        ws_handler_mock = mock.Mock()
+        impl_mock = mock.Mock()
+        isdir_mock.side_effect = [True, False]
+
+        pubsub.register('/test/*', '*', ws_handler_mock, impl_mock, None)
+
+        self.assertEqual(watcher_mock.add_dir.call_count, 1)  # No new calls.
+        self.assertIn('/root/test/foo', pubsub.handlers)
+
+        # Do not GC permanent watches
+        ws_handler_mock.active.return_value = False
+
+        pubsub._gc()
+
+        self.assertEqual(watcher_mock.remove_dir.call_count, 0)
 
 
 class WebSocketTest(AsyncHTTPTestCase):
@@ -239,7 +280,7 @@ class WebSocketTest(AsyncHTTPTestCase):
         open(os.path.join(self.root, 'xxx'), 'w+').close()
 
         echo_impl = mock.Mock()
-        echo_impl.sow_db = None
+        echo_impl.sow = None
         echo_impl.subscribe.return_value = [('/', '*')]
         echo_impl.on_event.return_value = {'echo': 1}
         self.pubsub.impl['echo'] = echo_impl
@@ -258,7 +299,7 @@ class WebSocketTest(AsyncHTTPTestCase):
         open(os.path.join(self.root, 'xxx'), 'w+').close()
 
         echo_impl = mock.Mock()
-        echo_impl.sow_db = None
+        echo_impl.sow = None
         echo_impl.subscribe.return_value = [('/', '*')]
         echo_impl.on_event.return_value = {'echo': 1}
         self.pubsub.impl['echo'] = echo_impl

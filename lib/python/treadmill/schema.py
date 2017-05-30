@@ -2,21 +2,38 @@
 
 from __future__ import absolute_import
 
-import os
+import json
 
+import pkg_resources
 import decorator
 import jsonschema
 
 
-_SCHEMA_DIR = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), '..', '..', '..', 'schema'))
-
 _TEST_MODE = False
+
+
+class _RefResolver(jsonschema.RefResolver):
+    """Resolves schema from pkg resource."""
+
+    def __init__(self):
+        super(_RefResolver, self).__init__('file://etc/schema/', None)
+
+    def resolve_remote(self, uri):
+        """Resolves json schema from package resource."""
+        # TODO: specyfying file:// uri is wrong, but for some reason
+        #       documented ways of handling differnet uri type (using handlers
+        #       dict) do not work with local ref points like #/<xxx>.
+        if uri.startswith('file://etc/schema/'):
+            resource = uri[len('file:/'):]
+            json_string = pkg_resources.resource_string('treadmill', resource)
+            return json.loads(json_string)
+        else:
+            return super(_RefResolver, self).resolve_remote(uri)
 
 
 def schema(*schemas, **kwschemas):
     """Schema decorator."""
-    resolver = jsonschema.RefResolver('file://' + _SCHEMA_DIR + '/', None)
+    resolver = _RefResolver()
     validators = [
         jsonschema.Draft4Validator(s, resolver=resolver)
         for s in schemas

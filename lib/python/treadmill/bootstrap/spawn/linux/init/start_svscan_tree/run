@@ -1,0 +1,5 @@
+#!/bin/sh
+
+exec 2>&1
+
+exec {{ s6 }}/bin/s6-svscan {{ dir }}/apps/svscan_tree

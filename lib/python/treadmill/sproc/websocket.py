@@ -41,13 +41,15 @@ def init():
             _LOGGER.info('zk2fs mirror does not exist, waiting.')
             time.sleep(1)
 
-        pubsub = ws.DirWatchPubSub(fs_root)
-        for topic, impl in api.init(modules):
-            pubsub.impl[topic] = impl
+        impl, watches = {}, []
+        for topic, topic_impl, topic_watches in api.init(modules):
+            impl[topic] = topic_impl
+            watches.extend(topic_watches)
 
+        pubsub = ws.DirWatchPubSub(fs_root, impl, watches)
         pubsub.run_detached()
-        application = tornado.web.Application([(r'/', pubsub.ws)])
 
+        application = tornado.web.Application([(r'/', pubsub.ws)])
         http_server = tornado.httpserver.HTTPServer(application)
         http_server.listen(port)
         tornado.ioloop.IOLoop.instance().start()

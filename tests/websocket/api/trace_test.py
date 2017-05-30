@@ -8,6 +8,7 @@ import unittest
 import tests.treadmill_test_deps  # pylint: disable=W0611
 
 import mock
+import jsonschema
 
 from treadmill.apptrace import events
 from treadmill.websocket.api import trace
@@ -24,8 +25,33 @@ class WSRunningAPITest(unittest.TestCase):
         self.assertEqual(
             self.api.subscribe({'topic': '/trace',
                                 'filter': 'foo.bar#1234'}),
-            [('/trace/00D2', 'foo.bar#1234,*')]
+            [('/trace/*', 'foo.bar#1234,*')]
         )
+
+        self.assertEqual(
+            self.api.subscribe({'topic': '/trace',
+                                'filter': 'foo.bar'}),
+            [('/trace/*', 'foo.bar#*,*')]
+        )
+
+        self.assertEqual(
+            self.api.subscribe({'topic': '/trace',
+                                'filter': 'foo.bar*'}),
+            [('/trace/*', 'foo.bar*#*,*')]
+        )
+
+        self.assertEqual(
+            self.api.subscribe({'topic': '/trace',
+                                'filter': 'foo.*'}),
+            [('/trace/*', 'foo.*#*,*')]
+        )
+
+        with self.assertRaisesRegexp(
+            jsonschema.exceptions.ValidationError,
+            "'*' does not match"
+        ):
+            self.api.subscribe({'topic': '/trace',
+                                'filter': '*'})
 
     @mock.patch('treadmill.apptrace.events.AppTraceEvent',
                 mock.Mock(set_spec=True))

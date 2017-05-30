@@ -7,7 +7,7 @@ from __future__ import absolute_import
 import logging
 
 from treadmill import schema
-from treadmill import zknamespace as z
+from treadmill.websocket import utils
 from treadmill.apptrace import events as traceevents
 
 
@@ -17,18 +17,17 @@ _LOGGER = logging.getLogger(__name__)
 class TraceAPI(object):
     """Handler for /trace topic."""
 
-    def __init__(self, sow_db=None):
+    def __init__(self, sow=None):
         """init"""
-        self.sow_db = sow_db
+        self.sow = sow
+        self.sow_table = 'trace'
 
         @schema.schema({'$ref': 'websocket/trace.json#/message'})
         def subscribe(message):
             """Return filter based on message payload."""
-            instanceid = message['filter']
-            subscription = [
-                (z.path.trace(instanceid), '%s,*' % instanceid)
-            ]
-            _LOGGER.info('Addind trace subscription: %s', subscription)
+            parsed_filter = utils.parse_message_filter(message['filter'])
+            subscription = [('/trace/*', '%s,*' % parsed_filter.filter)]
+            _LOGGER.info('Adding trace subscription: %s', subscription)
             return subscription
 
         def on_event(filename, _operation, content):
@@ -65,4 +64,4 @@ class TraceAPI(object):
 
 def init():
     """API module init."""
-    return [('/trace', TraceAPI(sow_db='.trace-sow.db'))]
+    return [('/trace', TraceAPI(sow='.sow/trace'), ['/trace/*'])]

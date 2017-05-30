@@ -75,63 +75,18 @@ def _on_add_trace_event(zk2fs_sync, zkpath):
     zksync.write_data(fpath, None, utime, raise_err=False)
 
 
-_CREATE_SOW_TABLE = """
-CREATE TABLE sow (
-    path TEXT PRIMARY KEY,
-    timestamp INTEGER,
-    data TEXT,
-    source TEXT
-)
-"""
-
-
-_MERGE_TRACE_STMT = """
-ATTACH '%s' AS temp_trace_db;
-BEGIN;
-INSERT OR IGNORE INTO sow
-    SELECT path, timestamp, data, '%s' FROM temp_trace_db.trace;
-COMMIT;
-"""
-
-
-def _init_sow_db(sow_db):
-    """Initialize state of the world database."""
-    conn = sqlite3.connect(sow_db)
-    conn.execute(_CREATE_SOW_TABLE)
-    conn.close()
-
-
-def _copy_sow_db(sow_db):
-    """Copy state of the world database to a named temporary file."""
-    sow_dir = os.path.dirname(sow_db)
-    with tempfile.NamedTemporaryFile(delete=False, dir=sow_dir) as f_out:
-        with open(sow_db, 'rb') as f_in:
-            f_out.write(f_in.read())
-    return f_out.name
-
-
-def _merge_sow_db(sow_db, fname, zkpath):
-    """Merge data into state of the world database using merge script."""
-    merge_stmt = _MERGE_TRACE_STMT % (fname, zkpath)
-
-    sow_db_copy = _copy_sow_db(sow_db)
-    with sqlite3.connect(sow_db_copy) as conn:
-        conn.executescript(merge_stmt)
-    conn.close()
-    os.rename(sow_db_copy, sow_db)
-
-
 def _on_add_trace_db(zk2fs_sync, zkpath, sow_db):
     """Called when new trace DB snapshot is added."""
     _LOGGER.info('Added trace db snapshot: %s', zkpath)
     data, _metadata = zk2fs_sync.zkclient.get(zkpath)
-    with tempfile.NamedTemporaryFile(delete=False, mode='wb') as f:
+    with tempfile.NamedTemporaryFile(delete=False, mode='wb', dir=sow_db) as f:
         f.write(zlib.decompress(data))
 
-    _merge_sow_db(sow_db, f.name, zkpath)
+    db_path = os.path.join(sow_db, os.path.basename(zkpath))
+    os.rename(f.name, db_path)
 
     # Now that sow is up to date, cleanup records from file system.
-    with sqlite3.connect(f.name) as conn:
+    with sqlite3.connect(db_path) as conn:
         cursor = conn.cursor()
         for row in cursor.execute('SELECT path FROM trace'):
             fpath = os.path.join(zk2fs_sync.fsroot, row[0][1:])
@@ -143,11 +98,10 @@ def _on_add_trace_db(zk2fs_sync, zkpath, sow_db):
 
 def _on_del_trace_db(zk2fs_sync, zkpath, sow_db):
     """Called when trace DB snapshot is deleted."""
-    sow_db_copy = _copy_sow_db(sow_db)
-    with sqlite3.connect(sow_db_copy) as conn:
-        conn.execute('DELETE FROM sow WHERE source = ?', (zkpath,))
-    os.rename(sow_db_copy, sow_db)
-    fs.rm_safe(zk2fs_sync.fpath(zkpath))
+    del zk2fs_sync
+
+    db_path = os.path.join(sow_db, os.path.basename(zkpath))
+    fs.rm_safe(db_path)
 
 
 def init():
@@ -216,15 +170,14 @@ def init():
                 on_del=lambda p: _on_del_trace_shard(zk2fs_sync, p)
             )
 
-            trace_sow_db = os.path.join(zk2fs_sync.fsroot, '.trace-sow.db')
-            _LOGGER.info('Using trace sow db: %s', trace_sow_db)
-            if not os.path.exists(trace_sow_db):
-                _init_sow_db(trace_sow_db)
+            trace_sow = os.path.join(zk2fs_sync.fsroot, '.sow', 'trace')
+            _LOGGER.info('Using trace sow db: %s', trace_sow)
+            fs.mkdir_safe(trace_sow)
 
             zk2fs_sync.sync_children(
                 z.TRACE_HISTORY,
-                on_add=lambda p: _on_add_trace_db(zk2fs_sync, p, trace_sow_db),
-                on_del=lambda p: _on_del_trace_db(zk2fs_sync, p, trace_sow_db),
+                on_add=lambda p: _on_add_trace_db(zk2fs_sync, p, trace_sow),
+                on_del=lambda p: _on_del_trace_db(zk2fs_sync, p, trace_sow),
             )
 
         zk2fs_sync.mark_ready()

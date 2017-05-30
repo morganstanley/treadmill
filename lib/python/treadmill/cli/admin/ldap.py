@@ -6,6 +6,7 @@ import logging
 import click
 import ldap3
 import yaml
+import pkg_resources
 
 from treadmill import admin
 from treadmill import cli
@@ -330,14 +331,18 @@ def schema_group(parent):
     formatter = cli.make_formatter(cli.LdapSchemaPrettyFormatter)
 
     @parent.command()
-    @click.option('-l', '--load', help='Schema (YAML) file.',
-                  type=click.Path(exists=True, readable=True))
+    @click.option('-u', '--update', help='Refresh LDAP schema.', is_flag=True,
+                  default=False)
     @cli.admin.ON_EXCEPTIONS
-    def schema(load):
+    def schema(update):
         """View or update LDAP schema"""
-        if load:
-            with open(load, 'rb') as fd:
-                schema = yaml.load(fd.read())
+        if update:
+            context.GLOBAL.ldap.user = 'cn=Manager,cn=config'
+
+            schema_rsrc = pkg_resources.resource_stream(
+                'treadmill', '/etc/ldap/schema.yml')
+
+            schema = yaml.load(schema_rsrc.read())
             context.GLOBAL.ldap.conn.update_schema(schema)
 
         schema_obj = context.GLOBAL.ldap.conn.schema()
@@ -417,11 +422,10 @@ def init_group(parent):
     #
     # pylint: disable=W0621
     @parent.command()
-    @click.argument('domain')
     @cli.admin.ON_EXCEPTIONS
-    def init(domain):
+    def init():
         """Initializes the LDAP directory structure"""
-        return context.GLOBAL.ldap.conn.init(domain)
+        return context.GLOBAL.ldap.conn.init()
 
     del init
 
