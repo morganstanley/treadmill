@@ -13,6 +13,7 @@ import sys
 import tempfile
 import traceback
 import logging
+import pkg_resources
 
 import click
 import yaml
@@ -32,7 +33,8 @@ EXIT_CODE_DEFAULT = 1
 
 def init_logger(name):
     """Initialize logger."""
-    log_conf_file = os.path.join(treadmill.TREADMILL, 'etc', 'logging', name)
+    log_conf_file = pkg_resources.resource_stream('treadmill',
+                                                  '/logging/%s' % name)
     try:
         logging.config.fileConfig(log_conf_file)
     except ConfigParser.Error:
@@ -78,6 +80,15 @@ def make_multi_command(module_name, **click_args):
     return MCommand
 
 
+def _read_password(value):
+    """Heuristic to either read the password from file or return the value."""
+    if os.path.exists(value):
+        with open(value) as f:
+            return f.read().strip()
+    else:
+        return value
+
+
 def handle_context_opt(ctx, param, value):
     """Handle eager CLI options to configure context.
 
@@ -111,8 +122,12 @@ def handle_context_opt(ctx, param, value):
         context.GLOBAL.dns_server = parse_dns_server(value)
     elif opt == 'ldap':
         context.GLOBAL.ldap.url = value
-    elif opt == 'ldap_search_base':
-        context.GLOBAL.ldap.search_base = value
+    elif opt == 'ldap_suffix':
+        context.GLOBAL.ldap.ldap_suffix = value
+    elif opt == 'ldap_user':
+        context.GLOBAL.ldap.user = value
+    elif opt == 'ldap_pwd':
+        context.GLOBAL.ldap.password = _read_password(value)
     elif opt == 'zookeeper':
         context.GLOBAL.zk.url = value
     else:
@@ -832,6 +847,32 @@ class PartitionPrettyFormatter(object):
             ('disk', None, None),
             ('memory', None, None),
             ('down threshold', 'down-threshold', None),
+        ]
+
+        format_item = make_dict_to_table(schema)
+        format_list = make_list_to_table(schema)
+
+        if isinstance(item, list):
+            return format_list(item)
+        else:
+            return format_item(item)
+
+
+class CronPrettyFormatter(object):
+    """Pretty table formatter for cron jobs."""
+
+    @staticmethod
+    def format(item):
+        """Return pretty-formatted item."""
+        schema = [
+            ('id', None, None),
+            ('resource', None, None),
+            ('event', None, None),
+            ('action', None, None),
+            ('count', None, None),
+            ('expression', None, None),
+            ('next_run_time', None, None),
+            ('timezone', None, None),
         ]
 
         format_item = make_dict_to_table(schema)

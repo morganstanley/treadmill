@@ -35,6 +35,7 @@ VERSION = '/version'
 VERSION_ID = '/version-id'
 ZOOKEEPER = '/zookeeper'
 ELECTION = '/election'
+CRON_JOBS = '/cron-jobs'
 
 TRACE_SHARDS_COUNT = 256
 

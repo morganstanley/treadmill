@@ -4,7 +4,7 @@ from __future__ import absolute_import
 import logging
 import os
 import subprocess
-import yaml
+import importlib
 
 import treadmill
 
@@ -33,10 +33,9 @@ def get_aliases():
     _LOGGER.debug('Loading aliases path: %s', aliases_path)
 
     exes = {}
-    for aliases in aliases_path.split(':'):
-        _LOGGER.debug('Loading aliases: %s', aliases)
-        with open(aliases) as f:
-            exes.update(yaml.load(f.read()))
+    for name in aliases_path.split(':'):
+        alias_mod = importlib.import_module(name)
+        exes.update(getattr(alias_mod, 'ALIASES'))
 
     tm = os.environ.get('TREADMILL')
     if tm is not None:

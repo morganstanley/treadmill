@@ -370,12 +370,15 @@ class AndQuery(object):
 class Admin(object):
     """Manages Treadmill objects in ldap."""
 
-    def __init__(self, uri, root_ou):
+    def __init__(self, uri, ldap_suffix, user=None, password=None):
         self.uri = uri
         if uri and not isinstance(uri, list):
             self.uri = uri.split(',')
-        self.root_ou = root_ou
+        self.ldap_suffix = ldap_suffix
+        self.root_ou = 'ou=treadmill,%s' % ldap_suffix
         self.ldap = None
+        self.user = user
+        self.password = password
 
     def close(self):
         """Closes ldap connection."""
@@ -401,17 +404,27 @@ class Admin(object):
         for uri in self.uri:
             try:
                 server = ldap3.Server(uri)
-                self.ldap = ldap3.Connection(
-                    server,
-                    authentication=ldap3.SASL,
-                    sasl_mechanism='GSSAPI',
-                    client_strategy=ldap3.STRATEGY_SYNC_RESTARTABLE,
-                    auto_bind=True
-                )
+                if self.user and self.password:
+
+                    self.ldap = ldap3.Connection(
+                        server,
+                        user=self.user,
+                        password=self.password,
+                        client_strategy=ldap3.STRATEGY_SYNC_RESTARTABLE,
+                        auto_bind=True
+                    )
+                else:
+                    self.ldap = ldap3.Connection(
+                        server,
+                        authentication=ldap3.SASL,
+                        sasl_mechanism='GSSAPI',
+                        client_strategy=ldap3.STRATEGY_SYNC_RESTARTABLE,
+                        auto_bind=True
+                    )
             except (ldap3.LDAPSocketOpenError,
                     ldap3.LDAPBindError,
                     ldap3.LDAPMaximumRetriesError):
-                _LOGGER.exception('Could not connect to %s', uri)
+                _LOGGER.debug('Could not connect to %s', uri, exc_info=True)
             else:
                 break
 
@@ -712,22 +725,26 @@ class Admin(object):
         else:
             _LOGGER.info('Schema is up to date.')
 
-    def init(self, domain):
+    def init(self):
         """Initializes treadmill ldap namespace."""
-        components = str(domain).split('.')
-        dn = ','.join(['dc=' + comp for comp in components])
-        dc = components[0]
-        treadmill_ou = 'ou=treadmill,' + dn
+
+        # TOOD: not sure if this takes into account more tnan 2 levels in
+        #       ldap_suffix, e.g. dc=x,dc=y,dc=com
+        dc = self.ldap_suffix.split(',')[0].split('=')[1]
 
         def _build_ou(ou, name=None):
             """Helper to build an ou string."""
-            return 'ou=' + ou + ',' + treadmill_ou, \
+            return 'ou=' + ou + ',' + self.root_ou, \
                    ['organizationalUnit'], \
                    {'ou': name or ou}
 
         dir_entries = [
-            (dn, ['dcObject', 'organization'], {'o': [dc], 'dc': [dc]}),
-            (treadmill_ou, ['organizationalUnit'], {'ou': treadmill_ou}),
+            (self.ldap_suffix,
+             ['dcObject', 'organization'],
+             {'o': [dc], 'dc': [dc]}),
+            (self.root_ou,
+             ['organizationalUnit'],
+             {'ou': self.root_ou}),
             _build_ou('apps', 'applications'),
             _build_ou('cells'),
             _build_ou('dns-servers'),
@@ -739,6 +756,8 @@ class Admin(object):
 
         for dn, object_class, attributes in dir_entries:
             try:
+                _LOGGER.debug('Creating: %s %s %s',
+                              dn, object_class, attributes)
                 self.add(dn, object_class, attributes)
             except ldap3.LDAPEntryAlreadyExistsResult:
                 _LOGGER.debug('%s already exists.', dn)

@@ -3,12 +3,11 @@ Treadmill State REST api.
 """
 from __future__ import absolute_import
 
-import httplib
-
 import flask_restplus as restplus
 from flask_restplus import fields, inputs
 
 # Disable E0611: No 'name' in module
+from treadmill import exc  # pylint: disable=E0611
 from treadmill import webutils  # pylint: disable=E0611
 
 
@@ -90,6 +89,7 @@ def init(api, cors, impl):
             """Return Treadmill instance state."""
             state = impl.get(instance_id)
             if state is None:
-                api.abort(httplib.NOT_FOUND,
-                          'Instance does not exist: %s' % instance_id)
+                raise exc.NotFoundError(
+                    'Instance does not exist: {}'.format(instance_id)
+                )
             return state

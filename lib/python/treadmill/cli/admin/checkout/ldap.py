@@ -16,7 +16,7 @@ def init():
                   type=cli.LIST)
     def check_ldap(ldap_list):
         """Checkout LDAP infra."""
-        search_base = context.GLOBAL.ldap.search_base
-        return lambda: ldap_test.test(ldap_list, search_base)
+        ldap_suffix = context.GLOBAL.ldap.ldap_suffix
+        return lambda: ldap_test.test(ldap_list, ldap_suffix)
 
     return check_ldap

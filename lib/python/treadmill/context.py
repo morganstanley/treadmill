@@ -24,17 +24,52 @@ class ContextError(Exception):
 class AdminContext(object):
     """Ldap context."""
     __slots__ = (
-        'search_base',
+        'ldap_suffix',
+        '_user',
+        '_password',
         '_url',
         '_conn',
         '_resolve',
     )
 
-    def __init__(self, resolve=None):
-        self.search_base = None
+    def __init__(self, resolve=None, user=None, password=None):
+        self.ldap_suffix = None
+        self._user = None
+        self._password = None
+
+        if password:
+            self.password = password
+
+        if user:
+            self.user = user
+
         self._url = None
         self._conn = None
         self._resolve = resolve
+
+    @property
+    def user(self):
+        """User, getter."""
+        return self._user
+
+    @user.setter
+    def user(self, value):
+        """User, setter."""
+        if value != self._user:
+            self._conn = None
+        self._user = value
+
+    @property
+    def password(self):
+        """Password, getter."""
+        return self._password
+
+    @password.setter
+    def password(self, value):
+        """Password, setter."""
+        self._password = value
+        if self._user is None:
+            self.user = 'cn=Manager,%s' % self.ldap_suffix
 
     @property
     def url(self):
@@ -51,8 +86,8 @@ class AdminContext(object):
     def conn(self):
         """Lazily establishes connection to admin LDAP."""
         if self._conn is None:
-            if self.search_base is None:
-                raise ContextError('LDAP search base not set.')
+            if self.ldap_suffix is None:
+                raise ContextError('LDAP suffix is not set.')
 
             if self.url is None:
                 if self._resolve:
@@ -61,9 +96,10 @@ class AdminContext(object):
                     raise ContextError('LDAP url not set.')
 
             _LOGGER.debug('Connecting to LDAP %s, %s',
-                          self.url, self.search_base)
+                          self.url, self.ldap_suffix)
 
-            self._conn = admin.Admin(self.url, self.search_base)
+            self._conn = admin.Admin(self.url, self.ldap_suffix,
+                                     user=self.user, password=self.password)
             self._conn.connect()
 
         return self._conn
@@ -138,7 +174,7 @@ class Context(object):
                 'treadmill.plugins.context')
             self.dns_domain = self.ctx_plugin.dns_domain()
             self.admin_api_scope = self.ctx_plugin.api_scope()
-            self.ldap.search_base = self.ctx_plugin.ldap_search_base()
+            self.ldap.ldap_suffix = self.ctx_plugin.ldap_suffix()
         except Exception as err:  # pylint: disable=W0703
             _LOGGER.debug('Unable to load context plugin: %s.', err)
 

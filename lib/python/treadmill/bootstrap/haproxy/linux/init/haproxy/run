@@ -1,0 +1,6 @@
+#!/bin/sh
+
+exec 2>&1
+
+exec {{ treadmill }}/bin/treadmill sproc haproxy --fs-root {{ dir }}/zk2fs \
+    --config {{ dir }}/haproxy/haproxy.cfg

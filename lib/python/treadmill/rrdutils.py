@@ -32,6 +32,11 @@ _METRICS_FMT = ':'.join(['{%s}' % svc for svc in [
 RRDTOOL = 'rrdtool'
 SOCKET = '/tmp/treadmill.rrd'
 
+# The index of an RRA in the rrd file holding metrics only for the last 20 mins
+SHORT_TERM_RRA_IDX = '0'
+# The index of an RRA in the rrd file holding metrics only for the last 3 days
+LONG_TERM_RRA_IDX = '1'
+
 
 class RRDError(Exception):
     """RRD protocol error."""
@@ -288,20 +293,19 @@ Please note: 100% is considered 1 virtual CPU
 """)
 
 
-def first(rrdfile, rrdtool=RRDTOOL, rrd_socket=SOCKET, exec_on_node=True):
+def first(rrdfile, rrdtool=RRDTOOL, rrd_socket=SOCKET, exec_on_node=True,
+          rra_idx=SHORT_TERM_RRA_IDX):
     """
     Returns the UNIX timestamp of the first data sample entered into the RRD.
     """
-    # XXX: the index of the RRA holding the data for longer term
-    long_term_rra_idx = '1'
 
     if exec_on_node:
         epoch = subproc.check_output([rrdtool, 'first', rrdfile,
                                       '--daemon', 'unix:%s' % rrd_socket,
-                                      '--rraindex', long_term_rra_idx])
+                                      '--rraindex', rra_idx])
     else:
         epoch = subprocess.check_output([rrdtool, 'first', rrdfile,
-                                         '--rraindex', long_term_rra_idx])
+                                         '--rraindex', rra_idx])
 
     return epoch.strip()
 

@@ -3,9 +3,9 @@ from __future__ import absolute_import
 
 import click
 
-from .. import context
-from .. import master
-from .. import scheduler
+from treadmill import context
+from treadmill import master
+from treadmill import scheduler
 
 
 def init():

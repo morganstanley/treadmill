@@ -35,21 +35,21 @@ class ContextTest(unittest.TestCase):
 
         # Missing ldap url
         ctx1 = context.Context()
-        ctx1.ldap.search_base = 'ou=treadmill,ou=test'
+        ctx1.ldap.ldap_suffix = 'dc=test'
         # TODO: renable this test once we can firgure out why ctx0.ldap.conn is
         # mocked when running with nosetest and Train
         # self.assertRaises(context.ContextError, ctx1.resolve, 'somecell')
 
         # Cell not defined in LDAP.
         ctx2 = context.Context()
-        ctx2.ldap.search_base = 'ou=treadmill,ou=test'
+        ctx2.ldap.ldap_suffix = 'dc=test'
         ctx2.ldap.url = 'ldap://foo:1234'
         treadmill.admin.Cell.get.side_effect = ldap3.LDAPNoSuchObjectResult
         self.assertRaises(context.ContextError, ctx2.resolve, 'somecell')
 
         # Cell defined in LDAP
         ctx3 = context.Context()
-        ctx3.ldap.search_base = 'ou=treadmill,ou=test'
+        ctx3.ldap.ldap_suffix = 'dc=test'
         ctx3.ldap.url = 'ldap://foo:1234'
 
         treadmill.admin.Cell.get.side_effect = None
@@ -79,7 +79,7 @@ class ContextTest(unittest.TestCase):
         # self.assertRaises(context.ContextError, ctx0.resolve, 'somecell')
 
         ctx1 = context.Context()
-        ctx1.ldap.search_base = 'ou=treadmill,ou=test'
+        ctx1.ldap.ldap_suffix = 'dc=test'
 
         treadmill.dnsutils.txt.return_value = [
             'zookeeper://tmtest@xxx:123,yyy:345/treadmill/somecell',
@@ -99,7 +99,7 @@ class ContextTest(unittest.TestCase):
 
         # Test automatic resolve invocation
         ctx2 = context.Context()
-        ctx2.ldap.search_base = 'ou=treadmill,ou=test'
+        ctx2.ldap.ldap_suffix = 'dc=test'
         ctx2.cell = 'somecell'
         # Disable E1102: not callable
         ctx2.zk.conn()  # pylint: disable=E1102

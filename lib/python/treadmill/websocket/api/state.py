@@ -80,6 +80,6 @@ class ScheduledAPI(object):
 def init():
     """API module init."""
     return [
-        ('/running', RunningAPI()),
-        ('/scheduled', ScheduledAPI()),
+        ('/running', RunningAPI(), []),
+        ('/scheduled', ScheduledAPI(), []),
     ]

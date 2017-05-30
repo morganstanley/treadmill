@@ -7,7 +7,6 @@ import glob
 
 import click
 
-import treadmill
 from treadmill import bootstrap
 from treadmill import osnoop
 
@@ -51,13 +50,8 @@ def init():
         if run and os.name != 'nt':
             run_script = os.path.join(dst_dir, 'bin', 'run.sh')
 
-        if os.name == 'nt':
-            arch = 'windows'
-        else:
-            arch = 'linux'
-
         bootstrap.install(
-            os.path.join(treadmill.TREADMILL, 'local', arch, 'node'),
+            'node',
             dst_dir,
             params,
             run=run_script

@@ -1,0 +1,22 @@
+#################################################################################
+# Standard Attribute Syntaxes (informational)
+#
+# boolean                1.3.6.1.4.1.1466.115.121.1.7    boolean value
+# directoryString        1.3.6.1.4.1.1466.115.121.1.15   Unicode (UTF-8) string
+# distinguishedName      1.3.6.1.4.1.1466.115.121.1.12   LDAP DN
+# IA5 String             1.3.6.1.4.1.1466.115.121.1.26   IA5 String
+# integer                1.3.6.1.4.1.1466.115.121.1.27   integer
+# numericString          1.3.6.1.4.1.1466.115.121.1.36   numeric string
+# OID                    1.3.6.1.4.1.1466.115.121.1.38   object identifier
+# octetString            1.3.6.1.4.1.1466.115.121.1.40   arbitrary octets
+################################################################################
+
+# TODO: need to reserve treadmill OID
+#
+# treadmill OID             1.3.6.1.4.1.360.10.6
+# treadmill attributetypes  1.3.6.1.4.1.360.10.6.1.x
+# treadmill objectclasses   1.3.6.1.4.1.360.10.6.2.y
+
+dn: cn=treadmill,cn=schema,cn=config
+objectClass: olcSchemaConfig
+cn: treadmill

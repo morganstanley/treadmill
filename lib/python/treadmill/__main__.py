@@ -2,12 +2,8 @@
 
 from __future__ import absolute_import
 
-import ConfigParser
 import logging
 import logging.config
-import os
-import tempfile
-import traceback
 
 try:
     from treadmill import dependencies  # pylint: disable=E0611,W0611
@@ -21,7 +17,6 @@ import requests
 # dependencies need to come first.
 #
 # pylint: disable=C0412
-import treadmill
 from treadmill import cli
 
 
@@ -46,8 +41,16 @@ from treadmill import cli
               callback=cli.handle_context_opt,
               is_eager=True,
               expose_value=False)
-@click.option('--ldap-search-base', required=False,
-              envvar='TREADMILL_LDAP_SEARCH_BASE',
+@click.option('--ldap-user', required=False, envvar='TREADMILL_LDAP_USER',
+              callback=cli.handle_context_opt,
+              is_eager=True,
+              expose_value=False)
+@click.option('--ldap-pwd', required=False, envvar='TREADMILL_LDAP_PWD',
+              callback=cli.handle_context_opt,
+              is_eager=True,
+              expose_value=False)
+@click.option('--ldap-suffix', required=False,
+              envvar='TREADMILL_SUFFIX',
               callback=cli.handle_context_opt,
               is_eager=True,
               expose_value=False)
@@ -70,17 +73,7 @@ def run(ctx, with_proxy, outfmt, debug):
         cli.OUTPUT_FORMAT = outfmt
 
     # Default logging to cli.conf, at CRITICAL, unless --debug
-    cli_log_conf_file = os.path.join(treadmill.TREADMILL, 'etc', 'logging',
-                                     'cli.conf')
-    try:
-        logging.config.fileConfig(cli_log_conf_file)
-    except ConfigParser.Error:
-        with tempfile.NamedTemporaryFile(delete=False) as f:
-            traceback.print_exc(file=f)
-            click.echo('Error parsing log conf: %s' %
-                       cli_log_conf_file, err=True)
-        return
-
+    cli.init_logger('cli.conf')
     if debug:
         ctx.obj['logging.debug'] = True
         logging.getLogger('treadmill').setLevel(logging.DEBUG)
