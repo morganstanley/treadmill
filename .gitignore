@@ -1,3 +1,5 @@
+# Ignore compiled/temporary files
+__pycache__
 *.pyc
 .*
 
@@ -7,22 +9,16 @@
 # Ensure that .gitignore files are included
 !.gitignore
 
-# Preserve tmpwatch files
-!.tmpwatch.exclude
-
 # Keep track of .keepme files
 !.keepme
 
 #lint configs should be included
 !.pylintrc
-!.perlcriticrc
 
 # Ignore generated files
 Treadmill.egg-info
-lib/python/treadmill/version.py
 lint.log
 pep8.log
-plcritic.log
 doc/build
 doc/swagger.json
 env/

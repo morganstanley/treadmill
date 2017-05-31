@@ -1,11 +1,11 @@
-"""Treadmill trace CLI."""
-
+"""Treadmill trace CLI.
+"""
 
 import logging
-import sys
 import urllib.request
 import urllib.parse
 import urllib.error
+import sys
 
 import click
 
@@ -87,45 +87,33 @@ def init():
         # Disable too many branches.
         #
         # pylint: disable=R0912
-
         ctx['api'] = api
         ctx['wsapi'] = wsapi
 
         if '#' not in app:
             apis = context.GLOBAL.state_api(ctx['api'])
-            url = '/trace/{app}'.format(
+            url = '/state/?finished=1&match={app}'.format(
                 app=urllib.parse.quote(app)
             )
 
             try:
                 response = restclient.get(apis, url)
-                trace_info = response.json()
+                app_states = response.json()
 
             except restclient.NotFoundError:
-                trace_info = {
-                    'name': app,
-                    'instances': []
-                }
+                app_states = []
 
-            if not trace_info['instances']:
-                print('# Trace information does not exist.', file=sys.stderr)
+            if not app_states:
+                click.echo('# Trace information does not exist.', err=True)
                 return
 
             elif not last:
-                for instanceid in sorted(trace_info['instances']):
-                    cli.out(
-                        '{app}#{instanceid}'.format(
-                            app=trace_info['name'],
-                            instanceid=instanceid
-                        )
-                    )
+                for name in [app['name'] for app in app_states]:
+                    cli.out(name)
                 return
 
             else:
-                app = '{app}#{instanceid}'.format(
-                    app=trace_info['name'],
-                    instanceid=sorted(trace_info['instances'])[-1]
-                )
+                app = app_states[-1]['name']
 
         return _trace_loop(ctx, app, snapshot)
 

@@ -1,14 +1,11 @@
+"""Treadmill State REST api.
 """
-Treadmill State REST api.
-"""
-
-
-import http.client
 
 import flask_restplus as restplus
-from flask_restplus import fields
+from flask_restplus import fields, inputs
 
 # Disable E0611: No 'name' in module
+from treadmill import exc  # pylint: disable=E0611
 from treadmill import webutils  # pylint: disable=E0611
 
 
@@ -32,6 +29,7 @@ def init(api, cors, impl):
         'when': fields.Float(description='Timestamp of event'),
         'signal': fields.Integer(description='Kill signal'),
         'exitcode': fields.Integer(description='Service exitcode'),
+        'oom': fields.Boolean(description='Out of memory'),
     }
 
     state_model = api.model(
@@ -41,6 +39,9 @@ def init(api, cors, impl):
     match_parser = api.parser()
     match_parser.add_argument('match', help='A glob match on an app name',
                               location='args', required=False,)
+    match_parser.add_argument('finished', help='Flag to include finished apps',
+                              location='args', required=False,
+                              type=inputs.boolean, default=False)
 
     inst_parser = api.parser()
     inst_parser.add_argument('instances', type=list,
@@ -61,7 +62,7 @@ def init(api, cors, impl):
         def get(self):
             """Return all state."""
             args = match_parser.parse_args()
-            return impl.list(args.get('match'))
+            return impl.list(args.get('match'), args.get('finished'))
 
         @webutils.post_api(api, cors,
                            marshal=api.marshal_list_with,
@@ -86,6 +87,7 @@ def init(api, cors, impl):
             """Return Treadmill instance state."""
             state = impl.get(instance_id)
             if state is None:
-                api.abort(http.client.NOT_FOUND,
-                          'Instance does not exist: %s' % instance_id)
+                raise exc.NotFoundError(
+                    'Instance does not exist: {}'.format(instance_id)
+                )
             return state

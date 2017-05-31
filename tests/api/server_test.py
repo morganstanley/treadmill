@@ -1,4 +1,5 @@
-"""Server API tests."""
+"""Server API tests.
+"""
 
 import unittest
 

@@ -25,6 +25,7 @@ class NetworkServiceTest(unittest.TestCase):
 
     @mock.patch('treadmill.netdev.dev_mtu', mock.Mock())
     @mock.patch('treadmill.netdev.dev_speed', mock.Mock())
+    @mock.patch('treadmill.services.network_service._device_ip', mock.Mock())
     def test_init(self):
         """Test Network service constructor.
         """
@@ -50,6 +51,7 @@ class NetworkServiceTest(unittest.TestCase):
     @mock.patch('treadmill.netdev.link_set_down', mock.Mock())
     @mock.patch('treadmill.netdev.link_set_mtu', mock.Mock())
     @mock.patch('treadmill.netdev.link_set_up', mock.Mock())
+    @mock.patch('treadmill.services.network_service._device_ip', mock.Mock())
     def test__bridge_initialize(self):
         """Test Network service bridge initialization.
         """
@@ -120,6 +122,7 @@ class NetworkServiceTest(unittest.TestCase):
     @mock.patch('treadmill.services.network_service._device_info', mock.Mock())
     @mock.patch('treadmill.services.network_service.NetworkResourceService.'
                 '_bridge_initialize', mock.Mock())
+    @mock.patch('treadmill.services.network_service._device_ip', mock.Mock())
     @mock.patch('treadmill.vipfile.VipMgr', autospec=True)
     def test_initialize_quick(self, mock_vipmgr):
         """Test service initialization (quick restart).
@@ -203,6 +206,7 @@ class NetworkServiceTest(unittest.TestCase):
     @mock.patch('treadmill.netdev.dev_mtu', mock.Mock())
     @mock.patch('treadmill.netdev.link_set_up', mock.Mock())
     @mock.patch('treadmill.services.network_service._device_info', mock.Mock())
+    @mock.patch('treadmill.services.network_service._device_ip', mock.Mock())
     @mock.patch('treadmill.services.network_service.NetworkResourceService.'
                 '_bridge_initialize', mock.Mock())
     @mock.patch('treadmill.vipfile.VipMgr', autospec=True)
@@ -258,6 +262,7 @@ class NetworkServiceTest(unittest.TestCase):
             {}
         )
 
+    @mock.patch('treadmill.services.network_service._device_ip', mock.Mock())
     def test_event_handlers(self):
         """Test event_handlers request.
         """
@@ -272,6 +277,8 @@ class NetworkServiceTest(unittest.TestCase):
             []
         )
 
+    @mock.patch('treadmill.services.network_service._device_ip',
+                mock.Mock(return_value='a.b.c.d'))
     def test_report_status(self):
         """Test service status reporting.
         """
@@ -288,11 +295,13 @@ class NetworkServiceTest(unittest.TestCase):
             {
                 'bridge_dev': 'br0',
                 'bridge_mtu': 0,
-                'int_dev': 'tm0',
-                'int_ip': '192.168.254.254',
+                'internal_device': 'tm0',
+                'internal_ip': '192.168.254.254',
                 'devices': {},
-                'ext_mtu': 9000,
-                'ext_speed': 10000,
+                'external_mtu': 9000,
+                'external_speed': 10000,
+                'external_ip': 'a.b.c.d',
+                'external_device': 'eth42',
             }
         )
 
@@ -305,6 +314,8 @@ class NetworkServiceTest(unittest.TestCase):
     @mock.patch('treadmill.netdev.link_set_up', mock.Mock())
     @mock.patch('treadmill.services.network_service._device_info',
                 autospec=True)
+    @mock.patch('treadmill.services.network_service._device_ip',
+                mock.Mock(return_value='1.2.3.4'))
     def test_on_create_request(self, mock_devinfo):
         """Test processing of a network create request.
         """
@@ -355,6 +366,7 @@ class NetworkServiceTest(unittest.TestCase):
                 'gateway': '192.168.254.254',
                 'veth': '0000000ID1234.1',
                 'vip': mockip,
+                'external_ip': '1.2.3.4',
             }
         )
         self.assertEqual(
@@ -380,6 +392,8 @@ class NetworkServiceTest(unittest.TestCase):
     @mock.patch('treadmill.netdev.link_set_up', mock.Mock())
     @mock.patch('treadmill.services.network_service._device_info',
                 autospec=True)
+    @mock.patch('treadmill.services.network_service._device_ip',
+                mock.Mock(return_value='1.2.3.4'))
     def test_on_create_request_existing(self, mock_devinfo):
         """Test processing of a network create request when the device exists
         (restarts).
@@ -420,6 +434,7 @@ class NetworkServiceTest(unittest.TestCase):
                 'gateway': '192.168.254.254',
                 'veth': '0000000ID1234.1',
                 'vip': 'old_ip',
+                'external_ip': '1.2.3.4',
             }
         )
         self.assertEqual(
@@ -440,6 +455,7 @@ class NetworkServiceTest(unittest.TestCase):
     @mock.patch('treadmill.netdev.dev_state', mock.Mock())
     @mock.patch('treadmill.netdev.link_del_veth', mock.Mock())
     @mock.patch('treadmill.vipfile.VipMgr', autospec=True)
+    @mock.patch('treadmill.services.network_service._device_ip', mock.Mock())
     def test_on_delete_request(self, mock_vipmgr):
         """Test processing of a localdisk delete request.
         """

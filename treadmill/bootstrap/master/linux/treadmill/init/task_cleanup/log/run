@@ -1,0 +1,3 @@
+#!/bin/sh
+
+exec {{ s6 }}/bin/s6-log -b T n20 s1000000 .

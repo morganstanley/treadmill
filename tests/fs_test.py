@@ -1,11 +1,8 @@
-"""
-Unit test for fs - configuring unshared chroot.
+"""Unit test for fs - configuring unshared chroot.
 """
 
-import collections
 import os
 import shutil
-import stat
 import tarfile
 import tempfile
 import unittest
@@ -14,9 +11,6 @@ import mock
 
 import treadmill
 from treadmill import fs
-
-
-_CLONE_NEWNS = treadmill.syscall.unshare.CLONE_NEWNS
 
 
 # Pylint complains about long names for test functions.
@@ -30,53 +24,6 @@ class FsTest(unittest.TestCase):
     def tearDown(self):
         if self.root and os.path.isdir(self.root):
             shutil.rmtree(self.root)
-
-    @mock.patch('os.path.isdir', mock.Mock(return_value=False))
-    @mock.patch('treadmill.syscall.unshare.unshare', mock.Mock(return_value=0))
-    @mock.patch('os.makedirs', mock.Mock(return_value=0))
-    def test_chroot_init_ok(self):
-        """Mock test, verifies root directory created and unshare called."""
-        fs.chroot_init('/var/bla')
-        os.makedirs.assert_called_with('/var/bla', mode=0o777)
-        treadmill.syscall.unshare.unshare.assert_called_with(_CLONE_NEWNS)
-
-    @mock.patch('os.path.exists', mock.Mock(return_value=True))
-    @mock.patch('treadmill.syscall.unshare.unshare', mock.Mock(return_value=0))
-    @mock.patch('os.makedirs', mock.Mock(return_value=0))
-    def test_chroot_init_empty_existing(self):
-        """Checks that chroot can be done over existing empty dir."""
-        fs.chroot_init('/var/bla')
-        os.makedirs.assert_called_with('/var/bla', mode=0o777)
-        treadmill.syscall.unshare.unshare.assert_called_with(_CLONE_NEWNS)
-
-    @mock.patch('os.path.exists', mock.Mock(return_value=False))
-    @mock.patch('treadmill.syscall.unshare.unshare', mock.Mock(return_value=0))
-    @mock.patch('os.makedirs', mock.Mock(return_value=0))
-    def test_chroot_init_relative_path(self):
-        """Checks chroot_init fails with relative path."""
-        self.assertRaises(Exception, fs.chroot_init, '../bla')
-        self.assertFalse(treadmill.syscall.unshare.unshare.called)
-        self.assertFalse(os.makedirs.called)
-
-    @mock.patch('os.chdir', mock.Mock(return_value=0))
-    @mock.patch('os.chroot', mock.Mock(return_value=0))
-    def test_chroot_finalize(self):
-        """Checks final step is calling os.chroot."""
-        fs.chroot_finalize('/bla/foo')
-
-        os.chroot.assert_called_with('/bla/foo')
-        os.chdir.assert_called_with('/')
-
-    @mock.patch('os.chroot', mock.Mock(side_effect=OSError))
-    def test_chroot_finalize_chroot_failure(self):
-        """Ensures failure if os.chroot returns non zero rc."""
-        self.assertRaises(OSError, fs.chroot_finalize, '/bla/foo')
-        os.chroot.assert_called_with('/bla/foo')
-
-    def test_chroot_finalize_invalid_path(self):
-        """chroot_finalize must use absolute path."""
-        self.assertRaises(Exception, fs.chroot_finalize, 'bla/foo')
-        self.assertRaises(Exception, fs.chroot_finalize, './bla/foo')
 
     @mock.patch('treadmill.subproc.check_call', mock.Mock())
     def test_mount_bind_dir(self):
@@ -158,58 +105,6 @@ class FsTest(unittest.TestCase):
         self.assertRaises(Exception, fs.mount_bind, self.root, './relative')
         self.assertRaises(Exception, fs.mount_bind, self.root, 'relative')
 
-    @mock.patch('pwd.getpwnam', mock.Mock(
-        return_value=collections.namedtuple('pwnam', 'pw_uid pw_gid')(42, 42)
-    ))
-    @mock.patch('os.chown', mock.Mock())
-    @mock.patch('treadmill.fs.chroot_init', mock.Mock())
-    @mock.patch('treadmill.fs.mount_bind', mock.Mock())
-    @mock.patch('treadmill.fs.mount_tmpfs', mock.Mock())
-    def test_make_rootfs(self):
-        """Validates directory layout in chrooted environment."""
-        fs.make_rootfs(self.root, "someproid")
-
-        def isdir(path):
-            """Checks directory presence in chrooted environment."""
-            return os.path.isdir(os.path.join(self.root, path))
-
-        def issticky(path):
-            """Checks directory mode in chrooted environment."""
-            statinfo = os.stat(os.path.join(self.root, path))
-            return statinfo.st_mode & stat.S_ISVTX
-
-        self.assertTrue(isdir('tmp'))
-        self.assertTrue(isdir('opt'))
-        # self.assertTrue(isdir('u'))
-        # self.assertTrue(isdir('var/hostlinks'))
-        # self.assertTrue(isdir('var/account'))
-        # self.assertTrue(isdir('var/empty'))
-        # self.assertTrue(isdir('var/lock'))
-        # self.assertTrue(isdir('var/lock/subsys'))
-        # self.assertTrue(isdir('var/run'))
-        self.assertTrue(isdir('var/spool/keytabs'))
-        self.assertTrue(isdir('var/spool/tickets'))
-        self.assertTrue(isdir('var/spool/tokens'))
-        self.assertTrue(isdir('var/tmp'))
-        self.assertTrue(isdir('var/tmp/cores'))
-
-        self.assertTrue(issticky('tmp'))
-        self.assertTrue(issticky('opt'))
-        # self.assertTrue(issticky('u'))
-        # self.assertTrue(issticky('var/hostlinks'))
-        self.assertTrue(issticky('var/tmp'))
-        self.assertTrue(issticky('var/tmp/cores'))
-        self.assertTrue(issticky('var/spool/tickets'))
-
-        treadmill.fs.mount_tmpfs.assert_has_calls([
-            mock.call(mock.ANY, '/var/spool/tickets', mock.ANY),
-            mock.call(mock.ANY, '/var/spool/keytabs', mock.ANY)
-        ])
-
-        treadmill.fs.mount_bind.assert_has_calls([
-            mock.call(mock.ANY, '/bin')
-        ])
-
     @mock.patch('treadmill.subproc.check_call', mock.Mock())
     def test_mount_tmpfs(self):
         """Tests behavior of mount_tmpfs."""
@@ -280,30 +175,6 @@ class FsTest(unittest.TestCase):
         self.assertFalse(os.path.exists(test_file))
         fs.rm_safe(test_file)
         self.assertFalse(os.path.exists(test_file))
-
-    @mock.patch('os.path.exists', mock.Mock())
-    @mock.patch('treadmill.fs.mount_bind', mock.Mock())
-    def ytest_make_nfs(self):
-        """Test mount_binding /v based on environment."""
-        os.path.exists.return_value = False
-        fs.make_nfs('/nfs_base', 'dev', self.root)
-        treadmill.fs.mount_bind.assert_called_with(self.root, '/v', '/tmp_ns')
-        treadmill.fs.mount_bind.clear()
-
-        fs.make_nfs('/nfs_base', 'prod', self.root)
-        treadmill.fs.mount_bind.assert_called_with(self.root, '/v', '/tmp_ns')
-        treadmill.fs.mount_bind.clear()
-
-        os.path.exists.return_value = True
-        fs.make_nfs('/nfs_base', 'dev', self.root)
-        treadmill.fs.mount_bind.assert_called_with(self.root, '/v',
-                                                   '/nfs_base/dev')
-        treadmill.fs.mount_bind.clear()
-
-        fs.make_nfs('/nfs_base', 'prod', self.root)
-        treadmill.fs.mount_bind.assert_called_with(self.root, '/v',
-                                                   '/nfs_base/prod')
-        treadmill.fs.mount_bind.clear()
 
     def test_tar_basic(self):
         """Tests the fs.tar function.

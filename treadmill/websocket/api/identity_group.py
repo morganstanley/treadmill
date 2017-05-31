@@ -52,4 +52,4 @@ class IdentityGroupAPI(object):
 
 def init():
     """API module init."""
-    return [('/identity-groups', IdentityGroupAPI())]
+    return [('/identity-groups', IdentityGroupAPI(), [])]

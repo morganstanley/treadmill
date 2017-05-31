@@ -36,8 +36,10 @@ class SysinfoTest(unittest.TestCase):
         # We do not check the starttime, but just verify that calling
         # proc_info twice returns same starttime, which can be used as part of
         # process signature.
-        self.assertEqual(proc_info.starttime,
-                         sysinfo.proc_info(os.getpid()).starttime)
+        self.assertEqual(
+            proc_info.starttime,
+            sysinfo.proc_info(os.getpid()).starttime
+        )
 
     def test_mem_info(self):
         """Mock test for mem info."""
@@ -246,6 +248,8 @@ power management: [8]
                 'memory': '42M',  # As read from cgroup
                 'disk': '100M',   # As returned by localdisk service
                 'up_since': 8,
+                'network': mock_tm_env.svc_network.status.return_value,
+                'localdisk': mock_tm_env.svc_localdisk.status.return_value,
             }
         )
 

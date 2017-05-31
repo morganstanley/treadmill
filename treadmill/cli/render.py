@@ -13,7 +13,8 @@ def init():
 
     @click.command()
     @click.argument('inputfile', type=click.Path(exists=True))
-    @click.argument('params', nargs=-1, type=click.File('rb'))
+    @click.argument('params', nargs=-1,
+                    type=click.Path(exists=True, readable=True))
     def interpolate(inputfile, params):
         """Interpolate input file template."""
         env = jinja2.Environment(
@@ -23,12 +24,9 @@ def init():
 
         data = {}
         for param in params:
-            data.update(yaml.load(param.read()))
+            with open(param, 'rb') as fd:
+                data.update(yaml.load(fd.read()))
 
-        click.echo(
-            env.get_template(
-                os.path.basename(inputfile)
-            ).render(data)
-        )
+        print(env.get_template(os.path.basename(inputfile)).render(data))
 
     return interpolate

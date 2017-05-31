@@ -1,10 +1,15 @@
 """Implementation of allocation API."""
 
 
-from .. import admin
-from .. import authz
-from .. import context
-from .. import schema
+from collections import defaultdict
+import ldap3
+
+from treadmill import admin
+from treadmill import authz
+from treadmill import context
+from treadmill import exc
+from treadmill import schema
+from treadmill import utils
 
 
 def _set_auth_resource(cls, resource):
@@ -17,18 +22,71 @@ def _set_auth_resource(cls, resource):
 
 def _reservation_list(allocs, cell_allocs):
     """Combine allocations and reservations into single list."""
-    alloc2env = {alloc['_id']: alloc['environment'] for alloc in allocs}
-
-    name2alloc = dict()
+    name2alloc = {alloc['_id']: defaultdict(list, alloc) for alloc in allocs}
     for alloc in cell_allocs:
         name = '/'.join(alloc['_id'].split('/')[:2])
-        if name not in name2alloc:
-            name2alloc[name] = {'_id': name,
-                                'environment': alloc2env[name],
-                                'reservations': []}
         name2alloc[name]['reservations'].append(alloc)
 
     return name2alloc.values()
+
+
+def _admin_partition():
+    """Lazily return admin partition object."""
+    return admin.Partition(context.GLOBAL.ldap.conn)
+
+
+def _admin_cell_alloc():
+    """Lazily return admin cell allocation object."""
+    return admin.CellAllocation(context.GLOBAL.ldap.conn)
+
+
+def _partition_free(partition, cell):
+    """Calculate free capacity for given partition."""
+    try:
+        part_obj = _admin_partition().get([partition, cell])
+    except ldap3.LDAPNoSuchObjectResult:
+        # pretend partition has zero capacity
+        part_obj = {'cpu': '0%', 'memory': '0G', 'disk': '0G'}
+
+    allocs = _admin_cell_alloc().list({'cell': cell, 'partition': partition})
+
+    cpu = utils.cpu_units(part_obj['cpu'])
+    memory = utils.size_to_bytes(part_obj['memory'])
+    disk = utils.size_to_bytes(part_obj['disk'])
+
+    for alloc in allocs:
+        cpu -= utils.cpu_units(alloc['cpu'])
+        memory -= utils.size_to_bytes(alloc['memory'])
+        disk -= utils.size_to_bytes(alloc['disk'])
+
+    return {'cpu': cpu, 'memory': memory, 'disk': disk}
+
+
+def _check_capacity(cell, allocation, rsrc):
+    """Check that there is enough free space for the allocation."""
+    try:
+        old = _admin_cell_alloc().get([cell, allocation])
+        if old['partition'] != rsrc['partition']:
+            old = {'cpu': '0%', 'memory': '0G', 'disk': '0G'}
+    except ldap3.LDAPNoSuchObjectResult:
+        old = {'cpu': '0%', 'memory': '0G', 'disk': '0G'}
+
+    free = _partition_free(rsrc['partition'], cell)
+
+    if (free['cpu'] + utils.cpu_units(old['cpu']) <
+            utils.cpu_units(rsrc['cpu'])):
+        raise exc.InvalidInputError(
+            __name__, 'Not enough cpu capacity in partition.')
+
+    if (free['memory'] + utils.size_to_bytes(old['memory']) <
+            utils.size_to_bytes(rsrc['memory'])):
+        raise exc.InvalidInputError(
+            __name__, 'Not enough memory capacity in partition.')
+
+    if (free['disk'] + utils.size_to_bytes(old['disk']) <
+            utils.size_to_bytes(rsrc['disk'])):
+        raise exc.InvalidInputError(
+            __name__, 'Not enough disk capacity in partition.')
 
 
 class API(object):
@@ -39,10 +97,6 @@ class API(object):
         def _admin_alloc():
             """Lazily return admin allocation object."""
             return admin.Allocation(context.GLOBAL.ldap.conn)
-
-        def _admin_cell_alloc():
-            """Lazily return admin cell allocation object."""
-            return admin.CellAllocation(context.GLOBAL.ldap.conn)
 
         def _admin_tnt():
             """Lazily return admin tenant object."""
@@ -106,6 +160,7 @@ class API(object):
                 def create(rsrc_id, rsrc):
                     """Create reservation."""
                     allocation, cell = rsrc_id.rsplit('/', 1)
+                    _check_capacity(cell, allocation, rsrc)
                     _admin_cell_alloc().create([cell, allocation], rsrc)
                     return _admin_cell_alloc().get([cell, allocation])
 
@@ -117,12 +172,20 @@ class API(object):
                 def update(rsrc_id, rsrc):
                     """Create reservation."""
                     allocation, cell = rsrc_id.rsplit('/', 1)
+                    _check_capacity(cell, allocation, rsrc)
                     _admin_cell_alloc().update([cell, allocation], rsrc)
                     return _admin_cell_alloc().get([cell, allocation])
+
+                @schema.schema({'$ref': 'reservation.json#/resource_id'})
+                def delete(rsrc_id):
+                    """Delete reservation."""
+                    allocation, cell = rsrc_id.rsplit('/', 1)
+                    return _admin_cell_alloc().delete([cell, allocation])
 
                 self.get = get
                 self.create = create
                 self.update = update
+                self.delete = delete
 
                 # Must be called last when all methods are set.
                 _set_auth_resource(self, 'reservation')

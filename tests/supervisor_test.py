@@ -12,7 +12,6 @@ import mock
 import treadmill
 from treadmill import fs
 from treadmill import supervisor
-# XXX: from treadmill import subproc
 
 
 def _strip(content):
@@ -21,23 +20,8 @@ def _strip(content):
         [re.sub(r'^\s+', '', line) for line in content.split('\n')]).strip()
 
 
-@unittest.skip('BROKEN: Does not work with default aliases config')
 class SupervisorTest(unittest.TestCase):
     """Tests supervisor routines."""
-
-    @classmethod
-    def setUpClass(cls):
-        pass
-        # XXX:aliases_path = os.environ.get('TREADMILL_ALIASES_PATH')
-        # XXX:if aliases_path is None:
-        # XXX:    aliases_path = os.path.abspath(
-        # XXX:        os.path.join(os.path.dirname(__file__), '..', 'etc',
-        # XXX:                     'linux.aliases'))
-        # XXX:    os.environ['TREADMILL_ALIASES_PATH'] = ':'.join(aliases_path)
-
-        # XXX:os.environ['PATH'] = ':'.join(os.environ['PATH'].split(':') + [
-        # XXX:    os.path.join(subproc.resolve('s6'), 'bin')
-        # XXX:])
 
     def setUp(self):
         self.root = tempfile.mkdtemp()
@@ -48,6 +32,7 @@ class SupervisorTest(unittest.TestCase):
         os.system('pgrep s6-svscan | xargs kill 2> /dev/null')
         os.system('pgrep s6-supervise | xargs kill 2> /dev/null')
 
+    @mock.patch('treadmill.subproc.get_aliases', mock.Mock(return_value={}))
     def test_create_service(self):
         """Checks various options when creating the service."""
         supervisor.create_service(
@@ -85,21 +70,31 @@ class SupervisorTest(unittest.TestCase):
         # pylint: disable=W0212
 
         self.assertEqual(
-            {'since': 990, 'state': 'up', 'intended': 'up', 'pid': 123},
+            {'since': 990,
+             'state': 'up',
+             'intended': 'up',
+             'pid': 123},
             supervisor._parse_state('up (pid 123) 10 seconds\n')
         )
         self.assertEqual(
-            {'since': 900, 'state': 'up', 'intended': 'down', 'pid': 123},
-            supervisor._parse_state(
-                'up (pid 123) 100 seconds normally down\n'
-            )
+            {'since': 900,
+             'state': 'up',
+             'intended': 'down',
+             'pid': 123},
+            supervisor._parse_state('up (pid 123) 100 seconds normally down\n')
         )
         self.assertEqual(
-            {'since': 900, 'state': 'down', 'intended': 'down', 'pid': None},
+            {'since': 900,
+             'state': 'down',
+             'intended': 'down',
+             'pid': None},
             supervisor._parse_state('down 100 seconds')
         )
         self.assertEqual(
-            {'since': 900, 'state': 'down', 'intended': 'up', 'pid': None},
+            {'since': 900,
+             'state': 'down',
+             'intended': 'up',
+             'pid': None},
             supervisor._parse_state('down 100 seconds normally up')
         )
 
@@ -112,26 +107,38 @@ class SupervisorTest(unittest.TestCase):
         svcroot = os.path.join(self.root, 'xxx')
         fs.mkdir_safe(os.path.join(svcroot, 'a'))
         fs.mkdir_safe(os.path.join(svcroot, 'b'))
+
         supervisor._service_wait(svcroot, '-u', '-o')
-        expected_cmd = ['s6_svwait', '-u', '-t', '0', '-o',
-                        svcroot + '/a', svcroot + '/b']
-        actual_cmd = treadmill.subproc.check_call.call_args[0][0]
-        self.assertCountEqual(expected_cmd, actual_cmd)
-        treadmill.subproc.check_call.assert_called_with(actual_cmd)
-
+        treadmill.subproc.check_call.assert_called_with(
+            [
+                's6_svwait', '-u',
+                '-t', '0', '-o',
+                svcroot + '/a',
+                svcroot + '/b'
+            ]
+        )
         treadmill.subproc.check_call.reset_mock()
+
         supervisor._service_wait(svcroot, '-u', '-o', subset=['a'])
-        treadmill.subproc.check_call.assert_called_with(['s6_svwait', '-u',
-                                                         '-t', '0', '-o',
-                                                         svcroot + '/a'])
-
+        treadmill.subproc.check_call.assert_called_with(
+            [
+                's6_svwait', '-u',
+                '-t', '0', '-o',
+                svcroot + '/a'
+            ]
+        )
         treadmill.subproc.check_call.reset_mock()
+
         supervisor._service_wait(svcroot, '-u', '-o', subset={'a': 1})
-        treadmill.subproc.check_call.assert_called_with(['s6_svwait', '-u',
-                                                         '-t', '0', '-o',
-                                                         svcroot + '/a'])
-
+        treadmill.subproc.check_call.assert_called_with(
+            [
+                's6_svwait', '-u',
+                '-t', '0', '-o',
+                svcroot + '/a'
+            ]
+        )
         treadmill.subproc.check_call.reset_mock()
+
         supervisor._service_wait(svcroot, '-u', '-o', subset=[])
         self.assertFalse(treadmill.subproc.check_call.called)
 

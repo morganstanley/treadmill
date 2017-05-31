@@ -5,6 +5,7 @@ Unit test for trace websocket API.
 import unittest
 
 import mock
+import jsonschema
 
 from treadmill.apptrace import events
 from treadmill.websocket.api import trace
@@ -18,20 +19,45 @@ class WSRunningAPITest(unittest.TestCase):
 
     def test_subscribe(self):
         """Test subscription registration."""
-        self.assertEquals(
+        self.assertEqual(
             self.api.subscribe({'topic': '/trace',
                                 'filter': 'foo.bar#1234'}),
-            [('/tasks/foo.bar/1234', '*')]
+            [('/trace/*', 'foo.bar#1234,*')]
         )
+
+        self.assertEqual(
+            self.api.subscribe({'topic': '/trace',
+                                'filter': 'foo.bar'}),
+            [('/trace/*', 'foo.bar#*,*')]
+        )
+
+        self.assertEqual(
+            self.api.subscribe({'topic': '/trace',
+                                'filter': 'foo.bar*'}),
+            [('/trace/*', 'foo.bar*#*,*')]
+        )
+
+        self.assertEqual(
+            self.api.subscribe({'topic': '/trace',
+                                'filter': 'foo.*'}),
+            [('/trace/*', 'foo.*#*,*')]
+        )
+
+        with self.assertRaisesRegexp(
+            jsonschema.exceptions.ValidationError,
+            "'*' does not match"
+        ):
+            self.api.subscribe({'topic': '/trace',
+                                'filter': '*'})
 
     @mock.patch('treadmill.apptrace.events.AppTraceEvent',
                 mock.Mock(set_spec=True))
     def test_on_event(self):
         """Tests payload generation."""
         mock_event = events.AppTraceEvent.from_data.return_value
-        self.assertEquals(
+        self.assertEqual(
             self.api.on_event(
-                '/tasks/foo.bar/1234/123.04,b,c,d',
+                '/trace/00C2/foo.bar#1234,123.04,b,c,d',
                 None,
                 'xxx'
             ),

@@ -97,8 +97,10 @@ class ZkTest(unittest.TestCase):
 
         # parsing error
         kazoo.client.KazooClient.get.return_value = ('{xxx: 123', None)
-        self.assertEqual('{xxx: 123', zkutils.get(client, '/foo',
-                                                  strict=False))
+        self.assertEqual(
+            '{xxx: 123',
+            zkutils.get(client, '/foo', strict=False)
+        )
         self.assertRaises(yaml.YAMLError, zkutils.get, client, '/foo')
 
         kazoo.client.KazooClient.get.return_value = (None, None)

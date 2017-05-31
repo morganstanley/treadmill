@@ -34,22 +34,6 @@ def as_json(func):
     return decorated_function
 
 
-def jsonp(func):
-    """Wraps JSONified output for JSONP"""
-    @functools.wraps(func)
-    def decorated_function(*args, **kwargs):
-        """Wraps JSONified output for JSONP"""
-        callback = flask.request.args.get('callback', False)
-        if callback:
-            content = '%s(%s)' % (str(callback),
-                                  func(*args, **kwargs).get_data(as_text=True))
-            return flask.current_app.response_class(
-                content, mimetype='application/json')
-        else:
-            return func(*args, **kwargs)
-    return decorated_function
-
-
 def cors_domain_match(base_domain):
     """Backward compatability, where * is used to respond to all"""
     if base_domain == '*':

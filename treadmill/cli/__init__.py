@@ -1,6 +1,7 @@
 """Treadmill commaand line helpers.
 """
 
+import configparser
 import copy
 import json
 import importlib
@@ -12,12 +13,11 @@ import sys
 import tempfile
 import traceback
 import logging
+import pkg_resources
 
 import click
 import yaml
 import prettytable
-
-import treadmill
 
 from treadmill import context
 from treadmill import utils
@@ -32,17 +32,15 @@ EXIT_CODE_DEFAULT = 1
 
 def init_logger(name):
     """Initialize logger."""
-    log_conf_file = os.path.join(treadmill.TREADMILL, 'etc', 'logging', name)
+    log_conf_file = pkg_resources.resource_stream('treadmill',
+                                                  '/logging/%s' % name)
     try:
-        with open(log_conf_file, 'r') as fh:
-            log_config = yaml.load(fh)
-            logging.config.dictConfig(log_config)
-
-    except IOError:
-        with tempfile.NamedTemporaryFile(delete=False, mode='w') as f:
+        logging.config.fileConfig(log_conf_file)
+    except configparser.Error:
+        with tempfile.NamedTemporaryFile(delete=False) as f:
             traceback.print_exc(file=f)
-            click.echo('Unable to load log conf: %s [ %s ]' %
-                       (log_conf_file, f.name), err=True)
+            click.echo('Error parsing log conf: %s' %
+                       log_conf_file, err=True)
 
 
 def make_multi_command(module_name, **click_args):
@@ -59,18 +57,10 @@ def make_multi_command(module_name, **click_args):
 
         def list_commands(self, ctx):
             climod = importlib.import_module(module_name)
-            commands = set()
-            for path in climod.__path__:
-                for filename in os.listdir(path):
-                    if filename in ['__init__.py', '__pycache__']:
-                        continue
-
-                    if filename.endswith('.py'):
-                        commands.add(filename[:-3])
-
-                    if os.path.isdir(os.path.join(path, filename)):
-                        commands.add(filename)
-
+            commands = set(
+                [modulename for _loader, modulename, _ispkg
+                 in pkgutil.iter_modules(climod.__path__)]
+            )
             return sorted([cmd.replace('_', '-') for cmd in commands])
 
         def get_command(self, ctx, name):
@@ -89,6 +79,15 @@ def make_multi_command(module_name, **click_args):
     return MCommand
 
 
+def _read_password(value):
+    """Heuristic to either read the password from file or return the value."""
+    if os.path.exists(value):
+        with open(value) as f:
+            return f.read().strip()
+    else:
+        return value
+
+
 def handle_context_opt(ctx, param, value):
     """Handle eager CLI options to configure context.
 
@@ -98,6 +97,15 @@ def handle_context_opt(ctx, param, value):
     The only side effect of consuming these options are setting attributes
     of the global context.
     """
+
+    def parse_dns_server(dns_server):
+        """Parse dns server string"""
+        if ':' in dns_server:
+            hosts_port = dns_server.split(':')
+            return (hosts_port[0].split(','), int(hosts_port[1]))
+        else:
+            return (dns_server.split(','), None)
+
     if not value or ctx.resilient_parsing:
         return None
 
@@ -109,10 +117,16 @@ def handle_context_opt(ctx, param, value):
         context.GLOBAL.cell = value
     elif opt == 'dns_domain':
         context.GLOBAL.dns_domain = value
+    elif opt == 'dns_server':
+        context.GLOBAL.dns_server = parse_dns_server(value)
     elif opt == 'ldap':
         context.GLOBAL.ldap.url = value
-    elif opt == 'ldap_search_base':
-        context.GLOBAL.ldap.search_base = value
+    elif opt == 'ldap_suffix':
+        context.GLOBAL.ldap.ldap_suffix = value
+    elif opt == 'ldap_user':
+        context.GLOBAL.ldap.user = value
+    elif opt == 'ldap_pwd':
+        context.GLOBAL.ldap.password = _read_password(value)
     elif opt == 'zookeeper':
         context.GLOBAL.zk.url = value
     else:
@@ -319,7 +333,7 @@ def out(string, *args):
     if args:
         string = string % args
 
-    print(string)
+    click.echo(string)
 
 
 def handle_exceptions(exclist):
@@ -835,6 +849,32 @@ class PartitionPrettyFormatter(object):
             ('disk', None, None),
             ('memory', None, None),
             ('down threshold', 'down-threshold', None),
+        ]
+
+        format_item = make_dict_to_table(schema)
+        format_list = make_list_to_table(schema)
+
+        if isinstance(item, list):
+            return format_list(item)
+        else:
+            return format_item(item)
+
+
+class CronPrettyFormatter(object):
+    """Pretty table formatter for cron jobs."""
+
+    @staticmethod
+    def format(item):
+        """Return pretty-formatted item."""
+        schema = [
+            ('id', None, None),
+            ('resource', None, None),
+            ('event', None, None),
+            ('action', None, None),
+            ('count', None, None),
+            ('expression', None, None),
+            ('next_run_time', None, None),
+            ('timezone', None, None),
         ]
 
         format_item = make_dict_to_table(schema)

@@ -3,6 +3,7 @@
 
 import os
 import shutil
+import sys
 import tempfile
 import unittest
 
@@ -34,16 +35,33 @@ class AppEnvTest(unittest.TestCase):
         if self.root and os.path.isdir(self.root):
             shutil.rmtree(self.root)
 
-    @mock.patch('os.kill', mock.Mock())
+    @unittest.skipUnless(sys.platform == 'linux2', 'Requires Linux')
     @mock.patch('treadmill.iptables.initialize', mock.Mock())
-    @mock.patch('treadmill.sysinfo.port_range',
-                mock.Mock(return_value=(5050, 65535)))
-    def test_initialize(self):
+    @mock.patch('treadmill.rulefile.RuleMgr.initialize', mock.Mock())
+    @mock.patch('treadmill.runtime.linux.image.fs.init_plugins', mock.Mock())
+    def test_initialize_linux(self):
         """Test AppEnv environment initialization.
         """
-        self.tm_env.initialize()
-        self.assertFalse(os.kill.called)
-        treadmill.iptables.initialize.assert_called_with('172.31.81.67')
+        self.tm_env.initialize({
+            'node': 'data',
+            'network': {
+                'external_ip': 'foo',
+            }
+        })
+
+        self.tm_env.rules.initialize.assert_called_with()
+        treadmill.iptables.initialize.assert_called_with('foo')
+
+    @unittest.skipUnless(sys.platform == 'win32', 'Requires Windows')
+    def test_initialize_windows(self):
+        """Test AppEnv environment initialization.
+        """
+        self.tm_env.initialize({
+            'node': 'data',
+        })
+
+        self.tm_env.rules.initialize.assert_called_with()
+        treadmill.iptables.initialize.assert_called_with('foo')
 
 
 if __name__ == '__main__':

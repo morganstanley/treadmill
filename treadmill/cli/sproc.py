@@ -1,16 +1,11 @@
-"""Implementation of treadmill-admin CLI plugin."""
-
+"""Implementation of treadmill-admin CLI plugin.
+"""
 
 import logging
-import logging.config
 import os
-import tempfile
-import traceback
 
 import click
-import yaml
 
-import treadmill
 from treadmill import cli
 from .. import cgroups
 
@@ -55,19 +50,8 @@ def init():
     @click.pass_context
     def run(ctx, cgroup):
         """Run system processes"""
-        # Default logging to cli.yml, at CRITICAL, unless --debug
-        log_conf_file = os.path.join(treadmill.TREADMILL, 'etc', 'logging',
-                                     'daemon.yml')
-        try:
-            with open(log_conf_file, 'r') as fh:
-                log_config = yaml.load(fh)
-                logging.config.dictConfig(log_config)
-
-        except IOError:
-            with tempfile.NamedTemporaryFile(delete=False, mode='w') as f:
-                traceback.print_exc(file=f)
-                click.echo('Unable to load log conf: %s [ %s ]' %
-                           (log_conf_file, f.name), err=True)
+        # Default logging to daemon.conf, at CRITICAL, unless --debug
+        cli.init_logger('daemon.conf')
 
         log_level = None
         if ctx.obj.get('logging.debug'):

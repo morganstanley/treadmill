@@ -1,24 +1,33 @@
 """Printing of Treadmill container traces.
 """
 
-
 from treadmill import utils
 
 from . import events
 
 
 class AppTracePrinter(events.AppTraceEventHandler):
-    """Print out trace events.
+    """Output out trace events.
     """
 
-    def on_scheduled(self, when, instanceid, server):
+    def on_scheduled(self, when, instanceid, server, why):
         """Invoked when task is scheduled."""
-        print('%s - %s scheduled on %s' % (
-            utils.strftime_utc(when), instanceid, server))
+        if why:
+            print('%s - %s scheduled on %s: %s' % (
+                utils.strftime_utc(when), instanceid, server, why
+            ))
+        else:
+            print('%s - %s scheduled on %s' % (
+                utils.strftime_utc(when), instanceid, server))
 
-    def on_pending(self, when, instanceid):
+    def on_pending(self, when, instanceid, why):
         """Invoked when task is pending."""
-        print('%s - %s pending' % (utils.strftime_utc(when), instanceid))
+        if why:
+            print('%s - %s pending: %s' % (
+                utils.strftime_utc(when), instanceid, why))
+        else:
+            print('%s - %s pending' % (
+                utils.strftime_utc(when), instanceid))
 
     def on_configured(self, when, instanceid, server, uniqueid):
         """Invoked when task is configured"""

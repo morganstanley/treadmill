@@ -4,6 +4,7 @@
 import logging
 import os
 
+import json
 import yaml
 
 from treadmill import appcfg
@@ -18,20 +19,23 @@ from treadmill.appcfg import features
 _LOGGER = logging.getLogger(__name__)
 
 
-def read(filename):
+def read(filename, file_format='json'):
     """Standard way of reading a manifest.
     """
     with open(filename) as f:
-        manifest = yaml.load(stream=f)
+        if file_format == 'json':
+            manifest = json.load(f)
+        else:
+            manifest = yaml.load(f)
 
     return manifest
 
 
-def load(tm_env, event):
+def load(_tm_env, event):
     """Loads the app event file, ensuring it is in valid format, and supplement
     it into a full Treadmill manifest.
 
-    :param tm_env:
+    :param _tm_env:
         Full path to the application node event in the zookeeper cache.
      :type event:
         ``treadmill.appenv.App``
@@ -49,7 +53,7 @@ def load(tm_env, event):
     #
     # pylint: disable=R0912
     name = os.path.basename(event)
-    manifest = read(event)
+    manifest = read(event, 'yaml')
 
     utils.validate(manifest, [('image', False, str)])
     app_type = appcfg.AppType.get_app_type(manifest.get('image'))
@@ -57,14 +61,16 @@ def load(tm_env, event):
     schema = [
         ('proid', True, str),
         ('environment', True, str),
-        ('services', app_type != appcfg.AppType.DOCKER, list),
+        ('services', app_type == appcfg.AppType.NATIVE, list),
+        ('command', False, str),
+        ('args', False, list),
         ('endpoints', False, list),
         ('environ', False, list),
-        ('entry_point', False, str),
         ('cpu', True, str),
         ('memory', True, str),
         ('disk', True, str),
     ]
+
     utils.validate(manifest, schema)
     manifest['system_services'] = []
     manifest['name'] = name
@@ -103,8 +109,6 @@ def load(tm_env, event):
     _add_ssh_system_service(manifest)
     _add_features(manifest)
 
-    manifest['host_ip'] = tm_env.host_ip
-
     def _set_default(attr, value, obj=None):
         """Set default manifest attribute if it is not present."""
         if obj is None:
@@ -112,6 +116,8 @@ def load(tm_env, event):
         if attr not in obj:
             obj[attr] = value
 
+    _set_default('command', None)
+    _set_default('args', [])
     _set_default('environ', [])
     _set_default('passthrough', [])
     _set_default('vring', {})

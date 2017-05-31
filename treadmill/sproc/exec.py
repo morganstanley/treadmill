@@ -1,8 +1,8 @@
-"""Exec command in Treadmill sproc environment."""
+"""Exec command in Treadmill sproc environment.
+"""
 
-
-import os
 import logging
+import os
 
 import click
 
@@ -17,7 +17,6 @@ def init():
     def exec_cmd(cmd):
         """Exec command line in treadmill environment."""
         args = list(cmd)
-        print(args)
         _LOGGER.info('execvp: %s, %r', args[0], args)
         os.execvp(args[0], args)
 

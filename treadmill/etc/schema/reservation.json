@@ -1,0 +1,27 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "resource_id": {
+        "type": "string"
+    },
+    "resource": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+            "memory": { "$ref": "common.json#/memory" },
+            "cpu": { "$ref": "common.json#/cpu" },
+            "disk": { "$ref": "common.json#/disk" },
+            "rank": { "$ref": "common.json#/rank" },
+            "partition": {
+                "$ref": "common.json#/partition"
+            }
+        }
+    },
+    "verbs": {
+        "create": {
+            "required": [ "memory", "cpu", "disk", "partition" ]
+        },
+        "update": {
+            "required": [ "memory", "cpu", "disk", "partition" ]
+        }
+    }
+}

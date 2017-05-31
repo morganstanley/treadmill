@@ -59,23 +59,23 @@ class ServiceTest(unittest.TestCase):
         mock_svc = services.Service.from_dir(mock_svc_dir)
 
         self.assertIsNotNone(mock_svc)
-        self.assertEquals(
+        self.assertEqual(
             mock_svc.directory,
             os.path.join(self.root, 'my_svc')
         )
-        self.assertEquals(mock_svc.type, services.ServiceType.LongRun)
-        self.assertEquals(mock_svc.run_script, 'mock run script')
-        self.assertEquals(mock_svc.default_down, True)
-        self.assertEquals(mock_svc.notification_fd, 42)
-        self.assertEquals(
+        self.assertEqual(mock_svc.type, services.ServiceType.LongRun)
+        self.assertEqual(mock_svc.run_script, 'mock run script')
+        self.assertEqual(mock_svc.default_down, True)
+        self.assertEqual(mock_svc.notification_fd, 42)
+        self.assertEqual(
             mock_svc.data_dir,
             os.path.join(self.root, 'my_svc', 'data')
         )
-        self.assertEquals(
+        self.assertEqual(
             mock_svc.env_dir,
             os.path.join(self.root, 'my_svc', 'env')
         )
-        self.assertEquals(
+        self.assertEqual(
             mock_svc.environ,
             {
                 'FOO': 'bar',

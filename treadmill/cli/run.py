@@ -36,7 +36,8 @@ def _run(apis,
     # pylint: disable=R0912
     app = {}
     if manifest:
-        app = yaml.load(manifest.read())
+        with open(manifest, 'rb') as fd:
+            app = yaml.load(fd.read())
 
     if endpoint:
         app['endpoints'] = [{'name': name, 'port': port}
@@ -107,7 +108,7 @@ def init():
     @click.option('--count', help='Number of instances to start',
                   default=1)
     @click.option('-m', '--manifest', help='App manifest file (stream)',
-                  type=click.File(mode='rb'))
+                  type=click.Path(exists=True, readable=True))
     @click.option('--memory', help='Memory demand, default %s.' % _DEFAULT_MEM,
                   metavar='G|M',
                   callback=cli.validate_memory)

@@ -8,6 +8,7 @@ import click
 from .. import cli
 from treadmill import restclient
 from treadmill import context
+from treadmill import admin
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -131,7 +132,8 @@ def init():
                 # TODO: need cleaner way of deleting attributes that are not
                 #       valid for update. It is a hack.
                 for attr in existing.keys():
-                    if attr not in ['memory', 'cpu', 'disk', 'rank']:
+                    if (attr not in
+                            ['memory', 'cpu', 'disk', 'rank', 'partition']):
                         del existing[attr]
 
                 if memory:
@@ -142,22 +144,29 @@ def init():
                     existing['disk'] = disk
                 if rank is not None:
                     existing['rank'] = rank
+                if partition:
+                    existing['partition'] = partition
                 restclient.put(restapi, reservation_url, payload=existing)
             except restclient.NotFoundError:
                 payload = {
                     'memory': memory,
                     'disk': disk,
                     'cpu': cpu,
-                    'partition': partition,
                     'rank': rank if rank is not None else 100
                 }
+
+                if partition:
+                    payload['partition'] = partition
+                else:
+                    payload['partition'] = admin.DEFAULT_PARTITION
+
                 restclient.post(restapi, reservation_url, payload=payload)
 
         _display_alloc(restapi, allocation)
 
     @allocation_grp.command()
     @click.option('-c', '--cell', help='Treadmill cell', required=True)
-    @click.option('--pattern', help='Application pattern.')
+    @click.option('--pattern', help='Application pattern.', required=True)
     @click.option('--priority', help='Assignment priority.', type=int)
     @click.option('--delete', help='Delete assignment.',
                   is_flag=True, default=False)
@@ -169,18 +178,48 @@ def init():
         url = '/allocation/%s/assignment/%s/%s' % (allocation,
                                                    cell,
                                                    pattern)
+
+        if not delete and priority is None:
+            raise click.UsageError(
+                'Must specify priority when creating/modifying assignments.')
+
         if delete:
             restclient.delete(restapi, url)
         else:
-            try:
-                restclient.post(restapi, url, payload={'priority': priority})
-            except restclient.AlreadyExistsError:
-                restclient.put(restapi, url, payload={'priority': priority})
+            restclient.put(restapi, url, payload={'priority': priority})
 
         _display_alloc(restapi, allocation)
+
+    @allocation_grp.command()
+    @click.argument('item', required=True)
+    @cli.ON_REST_EXCEPTIONS
+    def delete(item):
+        """Delete a tenant/allocation/reservation."""
+        restapi = context.GLOBAL.admin_api(ctx.get('api'))
+
+        path = item.split('/')
+        if len(path) == 1:
+            # delete a tenant
+            url = '/tenant/%s' % item
+            restclient.delete(restapi, url)
+        elif len(path) == 2:
+            # delete an allocation
+            url = '/allocation/%s' % item
+            restclient.delete(restapi, url)
+        elif len(path) == 3:
+            # delete a reservation
+            url = '/allocation/%s/%s/reservation/%s' % (path[0],
+                                                        path[1],
+                                                        path[2])
+            restclient.delete(restapi, url)
+        else:
+            # error
+            click.echo('Wrong format: %s' % item, err=True)
 
     del assign
     del reserve
     del configure
+    del _list
+    del delete
 
     return allocation_grp

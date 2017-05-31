@@ -15,13 +15,13 @@ class WSRunningAPITest(unittest.TestCase):
     def test_subscribe(self):
         """Test subscription registration."""
         api = state.RunningAPI()
-        self.assertEquals(
+        self.assertEqual(
             [('/running', 'foo.bar#*')],
             api.subscribe({'topic': '/running',
                            'filter': 'foo.bar'})
         )
 
-        self.assertEquals(
+        self.assertEqual(
             [('/running', '*#*')],
             api.subscribe({'topic': '/running',
                            'filter': '*'})
@@ -30,7 +30,7 @@ class WSRunningAPITest(unittest.TestCase):
     def test_on_event(self):
         """Tests payload generation."""
         api = state.RunningAPI()
-        self.assertEquals(
+        self.assertEqual(
             {'host': 'xxx',
              'topic': '/running',
              'name': 'foo.bar#1234'},
@@ -41,7 +41,7 @@ class WSRunningAPITest(unittest.TestCase):
             )
         )
 
-        self.assertEquals(
+        self.assertEqual(
             {'host': None,
              'topic': '/running',
              'name': 'foo.bar#1234'},
@@ -59,13 +59,13 @@ class WSScheduledAPITest(unittest.TestCase):
     def test_subscribe(self):
         """Test subscription registration."""
         api = state.ScheduledAPI()
-        self.assertEquals(
+        self.assertEqual(
             [('/scheduled', 'foo.bar#*')],
             api.subscribe({'topic': '/scheduled',
                            'filter': 'foo.bar'})
         )
 
-        self.assertEquals(
+        self.assertEqual(
             [('/scheduled', '*#*')],
             api.subscribe({'topic': '/scheduled',
                            'filter': '*'})

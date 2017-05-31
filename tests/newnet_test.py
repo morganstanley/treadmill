@@ -1,5 +1,4 @@
-"""
-Unit test for newnet - configuring unshared network subsystem.
+"""Unit test for newnet - configuring unshared network subsystem.
 """
 
 import multiprocessing

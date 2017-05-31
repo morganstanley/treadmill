@@ -28,9 +28,9 @@ class CleanupTest(unittest.TestCase):
 
         watch._on_created('test.yml')
 
-        self.assertEquals(2, treadmill.fs.rm_safe.call_count)
-        self.assertEquals(1, shutil.rmtree.call_count)
-        self.assertEquals(1, treadmill.spawn.cleanup.Cleanup._nuke.call_count)
+        self.assertEqual(2, treadmill.fs.rm_safe.call_count)
+        self.assertEqual(1, shutil.rmtree.call_count)
+        self.assertEqual(1, treadmill.spawn.cleanup.Cleanup._nuke.call_count)
 
     @mock.patch('treadmill.fs.mkdir_safe', mock.Mock())
     @mock.patch('os.listdir', mock.Mock())
