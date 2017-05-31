@@ -104,6 +104,7 @@ SSH in master/node using the downloaded pem file
 
 ::
 
+  sudo su -
   treadmill admin master app schedule --env prod --proid treadmld --manifest <manifest_file> treadmld.foo
 
 
