@@ -12,8 +12,8 @@ Vagrant.configure("2") do |config|
 
   # Every Vagrant development environment requires a box. You can search for
   # boxes at https://atlas.hashicorp.com/search.
-  config.vm.box = "base_treadmill"
-  config.vm.box_url = "https://s3.amazonaws.com/ms-treadmill/base_treadmill.box"
+  config.vm.box = "centos/7"
+  # config.vm.box_url = "https://s3.amazonaws.com/ms-treadmill/base_treadmill.box"
 
   # Disable automatic box update checking. If you disable this, then
   # boxes will only be checked for updates when the user runs
@@ -65,28 +65,27 @@ Vagrant.configure("2") do |config|
   # Puppet, Chef, Ansible, Salt, and Docker are also available. Please see the
   # documentation for more information about their specific syntax and use.
 
-  config.vm.provision "shell", path: "./scripts/provision.sh"
+  config.vm.synced_folder "../../treadmill", "/home/vagrant/treadmill"
+  config.vm.synced_folder "../../treadmill-pid1", "/home/vagrant/treadmill-pid1"
 
   config.vm.define :master do |master|
     master.vm.provider "virtualbox" do |v|
-      v.memory = 1024*2
-      v.cpus = 2
+      v.memory = 1024
+      v.cpus = 1
     end
-    master.vm.provision "shell", path: "./scripts/vagrant_master.sh"
     master.vm.network :private_network, ip: "10.10.10.10"
     master.vm.hostname = 'master'
+    master.vm.provision "shell", path: "./scripts/provision_master.sh"
   end
 
   config.vm.define :node do |node|
     node.vm.provider "virtualbox" do |v|
-      v.memory = 1024*6
-      v.cpus = 2
+      v.memory = 1024*3
+      v.cpus = 1
     end
-    node.vm.provision "shell", path: "./scripts/vagrant_node.sh"
     node.vm.network :private_network, ip: "10.10.10.11"
     node.vm.hostname = 'node'
+    node.vm.provision "shell", path: "./scripts/provision_node.sh"
   end
 
-  config.vm.synced_folder "../treadmill", "/home/centos/treadmill"
-  config.vm.synced_folder "../treadmill-pid1", "/home/centos/treadmill-pid1"
 end

@@ -166,7 +166,10 @@ class NativeImageTest(unittest.TestCase):
     @mock.patch('treadmill.utils.rootdir',
                 mock.Mock(return_value='/test_treadmill'))
     @mock.patch('treadmill.subproc.get_aliases', mock.Mock(return_value={
-        'chroot': '/bin/ls', 'pid1': '/bin/ls'}))
+        's6_svscan': '/path/to/s6-svscan',
+        'chroot': '/bin/chroot',
+        'pid1': '/path/to/pid1'}))
+    @mock.patch('treadmill.subproc._check', mock.Mock(return_value=True))
     def test__create_supervision_tree(self):
         """Test creation of the supervision tree."""
         # Access protected module _create_supervision_tree
@@ -338,8 +341,8 @@ class NativeImageTest(unittest.TestCase):
             mock.call(
                 '/some/dir/sys/start_container/run',
                 'supervisor.run_sys',
-                cmd=('/bin/ls /some/dir/root /bin/ls '
-                     '-m -p -i s6-svscan /services')
+                cmd=('/bin/chroot /some/dir/root /path/to/pid1 '
+                     '-m -p -i /path/to/s6-svscan /services')
             ),
             mock.call('/some/dir/sys/start_container/log/run',
                       'logger.run'),
@@ -382,6 +385,7 @@ class NativeImageTest(unittest.TestCase):
             os.path.join(etc_dir, 'host-aliases')
         )
 
+    @mock.patch('os.path.exists', mock.Mock(return_value=False))
     @mock.patch('shutil.copyfile', mock.Mock())
     @mock.patch('treadmill.fs.mkdir_safe', mock.Mock())
     def test__prepare_pam_sshd(self):
@@ -393,10 +397,11 @@ class NativeImageTest(unittest.TestCase):
         etc_dir = os.path.join(self.container_dir, 'overlay', 'etc')
 
         shutil.copyfile.assert_has_calls([
-            mock.call(os.path.join(self.tm_env.root, 'etc', 'pam.d', 'sshd'),
+            mock.call('/etc/pam.d/sshd',
                       os.path.join(etc_dir, 'pam.d', 'sshd'))
         ])
 
+    @mock.patch('os.path.exists', mock.Mock(return_value=False))
     @mock.patch('shutil.copyfile', mock.Mock())
     @mock.patch('treadmill.fs.mkdir_safe', mock.Mock())
     def test__prepare_resolv_conf(self):
@@ -408,7 +413,7 @@ class NativeImageTest(unittest.TestCase):
         etc_dir = os.path.join(self.container_dir, 'overlay', 'etc')
 
         shutil.copyfile.assert_has_calls([
-            mock.call(os.path.join(self.tm_env.root, 'etc', 'resolv.conf'),
+            mock.call('/etc/resolv.conf',
                       os.path.join(etc_dir, 'resolv.conf'))
         ])
 

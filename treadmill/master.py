@@ -231,7 +231,9 @@ class Master(object):
 
             assert 'parent' in data
             parentname = data['parent']
-            label = data.get('partition', admin.DEFAULT_PARTITION)
+            label = data.get('partition')
+            if not label:
+                label = admin.DEFAULT_PARTITION
             up_since = data.get('up_since', int(time.time()))
 
             partition = self.cell.partitions[label]
@@ -301,7 +303,8 @@ class Master(object):
             assert data['parent'] in self.buckets
 
             label = data.get('partition')
-
+            if not label:
+                label = admin.DEFAULT_PARTITION
             up_since = data.get('up_since', time.time())
             partition = self.cell.partitions[label]
 

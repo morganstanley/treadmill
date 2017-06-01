@@ -172,6 +172,9 @@ def load(_tm_env, event):
 @osnoop.windows
 def _add_ssh_system_service(manifest):
     """Configures sshd services in the container."""
+    mkdir = subproc.resolve('mkdir')
+    chmod = subproc.resolve('chmod')
+    sshd = subproc.resolve('sshd')
     sshd_svc = {
         'name': 'sshd',
         'proid': None,
@@ -179,8 +182,13 @@ def _add_ssh_system_service(manifest):
             'limit': 5,
             'interval': 60,
         },
-        'command': '%s -D -f /etc/ssh/sshd_config '
-                   '-p $TREADMILL_ENDPOINT_SSH' % (subproc.resolve('sshd'))
+        # TODO: this needs to be moved to sshd template.
+        'command': '{mkdir} -p /var/empty/sshd && '
+                   '{chmod} 0755 /var/empty/sshd && '
+                   'exec {sshd} -D -f /etc/ssh/sshd_config '
+                   '-p $TREADMILL_ENDPOINT_SSH'.format(mkdir=mkdir,
+                                                       chmod=chmod,
+                                                       sshd=sshd)
     }
     manifest['system_services'].append(sshd_svc)
 

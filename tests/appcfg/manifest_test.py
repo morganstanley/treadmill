@@ -35,7 +35,10 @@ class AppCfgManifestTest(unittest.TestCase):
     @mock.patch('treadmill.appcfg.manifest.read', mock.Mock())
     @mock.patch('treadmill.subproc._check', mock.Mock(return_value=True))
     @mock.patch('treadmill.subproc.get_aliases',
-                mock.Mock(return_value={'sshd': '/path/to/sshd'}))
+                mock.Mock(return_value={
+                    'mkdir': '/path/to/mkdir',
+                    'chmod': '/path/to/chmod',
+                    'sshd': '/path/to/sshd'}))
     def test_load(self):
         """Tests loading app manifest with resource allocation."""
         manifest = {
@@ -91,7 +94,9 @@ class AppCfgManifestTest(unittest.TestCase):
             [
                 {
                     'command': (
-                        '/path/to/sshd -D -f /etc/ssh/sshd_config'
+                        '/path/to/mkdir -p /var/empty/sshd && '
+                        '/path/to/chmod 0755 /var/empty/sshd && '
+                        'exec /path/to/sshd -D -f /etc/ssh/sshd_config'
                         ' -p $TREADMILL_ENDPOINT_SSH'
                     ),
                     'name': 'sshd',
@@ -122,7 +127,10 @@ class AppCfgManifestTest(unittest.TestCase):
     @mock.patch('treadmill.appcfg.manifest.read', mock.Mock())
     @mock.patch('treadmill.subproc._check', mock.Mock(return_value=True))
     @mock.patch('treadmill.subproc.get_aliases',
-                mock.Mock(return_value={'sshd': '/path/to/sshd'}))
+                mock.Mock(return_value={
+                    'mkdir': '/path/to/mkdir',
+                    'chmod': '/path/to/chmod',
+                    'sshd': '/path/to/sshd'}))
     def test_load_normalize(self):
         """Test the normalization of manifests.
         """
@@ -204,7 +212,9 @@ class AppCfgManifestTest(unittest.TestCase):
             [
                 {
                     'command': (
-                        '/path/to/sshd'
+                        '/path/to/mkdir -p /var/empty/sshd && '
+                        '/path/to/chmod 0755 /var/empty/sshd && '
+                        'exec /path/to/sshd'
                         ' -D -f /etc/ssh/sshd_config'
                         ' -p $TREADMILL_ENDPOINT_SSH'
                     ),
@@ -259,7 +269,10 @@ class AppCfgManifestTest(unittest.TestCase):
     @mock.patch('treadmill.appcfg.manifest.read', mock.Mock())
     @mock.patch('treadmill.subproc._check', mock.Mock(return_value=True))
     @mock.patch('treadmill.subproc.get_aliases',
-                mock.Mock(return_value={'sshd': '/path/to/sshd'}))
+                mock.Mock(return_value={
+                    'mkdir': '/path/to/mkdir',
+                    'chmod': '/path/to/chmod',
+                    'sshd': '/path/to/sshd'}))
     def test_load_with_env(self):
         """Tests loading app manifest with resource allocation."""
         manifest = {
@@ -293,7 +306,10 @@ class AppCfgManifestTest(unittest.TestCase):
     @mock.patch('treadmill.appcfg.manifest.read', mock.Mock())
     @mock.patch('treadmill.subproc._check', mock.Mock(return_value=True))
     @mock.patch('treadmill.subproc.get_aliases',
-                mock.Mock(return_value={'sshd': '/path/to/sshd'}))
+                mock.Mock(return_value={
+                    'mkdir': '/path/to/mkdir',
+                    'chmod': '/path/to/chmod',
+                    'sshd': '/path/to/sshd'}))
     def test_load_docker_image(self):
         """Tests loading app manifest with a docker image defined."""
         manifest = {
@@ -316,7 +332,10 @@ class AppCfgManifestTest(unittest.TestCase):
     @mock.patch('treadmill.appcfg.manifest.read', mock.Mock())
     @mock.patch('treadmill.subproc._check', mock.Mock(return_value=True))
     @mock.patch('treadmill.subproc.get_aliases',
-                mock.Mock(return_value={'sshd': '/path/to/sshd'}))
+                mock.Mock(return_value={
+                    'mkdir': '/path/to/mkdir',
+                    'chmod': '/path/to/chmod',
+                    'sshd': '/path/to/sshd'}))
     def test_load_tar_image(self):
         """Tests loading app manifest with a docker image defined."""
         manifest = {

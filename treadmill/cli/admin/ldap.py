@@ -505,19 +505,20 @@ def cell_group(parent):
                   required=True)
     @click.option('--client-port', help='Zookeeper client port.',
                   type=int,
+                  default=2181,
                   required=True)
     @click.option('--kafka-client-port', help='Kafka client port.',
                   type=int,
                   required=False)
     @click.option('--jmx-port', help='Zookeeper jmx port.',
                   type=int,
-                  required=True)
+                  required=False)
     @click.option('--followers-port', help='Zookeeper followers port.',
                   type=int,
-                  required=True)
+                  required=False)
     @click.option('--election-port', help='Zookeeper election port.',
                   type=int,
-                  required=True)
+                  required=False)
     @click.argument('cell')
     @cli.admin.ON_EXCEPTIONS
     def insert(cell, idx, hostname, client_port, jmx_port, followers_port,
@@ -528,10 +529,14 @@ def cell_group(parent):
             'idx': int(idx),
             'hostname': hostname,
             'zk-client-port': client_port,
-            'zk-jmx-port': jmx_port,
-            'zk-followers-port': followers_port,
-            'zk-election-port': election_port,
         }
+
+        if jmx_port is not None:
+            data['zk-jmx-port'] = jmx_port
+        if followers_port is not None:
+            data['zk-followers-port'] = followers_port
+        if election_port is not None:
+            data['zk-election-port'] = election_port
         if kafka_client_port is not None:
             data['kafka-client-port'] = kafka_client_port
 

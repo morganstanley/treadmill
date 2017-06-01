@@ -60,10 +60,6 @@ _TYPE_2_SUBSTR = {
 
 _TREADMILL_ATTR_OID_PREFIX = '1.3.6.1.4.1.360.10.6.1.'
 _TREADMILL_OBJCLS_OID_PREFIX = '1.3.6.1.4.1.360.10.6.2.'
-# XXX: _TREADMILL_CONFIG_PATH = os.path.join(
-# XXX:     treadmill.TREADMILL_DEPLOY_PACKAGE,
-# XXX:     'config', 'treadmill.yml'
-# XXX: )
 
 DEFAULT_PARTITION = '_default'
 
@@ -435,11 +431,11 @@ class Admin(object):
             try:
                 server = ldap3.Server(uri)
                 if self.user and self.password:
-
                     self.ldap = ldap3.Connection(
                         server,
                         user=self.user,
                         password=self.password,
+                        version=3,
                         client_strategy=ldap3.STRATEGY_SYNC_RESTARTABLE,
                         auto_bind=True
                     )

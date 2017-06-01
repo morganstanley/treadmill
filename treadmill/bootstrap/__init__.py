@@ -1,13 +1,14 @@
-"""Treadmill bootstrap module.
-"""
+"""Treadmill bootstrap module."""
+from __future__ import absolute_import
 
-import errno
-import importlib
-import logging
 import os
+import errno
+import logging
+import tempfile
+import importlib
 import pkgutil
 import stat
-import tempfile
+import six
 
 import pkg_resources
 import jinja2
@@ -17,7 +18,8 @@ from treadmill import fs
 # This is required so that symlink API (os.symlink and other link related)
 # work properly on windows.
 if os.name == 'nt':
-    import treadmill.syscall.winsymlink  # noqa
+    import treadmill.syscall.winsymlink
+    treadmill.syscall.winsymlink
 
 
 __path__ = pkgutil.extend_path(__path__, __name__)
@@ -87,7 +89,7 @@ def _update(filename, content):
     with tempfile.NamedTemporaryFile(dir=os.path.dirname(filename),
                                      prefix='.tmp',
                                      delete=False) as tmp_file:
-        tmp_file.write(content)
+        tmp_file.write(content.encode('utf-8'))
 
     _rename_file(tmp_file.name, filename)
 
@@ -127,7 +129,7 @@ def _install(package, src_dir, dst_dir, params, prefix_len=None, rec=None):
                                                          resource_path)
             if rec:
                 rec.write('%s\n' % dst_path)
-            _update(dst_path, _render(resource_str, params))
+            _update(dst_path, _render(resource_str.decode('utf-8'), params))
 
 
 def _interpolate_dict(value, params):
@@ -138,7 +140,7 @@ def _interpolate_dict(value, params):
     while counter < 100:
         counter += 1
         result = {k: _interpolate(v, params) for k, v in
-                  target.items()}
+                  six.iteritems(target)}
         if result == target:
             break
         target = dict(result)
