@@ -5,6 +5,13 @@ author: Ce Gao
 organization: Shanghai Jiao Tong University
 ---
 
+Powered by R Notebook
+
+## Idea
+
+* Support policy
+* Support multi-thread, at least. Or concurrent scheduler as omega
+
 ## Perior state-of-the-art implemenetation
 
 The architecture of scheduler is simple, which has two strategies: spread and pack.
@@ -71,21 +78,51 @@ class PackStrategy(Strategy):
         return self.suggested_node()
 ```
 
-### Evualuation of perior implementation
+## Evualuation
+
+There are two ways to evaluate the scheduler: evaluate the performance and the result. To evaluate performance, there is a benchmark, which could run the scheduler and schedule some virtual apps in virtual nodes. And we could get the response time and function calls graph.
+
+As for the result, This research reuses the simulator in sparrow, which implements some state-of-the-art scheduling policies and simulate those policies in virtual environment. This research will introduce Morgan Stanley's trace data into the simulator and try to find which policy fits well.
 
 #### Schedle apps in 500 nodes
+
+There may be some errors during this evaluation, because the kernel switches the thread from core 8 to core 4 sometimes.
+
+The time complexity is $$O(N_{app}^2)$$, but the benckmark counts the data preparation time into the total time, so the actual time coplexity should be $$O(N_{app})$$, and the accurate complexity should be $$O(N_{app} * \log N_{node})$$. In this evaulation, The number of nodes is a constant value, so it should be linear.
 
 ```{r Schedule apps in 500 nodes, echo=FALSE, message=FALSE, warning=FALSE}
 library(plotly)
 
-dt <- read.table("500-node-from-500-to-1000-app/500-node-from-500-to-1000-app.txt", 
-                 sep="\t",
-                 col.names=c("number", "time", "time10"),
+dt <- read.table("./500-node-from-500-to-1000-app/500-node-from-500-to-1000-app.txt",
+                 col.names=c("number", "time"),
                  fill=FALSE,
                  strip.white=TRUE)
 
-p1 <- plotly::plot_ly(x = dt$number, y = dt$time, color = dt$time) %>%
-  add_lines(name = ~"1")
-subplot(p1)
+l1 = lm(data = dt, time ~ number)
+l2 = lm(data = dt, time ~ I(number^2))
+
+p <- plot_ly(data = dt, x = ~number, y = ~time, name = 'raw data', type = 'scatter') %>% 
+  add_trace(y = predict(l2), mode = 'lines', name = 'X^2')
+
+p
 ```
 
+After edit:
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+library(plotly)
+
+dt <- read.table("500-node-from-500-to-1000-app/500-node-from-500-to-1000-app-linear.txt",
+                 col.names=c("number", "time"),
+                 fill=FALSE,
+                 strip.white=TRUE)
+
+l1 = lm(data = dt, time ~ number)
+l2 = lm(data = dt, time ~ I(number^2))
+
+p <- plot_ly(data = dt, x = ~number, y = ~time, name = 'raw data', type = 'scatter') %>% 
+  add_trace(y = predict(l1), mode = 'lines', name = 'linear')
+
+p
+
+```

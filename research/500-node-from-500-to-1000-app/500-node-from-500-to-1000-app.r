@@ -1,23 +1,15 @@
 library(plotly)
 
-dt <- read.table("500-node-from-500-to-1000-app.txt", 
-                 sep="\t",
-                 col.names=c("number", "time", "time10"),
+dt <- read.table("500-node-from-500-to-1000-app-linear.txt",
+                 col.names=c("number", "time"),
                  fill=FALSE,
                  strip.white=TRUE)
 
-#fit1 <- lm( dt$time~poly(dt$number,1))
-#xx <- seq(500, 999, 10)
-#fitting <- data.frame(xx, predict(fit1, data.frame(x=xx)))
+l1 = lm(data = dt, time ~ number)
+l2 = lm(data = dt, time ~ I(number^2))
 
-p1 <- plotly::plot_ly(x = dt$number, y = dt$time, color = dt$time) %>%
-  add_lines(name = ~"1")
-# p2 <- plotly::plot_ly(x = dt$number, y = dt$time10, color = dt$time10) %>%
-#   add_lines(name = ~"10")
-subplot(p1)
+p <- plot_ly(data = dt, x = ~number, y = ~time, name = 'raw data', type = 'scatter') %>% 
+  add_trace(y = predict(l1), mode = 'lines', name = 'linear') %>%
+  add_trace(y = predict(l2), mode = 'lines', name = 'X^2')
 
-# x <- dt$number
-# y <- dt$time
-# plot(dt$number,dt$time)
-# lo <- loess(y~x)
-# lines(x, predict(lo), col='red', lwd=2)
+p

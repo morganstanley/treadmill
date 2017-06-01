@@ -1,0 +1,176 @@
+Fri May 19 15:56:37 2017    restats
+
+         402589552 function calls (402579532 primitive calls) in 150.130 seconds
+
+   Ordered by: internal time
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+    10000   37.152    0.004   45.399    0.005 scheduler.py:669(adjust_capacity_down)
+    10000   20.658    0.002   40.651    0.004 scheduler.py:616(members)
+    10000   15.154    0.002   21.784    0.002 scheduler.py:1235(_handle_inactive_servers)
+    31732   14.859    0.000   14.859    0.000 {method 'reduce' of 'numpy.ufunc' objects}
+150030000   11.653    0.000   11.653    0.000 scheduler.py:479(children_iter)
+    10000   11.203    0.001   21.941    0.002 scheduler.py:614(<listcomp>)
+ 50000000    8.612    0.000    8.612    0.000 scheduler.py:859(members)
+ 50005000    7.304    0.000    7.304    0.000 {function Counter.update at 0x7f056166a950}
+ 50000000    7.136    0.000    7.136    0.000 scheduler.py:853(size)
+ 50000000    6.629    0.000    6.629    0.000 scheduler.py:485(get_state)
+ 50010000    4.090    0.000    4.090    0.000 scheduler.py:497(state)
+    10002    1.228    0.000    1.229    0.000 scheduler.py:406(_recalculate)
+    10000    0.773    0.000  147.678    0.015 scheduler.py:1400(schedule)
+    10000    0.210    0.000   37.053    0.004 scheduler.py:608(size)
+        1    0.178    0.178  150.130  150.130 scheduler-bench.py:24(test_reschedule)
+    20000    0.176    0.000    0.793    0.000 scheduler.py:1052(utilization_queue)
+    10000    0.156    0.000  146.897    0.015 scheduler.py:1361(schedule_alloc)
+    36745    0.119    0.000    0.119    0.000 {built-in method numpy.core.multiarray.array}
+    10000    0.117    0.000   45.855    0.005 scheduler.py:775(put)
+    75001    0.116    0.000    0.116    0.000 {built-in method numpy.core.multiarray.zeros}
+   119996    0.113    0.000    0.128    0.000 scheduler.py:90(<genexpr>)
+    20000    0.105    0.000    0.308    0.000 scheduler.py:583(check_app_constraints)
+    10000    0.098    0.000   14.889    0.001 fromnumeric.py:1710(sum)
+    20000    0.092    0.000    0.419    0.000 heapq.py:314(merge)
+    20000    0.085    0.000    0.320    0.000 scheduler.py:1013(priv_utilization_queue)
+    20000    0.082    0.000    0.217    0.000 scheduler.py:78(utilization)
+    10000    0.080    0.000   46.339    0.005 scheduler.py:1262(_find_placements)
+    30000    0.077    0.000    0.101    0.000 utils.py:230(size_to_bytes)
+    20000    0.074    0.000    0.321    0.000 scheduler.py:930(__init__)
+    10000    0.069    0.000   46.219    0.005 scheduler.py:708(put)
+    30001    0.065    0.000    0.191    0.000 __init__.py:581(update)
+    30000    0.060    0.000    0.175    0.000 utils.py:270(kilobytes)
+    40000    0.058    0.000    0.181    0.000 scheduler.py:952(set_reserved)
+    30000    0.056    0.000    0.216    0.000 scheduler.py:88(_any)
+25000/15000    0.050    0.000    0.237    0.000 scheduler.py:624(increment_affinity)
+    25000    0.048    0.000    0.081    0.000 abc.py:178(__instancecheck__)
+   130004    0.048    0.000    0.129    0.000 {built-in method builtins.isinstance}
+    75001    0.046    0.000    0.162    0.000 scheduler.py:55(zero_capacity)
+    25000    0.044    0.000    0.044    0.000 {method 'copy' of 'numpy.ndarray' objects}
+    60000    0.044    0.000    0.075    0.000 __init__.py:1515(isEnabledFor)
+    15000    0.044    0.000    0.284    0.000 scheduler-bench.py:20(<listcomp>)
+    20000    0.043    0.000    0.135    0.000 fromnumeric.py:2154(amax)
+    10000    0.041    0.000    0.044    0.000 scheduler.py:339(suggested_node)
+    10000    0.039    0.000    0.103    0.000 scheduler.py:243(__init__)
+    10000    0.039    0.000    0.053    0.000 {built-in method builtins.sorted}
+    20000    0.038    0.000    0.057    0.000 getlimits.py:96(__new__)
+    15000    0.035    0.000    0.319    0.000 scheduler-bench.py:12(resources)
+    10000    0.033    0.000    0.033    0.000 scheduler.py:1386(<listcomp>)
+    45014    0.033    0.000    0.033    0.000 _weakrefset.py:70(__contains__)
+    30000    0.032    0.000    0.160    0.000 {built-in method builtins.any}
+    60000    0.031    0.000    0.031    0.000 __init__.py:1501(getEffectiveLevel)
+    20000    0.028    0.000    0.028    0.000 scheduler.py:217(<lambda>)
+    10000    0.027    0.000    0.059    0.000 random.py:170(randrange)
+    10000    0.027    0.000    0.039    0.000 scheduler.py:1085(total_reserved)
+    15000    0.025    0.000    0.034    0.000 utils.py:216(cpu_units)
+    30000    0.024    0.000    0.199    0.000 utils.py:292(megabytes)
+    20000    0.022    0.000    0.167    0.000 scheduler.py:113(_any_gt)
+    40000    0.022    0.000    0.071    0.000 __init__.py:1257(debug)
+    10000    0.021    0.000    0.038    0.000 scheduler.py:83(_all)
+    10000    0.021    0.000    0.031    0.000 random.py:220(_randbelow)
+    10000    0.021    0.000    0.023    0.000 scheduler.py:69(_global_order)
+     5001    0.020    0.000    0.070    0.000 scheduler.py:461(__init__)
+    10000    0.020    0.000    0.020    0.000 scheduler.py:215(__init__)
+    20000    0.020    0.000    0.020    0.000 scheduler.py:475(empty)
+    10000    0.018    0.000    0.103    0.000 scheduler.py:1119(__init__)
+    10000    0.017    0.000    0.810    0.000 scheduler.py:1368(<listcomp>)
+     5000    0.017    0.000    0.110    0.000 scheduler.py:754(__init__)
+     5002    0.016    0.000    0.022    0.000 scheduler.py:393(__init__)
+    10000    0.016    0.000    0.025    0.000 scheduler.py:1165(add_app)
+    20000    0.015    0.000    0.074    0.000 scheduler.py:970(update)
+    30000    0.015    0.000    0.015    0.000 {built-in method builtins.pow}
+    65002    0.015    0.000    0.015    0.000 {method 'get' of 'dict' objects}
+    10000    0.015    0.000    0.085    0.000 scheduler.py:103(_any_lt)
+     5000    0.014    0.000    1.287    0.000 scheduler.py:542(add_node)
+    10000    0.014    0.000    0.072    0.000 random.py:214(randint)
+    10000    0.014    0.000    0.014    0.000 scheduler.py:1025(app_key)
+    75000    0.013    0.000    0.013    0.000 {method 'upper' of 'str' objects}
+    20000    0.013    0.000    0.013    0.000 {built-in method _collections._count_elements}
+    50001    0.013    0.000    0.013    0.000 {built-in method time.time}
+    20000    0.013    0.000    0.038    0.000 __init__.py:1269(info)
+    95002    0.012    0.000    0.012    0.000 {built-in method builtins.len}
+    20000    0.012    0.000    0.092    0.000 _methods.py:25(_amax)
+     5001    0.011    0.000    0.015    0.000 __init__.py:512(__init__)
+    10000    0.011    0.000   14.786    0.001 _methods.py:31(_sum)
+     5000    0.011    0.000    0.011    0.000 scheduler.py:663(adjust_capacity_up)
+    60000    0.010    0.000    0.010    0.000 {built-in method _operator.gt}
+    20000    0.010    0.000    0.013    0.000 scheduler.py:85(<genexpr>)
+    10000    0.010    0.000    0.048    0.000 scheduler.py:133(_all_lt)
+    10000    0.009    0.000    0.009    0.000 {built-in method _functools.reduce}
+    40000    0.009    0.000    0.009    0.000 scheduler.py:979(set_max_utilization)
+    10000    0.009    0.000    0.009    0.000 scheduler.py:993(add)
+    10000    0.009    0.000    0.009    0.000 scheduler.py:1379(<listcomp>)
+    10000    0.008    0.000    0.008    0.000 scheduler.py:1220(_fix_invalid_identities)
+    75005    0.008    0.000    0.008    0.000 {method 'strip' of 'str' objects}
+    10000    0.008    0.000    0.008    0.000 scheduler.py:656(get_affinity_strategy)
+    13327    0.008    0.000    0.008    0.000 {method 'getrandbits' of '_random.Random' objects}
+    50002    0.008    0.000    0.008    0.000 {method 'values' of 'dict' objects}
+    25001    0.008    0.000    0.008    0.000 {method 'append' of 'list' objects}
+    39996    0.007    0.000    0.007    0.000 {built-in method _operator.lt}
+    10000    0.007    0.000    0.007    0.000 scheduler.py:1370(<listcomp>)
+    20000    0.006    0.000    0.006    0.000 scheduler.py:305(traits)
+     5000    0.006    0.000    1.304    0.000 scheduler.py:695(add_node)
+    15000    0.006    0.000    0.006    0.000 {method 'endswith' of 'str' objects}
+    10000    0.006    0.000    0.006    0.000 scheduler.py:274(acquire_identity)
+    10000    0.005    0.000    0.005    0.000 {method 'extend' of 'list' objects}
+    20000    0.005    0.000    0.005    0.000 scheduler.py:986(set_traits)
+     5000    0.004    0.000    1.231    0.000 scheduler.py:507(add_child_traits)
+        1    0.004    0.004    0.011    0.011 machar.py:116(_do_init)
+    10000    0.004    0.000    0.012    0.000 {built-in method builtins.all}
+    10000    0.004    0.000    0.004    0.000 scheduler.py:1212(_fix_invalid_placements)
+    10000    0.004    0.000    0.004    0.000 scheduler.py:822(check_app_lifetime)
+    10000    0.003    0.000    0.003    0.000 {method 'items' of 'dict' objects}
+     5000    0.003    0.000    1.227    0.000 scheduler.py:416(add)
+     5000    0.003    0.000    0.006    0.000 scheduler.py:514(adjust_valid_until)
+     5000    0.003    0.000    0.003    0.000 {built-in method builtins.max}
+    10000    0.003    0.000    0.003    0.000 <string>:1(<lambda>)
+    10000    0.003    0.000    0.003    0.000 {built-in method _heapq.heapify}
+    10000    0.003    0.000    0.003    0.000 scheduler.py:1063(<listcomp>)
+     5000    0.003    0.000    0.003    0.000 scheduler.py:556(add_labels)
+    10000    0.002    0.000    0.002    0.000 {method 'bit_length' of 'int' objects}
+     1732    0.002    0.000    0.007    0.000 fromnumeric.py:1866(any)
+     5001    0.001    0.000    0.001    0.000 __init__.py:532(__missing__)
+     1732    0.001    0.000    0.001    0.000 numeric.py:534(asanyarray)
+     5000    0.001    0.000    0.001    0.000 {method 'update' of 'set' objects}
+     1732    0.001    0.000    0.004    0.000 {method 'any' of 'numpy.ndarray' objects}
+     1732    0.000    0.000    0.003    0.000 _methods.py:37(_any)
+      520    0.000    0.000    0.000    0.000 {built-in method builtins.abs}
+     12/2    0.000    0.000    0.000    0.000 abc.py:194(__subclasscheck__)
+        1    0.000    0.000  150.130  150.130 {built-in method builtins.exec}
+        5    0.000    0.000    0.000    0.000 getlimits.py:153(<lambda>)
+        1    0.000    0.000    0.011    0.011 getlimits.py:129(_init)
+       20    0.000    0.000    0.000    0.000 _weakrefset.py:58(__iter__)
+        1    0.000    0.000    0.011    0.011 machar.py:98(__init__)
+       12    0.000    0.000    0.000    0.000 _weakrefset.py:20(__enter__)
+       10    0.000    0.000    0.000    0.000 _weakrefset.py:36(__init__)
+        2    0.000    0.000    0.000    0.000 numeric.py:2692(seterr)
+       12    0.000    0.000    0.000    0.000 _weakrefset.py:26(__exit__)
+    21/11    0.000    0.000    0.000    0.000 {built-in method builtins.issubclass}
+       12    0.000    0.000    0.000    0.000 _weakrefset.py:81(add)
+       12    0.000    0.000    0.000    0.000 getlimits.py:13(_frz)
+        2    0.000    0.000    0.000    0.000 numeric.py:2792(geterr)
+       12    0.000    0.000    0.000    0.000 _weakrefset.py:16(__init__)
+        1    0.000    0.000    0.000    0.000 {built-in method math.log10}
+       21    0.000    0.000    0.000    0.000 {built-in method builtins.getattr}
+        1    0.000    0.000    0.000    0.000 getlimits.py:151(<lambda>)
+        1    0.000    0.000    0.000    0.000 scheduler.py:1152(__init__)
+       12    0.000    0.000    0.000    0.000 _weakrefset.py:52(_commit_removals)
+       12    0.000    0.000    0.000    0.000 _collections_abc.py:308(__subclasshook__)
+       24    0.000    0.000    0.000    0.000 {method 'add' of 'set' objects}
+        1    0.000    0.000    0.000    0.000 numerictypes.py:603(obj2sctype)
+        1    0.000    0.000    0.000    0.000 numeric.py:3094(__exit__)
+        1    0.000    0.000    0.000    0.000 {method 'astype' of 'numpy.ndarray' objects}
+        2    0.000    0.000    0.000    0.000 {built-in method numpy.core.umath.seterrobj}
+        1    0.000    0.000    0.000    0.000 numeric.py:3085(__init__)
+       11    0.000    0.000    0.000    0.000 {method '__subclasses__' of 'type' objects}
+        6    0.000    0.000    0.000    0.000 getlimits.py:152(<lambda>)
+        1    0.000    0.000    0.000    0.000 scheduler.py:647(__init__)
+        4    0.000    0.000    0.000    0.000 {built-in method numpy.core.umath.geterrobj}
+       12    0.000    0.000    0.000    0.000 {method 'remove' of 'set' objects}
+        1    0.000    0.000  150.130  150.130 <string>:1(<module>)
+        2    0.000    0.000    0.000    0.000 getlimits.py:150(<lambda>)
+        9    0.000    0.000    0.000    0.000 {built-in method builtins.setattr}
+        1    0.000    0.000    0.000    0.000 scheduler.py:652(set_affinity_strategy)
+        1    0.000    0.000    0.000    0.000 numeric.py:3089(__enter__)
+        1    0.000    0.000    0.000    0.000 scheduler.py:335(__init__)
+        1    0.000    0.000    0.000    0.000 {method 'pop' of 'dict' objects}
+        1    0.000    0.000    0.000    0.000 {method 'disable' of '_lsprof.Profiler' objects}
+        1    0.000    0.000    0.000    0.000 {built-in method __new__ of type object at 0xa3ddc0}
+
