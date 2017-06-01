@@ -1,0 +1,208 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "resource_id": { "$ref": "common.json#/app_id" },
+    "service": {
+        "type": "object",
+        "properties": {
+            "name": {
+                "type": "string",
+                "maxLength": 60,
+                "pattern": "^[\\w\\-\\.]+$"
+            },
+            "command": { "type": "string" },
+            "restart": {
+                "type": "object",
+                "properties": {
+                    "limit": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 10
+                    },
+                    "interval": {
+                        "type": "integer",
+                        "minimum": 30,
+                        "maximum": 600
+                    }
+                },
+                "required": [ "limit" ],
+                "additionalProperties": false
+            },
+            "root": { "type": "boolean" }
+        },
+        "required": [ "name", "command" ],
+        "additionalProperties": false
+    },
+    "ephemeral_ports": {
+        "type": "object",
+        "properties": {
+            "tcp": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 255
+            },
+            "udp": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 255
+            }
+        },
+        "additionalProperties": false
+    },
+    "endpoint": {
+        "type": "object",
+        "properties": {
+            "name": { "$ref": "common.json#/endpoint" },
+            "port": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 65535 },
+            "type": {
+                "type": "string",
+                "pattern": "^infra$"
+            },
+            "proto": {
+                "type": "string",
+                "pattern": "^tcp$|^udp$"
+            }
+        },
+        "required": [ "name", "port" ],
+        "additionalProperties": false
+    },
+    "environ": {
+        "type": "object",
+        "properties": {
+            "name": {
+                "type": "string"
+            },
+            "value": {
+                "type": "string"
+            }
+        },
+        "required": [ "name", "value" ],
+        "additionalProperties": false
+    },
+    "vring_rule": {
+        "type": "object",
+        "properties": {
+            "endpoints": {
+                "type": "array",
+                "items": { "$ref": "#/endpoint/properties/name" },
+                "minItems": 1
+            },
+            "pattern": {
+                "type": "string"
+            }
+        },
+        "required": ["endpoints", "pattern"]
+    },
+    "limit": {
+        "type": "integer",
+        "minimum": 1
+    },
+    "resource": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+            "memory": { "$ref": "common.json#/memory" },
+            "cpu": { "$ref": "common.json#/cpu" },
+            "disk": { "$ref": "common.json#/disk" },
+            "services": {
+                "type": "array",
+                "items": { "$ref": "#/service" }
+            },
+            "image": {
+                "type": "string",
+                "pattern": "^native:|docker://.+|http://.+|file://.+$"
+            },
+            "command": { "type": "string" },
+            "args": {
+                "type": "array",
+                "items": {
+                    "type": "string"
+                }
+            },
+            "endpoints": {
+                "type": "array",
+                "items": { "$ref": "#/endpoint" }
+            },
+            "environ": {
+                "type": "array",
+                "items": { "$ref": "#/environ" }
+            },
+            "ephemeral_ports": { "$ref": "#/ephemeral_ports" },
+            "tickets": {
+                "type": "array",
+                "items": { "$ref": "common.json#/ticket" }
+            },
+            "features": {
+                "type": "array",
+                "items": {
+                    "type": "string",
+                    "pattern": "^[\\w\\-]+$"
+                }
+            },
+            "shared_ip": { "type": "boolean" },
+            "shared_network": { "type": "boolean" },
+            "passthrough":  {
+                "type": "array",
+                "items": {
+                    "anyOf": [
+                        { "type": "string", "format": "hostname" },
+                        { "type": "string", "format": "ipv4" }
+                    ]
+                }
+            },
+            "archive": {
+                "type": "array",
+                "items": { "type": "string" }
+            },
+            "vring": {
+                "type": "object",
+                "properties": {
+                    "cells": {
+                        "type": "array",
+                        "items": { "$ref": "common.json#/cell" }
+                    },
+                    "rules": {
+                        "type": "array",
+                        "items": { "$ref": "#/vring_rule" },
+                        "minItems": 1
+                    },
+                    "required": [ "cells", "rules" ],
+                    "additionalProperties": false
+                }
+            },
+            "identity_group": {
+                "$ref": "common.json#/identity_group_id"
+            },
+            "schedule_once": { "type": "boolean" },
+            "affinity_limits" : {
+                "type" : "object",
+                "additionalProperties" : false,
+                "properties": {
+                    "pod": { "$ref": "#/limit" },
+                    "rack": { "$ref": "#/limit" },
+                    "server": { "$ref": "#/limit" },
+                    "required": []
+                }
+            },
+            "data_retention_timeout": { "$ref": "common.json#/time_interval" }
+        }
+    },
+    "verbs": {
+        "create": {
+            "allOf": [
+                { "required": [ "memory", "cpu", "disk" ] },
+                {
+                    "anyOf": [
+                        { "required": [ "services" ] },
+                        { "required": [ "image" ] }
+                    ]
+                }
+            ]
+        },
+        "update": {
+            "required": []
+        }
+    }
+}

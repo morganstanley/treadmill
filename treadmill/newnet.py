@@ -37,9 +37,8 @@ def create_newnet(veth, dev_ip, gateway_ip, service_ip=None):
     :type gateway_ip:
         ``str``
     :param service_ip:
-        Service IP address of the host the container is running on
-        (tm_env.host_ip). If ``None`` that indicates not to use the host IP for
-        the container.
+        Service IP address of the host the container is running on. If ``None``
+        that indicates not to use the external IP for the container.
     :type service_ip:
         ``str``
     """

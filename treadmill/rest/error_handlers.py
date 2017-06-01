@@ -96,16 +96,6 @@ def register(api):
                 'status': http.client.BAD_REQUEST}
         return resp, http.client.BAD_REQUEST, _cors_headers()
 
-    @api.errorhandler(exc.TreadmillError)
-    def _treadmill_exc(err):
-        """Treadmill exception handler."""
-        _LOGGER.exception('Treadmill error: %r', err)
-        resp = {
-            'message': err.message,
-            'status': http.client.INTERNAL_SERVER_ERROR
-        }
-        return resp, http.client.INTERNAL_SERVER_ERROR, _cors_headers()
-
     @api.errorhandler(exc.InvalidInputError)
     def _invalid_input_exc(err):
         """InvalidInputError exception handler."""
@@ -115,6 +105,26 @@ def register(api):
             'status': http.client.BAD_REQUEST
         }
         return resp, http.client.BAD_REQUEST, _cors_headers()
+
+    @api.errorhandler(exc.NotFoundError)
+    def _not_found_exc(err):
+        """NotFoundError exception handler."""
+        _LOGGER.exception('Not found error: %r', err)
+        resp = {
+            'message': err.message,
+            'status': http.client.NOT_FOUND
+        }
+        return resp, http.client.NOT_FOUND, _cors_headers()
+
+    @api.errorhandler(exc.TreadmillError)
+    def _treadmill_exc(err):
+        """Treadmill exception handler."""
+        _LOGGER.exception('Treadmill error: %r', err)
+        resp = {
+            'message': err.message,
+            'status': http.client.INTERNAL_SERVER_ERROR
+        }
+        return resp, http.client.INTERNAL_SERVER_ERROR, _cors_headers()
 
     def _internal_server_error(err):
         """Unhandled exception handler."""

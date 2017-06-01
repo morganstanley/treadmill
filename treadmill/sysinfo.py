@@ -1,13 +1,15 @@
-"""Helper module to get system related information."""
+"""Helper module to get system related information.
+"""
 
-from . import exc
-from . import subproc
-
-from collections import namedtuple
 import multiprocessing
 import os
 import socket
 import time
+
+from collections import namedtuple
+
+from treadmill import exc
+from treadmill import subproc
 
 if os.name == 'nt':
     import platform
@@ -226,8 +228,10 @@ def _node_info_linux(tm_env):
     # to be up).
     localdisk_status = tm_env.svc_localdisk.status(timeout=30)
     _cgroup_status = tm_env.svc_cgroup.status(timeout=30)  # noqa: F841
-    _network_status = tm_env.svc_network.status(timeout=30)  # noqa: F841
+    network_status = tm_env.svc_network.status(timeout=30)
 
+    # FIXME(boysson): Memory and CPU available to containers should come from
+    #                 the cgroup service.
     # We normalize bogomips into logical "cores", each core == 5000 bmips.
     #
     # Each virtual "core" is then equated to 100 units.
@@ -237,13 +241,11 @@ def _node_info_linux(tm_env):
     cpucapacity = int(
         (app_bogomips * 100 / BMIPS_PER_CPU)
     )
-    # FIXME(boysson): Memory and CPU available to containers should come from
-    #                 the cgroup service.
-    memcapacity = int(cgroups.get_value(
+    memcapacity = cgroups.get_value(
         'memory',
         'treadmill/apps',
         'memory.limit_in_bytes'
-    ))
+    )
 
     # Append units to all capacity info.
     info = {
@@ -251,6 +253,8 @@ def _node_info_linux(tm_env):
         'disk': '%dM' % (localdisk_status['size'] / _BYTES_IN_MB),
         'cpu': '%d%%' % cpucapacity,
         'up_since': up_since(),
+        'network': network_status,
+        'localdisk': localdisk_status,
     }
 
     return info

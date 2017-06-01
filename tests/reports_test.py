@@ -62,7 +62,6 @@ class ReportsTest(unittest.TestCase):
     def test_servers(self):
         """Tests servers report."""
         df = reports.servers(self.cell)
-        # print df
         # Sample data frame to see that the values are correct.
         self.assertEqual(df.ix['srv1']['memory'], 10)
         self.assertEqual(df.ix['srv2']['rack'], 'rack:rack1')
@@ -77,7 +76,6 @@ class ReportsTest(unittest.TestCase):
     def test_allocations(self):
         """Tests allocations report."""
         df = reports.allocations(self.cell)
-        # print df
         #           cpu  disk  max_utilization  memory  rank
         # name
         # t2/a1      10    10              inf      10   100
@@ -118,7 +116,6 @@ class ReportsTest(unittest.TestCase):
         self.cell.schedule()
 
         apps_df = reports.apps(self.cell)
-        # print apps_df
 #           affinity allocation  cpu  data_retention_timeout  disk  memory  \
 # instance
 # foo.xxx#1  foo.xxx   t1/t3/a2    1                       0     1       1
@@ -136,8 +133,6 @@ class ReportsTest(unittest.TestCase):
         util0 = reports.utilization(None, apps_df)
         time.time.return_value = 101
         util1 = reports.utilization(util0, apps_df)
-
-        # print util1
 
 # name                bla.xxx                           foo.xxx               \
 #                       count      util disk cpu memory   count      util disk

@@ -15,15 +15,16 @@ import re
 
 import kazoo
 
-from . import appevents
-from . import utils
-from . import zkutils
-from . import exc
-from . import zknamespace as z
-from . import scheduler
-from . import sysinfo
+from treadmill import admin
+from treadmill import appevents
+from treadmill import utils
+from treadmill import zkutils
+from treadmill import exc
+from treadmill import zknamespace as z
+from treadmill import scheduler
+from treadmill import sysinfo
 
-from .apptrace import events as traceevents
+from treadmill.apptrace import events as traceevents
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -68,7 +69,7 @@ def time_past(when):
 
 # ACL which allows all servers in the cell to full control over node.
 #
-# Set in /tasks, /servers
+# Set in /finished, /servers
 _SERVERS_ACL = zkutils.make_role_acl('servers', 'rwcd')
 # Delete only servers ACL
 _SERVERS_ACL_DEL = zkutils.make_role_acl('servers', 'd')
@@ -131,8 +132,10 @@ class Master(object):
             z.SCHEDULER: None,
             z.SERVERS: None,
             z.STRATEGIES: None,
-            z.TASKS: None,
-            z.TASKS_HISTORY: None,
+            z.FINISHED: [_SERVERS_ACL],
+            z.FINISHED_HISTORY: None,
+            z.TRACE: None,
+            z.TRACE_HISTORY: None,
             z.VERSION_ID: None,
             z.ZOOKEEPER: None,
             z.BLACKEDOUT_SERVERS: [_SERVERS_ACL],
@@ -147,6 +150,10 @@ class Master(object):
 
         for path, acl in root_ns.items():
             zkutils.ensure_exists(self.zkclient, path, acl)
+        for path in z.trace_shards():
+            zkutils.ensure_exists(self.zkclient,
+                                  path,
+                                  acl=[_SERVERS_ACL])
 
     def load_cell(self):
         """Construct cell from top level buckets."""
@@ -159,7 +166,7 @@ class Master(object):
     def load_partitions(self):
         """Load partitions."""
         # Create default partition.
-        self.cell.partitions[None] = scheduler.Partition()
+        self.cell.partitions[admin.DEFAULT_PARTITION] = scheduler.Partition()
 
         partitions = self.zkclient.get_childrent(z.PARTITIONS)
         for partition in partitions:
@@ -224,7 +231,7 @@ class Master(object):
 
             assert 'parent' in data
             parentname = data['parent']
-            label = data.get('partition', None)
+            label = data.get('partition', admin.DEFAULT_PARTITION)
             up_since = data.get('up_since', int(time.time()))
 
             partition = self.cell.partitions[label]
@@ -382,9 +389,10 @@ class Master(object):
 
             for part in re.split('[/:]', name):
                 alloc = alloc.get_sub_alloc(part)
-                capacity = resources(obj)
-                alloc.update(capacity, obj['rank'], obj.get('max-utilization'))
                 alloc.label = label
+
+            capacity = resources(obj)
+            alloc.update(capacity, obj['rank'], obj.get('max-utilization'))
 
             for assignment in obj.get('assignments', []):
                 pattern = assignment['pattern'] + '[#]' + ('[0-9]' * 10)
@@ -407,20 +415,27 @@ class Master(object):
 
     def find_default_assignment(self, name):
         """Finds (creates) default assignment."""
-        alloc = self.cell.partitions[None].allocation
-        unassigned = alloc.get_sub_alloc('_default')
-        proid, _rest = name.split('.', 1)
-        return 1, unassigned.get_sub_alloc(proid)
+        alloc = self.cell.partitions[admin.DEFAULT_PARTITION].allocation
+        alloc.label = admin.DEFAULT_PARTITION
 
-    def load_apps(self, readonly=False):
+        unassigned = alloc.get_sub_alloc('_default')
+        unassigned.label = admin.DEFAULT_PARTITION
+
+        proid, _rest = name.split('.', 1)
+        proid_alloc = unassigned.get_sub_alloc(proid)
+        proid_alloc.label = admin.DEFAULT_PARTITION
+
+        return 1, proid_alloc
+
+    def load_apps(self):
         """Load application data."""
         apps = self.zkclient.get_children(z.SCHEDULED)
         for appname in apps:
-            self.load_app(appname, readonly)
+            self.load_app(appname)
 
         self.restore_placements()
 
-    def load_app(self, appname, readonly=False):
+    def load_app(self, appname):
         """Load single application data."""
         # TODO: need to check if app is blacklisted.
         manifest = zkutils.get_default(self.zkclient,
@@ -439,8 +454,6 @@ class Master(object):
         lease = get_lease(manifest)
 
         app = self.cell.apps.get(appname, None)
-        if not readonly:
-            self._create_task(appname)
 
         if app:
             app.priority = priority
@@ -662,6 +675,20 @@ class Master(object):
                         instanceid=appname
                     )
                 )
+            # If finished does nto exist, it means app is terminated by
+            # explicit request, not because it finished on the node.
+            if not self.zkclient.exists(z.path.finished(appname)):
+                zkutils.with_retry(
+                    zkutils.put,
+                    self.zkclient,
+                    z.path.finished(appname),
+                    {'state': 'terminated',
+                     'when': time.time(),
+                     'host': app.server,
+                     'data': None},
+                    acl=[_SERVERS_ACL],
+                )
+
             self.cell.remove_app(appname)
 
         for appname in target - current:
@@ -874,7 +901,8 @@ class Master(object):
                             os.path.join(placement_node, app),
                             placement_data,
                             acl=[_SERVERS_ACL])
-                self._update_task(app, servername)
+
+                self._update_task(app, servername, why=None)
 
         # Store latest placement as reference.
         zkutils.put(self.zkclient, z.path.placement(), placement)
@@ -904,6 +932,18 @@ class Master(object):
 
         for app, before, exp_before, after, exp_after in changed_placement:
             placement_data = self._placement_data(app)
+
+            why = ''
+            if before is not None:
+                if (before not in self.servers or
+                        self.servers[before].state == scheduler.State.down):
+                    why = '{server}:down'.format(server=before)
+                else:
+                    # TODO: it will be nice to put app utilization at the time
+                    #       of eviction, but this info is not readily
+                    #       available yet in the scheduler.
+                    why = 'evicted'
+
             if after:
                 _LOGGER.info('Scheduling: %s - %s,%s, expires at: %s',
                              after,
@@ -916,9 +956,9 @@ class Master(object):
                     z.path.placement(after, app),
                     placement_data,
                     acl=[_SERVERS_ACL])
-                self._update_task(app, after)
+                self._update_task(app, after, why=why)
             else:
-                self._update_task(app, None)
+                self._update_task(app, None, why=why)
 
         self._unschedule_evicted()
 
@@ -941,12 +981,7 @@ class Master(object):
                 zkutils.ensure_deleted(self.zkclient,
                                        z.path.scheduled(appname))
 
-    def _create_task(self, appname):
-        """Ensures that task is created for an app."""
-        zkutils.ensure_exists(self.zkclient, z.path.task(appname),
-                              acl=[_SERVERS_ACL])
-
-    def _update_task(self, appname, server):
+    def _update_task(self, appname, server, why):
         """Creates/updates application task with the new placement."""
         # Servers in the cell have full control over task node.
         if self.events_dir:
@@ -955,14 +990,16 @@ class Master(object):
                     self.events_dir,
                     traceevents.ScheduledTraceEvent(
                         instanceid=appname,
-                        where=server
+                        where=server,
+                        why=why
                     )
                 )
             else:
                 appevents.post(
                     self.events_dir,
                     traceevents.PendingTraceEvent(
-                        instanceid=appname
+                        instanceid=appname,
+                        why=why
                     )
                 )
 
@@ -1004,10 +1041,14 @@ def create_apps(zkclient, app_id, app, count):
         instance_id = os.path.basename(node_path)
 
         # Create task for the app, and put it in pending state.
-        task_node = z.path.task(
+        # TODO: probably need to create PendingEvent and use to_data method.
+        task_node = z.path.trace(
             instance_id,
-            '{time},{hostname},pending,'.format(time=time.time(),
-                                                hostname=sysinfo.hostname())
+            '{time},{hostname},pending,{data}'.format(
+                time=time.time(),
+                hostname=sysinfo.hostname(),
+                data='created'
+            )
         )
         try:
             zkclient.create(task_node, b'',

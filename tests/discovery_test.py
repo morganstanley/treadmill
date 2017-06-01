@@ -1,5 +1,4 @@
-"""
-Unit test for appwatch.
+"""Unit test for appwatch.
 """
 
 import unittest
@@ -56,8 +55,13 @@ class DiscoveryTest(mockzk.MockZookeeperTestCase):
         for (endpoint, hostport) in app_discovery.items():
             expected[endpoint] = hostport
 
-        self.assertEqual(expected, {'appproid.foo.1#0:tcp:http': 'xxx:123',
-                                    'appproid.foo.2#0:tcp:http': 'xxx:123'})
+        self.assertEqual(
+            expected,
+            {
+                'appproid.foo.1#0:tcp:http': 'xxx:123',
+                'appproid.foo.2#0:tcp:http': 'xxx:123'
+            }
+        )
 
     @mock.patch('treadmill.zkutils.connect', mock.Mock(
         return_value=kazoo.client.KazooClient()))

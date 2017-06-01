@@ -1,4 +1,5 @@
-"""Low level admin API to manipulate global cell topology."""
+"""Low level admin API to manipulate global cell topology.
+"""
 # Disable too many lines warning.
 #
 # pylint: disable=C0302
@@ -12,8 +13,6 @@ import hashlib
 import itertools
 import logging
 import shlex
-import os
-import yaml
 import re
 
 from distutils import util
@@ -61,8 +60,12 @@ _TYPE_2_SUBSTR = {
 
 _TREADMILL_ATTR_OID_PREFIX = '1.3.6.1.4.1.360.10.6.1.'
 _TREADMILL_OBJCLS_OID_PREFIX = '1.3.6.1.4.1.360.10.6.2.'
-_TREADMILL_CONFIG_PATH = os.path.join(treadmill.TREADMILL_DEPLOY_PACKAGE,
-                                      'config', 'treadmill.yml')
+# XXX: _TREADMILL_CONFIG_PATH = os.path.join(
+# XXX:     treadmill.TREADMILL_DEPLOY_PACKAGE,
+# XXX:     'config', 'treadmill.yml'
+# XXX: )
+
+DEFAULT_PARTITION = '_default'
 
 
 def _entry_2_dict(entry, schema):
@@ -373,33 +376,37 @@ def _admin_ldap_user(domain):
     return "cn=admin,dc={},dc={}".format(match.group(1), match.group(2))
 
 
-def _ldap_args():
-    defaults = dict(authentication=ldap3.SASL,
-                    sasl_mechanism='GSSAPI',
-                    client_strategy=ldap3.STRATEGY_SYNC_RESTARTABLE,
-                    auto_bind=True)
-
-    with open(_TREADMILL_CONFIG_PATH) as f:
-        treadmill_conf = yaml.load(f)
-        freeipa_conf = treadmill_conf.get('freeipa_server')
-        if freeipa_conf.get('authentication').lower() == 'simple':
-            defaults['user'] = _admin_ldap_user(treadmill_conf.get('domain'))
-            defaults['authentication'] = ldap3.SIMPLE
-            defaults['sasl_mechanism'] = None
-            with open(freeipa_conf.get('remote_admin_pwd_file')) as p:
-                defaults['password'] = p.read().strip()
-    return defaults
+# XXX: def _ldap_args():
+# XXX:     defaults = dict(authentication=ldap3.SASL,
+# XXX:                     sasl_mechanism='GSSAPI',
+# XXX:                     client_strategy=ldap3.STRATEGY_SYNC_RESTARTABLE,
+# XXX:                     auto_bind=True)
+# XXX:
+# XXX:     with open(_TREADMILL_CONFIG_PATH) as f:
+# XXX:         treadmill_conf = yaml.load(f)
+# XXX:         freeipa_conf = treadmill_conf.get('freeipa_server')
+# XXX:         if freeipa_conf.get('authentication').lower() == 'simple':
+# XXX:             defaults['user'] = \
+# XXX:                  _admin_ldap_user(treadmill_conf.get('domain'))
+# XXX:             defaults['authentication'] = ldap3.SIMPLE
+# XXX:             defaults['sasl_mechanism'] = None
+# XXX:             with open(freeipa_conf.get('remote_admin_pwd_file')) as p:
+# XXX:                 defaults['password'] = p.read().strip()
+# XXX:     return defaults
 
 
 class Admin(object):
     """Manages Treadmill objects in ldap."""
 
-    def __init__(self, uri, root_ou):
+    def __init__(self, uri, ldap_suffix, user=None, password=None):
         self.uri = uri
         if uri and not isinstance(uri, list):
             self.uri = uri.split(',')
-        self.root_ou = root_ou
+        self.ldap_suffix = ldap_suffix
+        self.root_ou = 'ou=treadmill,%s' % ldap_suffix
         self.ldap = None
+        self.user = user
+        self.password = password
 
     def close(self):
         """Closes ldap connection."""
@@ -422,16 +429,32 @@ class Admin(object):
     def connect(self):
         """Connects (binds) to LDAP server."""
         ldap3.set_config_parameter('RESTARTABLE_TRIES', 3)
-        ldap_params = _ldap_args()
+        # XXX: ldap_params = _ldap_args()
 
         for uri in self.uri:
             try:
                 server = ldap3.Server(uri)
-                self.ldap = ldap3.Connection(server, **ldap_params)
+                if self.user and self.password:
+
+                    self.ldap = ldap3.Connection(
+                        server,
+                        user=self.user,
+                        password=self.password,
+                        client_strategy=ldap3.STRATEGY_SYNC_RESTARTABLE,
+                        auto_bind=True
+                    )
+                else:
+                    self.ldap = ldap3.Connection(
+                        server,
+                        authentication=ldap3.SASL,
+                        sasl_mechanism='GSSAPI',
+                        client_strategy=ldap3.STRATEGY_SYNC_RESTARTABLE,
+                        auto_bind=True
+                    )
             except (ldap3.LDAPSocketOpenError,
                     ldap3.LDAPBindError,
                     ldap3.LDAPMaximumRetriesError):
-                _LOGGER.exception('Could not connect to %s', uri)
+                _LOGGER.debug('Could not connect to %s', uri, exc_info=True)
             else:
                 break
 
@@ -734,22 +757,26 @@ class Admin(object):
         else:
             _LOGGER.info('Schema is up to date.')
 
-    def init(self, domain):
+    def init(self):
         """Initializes treadmill ldap namespace."""
-        components = str(domain).split('.')
-        dn = ','.join(['dc=' + comp for comp in components])
-        dc = components[0]
-        treadmill_ou = 'ou=treadmill,' + dn
+
+        # TOOD: not sure if this takes into account more tnan 2 levels in
+        #       ldap_suffix, e.g. dc=x,dc=y,dc=com
+        dc = self.ldap_suffix.split(',')[0].split('=')[1]
 
         def _build_ou(ou, name=None):
             """Helper to build an ou string."""
-            return 'ou=' + ou + ',' + treadmill_ou, \
+            return 'ou=' + ou + ',' + self.root_ou, \
                    ['organizationalUnit'], \
                    {'ou': name or ou}
 
         dir_entries = [
-            (dn, ['dcObject', 'organization'], {'o': [dc], 'dc': [dc]}),
-            (treadmill_ou, ['organizationalUnit'], {'ou': treadmill_ou}),
+            (self.ldap_suffix,
+             ['dcObject', 'organization'],
+             {'o': [dc], 'dc': [dc]}),
+            (self.root_ou,
+             ['organizationalUnit'],
+             {'ou': self.root_ou}),
             _build_ou('apps', 'applications'),
             _build_ou('cells'),
             _build_ou('dns-servers'),
@@ -761,6 +788,8 @@ class Admin(object):
 
         for dn, object_class, attributes in dir_entries:
             try:
+                _LOGGER.debug('Creating: %s %s %s',
+                              dn, object_class, attributes)
                 self.add(dn, object_class, attributes)
             except ldap3.LDAPEntryAlreadyExistsResult:
                 _LOGGER.debug('%s already exists.', dn)
@@ -935,6 +964,15 @@ class Server(LdapObject):
     _ou = 'servers'
     _entity = 'server'
 
+    def from_entry(self, entry, dn=None):
+        """Converts LDAP app object to dict."""
+        obj = super(Server, self).from_entry(entry, dn)
+
+        if 'partition' not in obj:
+            obj['partition'] = DEFAULT_PARTITION
+
+        return obj
+
 
 # pylint: disable=W0212
 Server.schema = staticmethod(lambda: Server._schema)
@@ -1015,10 +1053,14 @@ class Application(LdapObject):
         ('cpu', 'cpu', str),
         ('memory', 'memory', str),
         ('disk', 'disk', str),
+        ('image', 'image', str),
+        ('command', 'command', str),
+        ('args', 'args', [str]),
         ('ticket', 'tickets', [str]),
         ('feature', 'features', [str]),
         ('identity-group', 'identity_group', str),
         ('shared-ip', 'shared_ip', bool),
+        ('shared-network', 'shared_network', bool),
         ('passthrough', 'passthrough', [str]),
         ('schedule-once', 'schedule_once', bool),
         ('ephemeral-ports-tcp', 'ephemeral_ports_tcp', int),
@@ -1450,6 +1492,16 @@ class CellAllocation(LdapObject):
             'assignments': assignments,
         })
 
+        if 'cpu' not in obj:
+            obj['cpu'] = '0%'
+        if 'memory' not in obj:
+            obj['memory'] = '0G'
+        if 'disk' not in obj:
+            obj['disk'] = '0G'
+
+        if 'partition' not in obj:
+            obj['partition'] = DEFAULT_PARTITION
+
         return obj
 
     def to_entry(self, obj):
@@ -1573,6 +1625,13 @@ class Partition(LdapObject):
 
             obj['partition'] = partition
             obj['cell'] = cell
+
+        if 'cpu' not in obj:
+            obj['cpu'] = '0%'
+        if 'memory' not in obj:
+            obj['memory'] = '0G'
+        if 'disk' not in obj:
+            obj['disk'] = '0G'
 
         return obj
 

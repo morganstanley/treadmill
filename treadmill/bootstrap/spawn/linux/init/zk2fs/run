@@ -1,0 +1,6 @@
+#!/bin/sh
+
+exec 2>&1
+
+exec {{ treadmill }}/bin/treadmill \
+    sproc zk2fs --root {{ dir }}/zk_mirror --trace

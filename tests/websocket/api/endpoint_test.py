@@ -14,7 +14,7 @@ class WSEndpointAPITest(unittest.TestCase):
     def test_subscribe(self):
         """Test subscription registration."""
         api = endpoint.EndpointAPI()
-        self.assertEquals(
+        self.assertEqual(
             [('/endpoints/foo', 'bar#*:tcp:http')],
             api.subscribe({'topic': '/endpoints',
                            'filter': 'foo.bar',
@@ -22,7 +22,7 @@ class WSEndpointAPITest(unittest.TestCase):
                            'endpoint': 'http'})
         )
 
-        self.assertEquals(
+        self.assertEqual(
             [('/endpoints/foo', '*#*:*:*')],
             api.subscribe({'topic': '/endpoints',
                            'filter': 'foo.*',
@@ -30,13 +30,13 @@ class WSEndpointAPITest(unittest.TestCase):
                            'endpoint': '*'})
         )
 
-        self.assertEquals(
+        self.assertEqual(
             [('/endpoints/foo', '*#*:*:*')],
             api.subscribe({'topic': '/endpoints',
                            'filter': 'foo.*'})
         )
 
-        self.assertEquals(
+        self.assertEqual(
             [('/endpoints/foo', '[t]?*#*:tcp:http')],
             api.subscribe({'topic': '/endpoints',
                            'filter': 'foo.[t]?*',
@@ -74,7 +74,7 @@ class WSEndpointAPITest(unittest.TestCase):
     def test_on_event(self):
         """Tests payload generation."""
         api = endpoint.EndpointAPI()
-        self.assertEquals(
+        self.assertEqual(
             {'endpoint': 'http',
              'name': 'foo.bar#1234',
              'proto': 'tcp',
@@ -89,7 +89,7 @@ class WSEndpointAPITest(unittest.TestCase):
             )
         )
 
-        self.assertEquals(
+        self.assertEqual(
             {'endpoint': 'http',
              'name': 'foo.bar#1234',
              'proto': 'tcp',
@@ -104,7 +104,7 @@ class WSEndpointAPITest(unittest.TestCase):
             )
         )
 
-        self.assertEquals(
+        self.assertEqual(
             {'endpoint': 'http',
              'name': 'foo.bar#1234',
              'proto': 'tcp',

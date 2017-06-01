@@ -1,10 +1,9 @@
-"""Trace treadmill application events."""
-
-
-import sys
+"""Trace treadmill application events.
+"""
 
 import logging
 import socket
+import sys
 
 import click
 
@@ -18,7 +17,7 @@ _LOGGER = logging.getLogger()
 
 
 def _iterate(discovery_iter, check_state, sep):
-    """Iterate and print discovered endpoints."""
+    """Iterate and output discovered endpoints."""
     for (app, hostport) in discovery_iter:
         if hostport:
             state = ''

@@ -1,5 +1,5 @@
-"""Treadmill discovery CLI."""
-
+"""Treadmill discovery CLI.
+"""
 
 import logging
 import socket

@@ -193,7 +193,14 @@ class AllocationTest(unittest.TestCase):
         # Check that utilization of prio 0 apps is always max float.
         self.assertEqual(
             [float('inf')] * 3,
-            [util for (_rank, util, _pending, _order, _app) in queue[-3:]]  # noqa: F812,E501
+            [
+                util
+                for (_rank,
+                     util,
+                     _pending,
+                     _order,
+                     _app) in queue[-3:]  # noqa: F812,E501
+            ]
         )
 
 
@@ -583,10 +590,15 @@ class NodeTest(unittest.TestCase):
         self.assertTrue(scheduler._all_isclose(left.size(None), [2, 2]))
         self.assertTrue(scheduler._all_isclose(top.size(None), [4, 4]))
 
-        self.assertEqual({'a': srv_a,
-                          'b': srv_b,
-                          'y': srv_y,
-                          'z': srv_z}, top.members())
+        self.assertEqual(
+            {
+                'a': srv_a,
+                'b': srv_b,
+                'y': srv_y,
+                'z': srv_z
+            },
+            top.members()
+        )
 
     def test_affinity_counters(self):
         """Tests affinity counters."""
@@ -757,8 +769,10 @@ class CellTest(unittest.TestCase):
         # 50/51 not moved. from the end of the queue,
         self.assertEqual(app_prio51.server, srv3)
         self.assertEqual(app_prio50.server, srv4)
-        self.assertEqual(set([app_prio49_1.server, app_prio49_2.server]),
-                         set([srv1, srv2]))
+        self.assertEqual(
+            set([app_prio49_1.server, app_prio49_2.server]),
+            set([srv1, srv2])
+        )
 
         # Only capacity left for small [1, 1] app.
         self.assertIsNotNone(app1.server)
@@ -1012,13 +1026,15 @@ class CellTest(unittest.TestCase):
         cell.configure_identity_group('ident1', 5)
         cell.schedule()
         self.assertEqual(
-            5, len([app for app in apps if app.server is not None])
+            5,
+            len([app for app in apps if app.server is not None])
         )
 
         cell.configure_identity_group('ident1', 3)
         cell.schedule()
         self.assertEqual(
-            3, len([app for app in apps if app.server is not None])
+            3,
+            len([app for app in apps if app.server is not None])
         )
 
     def test_schedule_once(self):

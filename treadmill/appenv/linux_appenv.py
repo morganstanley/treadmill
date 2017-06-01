@@ -10,6 +10,8 @@ from treadmill import iptables
 from treadmill import rulefile
 from treadmill import services
 
+from treadmill.runtime.linux.image import fs as image_fs
+
 _LOGGER = logging.getLogger(__name__)
 
 
@@ -19,10 +21,6 @@ class LinuxAppEnvironment(appenv.AppEnvironment):
     :param root:
         Path to the root directory of the Treadmill environment
     :type root:
-        `str`
-    :param host_ip:
-        Optional ip address of the host
-    :type host_ip:
         `str`
     """
 
@@ -42,8 +40,8 @@ class LinuxAppEnvironment(appenv.AppEnvironment):
     SVC_NETWORK_DIR = 'network_svc'
     RULES_DIR = 'rules'
 
-    def __init__(self, root, host_ip=None):
-        super(LinuxAppEnvironment, self).__init__(root, host_ip)
+    def __init__(self, root):
+        super(LinuxAppEnvironment, self).__init__(root)
 
         self.svc_cgroup_dir = os.path.join(self.root, self.SVC_CGROUP_DIR)
         self.svc_localdisk_dir = os.path.join(self.root,
@@ -78,17 +76,17 @@ class LinuxAppEnvironment(appenv.AppEnvironment):
                   'NetworkResourceService'),
         )
 
-    def initialize(self):
+    def initialize(self, params):
         """One time initialization of the Treadmill environment."""
         _LOGGER.info('Initializing once.')
 
         # Flush all rules in iptables nat and mangle tables (it is assumed that
         # none but Treadmill manages these tables) and bulk load all the
         # Treadmill static rules
-        iptables.initialize(self.host_ip)
+        iptables.initialize(params['network']['external_ip'])
 
         # Initialize network rules
         self.rules.initialize()
 
         # Initialize FS plugins.
-        fs.init_plugins(self.root)
+        image_fs.init_plugins(self)

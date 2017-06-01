@@ -70,7 +70,7 @@ class TicketLockerTest(unittest.TestCase):
                                           '/var/spool/tickets')
 
         # With no node node error, result will be empty dict.
-        self.assertEquals(
+        self.assertEqual(
             {},
             tkt_locker.process_request('host/aaa.xxx.com@y.com', 'foo#1234'))
 

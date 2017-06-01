@@ -29,6 +29,13 @@ def init(api, cors, impl):
         'zk-jmx-port': fields.Integer(description='ZK JMX port'),
         'zk-client-port': fields.Integer(description='ZK client port'),
     })
+    partition = api.model('Partition', {
+        'partition': fields.String(description='Name'),
+        'cpu': fields.String(description='Total cpu capacity'),
+        'disk': fields.String(description='Total disk capacity'),
+        'memory': fields.String(description='Total memory capacity'),
+        'down-threshold': fields.String(description='Server down threshold'),
+    })
     model = {
         '_id': fields.String(description='Name'),
         'username': fields.String(description='Treadmill User ID'),
@@ -39,6 +46,7 @@ def init(api, cors, impl):
         'location': fields.String(description='Location'),
         'version': fields.String(description='Version'),
         'masters': fields.List(fields.Nested(master)),
+        'partitions': fields.List(fields.Nested(partition)),
     }
 
     cell_model = api.model(

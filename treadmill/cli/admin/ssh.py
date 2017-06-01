@@ -90,7 +90,8 @@ def init():
                   envvar='TREADMILL_CELL',
                   callback=cli.handle_context_opt,
                   expose_value=False)
-    @click.option('--ssh', help='SSH client to use.', type=click.File('rb'))
+    @click.option('--ssh', help='SSH client to use.',
+                  type=click.Path(exists=True, readable=True))
     @click.argument('app')
     @click.argument('command', nargs=-1)
     def ssh(ssh, app, command):

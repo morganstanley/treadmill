@@ -22,17 +22,52 @@ class ContextError(Exception):
 class AdminContext(object):
     """Ldap context."""
     __slots__ = (
-        'search_base',
+        'ldap_suffix',
+        '_user',
+        '_password',
         '_url',
         '_conn',
         '_resolve',
     )
 
-    def __init__(self, resolve=None):
-        self.search_base = None
+    def __init__(self, resolve=None, user=None, password=None):
+        self.ldap_suffix = None
+        self._user = None
+        self._password = None
+
+        if password:
+            self.password = password
+
+        if user:
+            self.user = user
+
         self._url = None
         self._conn = None
         self._resolve = resolve
+
+    @property
+    def user(self):
+        """User, getter."""
+        return self._user
+
+    @user.setter
+    def user(self, value):
+        """User, setter."""
+        if value != self._user:
+            self._conn = None
+        self._user = value
+
+    @property
+    def password(self):
+        """Password, getter."""
+        return self._password
+
+    @password.setter
+    def password(self, value):
+        """Password, setter."""
+        self._password = value
+        if self._user is None:
+            self.user = 'cn=Manager,%s' % self.ldap_suffix
 
     @property
     def url(self):
@@ -49,8 +84,8 @@ class AdminContext(object):
     def conn(self):
         """Lazily establishes connection to admin LDAP."""
         if self._conn is None:
-            if self.search_base is None:
-                raise ContextError('LDAP search base not set.')
+            if self.ldap_suffix is None:
+                raise ContextError('LDAP suffix is not set.')
 
             if self.url is None:
                 if self._resolve:
@@ -59,9 +94,10 @@ class AdminContext(object):
                     raise ContextError('LDAP url not set.')
 
             _LOGGER.debug('Connecting to LDAP %s, %s',
-                          self.url, self.search_base)
+                          self.url, self.ldap_suffix)
 
-            self._conn = admin.Admin(self.url, self.search_base)
+            self._conn = admin.Admin(self.url, self.ldap_suffix,
+                                     user=self.user, password=self.password)
             self._conn.connect()
 
         return self._conn
@@ -116,6 +152,7 @@ class Context(object):
         'ldap',
         'zk',
         'dns_domain',
+        'dns_server',
         'admin_api_scope',
         'ctx_plugin',
         'resolvers',
@@ -124,6 +161,7 @@ class Context(object):
     def __init__(self):
         self.cell = None
         self.dns_domain = None
+        self.dns_server = None
         self.ldap = AdminContext(self.resolve)
         self.zk = ZkContext(self.resolve)
         self.admin_api_scope = (None, None)
@@ -134,7 +172,7 @@ class Context(object):
                 'treadmill.plugins.context')
             self.dns_domain = self.ctx_plugin.dns_domain()
             self.admin_api_scope = self.ctx_plugin.api_scope()
-            self.ldap.search_base = self.ctx_plugin.ldap_search_base()
+            self.ldap.ldap_suffix = self.ctx_plugin.ldap_suffix()
         except Exception as err:  # pylint: disable=W0703
             _LOGGER.debug('Unable to load context plugin: %s.', err)
 
@@ -158,7 +196,9 @@ class Context(object):
         if not self.dns_domain:
             raise ContextError('Treadmill DNS domain not specified.')
 
-        result = dnsutils.srv(srv_rec + '.' + self.dns_domain)
+        result = dnsutils.srv(
+            srv_rec + '.' + self.dns_domain, self.dns_server
+        )
         random.shuffle(result)
         return result
 
@@ -265,8 +305,10 @@ class Context(object):
             raise ContextError('Cell is not specified.')
 
         if not self.ldap.url:
-            ldap_srv_rec = dnsutils.srv('_ldap._tcp.%s.%s' %
-                                        (cellname, self.dns_domain))
+            ldap_srv_rec = dnsutils.srv(
+                '_ldap._tcp.%s.%s' % (cellname, self.dns_domain),
+                self.dns_server
+            )
             self.ldap.url = ','.join([
                 'ldap://%s:%s' % (rec[0], rec[1])
                 for rec in ldap_srv_rec
@@ -286,9 +328,12 @@ class Context(object):
         """Resolve Zookeeper connection string from DNS."""
         if not self.dns_domain:
             _LOGGER.warn('DNS domain is not set.')
-            zkurl_rec = dnsutils.txt('zk.%s' % (cellname))
+            zkurl_rec = dnsutils.txt('zk.%s' % (cellname), self.dns_server)
         else:
-            zkurl_rec = dnsutils.txt('zk.%s.%s' % (cellname, self.dns_domain))
+            zkurl_rec = dnsutils.txt(
+                'zk.%s.%s' % (cellname, self.dns_domain),
+                self.dns_server
+            )
 
         if zkurl_rec:
             self.cell = cellname

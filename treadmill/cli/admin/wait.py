@@ -1,9 +1,8 @@
-"""Waits for Treadmill application completion."""
-
-
-import sys
+"""Waits for Treadmill application completion.
+"""
 
 import logging
+import sys
 
 import click
 import yaml
@@ -31,11 +30,11 @@ class _AppTraceEventsOnly(events.AppTraceEventHandler):
     """Handler used to integrate trace events into final state of the container
     """
 
-    def on_scheduled(self, when, instanceid, server):
+    def on_scheduled(self, when, instanceid, server, why):
         """Invoked when task is scheduled."""
         pass
 
-    def on_pending(self, when, instanceid):
+    def on_pending(self, when, instanceid, why):
         """Invoked when task is pending."""
         pass
 

@@ -1,5 +1,5 @@
-"""Provides functions that are used when apps are finished."""
-
+"""Provides functions that are used when apps are finished.
+"""
 
 import errno
 import glob
@@ -21,6 +21,7 @@ from treadmill import firewall
 from treadmill import fs
 from treadmill import iptables
 from treadmill import logcontext as lc
+from treadmill import runtime
 from treadmill import rrdutils
 from treadmill import services
 from treadmill import subproc
@@ -32,39 +33,18 @@ from treadmill import zkutils
 
 from treadmill.apptrace import events
 
-from treadmill.appcfg import manifest as app_manifest
 
+_LOGGER = logging.getLogger(__name__)
 
-_LOGGER = lc.ContainerAdapter(logging.getLogger(__name__))
-
-_APP_YML = 'app.yml'
-_STATE_YML = 'state.yml'
 _ARCHIVE_LIMIT = utils.size_to_bytes('1G')
 
 
-def finish(tm_env, zkclient, container_dir):
+def finish(tm_env, zkclient, container_dir, watchdog):
     """Frees allocated resources and mark then as available.
-
-    :param tm_env:
-        Treadmill application environment
-    :type tm_env:
-        `appenv.AppEnvironment`
-    :param container_dir:
-        Full path to the application container directory
-    :type container_dir:
-        ``str``
     """
-
-    # FIXME(boysson): Clean should be done inside the container. The watchdog
-    #                 value below is inflated to account for the extra
-    #                 archiving time.
-    name_dir = os.path.basename(container_dir)
-    with lc.LogContext(_LOGGER, name_dir, lc.ContainerAdapter) as log:
-        log.logger.info('finishing %r', container_dir)
-        watchdog_name = '{name}-{app}'.format(name=__name__,
-                                              app=name_dir)
-        watchdog = tm_env.watchdogs.create(watchdog_name, '5m', 'Cleanup of '
-                                           '%r stalled' % container_dir)
+    with lc.LogContext(_LOGGER, os.path.basename(container_dir),
+                       lc.ContainerAdapter) as log:
+        log.info('finishing %r', container_dir)
 
         _stop_container(container_dir)
 
@@ -77,11 +57,11 @@ def finish(tm_env, zkclient, container_dir):
         # scheduler that the server is ready to accept new load.
         exitinfo, aborted, aborted_reason = _collect_exit_info(container_dir)
 
-        app = _load_app(container_dir, _STATE_YML)
+        app = runtime.load_app(container_dir)
         if app:
             _cleanup(tm_env, zkclient, container_dir, app)
         else:
-            app = _load_app(container_dir, _APP_YML)
+            app = runtime.load_app(container_dir, appcfg.APP_JSON)
 
         if app:
             # All resources are cleaned up. If the app terminated inside the
@@ -124,23 +104,6 @@ def _collect_exit_info(container_dir):
             aborted_reason = f.read()
 
     return exitinfo, aborted, aborted_reason
-
-
-def _load_app(container_dir, app_yml):
-    """Load app from original manifest, pre-configured."""
-    manifest_file = os.path.join(container_dir, app_yml)
-
-    try:
-        manifest = app_manifest.read(manifest_file)
-        _LOGGER.debug('Manifest: %r', manifest)
-        return utils.to_obj(manifest)
-
-    except IOError as err:
-        if err.errno != errno.ENOENT:
-            raise
-
-        _LOGGER.critical('Manifest file does not exit: %r', manifest_file)
-        return None
 
 
 def _stop_container(container_dir):
@@ -234,7 +197,7 @@ def _cleanup(tm_env, zkclient, container_dir, app):
 
     # Destroy the volume
     try:
-        localdisk = localdisk_client.delete(unique_name)
+        localdisk_client.delete(unique_name)
     except (IOError, OSError) as err:
         if err.errno == errno.ENOENT:
             pass
@@ -328,7 +291,7 @@ def _cleanup_network(tm_env, app, network_client):
         tm_env.rules.unlink_rule(
             chain=iptables.PREROUTING_DNAT,
             rule=firewall.DNATRule(proto=endpoint.proto,
-                                   dst_ip=app.host_ip,
+                                   dst_ip=app_network['external_ip'],
                                    dst_port=endpoint.real_port,
                                    new_ip=app_network['vip'],
                                    new_port=endpoint.port),
@@ -339,7 +302,7 @@ def _cleanup_network(tm_env, app, network_client):
             rule=firewall.SNATRule(proto=endpoint.proto,
                                    src_ip=app_network['vip'],
                                    src_port=endpoint.port,
-                                   new_ip=tm_env.host_ip,
+                                   new_ip=app_network['external_ip'],
                                    new_port=endpoint.real_port),
             owner=unique_name,
         )
@@ -358,12 +321,18 @@ def _cleanup_network(tm_env, app, network_client):
             )
 
     _cleanup_ephemeral_ports(
-        tm_env, unique_name,
-        app_network['vip'], app.ephemeral_ports.tcp, 'tcp'
+        tm_env,
+        unique_name,
+        app_network['external_ip'],
+        app_network['vip'],
+        app.ephemeral_ports.tcp, 'tcp'
     )
     _cleanup_ephemeral_ports(
-        tm_env, unique_name,
-        app_network['vip'], app.ephemeral_ports.udp, 'udp'
+        tm_env,
+        unique_name,
+        app_network['external_ip'],
+        app_network['vip'],
+        app.ephemeral_ports.udp, 'udp'
     )
 
     # Terminate any entries in the conntrack table
@@ -372,7 +341,8 @@ def _cleanup_network(tm_env, app, network_client):
     network_client.delete(unique_name)
 
 
-def _cleanup_ephemeral_ports(tm_env, unique_name, vip, ports, proto):
+def _cleanup_ephemeral_ports(tm_env, unique_name,
+                             external_ip, vip, ports, proto):
     """Cleanup firewall rules for ports."""
     for port in ports:
         # We treat ephemeral ports as infra, consistent with current
@@ -384,7 +354,7 @@ def _cleanup_ephemeral_ports(tm_env, unique_name, vip, ports, proto):
                                          port=port)
         )
         dnatrule = firewall.DNATRule(proto=proto,
-                                     dst_ip=tm_env.host_ip,
+                                     dst_ip=external_ip,
                                      dst_port=port,
                                      new_ip=vip,
                                      new_port=port)
@@ -523,8 +493,9 @@ def _archive_logs(tm_env, container_dir):
         for metric in metrics:
             _add(f, metric)
 
-        cfgs = glob.glob(os.path.join(container_dir, '*.yml'))
-        for cfg in cfgs:
+        yml_cfgs = glob.glob(os.path.join(container_dir, '*.yml'))
+        json_cfgs = glob.glob(os.path.join(container_dir, '*.json'))
+        for cfg in yml_cfgs + json_cfgs:
             _add(f, cfg)
 
         _add(f, os.path.join(container_dir, 'log', 'current'))

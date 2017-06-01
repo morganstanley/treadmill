@@ -1,9 +1,11 @@
-"""Syncronizes cell Zookeeper with LDAP data."""
+"""Syncronizes cell Zookeeper with LDAP data.
+"""
 
-import logging
-import time
-import itertools
 import collections
+import itertools
+import logging
+import math
+import time
 
 import click
 import ldap3
@@ -19,7 +21,8 @@ from treadmill.api import instance
 
 _LOGGER = logging.getLogger(__name__)
 
-_BACKOFF = 60
+# Allow 2 * count tokens to accumulate during 1 hour.
+_INTERVAL = float(60 * 60)
 
 
 def reevaluate(instance_api, state):
@@ -29,10 +32,23 @@ def reevaluate(instance_api, state):
     monitors = dict(state['monitors'])
     now = time.time()
 
+    # Increase available tokens.
+    for name, conf in monitors.items():
+        # Max value reached, nothing to do.
+        max_value = conf['count'] * 2
+        available = conf['available']
+        if available < max_value:
+            delta = conf['rate'] * (now - conf['last_update'])
+            conf['available'] = min(available + delta, max_value)
+        conf['last_update'] = now
+
+    # Allow every application to evaluate
+    success = True
+
     for name, conf in monitors.items():
 
         count = conf['count']
-        next_tick = conf['next_tick']
+        available = conf['available']
 
         current_count = len(grouped.get(name, []))
         _LOGGER.debug('App: %r current: %d, target %d',
@@ -42,31 +58,45 @@ def reevaluate(instance_api, state):
             continue
 
         elif count > current_count:
-            if now < next_tick:
-                _LOGGER.debug('Skipping app %r until %f', name, next_tick)
+            needed = count - current_count
+            allowed = min(needed, math.floor(available))
+            if allowed <= 0:
                 continue
 
-            # need to start more.
-            conf['next_tick'] = now + _BACKOFF
-
-            needed = count - current_count
             try:
-                instance_api.create(name, {}, count=needed)
+                instance_api.create(name, {}, count=allowed)
+                conf['available'] -= allowed
+
+            except ldap3.LDAPNoSuchObjectResult:
                 # TODO: may need to rationalize this and not expose low
                 #       level ldap exception from admin.py, and rather
                 #       return None for non-existing entities.
-            except ldap3.LDAPNoSuchObjectResult:
-                _LOGGER.warn('Application not configured: %s',
-                             name)
+                _LOGGER.warn('Application not configured: %s', name)
+            except ldap3.LDAPMaximumRetriesError:
+                # In case of LDAP connection error, there is no reason to
+                # continue the loop, exit right away.
+                #
+                # Returning False will stop the main loop.
+                _LOGGER.warn('Unable to connect to LDAP.',
+                             exception=True)
+                return False
             except Exception:  # pylint: disable=W0703
                 _LOGGER.exception('Unable to create instances: %s: %s',
                                   name, needed)
+                # In case this is the error with the app manifest, we allow
+                # for the loop to continue.
+                #
+                # After the loop is evaluated, app monitor will exit.
+                success = False
+
         elif count < current_count:
             for extra in grouped[name][:current_count - count]:
                 try:
                     instance_api.delete(extra)
                 except Exception:  # pylint: disable=W0703
                     _LOGGER.exception('Unable to delete instance: %r', extra)
+
+    return success
 
 
 def _run_sync():
@@ -96,7 +126,6 @@ def _run_sync():
             }
         )
         state['scheduled'] = grouped
-        reevaluate(instance_api, state)
         return True
 
     def _watch_monitor(name):
@@ -120,9 +149,10 @@ def _run_sync():
             _LOGGER.info('Reconfigure monitor: %s, count: %s', name, count)
             state['monitors'][name] = {
                 'count': count,
-                'next_tick': 0,
+                'available': 2.0 * count,
+                'last_update': time.time(),
+                'rate': (2.0 * count / _INTERVAL)
             }
-            reevaluate(instance_api, state)
             return True
 
     @zkclient.ChildrenWatch(z.path.appmonitor())
@@ -147,7 +177,9 @@ def _run_sync():
 
     while True:
         time.sleep(1)
-        reevaluate(instance_api, state)
+        if not reevaluate(instance_api, state):
+            _LOGGER.error('Unhandled exception while evaluating state.')
+            break
 
 
 def init():

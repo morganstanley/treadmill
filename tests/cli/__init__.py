@@ -1,1 +1,2 @@
-"""treadmill.cli tests"""
+"""treadmill.cli tests
+"""

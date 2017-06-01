@@ -1,5 +1,4 @@
-"""
-Unit test for treadmill.cli.
+"""Unit test for treadmill.cli.
 """
 
 import sys
@@ -30,12 +29,15 @@ class CliTest(unittest.TestCase):
 
         self.assertEqual(
             _lines(tbl({'a': 1, 'b': 2, 'c': [1, 2, 3]})),
-            ['A  :  1', 'b  :  2', 'c  :  1,2,3']
+            ['A  :  1',
+             'b  :  2',
+             'c  :  1,2,3']
         )
 
         self.assertEqual(
             _lines(list_tbl([{'a': 1, 'b': 2, 'c': [1, 2, 3]}])),
-            ['A  b  c', '1  2  1,2,3']
+            ['A  b  c',
+             '1  2  1,2,3']
         )
 
     @mock.patch('click.echo', mock.Mock())

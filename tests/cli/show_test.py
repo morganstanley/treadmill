@@ -44,7 +44,7 @@ class ShowTest(unittest.TestCase):
         result = self.runner.invoke(
             self.configure_cli,
             ['--cell', 'test', 'endpoints', 'proid.app'])
-        self.assertEquals(result.exit_code, 0)
+        self.assertEqual(result.exit_code, 0)
         self.assertIn('proid.app#12345', result.output)
         self.assertIn('http', result.output)
         self.assertIn('tcp', result.output)
@@ -69,7 +69,7 @@ class ShowTest(unittest.TestCase):
         result = self.runner.invoke(
             self.configure_cli,
             ['--cell', 'test', 'endpoints', 'proid.app'])
-        self.assertEquals(result.exit_code, 0)
+        self.assertEqual(result.exit_code, 0)
         self.assertIn('proid.app#12345', result.output)
         self.assertIn('http', result.output)
         self.assertIn('tcp', result.output)

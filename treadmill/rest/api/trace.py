@@ -1,14 +1,11 @@
+"""Treadmill State REST api.
 """
-Treadmill State REST api.
-"""
-
-
-import http.client
 
 import flask_restplus as restplus
 from flask_restplus import fields
 
 # Disable E0611: No 'name' in module
+from treadmill import exc  # pylint: disable=E0611
 from treadmill import webutils  # pylint: disable=E0611
 
 
@@ -48,6 +45,7 @@ def init(api, cors, impl):
             """
             trace_info = impl.get(app_name)
             if trace_info is None:
-                api.abort(http.client.NOT_FOUND,
-                          'No trace information available for %s' % app_name)
+                raise exc.NotFoundError(
+                    'No trace information available for {}'.format(app_name)
+                )
             return trace_info

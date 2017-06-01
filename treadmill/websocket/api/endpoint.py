@@ -62,4 +62,4 @@ class EndpointAPI(object):
 
 def init():
     """API module init."""
-    return [('/endpoints', EndpointAPI())]
+    return [('/endpoints', EndpointAPI(), [])]

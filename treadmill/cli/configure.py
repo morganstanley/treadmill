@@ -30,7 +30,8 @@ def _configure(apis, manifest, appname):
             existing = None
 
     if manifest:
-        app = yaml.load(manifest.read())
+        with open(manifest, 'rb') as fd:
+            app = yaml.load(fd.read())
         if existing:
             restclient.put(apis, _APP_REST_PATH + appname, payload=app)
         else:
@@ -61,7 +62,7 @@ def init():
     @click.option('--api', required=False, help='API url to use.',
                   envvar='TREADMILL_RESTAPI')
     @click.option('-m', '--manifest', help='App manifest file (stream)',
-                  type=click.File(mode='rb'))
+                  type=click.Path(exists=True, readable=True))
     @click.option('--delete', help='Delete the app.',
                   is_flag=True, default=False)
     @click.argument('appname', required=False)
