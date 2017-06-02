@@ -30,6 +30,16 @@ $RM -f {{ dir }}/init/server_init/zkid.pickle
 $ECHO Enabling /proc/sys/net/ipv4/ip_forward
 $ECHO 1 > /proc/sys/net/ipv4/ip_forward
 
+for SVC in $($LS {{ dir }}/init); do
+    $GREP {{ dir }}/init/$SVC/\$ {{ dir }}/.install > /dev/null
+    if [ $? != 0 ]; then
+        $ECHO Removing extra service: $SVC
+        $RM -vrf {{ dir }}/init/$SVC
+    fi
+done
+
+$RM -vrf {{ dir }}/init/*/data/exits/*
+
 # Starting svscan
 exec $IONICE -c2 -n0 {{ s6 }}/bin/s6-envdir {{ dir }}/env                  \
     {{ treadmill }}/bin/treadmill sproc --cell - cgroup                    \

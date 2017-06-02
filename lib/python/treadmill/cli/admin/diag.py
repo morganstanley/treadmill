@@ -9,6 +9,7 @@ import click
 
 from treadmill import psmem
 from treadmill import cgutils
+from treadmill import metrics
 from treadmill import utils
 
 
@@ -54,11 +55,15 @@ def init():
         table.add_row(['Total:', '', '', '', readable(total)])
         print(table)
 
-        memusage, softmem, hardmem = cgutils.cgrp_meminfo(cgroup)
+        metric = metrics.cgrp_meminfo(cgroup)
+
         print('')
-        print('memory.usage     : ', readable(memusage))
-        print('memory.softlimit : ', readable(softmem))
-        print('memory.hardlimit : ', readable(hardmem))
+        print('memory.usage     : ',
+              readable(metric['memory.usage_in_bytes']))
+        print('memory.softlimit : ',
+              readable(metric['memory.soft_limit_in_bytes']))
+        print('memory.hardlimit : ',
+              readable(metric['memory.limit_in_bytes']))
 
     del psmem_cmd
     return diag

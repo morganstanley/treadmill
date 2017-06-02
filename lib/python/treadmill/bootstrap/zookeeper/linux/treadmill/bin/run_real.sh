@@ -13,6 +13,14 @@ RM={{ rm }}
 unset KRB5CCNAME
 unset KRB5_KTNAME
 
+for SVC in $($LS {{ dir }}/treadmill/init); do
+    $GREP {{ dir }}/treadmill/init/$SVC/\$ {{ dir }}/.install > /dev/null
+    if [ $? != 0 ]; then
+        $ECHO Removing extra service: $SVC
+        $RM -vrf {{ dir }}/treadmill/init/$SVC
+    fi
+done
+
 # Look at ALL directories, e.g. .mslinks
 for DIR in $(ls -a /); do
     # Ignore . and .. directories

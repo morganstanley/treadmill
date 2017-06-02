@@ -73,7 +73,7 @@ def job_to_dict(job):
     resource = id_details.pop(0)
 
     job_dict = dict(
-        id=job.id,
+        _id=job.id,
         name=job.name,
         resource=resource,
         expression=cron_expression(trigger),

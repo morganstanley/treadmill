@@ -21,6 +21,7 @@ _METRICS_FMT = ':'.join(['{%s}' % svc for svc in [
     'memusage',
     'softmem',
     'hardmem',
+    'cputotal',
     'cpuusage',
     'cpuusage_ratio',
     'blk_read_iops',
@@ -92,6 +93,7 @@ class RRDClient(object):
             'DS:memory_usage:GAUGE:%s:0:U' % interval,
             'DS:memory_softlimit:GAUGE:%s:0:U' % interval,
             'DS:memory_hardlimit:GAUGE:%s:0:U' % interval,
+            'DS:cpu_total:COUNTER:%s:0:U' % interval,
             'DS:cpu_usage:GAUGE:%s:0:U' % interval,
             'DS:cpu_ratio:GAUGE:%s:0:U' % interval,
             'DS:blk_read_iops:COUNTER:%s:0:U' % interval,
@@ -321,6 +323,29 @@ def last(rrdfile, rrdtool=RRDTOOL, rrd_socket=SOCKET, exec_on_node=True):
         epoch = subprocess.check_output([rrdtool, 'last', rrdfile])
 
     return epoch.strip()
+
+
+def lastupdate(rrdfile, rrdtool=RRDTOOL, rrd_socket=SOCKET):
+    """Get lastupdate metric"""
+    last_udpate = subproc.check_output([rrdtool, 'lastupdate', '--daemon',
+                                        'unix:%s' % rrd_socket, rrdfile])
+    [titles, _empty, data_str] = last_udpate.strip().split('\n')
+    (timestamp, value_str) = data_str.split(':')
+    values = value_str.strip().split(' ')
+    result = {'timestamp': int(timestamp)}
+
+    for idx, title in enumerate(titles.strip().split(' ')):
+        try:
+            result[title] = int(values[idx])
+        except ValueError:
+            # can not be convert to int
+            try:
+                result[title] = float(values[idx])
+            except ValueError:
+                # it is possible value is 'U'
+                result[title] = 0
+
+    return result
 
 
 def get_json_metrics(rrdfile, rrdtool=RRDTOOL, rrd_socket=SOCKET):
