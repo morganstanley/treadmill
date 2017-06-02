@@ -1,5 +1,5 @@
-"""Treadmill node bootstrap."""
-from __future__ import absolute_import
+"""Treadmill node bootstrap.
+"""
 
 import pkgutil
 

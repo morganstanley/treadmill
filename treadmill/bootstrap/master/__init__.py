@@ -1,5 +1,5 @@
-"""Treadmill master bootstrap."""
-from __future__ import absolute_import
+"""Treadmill master bootstrap.
+"""
 
 import pkgutil
 

@@ -1,5 +1,5 @@
-"""Treadmill spawn bootstrap."""
-from __future__ import absolute_import
+"""Treadmill spawn bootstrap.
+"""
 
 import pkgutil
 

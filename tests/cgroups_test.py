@@ -1,5 +1,4 @@
-"""
-Unit test for cgroups module.
+"""Unit test for cgroups module.
 """
 
 import builtins
@@ -32,16 +31,6 @@ net_prio        9       1       0"""
 
 class CGroupsTest(unittest.TestCase):
     """Tests for teadmill.cgroups."""
-
-    _BLKIO_THROTTLE_IOPS = os.path.join(
-        os.path.dirname(__file__),
-        'blkio.throttle.io_serviced.data'
-    )
-
-    _BLKIO_THROTTLE_BPS = os.path.join(
-        os.path.dirname(__file__),
-        'blkio.throttle.io_service_bytes.data'
-    )
 
     def setUp(self):
         self.root = tempfile.mkdtemp()
@@ -81,6 +70,25 @@ class CGroupsTest(unittest.TestCase):
              mock.call('/cgroups/treadmill/apps/test1')])
 
     @mock.patch('treadmill.cgroups.get_mountpoint', mock.Mock())
+    def test_extractpath(self):
+        """ test cgroup name from a cgroup path"""
+        treadmill.cgroups.get_mountpoint.return_value = '/fs/cgroup/memory'
+        cgrp = cgroups.extractpath('/fs/cgroup/memory/treadmill/core',
+                                   'memory')
+        self.assertEqual(cgrp, 'treadmill/core')
+
+        cgrp = cgroups.extractpath('/fs/cgroup/memory/treadmill/core/foo',
+                                   'memory', 'foo')
+        self.assertEqual(cgrp, 'treadmill/core')
+
+        with self.assertRaises(ValueError):
+            cgroups.extractpath('/cgroup/memory/treadmill/core', 'memory')
+
+        with self.assertRaises(ValueError):
+            cgroups.extractpath('/fs/cgroup/memory/treadmill/core/foo',
+                                'cpu', 'bar')
+
+    @mock.patch('treadmill.cgroups.get_mountpoint', mock.Mock())
     @mock.patch('os.rmdir', mock.Mock())
     def test_delete(self):
         """Tests cgroup deletion."""
@@ -96,27 +104,6 @@ class CGroupsTest(unittest.TestCase):
         os.rmdir.assert_called_once_with(
             os.path.join(cgroups_dir, group)
         )
-
-    @mock.patch('treadmill.cgroups.get_mountpoint',
-                mock.Mock(return_value='/cgroups'))
-    @mock.patch('os.rmdir', mock.Mock())
-    def test_delete_rec(self):
-        """Tests recursive cgroup deletion."""
-        cgroups_dir = os.path.join(self.root, 'cgroups')
-        treadmill.cgroups.get_mountpoint.return_value = cgroups_dir
-
-        group = os.path.join('treadmill', 'apps', 'test1')
-        # Create a directory and subdirs for the cgroup
-        os.makedirs(os.path.join(cgroups_dir, group, 'foo', 'bar', 'baz'))
-
-        cgroups.delete('cpu', group)
-
-        os.rmdir.assert_has_calls([
-            mock.call(os.path.join(cgroups_dir, group, 'foo/bar/baz')),
-            mock.call(os.path.join(cgroups_dir, group, 'foo/bar')),
-            mock.call(os.path.join(cgroups_dir, group, 'foo')),
-            mock.call(os.path.join(cgroups_dir, group)),
-        ])
 
     @mock.patch('treadmill.cgroups.get_mountpoint',
                 mock.Mock(return_value='/cgroups'))
@@ -200,6 +187,10 @@ class CGroupsTest(unittest.TestCase):
                            'cpuset.cpus', '0-3'),
                  mock.call('cpuset', 'system',
                            'cpuset.cpus', '0-3'),
+                 mock.call('memory', 'system',
+                           'memory.move_charge_at_immigrate', 1),
+                 mock.call('memory', 'treadmill',
+                           'memory.move_charge_at_immigrate', 1),
                  mock.call('memory', 'treadmill',
                            'memory.use_hierarchy', '1'),
                  mock.call('memory', 'treadmill',
@@ -208,6 +199,10 @@ class CGroupsTest(unittest.TestCase):
                            'memory.memsw.limit_in_bytes', treadmill_mem),
                  mock.call('memory', 'treadmill',
                            'memory.oom_control', '0'),
+                 mock.call('memory', 'treadmill/core',
+                           'memory.move_charge_at_immigrate', 1),
+                 mock.call('memory', 'treadmill/apps',
+                           'memory.move_charge_at_immigrate', 1),
                  mock.call('memory', 'treadmill/core',
                            'memory.limit_in_bytes', treadmill_core_mem),
                  mock.call('memory', 'treadmill/core',
@@ -228,7 +223,7 @@ class CGroupsTest(unittest.TestCase):
     #     with open(os.path.join(self.root, 'a/b/c/tasks'), 'w+') as f:
     #         f.write('123\n231\n')
     #
-    #    cgutils.kill_apps_in_cgroup(self.root, 'a/b/c', delete=True)
+    #    cgutils.kill_apps_in_cgroup(self.root, 'a/b/c', delete_cgrp=True)
     #    os.kill.assert_has_calls([mock.call(123, signal.SIGKILL),
     #                              mock.call(321, signal.SIGKILL)])
     #    self.assertFalse(os.path.exists(os.path.join(self.root, 'a/b/c')))
@@ -296,70 +291,6 @@ class CGroupsTest(unittest.TestCase):
         res = cgutils.reset_memory_limit_in_bytes()
 
         self.assertEqual(res, ['a'])
-
-    @mock.patch('treadmill.cgroups.get_value',
-                mock.Mock(side_effect=[10, 20, 30]))
-    def test_cgrp_meminfo(self):
-        """Test the grabbing of cgrp limits"""
-        rv = cgutils.cgrp_meminfo('foo')
-        self.assertEqual(rv, (10, 20, 30))
-
-    @mock.patch('treadmill.cgutils.cgrps_meminfo',
-                mock.Mock(side_effect=[(10, 20, 30), (20, 10, 30)]))
-    def test_cgrps_meminfo(self):
-        """Test the generator which grabs (usage,soft,hard)"""
-        rv = cgutils.cgrps_meminfo()
-        self.assertEqual(rv, (10, 20, 30))
-        rv = cgutils.cgrps_meminfo()
-        self.assertEqual(rv, (20, 10, 30))
-
-    @mock.patch('treadmill.cgroups.get_data', mock.Mock())
-    def test_get_blkio_bps_info(self):
-        """Test reading of blkio throttle information."""
-
-        with open(self._BLKIO_THROTTLE_BPS) as f:
-            data = f.read()
-            treadmill.cgroups.get_data.side_effect = [data]
-
-        data = cgroups.get_blkio_info('mycgrp', 'bps')
-
-        treadmill.cgroups.get_data.assert_called_with(
-            'blkio', 'mycgrp', 'blkio.throttle.io_service_bytes'
-        )
-        self.assertEqual(
-            data['253:6'],
-            {
-                'Read': 331776,
-                'Write': 74817536,
-                'Sync': 0,
-                'Async': 75149312,
-                'Total': 75149312,
-            }
-        )
-
-    @mock.patch('treadmill.cgroups.get_data', mock.Mock())
-    def test_get_blkio_iops_info(self):
-        """Test reading of blkio throttle information."""
-
-        with open(self._BLKIO_THROTTLE_IOPS) as f:
-            data = f.read()
-            treadmill.cgroups.get_data.side_effect = [data]
-
-        data = cgroups.get_blkio_info('mycgrp', 'iops')
-
-        treadmill.cgroups.get_data.assert_called_with(
-            'blkio', 'mycgrp', 'blkio.throttle.io_serviced'
-        )
-        self.assertEqual(
-            data['253:6'],
-            {
-                'Read': 81,
-                'Write': 18266,
-                'Sync': 0,
-                'Async': 18347,
-                'Total': 18347,
-            }
-        )
 
 
 if __name__ == '__main__':

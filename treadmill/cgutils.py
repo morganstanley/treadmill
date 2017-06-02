@@ -1,9 +1,9 @@
-"""Misc cgroup utility functions."""
-
+"""Misc cgroup utility functions.
+"""
 
 import errno
-import signal
 import os
+import signal
 
 import glob
 import logging
@@ -78,10 +78,10 @@ def create_treadmill_cgroups(system_cpu_shares,
                              treadmill_core_mem):
     """This is the core cgroup setup. Should be applied to a cleaned env."""
 
-    cgroups.create('cpu', 'system')
-    cgroups.create('cpu', 'treadmill')
-    cgroups.create('cpu', 'treadmill/core')
-    cgroups.create('cpu', 'treadmill/apps')
+    create('cpu', 'system')
+    create('cpu', 'treadmill')
+    create('cpu', 'treadmill/core')
+    create('cpu', 'treadmill/apps')
 
     cgroups.set_value('cpu', 'treadmill',
                       'cpu.shares', treadmill_cpu_shares)
@@ -92,13 +92,13 @@ def create_treadmill_cgroups(system_cpu_shares,
     cgroups.set_value('cpu', 'treadmill/apps',
                       'cpu.shares', treadmill_apps_cpu_shares)
 
-    cgroups.create('cpuacct', 'system')
-    cgroups.create('cpuacct', 'treadmill')
-    cgroups.create('cpuacct', 'treadmill/core')
-    cgroups.create('cpuacct', 'treadmill/apps')
+    create('cpuacct', 'system')
+    create('cpuacct', 'treadmill')
+    create('cpuacct', 'treadmill/core')
+    create('cpuacct', 'treadmill/apps')
 
-    cgroups.create('cpuset', 'system')
-    cgroups.create('cpuset', 'treadmill')
+    create('cpuset', 'system')
+    create('cpuset', 'treadmill')
 
     mems = cgroups.get_value('cpuset', '', 'cpuset.mems')
     cgroups.set_value('cpuset', 'system', 'cpuset.mems', mems)
@@ -119,8 +119,9 @@ def create_treadmill_cgroups(system_cpu_shares,
         cgroups.set_value('cpuset', 'system', 'cpuset.cpus',
                           '%d-%d' % (0, cores_max))
 
-    cgroups.create('memory', 'system')
-    cgroups.create('memory', 'treadmill')
+    create('memory', 'system')
+    create('memory', 'treadmill')
+
     if cgroups.get_value('memory', 'treadmill', 'memory.use_hierarchy') != 1:
         cgroups.set_value('memory', 'treadmill', 'memory.use_hierarchy', '1')
     set_memory_hardlimit('treadmill', treadmill_mem)
@@ -131,8 +132,8 @@ def create_treadmill_cgroups(system_cpu_shares,
         cgroups.set_value('memory', 'treadmill',
                           'memory.oom_control', '0')
 
-    cgroups.create('memory', 'treadmill/core')
-    cgroups.create('memory', 'treadmill/apps')
+    create('memory', 'treadmill/core')
+    create('memory', 'treadmill/apps')
 
     set_memory_hardlimit('treadmill/core', treadmill_core_mem)
     cgroups.set_value('memory', 'treadmill/core',
@@ -152,6 +153,47 @@ def create_treadmill_cgroups(system_cpu_shares,
     set_memory_hardlimit('treadmill/apps', apps_mem_bytes)
 
 
+def create(system, group):
+    """ safely create cgroup path """
+    cgroups.create(system, group)
+
+    # if sybsystem is memory, we set move_charge_at_immigrate
+    # ref: https://lwn.net/Articles/432224/
+    if system == 'memory':
+        memory_charge_immigrate(group)
+
+
+def delete(system, group):
+    """ safely delete cgroup path """
+    fullpath = cgroups.makepath(system, group)
+
+    for (dirname, _subdirs, _files) in os.walk(fullpath, topdown=False):
+        cgrp = cgroups.extractpath(dirname, system)
+
+        # free empty memory before the cgroups is destroyed
+        if system == 'memory':
+            memory_force_empty(cgrp)
+
+        try:
+            cgroups.delete(system, cgrp)
+        except OSError as err:
+            _LOGGER.exception('Unable remove cgroup %s %s, %r',
+                              system, cgrp, err)
+            raise err
+
+
+def memory_charge_immigrate(cgrp, value=1):
+    """ set memory move_charge_at_immigrate value """
+    cgroups.set_value('memory', cgrp, 'memory.move_charge_at_immigrate',
+                      value)
+
+
+def memory_force_empty(cgrp, value=1):
+    """ set memory force_empty value """
+    cgroups.set_value('memory', cgrp, 'memory.force_empty',
+                      value)
+
+
 def pids_in_cgroup(subsystem, cgrp):
     """Returns the list of pids in the cgroup."""
     path = cgroups.makepath(subsystem, cgrp, 'tasks')
@@ -159,12 +201,12 @@ def pids_in_cgroup(subsystem, cgrp):
         return [int(line.strip()) for line in tasks.readlines() if line]
 
 
-def kill_apps_in_cgroup(subsystem, cgrp, delete=False):
+def kill_apps_in_cgroup(subsystem, cgrp, delete_cgrp=False):
     """Kill all apps found in a cgroup"""
     path = cgroups.makepath(subsystem, cgrp, 'tasks')
     tasks_files = glob.glob(path)
     for tasks_file in tasks_files:
-        cgrp = os.path.dirname(tasks_file)
+        cgrp_path = os.path.dirname(tasks_file)
         try:
             with open(tasks_file) as tasks:
                 for pid in tasks:
@@ -177,22 +219,18 @@ def kill_apps_in_cgroup(subsystem, cgrp, delete=False):
                         if err.errno == errno.ESRCH:
                             continue
                         _LOGGER.exception('Unable to kill processes in %r: %s',
-                                          cgrp, err)
+                                          cgrp_path, err)
 
         except IOError as err:
             # it is OK to fail if the tasks file is already gone
             if err.errno == errno.ENOENT:
-                _LOGGER.debug('Skipping nonexistent cgroup %r', cgrp)
+                _LOGGER.debug('Skipping nonexistent cgroup %r', cgrp_path)
                 continue
             raise
 
-        if delete:
-            for (dirname, _subdirs, _files) in os.walk(cgrp, topdown=False):
-                try:
-                    os.rmdir(dirname)
-                except OSError as err:
-                    _LOGGER.exception('Unable remove cgroup %r, %r', cgrp, err)
-                    raise
+        if delete_cgrp:
+            cgrp = cgroups.extractpath(cgrp_path, subsystem)
+            delete(subsystem, cgrp)
 
 
 def total_soft_memory_limits():
@@ -288,30 +326,19 @@ def reset_memory_limit_in_bytes():
     return expunged
 
 
-def cgrp_meminfo(cgrp):
-    """Grab the cgrp mem limits"""
-    memusage = cgroups.get_value('memory', cgrp,
-                                 'memory.usage_in_bytes')
-    softmem = cgroups.get_value('memory', cgrp,
-                                'memory.soft_limit_in_bytes')
-    hardmem = cgroups.get_value('memory', cgrp,
-                                'memory.limit_in_bytes')
+def get_stat(subsystem, cgrp):
+    """ Get stat key values aooording to stat file format
+    """
+    pseudofile = '%s.stat' % subsystem
+    stat_str = cgroups.get_data(subsystem, cgrp, pseudofile)
 
-    return (memusage, softmem, hardmem)
+    stat_lines = stat_str.split('\n')
+    stats = {}
+    for stat_line in stat_lines:
+        stat_kv = stat_line.strip().split(' ')
+        stats[stat_kv[0]] = int(stat_kv[1])
 
-
-def cgrps_meminfo():
-    """Generator to return all treadmill app memory cgrp details"""
-    basepath = cgroups.makepath('memory', 'treadmill/apps')
-    files = os.listdir(basepath)
-    for appname in files:
-        try:
-            cgrp = os.path.join('treadmill/apps', appname)
-            meminfo = cgrp_meminfo(cgrp)
-        except IOError:
-            continue
-
-        yield (appname, meminfo)
+    return stats
 
 
 def app_cgrp_count():
@@ -327,11 +354,16 @@ def app_cgrp_count():
     return appcount
 
 
+def per_cpu_usage(cgrp):
+    """Return (in naoseconds) the length of time on each cpu"""
+    usage_str = cgroups.get_data('cpuacct', cgrp, 'cpuacct.usage_percpu')
+    return [int(nanosec) for nanosec in usage_str.split(' ')]
+
+
 def cpu_usage(cgrp):
-    """Return (in seconds) the length of time on the cpu"""
+    """Return (in nanoseconds) the length of time on the cpu"""
     nanosecs = cgroups.get_value('cpuacct', cgrp, 'cpuacct.usage')
-    nanosecs = float(nanosecs)
-    return nanosecs / NANOSECS_PER_SEC
+    return nanosecs
 
 
 def reset_cpu_usage(cgrp):
@@ -358,3 +390,31 @@ def apps():
     files = os.listdir(basepath)
     return [appname for appname in files
             if os.path.isdir(os.path.join(basepath, appname))]
+
+
+def get_blkio_value(cgrp, pseudofile):
+    """Get blkio basic info"""
+    blkio_data = cgroups.get_data('blkio', cgrp, pseudofile)
+    blkio_info = {}
+    for entry in blkio_data.split('\n'):
+        if not entry:
+            continue
+
+        major_minor, value = entry.split(' ')
+        blkio_info[major_minor] = int(value)
+
+    return blkio_info
+
+
+def get_blkio_info(cgrp, pseudofile):
+    """Get blkio throttle info."""
+    blkio_data = cgroups.get_data('blkio', cgrp, pseudofile)
+    blkio_info = {}
+    for entry in blkio_data.split('\n'):
+        if not entry or entry.startswith('Total'):
+            continue
+
+        major_minor, metric_type, value = entry.split(' ')
+        blkio_info.setdefault(major_minor, {})[metric_type] = int(value)
+
+    return blkio_info

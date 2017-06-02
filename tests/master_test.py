@@ -311,6 +311,53 @@ class MasterTest(mockzk.MockZookeeperTestCase):
     @mock.patch('treadmill.zkutils.put', mock.Mock())
     @mock.patch('treadmill.zkutils.update', mock.Mock())
     @mock.patch('time.time', mock.Mock(return_value=500))
+    def test_reschedule_maxutil(self):
+        """Tests application placement."""
+        srv_1 = scheduler.Server('1', [10, 10, 10],
+                                 valid_until=1000, traits=0)
+        srv_2 = scheduler.Server('2', [10, 10, 10],
+                                 valid_until=1000, traits=0)
+        srv_3 = scheduler.Server('3', [10, 10, 10],
+                                 valid_until=1000, traits=0)
+        srv_4 = scheduler.Server('4', [10, 10, 10],
+                                 valid_until=1000, traits=0)
+        cell = self.master.cell
+        cell.add_node(srv_1)
+        cell.add_node(srv_2)
+        cell.add_node(srv_3)
+        cell.add_node(srv_4)
+
+        app1 = scheduler.Application('app1', 4, [1, 1, 1], 'app')
+        app2 = scheduler.Application('app2', 3, [2, 2, 2], 'app')
+
+        cell.partitions[None].allocation.set_reserved([1, 1, 1])
+        cell.partitions[None].allocation.set_max_utilization(2)
+        cell.add_app(cell.partitions[None].allocation, app1)
+        cell.add_app(cell.partitions[None].allocation, app2)
+
+        self.master.reschedule()
+        treadmill.zkutils.put.assert_has_calls([
+            mock.call(mock.ANY, '/placement/1/app1',
+                      {'expires': 500, 'identity': None}, acl=mock.ANY),
+        ])
+
+        app2.priority = 5
+        self.master.reschedule()
+
+        treadmill.zkutils.ensure_deleted.assert_has_calls([
+            mock.call(mock.ANY, '/placement/1/app1'),
+        ])
+        treadmill.zkutils.put.assert_has_calls([
+            mock.call(mock.ANY, '/placement/2/app2',
+                      {'expires': 500, 'identity': None}, acl=mock.ANY),
+        ])
+
+    @mock.patch('kazoo.client.KazooClient.get', mock.Mock())
+    @mock.patch('kazoo.client.KazooClient.get_children', mock.Mock())
+    @mock.patch('treadmill.zkutils.ensure_deleted', mock.Mock())
+    @mock.patch('treadmill.zkutils.put', mock.Mock())
+    @mock.patch('treadmill.zkutils.update', mock.Mock())
+    @mock.patch('time.time', mock.Mock(return_value=500))
     def test_reschedule_once(self):
         """Tests application placement."""
         srv_1 = scheduler.Server('1', [10, 10, 10],

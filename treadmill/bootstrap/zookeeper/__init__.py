@@ -1,5 +1,5 @@
-"""Treadmill zookeeper bootstrap."""
-from __future__ import absolute_import
+"""Treadmill zookeeper bootstrap.
+"""
 
 import pkgutil
 

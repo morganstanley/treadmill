@@ -1,15 +1,12 @@
-"""Installs and configures Treadmill locally."""
-from __future__ import absolute_import
+"""Installs and configures Treadmill locally.
+"""
 
-import os
 import logging
+import os
 
 import click
 
 from treadmill import bootstrap
-
-if os.name != 'nt':
-    from treadmill.spawn import tree as spawn_tree
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -20,8 +17,9 @@ def init():
 
     @click.command()
     @click.option('--run/--no-run', is_flag=True, default=False)
+    @click.option('--treadmill-id', help='Treadmill admin user.')
     @click.pass_context
-    def spawn(ctx, run):
+    def spawn(ctx, treadmill_id, run):
         """Installs Treadmill spawn."""
         dst_dir = ctx.obj['PARAMS']['dir']
 
@@ -34,7 +32,14 @@ def init():
         if run:
             run_script = os.path.join(dst_dir, 'bin', 'run.sh')
 
-        spawn_tree.Tree(dst_dir).create()
+        if treadmill_id:
+            ctx.obj['PARAMS']['treadmillid'] = treadmill_id
+
+        if not ctx.obj['PARAMS'].get('treadmillid'):
+            raise click.UsageError(
+                '--treadmill-id is required, '
+                'unable to derive treadmill-id from context.')
+
         bootstrap.install(
             'spawn',
             dst_dir,

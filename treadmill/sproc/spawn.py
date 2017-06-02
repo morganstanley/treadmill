@@ -3,8 +3,11 @@
 import logging
 
 import click
+from treadmill import subproc
 from treadmill.spawn import manifest_watch
 from treadmill.spawn import cleanup
+from treadmill.spawn import tree as spawn_tree
+
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -45,6 +48,17 @@ def init():
             if dirwatch.wait_for_events(60):
                 dirwatch.process_events()
 
+    @spawn_grp.command(name='start_tree')
+    @click.option('--approot', type=click.Path(exists=True),
+                  envvar='TREADMILL_APPROOT', required=True)
+    def start_tree_cmd(approot):
+        """Starts the spawn tree."""
+        tree = spawn_tree.Tree(approot)
+        tree.create()
+
+        subproc.safe_exec(['s6_svscan', tree.svscan_tree_dir])
+
     del watch_manifest_cmd
     del cleanup_cmd
+    del start_tree_cmd
     return spawn_grp

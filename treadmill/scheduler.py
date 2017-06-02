@@ -12,6 +12,7 @@ import logging
 import operator
 import itertools
 import time
+import sys
 
 import enum
 
@@ -22,6 +23,7 @@ _LOGGER = logging.getLogger(__name__)
 
 MAX_PRIORITY = 100
 DEFAULT_RANK = 100
+_UNPLACED_RANK = sys.maxsize
 
 DIMENSION_COUNT = None
 
@@ -236,6 +238,8 @@ class Application(object):
         'evicted',
         'placement_expiry',
         'renew',
+        'final_rank',
+        'final_util',
     )
 
     def __init__(self, name, priority, demand, affinity,
@@ -888,20 +892,6 @@ class Allocation(object):
 
     Applications within the allocation are organized by application priority.
 
-    Ther are two main priority classes:
-     - = 100 (MAX_PRIORITY)
-     - < 100
-
-    Sum of application demand for apps with priority 100 can't exceed total
-    reserved capacity of the allocation. Since applications are ordered by
-    priority for each alloc, this ensures that applications with priority 100
-    are always within the capacity of the cell (top level management layer
-    ensures that sum of all reserved capacity for all allocations does not
-    exceed capacity of the cell.)
-
-    Priority 0-99 are used by the allocation owners to order applications
-    in the allocation.
-
     Allocations are ranked, and the rank is used to globally order applications
     from different allocations into global queue.
 
@@ -917,6 +907,7 @@ class Allocation(object):
     __slots__ = (
         'reserved',
         'rank',
+        'rank_adjustment',
         'traits',
         'label',
         'max_utilization',
@@ -930,6 +921,7 @@ class Allocation(object):
         self.set_reserved(reserved)
 
         self.rank = None
+        self.rank_adjustment = 0
         self.traits = 0
         self.label = None
         self.max_utilization = _MAX_UTILIZATION
@@ -976,7 +968,7 @@ class Allocation(object):
 
     def set_max_utilization(self, max_utilization):
         """Sets max_utilization, accounting for default None value."""
-        if max_utilization:
+        if max_utilization is not None:
             self.max_utilization = max_utilization
         else:
             self.max_utilization = _MAX_UTILIZATION
@@ -1042,10 +1034,14 @@ class Allocation(object):
             # All things equal, already scheduled applications have priority
             # over pending.
             pending = 0 if app.server else 1
-            if util <= self.max_utilization:
-                yield (self.rank, util, pending, app.global_order, app)
+            if util <= self.max_utilization - 1:
+                rank = self.rank
+                if util <= 0:
+                    rank -= self.rank_adjustment
             else:
-                break
+                rank = _UNPLACED_RANK
+
+            yield (rank, util, pending, app.global_order, app)
 
     def utilization_queue(self, free_capacity):
         """Returns utilization queue including the sub-allocs.
@@ -1058,7 +1054,7 @@ class Allocation(object):
         with utilization < 1 will remain with utilzation < 1.
         """
         total_reserved = self.total_reserved()
-        queues = [alloc.utilization_queue(0)
+        queues = [alloc.utilization_queue(free_capacity)
                   for alloc in self.sub_allocations.values()]
 
         queues.append(self.priv_utilization_queue())
@@ -1215,6 +1211,16 @@ class Cell(Bucket):
                 app.evicted = True
                 app.release_identity()
 
+    def _record_rank_and_util(self, queue):
+        """Set final rank and utilization for all apps in the queue."""
+        for item in queue:
+            rank = item[0]
+            util = item[1]
+            app = item[-1]
+
+            app.final_rank = rank
+            app.final_util = util
+
     def _fix_invalid_identities(self, queue, servers):
         """Check that app identity is valid for given identity group."""
         for app in queue:
@@ -1273,6 +1279,16 @@ class Cell(Bucket):
 
         for app in queue:
             _LOGGER.debug('scheduling %s', app.name)
+
+            if app.final_rank == _UNPLACED_RANK:
+                if app.server:
+                    assert app.server in servers
+                    assert app.has_identity()
+                    servers[app.server].remove(app.name)
+                    app.release_identity()
+
+                continue
+
             restore = {}
             if app.renew:
                 assert app.server
@@ -1364,7 +1380,9 @@ class Cell(Bucket):
 
         servers = self.members()
         size = self.size(allocation.label)
-        queue = [item[-1] for item in allocation.utilization_queue(size)]
+        util_queue = list(allocation.utilization_queue(size))
+        self._record_rank_and_util(util_queue)
+        queue = [item[-1] for item in util_queue]
 
         before = [(app.name, app.server, app.placement_expiry)
                   for app in queue]

@@ -3,6 +3,7 @@
 
 import time
 import unittest
+import sys
 
 # Disable too many lines in module warning.
 #
@@ -114,6 +115,37 @@ class AllocationTest(unittest.TestCase):
         alloc.set_max_utilization(None)
         self.assertEqual(3, len(list(alloc.utilization_queue([20., 20.]))))
 
+    def test_priority_zero(self):
+        """Tests priority zero apps."""
+        alloc = scheduler.Allocation([3, 3])
+
+        alloc.add(scheduler.Application('app1', 1, [1, 1], 'app1'))
+        alloc.add(scheduler.Application('app2', 0, [2, 2], 'app1'))
+
+        # default max_utilization still lets prio 0 apps through
+        queue = alloc.utilization_queue([20., 20.])
+        self.assertEqual([100, 100], [item[0] for item in queue])
+
+        alloc.set_max_utilization(100)
+        # setting max_utilization will cut off prio 0 apps
+        queue = alloc.utilization_queue([20., 20.])
+        self.assertEqual([100, sys.maxsize], [item[0] for item in queue])
+
+    def test_rank_adjustment(self):
+        """Test rank adjustment"""
+        alloc = scheduler.Allocation([3, 3])
+
+        alloc.rank = 100
+        alloc.rank_adjustment = 10
+        alloc.add(scheduler.Application('app1', 1, [1, 1], 'app1'))
+        alloc.add(scheduler.Application('app2', 1, [2, 2], 'app1'))
+        alloc.add(scheduler.Application('app3', 1, [3, 3], 'app1'))
+
+        queue = list(alloc.utilization_queue([20., 20.]))
+        self.assertEqual(90, queue[0][0])
+        self.assertEqual(90, queue[1][0])
+        self.assertEqual(100, queue[2][0])
+
     def test_zerovector(self):
         """Test updating allocation with allocation vector containing 0's"""
         alloc = scheduler.Allocation(None)
@@ -144,10 +176,6 @@ class AllocationTest(unittest.TestCase):
         alloc = scheduler.Allocation([3, 3])
         self.assertEqual(3, alloc.total_reserved()[0])
 
-        alloc.add(scheduler.Application('1', 3, [2, 2], 'app1'))
-        alloc.add(scheduler.Application('2', 2, [1, 1], 'app1'))
-        alloc.add(scheduler.Application('3', 1, [3, 3], 'app1'))
-
         queue = list(alloc.utilization_queue([20., 20.]))
 
         sub_alloc_a = scheduler.Allocation([5, 5])
@@ -170,7 +198,7 @@ class AllocationTest(unittest.TestCase):
 
         queue = list(alloc.utilization_queue([20., 20.]))
 
-        self.assertEqual(9, len(queue))
+        self.assertEqual(6, len(queue))
         self.assertEqual(18, alloc.total_reserved()[0])
 
         # For each sub-alloc (and self) the least utilized app is 1.
@@ -202,6 +230,25 @@ class AllocationTest(unittest.TestCase):
                      _app) in queue[-3:]  # noqa: F812,E501
             ]
         )
+
+    def test_sub_alloc_reservation(self):
+        """Test utilization calculation is fair between sub-allocs."""
+        alloc = scheduler.Allocation()
+
+        sub_alloc_poor = scheduler.Allocation()
+        alloc.add_sub_alloc('poor', sub_alloc_poor)
+        sub_alloc_poor.add(scheduler.Application('p1', 1, [1, 1], 'app1'))
+
+        sub_alloc_rich = scheduler.Allocation([5, 5])
+        sub_alloc_rich.add(scheduler.Application('r1', 1, [5, 5], 'app1'))
+        sub_alloc_rich.add(scheduler.Application('r2', 1, [5, 5], 'app1'))
+        alloc.add_sub_alloc('rich', sub_alloc_rich)
+
+        queue = list(alloc.utilization_queue([20., 20.]))
+
+        self.assertEqual('r1', queue[0][-1].name)
+        self.assertEqual('p1', queue[1][-1].name)
+        self.assertEqual('r2', queue[2][-1].name)
 
 
 class TraitSetTest(unittest.TestCase):
@@ -779,6 +826,49 @@ class CellTest(unittest.TestCase):
         self.assertIsNone(app2.server)
         self.assertIsNone(app3.server)
         self.assertIsNone(app4.server)
+
+    def test_max_utilization(self):
+        """Test max-utilization is handled properly when priorities change"""
+        cell = scheduler.Cell('top')
+        left = scheduler.Bucket('left', traits=0)
+        right = scheduler.Bucket('right', traits=0)
+        srv_a = scheduler.Server('a', [10, 10], traits=0, valid_until=500)
+        srv_b = scheduler.Server('b', [10, 10], traits=0, valid_until=500)
+        srv_y = scheduler.Server('y', [10, 10], traits=0, valid_until=500)
+        srv_z = scheduler.Server('z', [10, 10], traits=0, valid_until=500)
+
+        cell.add_node(left)
+        cell.add_node(right)
+        left.add_node(srv_a)
+        left.add_node(srv_b)
+        right.add_node(srv_y)
+        right.add_node(srv_z)
+
+        app1 = scheduler.Application('app1', 4, [1, 1], 'app')
+        app2 = scheduler.Application('app2', 3, [2, 2], 'app')
+        app3 = scheduler.Application('app3', 2, [3, 3], 'app')
+        app4 = scheduler.Application('app4', 1, [4, 4], 'app')
+        cell.partitions[None].allocation.add(app1)
+        cell.partitions[None].allocation.add(app2)
+        cell.partitions[None].allocation.add(app3)
+        cell.partitions[None].allocation.add(app4)
+
+        cell.partitions[None].allocation.set_reserved([6, 6])
+        cell.partitions[None].allocation.set_max_utilization(1)
+        cell.schedule()
+
+        self.assertIsNotNone(app1.server)
+        self.assertIsNotNone(app2.server)
+        self.assertIsNotNone(app3.server)
+        self.assertIsNone(app4.server)
+
+        app4.priority = 5
+        cell.schedule()
+
+        self.assertIsNotNone(app1.server)
+        self.assertIsNone(app2.server)
+        self.assertIsNone(app3.server)
+        self.assertIsNotNone(app4.server)
 
     def test_affinity_limits(self):
         """Simple placement test."""
