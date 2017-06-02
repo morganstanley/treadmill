@@ -117,6 +117,16 @@ def register(api):
         }
         return resp, httplib.NOT_FOUND, _cors_headers()
 
+    @api.errorhandler(exc.FoundError)
+    def _found_exc(err):
+        """Found exception handler."""
+        _LOGGER.info('Resource already exists: %r', err)
+        resp = {
+            'message': err.message,
+            'status': httplib.FOUND
+        }
+        return resp, httplib.FOUND, _cors_headers()
+
     @api.errorhandler(exc.TreadmillError)
     def _treadmill_exc(err):
         """Treadmill exception handler."""

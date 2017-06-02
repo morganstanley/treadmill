@@ -12,14 +12,6 @@ TREADMILL={{ treadmill }}
 TREADMILL_ID={{ treadmillid }}
 TREADMILL_SPAWN={{ treadmill_spawn }}
 
-for SVC in `$LS {{ dir }}/init`; do
-    if [ ! -d $TREADMILL/local/linux/spawn/init/$SVC ]; then
-        $RM -rf $DIR/init/$SVC
-    else
-        $ECHO "$SVC configuration is up to date."
-    fi
-done
-
 # Make sure ulimits are extremely large
 ulimit -n 131072
 ulimit -u 65536
@@ -30,6 +22,14 @@ $ECHO "set max user processes to $(ulimit -Su)"
 $CHOWN -R $TREADMILL_ID $DIR
 
 export PATH=$S6/bin:$TREADMILL_SPAWN:${PATH}
+
+for SVC in $($LS {{ dir }}/init); do
+    $GREP {{ dir }}/init/$SVC/\$ {{ dir }}/.install > /dev/null
+    if [ $? != 0 ]; then
+        $ECHO Removing extra service: $SVC
+        $RM -vrf {{ dir }}/init/$SVC
+    fi
+done
 
 # Starting svscan
 exec $IONICE -c2 -n0 $S6/bin/s6-envdir $DIR/env                       \

@@ -50,7 +50,7 @@ from treadmill import cli
               is_eager=True,
               expose_value=False)
 @click.option('--ldap-suffix', required=False,
-              envvar='TREADMILL_SUFFIX',
+              envvar='TREADMILL_LDAP_SUFFIX',
               callback=cli.handle_context_opt,
               is_eager=True,
               expose_value=False)

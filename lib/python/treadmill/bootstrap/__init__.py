@@ -97,7 +97,7 @@ def _render(value, params):
     return str(jinja2.Template(value).render(params))
 
 
-def _install(package, src_dir, dst_dir, params, prefix_len=None):
+def _install(package, src_dir, dst_dir, params, prefix_len=None, rec=None):
     """Interpolate source directory into target directory with params."""
 
     contents = pkg_resources.resource_listdir(package, src_dir)
@@ -110,11 +110,14 @@ def _install(package, src_dir, dst_dir, params, prefix_len=None):
         dst_path = os.path.join(dst_dir, resource_path[prefix_len:])
         if pkg_resources.resource_isdir(package, '/'.join([src_dir, item])):
             fs.mkdir_safe(dst_path)
+            if rec:
+                rec.write('%s/\n' % dst_path)
             _install(package,
                      os.path.join(src_dir, item),
                      dst_dir,
                      params,
-                     prefix_len=prefix_len)
+                     prefix_len=prefix_len,
+                     rec=rec)
         else:
             if resource_path.endswith('.swp'):
                 continue
@@ -122,6 +125,8 @@ def _install(package, src_dir, dst_dir, params, prefix_len=None):
             _LOGGER.info('Render: %s => %s', resource_path, dst_path)
             resource_str = pkg_resources.resource_string(package,
                                                          resource_path)
+            if rec:
+                rec.write('%s\n' % dst_path)
             _update(dst_path, _render(resource_str, params))
 
 
@@ -209,12 +214,19 @@ def install(package, dst_dir, params, run=None):
 
     interpolated = _interpolate(defaults, defaults)
 
-    _install(fullname, PLATFORM, dst_dir, interpolated)
+    fs.mkdir_safe(dst_dir)
+    with open(os.path.join(dst_dir, '.install'), 'w+') as rec:
 
-    for _loader, name, _ in pkgutil.iter_modules(module.__path__):
-        extension = '.'.join([fullname, name])
-        extension_module = importlib.import_module(extension)
-        _install(extension, '.'.join([name, PLATFORM]), dst_dir, interpolated)
+        _install(fullname, PLATFORM, dst_dir, interpolated, rec=rec)
+
+        for _loader, name, _ in pkgutil.iter_modules(module.__path__):
+            extension = '.'.join([fullname, name])
+            extension_module = importlib.import_module(extension)
+            _install(
+                extension,
+                '.'.join([name, PLATFORM]), dst_dir, interpolated,
+                rec=rec
+            )
 
     if run:
         _run(os.path.join(dst_dir, run))
