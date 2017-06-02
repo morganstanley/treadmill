@@ -4,4 +4,4 @@
 #
 
 exec {{ treadmill_bin }} \
-    sproc --cgroup . metrics --step 5
+    sproc --cgroup . metrics --step 15

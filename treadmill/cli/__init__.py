@@ -867,7 +867,7 @@ class CronPrettyFormatter(object):
     def format(item):
         """Return pretty-formatted item."""
         schema = [
-            ('id', None, None),
+            ('id', '_id', None),
             ('resource', None, None),
             ('event', None, None),
             ('action', None, None),

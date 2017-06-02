@@ -1,11 +1,11 @@
-"""Implementation of treadmill-admin-install CLI plugin."""
-from __future__ import absolute_import
+"""Implementation of treadmill-admin-install CLI plugin.
+"""
 
 import os
 import pkgutil
 import sys
-import yaml
 
+import yaml
 import click
 
 import treadmill

@@ -1,5 +1,5 @@
-"""Cleans up old trace from Treadmill."""
-from __future__ import absolute_import
+"""Cleans up old trace from Treadmill.
+"""
 
 import logging
 import time

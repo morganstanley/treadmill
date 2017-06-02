@@ -176,8 +176,11 @@ def _get_server_metrics(endpoint, server, services=None, outdir=None):
     if not services:
         services = _SYSTEM_SERVICES
 
+    # FIXME: give a default value of system limit
+    # otherwise the command will crash
     for svc in services:
-        _download_rrd(api, _metrics_url(svc), _rrdfile(outdir, server, svc))
+        _download_rrd(api, _metrics_url(svc), _rrdfile(outdir, server, svc),
+                      {'cpu': '0%', 'disk': '0M', 'memory': '0M'})
 
 
 def _download_rrd(nodeinfo_url, metrics_url, rrdfile, reserved_rsrc=None):
@@ -243,6 +246,7 @@ def init():
 
         for inst, host in instances.items():
             endpoint = _get_endpoint_for_host(ctx['nodeinf_eps'], host)
+            _LOGGER.debug("getting metrics from endpoint %r", endpoint)
 
             _get_app_metrics(endpoint, inst, outdir=ctx['outdir'],
                              cell_api=ctx['cell_api'])
@@ -265,6 +269,7 @@ def init():
 
         for inst, host in instances.items():
             endpoint = _get_endpoint_for_host(ctx['nodeinf_eps'], host)
+            _LOGGER.debug("getting metrics from endpoint %r", endpoint)
 
             _get_app_metrics(endpoint, inst, uniq, outdir=ctx['outdir'],
                              cell_api=ctx['cell_api'])
@@ -277,6 +282,7 @@ def init():
         """Get the metrics of the server(s) in params."""
         for server in servers:
             endpoint = _get_endpoint_for_host(ctx['nodeinf_eps'], server)
+            _LOGGER.debug("getting metrics from endpoint %r", endpoint)
 
             _get_server_metrics(endpoint, server, services, ctx['outdir'])
 

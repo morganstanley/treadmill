@@ -1,5 +1,5 @@
-"""Treadmill haproxy bootstrap."""
-from __future__ import absolute_import
+"""Treadmill haproxy bootstrap.
+"""
 
 import pkgutil
 

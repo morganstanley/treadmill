@@ -1,9 +1,9 @@
-"""Installs and configures Treadmill locally."""
-from __future__ import absolute_import
+"""Installs and configures Treadmill locally.
+"""
 
-import os
-import logging
 import glob
+import logging
+import os
 
 import click
 

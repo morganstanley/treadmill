@@ -1,8 +1,6 @@
 """Performance test for treadmill.scheduler
 """
 
-from __future__ import print_function
-
 import timeit
 
 # XXX(boysson): Test needs update to new Scheduler API

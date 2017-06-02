@@ -7,29 +7,35 @@ import os
 import click
 
 from treadmill import cli
-from .. import cgroups
+from treadmill import cgroups
+from treadmill import cgutils
+
+_LOGGER = logging.getLogger(__name__)
 
 
 def _configure_core_cgroups(service_name):
     """Configure service specific cgroups."""
     group = os.path.join('treadmill/core', service_name)
+    # create group directory
     for subsystem in ['memory', 'cpu', 'cpuacct', 'blkio']:
-        logging.info('creating and joining: %s/%s', subsystem, group)
-        cgroups.create(subsystem, group)
+        _LOGGER.info('creating and joining: %s/%s', subsystem, group)
+        cgutils.create(subsystem, group)
         cgroups.join(subsystem, group)
 
+    # set memory usage limits
     memlimits = ['memory.limit_in_bytes',
                  'memory.memsw.limit_in_bytes',
                  'memory.soft_limit_in_bytes']
     for limit in memlimits:
         parent_limit = cgroups.get_value('memory', 'treadmill/core', limit)
-        logging.info('setting %s: %s', limit, parent_limit)
+        _LOGGER.info('setting %s: %s', limit, parent_limit)
         cgroups.set_value('memory', group, limit, parent_limit)
 
+    # set cpu share limits
     cpulimits = ['cpu.shares']
     for limit in cpulimits:
         parent_limit = cgroups.get_value('cpu', 'treadmill/core', limit)
-        logging.info('setting %s: %s', limit, parent_limit)
+        _LOGGER.info('setting %s: %s', limit, parent_limit)
         cgroups.set_value('cpu', group, limit, parent_limit)
 
 

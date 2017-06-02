@@ -1,5 +1,4 @@
-"""
-Treadmill cron.
+"""Treadmill cron.
 
 This system process uses a zookeeper data storage to read cron data and
 act on the events. The following events should be supported:
@@ -8,8 +7,6 @@ act on the events. The following events should be supported:
     2. Monitor: set count
     3. Allocation: disable/enable allocations
 """
-
-from __future__ import absolute_import
 
 import logging
 

@@ -175,7 +175,7 @@ def init():
                 value = pathplus[1]
                 cgroups.set_value(subsystem, group, pseudofile, value)
             else:
-                cgroups.create(subsystem, path)
+                cgutils.create(subsystem, path)
                 cgroups.join(subsystem, path)
 
         if subcommand:
