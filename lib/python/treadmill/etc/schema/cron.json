@@ -1,0 +1,31 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "resource_id": { "$ref": "common.json#/app_id" },
+    "resource": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+            "resource": { "$ref": "common.json#/app_id" },
+            "event": {
+                "enum": ["app:start", "app:stop", "monitor:set-count"]
+            },
+            "expression": {
+                "type": "string",
+                "pattern": "^[\\w\\s\\-\\*\\/]+$"
+            },
+            "count": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 1000
+            }
+        }
+    },
+    "verbs": {
+        "create": {
+            "required": ["event", "resource", "expression", "count"]
+        },
+        "update": {
+            "required": []
+        }
+    }
+}

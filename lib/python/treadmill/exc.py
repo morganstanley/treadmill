@@ -47,6 +47,11 @@ class NotFoundError(TreadmillError):
     pass
 
 
+class FoundError(TreadmillError):
+    """Thrown in REST API when a resource is found"""
+    pass
+
+
 def exit_on_unhandled(func):
     """Decorator to exit thread on unhandled exception."""
     @functools.wraps(func)

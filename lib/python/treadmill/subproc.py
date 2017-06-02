@@ -20,13 +20,15 @@ class CommandAliasError(Exception):
     pass
 
 
-def get_aliases():
+def get_aliases(aliases_path=None):
     """Load aliases of external binaries that can invoked."""
     global _EXECUTABLES  # pylint: disable=W0603
     if _EXECUTABLES:
         return _EXECUTABLES
 
-    aliases_path = os.environ.get('TREADMILL_ALIASES_PATH')
+    if not aliases_path:
+        aliases_path = os.environ.get('TREADMILL_ALIASES_PATH')
+
     assert aliases_path is not None
     # TODO: need to check that file is either owned by running proc
     #                or root.

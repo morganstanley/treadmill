@@ -73,7 +73,7 @@ class CgroupResourceService(BaseResourceServiceImpl):
         with lc.LogContext(_LOGGER, rsrc_id) as log:
             log.info('Creating cgroups: %s:%s', self.SUBSYSTEMS, cgrp)
             for subsystem in self.SUBSYSTEMS:
-                cgroups.create(subsystem, cgrp)
+                cgutils.create(subsystem, cgrp)
 
             # blkio settings
             #
@@ -100,8 +100,8 @@ class CgroupResourceService(BaseResourceServiceImpl):
             #         f.write('oom')
             #     exp_cgrp = os.path.join('treadmill', 'apps',
             #                             expunged_uniq_name)
-            #     cgutils.kill_apps_in_cgroup('memory', exp_cgrp, delete=False)
-
+            #     cgutils.kill_apps_in_cgroup('memory', exp_cgrp,
+            #                                 delete_cgrp=False)
             # cpu settings
             #
 
@@ -132,7 +132,7 @@ class CgroupResourceService(BaseResourceServiceImpl):
 
             log.info('Deleting cgroups: %s:%s', self.SUBSYSTEMS, cgrp)
             for subsystem in self.SUBSYSTEMS:
-                cgroups.delete(subsystem, cgrp)
+                cgutils.delete(subsystem, cgrp)
 
         # Recalculate the cgroup hard limits on remaining apps
         #
@@ -145,7 +145,8 @@ class CgroupResourceService(BaseResourceServiceImpl):
         #                            'services', 'finished'), 'w') as f:
         #         f.write('oom')
         #     exp_cgrp = os.path.join('treadmill', 'apps', expunged_uniq_name)
-        #     cgutils.kill_apps_in_cgroup('memory', exp_cgrp, delete=False)
+        #     cgutils.kill_apps_in_cgroup('memory', exp_cgrp,
+        #                                 delete_cgrp=False)
 
         return True
 
