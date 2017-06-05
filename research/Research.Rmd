@@ -126,3 +126,45 @@ p <- plot_ly(data = dt, x = ~number, y = ~time, name = 'raw data', type = 'scatt
 p
 
 ```
+
+### Schedule 500 apps from 500 to 1000 node
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+library(plotly)
+
+dt <- read.table("500-app-from-500-to-1000-node/500-app-from-500-to-1000-node.txt",
+                 col.names=c("number", "time"),
+                 fill=FALSE,
+                 strip.white=TRUE)
+
+l1 = lm(data = dt, time ~ number)
+l2 = lm(data = dt, time ~ I(number^2))
+
+p <- plot_ly(data = dt, x = ~number, y = ~time, name = 'raw data', type = 'scatter') %>% 
+  add_trace(y = predict(l1), mode = 'lines', name = 'linear')
+
+p
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+library(plotly)
+
+dt <- read.table("500-app-from-500-to-1000-node/500-app-from-500-to-1000-node.txt",
+                 col.names=c("number", "time"),
+                 fill=FALSE,
+                 strip.white=TRUE)
+
+dtTree <- read.table("500-app-from-500-to-1000-node-tree/500-app-from-500-to-1000-node-tree.txt",
+                 col.names=c("number", "time"),
+                 fill=FALSE,
+                 strip.white=TRUE)
+
+l1 = lm(data = dt, time ~ number)
+
+p <- plot_ly(data = dt, x = ~number, y = ~time, name = 'Flat Architecture', type = 'scatter') %>%
+  add_trace(y = predict(l1), mode = 'lines', name = 'Flat Architecture Regression') %>%
+  add_trace(y = dtTree$time, type = 'scatter', name = 'Hierarchy Architecture')
+
+p
+```
+
