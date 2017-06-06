@@ -1,0 +1,12 @@
+---
+memory: 200M
+cpu: 10%
+disk: 100M
+services:
+- name: sleep
+  command: /bin/sleep 10000
+  restart:
+    limit: 1
+    interval: 60
+endpoints: []
+

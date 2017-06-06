@@ -2,6 +2,7 @@
 """
 
 import errno
+import glob
 import logging
 import os
 import pwd
@@ -214,7 +215,7 @@ def create_supervision_tree(container_dir, app):
         args = app.args
 
     if not cmd:
-        cmd = 's6-svscan'
+        cmd = subproc.resolve('s6_svscan')
         if not args:
             args = ['/services']
 
@@ -259,11 +260,13 @@ def make_fsroot(root, proid):
         '/usr',
         '/var/tmp/treadmill/env',
         '/var/tmp/treadmill/spool',
-    ]
+    ] + glob.glob('/opt/*')
 
     emptydirs = [
         '/tmp',
         '/opt',
+        '/var/empty',
+        '/var/run',
         '/var/spool/keytabs',
         '/var/spool/tickets',
         '/var/spool/tokens',
@@ -281,15 +284,16 @@ def make_fsroot(root, proid):
         '/var/tmp/cores/',
     ]
 
-    for mount in mounts:
-        if os.path.exists(mount):
-            fs.mount_bind(newroot_norm, mount)
-
     for directory in emptydirs:
+        _LOGGER.debug('Creating empty dir: %s', directory)
         fs.mkdir_safe(newroot_norm + directory)
 
     for directory in stickydirs:
         os.chmod(newroot_norm + directory, 0o777 | stat.S_ISVTX)
+
+    for mount in mounts:
+        if os.path.exists(mount):
+            fs.mount_bind(newroot_norm, mount)
 
     # Mount .../tickets .../keytabs on tempfs, so that they will be cleaned
     # up when the container exits.
@@ -380,15 +384,19 @@ def _prepare_pam_sshd(tm_env, container_dir, app):
     new_pam_sshd = os.path.join(pamd_dir, 'sshd')
 
     if app.shared_network:
-        shutil.copyfile(
-            os.path.join(tm_env.root, 'etc', 'pam.d', 'sshd.shared_network'),
-            new_pam_sshd
-        )
+        template_pam_sshd = os.path.join(
+            tm_env.root, 'etc', 'pam.d', 'sshd.shared_network')
     else:
-        shutil.copyfile(
-            os.path.join(tm_env.root, 'etc', 'pam.d', 'sshd'),
-            new_pam_sshd
-        )
+        template_pam_sshd = os.path.join(
+            tm_env.root, 'etc', 'pam.d', 'sshd')
+
+    if not os.path.exists(template_pam_sshd):
+        template_pam_sshd = '/etc/pam.d/sshd'
+
+    shutil.copyfile(
+        template_pam_sshd,
+        new_pam_sshd
+    )
 
 
 def _prepare_resolv_conf(tm_env, container_dir):
@@ -400,8 +408,12 @@ def _prepare_resolv_conf(tm_env, container_dir):
 
     # TODO(boysson): This should probably be based instead on /etc/resolv.conf
     #                for other resolver options
+    template_resolv_conf = os.path.join(tm_env.root, 'etc', 'resolv.conf')
+    if not os.path.exists(template_resolv_conf):
+        template_resolv_conf = '/etc/resolv.conf'
+
     shutil.copyfile(
-        os.path.join(tm_env.root, 'etc', 'resolv.conf'),
+        template_resolv_conf,
         new_resolv_conf
     )
 

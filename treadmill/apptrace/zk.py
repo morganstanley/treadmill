@@ -115,7 +115,7 @@ class AppTrace(object):
              event_type,
              event_data) in all_events:
 
-            if timestamp <= self._last_event:
+            if float(timestamp) <= float(self._last_event):
                 continue
 
             if instanceid != self.instanceid:

@@ -21,6 +21,5 @@ lint.log
 pep8.log
 doc/build
 doc/swagger.json
-env/
 build/
 dist/

@@ -19,12 +19,17 @@ def init():
     @click.option('--run/--no-run', is_flag=True, default=False)
     @click.option('--master-id', required=True,
                   type=click.Choice(['1', '2', '3']))
+    @click.option('--ldap-pwd',
+                  help='LDAP password (clear text of path to file).')
     @click.pass_context
-    def master(ctx, run, master_id):
+    def master(ctx, run, master_id, ldap_pwd):
         """Installs Treadmill master."""
 
         ctx.obj['PARAMS']['master_id'] = master_id
         dst_dir = ctx.obj['PARAMS']['dir']
+
+        if ldap_pwd:
+            ctx.obj['PARAMS']['ldap_pwd'] = ldap_pwd
 
         for master in ctx.obj['PARAMS']['masters']:  # pylint: disable=E1136
             if int(master['idx']) == int(master_id):

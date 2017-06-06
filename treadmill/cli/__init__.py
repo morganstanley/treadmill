@@ -1,7 +1,11 @@
 """Treadmill commaand line helpers.
 """
 
-import configparser
+try:
+    import configparser
+except ImportError:
+    import ConfigParser as configparser
+
 import copy
 import json
 import importlib
@@ -14,10 +18,12 @@ import tempfile
 import traceback
 import logging
 import pkg_resources
+import codecs
 
 import click
 import yaml
 import prettytable
+
 
 from treadmill import context
 from treadmill import utils
@@ -32,15 +38,18 @@ EXIT_CODE_DEFAULT = 1
 
 def init_logger(name):
     """Initialize logger."""
-    log_conf_file = pkg_resources.resource_stream('treadmill',
-                                                  '/logging/%s' % name)
+    log_conf_file = pkg_resources.resource_stream(
+        'treadmill',
+        '/logging/{name}'.format(name=name)
+    )
     try:
-        logging.config.fileConfig(log_conf_file)
+        logging.config.fileConfig(
+            codecs.getreader('utf-8')(log_conf_file))
     except configparser.Error:
         with tempfile.NamedTemporaryFile(delete=False) as f:
             traceback.print_exc(file=f)
-            click.echo('Error parsing log conf: %s' %
-                       log_conf_file, err=True)
+            click.echo('Error parsing log conf: {name}'.format(name=name),
+                       err=True)
 
 
 def make_multi_command(module_name, **click_args):
