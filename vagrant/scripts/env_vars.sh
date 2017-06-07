@@ -9,4 +9,4 @@ export TREADMILL_LDAP_USER=cn=Manager,dc=local
 export LC_ALL=en_US.utf8
 export LANG=en_US.utf8
 
-export PATH=$PATH:/opt/treadmill/bin
+export PATH=$PATH:/opt/s6/bin:/opt/treadmill/bin

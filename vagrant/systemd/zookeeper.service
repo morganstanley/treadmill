@@ -1,0 +1,14 @@
+[Unit]
+Description=Zookeeper distributed coordination server
+After=network.target
+
+[Service]
+User=treadmld
+Group=treadmld
+SyslogIdentifier=zookeeper
+ExecStart=/var/tmp/treadmill-zookeeper/treadmill/bin/run.sh
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
