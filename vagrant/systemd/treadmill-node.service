@@ -1,0 +1,15 @@
+[Unit]
+Description=Treadmill node services
+After=network.target
+
+[Service]
+User=root
+Group=root
+SyslogIdentifier=treadmill
+ExecStartPre=/bin/mount --make-rprivate /
+ExecStart=/var/tmp/treadmill/bin/run.sh
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
