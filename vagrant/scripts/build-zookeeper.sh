@@ -15,4 +15,3 @@ else
     echo zoo.cfg already exists.
 fi
 
-/opt/zookeeper-3.4.9/bin/zkServer.sh start
