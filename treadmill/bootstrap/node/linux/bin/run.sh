@@ -27,12 +27,20 @@ done
 
 $RM -vrf {{ dir }}/init/*/data/exits/*
 
+# Create cgroup layout.
+# TODO: cginit missing --cpu-cores argument.
+{{ treadmill}}/bin/treadmill sproc cginit                                  \
+    --cpu {{ treadmill_cpu }}                                              \
+    --mem {{ treadmill_mem }}                                              \
+    --mem-core {{ treadmill_core_mem }}
+
+
 # Starting svscan
 exec $IONICE -c2 -n0 {{ s6 }}/bin/s6-envdir {{ dir }}/env                  \
     {{ treadmill }}/bin/treadmill sproc --cell - cgroup                    \
         cleanup --delete --apps --core                                     \
         mount                                                              \
-        init --cpu {{ treadmill_cpu}}                                      \
+        init --cpu {{ treadmill_cpu }}                                     \
              --mem {{ treadmill_mem }}                                     \
              --mem-core {{ treadmill_core_mem }}                           \
              --cpu-cores {{ treadmill_cpu_cores }}                         \
