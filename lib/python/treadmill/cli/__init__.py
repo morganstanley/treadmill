@@ -1,7 +1,6 @@
 """Treadmill commaand line helpers."""
 from __future__ import absolute_import
 
-import ConfigParser
 import copy
 import json
 import importlib
@@ -13,8 +12,13 @@ import sys
 import tempfile
 import traceback
 import logging
-import pkg_resources
 
+try:
+    import ConfigParser as configparser  # pylint: disable=E0401
+except ImportError:
+    import configparser  # pylint: disable=E0401
+
+import pkg_resources
 import click
 import yaml
 import prettytable
@@ -37,7 +41,7 @@ def init_logger(name):
                                                   '/logging/%s' % name)
     try:
         logging.config.fileConfig(log_conf_file)
-    except ConfigParser.Error:
+    except configparser.Error:
         with tempfile.NamedTemporaryFile(delete=False) as f:
             traceback.print_exc(file=f)
             click.echo('Error parsing log conf: %s' %

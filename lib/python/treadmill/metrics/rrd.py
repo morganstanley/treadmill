@@ -29,7 +29,7 @@ def get_cpu_metrics(cgrp, cpu_usage_delta, time_delta):
     return (usage, requested_ratio, usage_ratio)
 
 
-def app_metrics(cgrp, rrd_last, sys_major_minor):
+def app_metrics(cgrp, rrd_last, sys_major_minor, block_dev):
     """ get rrd readable metrics"""
 
     result = {
@@ -43,11 +43,12 @@ def app_metrics(cgrp, rrd_last, sys_major_minor):
         'blk_write_iops': 0,
         'blk_read_bps': 0,
         'blk_write_bps': 0,
+        'fs_used_bytes': 0,
     }
 
     _LOGGER.debug('Getting metrics from cgroup %s, sys_maj_min %s',
                   cgrp, sys_major_minor)
-    raw_metrics = metrics.app_metrics(cgrp)
+    raw_metrics = metrics.app_metrics(cgrp, block_dev)
 
     memusage = raw_metrics['memory.usage_in_bytes']
     softmem = raw_metrics['memory.soft_limit_in_bytes']
@@ -107,14 +108,17 @@ def app_metrics(cgrp, rrd_last, sys_major_minor):
         'blk_read_bps': blk_bps['Read'],
         'blk_write_bps': blk_bps['Write']
     })
+
+    result['fs_used_bytes'] = raw_metrics['fs.used_byes']
+
     return result
 
 
-def update(rrdclient, rrdfile, cgrp, sys_maj_min):
+def update(rrdclient, rrdfile, cgrp, sys_maj_min, block_dev):
     """ get and update metrics in rrd files """
     rrd_last = rrdutils.lastupdate(rrdfile)
     try:
-        rrd_metrics = app_metrics(cgrp, rrd_last, sys_maj_min)
+        rrd_metrics = app_metrics(cgrp, rrd_last, sys_maj_min, block_dev)
         rrdclient.update(
             rrdfile,
             rrd_metrics

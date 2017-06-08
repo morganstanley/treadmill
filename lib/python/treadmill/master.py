@@ -70,7 +70,7 @@ def time_past(when):
 # ACL which allows all servers in the cell to full control over node.
 #
 # Set in /finished, /servers
-_SERVERS_ACL = zkutils.make_role_acl('servers', 'rwcd')
+_SERVERS_ACL = zkutils.make_role_acl('servers', 'rwcda')
 # Delete only servers ACL
 _SERVERS_ACL_DEL = zkutils.make_role_acl('servers', 'd')
 
@@ -231,7 +231,11 @@ class Master(object):
 
             assert 'parent' in data
             parentname = data['parent']
-            label = data.get('partition', admin.DEFAULT_PARTITION)
+            label = data.get('partition')
+            if not label:
+                # TODO: it will be better to have separate module for constants
+                #       and avoid unnecessary cross imports.
+                label = admin.DEFAULT_PARTITION
             up_since = data.get('up_since', int(time.time()))
 
             partition = self.cell.partitions[label]
@@ -300,11 +304,13 @@ class Master(object):
             assert 'parent' in data
             assert data['parent'] in self.buckets
 
+            # TODO: seems like this is cut/paste code from load_server.
             label = data.get('partition')
-
+            if not label:
+                label = admin.DEFAULT_PARTITION
             up_since = data.get('up_since', time.time())
-            partition = self.cell.partitions[label]
 
+            partition = self.cell.partitions[label]
             server = scheduler.Server(
                 servername,
                 resources(data),

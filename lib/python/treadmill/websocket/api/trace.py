@@ -6,6 +6,7 @@ from __future__ import absolute_import
 
 import logging
 
+from treadmill import apptrace
 from treadmill import schema
 from treadmill.websocket import utils
 from treadmill.apptrace import events as traceevents
@@ -64,4 +65,4 @@ class TraceAPI(object):
 
 def init():
     """API module init."""
-    return [('/trace', TraceAPI(sow='.sow/trace'), ['/trace/*'])]
+    return [('/trace', TraceAPI(sow=apptrace.TRACE_SOW_DIR), ['/trace/*'])]

@@ -143,9 +143,8 @@ if __name__ == '__main__':
 
     if opts and '-l' in opts[0]:
         sys.argv[1:] = []
-        log_conf_file = os.path.join(treadmill.TREADMILL, 'etc', 'logging',
-                                     'daemon.conf')
-        with open(log_conf_file, 'r') as fh:
-            logging.config.dictConfig(yaml.load(fh))
+        log_conf_file = os.path.join(treadmill.TREADMILL, 'lib', 'python',
+                                     'treadmill', 'logging', 'daemon.conf')
+        logging.config.fileConfig(log_conf_file)
 
     unittest.main()

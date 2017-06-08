@@ -18,6 +18,7 @@ import kazoo
 
 from treadmill import appevents
 from treadmill import appcfg
+from treadmill import apphook
 from treadmill import firewall
 from treadmill import fs
 from treadmill import iptables
@@ -80,6 +81,10 @@ def finish(tm_env, zkclient, container_dir, watchdog):
 
             if exitinfo:
                 _post_exit_event(tm_env, app, exitinfo)
+
+        # cleanup monitor with container information
+        if app:
+            apphook.cleanup(tm_env, app)
 
         # Delete the app directory (this includes the tarball, if any)
         shutil.rmtree(container_dir)

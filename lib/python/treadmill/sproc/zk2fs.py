@@ -11,6 +11,7 @@ import tempfile
 
 import click
 
+from treadmill import apptrace
 from treadmill import zksync
 from treadmill import fs
 from treadmill import context
@@ -161,7 +162,7 @@ def init():
             zk2fs_sync.sync_children(z.path.appgroup(), watch_data=True)
 
         if placement:
-            zk2fs_sync.sync_placement(z.path.placement(), watch_data=True)
+            zk2fs_sync.sync_children(z.path.placement(), watch_data=True)
 
         if trace:
             zk2fs_sync.sync_children(
@@ -170,7 +171,7 @@ def init():
                 on_del=lambda p: _on_del_trace_shard(zk2fs_sync, p)
             )
 
-            trace_sow = os.path.join(zk2fs_sync.fsroot, '.sow', 'trace')
+            trace_sow = os.path.join(zk2fs_sync.fsroot, apptrace.TRACE_SOW_DIR)
             _LOGGER.info('Using trace sow db: %s', trace_sow)
             fs.mkdir_safe(trace_sow)
 

@@ -1,0 +1,7 @@
+[console_scripts]
+treadmill = treadmill.console:run
+
+[treadmill.runtime]
+docker = treadmill.runtime.docker:DockerRuntime
+linux = treadmill.runtime.linux:LinuxRuntime
+

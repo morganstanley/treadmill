@@ -27,16 +27,16 @@ _METRICS_FMT = ':'.join(['{%s}' % svc for svc in [
     'blk_read_iops',
     'blk_write_iops',
     'blk_read_bps',
-    'blk_write_bps'
+    'blk_write_bps',
+    'fs_used_bytes'
 ]])
 
 RRDTOOL = 'rrdtool'
 SOCKET = '/tmp/treadmill.rrd'
 
-# The index of an RRA in the rrd file holding metrics only for the last 20 mins
-SHORT_TERM_RRA_IDX = '0'
-# The index of an RRA in the rrd file holding metrics only for the last 3 days
-LONG_TERM_RRA_IDX = '1'
+# Keeps track which RRA to be queried for the first code point according to the
+# timeframces.
+TIMEFRAME_TO_RRA_IDX = {"short": "0", "long": "1"}
 
 
 class RRDError(Exception):
@@ -100,6 +100,7 @@ class RRDClient(object):
             'DS:blk_write_iops:COUNTER:%s:0:U' % interval,
             'DS:blk_read_bps:COUNTER:%s:0:U' % interval,
             'DS:blk_write_bps:COUNTER:%s:0:U' % interval,
+            'DS:fs_used_bytes:GAUGE:%s:0:U' % interval,
             'RRA:MIN:0.5:{}s:20m'.format(step),
             'RRA:MIN:0.5:10m:3d',
             'RRA:MAX:0.5:{}s:20m'.format(step),
@@ -161,7 +162,7 @@ def forget_noexc(rrdfile, rrd_socket=SOCKET):
         rrdclient.rrd.close()
 
 
-def gen_graph(rrdfile, rrdtool, outdir=None, reserved_rsrc=None):
+def gen_graph(rrdfile, timeframe, rrdtool, outdir=None, reserved_rsrc=None):
     """Generate SVG images given rrd file."""
     if not outdir:
         outdir = rrdfile.rsplit('.', 1)[0]
@@ -179,7 +180,7 @@ def gen_graph(rrdfile, rrdtool, outdir=None, reserved_rsrc=None):
             raise RRDToolNotFoundError()
         raise
 
-    first_ts = first(rrdfile, exec_on_node=False)
+    first_ts = first(rrdfile, timeframe, exec_on_node=False)
     last_ts = last(rrdfile, exec_on_node=False)
     from_ = time.strftime("%b/%d %R", time.gmtime(int(first_ts)))
     to = time.strftime("%b/%d %R%z", time.gmtime(int(last_ts)))
@@ -243,7 +244,20 @@ def gen_graph(rrdfile, rrdtool, outdir=None, reserved_rsrc=None):
         'LINE1:blk_write_bps#CC0000:write bps'
     ]
 
-    for arg in memory_args, cpu_usage_args, cpu_ratio_args, blk_iops, blk_bps:
+    fs_usg = [
+        os.path.join(outdir, 'fs_usg.svg'),
+        '--title=Filesystem Usage [%s - %s]' % (from_, to),
+        '--imgformat=SVG',
+        '--start=%s' % first_ts,
+        '--end=%s' % last_ts,
+        '--vertical-label=bytes/second',
+        'DEF:fs_used_bytes=%s:fs_used_bytes:MAX' % rrdfile,
+        'LINE:fs_used_bytes#0000FF:used bytes',
+        'HRULE:%s#CC0000:fs size limit' % reserved_rsrc['disk'],
+    ]
+
+    for arg in (memory_args, cpu_usage_args, cpu_ratio_args, blk_iops, blk_bps,
+                fs_usg):
         subprocess.check_call([rrdtool, 'graph'] + arg,
                               stdout=subprocess.PIPE)
 
@@ -289,17 +303,22 @@ Please note: 100% is considered 1 virtual CPU
 </tr>
 <tr><td><img src="blk_iops.svg" /></td></tr>
 <tr><td><img src="blk_bps.svg" /></td></tr>
+<tr><td><img src="fs_usg.svg" /></td></tr>
 </table>
 </body>
 </html>
 """)
 
 
-def first(rrdfile, rrdtool=RRDTOOL, rrd_socket=SOCKET, exec_on_node=True,
-          rra_idx=SHORT_TERM_RRA_IDX):
+def first(rrdfile, timeframe, rrdtool=RRDTOOL, rrd_socket=SOCKET,
+          exec_on_node=True):
     """
     Returns the UNIX timestamp of the first data sample entered into the RRD.
     """
+    try:
+        rra_idx = TIMEFRAME_TO_RRA_IDX[timeframe]
+    except KeyError:
+        rra_idx = TIMEFRAME_TO_RRA_IDX['short']
 
     if exec_on_node:
         epoch = subproc.check_output([rrdtool, 'first', rrdfile,
@@ -348,7 +367,7 @@ def lastupdate(rrdfile, rrdtool=RRDTOOL, rrd_socket=SOCKET):
     return result
 
 
-def get_json_metrics(rrdfile, rrdtool=RRDTOOL, rrd_socket=SOCKET):
+def get_json_metrics(rrdfile, timeframe, rrdtool=RRDTOOL, rrd_socket=SOCKET):
     """Return the metrics in the rrd file as a json string."""
 
     _LOGGER.info('Get the metrics in JSON for %s', rrdfile)
@@ -356,7 +375,7 @@ def get_json_metrics(rrdfile, rrdtool=RRDTOOL, rrd_socket=SOCKET):
     # the command sends a FLUSH to the rrdcached implicitly...
     cmd = [rrdtool, 'graph', '-', '--daemon', 'unix:%s' % rrd_socket,
            '--imgformat', 'JSONTIME',
-           '--start=%s' % first(rrdfile),
+           '--start=%s' % first(rrdfile, timeframe),
            '--end=%s' % last(rrdfile),
            # mem usage
            'DEF:memory_usage=%s:memory_usage:MAX' % rrdfile,
@@ -381,6 +400,9 @@ def get_json_metrics(rrdfile, rrdtool=RRDTOOL, rrd_socket=SOCKET):
            'LINE:blk_read_bps:read bps',
            # blk write
            'DEF:blk_write_bps=%s:blk_write_bps:MAX' % rrdfile,
-           'LINE:blk_write_bps:write bps']
+           'LINE:blk_write_bps:write bps',
+           # fs_used_bytes
+           'DEF:fs_used_bytes=%s:fs_used_bytes:MAX' % rrdfile,
+           'LINE:fs_used_bytes:used bytes']
 
     return subproc.check_output(cmd)
