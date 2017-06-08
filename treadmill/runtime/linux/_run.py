@@ -6,6 +6,7 @@ import os
 import socket
 
 from treadmill import appcfg
+from treadmill import apphook
 from treadmill import cgroups
 from treadmill import firewall
 from treadmill import fs
@@ -85,6 +86,9 @@ def run(tm_env, container_dir, manifest, watchdog, terminated):
     watchdog.remove()
 
     if not terminated:
+        # hook container
+        apphook.configure(tm_env, app)
+
         sys_dir = os.path.join(container_dir, 'sys')
         supervisor.exec_root_supervisor(sys_dir)
 

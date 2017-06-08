@@ -442,6 +442,7 @@ class LinuxRuntimeRunTest(unittest.TestCase):
                 mock.Mock())
     @mock.patch('treadmill.fs.mount_bind', mock.Mock())
     @mock.patch('treadmill.runtime.linux.image.get_image_repo', mock.Mock())
+    @mock.patch('treadmill.apphook.configure', mock.Mock())
     @mock.patch('treadmill.supervisor.exec_root_supervisor', mock.Mock())
     @mock.patch('treadmill.subproc.check_call', mock.Mock())
     @mock.patch('treadmill.utils.rootdir',
@@ -573,6 +574,7 @@ class LinuxRuntimeRunTest(unittest.TestCase):
                 mock.Mock())
     @mock.patch('treadmill.runtime.linux.image.get_image_repo', mock.Mock())
     @mock.patch('treadmill.fs.mount_bind', mock.Mock())
+    @mock.patch('treadmill.apphook.configure', mock.Mock())
     @mock.patch('treadmill.supervisor.exec_root_supervisor', mock.Mock())
     @mock.patch('treadmill.subproc.check_call', mock.Mock())
     @mock.patch('treadmill.utils.rootdir',
@@ -665,6 +667,7 @@ class LinuxRuntimeRunTest(unittest.TestCase):
                 mock.Mock())
     @mock.patch('treadmill.runtime.linux.image.get_image_repo', mock.Mock())
     @mock.patch('treadmill.fs.mount_bind', mock.Mock())
+    @mock.patch('treadmill.apphook.configure', mock.Mock())
     @mock.patch('treadmill.supervisor.exec_root_supervisor', mock.Mock())
     @mock.patch('treadmill.subproc.check_call', mock.Mock())
     @mock.patch('treadmill.utils.rootdir',

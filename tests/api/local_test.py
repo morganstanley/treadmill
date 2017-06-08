@@ -52,6 +52,13 @@ class MetricsAPITest(unittest.TestCase):
             self.met.file_path('proid.app#00123/asdf'),
             '{}/apps/proid.app-00123-asdf.rrd'.format(METRICS_DIR))
 
+    @mock.patch('treadmill.rrdutils.get_json_metrics')
+    def test_get(self, mock_):
+        """Test the _MetricsAPI.get() method."""
+        self.met._get_rrd_file = mock.Mock(return_value='rrd.file')
+        self.met.get('id', 'foo', as_json=True)
+        mock_.assert_called_with('rrd.file', 'foo')
+
 
 class LogAPITest(unittest.TestCase):
     """treadmill.api.local._LogAPI tests."""

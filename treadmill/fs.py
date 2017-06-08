@@ -2,6 +2,7 @@
 """
 
 import errno
+import glob
 import io
 import logging
 import os
@@ -374,3 +375,57 @@ def _tar_impl(sources, **args):
         raise
 
     return archive
+
+
+@osnoop.windows
+def read_filesystem_info(block_dev):
+    """
+    Returns blocks group information for the filesystem present on block_dev.
+
+    :param block_dev:
+        Block device for the filesystem info to query.
+    :type block_dev:
+        ``str``
+    :returns:
+        Blocks group information.
+    :rtype:
+        ``dict``
+    """
+    # TODO: it might worth to convert the appropriate values to int, date etc.
+    #       in the result.
+    output = subproc.check_output(['dumpe2fs', '-h', block_dev])
+
+    res = dict()
+    for line in output.split(os.linesep):
+        if not line.strip():
+            continue
+
+        key, val = line.split(':', 1)
+        res[key.lower()] = val.strip()
+
+    return res
+
+
+@osnoop.windows
+def maj_min_to_blk(maj_min):
+    """
+    Returns the block device name to the major:minor numbers in the param.
+
+    :param maj_min:
+        The major and minor number of the device in 'major:minor' form.
+    :type block_dev:
+        ``str``
+    :returns:
+        Block device name.
+    :rtype:
+        ``str``
+    """
+    block_dev = None
+    for sys_path in glob.glob(os.path.join(os.sep, 'sys', 'class', 'block',
+                                           '*', 'dev')):
+        with open(sys_path) as f:
+            if f.read().strip() == maj_min:
+                block_dev = '/dev/{}'.format(sys_path.split(os.sep)[-2])
+                break
+
+    return block_dev

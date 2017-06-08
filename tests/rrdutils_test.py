@@ -16,17 +16,16 @@ class RrdUtilsTest(unittest.TestCase):
     def test_first(self, subprocess_mock, subproc_mock):
         """Test the function that returns the first ts in the designated RRA.
         """
-        rrdutils.first('foo.rrd')
+        rrdutils.first('foo.rrd', 'no_such_timeframe')
         subproc_mock.assert_called_with(
-            [rrdutils.RRDTOOL, 'first', 'foo.rrd', '--daemon', 'unix:%s' %
-             rrdutils.SOCKET, '--rraindex', rrdutils.SHORT_TERM_RRA_IDX])
+            [rrdutils.RRDTOOL, 'first', 'foo.rrd', '--daemon',
+             'unix:%s' % rrdutils.SOCKET, '--rraindex',
+             rrdutils.TIMEFRAME_TO_RRA_IDX['short']])
 
-        rrdutils.first('foo.rrd',
-                       exec_on_node=False,
-                       rra_idx=rrdutils.LONG_TERM_RRA_IDX)
+        rrdutils.first('foo.rrd', 'long', exec_on_node=False)
         subprocess_mock.assert_called_with(
             [rrdutils.RRDTOOL, 'first', 'foo.rrd', '--rraindex',
-             rrdutils.LONG_TERM_RRA_IDX])
+             rrdutils.TIMEFRAME_TO_RRA_IDX['long']])
 
 
 if __name__ == '__main__':

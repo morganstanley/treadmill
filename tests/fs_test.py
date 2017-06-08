@@ -13,6 +13,23 @@ import treadmill
 from treadmill import fs
 
 
+class MockFile(object):
+    """Mock the file like object returned by the builtin open()."""
+
+    def __init__(self, file_contents):
+        self.f_contents = file_contents
+
+    def read(self):
+        """Mocks the read() method of a file like object."""
+        return self.f_contents.pop(0)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        pass
+
+
 # Pylint complains about long names for test functions.
 # pylint: disable=C0103
 class FsTest(unittest.TestCase):
@@ -287,6 +304,46 @@ class FsTest(unittest.TestCase):
         self.assertTrue(
             'subdir' in names and 'file' in names and 'file2' in names
         )
+
+    @mock.patch('treadmill.subproc.check_output',
+                mock.Mock(return_value="""
+Filesystem volume name:   /boot
+Last mounted on:          <not available>
+Filesystem UUID:          d19ecb0a-fa74-4be2-85f6-2e3a50901cd9
+Filesystem magic number:  0xEF53
+Filesystem revision #:    1 (dynamic)
+Filesystem OS type:       Linux
+Inode count:              65280
+Block count:              1
+Reserved block count:     2
+Free blocks:              3
+Block size:               1024
+Default directory hash:   half_md4
+Directory Hash Seed:      20c6af65-0208-4e71-99cb-d5532c02e3b8
+"""))
+    def test_read_filesystem_info(self):
+        """Test fs.read_filesystem_info()."""
+        res = fs.read_filesystem_info('/dev/treadmill/<uniq>')
+
+        self.assertEqual(res['block count'], '1')
+        self.assertEqual(res['reserved block count'], '2')
+        self.assertEqual(res['free blocks'], '3')
+        self.assertEqual(res['block size'], '1024')
+
+    @mock.patch('glob.glob',
+                mock.Mock(return_value=('/sys/class/block/sda2/dev',
+                                        '/sys/class/block/sda3/dev')))
+    def test_maj_min_to_blk(self):
+        """Tests fs.maj_min_to_blk()"""
+        with mock.patch('builtins.open',
+                        mock.Mock(return_value=MockFile(
+                            file_contents=['8:2\n', '8:3\n']))):
+            self.assertEqual(fs.maj_min_to_blk('8:3'), '/dev/sda3')
+
+        with mock.patch('builtins.open',
+                        mock.Mock(return_value=MockFile(
+                            file_contents=['8:2\n', '8:3\n']))):
+            self.assertIsNone(fs.maj_min_to_blk('X:Y'))
 
 
 if __name__ == '__main__':

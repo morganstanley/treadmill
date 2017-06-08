@@ -138,6 +138,18 @@ class MetricsTest(unittest.TestCase):
              'memory.soft_limit_in_bytes': 2,
              'memory.usage_in_bytes': 2})
 
+    @mock.patch('treadmill.fs.read_filesystem_info',
+                mock.Mock(return_value={'block count': '2000',
+                                        'free blocks': '1000',
+                                        'block size': '1024'}))
+    def test_get_fs_usage(self):
+        """Test the fs usage compute logic."""
+        self.assertEqual(
+            metrics.get_fs_usage('/dev/treadmill/<uniq>'),
+            {'fs.used_bytes': 1024000})
+
+        self.assertEqual(metrics.get_fs_usage(None), {})
+
 
 if __name__ == '__main__':
     unittest.main()
