@@ -30,7 +30,8 @@ class SpawnPaths(object):
         'zk_mirror_dir',
         'cellapi_sock',
         'svscan_tree_dir',
-        'buckets'
+        'buckets',
+        'env_dir'
     )
 
     def __init__(self, root, buckets=BUCKETS):
@@ -43,3 +44,4 @@ class SpawnPaths(object):
         self.cellapi_sock = os.path.join(self.root, CELLAPI_SOCK)
         self.zk_mirror_dir = os.path.join(self.root, ZK_MIRROR_DIR)
         self.svscan_tree_dir = os.path.join(self.root, SVSCAN_TREE_DIR)
+        self.env_dir = os.path.join(self.svscan_tree_dir, '.s6-svscan', 'env')

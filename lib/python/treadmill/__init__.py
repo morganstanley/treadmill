@@ -26,5 +26,3 @@ else:
     _TREADMILL_SCRIPT = 'treadmill'
 
 TREADMILL_BIN = os.path.join(TREADMILL, 'bin', _TREADMILL_SCRIPT)
-
-TREADMILL_LDAP = os.environ.get('TREADMILL_LDAP')

@@ -502,7 +502,7 @@ def drop_privileges(uid_name='nobody'):
     os.setuid(running_uid)
 
     # Ensure a very conservative umask
-    os.umask(077)
+    os.umask(0o77)
 
     # TODO: probably redundant, as it will not have access to the
     #                cred cache anyway.

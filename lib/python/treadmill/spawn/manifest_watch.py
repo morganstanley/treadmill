@@ -73,16 +73,12 @@ class ManifestWatch(object):
             os.path.join(job, 'run'),
             'spawn.run',
             id=inst.id,
-            name=inst.name,
-            cellapi=self.paths.cellapi_sock,
-            zk2fs=self.paths.zk_mirror_dir)
+            name=inst.name)
 
         utils.create_script(
             os.path.join(job, 'finish'),
             'spawn.finish',
             id=inst.id,
-            cellapi=self.paths.cellapi_sock,
-            cleanup=self.paths.cleanup_dir,
             stop=inst.settings['stop'],
             reconnect=inst.settings['reconnect'],
             reconnect_timeout=inst.settings['reconnect_timeout'])

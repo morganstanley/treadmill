@@ -3,105 +3,14 @@ from __future__ import absolute_import
 
 import fnmatch
 import logging
-import re
 
 from treadmill import authz
 from treadmill import context
 from treadmill import cron
-from treadmill import exc
 from treadmill import schema
+from treadmill.cron import model as cron_model
 
 _LOGGER = logging.getLogger(__name__)
-
-CRON_MODULE = 'treadmill.cron'
-
-
-def app_start(job_id, event_type, resource, count):
-    """App start event type"""
-    if count is None:
-        raise exc.InvalidInputError(
-            __name__,
-            'You must supply a count for {}'.format(event_type),
-        )
-
-    event, action = event_type.split(':')
-    job_name = '{}:event={}:action={}:count={}'.format(
-        resource, event, action, count
-    )
-
-    func_kwargs = dict(
-        job_id=job_id,
-        app_name=resource,
-        count=count,
-    )
-    return job_name, func_kwargs
-
-
-def app_stop(job_id, event_type, resource, count):
-    """App stop event type"""
-    event, action = event_type.split(':')
-    job_name = '{}:event={}:action={}:count={}'.format(
-        resource, event, action, count
-    )
-
-    func_kwargs = dict(
-        job_id=job_id,
-        app_name=resource,
-    )
-    return job_name, func_kwargs
-
-
-def monitor_set_count(_job_id, event_type, resource, count):
-    """Monitor set count event type"""
-    if count is None:
-        raise exc.InvalidInputError(
-            __name__,
-            'You must supply a count for {}'.format(event_type),
-        )
-
-    event, action = event_type.split(':')
-    job_name = '{}:event={}:action={}:count={}'.format(
-        resource, event, action, count
-    )
-
-    func_kwargs = dict(
-        monitor_name=resource,
-        count=count,
-    )
-    return job_name, func_kwargs
-
-
-def update_job(scheduler, job_id, event, resource, expression, count):
-    """Update a cron job"""
-    func = '{}.{}'.format(CRON_MODULE, event)
-
-    event_func = re.sub(':', '_', event)
-    event_func = re.sub('-', '_', event_func)
-
-    job_name, func_kwargs = globals()[event_func](
-        job_id, event, resource, count
-    )
-
-    trigger_args = cron.cron_to_dict(expression)
-
-    job = cron.get_job(scheduler, job_id)
-    if job:
-        _LOGGER.info('Removing job %s', job_id)
-        job.remove()
-
-    _LOGGER.info('Adding job %s', job_id)
-    job = scheduler.add_job(
-        func,
-        trigger='cron',
-        id=job_id,
-        name=job_name,
-        replace_existing=True,
-        misfire_grace_time=cron.ONE_DAY_IN_SECS,
-        kwargs=func_kwargs,
-        **trigger_args
-    )
-
-    return job
 
 
 class API(object):
@@ -152,16 +61,12 @@ class API(object):
             """Create (configure) instance."""
             _LOGGER.info('create: %s %r', rsrc_id, rsrc)
 
-            job = cron.get_job(scheduler(), rsrc_id)
-            if job:
-                raise exc.FoundError('{} already exists'.format(rsrc_id))
-
             event = rsrc.get('event')
             resource = rsrc.get('resource')
             expression = rsrc.get('expression')
             count = rsrc.get('count')
 
-            job = update_job(
+            job = cron_model.create(
                 scheduler(), rsrc_id, event, resource, expression, count
             )
             _LOGGER.debug('job: %r', job)
@@ -181,7 +86,7 @@ class API(object):
             expression = rsrc.get('expression')
             count = rsrc.get('count')
 
-            job = update_job(
+            job = cron_model.update(
                 scheduler(), rsrc_id, event, resource, expression, count
             )
             _LOGGER.debug('job: %r', job)

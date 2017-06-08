@@ -1,16 +1,23 @@
 #!/bin/sh
 
 DIR={{ dir }}
-ECHO={{ echo }}
-LS={{ ls }}
-RM={{ rm }}
-IONICE={{ ionice }}
-CHOWN={{ chown }}
-S6={{ s6 }}
-PID1={{ pid1 }}
+ECHO={{ _alias.echo }}
+GREP={{ _alias.grep }}
+LN={{ _alias.ln }}
+LS={{ _alias.ls }}
+RM={{ _alias.rm }}
+IONICE={{ _alias.ionice }}
+CHOWN={{ _alias.chown }}
+S6={{ _alias.s6 }}
+PID1={{ _alias.pid1 }}
 TREADMILL={{ treadmill }}
 TREADMILL_ID={{ treadmillid }}
-TREADMILL_SPAWN={{ treadmill_spawn }}
+TREADMILL_SPAWN={{ _alias.treadmill_spawn }}
+TREADMILL_SPAWN_PATH={{ _alias.treadmill_spawn_path }}
+
+# Update symlink
+$ECHO "Updating treadmill-spawn symlink to $TREADMILL_SPAWN"
+$LN -sf $TREADMILL_SPAWN {{ dir }}/bin/treadmill-spawn
 
 # Make sure ulimits are extremely large
 ulimit -n 131072
@@ -21,7 +28,7 @@ $ECHO "set max user processes to $(ulimit -Su)"
 
 $CHOWN -R $TREADMILL_ID $DIR
 
-export PATH=$S6/bin:$TREADMILL_SPAWN:${PATH}
+export PATH=$S6/bin:$TREADMILL_SPAWN_PATH:${PATH}
 
 for SVC in $($LS {{ dir }}/init); do
     $GREP {{ dir }}/init/$SVC/\$ {{ dir }}/.install > /dev/null

@@ -11,7 +11,7 @@ from treadmill import utils
 _LOGGER = logging.getLogger(__name__)
 
 
-class TreadmillError(StandardError):
+class TreadmillError(Exception):
     """Base class for all Treadmill errors"""
 
     def __str__(self):

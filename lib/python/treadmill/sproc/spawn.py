@@ -3,7 +3,6 @@
 import logging
 
 import click
-from treadmill import subproc
 from treadmill.spawn import manifest_watch
 from treadmill.spawn import cleanup
 from treadmill.spawn import tree as spawn_tree
@@ -55,8 +54,7 @@ def init():
         """Starts the spawn tree."""
         tree = spawn_tree.Tree(approot)
         tree.create()
-
-        subproc.safe_exec(['s6_svscan', tree.svscan_tree_dir])
+        tree.run()
 
     del watch_manifest_cmd
     del cleanup_cmd

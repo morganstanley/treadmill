@@ -9,6 +9,7 @@ import yaml
 
 from treadmill import cgroups
 from treadmill import cgutils
+from treadmill import fs
 from treadmill import psmem
 
 NANOSECS_PER_10MILLI = 10000000
@@ -176,7 +177,29 @@ def read_cpu_stats(cgrp):
     return data
 
 
-def app_metrics(cgrp):
+def get_fs_usage(block_dev):
+    """Get the block statistics and compute the used disk space."""
+    if block_dev is None:
+        return {}
+
+    fs_info = fs.read_filesystem_info(block_dev)
+    return {'fs.used_bytes': calc_fs_usage(fs_info)}
+
+
+def calc_fs_usage(fs_info):
+    """Return the used filesystem space in bytes.
+
+    Reserved blocks are treated as used blocks because the primary goal of this
+    usage metric is to indicate whether the container has to be resized.
+    """
+    blk_cnt = int(fs_info['block count'])
+    free_blk_cnt = int(fs_info['free blocks'])
+    blk_size = int(fs_info['block size'])
+
+    return (blk_cnt - free_blk_cnt) * blk_size
+
+
+def app_metrics(cgrp, block_dev):
     """Returns app metrics or empty dict if app not found."""
     result = {}
 
@@ -196,6 +219,10 @@ def app_metrics(cgrp):
         result.update(blkio_stats)
         blkio_stats = read_blkio_value_stats(cgrp)
         result.update(blkio_stats)
+
+        # merge filesystem stats into dict
+        fs_usage = get_fs_usage(block_dev)
+        result.update(fs_usage)
 
     except IOError as err:
         if err.errno != errno.ENOENT:
