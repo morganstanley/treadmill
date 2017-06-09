@@ -1,5 +1,4 @@
-"""
-Unit test for treadmill.runtime.linux._finish.
+"""Unit test for treadmill.runtime.linux._finish.
 """
 
 import datetime
@@ -35,7 +34,6 @@ class LinuxRuntimeFinishTest(unittest.TestCase):
         self.root = tempfile.mkdtemp()
         self.tm_env = mock.Mock(
             root=self.root,
-            host_ip='172.31.81.67',
             # nfs_dir=os.path.join(self.root, 'mnt', 'nfs'),
             apps_dir=os.path.join(self.root, 'apps'),
             archives_dir=os.path.join(self.root, 'archives'),
@@ -96,7 +94,6 @@ class LinuxRuntimeFinishTest(unittest.TestCase):
             'cpu': '100%',
             'disk': '100G',
             'environment': 'dev',
-            'host_ip': '172.31.81.67',
             'memory': '100M',
             'name': 'proid.myapp#001',
             'proid': 'foo',
@@ -152,6 +149,7 @@ class LinuxRuntimeFinishTest(unittest.TestCase):
             'vip': '192.168.0.2',
             'gateway': '192.168.254.254',
             'veth': 'testveth.0',
+            'external_ip': '172.31.81.67',
         }
         mock_nwrk_client.get.return_value = network
         app_dir = os.path.join(self.tm_env.apps_dir, app_unique_name)
@@ -162,14 +160,10 @@ class LinuxRuntimeFinishTest(unittest.TestCase):
         with open(os.path.join(app_dir, 'exitinfo'), 'w') as f:
             f.write(yaml.dump({'service': 'web_server', 'rc': 0, 'sig': 0}))
         mock_zkclient = kazoo.client.KazooClient()
+        mock_watchdog = mock.Mock()
 
-        app_finish.finish(self.tm_env, mock_zkclient, app_dir)
+        app_finish.finish(self.tm_env, mock_zkclient, app_dir, mock_watchdog)
 
-        self.tm_env.watchdogs.create.assert_called_with(
-            'treadmill.runtime.linux._finish-' + app_unique_name,
-            '5m',
-            mock.ANY
-        )
         treadmill.subproc.check_call.assert_has_calls(
             [
                 mock.call(
@@ -315,6 +309,8 @@ class LinuxRuntimeFinishTest(unittest.TestCase):
             os.path.join(app_dir, 'metrics.rrd')
         )
 
+        self.assertTrue(mock_watchdog.remove.called)
+
     @mock.patch('kazoo.client.KazooClient', mock.Mock(set_spec=True))
     @mock.patch('shutil.copy', mock.Mock())
     @mock.patch('treadmill.appevents.post', mock.Mock())
@@ -341,7 +337,6 @@ class LinuxRuntimeFinishTest(unittest.TestCase):
             'cpu': '100%',
             'disk': '100G',
             'environment': 'dev',
-            'host_ip': '172.31.81.67',
             'memory': '100M',
             'name': 'proid.myapp#001',
             'proid': 'foo',
@@ -389,6 +384,7 @@ class LinuxRuntimeFinishTest(unittest.TestCase):
             'vip': '192.168.0.2',
             'gateway': '192.168.254.254',
             'veth': 'testveth.0',
+            'external_ip': '172.31.81.67',
         }
         mock_nwrk_client.get.return_value = network
         app_dir = os.path.join(self.tm_env.apps_dir, app_unique_name)
@@ -399,9 +395,10 @@ class LinuxRuntimeFinishTest(unittest.TestCase):
         with open(os.path.join(app_dir, 'exitinfo'), 'w') as f:
             f.write(yaml.dump({'service': 'web_server', 'rc': 1, 'sig': 3}))
         mock_zkclient = kazoo.client.KazooClient()
+        mock_watchdog = mock.Mock()
 
         app_finish.finish(
-            self.tm_env, mock_zkclient, app_dir
+            self.tm_env, mock_zkclient, app_dir, mock_watchdog
         )
 
         treadmill.appevents.post.assert_called_with(
@@ -426,6 +423,8 @@ class LinuxRuntimeFinishTest(unittest.TestCase):
                          app_unique_name + '.rrd'),
             os.path.join(app_dir, 'metrics.rrd')
         )
+
+        self.assertTrue(mock_watchdog.remove.called)
 
     @mock.patch('kazoo.client.KazooClient', mock.Mock(set_spec=True))
     @mock.patch('shutil.copy', mock.Mock())
@@ -500,6 +499,7 @@ class LinuxRuntimeFinishTest(unittest.TestCase):
             'vip': '192.168.0.2',
             'gateway': '192.168.254.254',
             'veth': 'testveth.0',
+            'external_ip': '172.31.81.67',
         }
         mock_nwrk_client.get.return_value = network
         app_dir = os.path.join(self.root, 'apps', app_unique_name)
@@ -510,9 +510,10 @@ class LinuxRuntimeFinishTest(unittest.TestCase):
         with open(os.path.join(app_dir, 'aborted'), 'w') as aborted:
             aborted.write('something went wrong')
         mock_zkclient = kazoo.client.KazooClient()
+        mock_watchdog = mock.Mock()
 
         app_finish.finish(
-            self.tm_env, mock_zkclient, app_dir
+            self.tm_env, mock_zkclient, app_dir, mock_watchdog
         )
 
         treadmill.appevents.post(
@@ -536,11 +537,13 @@ class LinuxRuntimeFinishTest(unittest.TestCase):
             os.path.join(app_dir, 'metrics.rrd')
         )
 
+        self.assertTrue(mock_watchdog.remove.called)
+
     @mock.patch('treadmill.subproc.check_call', mock.Mock(return_value=0))
     def test_finish_no_manifest(self):
-        """Test app finish on directory with no app.yml.
+        """Test app finish on directory with no app.json.
         """
-        app_finish.finish(self.tm_env, None, self.root)
+        app_finish.finish(self.tm_env, None, self.root, mock.Mock())
 
     @mock.patch('kazoo.client.KazooClient', mock.Mock(set_spec=True))
     @mock.patch('shutil.copy', mock.Mock())
@@ -578,7 +581,6 @@ class LinuxRuntimeFinishTest(unittest.TestCase):
             'cpu': '100%',
             'disk': '100G',
             'environment': 'dev',
-            'host_ip': '172.31.81.67',
             'memory': '100M',
             'name': 'proid.myapp#001',
             'proid': 'foo',
@@ -633,16 +635,12 @@ class LinuxRuntimeFinishTest(unittest.TestCase):
         with open(os.path.join(app_dir, 'exitinfo'), 'w') as f:
             f.write(yaml.dump({'service': 'web_server', 'rc': 0, 'sig': 0}))
         mock_zkclient = kazoo.client.KazooClient()
+        mock_watchdog = mock.Mock()
 
         treadmill.runtime.linux._finish.finish(
-            self.tm_env, mock_zkclient, app_dir
+            self.tm_env, mock_zkclient, app_dir, mock_watchdog
         )
 
-        self.tm_env.watchdogs.create.assert_called_with(
-            'treadmill.runtime.linux._finish-' + app_unique_name,
-            '5m',
-            mock.ANY
-        )
         treadmill.subproc.check_call.assert_has_calls(
             [
                 mock.call(
@@ -707,6 +705,8 @@ class LinuxRuntimeFinishTest(unittest.TestCase):
             os.path.join(app_dir, 'metrics.rrd')
         )
 
+        self.assertTrue(mock_watchdog.remove.called)
+
     def test__copy_metrics(self):
         """Test that metrics are copied safely.
         """
@@ -765,7 +765,7 @@ class LinuxRuntimeFinishTest(unittest.TestCase):
 
         tar = tarfile.open(sys_archive)
         files = sorted([member.name for member in tar.getmembers()])
-        self.assertEquals(
+        self.assertEqual(
             files,
             ['a.rrd', 'a.yml', 'log/current',
              'sys/bla/log/current', 'sys/foo/log/current']
@@ -774,7 +774,7 @@ class LinuxRuntimeFinishTest(unittest.TestCase):
 
         tar = tarfile.open(app_archive)
         files = sorted([member.name for member in tar.getmembers()])
-        self.assertEquals(
+        self.assertEqual(
             files,
             ['services/xxx/log/current']
         )

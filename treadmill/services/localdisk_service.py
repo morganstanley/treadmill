@@ -9,6 +9,7 @@ import re
 import subprocess
 
 from .. import cgroups
+from .. import cgutils
 from .. import exc
 from .. import fs
 from .. import logcontext as lc
@@ -204,7 +205,7 @@ class LocalDiskResourceService(BaseResourceServiceImpl):
             # FIXME(boysson): The unique id <-> cgroup relation should be
             #                 captured in the cgroup module.
             cgrp = os.path.join('treadmill', 'apps', app_unique_name)
-            cgroups.create('blkio', cgrp)
+            cgutils.create('blkio', cgrp)
             major, minor = lv_info['dev_major'], lv_info['dev_minor']
             cgroups.set_value(
                 'blkio', cgrp,

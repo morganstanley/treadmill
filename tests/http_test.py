@@ -1,5 +1,4 @@
-"""
-Unit test for Treadmill http module.
+"""Unit test for Treadmill http module.
 """
 
 import unittest

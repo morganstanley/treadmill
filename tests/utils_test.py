@@ -217,8 +217,10 @@ class UtilsTest(unittest.TestCase):
         self.assertEqual('xxxx', utils.find_in_path('xxxx'))
 
         os.chmod(os.path.join(temp_dir, 'xxxx'), int(utils.EXEC_MODE))
-        self.assertEqual(os.path.join(temp_dir, 'xxxx'),
-                         utils.find_in_path('xxxx'))
+        self.assertEqual(
+            os.path.join(temp_dir, 'xxxx'),
+            utils.find_in_path('xxxx')
+        )
 
         os.environ['PATH'] = saved_path
 
@@ -226,8 +228,10 @@ class UtilsTest(unittest.TestCase):
         """Tests conversion of values into human readable format."""
         self.assertEqual('1.0M', utils.bytes_to_readable(1024, 'K'))
         self.assertEqual('1.0G', utils.bytes_to_readable(1024, 'M'))
-        self.assertEqual('2.5T',
-                         utils.bytes_to_readable(1024 * 1024 * 2.5, 'M'))
+        self.assertEqual(
+            '2.5T',
+            utils.bytes_to_readable(1024 * 1024 * 2.5, 'M')
+        )
         self.assertEqual('1.0K', utils.bytes_to_readable(1024, 'B'))
         self.assertEqual('2,310', utils.cpu_to_readable(2310))
         self.assertEqual('23.10', utils.cpu_to_cores_readable(2310))
@@ -250,14 +254,17 @@ class UtilsTest(unittest.TestCase):
                 f.write('%d\n' % i)
         with open(filepath) as f:
             lines = utils.tail_stream(f, 5)
-            self.assertEqual(['9995\n', '9996\n', '9997\n', '9998\n',
-                              '9999\n'],
-                             lines)
+            self.assertEqual(
+                ['9995\n', '9996\n', '9997\n', '9998\n', '9999\n'],
+                lines
+            )
 
         # Test utils.tail given the file name.
         lines = utils.tail(filepath, 5)
-        self.assertEqual(['9995\n', '9996\n', '9997\n', '9998\n', '9999\n'],
-                         lines)
+        self.assertEqual(
+            ['9995\n', '9996\n', '9997\n', '9998\n', '9999\n'],
+            lines
+        )
         os.unlink(filepath)
 
         self.assertEqual([], utils.tail('/no/such/thing'))

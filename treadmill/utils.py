@@ -12,6 +12,7 @@ import signal
 import stat
 import time
 import urllib.parse
+
 from collections import namedtuple
 
 # Pylint warning re string being deprecated
@@ -566,3 +567,8 @@ def equals_list2dict(equals_list):
 def encode_uri_parts(path):
     """Encode URI path components"""
     return '/'.join([urllib.parse.quote(part) for part in path.split('/')])
+
+
+def log_extension_failure(_manager, _entrypoint, exception):
+    """Logs errors for stevedore extensions."""
+    _LOGGER.error(str(exception))

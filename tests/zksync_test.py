@@ -236,6 +236,21 @@ class ZkSyncTest(mockzk.MockZookeeperTestCase):
                                  cont_watch_predicate=lambda *args: False)
         self.assertFalse(kazoo.client.KazooClient.get_children.called)
 
+    def test_write_data(self):
+        """Tests writing data to filesystem."""
+        path_ok = os.path.join(self.root, 'a')
+        zksync.write_data(path_ok, None, 12345)
+        self.assertTrue(os.path.exists(path_ok))
+
+        path_too_long = os.path.join(self.root, 'a' * 1024)
+        self.assertRaises(
+            OSError,
+            zksync.write_data, path_too_long, None, 12345)
+        self.assertFalse(os.path.exists(path_too_long))
+
+        zksync.write_data(path_too_long, None, 12345, raise_err=False)
+        self.assertFalse(os.path.exists(path_too_long))
+
 
 if __name__ == '__main__':
     unittest.main()

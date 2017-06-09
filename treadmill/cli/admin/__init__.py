@@ -38,6 +38,7 @@ def _handle_no_such_ldap_obj(err):
 
 ON_EXCEPTIONS = cli.handle_exceptions([
     (ldap3.LDAPInsufficientAccessRightsResult, 'Error: access denied.'),
+    (ldap3.LDAPBindError, 'Error: invalid credentials.'),
     (ldap3.LDAPNoSuchObjectResult, _handle_no_such_ldap_obj),
     (kazoo.exceptions.NoAuthError, 'Error: not authorized.'),
     (kazoo.exceptions.NoNodeError, 'Error: resource does not exist.'),
@@ -61,7 +62,7 @@ def init():
     @click.pass_context
     def run(ctx):
         """Admin commands."""
-        cli.init_logger('admin.yml')
+        cli.init_logger('admin.conf')
 
         log_level = logging.WARN
         if ctx.obj.get('logging.debug'):

@@ -1,0 +1,7 @@
+#!/bin/sh
+#
+# Starts Treadmill metrics collection daemon.
+#
+
+exec {{ treadmill_bin }} \
+    sproc --cgroup . metrics --step 15

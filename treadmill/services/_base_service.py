@@ -583,7 +583,7 @@ class ResourceService(object):
                 _LOGGER.debug('Updated %r: %r', fd, fd_data)
 
         all_fds = set(handler[0] for handler in handlers)
-        for fd in poll_callbacks.keys():
+        for fd in list(poll_callbacks):
             if fd not in all_fds:
                 _LOGGER.debug('Unregistered %r: %r', fd, poll_callbacks[fd])
                 poll.unregister(fd)

@@ -3,7 +3,6 @@
 
 # pylint: disable=C0103
 
-
 import click
 import kazoo
 
@@ -49,7 +48,7 @@ def view_group(parent):
         cell_master.load_servers(readonly=True)
         cell_master.load_allocations()
         cell_master.load_strategies()
-        cell_master.load_apps(readonly=True)
+        cell_master.load_apps()
         cell_master.load_identity_groups()
         cell_master.load_placement_data()
 

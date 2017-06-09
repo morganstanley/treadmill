@@ -1,15 +1,12 @@
+"""Treadmill Instance REST api.
 """
-Treadmill Instance REST api.
-"""
-
-
-import http.client
 
 import flask
 import flask_restplus as restplus
 from flask_restplus import fields
 
 # Disable E0611: No 'name' in module
+from treadmill import exc  # pylint: disable=E0611
 from treadmill import webutils  # pylint: disable=E0611
 # pylint: disable=E0611,E0401
 from treadmill.api.model import app as app_model
@@ -114,15 +111,22 @@ def init(api, cors, impl):
             """Bulk updates list of instances."""
             deltas = flask.request.json['instances']
             if not isinstance(deltas, list):
-                api.abort(http.client.BAD_REQUEST, 'Not a list: %r.' % deltas)
+                raise exc.InvalidInputError(
+                    __name__,
+                    'deltas is not a list: {}'.format(deltas)
+                )
             result = []
             for delta in deltas:
                 if not isinstance(delta, dict):
-                    api.abort(http.client.BAD_REQUEST,
-                              'Not a dict: %r.' % delta)
+                    raise exc.InvalidInputError(
+                        __name__,
+                        'delta is not a dict: {}'.format(deltas)
+                    )
                 if '_id' not in delta:
-                    api.abort(http.client.BAD_REQUEST,
-                              'Missing _id attribute: %r' % delta)
+                    raise exc.InvalidInputError(
+                        __name__,
+                        'delta is missing _id attribute: {}'.format(deltas)
+                    )
 
                 # rest of validation is done in API.
                 rsrc_id = delta.get('_id')
@@ -146,8 +150,9 @@ def init(api, cors, impl):
             """Return Treadmill instance configuration."""
             instance = impl.get(instance_id)
             if not instance:
-                api.abort(http.client.NOT_FOUND,
-                          'Instance does not exist: %s' % instance_id)
+                raise exc.NotFoundError(
+                    'Instance does not exist: {}'.format(instance_id)
+                )
             return instance
 
         @webutils.post_api(api, cors,

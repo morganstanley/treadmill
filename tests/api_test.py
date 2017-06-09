@@ -1,5 +1,4 @@
-"""
-Unit test for treadmill.api input validation.
+"""Unit test for treadmill.api input validation.
 """
 
 import unittest
@@ -25,16 +24,20 @@ class ApiTest(unittest.TestCase):
         self.assertEqual({'a': [1]}, api.normalize({'a': [[], 1, {}]}))
 
         self.assertEqual(
-            {'a': {'b': 1}}, api.normalize({'a': {'b': 1}})
+            {'a': {'b': 1}},
+            api.normalize({'a': {'b': 1}})
         )
         self.assertEqual(
-            {'a': {'b': 1}}, api.normalize({'a': {'b': 1, 'c': None}})
+            {'a': {'b': 1}},
+            api.normalize({'a': {'b': 1, 'c': None}})
         )
         self.assertEqual(
-            {'a': [{'b': 1}]}, api.normalize({'a': [{'b': 1}]})
+            {'a': [{'b': 1}]},
+            api.normalize({'a': [{'b': 1}]})
         )
         self.assertEqual(
-            {'a': [{'b': 1}]}, api.normalize({'a': [{'b': 1, 'c': None}]})
+            {'a': [{'b': 1}]},
+            api.normalize({'a': [{'b': 1, 'c': None}]})
         )
 
 

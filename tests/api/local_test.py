@@ -1,4 +1,5 @@
-"""Local API tests."""
+"""Local API tests.
+"""
 
 import os
 import unittest

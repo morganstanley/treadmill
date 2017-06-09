@@ -1,5 +1,5 @@
-"""Watch for application state transitions."""
-
+"""Watch for application state transitions.
+"""
 
 import fnmatch
 import logging
@@ -7,6 +7,9 @@ import tempfile
 import os
 import sqlite3
 import zlib
+import time
+
+import kazoo
 
 from treadmill import exc
 from treadmill import zknamespace as z
@@ -20,11 +23,10 @@ _LOGGER = logging.getLogger(__name__)
 class AppTrace(object):
     """Trace application lifecycle events.
 
-    Application events are stored under app task Zookeeper directory, sequence
-    node for each event.
+    Application events are stored under app trace Zookeeper directory.
 
     events are in the form:
-    timestamp,source,event,msg
+    instancename,timestamp,source,event,msg
     """
     def __init__(self, zkclient, instanceid, callback=None):
         self.zk = zkclient
@@ -36,7 +38,6 @@ class AppTrace(object):
     def run(self, snapshot=False, ctx=None):
         """Process application events.
         """
-        children_watch_created = self.zk.handler.event_object()
         if snapshot:
             self._is_done.set()
 
@@ -59,37 +60,40 @@ class AppTrace(object):
             else:
                 return not snapshot
 
-        # Setup the instance ID's task watch
-        task_node = z.path.task(self.instanceid)
+        trace_node = z.path.trace(self.instanceid)
 
-        @self.zk.DataWatch(task_node)
+        try:
+            @self.zk.ChildrenWatch(trace_node)
+            @exc.exit_on_unhandled
+            def _watch_trace_events(event_nodes):
+                """Process new children events."""
+                self._process_events(event_nodes, ctx)
+                return not snapshot
+        except kazoo.client.NoNodeError:
+            _LOGGER.warn('Trace does not exist: %s', self.instanceid)
+            self._is_done.set()
+            return
+
+        finished_node = z.path.finished(self.instanceid)
+
+        @self.zk.DataWatch(finished_node)
         @exc.exit_on_unhandled
-        def _watch_task(data, stat, event):
-            """Watch for task to appear and then process events.
+        def _watch_finished(data, stat, event):
+            """Watch for finished to appear and then process events.
             """
             if data is None and stat is None:
                 # Node doesn't exist yet.
-                _LOGGER.info('Task znode not exist %r', task_node)
+                _LOGGER.info('finished znode not exist %r', finished_node)
                 return True
 
             elif event and event.type == 'DELETED':
-                # If task node is deleted, this is fatal, and we should exit.
-                _LOGGER.warning('Task znode deleted %r', task_node)
+                # If finished node is deleted, this is fatal, and we should
+                # exit.
+                _LOGGER.warning('finished znode deleted %r', finished_node)
                 self._is_done.set()
                 return False
 
             else:
-                if not children_watch_created.is_set():
-                    children_watch_created.set()
-                    # Setup the instance ID's task node children events
-
-                    @self.zk.ChildrenWatch(task_node)
-                    @exc.exit_on_unhandled
-                    def _watch_task_events(event_nodes):
-                        """Process new children events."""
-                        self._process_events(event_nodes, ctx)
-                        return not snapshot
-
                 return not snapshot
 
     def wait(self, timeout=None):
@@ -100,25 +104,35 @@ class AppTrace(object):
         return self._is_done.wait(timeout=timeout)
 
     def _process_events(self, event_nodes, ctx):
-        """Process task event nodes.
+        """Process finished event nodes.
         """
         all_events = sorted([tuple(event_node.split(','))
                              for event_node in event_nodes])
 
-        for timestamp, source, event_type, event_data in all_events:
+        for (instanceid,
+             timestamp,
+             source,
+             event_type,
+             event_data) in all_events:
+
             if float(timestamp) <= float(self._last_event):
                 continue
 
-            self._process_event(timestamp, source, event_type, event_data, ctx)
+            if instanceid != self.instanceid:
+                continue
+
+            self._process_event(instanceid, timestamp, source, event_type,
+                                event_data, ctx)
             self._last_event = timestamp
 
-    def _process_event(self, timestamp, source, event_type, event_data, ctx):
+    def _process_event(self, instanceid, timestamp, source, event_type,
+                       event_data, ctx):
         """Process event of given type."""
         # Master events.
         event = traceevents.AppTraceEvent.from_data(
             timestamp=timestamp,
             source=source,
-            instanceid=self.instanceid,
+            instanceid=instanceid,
             event_type=event_type,
             event_data=event_data,
         )
@@ -126,157 +140,142 @@ class AppTrace(object):
             self._callback.process(event, ctx)
 
 
-def list_history(zkclient, app_pattern):
-    """List all historical tasks for given app name."""
-    tasks = []
-    for app in zkclient.get_children(z.TASKS):
+def list_traces(zkclient, app_pattern):
+    """List all available traces for given app name."""
+    if '#' not in app_pattern:
+        app_pattern += '#*'
+
+    apps = []
+    for app in zkclient.get_children(z.SCHEDULED):
         if fnmatch.fnmatch(app, app_pattern):
-            instances = zkclient.get_children(z.path.task(app))
-            tasks.extend([app + '#' + instance for instance in instances])
+            apps.append(app)
 
-    return tasks
+    for app in zkclient.get_children(z.FINISHED):
+        if fnmatch.fnmatch(app, app_pattern):
+            apps.append(app)
 
-
-class TaskDB(object):
-    """Create task DB snapshots and upload to ZK."""
-
-    _CREATE_TASKS_TABLE = """
-    create table tasks (path text, timestamp integer, data text)
-    """
-
-    _INSERT_TASK = 'insert into tasks values(?, ?, ?)'
-
-    _SNAPSHOT_SIZE = 10000  # Approx number of rows in one snapshot.
-
-    def __init__(self, zkclient):
-        self.zkclient = zkclient
-        self.name = None
-        self.conn = None
-        self.cur = None
-        self.rows_count = 0
-
-    def _open(self):
-        """Create empty database and open connection."""
-        with tempfile.NamedTemporaryFile(delete=False) as f:
-            pass
-
-        self.name = f.name
-        self.conn = sqlite3.connect(f.name)
-        self.cur = self.conn.cursor()
-        self.cur.execute(self._CREATE_TASKS_TABLE)
-        self.rows_count = 0
-
-        _LOGGER.info('Initialized task_db snapshot: %s', self.name)
-
-    def _close(self):
-        """Close database, compress and upload to ZK."""
-        _LOGGER.info('Closing task_db snapshot: %s, total rows: %s',
-                     self.name, self.rows_count)
-        self.conn.commit()
-        self.conn.close()
-
-        if self.rows_count > 0:
-            db_node_path = z.path.tasks_history('tasks.db.gzip-')
-            with open(self.name, 'rb') as f:
-                db_node = zkutils.create(
-                    self.zkclient, db_node_path, zlib.compress(
-                        f.read()
-                    ),
-                    sequence=True
-                )
-                _LOGGER.info('Uploaded compressed task_db snapshot: %s to: %s',
-                             self.name, db_node)
-
-        os.unlink(self.name)
-        self.name = None
-        self.conn = None
-        self.cur = None
-        self.rows_count = 0
-
-    def add(self, rows, close=False):
-        """Add rows to the database as transaction, upload when enough rows."""
-        if not self.conn:
-            self._open()
-
-        _LOGGER.info('task_db: added %s rows to: %s', len(rows), self.name)
-        self.cur.executemany(self._INSERT_TASK, rows)
-        self.rows_count += len(rows)
-        self.conn.commit()
-
-        if close or self.rows_count > self._SNAPSHOT_SIZE:
-            self._close()
-            return True
-        else:
-            return False
+    # TODO: support finished history
+    return apps
 
 
-def _delete_all(zkclient, to_be_deleted, recursive=True):
-    """Delete a list of paths."""
-    for path in to_be_deleted:
-        _LOGGER.info('Removing: %s (cleanup)', path)
-        zkutils.ensure_deleted(zkclient, path, recursive)
+def _upload_batch(zkclient, db_node_path, dbname, batch):
+    """Generate snapshot DB and upload to zk."""
+    with tempfile.NamedTemporaryFile(delete=False) as f:
+        pass
+
+    with sqlite3.connect(f.name) as conn:
+        conn.execute(
+            'create table %s (path text, timestamp integer, data text)' % (
+                dbname
+            )
+        )
+        conn.executemany(
+            'insert into %s (path, timestamp, data) values(?, ?, ?)' % (
+                dbname
+            ),
+            batch
+        )
+        conn.executescript(
+            """
+            CREATE INDEX path_timestamp_idx on %s (path, timestamp);
+
+            PRAGMA query_only = TRUE;
+            """ % dbname
+        )
+    conn.close()
+
+    with open(f.name, 'rb') as f:
+        db_node = zkutils.create(
+            zkclient, db_node_path, zlib.compress(f.read()),
+            sequence=True
+        )
+        _LOGGER.info(
+            'Uploaded compressed trace_db snapshot: %s to: %s',
+            f.name, db_node
+        )
+
+    os.unlink(f.name)
+
+    # Delete uploaded nodes from zk.
+    for path, _ts, _data in batch:
+        zkutils.with_retry(zkutils.ensure_deleted, zkclient, path)
 
 
-def _cleanup_tasks(zkclient):
-    """Move finished tasks (with trace) to tasks history.
+def cleanup_trace(zkclient, batch_size, expires_after):
+    """Move expired traces into history folder, compressed as sqlite db."""
+    shards = zkclient.get_children(z.TRACE)
+    traces = []
+    for shard in shards:
+        events = zkclient.get_children(z.path.trace_shard(shard))
+        for event in events:
+            timestamp = float(event.split(',')[1])
+            if timestamp < time.time() - expires_after:
+                traces.append((timestamp, shard, event))
 
-    Tasks history is chunked into a compressed sqlite snapshots of about 200KB.
-    """
-    task_db = TaskDB(zkclient)
+    # Sort traces from older to latest.
+    traces.sort()
 
-    rows = []
-    to_be_deleted = []
+    for idx in range(0, len(traces), batch_size):
+        # Take a slice of batch_size
+        batch = traces[idx:idx + batch_size]
+        if len(batch) < batch_size:
+            _LOGGER.info('Traces: batch = %s, total = %s, exiting.',
+                         batch_size, len(batch))
+            break
 
-    tasks = zkclient.get_children(z.TASKS)
-    for task in tasks:
-        instances = sorted(zkclient.get_children(z.path.task(task)))
-        fullnames = ['%s#%s' % (task, instance) for instance in instances]
-        finished = [fullname for fullname in fullnames
-                    if not zkclient.exists(z.path.scheduled(fullname))]
+        db_rows = [
+            (z.join_zookeeper_path(z.TRACE, shard, event), timestamp, None)
+            for timestamp, shard, event in batch
+        ]
 
-        for fullname in finished:
-            # Archive instance data, it's a summary info used by the state API.
-            data, stat = zkclient.get(z.path.task(fullname))
-            timestamp = int(stat.last_modified)
-            rows.append((z.path.task(fullname), timestamp, data))
-
-            # Archive instance trace, parse timestamp from event (as in zk2fs).
-            events = zkclient.get_children(z.path.task(fullname))
-            for event in events:
-                when, _rest = event.split(',', 1)
-                timestamp = int(float(when))
-                rows.append((z.path.task(fullname, event), timestamp, None))
-
-            # Commit after 1k rows, upload after 10k rows, delete data from ZK.
-            to_be_deleted.append(z.path.task(fullname))
-            if len(rows) > 1000:
-                uploaded = task_db.add(rows)
-                rows = []
-                if uploaded:
-                    _delete_all(zkclient, to_be_deleted)
-                    to_be_deleted = []
-
-    # Add remaining rows.
-    task_db.add(rows, close=True)
-    _delete_all(zkclient, to_be_deleted)
+        _upload_batch(
+            zkclient,
+            z.path.trace_history('trace.db.gzip-'),
+            'trace',
+            db_rows
+        )
 
 
-_MAX_TASKS_HISTORY_SIZE = 1000  # Max number of snapshots.
+def cleanup_finished(zkclient, batch_size, expires_after):
+    """Move expired finished events into finished history."""
+
+    expired = []
+    for finished in zkclient.get_children(z.FINISHED):
+        node_path = z.path.finished(finished)
+        data, metadata = zkclient.get(node_path)
+        if metadata.last_modified < time.time() - expires_after:
+            expired.append((node_path, metadata.last_modified, data))
+
+    for idx in range(0, len(expired), batch_size):
+        batch = expired[idx:idx + batch_size]
+        if len(batch) < batch_size:
+            _LOGGER.info('Finished: batch = %s, total = %s, exiting.',
+                         batch_size, len(batch))
+            break
+
+        _upload_batch(
+            zkclient,
+            z.path.finished_history('finished.db.gzip-'),
+            'finished',
+            batch
+        )
 
 
-def _cleanup_tasks_history(zkclient):
-    """Delete old tasks history, keep last MAX_TASKS_HISTORY_SIZE snapshots."""
-    tasks_history = sorted(zkclient.get_children(z.TASKS_HISTORY))
-
-    to_be_deleted = [
-        z.path.tasks_history(old_tasks_history)
-        for old_tasks_history in tasks_history[:-_MAX_TASKS_HISTORY_SIZE]
-    ]
-
-    _delete_all(zkclient, to_be_deleted, recursive=False)
+def _cleanup(zkclient, path, max_count):
+    """Cleanup old nodes given path."""
+    nodes = sorted(zkclient.get_children(path))
+    extra = len(nodes) - max_count
+    if extra > 0:
+        for node in nodes[0:extra]:
+            zkutils.ensure_deleted(zkclient,
+                                   z.join_zookeeper_path(path, node))
 
 
-def cleanup(zkclient):
-    """Run single gc cycle."""
-    _cleanup_tasks(zkclient)
-    _cleanup_tasks_history(zkclient)
+def cleanup_trace_history(zkclient, max_count):
+    """Cleanup trace history."""
+    _cleanup(zkclient, z.TRACE_HISTORY, max_count)
+
+
+def cleanup_finished_history(zkclient, max_count):
+    """Cleanup trace history."""
+    _cleanup(zkclient, z.FINISHED_HISTORY, max_count)

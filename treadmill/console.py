@@ -1,21 +1,16 @@
-"""Treadmill console entry point."""
-
+"""Treadmill console entry point.
+"""
 
 import logging
 import logging.config
-import os
-import tempfile
-import traceback
 
 import click
 import requests
-import yaml
 
 # pylint complains about imports from treadmill not grouped, but import
 # dependencies need to come first.
 #
 # pylint: disable=C0412
-import treadmill
 from treadmill import cli
 
 
@@ -31,12 +26,24 @@ from treadmill import cli
               callback=cli.handle_context_opt,
               is_eager=True,
               expose_value=False)
+@click.option('--dns-server', required=False, envvar='TREADMILL_DNS_SERVER',
+              callback=cli.handle_context_opt,
+              is_eager=True,
+              expose_value=False)
 @click.option('--ldap', required=False, envvar='TREADMILL_LDAP',
               callback=cli.handle_context_opt,
               is_eager=True,
               expose_value=False)
-@click.option('--ldap-search-base', required=False,
-              envvar='TREADMILL_LDAP_SEARCH_BASE',
+@click.option('--ldap-user', required=False, envvar='TREADMILL_LDAP_USER',
+              callback=cli.handle_context_opt,
+              is_eager=True,
+              expose_value=False)
+@click.option('--ldap-pwd', required=False, envvar='TREADMILL_LDAP_PWD',
+              callback=cli.handle_context_opt,
+              is_eager=True,
+              expose_value=False)
+@click.option('--ldap-suffix', required=False,
+              envvar='TREADMILL_LDAP_SUFFIX',
               callback=cli.handle_context_opt,
               is_eager=True,
               expose_value=False)
@@ -58,20 +65,8 @@ def run(ctx, with_proxy, outfmt, debug):
     if outfmt:
         cli.OUTPUT_FORMAT = outfmt
 
-    # Default logging to cli.yml, at CRITICAL, unless --debug
-    cli_log_conf_file = os.path.join(treadmill.TREADMILL, 'etc', 'logging',
-                                     'cli.yml')
-    try:
-        with open(cli_log_conf_file, 'r') as fh:
-            log_config = yaml.load(fh)
-            logging.config.dictConfig(log_config)
-    except IOError:
-        with tempfile.NamedTemporaryFile(delete=False, mode='w') as f:
-            traceback.print_exc(file=f)
-            click.echo('Unable to load log conf: %s [ %s ]' %
-                       (cli_log_conf_file, f.name), err=True)
-        return
-
+    # Default logging to cli.conf, at CRITICAL, unless --debug
+    cli.init_logger('cli.conf')
     if debug:
         ctx.obj['logging.debug'] = True
         logging.getLogger('treadmill').setLevel(logging.DEBUG)

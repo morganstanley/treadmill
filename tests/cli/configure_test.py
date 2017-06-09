@@ -39,7 +39,7 @@ class ConfigureTest(unittest.TestCase):
 
         result = self.runner.invoke(self.configure_cli,
                                     ['proid.app'])
-        self.assertEquals(result.exit_code, 0)
+        self.assertEqual(result.exit_code, 0)
         self.assertIn('proid.app', result.output)
         self.assertIn('128M', result.output)
         self.assertIn('5%', result.output)
@@ -72,7 +72,7 @@ class ConfigureTest(unittest.TestCase):
 
         result = self.runner.invoke(self.configure_cli, [])
 
-        self.assertEquals(result.exit_code, 0)
+        self.assertEqual(result.exit_code, 0)
 
         self.assertTrue(
             re.search(r'^proid.app\s+', result.output, re.MULTILINE)

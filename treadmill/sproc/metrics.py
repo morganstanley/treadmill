@@ -14,11 +14,11 @@ from treadmill import appenv
 from treadmill import exc
 from treadmill import fs
 from treadmill import rrdutils
-from treadmill import metrics as mtx
+from treadmill.metrics import rrd
 
 #: Metric collection interval (every X seconds)
-_METRIC_TIMEOUT_SEC = 60 * 2
-_METRIC_TIMEOUT_SEC = 10
+_METRIC_STEP_SEC_MIN = 15
+_METRIC_STEP_SEC_MAX = 300
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -39,7 +39,10 @@ def init():
     #
     # pylint: disable=R0915
     @click.command()
-    @click.option('--step', '-s', type=int, default=_METRIC_TIMEOUT_SEC,
+    @click.option('--step', '-s',
+                  type=click.IntRange(_METRIC_STEP_SEC_MIN,
+                                      _METRIC_STEP_SEC_MAX),
+                  default=_METRIC_STEP_SEC_MIN,
                   help='Metrics collection frequency (sec)')
     @click.option('--approot', type=click.Path(exists=True),
                   envvar='TREADMILL_APPROOT', required=True)
@@ -80,15 +83,23 @@ def init():
                 rrdclient.create(rrdfile, step, interval)
 
         while True:
-            rrdclient.update(
+            starttime_sec = time.time()
+            rrd.update(
+                rrdclient,
                 os.path.join(core_metrics_dir, 'treadmill.apps.rrd'),
-                mtx.app_metrics('treadmill/apps', sys_maj_min))
-            rrdclient.update(
+                'treadmill/apps', sys_maj_min
+            )
+            rrd.update(
+                rrdclient,
                 os.path.join(core_metrics_dir, 'treadmill.core.rrd'),
-                mtx.app_metrics('treadmill/core', sys_maj_min))
-            rrdclient.update(
+                'treadmill/core', sys_maj_min
+            )
+            rrd.update(
+                rrdclient,
                 os.path.join(core_metrics_dir, 'treadmill.system.rrd'),
-                mtx.app_metrics('treadmill/system', sys_maj_min))
+                'treadmill', sys_maj_min
+            )
+            count = 3
 
             for svc in sys_svcs:
                 if svc in sys_svcs_no_metrics:
@@ -100,8 +111,8 @@ def init():
                     rrdclient.create(rrdfile, step, interval)
 
                 svc_cgrp = os.path.join('treadmill', 'core', svc)
-                svc_metrics = mtx.app_metrics(svc_cgrp, sys_maj_min)
-                rrdclient.update(rrdfile, svc_metrics)
+                rrd.update(rrdclient, rrdfile, svc_cgrp, sys_maj_min)
+                count += 1
 
             seen_apps = set()
             for app_dir in glob.glob('%s/*' % tm_env.apps_dir):
@@ -126,8 +137,8 @@ def init():
                     rrdclient.create(rrd_file, step, interval)
 
                 app_cgrp = os.path.join('treadmill', 'apps', app_unique_name)
-                app_metrics = mtx.app_metrics(app_cgrp, blkio_major_minor)
-                rrdclient.update(rrd_file, app_metrics)
+                rrd.update(rrdclient, rrd_file, app_cgrp, blkio_major_minor)
+                count += 1
 
             for app_unique_name in monitored_apps - seen_apps:
                 # Removed metrics for apps that are not present anymore
@@ -138,7 +149,12 @@ def init():
                 os.unlink(rrd_file)
 
             monitored_apps = seen_apps
-            time.sleep(step)
+
+            second_used = time.time() - starttime_sec
+            _LOGGER.info('Got %d cgroups metrics in %.3f seconds',
+                         count, second_used)
+            if step > second_used:
+                time.sleep(step - second_used)
 
         # Gracefull shutdown.
         _LOGGER.info('service shutdown.')

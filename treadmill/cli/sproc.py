@@ -1,40 +1,41 @@
-"""Implementation of treadmill-admin CLI plugin."""
-
+"""Implementation of treadmill-admin CLI plugin.
+"""
 
 import logging
-import logging.config
 import os
-import tempfile
-import traceback
 
 import click
-import yaml
 
-import treadmill
 from treadmill import cli
-from .. import cgroups
+from treadmill import cgroups
+from treadmill import cgutils
+
+_LOGGER = logging.getLogger(__name__)
 
 
 def _configure_core_cgroups(service_name):
     """Configure service specific cgroups."""
     group = os.path.join('treadmill/core', service_name)
+    # create group directory
     for subsystem in ['memory', 'cpu', 'cpuacct', 'blkio']:
-        logging.info('creating and joining: %s/%s', subsystem, group)
-        cgroups.create(subsystem, group)
+        _LOGGER.info('creating and joining: %s/%s', subsystem, group)
+        cgutils.create(subsystem, group)
         cgroups.join(subsystem, group)
 
+    # set memory usage limits
     memlimits = ['memory.limit_in_bytes',
                  'memory.memsw.limit_in_bytes',
                  'memory.soft_limit_in_bytes']
     for limit in memlimits:
         parent_limit = cgroups.get_value('memory', 'treadmill/core', limit)
-        logging.info('setting %s: %s', limit, parent_limit)
+        _LOGGER.info('setting %s: %s', limit, parent_limit)
         cgroups.set_value('memory', group, limit, parent_limit)
 
+    # set cpu share limits
     cpulimits = ['cpu.shares']
     for limit in cpulimits:
         parent_limit = cgroups.get_value('cpu', 'treadmill/core', limit)
-        logging.info('setting %s: %s', limit, parent_limit)
+        _LOGGER.info('setting %s: %s', limit, parent_limit)
         cgroups.set_value('cpu', group, limit, parent_limit)
 
 
@@ -55,19 +56,8 @@ def init():
     @click.pass_context
     def run(ctx, cgroup):
         """Run system processes"""
-        # Default logging to cli.yml, at CRITICAL, unless --debug
-        log_conf_file = os.path.join(treadmill.TREADMILL, 'etc', 'logging',
-                                     'daemon.yml')
-        try:
-            with open(log_conf_file, 'r') as fh:
-                log_config = yaml.load(fh)
-                logging.config.dictConfig(log_config)
-
-        except IOError:
-            with tempfile.NamedTemporaryFile(delete=False, mode='w') as f:
-                traceback.print_exc(file=f)
-                click.echo('Unable to load log conf: %s [ %s ]' %
-                           (log_conf_file, f.name), err=True)
+        # Default logging to daemon.conf, at CRITICAL, unless --debug
+        cli.init_logger('daemon.conf')
 
         log_level = None
         if ctx.obj.get('logging.debug'):

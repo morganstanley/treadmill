@@ -1,4 +1,5 @@
-"""Local node REST api tests."""
+"""Local node REST api tests.
+"""
 
 import getopt
 import http.client
@@ -79,20 +80,20 @@ class LocalTest(unittest.TestCase):
 
         resp = self.client.get('/app/proid.app/uniq/service/service_name')
 
-        self.assertEqual(json.loads((b''.join(resp.response)).decode('utf-8')),
+        self.assertEqual(json.loads((b''.join(resp.response)).decode()),
                          {'start': 0, 'limit': None, 'order': 'asc'})
         self.assertEqual(resp.status_code, http.client.OK)
 
         resp = self.client.get(
             '/app/proid.app/uniq/service/service_name?start=0&limit=5')
 
-        self.assertEqual(json.loads((b''.join(resp.response)).decode('utf-8')),
+        self.assertEqual(json.loads((b''.join(resp.response)).decode()),
                          {'start': 0, 'limit': 5, 'order': 'asc'})
         self.assertEqual(resp.status_code, http.client.OK)
 
         resp = self.client.get(
             '/app/proid.app/uniq/sys/component?start=3&limit=9&order=desc')
-        self.assertEqual(json.loads((b''.join(resp.response)).decode('utf-8')),
+        self.assertEqual(json.loads((b''.join(resp.response)).decode()),
                          {'start': 3, 'limit': 9, 'order': 'desc'})
         self.assertEqual(resp.status_code, http.client.OK)
 
@@ -143,7 +144,7 @@ if __name__ == '__main__':
     if opts and '-l' in opts[0]:
         sys.argv[1:] = []
         log_conf_file = os.path.join(treadmill.TREADMILL, 'etc', 'logging',
-                                     'daemon.yml')
+                                     'daemon.conf')
         with open(log_conf_file, 'r') as fh:
             logging.config.dictConfig(yaml.load(fh))
 

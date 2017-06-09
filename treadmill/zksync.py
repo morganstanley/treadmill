@@ -1,7 +1,5 @@
+"""Syncronizes Zookeeper to file system.
 """
-Syncronizes Zookeeper to file system.
-"""
-
 
 import logging
 import glob
@@ -18,6 +16,25 @@ from treadmill import zkutils
 
 
 _LOGGER = logging.getLogger(__name__)
+
+
+def write_data(fpath, data, modified, raise_err=True):
+    """Safely write data to file path."""
+    with tempfile.NamedTemporaryFile(dir=os.path.dirname(fpath),
+                                     delete=False,
+                                     prefix='.tmp',
+                                     mode='w') as temp:
+        if data:
+            temp.write(data)
+        os.fchmod(temp.fileno(), 0o644)
+    os.utime(temp.name, (modified, modified))
+    try:
+        os.rename(temp.name, fpath)
+    except OSError:
+        _LOGGER.error('Unable to rename: %s => %s', temp.name, fpath,
+                      exc_info=True)
+        if raise_err:
+            raise
 
 
 class Zk2Fs(object):
@@ -55,14 +72,7 @@ class Zk2Fs(object):
     def _write_data(self, fpath, data, stat):
         """Write Zookeeper data to filesystem.
         """
-        with tempfile.NamedTemporaryFile(dir=os.path.dirname(fpath),
-                                         delete=False,
-                                         prefix='.tmp',
-                                         mode='w') as temp:
-            temp.write(data)
-            os.fchmod(temp.fileno(), 0o644)
-        os.utime(temp.name, (stat.last_modified, stat.last_modified))
-        os.rename(temp.name, fpath)
+        write_data(fpath, data, stat.last_modified, raise_err=True)
 
     def _data_watch(self, zkpath, data, stat, event):
         """Invoked when data changes."""

@@ -35,8 +35,9 @@ def init(api, cors, impl):
         'memory': fields.String(description='Memory'),
         'cpu': fields.String(description='CPU'),
         'disk': fields.String(description='Disk size'),
-        'rank': fields.String(description='App rank'),
+        'rank': fields.Integer(description='App rank'),
         'cell': fields.String(description='Cell'),
+        'partition': fields.String(description='Partition'),
         'traits': fields.List(fields.String(description='Traits')),
         'assignments': fields.List(fields.Nested(assignment)),
     })
@@ -116,14 +117,14 @@ def init(api, cors, impl):
 
         @webutils.get_api(api, cors,
                           marshal=api.marshal_with,
-                          resp_model=allocation_model)
+                          resp_model=reservation)
         def get(self, tenant_id, alloc_id, cell):
             """Returns the details of the reservation."""
             return impl.reservation.get('/'.join([tenant_id, alloc_id, cell]))
 
         @webutils.post_api(api, cors,
-                           req_model=allocation_model,
-                           resp_model=allocation_model)
+                           req_model=reservation,
+                           resp_model=reservation)
         def post(self, tenant_id, alloc_id, cell):
             """Creates a Treadmill reservation in the cell."""
             return impl.reservation.create(
@@ -132,8 +133,8 @@ def init(api, cors, impl):
             )
 
         @webutils.put_api(api, cors,
-                          req_model=allocation_model,
-                          resp_model=allocation_model)
+                          req_model=reservation,
+                          resp_model=reservation)
         def put(self, tenant_id, alloc_id, cell):
             """Updates Treadmill reservation configuration."""
             return impl.reservation.update(
@@ -145,10 +146,9 @@ def init(api, cors, impl):
         @webutils.delete_api(api, cors)
         def delete(self, tenant_id, alloc_id, cell):
             """Deletes Treadmill allocation."""
-            del tenant_id
-            del alloc_id
-            del cell
-            raise Exception('Not implemented.')
+            return impl.reservation.delete(
+                '/'.join([tenant_id, alloc_id, cell])
+            )
 
     @namespace.route('/<tenant_id>/<alloc_id>/assignment/<cell>/<pattern>',)
     @api.doc(responses={404: 'Not found'})
@@ -163,7 +163,7 @@ def init(api, cors, impl):
 
         @webutils.get_api(api, cors,
                           marshal=api.marshal_with,
-                          resp_model=allocation_model)
+                          resp_model=assignment)
         def get(self, tenant_id, alloc_id, cell, pattern):
             """Returns the details of the reservation."""
             return impl.assignment.get(
@@ -171,8 +171,8 @@ def init(api, cors, impl):
             )
 
         @webutils.post_api(api, cors,
-                           req_model=allocation_model,
-                           resp_model=allocation_model)
+                           req_model=assignment,
+                           resp_model=assignment)
         def post(self, tenant_id, alloc_id, cell, pattern):
             """Creates a Treadmill reservation in the cell."""
             return impl.assignment.create(
@@ -181,8 +181,8 @@ def init(api, cors, impl):
             )
 
         @webutils.put_api(api, cors,
-                          req_model=allocation_model,
-                          resp_model=allocation_model)
+                          req_model=assignment,
+                          resp_model=assignment)
         def put(self, tenant_id, alloc_id, cell, pattern):
             """Updates Treadmill allocation assignment."""
             return impl.assignment.update(

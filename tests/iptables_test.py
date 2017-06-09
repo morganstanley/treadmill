@@ -430,8 +430,8 @@ class IptablesTest(unittest.TestCase):
             iptables.POSTROUTING_SNAT
         )
 
-        self.assertEquals(0, treadmill.iptables.add_snat_rule.call_count)
-        self.assertEquals(0, treadmill.iptables.delete_snat_rule.call_count)
+        self.assertEqual(0, treadmill.iptables.add_snat_rule.call_count)
+        self.assertEqual(0, treadmill.iptables.delete_snat_rule.call_count)
 
     @mock.patch('treadmill.iptables.add_snat_rule', mock.Mock())
     @mock.patch('treadmill.iptables.delete_snat_rule', mock.Mock())
@@ -463,7 +463,7 @@ class IptablesTest(unittest.TestCase):
                               '192.168.2.15', 22),
             chain=iptables.POSTROUTING_SNAT
         )
-        self.assertEquals(0, treadmill.iptables.delete_snat_rule.call_count)
+        self.assertEqual(0, treadmill.iptables.delete_snat_rule.call_count)
 
     @mock.patch('treadmill.iptables.add_snat_rule', mock.Mock())
     @mock.patch('treadmill.iptables.delete_snat_rule', mock.Mock())
@@ -490,7 +490,7 @@ class IptablesTest(unittest.TestCase):
             iptables.PREROUTING_DNAT
         )
 
-        self.assertEquals(0, treadmill.iptables.add_snat_rule.call_count)
+        self.assertEqual(0, treadmill.iptables.add_snat_rule.call_count)
         treadmill.iptables.delete_snat_rule.assert_called_with(
             firewall.SNATRule('tcp',
                               '172.31.81.67', 5004,
@@ -512,7 +512,7 @@ class IptablesTest(unittest.TestCase):
             ['iptables',
              '-t', 'nat', '-S', iptables.POSTROUTING_SNAT]
         )
-        self.assertEquals(set(rules), self.snat_rules)
+        self.assertEqual(set(rules), self.snat_rules)
 
     @mock.patch('treadmill.iptables.add_raw_rule', mock.Mock())
     def test_add_passthrough_rule(self):

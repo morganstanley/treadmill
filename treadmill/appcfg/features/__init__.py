@@ -4,6 +4,8 @@ import pkgutil
 
 from stevedore import extension
 
+from treadmill import utils
+
 
 __path__ = pkgutil.extend_path(__path__, __name__)
 
@@ -19,7 +21,9 @@ def _extension_manager():
         return _FEATURES_EXTENSION_MANAGER
 
     _FEATURES_EXTENSION_MANAGER = extension.ExtensionManager(
-        namespace=_FEATURES_NAMESPACE
+        namespace=_FEATURES_NAMESPACE,
+        propagate_map_exceptions=True,
+        on_load_failure_callback=utils.log_extension_failure
     )
 
     return _FEATURES_EXTENSION_MANAGER

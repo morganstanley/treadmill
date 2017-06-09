@@ -16,10 +16,10 @@ def dns_domain():
     assert False
 
 
-def ldap_search_base():
+def ldap_suffix():
     """Returns ldap search base.
 
-    return 'ou=treadmill,dc=xx,dc=com'
+    return 'dc=xx,dc=com'
     """
     assert False
 

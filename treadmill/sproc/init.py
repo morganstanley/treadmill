@@ -7,7 +7,6 @@ This service is also responsible for shutting down the node, when necessary or
 requested, by disabling all traffic from and to the containers.
 """
 
-import errno
 import logging
 import os
 import time
@@ -77,9 +76,6 @@ def init():
             # Cleanup the watchdog directory
             tm_env.watchdogs.initialize()
 
-            # Initialize the Kernel watchdog
-            _init_kernel_watchdog()
-
             _init_network()
 
             _LOGGER.info('Ready.')
@@ -98,9 +94,6 @@ def init():
                 )
 
         else:
-            # Initialize the Kernel watchdog (to catch deadlock in shutdown)
-            _init_kernel_watchdog()
-
             # Node was already blacked out.
             _LOGGER.warning('Shutting down blacked out node.')
 
@@ -116,9 +109,6 @@ def init():
 
         # to ternminate all the running apps
         _blackout_terminate(tm_env)
-
-        # Clear the kernel watchdog
-        _clear_kernel_watchdog()
 
         if exit_on_fail:
             utils.sys_exit(-1)
@@ -200,10 +190,9 @@ def _node_initialize(tm_env, zkclient, hostname,
                      zk_server_path, zk_presence_path):
     """Node initialization. Should only be done on a cold start.
     """
-    tm_env.initialize()
     new_node_info = sysinfo.node_info(tm_env)
 
-    # XXX: Why a get/update dance instead of set
+    # Merging scheduler data with node_info data
     node_info = zkutils.get(zkclient, zk_server_path)
     node_info.update(new_node_info)
     _LOGGER.info('Registering node: %s: %s, %r',
@@ -217,62 +206,13 @@ def _node_initialize(tm_env, zkclient, hostname,
                 acl=[host_acl],
                 ephemeral=True)
 
-
-def _init_kernel_watchdog():
-    """Initialize the kernel watchdog.
-
-    After making this call, you will have to call `_stroke_kernel_watchdog`
-    regularly or the host will reboot or call `_clear_kernel_watchdog` to stop
-    the watchdog altogether.
-    """
-    # Usage of the global statement for kernel watchdog socket.
-    # pylint: disable=W0603
-    global _KERNEL_WATCHDOG
-
-    if os.name == 'nt':
-        return None
-    try:
-        kwd = open('/dev/watchdog', 'wb', buffering=0)
-        kwd.write(b'1')
-    except (OSError, IOError) as err:
-        if err.errno != errno.ENOENT:
-            raise
-        _LOGGER.warning('Unable to setup Kernel watchdog.')
-        kwd = None
-
-    _KERNEL_WATCHDOG = kwd
-
-
-def _stroke_kernel_watchdog():
-    """Stroke the kernel watchdog.
-    """
-    if os.name == 'nt':
-        return None
-
-    if _KERNEL_WATCHDOG is not None:
-        _KERNEL_WATCHDOG.write(b'1')
-
-
-def _clear_kernel_watchdog():
-    """Clear the kernel watchdog.
-    """
-    # Usage of the global statement for kernel watchdog socket.
-    # pylint: disable=W0603
-    global _KERNEL_WATCHDOG
-
-    if os.name == 'nt':
-        return
-
-    if _KERNEL_WATCHDOG is not None:
-        _KERNEL_WATCHDOG.write(b'V')
-        _KERNEL_WATCHDOG.close()
-        _KERNEL_WATCHDOG = None
+    # Invoke the local node initialization
+    tm_env.initialize(node_info)
 
 
 def _exit_clear_watchdog_on_lost(state):
     _LOGGER.debug('ZK connection state: %s', state)
     if state == zkutils.states.KazooState.LOST:
-        _clear_kernel_watchdog()
         _LOGGER.info('Exiting on ZK connection lost.')
         utils.sys_exit(-1)
 
@@ -285,7 +225,6 @@ def _main_loop(tm_env, zkclient, zk_presence_path):
     down_reason = None
     # Now that the server is registered, setup the stop-on-delete
     # trigger and the deadman's trigger.
-    # XXX: node_deleted_event = threading.Events
     node_deleted_event = zkclient.handler.event_object()
     node_deleted_event.clear()
 
@@ -305,8 +244,6 @@ def _main_loop(tm_env, zkclient, zk_presence_path):
     while not node_deleted_event.wait(_WATCHDOG_CHECK_INTERVAL):
         # NOTE: The loop time above is tailored to the kernel watchdog time.
         #       Be very careful before changing it.
-        # Keep alive with the kernel
-        _stroke_kernel_watchdog()
         # Check our watchdogs
         result = tm_env.watchdogs.check()
         if result:

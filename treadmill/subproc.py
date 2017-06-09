@@ -1,10 +1,10 @@
-"""Safely invoke external binaries."""
+"""Safely invoke external binaries.
+"""
 
-
+import importlib
 import logging
 import os
 import subprocess
-import yaml
 
 import treadmill
 
@@ -20,23 +20,24 @@ class CommandAliasError(Exception):
     pass
 
 
-def get_aliases():
+def get_aliases(aliases_path=None):
     """Load aliases of external binaries that can invoked."""
     global _EXECUTABLES  # pylint: disable=W0603
     if _EXECUTABLES:
         return _EXECUTABLES
 
-    aliases_path = os.environ.get('TREADMILL_ALIASES_PATH')
+    if not aliases_path:
+        aliases_path = os.environ.get('TREADMILL_ALIASES_PATH')
+
     assert aliases_path is not None
     # TODO: need to check that file is either owned by running proc
     #                or root.
     _LOGGER.debug('Loading aliases path: %s', aliases_path)
 
     exes = {}
-    for aliases in aliases_path.split(':'):
-        _LOGGER.debug('Loading aliases: %s', aliases)
-        with open(aliases) as f:
-            exes.update(yaml.load(stream=f))
+    for name in aliases_path.split(':'):
+        alias_mod = importlib.import_module(name)
+        exes.update(getattr(alias_mod, 'ALIASES'))
 
     tm = os.environ.get('TREADMILL')
     if tm is not None:
@@ -80,7 +81,6 @@ def resolve(exe):
         raise CommandAliasError()
     else:
         if not _check(safe_exe):
-            print('Not found: ', exe, safe_exe)
             _LOGGER.critical('Command not found: %s, %s', exe, safe_exe)
             raise CommandAliasError()
 

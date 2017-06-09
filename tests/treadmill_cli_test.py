@@ -21,8 +21,8 @@ from treadmill.sproc import zk2fs as zk2fs_sproc
 def check_help(testcase, args):
     """Checks help invocation."""
     testcase.assertEqual(
+        0,
         testcase.runner.invoke(testcase.cli, args + ['--help']).exit_code,
-        0
     )
 
 

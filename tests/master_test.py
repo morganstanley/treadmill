@@ -49,9 +49,14 @@ class MasterTest(mockzk.MockZookeeperTestCase):
         """Tests parsing resources."""
         self.assertEqual([0, 0, 0], master.resources({}))
         self.assertEqual([1, 0, 0], master.resources({'memory': '1M'}))
-        self.assertEqual([1, 10, 1024], master.resources({'memory': '1M',
-                                                          'cpu': '10%',
-                                                          'disk': '1G'}))
+        self.assertEqual(
+            [1, 10, 1024],
+            master.resources(
+                {'memory': '1M',
+                 'cpu': '10%',
+                 'disk': '1G'}
+            )
+        )
 
     @mock.patch('kazoo.client.KazooClient.get', mock.Mock())
     @mock.patch('kazoo.client.KazooClient.exists', mock.Mock())
@@ -227,7 +232,6 @@ class MasterTest(mockzk.MockZookeeperTestCase):
 
     @mock.patch('kazoo.client.KazooClient.get', mock.Mock())
     @mock.patch('kazoo.client.KazooClient.get_children', mock.Mock())
-    @mock.patch('treadmill.master.Master._create_task', mock.Mock())
     def test_load_apps(self):
         """Tests loading application data."""
         zk_content = {
@@ -307,6 +311,53 @@ class MasterTest(mockzk.MockZookeeperTestCase):
     @mock.patch('treadmill.zkutils.put', mock.Mock())
     @mock.patch('treadmill.zkutils.update', mock.Mock())
     @mock.patch('time.time', mock.Mock(return_value=500))
+    def test_reschedule_maxutil(self):
+        """Tests application placement."""
+        srv_1 = scheduler.Server('1', [10, 10, 10],
+                                 valid_until=1000, traits=0)
+        srv_2 = scheduler.Server('2', [10, 10, 10],
+                                 valid_until=1000, traits=0)
+        srv_3 = scheduler.Server('3', [10, 10, 10],
+                                 valid_until=1000, traits=0)
+        srv_4 = scheduler.Server('4', [10, 10, 10],
+                                 valid_until=1000, traits=0)
+        cell = self.master.cell
+        cell.add_node(srv_1)
+        cell.add_node(srv_2)
+        cell.add_node(srv_3)
+        cell.add_node(srv_4)
+
+        app1 = scheduler.Application('app1', 4, [1, 1, 1], 'app')
+        app2 = scheduler.Application('app2', 3, [2, 2, 2], 'app')
+
+        cell.partitions[None].allocation.set_reserved([1, 1, 1])
+        cell.partitions[None].allocation.set_max_utilization(2)
+        cell.add_app(cell.partitions[None].allocation, app1)
+        cell.add_app(cell.partitions[None].allocation, app2)
+
+        self.master.reschedule()
+        treadmill.zkutils.put.assert_has_calls([
+            mock.call(mock.ANY, '/placement/1/app1',
+                      {'expires': 500, 'identity': None}, acl=mock.ANY),
+        ])
+
+        app2.priority = 5
+        self.master.reschedule()
+
+        treadmill.zkutils.ensure_deleted.assert_has_calls([
+            mock.call(mock.ANY, '/placement/1/app1'),
+        ])
+        treadmill.zkutils.put.assert_has_calls([
+            mock.call(mock.ANY, '/placement/2/app2',
+                      {'expires': 500, 'identity': None}, acl=mock.ANY),
+        ])
+
+    @mock.patch('kazoo.client.KazooClient.get', mock.Mock())
+    @mock.patch('kazoo.client.KazooClient.get_children', mock.Mock())
+    @mock.patch('treadmill.zkutils.ensure_deleted', mock.Mock())
+    @mock.patch('treadmill.zkutils.put', mock.Mock())
+    @mock.patch('treadmill.zkutils.update', mock.Mock())
+    @mock.patch('time.time', mock.Mock(return_value=500))
     def test_reschedule_once(self):
         """Tests application placement."""
         srv_1 = scheduler.Server('1', [10, 10, 10],
@@ -353,7 +404,6 @@ class MasterTest(mockzk.MockZookeeperTestCase):
     @mock.patch('treadmill.zkutils.ensure_exists', mock.Mock())
     @mock.patch('treadmill.zkutils.ensure_deleted', mock.Mock())
     @mock.patch('treadmill.zkutils.put', mock.Mock())
-    @mock.patch('treadmill.master.Master._create_task', mock.Mock())
     def test_restore_placement(self):
         """Tests application placement."""
         zk_content = {
@@ -438,10 +488,12 @@ class MasterTest(mockzk.MockZookeeperTestCase):
 
         self.assertEqual(self.master.cell.apps['xxx.app1#1234'].identity, 1)
         self.assertEqual(
-            self.master.cell.apps['xxx.app1#1234'].identity_group, 'xxx.app1')
+            self.master.cell.apps['xxx.app1#1234'].identity_group, 'xxx.app1'
+        )
         self.assertEqual(
             self.master.cell.identity_groups['xxx.app1'].available,
-            set([0, 2, 3, 4]))
+            set([0, 2, 3, 4])
+        )
 
     @mock.patch('kazoo.client.KazooClient.get', mock.Mock())
     @mock.patch('kazoo.client.KazooClient.exists', mock.Mock())
@@ -449,7 +501,6 @@ class MasterTest(mockzk.MockZookeeperTestCase):
     @mock.patch('treadmill.zkutils.ensure_exists', mock.Mock())
     @mock.patch('treadmill.zkutils.ensure_deleted', mock.Mock())
     @mock.patch('treadmill.zkutils.put', mock.Mock())
-    @mock.patch('treadmill.master.Master._create_task', mock.Mock())
     def test_restore_with_integrity_err(self):
         """Tests application placement."""
         zk_content = {
@@ -586,7 +637,7 @@ class MasterTest(mockzk.MockZookeeperTestCase):
                           sequence=True,
                           ephemeral=False,
                           acl=mock.ANY),
-                mock.call('/tasks/foo.bar/12/123.34,xxx,pending,',
+                mock.call('/trace/000C/foo.bar#12,123.34,xxx,pending,created',
                           b'',
                           makepath=True,
                           acl=mock.ANY),
@@ -598,7 +649,7 @@ class MasterTest(mockzk.MockZookeeperTestCase):
                           sequence=True,
                           ephemeral=False,
                           acl=mock.ANY),
-                mock.call('/tasks/foo.bar/12/123.34,xxx,pending,',
+                mock.call('/trace/000C/foo.bar#12,123.34,xxx,pending,created',
                           b'',
                           makepath=True,
                           acl=mock.ANY)
@@ -682,7 +733,6 @@ class MasterTest(mockzk.MockZookeeperTestCase):
     @mock.patch('treadmill.zkutils.ensure_exists', mock.Mock())
     @mock.patch('treadmill.zkutils.ensure_deleted', mock.Mock())
     @mock.patch('treadmill.zkutils.put', mock.Mock())
-    @mock.patch('treadmill.master.Master._create_task', mock.Mock())
     @mock.patch('time.time', mock.Mock())
     def test_check_reboot(self):
         """Tests reboot checks."""

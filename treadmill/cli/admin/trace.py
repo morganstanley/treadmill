@@ -1,7 +1,5 @@
-"""Trace treadmill application events."""
-
-
-import sys
+"""Trace treadmill application events.
+"""
 
 import click
 
@@ -33,25 +31,25 @@ def init():
         """
         if '#' not in app:
             # Instance is not specified, list matching and exit.
-            tasks = zk.list_history(context.GLOBAL.zk.conn, app)
-            if not tasks:
-                print('# Trace information does not exist.', file=sys.stderr)
+            traces = zk.list_traces(context.GLOBAL.zk.conn, app)
+            if not traces:
+                click.echo('# Trace information does not exist.', err=True)
                 return
 
             elif not last:
-                for task in sorted(tasks):
-                    print(task)
+                for instance_id in sorted(traces):
+                    print(instance_id)
                 return
 
             else:
-                task = sorted(tasks)[-1]
+                instance_id = sorted(traces)[-1]
 
         else:
-            task = app
+            instance_id = app
 
         trace = zk.AppTrace(
             context.GLOBAL.zk.conn,
-            task,
+            instance_id,
             callback=printer.AppTracePrinter()
         )
 

@@ -2,11 +2,11 @@
 """
 
 import pwd
-
 import importlib
 import os
-import decorator
+import pkgutil
 
+import decorator
 import click
 
 import jsonschema
@@ -31,16 +31,10 @@ class Context(object):
 def list_resource_types(api):
     """List available resource types."""
     apimod = importlib.import_module(api)
-    resources = []
-    for path in apimod.__path__:
-        for filename in os.listdir(path):
-            if filename == '__init__.py':
-                continue
-
-            if filename.endswith('.py'):
-                resources.append(filename[:-3])
-    resources.sort()
-    return resources
+    return sorted([
+        modulename for _loader, modulename, _ispkg
+        in pkgutil.iter_modules(apimod.__path__)
+    ])
 
 
 def _import_resource_mod(resource_type, debug=False):
@@ -76,7 +70,8 @@ def make_command(parent, name, func):
         """Constructs a command handler."""
         try:
             if 'rsrc' in kwargs:
-                kwargs['rsrc'] = yaml.load(kwargs['rsrc'].read())
+                with open(kwargs['rsrc'], 'rb') as fd:
+                    kwargs['rsrc'] = yaml.load(fd.read())
 
             formatter = cli.make_formatter(None)
             cli.out(formatter(func(*args, **kwargs)))
@@ -115,7 +110,10 @@ def make_command(parent, name, func):
     while args:
         if len(args) == 1:
             arg = args.pop(0)
-            click.argument(arg, type=click.File('rb'))(command)
+            click.argument(
+                arg,
+                type=click.Path(exists=True, readable=True)
+            )(command)
         else:
             arg = args.pop(0)
             click.argument(arg)(command)
@@ -131,7 +129,10 @@ def make_resource_group(ctx, parent, resource_type, api=None):
         if not mod:
             return
 
-        api = getattr(mod, 'init')(ctx)
+        try:
+            api = getattr(mod, 'init')(ctx)
+        except AttributeError:
+            return
 
     @parent.group(name=resource_type, help=api.__doc__)
     def _rsrc_group():

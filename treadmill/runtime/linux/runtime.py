@@ -62,23 +62,28 @@ class LinuxRuntime(runtime_base.RuntimeBase):
 
     def _can_run(self, manifest):
         try:
-            # TODO: Add support for TAR (and maybe DOCKER)
-            return appcfg.AppType(manifest['type']) is appcfg.AppType.NATIVE
+            return appcfg.AppType(manifest['type']) in (
+                appcfg.AppType.NATIVE,
+                appcfg.AppType.TAR
+                # TODO: Add support for DOCKER
+            )
         except ValueError:
             return False
 
+    def run_timeout(self, manifest):
+        if appcfg.AppType(manifest['type']) is appcfg.AppType.NATIVE:
+            return '60s'
+
+        # Inflated to allow time to download and extract the image.
+        return '5m'
+
     def _run(self, manifest, watchdog, terminated):
-        # Apply memory limits first thing after start, so that app_run
-        # does not consume memory from treadmill/core.
-        app_run.apply_cgroup_limits(self.tm_env, self.container_dir, manifest)
+        app_run.run(self.tm_env, self.container_dir, manifest, watchdog,
+                    terminated)
 
-        if not terminated:
-            app_run.run(self.tm_env, self.container_dir, manifest, watchdog,
-                        terminated)
-
-    def _finish(self):
+    def _finish(self, watchdog, terminated):
         app_finish.finish(self.tm_env, context.GLOBAL.zk.conn,
-                          self.container_dir)
+                          self.container_dir, watchdog)
 
     def _register(self, manifest, refresh_interval=None):
         app_presence = presence.EndpointPresence(
@@ -93,11 +98,11 @@ class LinuxRuntime(runtime_base.RuntimeBase):
                 _get_tickets(manifest['name'], manifest, self.container_dir)
 
             _start_service_sup(self.container_dir)
-        except exc.ContainerSetupError as err:
+        except exc.ContainerSetupError:
             app_abort.abort(
                 self.tm_env,
                 manifest['name'],
-                reason=str(err)
+                reason='container_setup_error',
             )
 
         # If tickets are not ok, app will be aborted. Waiting for tickets

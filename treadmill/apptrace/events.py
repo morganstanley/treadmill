@@ -83,12 +83,16 @@ class AppTraceEvent(object, metaclass=abc.ABCMeta):
     def to_data(self):
         """Returns a 6 tuple represtation of an event.
         """
+        event_data = self.event_data
+        if event_data is None:
+            event_data = ''
+
         return (
             self.timestamp,
             self.source,
             self.instanceid,
             self.event_type,
-            self.event_data,
+            event_data,
             self.payload
         )
 
@@ -139,9 +143,10 @@ class ScheduledTraceEvent(AppTraceEvent):
 
     __slots__ = (
         'where',
+        'why',
     )
 
-    def __init__(self, where,
+    def __init__(self, where, why,
                  timestamp=None, source=None, instanceid=None, payload=None):
         super(ScheduledTraceEvent, self).__init__(
             timestamp=timestamp,
@@ -150,6 +155,51 @@ class ScheduledTraceEvent(AppTraceEvent):
             payload=payload
         )
         self.where = where
+        self.why = why
+
+    @classmethod
+    def from_data(cls, timestamp, source, instanceid, event_type, event_data,
+                  payload=None):
+        assert cls == getattr(AppTraceEventTypes, event_type).value
+
+        if ':' in event_data:
+            where, why = event_data.split(':', 1)
+        else:
+            where = event_data
+            why = None
+
+        return cls(
+            timestamp=timestamp,
+            source=source,
+            instanceid=instanceid,
+            payload=payload,
+            where=where,
+            why=why,
+        )
+
+    @property
+    def event_data(self):
+        return '%s:%s' % (self.where, self.why)
+
+
+class PendingTraceEvent(AppTraceEvent):
+    """Event emitted when a container instance is seen by the scheduler but not
+    placed on a node.
+    """
+
+    __slots__ = (
+        'why',
+    )
+
+    def __init__(self, why,
+                 timestamp=None, source=None, instanceid=None, payload=None):
+        super(PendingTraceEvent, self).__init__(
+            timestamp=timestamp,
+            source=source,
+            instanceid=instanceid,
+            payload=payload
+        )
+        self.why = why
 
     @classmethod
     def from_data(cls, timestamp, source, instanceid, event_type, event_data,
@@ -160,36 +210,12 @@ class ScheduledTraceEvent(AppTraceEvent):
             source=source,
             instanceid=instanceid,
             payload=payload,
-            where=event_data
+            why=event_data
         )
 
     @property
     def event_data(self):
-        return self.where
-
-
-class PendingTraceEvent(AppTraceEvent):
-    """Event emitted when a container instance is seen by the scheduler but not
-    placed on a node.
-    """
-
-    __slots__ = (
-    )
-
-    @classmethod
-    def from_data(cls, timestamp, source, instanceid, event_type, event_data,
-                  payload=None):
-        assert cls == getattr(AppTraceEventTypes, event_type).value
-        return cls(
-            timestamp=timestamp,
-            source=source,
-            instanceid=instanceid,
-            payload=payload
-        )
-
-    @property
-    def event_data(self):
-        return None
+        return self.why
 
 
 class ConfiguredTraceEvent(AppTraceEvent):
@@ -489,12 +515,14 @@ class AppTraceEventHandler(object, metaclass=abc.ABCMeta):
             lambda self, event: self.on_scheduled(
                 when=event.timestamp,
                 instanceid=event.instanceid,
-                server=event.where
+                server=event.where,
+                why=event.why
             ),
         PendingTraceEvent:
             lambda self, event: self.on_pending(
                 when=event.timestamp,
-                instanceid=event.instanceid
+                instanceid=event.instanceid,
+                why=event.why
             ),
         DeletedTraceEvent:
             lambda self, event: self.on_deleted(
@@ -573,12 +601,12 @@ class AppTraceEventHandler(object, metaclass=abc.ABCMeta):
             self.ctx = None
 
     @abc.abstractmethod
-    def on_scheduled(self, when, instanceid, server):
+    def on_scheduled(self, when, instanceid, server, why):
         """Invoked when task is scheduled."""
         pass
 
     @abc.abstractmethod
-    def on_pending(self, when, instanceid):
+    def on_pending(self, when, instanceid, why):
         """Invoked when task is pending."""
         pass
 

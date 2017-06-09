@@ -1,4 +1,5 @@
 ansible==2.2.2.0
+APScheduler>=3.3,<3.4
 click>=6
 dateutils==0.6.6
 decorator>=4.0
@@ -6,7 +7,7 @@ dnspython==1.15.0
 enum34>=1.1
 Flask-RESTful>=0.3
 flask-restplus>=0.9
-Flask>=0.10,<0.11
+Flask==0.11.1
 HTML-TestRunner>=0.8
 iscpy>=1.5,<2
 Jinja2==2.9.5

@@ -22,7 +22,7 @@ _LOGGER = logging.getLogger(__name__)
 
 def _transfer_processes(subsystem, fromgroup, togroup):
     """Do the transfer of processes"""
-    pids = cgroups.get_value(subsystem, fromgroup, 'tasks')
+    pids = cgroups.get_data(subsystem, fromgroup, 'tasks')
     for pid in pids.strip().split('\n'):
         try:
             cgroups.set_value(subsystem, togroup, 'tasks', pid)
@@ -175,7 +175,7 @@ def init():
                 value = pathplus[1]
                 cgroups.set_value(subsystem, group, pseudofile, value)
             else:
-                cgroups.create(subsystem, path)
+                cgutils.create(subsystem, path)
                 cgroups.join(subsystem, path)
 
         if subcommand:

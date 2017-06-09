@@ -1,5 +1,4 @@
-"""
-Unit test for Kafka API, i.e. treadmill.kafka.
+"""Unit test for Kafka API, i.e. treadmill.kafka.
 """
 
 import os
@@ -65,8 +64,10 @@ class KafkaTest(unittest.TestCase):
         """Test getting Zookeeper instances for Kafka by ZK URL"""
         zk_instances = kafka.zk_instances_by_zkurl(_ZKURL)
 
-        self.assertEqual(zk_instances, 'bar.xx.com,baz.xx.com/%s' %
-                         kafka.KAFKA_ZK_ROOT)
+        self.assertEqual(
+            zk_instances,
+            'bar.xx.com,baz.xx.com/%s' % kafka.KAFKA_ZK_ROOT
+        )
 
     @mock.patch('treadmill.kafka._is_broker_up',
                 mock.Mock(return_value=True))

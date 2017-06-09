@@ -1,4 +1,5 @@
 """Allocation REST api tests."""
+
 import unittest
 
 from treadmill.rest.api import allocation

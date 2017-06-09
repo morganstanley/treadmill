@@ -97,7 +97,7 @@ class CGroupServiceTest(unittest.TestCase):
                       treadmill.sysinfo.BMIPS_PER_CPU)
         ])
 
-    @mock.patch('treadmill.cgroups.delete', mock.Mock())
+    @mock.patch('treadmill.cgutils.delete', mock.Mock())
     @mock.patch('treadmill.services.cgroup_service.CgroupResourceService.'
                 '_unregister_oom_handler', mock.Mock())
     def test_on_delete_request(self):
@@ -113,7 +113,7 @@ class CGroupServiceTest(unittest.TestCase):
         svc.on_delete_request(request_id)
 
         cgrp = os.path.join('treadmill/apps', request_id)
-        treadmill.cgroups.delete.assert_has_calls(
+        treadmill.cgutils.delete.assert_has_calls(
             [
                 mock.call(ss, cgrp)
                 for ss in ['cpu', 'cpuacct', 'memory', 'blkio']

@@ -71,16 +71,20 @@ class WatchdogTest(unittest.TestCase):
     def test_check_failed_1(self):
         """Check the return value when one watchdog died."""
         result = self.watchdog.check()
-        self.assertEqual(result,
-                         [('foo', 10.0, 'foo')])
+        self.assertEqual(
+            result,
+            [('foo', 10.0, 'foo')]
+        )
 
     @mock.patch('time.time', mock.Mock(return_value=15))
     def test_check_failed_2(self):
         """Check the return value when two watchdog died."""
         result = self.watchdog.check()
-        self.assertEqual(sorted(result),
-                         sorted([('foo', 10.0, 'foo'),
-                                 ('bar_30s', 15.0, 'bar_30s')]))
+        self.assertEqual(
+            sorted(result),
+            sorted([('foo', 10.0, 'foo'),
+                    ('bar_30s', 15.0, 'bar_30s')])
+        )
 
     @mock.patch('time.time', mock.Mock(return_value=0))
     def test_create(self):

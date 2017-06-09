@@ -15,6 +15,8 @@ CGROOT = '/cgroup'
 PROCCGROUPS = '/proc/cgroups'
 PROCMOUNTS = '/proc/mounts'
 
+_SUBSYSTEMS2MOUNTS = None
+
 
 def _mkdir_p(path):
     """proper mkdir -p implementation"""
@@ -36,8 +38,7 @@ def create(subsystem, group):
 def delete(subsystem, group):
     """Delete cgroup (and all sub-cgroups)"""
     fullpath = makepath(subsystem, group)
-    for (dirname, _subdirs, _files) in os.walk(fullpath, topdown=False):
-        os.rmdir(dirname)
+    os.rmdir(fullpath)
 
 
 def exists(subsystem, group):
@@ -55,47 +56,67 @@ def makepath(subsystem, group, pseudofile=None):
     return os.path.join(mountpoint, group)
 
 
+def extractpath(path, subsystem, pseudofile=None):
+    """Extract cgroup name from a cgroup path"""
+    mountpoint = get_mountpoint(subsystem)
+
+    if path.index(mountpoint) != 0:
+        raise ValueError('cgroup path not started with %s', mountpoint)
+
+    subpath = path[len(mountpoint):]
+
+    if pseudofile is None:
+        return subpath.strip('/')
+
+    index_pseudofile = 0 - len(pseudofile)
+    if subpath[index_pseudofile:] != pseudofile:
+        raise ValueError('cgroup path not end with pseudofile %s', pseudofile)
+
+    return subpath[:index_pseudofile].strip('/')
+
+
 def set_value(subsystem, group, pseudofile, value):
     """Set value in cgroup pseudofile"""
     fullpath = makepath(subsystem, group, pseudofile)
-    _LOGGER.debug('%s : %s', fullpath, value)
+    _LOGGER.debug('setting %s => %s', fullpath, value)
     with open(fullpath, 'w+') as f:
         f.write(str(value))
 
 
-def get_value(subsystem, group, pseudofile):
-    """Reads the value of cgroup parameter."""
+def get_data(subsystem, group, pseudofile):
+    """Reads the data of cgroup parameter."""
     fullpath = makepath(subsystem, group, pseudofile)
     with open(fullpath) as f:
         return f.read().strip()
 
 
-_BLKIO_THROTTLE_TYPES = {
-    'bps': 'blkio.throttle.io_service_bytes',
-    'iops': 'blkio.throttle.io_serviced',
-}
+def safe_int(num_str):
+    """ safely parse a value from cgroup pseudofile into an int"""
+    value = int(num_str.split('\n')[0].strip(), base=10)
+
+    # not able to have value less than 0
+    if value < 0:
+        value = 0
+
+    return value
 
 
-def get_blkio_info(cgrp, kind):
-    """Get blkio throttle info."""
-    assert kind in _BLKIO_THROTTLE_TYPES
-
-    blkio_data = get_value('blkio', cgrp, _BLKIO_THROTTLE_TYPES[kind])
-    blkio_info = {}
-    for entry in blkio_data.split('\n'):
-        if not entry or entry.startswith('Total'):
-            continue
-
-        major_minor, metric_type, value = entry.split(' ')
-        blkio_info.setdefault(major_minor, {})[metric_type] = int(value)
-
-    return blkio_info
+def get_value(subsystem, group, pseudofile):
+    """Reads the data and convert to value of cgroup parameter.
+    returns: int
+    """
+    data = get_data(subsystem, group, pseudofile)
+    try:
+        return safe_int(data)
+    except ValueError:
+        _LOGGER.exception('Invalid data from %s[%s]: %r',
+                          subsystem, group, data)
+        return 0
 
 
 def get_cpu_shares(cgrp):
     """Get cpu shares"""
-    shares = get_value('cpu', cgrp, 'cpu.shares')
-    return int(shares)
+    return get_value('cpu', cgrp, 'cpu.shares')
 
 
 def set_cpu_shares(cgrp, shares):
@@ -106,7 +127,7 @@ def set_cpu_shares(cgrp, shares):
 def get_cpuset_cores(cgrp):
     """Get list of enabled cores."""
     cores = []
-    cpuset = get_value('cpuset', cgrp, 'cpuset.cpus')
+    cpuset = get_data('cpuset', cgrp, 'cpuset.cpus')
     for entry in cpuset.split(','):
         cpus = entry.split('-')
         if len(cpus) == 1:
@@ -162,8 +183,14 @@ def available_subsystems():
 
 def mounted_subsystems():
     """Return a dict with cgroup subsystems and their mountpoints"""
-    subsystems2mounts = dict()
+    # allow global variable to cache
+    global _SUBSYSTEMS2MOUNTS  # pylint: disable=W0603
 
+    # _SUBSYSTEMS2MOUNTS is not empty
+    if _SUBSYSTEMS2MOUNTS:
+        return _SUBSYSTEMS2MOUNTS
+
+    _SUBSYSTEMS2MOUNTS = {}
     with open(PROCMOUNTS) as mounts:
         subsystems = available_subsystems()
         for mountline in mounts:
@@ -173,11 +200,11 @@ def mounted_subsystems():
                 if fs_vfstype == 'cgroup':
                     for op in fs_mntops.split(','):
                         if op in subsystems:
-                            subsystems2mounts[op] = fs_file
+                            _SUBSYSTEMS2MOUNTS[op] = fs_file
             except:  # pylint: disable=W0702
                 pass
 
-    return subsystems2mounts
+    return _SUBSYSTEMS2MOUNTS
 
 
 def get_mountpoint(subsystem):

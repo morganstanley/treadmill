@@ -11,7 +11,7 @@ def schedule(sched):
     """Helper function to run the scheduler."""
 
     def _schedule():
-        """Run the scheduler, print some stats."""
+        """Run the scheduler, output some stats."""
         new_placement = 0
         evicted = 0
         for event in sched.schedule():
@@ -31,11 +31,11 @@ def schedule(sched):
 # XXX: def test_reschedule(nodes_count, app_count, attempts, affinity):
 # XXX:     """Add high priority apps on top of low priority with full capacity.
 # XXX:     """
-# XXX:     print 'nodes: %s, apps: %s, attempts: %s' % (nodes_count,
+# XXX:     print('nodes: %s, apps: %s, attempts: %s' % (nodes_count,
 # XXX:                                                  app_count,
-# XXX:                                                  attempts)
+# XXX:                                                  attempts))
 # XXX:     cell = scheduler.Cell(3)
-# XXX:     for idx in xrange(0, nodes_count):
+# XXX:     for idx in range(0, nodes_count):
 # XXX:         node = scheduler.Node('node' + str(idx), [48, 48, 48])
 # XXX:         cell.add_node(node)
 # XXX:
@@ -44,8 +44,8 @@ def schedule(sched):
 # XXX:
 # XXX:     sched = scheduler.Scheduler(cell)
 # XXX:
-# XXX:     for attempt in xrange(0, attempts):
-# XXX:         for app_idx in xrange(0, app_count):
+# XXX:     for attempt in range(0, attempts):
+# XXX:         for app_idx in range(0, app_count):
 # XXX:             prio = attempt * 5 + random.randint(0, 5)
 # XXX:             demand = [random.randint(1, 48),
 # XXX:                       random.randint(1, 48),
@@ -61,18 +61,18 @@ def schedule(sched):
 # XXX:
 # XXX: def test_affinity(nodes_count, app_count, affinity_limit):
 # XXX:     """Add more apps than nodes count to test affinity limit algo."""
-# XXX:     print 'node: %s, apps: %s, affinity_limit %s' % (nodes_count,
+# XXX:     print('node: %s, apps: %s, affinity_limit %s' % (nodes_count,
 # XXX:                                                      app_count,
-# XXX:                                                      affinity_limit)
+# XXX:                                                      affinity_limit))
 # XXX:
 # XXX:     cell = scheduler.Cell(3)
-# XXX:     for idx in xrange(0, nodes_count):
+# XXX:     for idx in range(0, nodes_count):
 # XXX:         node = scheduler.Node('node' + str(idx), [48, 48, 48])
 # XXX:         cell.add_node(node)
 # XXX:
 # XXX:     alloc = scheduler.Allocation([10, 10, 10])
 # XXX:     cell.add_allocation('a1', alloc)
-# XXX:     for app_idx in xrange(0, app_count):
+# XXX:     for app_idx in range(0, app_count):
 # XXX:         name = '1.%s' % (app_idx)
 # XXX:         alloc.add(scheduler.Application(name, 0, [1, 1, 1],
 # XXX:                                         affinity_limit=affinity_limit,
