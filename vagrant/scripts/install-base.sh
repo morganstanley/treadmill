@@ -1,6 +1,5 @@
 #!/bin/bash -e
 
-
 chmod 755 /home/vagrant
 
 yum -y install epel-release
