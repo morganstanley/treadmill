@@ -69,9 +69,11 @@ def init():
         sys_svcs = _core_svcs(approot)
         sys_svcs_no_metrics = set()
 
-        sys_maj_min = '%s:0' % os.major(os.stat(approot).st_dev)
-        _LOGGER.info('Device maj:min = %s for approot: %s', sys_maj_min,
-                     approot)
+        sys_maj_min = '{}:{}'.format(*fs.path_to_maj_min(approot))
+        sys_block_dev = fs.maj_min_to_blk(*fs.path_to_maj_min(approot))
+
+        _LOGGER.info('Device %s maj:min = %s for approot: %s', sys_block_dev,
+                     sys_maj_min, approot)
 
         core_rrds = ['treadmill.apps.rrd',
                      'treadmill.core.rrd',
@@ -87,17 +89,17 @@ def init():
             rrd.update(
                 rrdclient,
                 os.path.join(core_metrics_dir, 'treadmill.apps.rrd'),
-                'treadmill/apps', sys_maj_min
+                'treadmill/apps', sys_maj_min, sys_block_dev
             )
             rrd.update(
                 rrdclient,
                 os.path.join(core_metrics_dir, 'treadmill.core.rrd'),
-                'treadmill/core', sys_maj_min
+                'treadmill/core', sys_maj_min, sys_block_dev
             )
             rrd.update(
                 rrdclient,
                 os.path.join(core_metrics_dir, 'treadmill.system.rrd'),
-                'treadmill', sys_maj_min
+                'treadmill', sys_maj_min, sys_block_dev
             )
             count = 3
 
@@ -111,7 +113,8 @@ def init():
                     rrdclient.create(rrdfile, step, interval)
 
                 svc_cgrp = os.path.join('treadmill', 'core', svc)
-                rrd.update(rrdclient, rrdfile, svc_cgrp, sys_maj_min)
+                rrd.update(rrdclient, rrdfile, svc_cgrp, sys_maj_min,
+                           sys_block_dev)
                 count += 1
 
             seen_apps = set()
@@ -127,8 +130,10 @@ def init():
                         major=localdisk['dev_major'],
                         minor=localdisk['dev_minor'],
                     )
+                    block_dev = localdisk['block_dev']
                 except (exc.TreadmillError, IOError, OSError):
                     blkio_major_minor = None
+                    block_dev = None
 
                 rrd_file = os.path.join(
                     app_metrics_dir, '{app}.rrd'.format(app=app_unique_name))
@@ -137,7 +142,8 @@ def init():
                     rrdclient.create(rrd_file, step, interval)
 
                 app_cgrp = os.path.join('treadmill', 'apps', app_unique_name)
-                rrd.update(rrdclient, rrd_file, app_cgrp, blkio_major_minor)
+                rrd.update(rrdclient, rrd_file, app_cgrp, blkio_major_minor,
+                           block_dev)
                 count += 1
 
             for app_unique_name in monitored_apps - seen_apps:

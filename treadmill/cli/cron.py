@@ -35,10 +35,7 @@ def init():
 
     @cron_group.command()
     @click.argument('job_id')
-    @click.argument('event',
-                    type=click.Choice([
-                        'app:start', 'app:stop', 'monitor:set-count'
-                    ]))
+    @click.argument('event')
     @click.option('--resource',
                   help='The resource to schedule, e.g. an app name')
     @click.option('--expression', help='The cron expression for scheduling')

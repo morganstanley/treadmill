@@ -5,6 +5,7 @@ import os
 
 from . import appenv
 
+from treadmill import apphook
 from treadmill import fs
 from treadmill import iptables
 from treadmill import rulefile
@@ -90,3 +91,6 @@ class LinuxAppEnvironment(appenv.AppEnvironment):
 
         # Initialize FS plugins.
         image_fs.init_plugins(self)
+
+        # Initialize container plugin hooks
+        apphook.init(self)

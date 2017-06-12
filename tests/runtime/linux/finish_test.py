@@ -73,6 +73,7 @@ class LinuxRuntimeFinishTest(unittest.TestCase):
                 mock.Mock(return_value='xxx.xx.com'))
     @mock.patch('treadmill.fs.archive_filesystem',
                 mock.Mock(return_value=True))
+    @mock.patch('treadmill.apphook.cleanup', mock.Mock())
     @mock.patch('treadmill.iptables.rm_ip_set', mock.Mock())
     @mock.patch('treadmill.rrdutils.flush_noexc', mock.Mock())
     @mock.patch('treadmill.subproc.call', mock.Mock(return_value=0))
@@ -314,6 +315,7 @@ class LinuxRuntimeFinishTest(unittest.TestCase):
     @mock.patch('kazoo.client.KazooClient', mock.Mock(set_spec=True))
     @mock.patch('shutil.copy', mock.Mock())
     @mock.patch('treadmill.appevents.post', mock.Mock())
+    @mock.patch('treadmill.apphook.cleanup', mock.Mock())
     @mock.patch('treadmill.runtime.linux._finish._kill_apps_by_root',
                 mock.Mock())
     @mock.patch('treadmill.appcfg.manifest.read', mock.Mock())
@@ -430,6 +432,7 @@ class LinuxRuntimeFinishTest(unittest.TestCase):
     @mock.patch('shutil.copy', mock.Mock())
     @mock.patch('treadmill.appevents.post', mock.Mock())
     @mock.patch('treadmill.appcfg.manifest.read', mock.Mock())
+    @mock.patch('treadmill.apphook.cleanup', mock.Mock())
     @mock.patch('treadmill.runtime.linux._finish._kill_apps_by_root',
                 mock.Mock())
     @mock.patch('treadmill.sysinfo.hostname',
@@ -548,6 +551,7 @@ class LinuxRuntimeFinishTest(unittest.TestCase):
     @mock.patch('kazoo.client.KazooClient', mock.Mock(set_spec=True))
     @mock.patch('shutil.copy', mock.Mock())
     @mock.patch('treadmill.appevents.post', mock.Mock())
+    @mock.patch('treadmill.apphook.cleanup', mock.Mock())
     @mock.patch('treadmill.utils.datetime_utcnow', mock.Mock(
         return_value=datetime.datetime(2015, 1, 22, 14, 14, 36, 537918)))
     @mock.patch('treadmill.appcfg.manifest.read', mock.Mock())

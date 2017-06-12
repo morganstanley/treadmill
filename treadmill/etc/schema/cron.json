@@ -22,7 +22,7 @@
     },
     "verbs": {
         "create": {
-            "required": ["event", "resource", "expression", "count"]
+            "required": ["event", "resource", "expression"]
         },
         "update": {
             "required": []

@@ -4,9 +4,13 @@ import logging
 import os
 import shutil
 
+from treadmill import apptrace
 from treadmill import fs
 from treadmill import spawn
+from treadmill import subproc
+from treadmill import supervisor
 from treadmill import utils
+from treadmill import zknamespace
 from treadmill.spawn import utils as spawn_utils
 
 _LOGGER = logging.getLogger(__name__)
@@ -16,36 +20,40 @@ class Tree(object):
     """Treadmill spawn tree."""
 
     __slots__ = (
-        'root',
-        'svscan_tree_dir',
-        'running_dir',
+        'paths',
         'buckets',
         'max_per_bucket'
     )
 
     def __init__(self, root, buckets=spawn.BUCKETS,
                  max_per_bucket=spawn.MAX_PER_BUCKET):
-        self.root = root
         self.buckets = buckets
+        self.paths = spawn.SpawnPaths(root, buckets)
         self.max_per_bucket = max_per_bucket
-
-        self.svscan_tree_dir = os.path.join(self.root, spawn.SVSCAN_TREE_DIR)
-        self.running_dir = os.path.join(self.root, spawn.RUNNING_DIR)
 
     def create(self):
         """Create the directory structure for the tree."""
-        dirs = set()
+        env = {
+            'TREADMILL_SPAWN_ZK2FS': self.paths.zk_mirror_dir,
+            'TREADMILL_SPAWN_ZK2FS_SHARDS':
+                str(zknamespace.TRACE_SHARDS_COUNT),
+            'TREADMILL_SPAWN_ZK2FS_SOW': apptrace.TRACE_SOW_DIR,
+            'TREADMILL_SPAWN_CELLAPI_SOCK': self.paths.cellapi_sock,
+            'TREADMILL_SPAWN_CLEANUP': self.paths.cleanup_dir,
+        }
+        supervisor.create_environ_dir(self.paths.env_dir, env)
 
+        dirs = set()
         for bucket in range(self.buckets):
             bucket_formatted = spawn_utils.format_bucket(bucket)
             dirs.add(bucket_formatted)
 
             _LOGGER.debug('Adding bucket %r.', bucket_formatted)
 
-            app = os.path.join(self.svscan_tree_dir, bucket_formatted)
+            app = os.path.join(self.paths.svscan_tree_dir, bucket_formatted)
             log = os.path.join(app, 'log')
 
-            running = os.path.join(self.running_dir, bucket_formatted)
+            running = os.path.join(self.paths.running_dir, bucket_formatted)
             svscan = os.path.join(running, '.s6-svscan')
 
             fs.mkdir_safe(app)
@@ -71,16 +79,26 @@ class Tree(object):
                 timeout=4800
             )
 
-        for app_dir in os.listdir(self.svscan_tree_dir):
+        for app_dir in os.listdir(self.paths.svscan_tree_dir):
             if not app_dir.startswith('.') and app_dir not in dirs:
-                path = os.path.join(self.svscan_tree_dir, app_dir)
+                path = os.path.join(self.paths.svscan_tree_dir, app_dir)
                 _LOGGER.debug('Removing bucket (%r) %r.',
                               spawn.SVSCAN_TREE_DIR, path)
                 shutil.rmtree(path, ignore_errors=True)
 
-        for run_dir in os.listdir(self.running_dir):
+        for run_dir in os.listdir(self.paths.running_dir):
             if not run_dir.startswith('.') and run_dir not in dirs:
-                path = os.path.join(self.running_dir, run_dir)
+                path = os.path.join(self.paths.running_dir, run_dir)
                 _LOGGER.debug('Removing bucket (%r))  %r.',
                               spawn.RUNNING_DIR, path)
                 shutil.rmtree(path, ignore_errors=True)
+
+    def run(self):
+        """Exec into the tree."""
+        s6_envdir = subproc.resolve('s6_envdir')
+        os.execvp(s6_envdir, [
+            s6_envdir,
+            self.paths.env_dir,
+            subproc.resolve('s6_svscan'),
+            self.paths.svscan_tree_dir
+        ])
