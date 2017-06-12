@@ -407,19 +407,20 @@ def read_filesystem_info(block_dev):
 
 
 @osnoop.windows
-def maj_min_to_blk(maj_min):
+def maj_min_to_blk(major, minor):
     """
     Returns the block device name to the major:minor numbers in the param.
 
-    :param maj_min:
-        The major and minor number of the device in 'major:minor' form.
-    :type block_dev:
-        ``str``
+    :param major:
+        The major number of the device
+    :param minor:
+        The minor number of the device
     :returns:
         Block device name.
     :rtype:
         ``str``
     """
+    maj_min = '{}:{}'.format(major, minor)
     block_dev = None
     for sys_path in glob.glob(os.path.join(os.sep, 'sys', 'class', 'block',
                                            '*', 'dev')):
@@ -429,3 +430,10 @@ def maj_min_to_blk(maj_min):
                 break
 
     return block_dev
+
+
+@osnoop.windows
+def path_to_maj_min(path):
+    """Returns major/minor device numbers for the given path."""
+    dev_stat = os.stat(os.path.realpath(path))
+    return os.major(dev_stat.st_dev), os.minor(dev_stat.st_dev)

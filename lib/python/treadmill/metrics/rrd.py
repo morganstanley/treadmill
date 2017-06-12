@@ -109,7 +109,7 @@ def app_metrics(cgrp, rrd_last, sys_major_minor, block_dev):
         'blk_write_bps': blk_bps['Write']
     })
 
-    result['fs_used_bytes'] = raw_metrics['fs.used_byes']
+    result['fs_used_bytes'] = raw_metrics.get('fs.used_byes', 0)
 
     return result
 

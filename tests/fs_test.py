@@ -338,12 +338,12 @@ Directory Hash Seed:      20c6af65-0208-4e71-99cb-d5532c02e3b8
         with mock.patch('__builtin__.open',
                         mock.Mock(return_value=MockFile(
                             file_contents=['8:2\n', '8:3\n']))):
-            self.assertEqual(fs.maj_min_to_blk('8:3'), '/dev/sda3')
+            self.assertEqual(fs.maj_min_to_blk(8, 3), '/dev/sda3')
 
         with mock.patch('__builtin__.open',
                         mock.Mock(return_value=MockFile(
                             file_contents=['8:2\n', '8:3\n']))):
-            self.assertIsNone(fs.maj_min_to_blk('X:Y'))
+            self.assertIsNone(fs.maj_min_to_blk(-1, -2))
 
 
 if __name__ == '__main__':

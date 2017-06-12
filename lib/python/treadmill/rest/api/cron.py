@@ -28,7 +28,7 @@ def init(api, cors, impl):
         ]),
         'resource': fields.String(description='Resource'),
         'expression': fields.String(description='Cron Expression'),
-        'count': fields.Integer(description='Resource count'),
+        'count': fields.Integer(description='Resource count', required=False),
     }
     req_model = api.model(
         'Cron', cron_model,
