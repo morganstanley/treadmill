@@ -17,7 +17,7 @@ def create(scheduler, job_id, event, action, resource, expression, count):
     func = '{}.{}:{}'.format(cron_exec.CRON_EXEC_MODULE, event, action)
 
     job_name, func_kwargs = globals()[action](
-        job_id, event, resource, count
+        job_id, event, action, resource, count
     )
 
     trigger_args = cron.cron_to_dict(expression)
@@ -32,7 +32,7 @@ def update(scheduler, job_id, event, action, resource, expression, count):
     func = '{}.{}:{}'.format(cron_exec.CRON_EXEC_MODULE, event, action)
 
     job_name, func_kwargs = globals()[action](
-        job_id, event, resource, count
+        job_id, event, action, resource, count
     )
 
     trigger_args = cron.cron_to_dict(expression)
@@ -42,15 +42,14 @@ def update(scheduler, job_id, event, action, resource, expression, count):
     )
 
 
-def start(job_id, event_type, resource, count):
+def start(job_id, event, action, resource, count):
     """App start event type"""
     if count is None:
         raise exc.InvalidInputError(
             __name__,
-            'You must supply a count for {}'.format(event_type),
+            'You must supply a count for {}:{}'.format(event, action),
         )
 
-    event, action = event_type.split(':')
     job_name = '{}:event={}:action={}:count={}'.format(
         resource, event, action, count
     )
@@ -63,11 +62,10 @@ def start(job_id, event_type, resource, count):
     return job_name, func_kwargs
 
 
-def stop(job_id, event_type, resource, count):
+def stop(job_id, event, action, resource, _count):
     """App stop event type"""
-    event, action = event_type.split(':')
-    job_name = '{}:event={}:action={}:count={}'.format(
-        resource, event, action, count
+    job_name = '{}:event={}:action={}'.format(
+        resource, event, action
     )
 
     func_kwargs = dict(

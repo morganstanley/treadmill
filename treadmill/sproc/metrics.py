@@ -69,8 +69,9 @@ def init():
         sys_svcs = _core_svcs(approot)
         sys_svcs_no_metrics = set()
 
-        sys_maj_min = '%s:0' % os.major(os.stat(approot).st_dev)
-        sys_block_dev = fs.maj_min_to_blk(sys_maj_min)
+        sys_maj_min = '{}:{}'.format(*fs.path_to_maj_min(approot))
+        sys_block_dev = fs.maj_min_to_blk(*fs.path_to_maj_min(approot))
+
         _LOGGER.info('Device %s maj:min = %s for approot: %s', sys_block_dev,
                      sys_maj_min, approot)
 
