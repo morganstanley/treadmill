@@ -209,7 +209,7 @@ def is_down(svc_dir):
         return True
     except subprocess.CalledProcessError as err:
         # If wait timed out, the app is already running, do nothing.
-        if err.returncode == 1:
+        if err.returncode == 99:
             return False
         else:
             raise

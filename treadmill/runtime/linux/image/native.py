@@ -250,6 +250,7 @@ def make_fsroot(root, proid):
         '/common',
         '/dev',
         '/etc',
+        '/home',
         '/lib',
         '/lib64',
         '/mnt',
@@ -302,15 +303,6 @@ def make_fsroot(root, proid):
     for tmpfsdir in ['/var/spool/tickets', '/var/spool/keytabs',
                      '/var/spool/tokens']:
         fs.mount_tmpfs(newroot_norm, tmpfsdir, '4M')
-
-    userdirs = [
-        '/home',
-    ]
-
-    pwnam = pwd.getpwnam(proid)
-    for directory in userdirs:
-        fs.mkdir_safe(newroot_norm + directory)
-        os.chown(newroot_norm + directory, pwnam.pw_uid, pwnam.pw_gid)
 
 
 def etc_overlay(tm_env, container_dir, root_dir, app):

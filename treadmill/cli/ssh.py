@@ -141,7 +141,7 @@ def init():
 
         apis = context.GLOBAL.state_api(api)
 
-        url = '/endpoint/{}/tcp/ssh'.format(urllib.quote(app))
+        url = '/endpoint/{}/tcp/ssh'.format(urllib.parse.quote(app))
 
         response = restclient.get(apis, url)
         endpoints = response.json()
