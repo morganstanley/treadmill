@@ -319,7 +319,7 @@ def etc_overlay(tm_env, container_dir, root_dir, app):
     # ldpreloads
     _prepare_ldpreload(container_dir, app)
     # hosts
-    _prepare_hosts(container_dir)
+    _prepare_hosts(container_dir, app)
     # resolv.conf
     _prepare_resolv_conf(tm_env, container_dir)
     # sshd PAM configuration
@@ -356,7 +356,7 @@ def _prepare_ldpreload(container_dir, app):
         f.write('\n'.join(ldpreloads) + '\n')
 
 
-def _prepare_hosts(container_dir):
+def _prepare_hosts(container_dir, app):
     """Create a hosts file for the container.
     """
     etc_dir = os.path.join(container_dir, 'overlay', 'etc')
@@ -374,6 +374,9 @@ def _prepare_hosts(container_dir):
         new_hosts_orig
     )
     fs.mkdir_safe(new_host_aliases)
+
+    pwnam = pwd.getpwnam(app.proid)
+    os.chown(new_host_aliases, pwnam.pw_uid, pwnam.pw_gid)
 
 
 def _prepare_pam_sshd(tm_env, container_dir, app):
@@ -427,6 +430,7 @@ def _bind_etc_overlay(container_dir, root_dir):
     #
     overlay_dir = os.path.join(container_dir, 'overlay')
     for overlay_file in ['etc/hosts',
+                         'etc/host-aliases',
                          'etc/ld.so.preload',
                          'etc/pam.d/sshd',
                          'etc/resolv.conf']:

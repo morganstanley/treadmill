@@ -1,29 +1,26 @@
 """Treadmill commaand line helpers.
 """
 
-try:
-    import configparser
-except ImportError:
-    import ConfigParser as configparser
-
+import codecs
 import copy
-import json
-import importlib
-import os
 import functools
+import importlib
+import json
+import logging
+import os
 import pkgutil
+import pkg_resources
 import re
 import sys
 import tempfile
 import traceback
-import logging
-import pkg_resources
-import codecs
+
 
 import click
-import yaml
 import prettytable
+import yaml
 
+from six.moves import configparser
 
 from treadmill import context
 from treadmill import utils
@@ -44,7 +41,8 @@ def init_logger(name):
     )
     try:
         logging.config.fileConfig(
-            codecs.getreader('utf-8')(log_conf_file))
+            codecs.getreader('utf-8')(log_conf_file)
+        )
     except configparser.Error:
         with tempfile.NamedTemporaryFile(delete=False) as f:
             traceback.print_exc(file=f)

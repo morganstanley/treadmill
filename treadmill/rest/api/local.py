@@ -120,6 +120,16 @@ def init(api, cors, impl):
     metrics_ns = api.namespace('metrics', description='Local metrics '
                                'REST operations')
 
+    metrics_req_parser = api.parser()
+    metrics_req_parser.add_argument(
+        'timeframe',
+        choices=('short', 'long'),
+        default='short',
+        help="Whether to query the metrics for shorter or longer timeframe.",
+        location='args',
+        required=False,
+        type=str)
+
     @metrics_ns.route('/',)
     class _MetricsList(restplus.Resource):
         """Local metrics list resource."""
@@ -134,15 +144,18 @@ def init(api, cors, impl):
     class _Metrics(restplus.Resource):
         """Download metrics."""
 
-        @webutils.raw_get_api(api, cors)
+        @webutils.raw_get_api(api, cors, parser=metrics_req_parser)
         def get(self, **id_parts):
             """
             Return metrics either as an attachment or as json.
             """
+            args = metrics_req_parser.parse_args()
             if webutils.wants_json_resp(flask.request):
-                return self._get(self._to_rsrc_id(**id_parts))
+                return self._get(self._to_rsrc_id(**id_parts),
+                                 args.get('timeframe'))
             else:
-                return self._get_as_attach(self._to_rsrc_id(**id_parts))
+                return self._get_as_attach(self._to_rsrc_id(**id_parts),
+                                           args.get('timeframe'))
 
         def _to_rsrc_id(self, **id_parts):
             """
@@ -155,15 +168,16 @@ def init(api, cors, impl):
 
             return rsrc_id
 
-        def _get(self, rsrc_id):
+        def _get(self, rsrc_id, timeframe):
             """Return the metrics file as json."""
-            return flask.Response(impl.metrics.get(rsrc_id, as_json=True),
+            return flask.Response(impl.metrics.get(rsrc_id, timeframe,
+                                                   as_json=True),
                                   mimetype='application/json')
 
-        def _get_as_attach(self, rsrc_id):
+        def _get_as_attach(self, rsrc_id, timeframe):
             """Return the metrics file as attachment."""
             return flask.send_file(
-                impl.metrics.get(rsrc_id),
+                impl.metrics.get(rsrc_id, timeframe),
                 as_attachment=True,
                 mimetype='application/octet-stream',
                 attachment_filename=os.path.basename(

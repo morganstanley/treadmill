@@ -366,13 +366,17 @@ class NativeImageTest(unittest.TestCase):
                                     'ld.so.preload')).readlines()
         self.assertEqual('/foo/1.so\n', newfile[-1])
 
+    @mock.patch('pwd.getpwnam', mock.Mock(
+        return_value=collections.namedtuple('pwnam', 'pw_uid pw_gid')(42, 42)
+    ))
     @mock.patch('shutil.copyfile', mock.Mock())
     @mock.patch('treadmill.fs.mkdir_safe', mock.Mock())
+    @mock.patch('os.chown', mock.Mock())
     def test__prepare_hosts(self):
         """Test preparing hosts."""
         # access protected module _prepare_hosts
         # pylint: disable=w0212
-        native._prepare_hosts(self.container_dir)
+        native._prepare_hosts(self.container_dir, self.app)
 
         etc_dir = os.path.join(self.container_dir, 'overlay', 'etc')
 
@@ -383,6 +387,10 @@ class NativeImageTest(unittest.TestCase):
 
         treadmill.fs.mkdir_safe.assert_called_with(
             os.path.join(etc_dir, 'host-aliases')
+        )
+        os.chown.assert_called_with(
+            os.path.join(etc_dir, 'host-aliases'),
+            42, 42
         )
 
     @mock.patch('os.path.exists', mock.Mock(return_value=False))
@@ -429,6 +437,9 @@ class NativeImageTest(unittest.TestCase):
         treadmill.fs.mount_bind.assert_has_calls([
             mock.call(self.root, '/etc/hosts',
                       target=os.path.join(overlay_dir, 'etc/hosts'),
+                      bind_opt='--bind'),
+            mock.call(self.root, '/etc/host-aliases',
+                      target=os.path.join(overlay_dir, 'etc/host-aliases'),
                       bind_opt='--bind'),
             mock.call(self.root, '/etc/ld.so.preload',
                       target=os.path.join(overlay_dir, 'etc/ld.so.preload'),

@@ -2,8 +2,8 @@
     "$schema": "http://json-schema.org/draft-04/schema#",
     "resource_id": {
         "type": "string",
-        "maxLength": 60,
-        "pattern": "^[a-z0-9\\-]+(\\.[a-zA-Z0-9\\-]+)*$"
+        "maxLength": 128,
+        "pattern": "^[a-z0-9_\\-]+(\\.[\\w\\-]+)*$"
     },
     "resource": {
         "type": "object",

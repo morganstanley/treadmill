@@ -158,7 +158,7 @@ class _MetricsAPI(object):
 
         return res
 
-    def get(self, rsrc_id, as_json=False):
+    def get(self, rsrc_id, timeframe, as_json=False):
         """Return the rrd metrics."""
         with lc.LogContext(_LOGGER, rsrc_id):
             _LOGGER.info('Get metrics')
@@ -166,7 +166,7 @@ class _MetricsAPI(object):
             file_ = self._get_rrd_file(**id_)
 
             if as_json:
-                return rrdutils.get_json_metrics(file_)
+                return rrdutils.get_json_metrics(file_, timeframe)
 
             return file_
 

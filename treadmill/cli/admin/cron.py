@@ -13,7 +13,7 @@ from treadmill import context
 from treadmill import cron
 from treadmill import exc
 
-from treadmill.api import cron as cron_api
+from treadmill.cron import model as cron_model
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -42,10 +42,7 @@ def init():
 
     @cron_group.command()
     @click.argument('job_id')
-    @click.argument('event',
-                    type=click.Choice([
-                        'app:start', 'app:stop', 'monitor:set-count'
-                    ]))
+    @click.argument('event')
     @click.option('--resource',
                   help='The resource to schedule, e.g. an app name',
                   required=True)
@@ -58,9 +55,15 @@ def init():
         """Create or modify an existing app start schedule"""
         scheduler = ctx['scheduler']
 
-        job = cron_api.update_job(
-            scheduler, job_id, event, resource, expression, count
-        )
+        job = None
+        try:
+            job = cron_model.create(
+                scheduler, job_id, event, resource, expression, count
+            )
+        except exc.FoundError:
+            job = cron_model.update(
+                scheduler, job_id, event, resource, expression, count
+            )
 
         cli.out(_FORMATTER(cron.job_to_dict(job)))
 

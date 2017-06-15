@@ -156,18 +156,19 @@ def _get_app_rsrc(instance, admin_api=None, cell_api=None):
             if rsrc in mf}
 
 
-def _get_app_metrics(endpoint, instance, uniq='running', outdir=None,
-                     cell_api=None):
+def _get_app_metrics(endpoint, instance, timeframe, uniq='running',
+                     outdir=None, cell_api=None):
     """Retreives app metrics."""
     fs.mkdir_safe(outdir)
     reserved_rsrc = _get_app_rsrc(instance, cell_api)
 
     api = 'http://{}'.format(endpoint['hostport'])
     _download_rrd(api, _metrics_url(instance, uniq),
-                  _rrdfile(outdir, instance, uniq), reserved_rsrc)
+                  _rrdfile(outdir, instance, uniq), timeframe, reserved_rsrc)
 
 
-def _get_server_metrics(endpoint, server, services=None, outdir=None):
+def _get_server_metrics(endpoint, server, timeframe, services=None,
+                        outdir=None):
     """Get core services metrics."""
     fs.mkdir_safe(outdir)
 
@@ -180,10 +181,11 @@ def _get_server_metrics(endpoint, server, services=None, outdir=None):
     # otherwise the command will crash
     for svc in services:
         _download_rrd(api, _metrics_url(svc), _rrdfile(outdir, server, svc),
-                      {'cpu': '0%', 'disk': '0M', 'memory': '0M'})
+                      timeframe, {'cpu': '0%', 'disk': '0M', 'memory': '0M'})
 
 
-def _download_rrd(nodeinfo_url, metrics_url, rrdfile, reserved_rsrc=None):
+def _download_rrd(nodeinfo_url, metrics_url, rrdfile, timeframe,
+                  reserved_rsrc=None):
     """Get rrd file and store in output directory."""
     _LOGGER.info('Download metrics from %s/%s', nodeinfo_url, metrics_url)
     try:
@@ -192,7 +194,7 @@ def _download_rrd(nodeinfo_url, metrics_url, rrdfile, reserved_rsrc=None):
             for chunk in resp.iter_content(chunk_size=128):
                 f.write(chunk)
 
-        rrdutils.gen_graph(rrdfile, rrdutils.RRDTOOL,
+        rrdutils.gen_graph(rrdfile, timeframe, rrdutils.RRDTOOL,
                            reserved_rsrc=reserved_rsrc)
     except restclient.NotFoundError as err:
         _LOGGER.error('%s', err)
@@ -201,6 +203,8 @@ def _download_rrd(nodeinfo_url, metrics_url, rrdfile, reserved_rsrc=None):
         cli.bad_exit('The rrdtool utility cannot be found in the PATH')
 
 
+# Disable warning about redefined-builtin 'long' in the options
+# pylint: disable=W0622
 def init():
     """Top level command handler."""
 
@@ -236,7 +240,9 @@ def init():
     @metrics.command()
     @cli.ON_REST_EXCEPTIONS
     @click.argument('app_pattern')
-    def running(app_pattern):
+    @click.option('--long', is_flag=True, default=False,
+                  help='Metrics for longer timeframe.')
+    def running(app_pattern, long):
         """Get the metrics of running instances."""
         instances = _find_running_instance(app_pattern, ctx['ws_api'])
         if not instances:
@@ -244,17 +250,20 @@ def init():
 
         _LOGGER.debug('Found instance(s): %s', instances)
 
+        timeframe = 'long' if long else 'short'
         for inst, host in instances.items():
             endpoint = _get_endpoint_for_host(ctx['nodeinf_eps'], host)
             _LOGGER.debug("getting metrics from endpoint %r", endpoint)
 
-            _get_app_metrics(endpoint, inst, outdir=ctx['outdir'],
+            _get_app_metrics(endpoint, inst, timeframe, outdir=ctx['outdir'],
                              cell_api=ctx['cell_api'])
 
     @metrics.command()
     @cli.ON_REST_EXCEPTIONS
     @click.argument('app')
-    def app(app):
+    @click.option('--long', is_flag=True, default=False,
+                  help='Metrics for longer timeframe.')
+    def app(app, long):
         """Get the metrics of the application in params."""
         instance, uniq = app.split('/')
         if uniq == 'running':
@@ -267,24 +276,29 @@ def init():
 
         _LOGGER.debug('Found instance(s): %s', instances)
 
+        timeframe = 'long' if long else 'short'
         for inst, host in instances.items():
             endpoint = _get_endpoint_for_host(ctx['nodeinf_eps'], host)
             _LOGGER.debug("getting metrics from endpoint %r", endpoint)
 
-            _get_app_metrics(endpoint, inst, uniq, outdir=ctx['outdir'],
-                             cell_api=ctx['cell_api'])
+            _get_app_metrics(endpoint, inst, timeframe, uniq,
+                             outdir=ctx['outdir'], cell_api=ctx['cell_api'])
 
     @metrics.command()
     @cli.ON_REST_EXCEPTIONS
     @click.argument('servers', nargs=-1)
     @click.option('--services', type=cli.LIST, help='Subset of core services.')
-    def sys(servers, services):
+    @click.option('--long', is_flag=True, default=False,
+                  help='Metrics for longer timeframe.')
+    def sys(servers, services, long):
         """Get the metrics of the server(s) in params."""
+        timeframe = 'long' if long else 'short'
         for server in servers:
             endpoint = _get_endpoint_for_host(ctx['nodeinf_eps'], server)
             _LOGGER.debug("getting metrics from endpoint %r", endpoint)
 
-            _get_server_metrics(endpoint, server, services, ctx['outdir'])
+            _get_server_metrics(endpoint, server, timeframe, services,
+                                ctx['outdir'])
 
     del running
     del app

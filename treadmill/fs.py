@@ -2,6 +2,7 @@
 """
 
 import errno
+import glob
 import io
 import logging
 import os
@@ -374,3 +375,65 @@ def _tar_impl(sources, **args):
         raise
 
     return archive
+
+
+@osnoop.windows
+def read_filesystem_info(block_dev):
+    """
+    Returns blocks group information for the filesystem present on block_dev.
+
+    :param block_dev:
+        Block device for the filesystem info to query.
+    :type block_dev:
+        ``str``
+    :returns:
+        Blocks group information.
+    :rtype:
+        ``dict``
+    """
+    # TODO: it might worth to convert the appropriate values to int, date etc.
+    #       in the result.
+    output = subproc.check_output(['dumpe2fs', '-h', block_dev])
+
+    res = dict()
+    for line in output.split(os.linesep):
+        if not line.strip():
+            continue
+
+        key, val = line.split(':', 1)
+        res[key.lower()] = val.strip()
+
+    return res
+
+
+@osnoop.windows
+def maj_min_to_blk(major, minor):
+    """
+    Returns the block device name to the major:minor numbers in the param.
+
+    :param major:
+        The major number of the device
+    :param minor:
+        The minor number of the device
+    :returns:
+        Block device name.
+    :rtype:
+        ``str``
+    """
+    maj_min = '{}:{}'.format(major, minor)
+    block_dev = None
+    for sys_path in glob.glob(os.path.join(os.sep, 'sys', 'class', 'block',
+                                           '*', 'dev')):
+        with open(sys_path) as f:
+            if f.read().strip() == maj_min:
+                block_dev = '/dev/{}'.format(sys_path.split(os.sep)[-2])
+                break
+
+    return block_dev
+
+
+@osnoop.windows
+def path_to_maj_min(path):
+    """Returns major/minor device numbers for the given path."""
+    dev_stat = os.stat(os.path.realpath(path))
+    return os.major(dev_stat.st_dev), os.minor(dev_stat.st_dev)
