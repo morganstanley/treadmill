@@ -136,7 +136,10 @@ class RRDClient(object):
 
 def flush_noexc(rrdfile, rrd_socket=SOCKET):
     """Send flush request to the rrd cache daemon."""
-    rrdclient = RRDClient(rrd_socket)
+    try:
+        rrdclient = RRDClient(rrd_socket)
+    except Exception:  # pylint: disable=W0703
+        return
     try:
         rrdclient.flush(rrdfile, oneway=True)
     except Exception:  # pylint: disable=W0703
@@ -149,7 +152,10 @@ def flush_noexc(rrdfile, rrd_socket=SOCKET):
 
 def forget_noexc(rrdfile, rrd_socket=SOCKET):
     """Send flush request to the rrd cache daemon."""
-    rrdclient = RRDClient(rrd_socket)
+    try:
+        rrdclient = RRDClient(rrd_socket)
+    except Exception:  # pylint: disable=W0703
+        return
     try:
         rrdclient.forget(rrdfile, oneway=True)
     except Exception:  # pylint: disable=W0703

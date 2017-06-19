@@ -23,7 +23,7 @@ def write_data(fpath, data, modified, raise_err=True):
     with tempfile.NamedTemporaryFile(dir=os.path.dirname(fpath),
                                      delete=False,
                                      prefix='.tmp',
-                                     mode='w') as temp:
+                                     mode='wb') as temp:
         if data:
             temp.write(data)
         os.fchmod(temp.fileno(), 0o644)
