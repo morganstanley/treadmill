@@ -39,7 +39,7 @@ echo Installing Treadmill Node
 del_svc treadmill-node
 
 $TM admin install \
-    --install-dir /var/tmp/treadmill-master \
+    --install-dir /var/tmp/treadmill-node \
     --install-dir /var/tmp/treadmill \
     --config /var/tmp/cell_conf.yml \
     node
