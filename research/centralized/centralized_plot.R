@@ -1,6 +1,6 @@
 library(plotly)
 
-dt <- read.table("../centralized_response_times.data")
+dt <- read.table("./centralized_response_times.data")
 colnames(dt) = c("posibility", "response")
 
 label_1 <- list(
