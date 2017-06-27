@@ -68,3 +68,18 @@ Record the result of the benchmark, and profile scheduler. Show the result in R 
 ### June 15
 
 Add two benchmarks.
+
+## Phase 3(July 19)
+
+Simulate the logic of treadmill scheduler and Kubernetes scheduler, compare the result and select the solution.
+
+## Phase 4(July 30)
+
+Implement the logic of the final solution for scheduler.
+
+## Future Work
+
+1. Support node monitor to schduler the applications.
+2. Support affinity, anti-affinity, taint and other advanced features.
+3. Support scheduler extender to support customization.
+4. Support concurrent and semi-distributed schedulers. 
