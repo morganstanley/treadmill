@@ -4,16 +4,20 @@ import click.testing
 from click.core import Group
 import importlib
 
+failures = []
+
 def _print_cli_info(runner, cli_pkg, mods, path):
     for mod in mods:
-        cli = importlib.import_module(path + '.' + mod).init()
-        _output = runner.invoke(cli, ['--help']).output
-        print("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^")
-        print("Module: " + path + '.' + mod)
-        print("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^")
-        print("::\n")
-        click.echo("\t\t" + "\t\t".join(_output.splitlines(True)))
-
+        try:
+            cli = importlib.import_module(path + '.' + mod).init()
+            _output = runner.invoke(cli, ['--help']).output
+            print("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^")
+            print("Module: " + path + '.' + mod)
+            print("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^")
+            print("::\n")
+            click.echo("\t\t" + "\t\t".join(_output.splitlines(True)))
+        except:
+            failures.append(path + '.' + mod)
         if type(cli) is Group:
             subcommands = sorted(cli.list_commands(None))
             click.echo("\n")
@@ -39,3 +43,4 @@ CLI
 ==============================================================
 """)
 _print_cli_info(runner, cli_pkg, cli_mods, 'treadmill.cli')
+
