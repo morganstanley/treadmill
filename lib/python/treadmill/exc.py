@@ -29,7 +29,14 @@ class InvalidInputError(TreadmillError):
 
 class ContainerSetupError(TreadmillError):
     """Fatal error, indicating problem setting up container environment."""
-    pass
+
+    def __init__(self, msg, reason=None):
+        self.message = msg
+        if reason is None:
+            self.reason = 'unknown'
+        else:
+            self.reason = reason
+        super(ContainerSetupError, self).__init__()
 
 
 class NodeSetupError(TreadmillError):

@@ -4,6 +4,7 @@
 import os
 import re
 import shutil
+import subprocess
 import tempfile
 import unittest
 
@@ -13,7 +14,6 @@ import tests.treadmill_test_deps  # pylint: disable=W0611
 import mock
 
 import treadmill
-from treadmill import fs
 from treadmill import supervisor
 from treadmill import subproc
 
@@ -47,103 +47,179 @@ class SupervisorTest(unittest.TestCase):
         os.system('pgrep s6-svscan | xargs kill 2> /dev/null')
         os.system('pgrep s6-supervise | xargs kill 2> /dev/null')
 
+    @mock.patch('pwd.getpwnam', mock.Mock(auto_spec=True))
     def test_create_service(self):
         """Checks various options when creating the service."""
+        svc_dir = supervisor.create_services_dir(self.root, 5000)
+
         supervisor.create_service(
-            self.root, 'proid1', 'proid1_home', 'proid1_shell',
-            'xx', 'ls -al',
-            env='dev'
+            svc_dir,
+            'xx',
+            'proid1',
+            'ls -al',
+            downed=True
         )
         service_dir = os.path.join(self.root, 'xx')
         self.assertTrue(os.path.isdir(service_dir))
-        self.assertTrue(os.path.isfile(service_dir + '/app_start'))
+        data_dir = os.path.join(service_dir, 'data')
+        self.assertTrue(os.path.isfile(data_dir + '/app_start'))
         self.assertTrue(os.path.isfile(service_dir + '/run'))
         self.assertTrue(os.path.isfile(service_dir + '/finish'))
         self.assertTrue(os.path.isfile(service_dir + '/down'))
 
-        # as_root False, proid is None => Use current UID
-        supervisor.create_service(
-            self.root, None, 'home', 'shell',
-            'bla', 'ls -al',
-            env='dev', as_root=False)
-        service_dir = os.path.join(self.root, 'bla')
-
         # Do not create down file.
         supervisor.create_service(
-            self.root, 'proid1', 'proid1_home', 'proid1_shell',
-            'bar', 'ls -al',
-            env='dev', down=False
+            svc_dir,
+            'bar',
+            'proid1',
+            'ls -al',
+            downed=False
         )
         service_dir = os.path.join(self.root, 'bar')
         self.assertFalse(os.path.exists(service_dir + '/down'))
 
-    @mock.patch('time.time', mock.Mock(return_value=1000))
-    def test_state_parse(self):
-        """Test parsing of the s6-svstat output."""
-        # Disable W0212: accessing protected member
-        # pylint: disable=W0212
+    @mock.patch('pwd.getpwnam', mock.Mock(auto_spec=True))
+    def test_create_service_optional(self):
+        """Checks optional components of create service."""
+        svc_dir = supervisor.create_services_dir(self.root, 5000)
 
-        self.assertEqual(
-            {'since': 990,
-             'state': 'up',
-             'intended': 'up',
-             'pid': 123},
-            supervisor._parse_state('up (pid 123) 10 seconds\n')
+        supervisor.create_service(
+            svc_dir,
+            'xx',
+            'proid1',
+            'ls -al',
+            monitor_policy={
+                'a': 'test1'
+            },
+            environ={
+                'b': 'test2'
+            },
+            trace={
+                'c': 'test3'
+            }
         )
-        self.assertEqual(
-            {'since': 900,
-             'state': 'up',
-             'intended': 'down',
-             'pid': 123},
-            supervisor._parse_state('up (pid 123) 100 seconds normally down\n')
+        service_dir = os.path.join(self.root, 'xx')
+        self.assertTrue(os.path.isdir(service_dir))
+        data_dir = os.path.join(service_dir, 'data')
+        self.assertTrue(os.path.isfile(data_dir + '/app_start'))
+        self.assertTrue(os.path.isfile(data_dir + '/trace'))
+        self.assertTrue(os.path.isfile(data_dir + '/policy.json'))
+        self.assertTrue(os.path.isfile(service_dir + '/run'))
+        self.assertTrue(os.path.isfile(service_dir + '/finish'))
+        self.assertTrue(os.path.isfile(service_dir + '/env/b'))
+
+    def test_create_service_bad_userid(self):
+        """Tests creating a service with a bad userid."""
+        svc_dir = supervisor.create_services_dir(self.root, 5000)
+
+        self.assertRaises(
+            KeyError,
+            supervisor.create_service,
+            svc_dir,
+            'xx',
+            'should not exist',
+            'ls -al',
+            downed=True
         )
-        self.assertEqual(
-            {'since': 900,
-             'state': 'down',
-             'intended': 'down',
-             'pid': None},
-            supervisor._parse_state('down 100 seconds')
+
+    @mock.patch('treadmill.subproc.check_call', mock.Mock(spec_set=True))
+    def test_is_supervised(self):
+        """Tests that checking if a service directory is supervised."""
+        self.assertTrue(supervisor.is_supervised(self.root))
+        treadmill.subproc.check_call.assert_called_with(['s6_svok', self.root])
+
+        treadmill.subproc.check_call.side_effect = \
+            subprocess.CalledProcessError(1, 's6_svok')
+        self.assertFalse(supervisor.is_supervised(self.root))
+        treadmill.subproc.check_call.assert_called_with(['s6_svok', self.root])
+
+    @mock.patch('treadmill.subproc.check_call', mock.Mock(spec_set=True))
+    def test_control_service(self):
+        """Tests controlling a service."""
+        self.assertTrue(supervisor.control_service(
+            self.root, supervisor.ServiceControlAction.down
+        ))
+        treadmill.subproc.check_call.assert_called_with(
+            ['s6_svc', '-d', self.root]
         )
-        self.assertEqual(
-            {'since': 900,
-             'state': 'down',
-             'intended': 'up',
-             'pid': None},
-            supervisor._parse_state('down 100 seconds normally up')
+
+        self.assertTrue(supervisor.control_service(
+            self.root, (
+                supervisor.ServiceControlAction.up,
+                supervisor.ServiceControlAction.once_at_most,
+            ),
+            timeout=100,  # Should not be used
+        ))
+        treadmill.subproc.check_call.assert_called_with(
+            ['s6_svc', '-uO', self.root]
         )
 
-    @mock.patch('treadmill.subproc.check_call', mock.Mock(return_value=0))
-    def test_wait(self):
-        """Test waiting for service status change."""
-        # Disable W0212: accessing protected member
-        # pylint: disable=W0212
+        self.assertTrue(supervisor.control_service(
+            self.root, supervisor.ServiceControlAction.up,
+            wait=supervisor.ServiceWaitAction.up,
+            timeout=100,
+        ))
+        treadmill.subproc.check_call.assert_called_with(
+            ['s6_svc', '-wu', '-T', '100', '-u', self.root]
+        )
 
-        svcroot = os.path.join(self.root, 'xxx')
-        fs.mkdir_safe(os.path.join(svcroot, 'a'))
-        fs.mkdir_safe(os.path.join(svcroot, 'b'))
-        supervisor._service_wait(svcroot, '-u', '-o')
-        expected_cmd = ['s6_svwait', '-u', '-t', '0', '-o',
-                        svcroot + '/a', svcroot + '/b']
-        actual_cmd = treadmill.subproc.check_call.call_args[0][0]
-        self.assertItemsEqual(expected_cmd, actual_cmd)
-        treadmill.subproc.check_call.assert_called_with(actual_cmd)
+        treadmill.subproc.check_call.side_effect = \
+            subprocess.CalledProcessError(1, 's6_svc')
+        self.assertFalse(supervisor.control_service(
+            self.root, supervisor.ServiceControlAction.down
+        ))
+        treadmill.subproc.check_call.assert_called_with(
+            ['s6_svc', '-d', self.root]
+        )
 
-        treadmill.subproc.check_call.reset_mock()
-        supervisor._service_wait(svcroot, '-u', '-o', subset=['a'])
-        treadmill.subproc.check_call.assert_called_with(['s6_svwait', '-u',
-                                                         '-t', '0', '-o',
-                                                         svcroot + '/a'])
+    @mock.patch('treadmill.subproc.check_call', mock.Mock(spec_set=True))
+    def test_control_svscan(self):
+        """Tests controlling an svscan instance."""
+        supervisor.control_svscan(
+            self.root, (
+                supervisor.SvscanControlAction.alarm,
+                supervisor.SvscanControlAction.nuke
+            )
+        )
+        treadmill.subproc.check_call.assert_called_with(
+            ['s6_svscanctl', '-an', self.root]
+        )
 
-        treadmill.subproc.check_call.reset_mock()
-        supervisor._service_wait(svcroot, '-u', '-o', subset={'a': 1})
-        treadmill.subproc.check_call.assert_called_with(['s6_svwait', '-u',
-                                                         '-t', '0', '-o',
-                                                         svcroot + '/a'])
+    @mock.patch('treadmill.subproc.check_call', mock.Mock(spec_set=True))
+    def test_wait_service(self):
+        """Tests waiting on a service."""
+        self.assertTrue(supervisor.wait_service(
+            self.root, supervisor.ServiceWaitAction.down
+        ))
+        treadmill.subproc.check_call.assert_called_with(
+            ['s6_svwait', '-d', self.root]
+        )
 
-        treadmill.subproc.check_call.reset_mock()
-        supervisor._service_wait(svcroot, '-u', '-o', subset=[])
-        self.assertFalse(treadmill.subproc.check_call.called)
+        self.assertTrue(supervisor.wait_service(
+            (
+                os.path.join(self.root, 'a'),
+                os.path.join(self.root, 'b')
+            ),
+            supervisor.ServiceWaitAction.really_up,
+            all_services=False,
+            timeout=100,
+        ))
+        treadmill.subproc.check_call.assert_called_with(
+            [
+                's6_svwait', '-t', '100', '-o', '-U',
+                os.path.join(self.root, 'a'),
+                os.path.join(self.root, 'b')
+            ]
+        )
 
+        treadmill.subproc.check_call.side_effect = \
+            subprocess.CalledProcessError(99, 's6_svwait')
+        self.assertFalse(supervisor.wait_service(
+            self.root, supervisor.ServiceWaitAction.really_down
+        ))
+        treadmill.subproc.check_call.assert_called_with(
+            ['s6_svwait', '-D', self.root]
+        )
 
 if __name__ == '__main__':
     unittest.main()

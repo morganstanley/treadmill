@@ -21,7 +21,7 @@ class TraceAPI(object):
     def __init__(self, sow=None):
         """init"""
         self.sow = sow
-        self.sow_table = 'trace'
+        self.sow_table = apptrace.TRACE_SOW_TABLE
 
         @schema.schema({'$ref': 'websocket/trace.json#/message'})
         def subscribe(message):

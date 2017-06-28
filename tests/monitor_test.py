@@ -2,6 +2,7 @@
 Unit test for monitor
 """
 
+import json
 import os
 import shutil
 import tempfile
@@ -13,7 +14,6 @@ from collections import namedtuple
 import tests.treadmill_test_deps  # pylint: disable=W0611
 
 import mock
-import yaml
 
 import treadmill
 from treadmill import monitor
@@ -45,6 +45,8 @@ class MonitorTest(unittest.TestCase):
             down_action=mock_down_action()
         )
         mock_pol_inst = mock_policy.return_value
+        mock_pol_inst.check.return_value = \
+            monitor.MonitorRestartPolicyResult.NOOP
         mock_reg_handle = mock_pol_inst.register.return_value
         mock_svc = treadmill.supervisor.open_service.return_value
         mon._dirwatcher = mock_dirwatch()
@@ -58,7 +60,7 @@ class MonitorTest(unittest.TestCase):
             mock_pol_inst
         )
         mon._dirwatcher.add_dir.assert_called_with(mock_reg_handle)
-        self.assertTrue(mock_pol_inst.process.called)
+        self.assertTrue(mock_pol_inst.check.called)
 
     @mock.patch('treadmill.monitor.MonitorDownAction', spec_set=True)
     @mock.patch('treadmill.monitor.MonitorPolicy', spec_set=True)
@@ -98,15 +100,134 @@ class MonitorTest(unittest.TestCase):
             down_action=mock_down_action()
         )
         mock_pol_inst = mock_policy.return_value
-        mock_pol_inst.process.return_value = False
+        mock_pol_inst.check.return_value = \
+            monitor.MonitorRestartPolicyResult.FAIL
         mock_pol_inst.fail_reason = {'mock': 'data'}
         mon._service_policies['/some/dir/svc/data/exits'] = mock_pol_inst
 
         mon._on_created('/some/dir/svc/data/exits/1.111,2,3')
 
-        self.assertTrue(mock_pol_inst.process.called)
+        self.assertTrue(mock_pol_inst.check.called)
         self.assertEqual(mon._down_reason, {'mock': 'data'})
         self.assertFalse(treadmill.monitor.Monitor._add_service.called)
+
+    @mock.patch('treadmill.monitor.MonitorDownAction', spec_set=True)
+    @mock.patch('treadmill.monitor.MonitorPolicy', spec_set=True)
+    def test__process_noop(self, mock_policy, mock_down_action):
+        """Test monitor noop event.
+        """
+        # Disable W0212(protected-access)
+        # pylint: disable=W0212
+        mon = monitor.Monitor(
+            services_dir='/some/dir',
+            service_dirs=(),
+            policy_impl=mock_policy,
+            down_action=mock_down_action()
+        )
+        mock_pol_inst = mock_policy.return_value
+        mock_pol_inst.check.return_value = \
+            monitor.MonitorRestartPolicyResult.NOOP
+
+        mon._process(mock_pol_inst)
+
+        self.assertTrue(mock_pol_inst.check.called)
+        self.assertIsNone(mon._down_reason)
+
+    @mock.patch('treadmill.supervisor.control_service',
+                mock.Mock(spec_set=True))
+    @mock.patch('treadmill.monitor.MonitorEventHook', spec_set=True)
+    @mock.patch('treadmill.monitor.MonitorDownAction', spec_set=True)
+    @mock.patch('treadmill.monitor.MonitorPolicy', spec_set=True)
+    def test_event_hook_success(self, mock_policy, mock_down_action,
+                                mock_event_hook):
+        """Test monitor noop event.
+        """
+        # Disable W0212(protected-access)
+        # pylint: disable=W0212
+        mock_event_hook_inst = mock_event_hook.return_value
+        mon = monitor.Monitor(
+            services_dir='/some/dir',
+            service_dirs=(),
+            policy_impl=mock_policy,
+            down_action=mock_down_action(),
+            event_hook=mock_event_hook_inst
+        )
+        mock_pol_inst = mock_policy.return_value
+        mock_pol_inst.check.return_value = \
+            monitor.MonitorRestartPolicyResult.RESTART
+
+        mon._process(mock_pol_inst)
+
+        self.assertTrue(mock_pol_inst.check.called)
+        self.assertIsNone(mon._down_reason)
+        self.assertTrue(mock_event_hook_inst.down.called)
+        self.assertTrue(mock_event_hook_inst.up.called)
+
+        treadmill.supervisor.control_service.assert_called_with(
+            mock_pol_inst.service.directory,
+            treadmill.supervisor.ServiceControlAction.up
+        )
+
+    @mock.patch('treadmill.monitor.MonitorDownAction', spec_set=True)
+    @mock.patch('treadmill.monitor.MonitorPolicy', spec_set=True)
+    @mock.patch('treadmill.supervisor.control_service',
+                mock.Mock(spec_set=True))
+    def test__process_success(self, mock_policy, mock_down_action):
+        """Test monitor success event.
+        """
+        # Disable W0212(protected-access)
+        # pylint: disable=W0212
+        # Disable W0212(protected-access)
+        # pylint: disable=W0212
+        mon = monitor.Monitor(
+            services_dir='/some/dir',
+            service_dirs=(),
+            policy_impl=mock_policy,
+            down_action=mock_down_action()
+        )
+        mock_service_class = namedtuple('MockSvc', ['name', 'directory'])
+        mock_pol_inst = mock_policy.return_value
+        mock_pol_inst.check.return_value = \
+            monitor.MonitorRestartPolicyResult.RESTART
+        mock_pol_inst.service.return_value = \
+            mock_service_class('mock_service', 'some_dir')
+
+        mon._process(mock_pol_inst)
+
+        self.assertTrue(mock_pol_inst.check.called)
+        self.assertIsNone(mon._down_reason)
+
+        treadmill.supervisor.control_service.assert_called_with(
+            mock_pol_inst.service.directory,
+            treadmill.supervisor.ServiceControlAction.up
+        )
+
+    @mock.patch('treadmill.monitor.MonitorDownAction', spec_set=True)
+    @mock.patch('treadmill.monitor.MonitorPolicy', spec_set=True)
+    def test__process_fail(self, mock_policy, mock_down_action):
+        """Test monitor fail event.
+        """
+        # Disable W0212(protected-access)
+        # pylint: disable=W0212
+        # Disable W0212(protected-access)
+        # pylint: disable=W0212
+        mon = monitor.Monitor(
+            services_dir='/some/dir',
+            service_dirs=(),
+            policy_impl=mock_policy,
+            down_action=mock_down_action()
+        )
+        mock_pol_inst = mock_policy.return_value
+        mock_pol_inst.check.return_value = \
+            monitor.MonitorRestartPolicyResult.FAIL
+        type(mock_pol_inst).fail_reason = mock.PropertyMock(return_value={
+            'a': 'test'
+        })
+
+        mon._process(mock_pol_inst)
+
+        self.assertTrue(mock_pol_inst.check.called)
+        self.assertEqual(mon._down_reason, {'a': 'test'})
 
     @mock.patch('os.listdir', mock.Mock(spec_set=True, return_value=['baz']))
     @mock.patch('treadmill.supervisor.open_service', mock.Mock(spec_set=True))
@@ -120,13 +241,13 @@ class MonitorTest(unittest.TestCase):
         """
         # Disable W0212(protected-access)
         # pylint: disable=W0212
-        mock_down_action_inst = mock_down_action.return_value
         mon = monitor.Monitor(
             services_dir='/some/dir',
             service_dirs=('foo', 'bar'),
             policy_impl=mock_policy,
             down_action=mock_down_action()
         )
+        mock_down_action_inst = mock_down_action.return_value
         mock_down_action_inst.execute.return_value = False
         mock_dirwatch_inst = mock_dirwatch.return_value
 
@@ -154,7 +275,76 @@ class MonitorTest(unittest.TestCase):
         self.assertTrue(mock_dirwatch_inst.wait_for_events.called)
         self.assertTrue(mock_dirwatch_inst.process_events.called)
         mock_down_action_inst.execute.assert_called_with({'mock': 'data'})
-        self.assertIsNone(mon._down_reason)
+        self.assertIsNotNone(mon._down_reason)
+
+
+class MonitorContainerCleanupTest(unittest.TestCase):
+    """Mock test for treadmill.monitor.MonitorContainerCleanup.
+    """
+    def setUp(self):
+        self.root = tempfile.mkdtemp()
+
+    def tearDown(self):
+        if self.root and os.path.isdir(self.root):
+            shutil.rmtree(self.root)
+
+    @mock.patch('os.rename', mock.Mock())
+    def test_execute(self):
+        """Test shutting down of the node.
+        """
+        mock_tm_env_class = namedtuple('MockTMEnv', [
+            'running_dir', 'cleanup_dir'
+        ])
+        mock_tm_env = mock_tm_env_class(os.path.join(self.root, 'running'),
+                                        os.path.join(self.root, 'cleanup'))
+        mock_container_cleanup_action =\
+            monitor.MonitorContainerCleanup(mock_tm_env)
+
+        res = mock_container_cleanup_action.execute(
+            {
+                'service': 'mock_service',
+            }
+        )
+
+        # This MonitorContainerCleanup stops the monitor.
+        self.assertEqual(res, True)
+        self.assertTrue(os.rename.called)
+
+
+class MonitorContainerDownTest(unittest.TestCase):
+    """Mock test for treadmill.monitor.MonitorContainerDown.
+    """
+    def setUp(self):
+        self.root = tempfile.mkdtemp()
+
+    def tearDown(self):
+        if self.root and os.path.isdir(self.root):
+            shutil.rmtree(self.root)
+
+    @mock.patch('treadmill.supervisor.open_service',
+                mock.Mock(spec_set=True))
+    @mock.patch('treadmill.supervisor.control_service',
+                mock.Mock(spec_set=True))
+    @mock.patch('os.rename', mock.Mock())
+    def test_execute(self):
+        """Test shutting down of the container services.
+        """
+        mock_service_class = namedtuple('MockSvc', ['data_dir', 'directory'])
+        treadmill.supervisor.open_service.return_value = \
+            mock_service_class(self.root, self.root)
+
+        mock_container_cleanup_action =\
+            monitor.MonitorContainerDown(self.root)
+
+        res = mock_container_cleanup_action.execute(
+            {
+                'service': 'mock_service',
+            }
+        )
+
+        self.assertEqual(res, False)
+        self.assertTrue(os.rename.called)
+        self.assertTrue(treadmill.supervisor.control_service.called)
 
 
 class MonitorNodeDownTest(unittest.TestCase):
@@ -209,7 +399,7 @@ class MonitorRestartPolicyTest(unittest.TestCase):
         mock_policy = monitor.MonitorRestartPolicy()
         mock_policy._service_exits_log = self.root
 
-        res = mock_policy._check_policy()
+        res = mock_policy.check()
 
         self.assertEqual(res, monitor.MonitorRestartPolicyResult.NOOP)
         self.assertIsNone(mock_policy._last_timestamp)
@@ -236,7 +426,7 @@ class MonitorRestartPolicyTest(unittest.TestCase):
             with open(os.path.join(self.root, exit_file), 'a'):
                 pass
 
-        res = mock_policy._check_policy()
+        res = mock_policy.check()
 
         self.assertEqual(res, monitor.MonitorRestartPolicyResult.RESTART)
         self.assertEqual(mock_policy._last_timestamp, 130.35)
@@ -271,7 +461,7 @@ class MonitorRestartPolicyTest(unittest.TestCase):
             with open(os.path.join(self.root, exit_file), 'a'):
                 pass
 
-        res = mock_policy._check_policy()
+        res = mock_policy.check()
 
         self.assertEqual(res, monitor.MonitorRestartPolicyResult.RESTART)
         self.assertEqual(mock_policy._last_timestamp, 1492807113.934)
@@ -298,7 +488,7 @@ class MonitorRestartPolicyTest(unittest.TestCase):
             with open(os.path.join(self.root, exit_file), 'a'):
                 pass
 
-        res = mock_policy._check_policy()
+        res = mock_policy.check()
 
         self.assertEqual(res, monitor.MonitorRestartPolicyResult.FAIL)
         self.assertEqual(mock_policy._last_timestamp, 130.35)
@@ -326,7 +516,7 @@ class MonitorRestartPolicyTest(unittest.TestCase):
             with open(os.path.join(self.root, exit_file), 'a'):
                 pass
 
-        res = mock_policy._check_policy()
+        res = mock_policy.check()
 
         self.assertEqual(res, monitor.MonitorRestartPolicyResult.FAIL)
         self.assertEqual(mock_policy._last_timestamp, 1.111)
@@ -334,9 +524,27 @@ class MonitorRestartPolicyTest(unittest.TestCase):
         self.assertEqual(mock_policy._last_signal, 0)
         self.assertEqual(os.unlink.call_count, 0)
 
+    @mock.patch('os.listdir', mock.Mock(
+        side_effect=OSError(2, 'No such file or directory')))
+    def test__check_listdir_fail(self):
+        """Test policy evaluation when the exits dir was deleted.
+        """
+        # Disable W0212(protected-access)
+        # pylint: disable=W0212
+        mock_service_class = namedtuple('MockSvc', ['name'])
+        mock_policy = monitor.MonitorRestartPolicy()
+        mock_policy._service_exits_log = self.root
+        mock_policy._service = mock_service_class('mock_service')
+        mock_policy._policy_interval = 30
+        mock_policy._policy_limit = 3
+
+        res = mock_policy.check()
+
+        self.assertEqual(res, monitor.MonitorRestartPolicyResult.NOOP)
+
     @mock.patch('__builtin__.open', autospec=True)
     @mock.patch('treadmill.fs.mkdir_safe', mock.Mock(spec_set=True))
-    @mock.patch('yaml.load', mock.Mock(spec_set=True))
+    @mock.patch('json.load', mock.Mock(spec_set=True))
     def test_register(self, mock_open):
         """Test policy / service registration.
         """
@@ -347,15 +555,15 @@ class MonitorRestartPolicyTest(unittest.TestCase):
             name='mock_service',
             data_dir=os.path.join(self.root)
         )
-        yaml.load.return_value = {
+        json.load.return_value = {
             'limit': 3,
             'interval': 15,
         }
 
         res = mock_policy.register(mock_service)
 
-        # Check policy.yml was read
-        mock_open.assert_called_with(os.path.join(self.root, 'policy.yml'))
+        # Check policy.json was read
+        mock_open.assert_called_with(os.path.join(self.root, 'policy.json'))
         treadmill.fs.mkdir_safe.assert_called_with(
             os.path.join(self.root, 'exits')
         )
@@ -364,79 +572,6 @@ class MonitorRestartPolicyTest(unittest.TestCase):
             res,
             os.path.join(self.root, 'exits')
         )
-
-    @mock.patch('treadmill.monitor.MonitorRestartPolicy._check_policy',
-                mock.Mock(spec_set=True))
-    @mock.patch('treadmill.subproc.check_call', mock.Mock(spec_set=True))
-    def test_process_noop(self):
-        """Test watch event processing.
-        """
-        # Disable W0212(protected-access)
-        # pylint: disable=W0212
-        mock_service_class = namedtuple('MockSvc', ['name', 'directory'])
-        mock_policy = monitor.MonitorRestartPolicy()
-        mock_policy._service_exits_log = self.root
-        mock_policy._service = mock_service_class('mock_service', 'some_dir')
-        mock_policy._policy_interval = 30
-        mock_policy._policy_limit = 3
-        mock_policy._check_policy.return_value = \
-            monitor.MonitorRestartPolicyResult.NOOP
-
-        res = mock_policy.process()
-
-        self.assertEqual(res, True)
-        self.assertEqual(treadmill.subproc.check_call.call_count, 0)
-
-    @mock.patch('treadmill.monitor.MonitorRestartPolicy._check_policy',
-                mock.Mock(spec_set=True))
-    @mock.patch('treadmill.subproc.check_call', mock.Mock(spec_set=True))
-    def test_process_success(self):
-        """Test watch event processing.
-        """
-        # Disable W0212(protected-access)
-        # pylint: disable=W0212
-        mock_service_class = namedtuple('MockSvc', ['name', 'directory'])
-        mock_policy = monitor.MonitorRestartPolicy()
-        mock_policy._service_exits_log = self.root
-        mock_policy._service = mock_service_class('mock_service', 'some_dir')
-        mock_policy._policy_interval = 30
-        mock_policy._policy_limit = 3
-        mock_policy._check_policy.return_value = \
-            monitor.MonitorRestartPolicyResult.RESTART
-
-        res = mock_policy.process()
-
-        self.assertEqual(res, True)
-        self.assertEqual(treadmill.subproc.check_call.call_count, 1)
-        treadmill.subproc.check_call.assert_called_with(
-            [
-                's6_svc',
-                '-u',
-                'some_dir'
-            ]
-        )
-
-    @mock.patch('treadmill.monitor.MonitorRestartPolicy._check_policy',
-                mock.Mock(spec_set=True))
-    @mock.patch('treadmill.subproc.check_call', mock.Mock(spec_set=True))
-    def test_process_fail(self):
-        """Test watch event processing.
-        """
-        # Disable W0212(protected-access)
-        # pylint: disable=W0212
-        mock_service_class = namedtuple('MockSvc', ['name', 'directory'])
-        mock_policy = monitor.MonitorRestartPolicy()
-        mock_policy._service_exits_log = self.root
-        mock_policy._service = mock_service_class('mock_service', 'some_dir')
-        mock_policy._policy_interval = 30
-        mock_policy._policy_limit = 3
-        mock_policy._check_policy.return_value = \
-            monitor.MonitorRestartPolicyResult.FAIL
-
-        res = mock_policy.process()
-
-        self.assertEqual(res, False)
-        self.assertEqual(treadmill.subproc.check_call.call_count, 0)
 
     def test_fail_reason(self):
         """Test failure reason extraction from the policy.

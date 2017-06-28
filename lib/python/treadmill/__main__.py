@@ -26,7 +26,7 @@ from treadmill import cli
 # pylint: disable=E1120
 #
 # TODO: add options to configure logging.
-@click.group(cls=cli.make_multi_command('treadmill.cli'))
+@click.group(cls=cli.make_commands('treadmill.cli'))
 @click.option('--dns-domain', required=False,
               envvar='TREADMILL_DNS_DOMAIN',
               callback=cli.handle_context_opt,

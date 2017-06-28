@@ -6,16 +6,14 @@ import logging
 import six
 
 import stevedore
-from stevedore import extension
 
 from treadmill import appcfg
-from treadmill import utils
+from treadmill import plugin_manager
 
 
 _LOGGER = logging.getLogger(__name__)
 
 _FS_PLUGIN_NAMESPACE = 'treadmill.image.{0}.fs'
-_FS_PLUGIN_EXTENSION_MANAGER = None
 
 
 @six.add_metaclass(abc.ABCMeta)
@@ -40,34 +38,25 @@ class FilesystemPluginBase(object):
         pass
 
     @abc.abstractmethod
-    def configure(self, root_dir, app):
-        """Configures the filesystem plugin."""
+    def configure(self, container_dir, app):
+        """Configures the filesystem plugin.
+
+        :param ``str`` container_dir:
+            Container base directtory.
+        :param ``object`` app:
+            Container manifest object.
+        """
         pass
 
 
 def _extension_manager(tm_env, name):
     """Gets the extension manager for image fs plugins."""
-    # Disable W0603: Using the global statement
-    global _FS_PLUGIN_EXTENSION_MANAGER  # pylint: disable=W0603
-
-    if _FS_PLUGIN_EXTENSION_MANAGER is None:
-        _FS_PLUGIN_EXTENSION_MANAGER = {}
-
-    if name in _FS_PLUGIN_EXTENSION_MANAGER:
-        return _FS_PLUGIN_EXTENSION_MANAGER[name]
-
-    namespace = _FS_PLUGIN_NAMESPACE.format(name)
-    _LOGGER.debug('Creating an extention manager for %r.', namespace)
-
-    _FS_PLUGIN_EXTENSION_MANAGER[name] = extension.ExtensionManager(
-        namespace=namespace,
+    _LOGGER.debug('Creating an extention manager for %r.', name)
+    return plugin_manager.extensions(
+        _FS_PLUGIN_NAMESPACE.format(name),
         invoke_on_load=True,
-        invoke_args=[tm_env],
-        propagate_map_exceptions=True,
-        on_load_failure_callback=utils.log_extension_failure
-    )
-
-    return _FS_PLUGIN_EXTENSION_MANAGER[name]
+        invoke_args=[tm_env]
+    )()
 
 
 def _init(ext):
@@ -85,15 +74,17 @@ def init_plugins(tm_env):
                          app_type.value)
 
 
-def _configure(ext, root_dir, app):
-    _LOGGER.info('Configuring plugin %r for root %r.', ext.entry_point_target,
-                 root_dir)
-    ext.obj.configure(root_dir, app)
+def _configure(ext, container_dir, app):
+    _LOGGER.info('Configuring plugin %r for container_dir %r.',
+                 ext.entry_point_target, container_dir)
+    ext.obj.configure(container_dir, app)
 
 
-def configure_plugins(tm_env, root_dir, app):
+def configure_plugins(tm_env, container_dir, app):
     """Configures all plugins."""
     try:
-        _extension_manager(tm_env, app.type).map(_configure, root_dir, app)
+        _extension_manager(tm_env, app.type).map(
+            _configure, container_dir, app
+        )
     except stevedore.exception.NoMatches:
         _LOGGER.info('There are no fs plugins for image %r.', app.type)

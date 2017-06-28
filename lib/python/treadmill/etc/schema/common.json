@@ -53,6 +53,16 @@
         "minimum": 0,
         "maximum": 100
     },
+    "rank_adjustment": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 100
+    },
+    "max_utilization": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 100
+    },
     "environment": {
         "type": "string",
         "pattern": "^dev$|^qa$|^uat$|^prod$"
@@ -138,5 +148,9 @@
     "hostport": {
         "type": "string",
         "pattern": "^[a-zA-Z0-9\\-_]+(\\.[a-zA-Z0-9\\-_^#]+)+:[1-9][0-9]*$"
+    },
+    "user": {
+        "type": "string",
+        "pattern": "^[\\w\\-]+(@[\\w\\-\\.]+)?$"
     }
 }

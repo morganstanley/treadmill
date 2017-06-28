@@ -1,11 +1,10 @@
 """Verifies cell API.
 """
 
-from __future__ import print_function
-
 import unittest
 import logging
 
+from treadmill import cli
 from treadmill import context
 from treadmill import zknamespace as z
 from treadmill import checkout as chk
@@ -60,7 +59,7 @@ def test():
         @chk.T(APITest, urls=urls, name=name)
         def _test_count(self, urls, name):
             """Checks {name} srv records count > 0."""
-            print('%s: %r' % (name, urls))
+            cli.out('%s: %r' % (name, urls))
             self.assertTrue(len(urls) > 0)
 
         for url in urls:
@@ -69,7 +68,7 @@ def test():
             def _test_is_up(self, url, name):
                 """Test {name} - {url} is up."""
                 del name
-                print(url)
+                cli.out(url)
                 host, port = _to_hostport(url)
                 self.assertTrue(chk.connect(host, port))
 
@@ -77,7 +76,7 @@ def test():
             def _test_is_ok(self, url, name):
                 """Test {name} - {url} is healthy."""
                 del name
-                print(url)
+                cli.out(url)
                 self.assertTrue(chk.url_check(url))
 
     return APITest

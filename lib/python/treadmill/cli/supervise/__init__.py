@@ -1,7 +1,6 @@
 """Distributed supervision suite."""
 from __future__ import absolute_import
 
-import importlib
 import logging
 import os
 import pkgutil
@@ -26,7 +25,7 @@ __path__ = pkgutil.extend_path(__path__, __name__)
 def init():
     """Return top level command handler."""
 
-    @click.group(cls=cli.make_multi_command(__name__))
+    @click.group(cls=cli.make_commands(__name__))
     def run():
         """Cross-cell supervision tools."""
         cli.init_logger('daemon.conf')

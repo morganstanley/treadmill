@@ -89,7 +89,7 @@ def make_host_acl(host, perm):
 def make_self_acl(perm):
     """Constucts acl for the current user.
 
-    If the user is root, use host/<hostname> principal.
+    If the user is root, use host principal.
     """
     assert _is_valid_perm(perm)
     if userutil.is_root():

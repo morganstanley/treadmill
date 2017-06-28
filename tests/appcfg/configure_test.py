@@ -3,7 +3,6 @@ Unit test for treadmill.appcfg.configure
 """
 
 import os
-import pwd
 import shutil
 import tempfile
 import unittest
@@ -84,12 +83,12 @@ class AppCfgConfigureTest(unittest.TestCase):
         app_unique_name = 'proid.myapp-0-00000000AAAAA'
         app_dir = os.path.join(self.root, 'apps', app_unique_name)
 
-        app_cfg.configure(self.tm_env, '/some/event')
+        app_cfg.configure(self.tm_env, '/some/event', 'linux')
 
-        mock_load.assert_called_with(self.tm_env, '/some/event')
+        mock_load.assert_called_with(self.tm_env, '/some/event', 'linux')
         shutil.copyfile.assert_called_with(
             '/some/event',
-            os.path.join(app_dir, 'manifest.yml')
+            os.path.join(app_dir, 'data', 'manifest.yml')
         )
         self.assertTrue(
             os.path.exists(
@@ -115,51 +114,6 @@ class AppCfgConfigureTest(unittest.TestCase):
                 payload=None
             )
         )
-
-    @mock.patch('pwd.getpwnam', mock.Mock(auto_spec=True))
-    @mock.patch('shutil.copyfile', mock.Mock(auto_spec=True))
-    @mock.patch('treadmill.utils.rootdir',
-                mock.Mock(return_value='/treadmill'))
-    @mock.patch('treadmill.appcfg.manifest.load', auto_spec=True)
-    def test_configure_bad_userid(self, mock_load):
-        """Tests that appcfg.configure failure on bad usedid.
-        """
-        manifest = {
-            'proid': 'foo',
-            'environment': 'dev',
-            'cpu': '100',
-            'memory': '100M',
-            'disk': '100G',
-            'services': [
-                {
-                    'name': 'web_server',
-                    'command': '/bin/true',
-                    'restart': {
-                        'limit': 5,
-                        'interval': 60,
-                    },
-                },
-            ],
-            'endpoints': [
-                {
-                    'name': 'http',
-                    'port': '8000',
-                },
-            ],
-            'name': 'proid.myapp#0',
-            'uniqueid': '12345',
-        }
-        mock_load.return_value = manifest
-        pwd.getpwnam.side_effect = KeyError
-
-        self.assertRaises(
-            KeyError,
-            app_cfg.configure,
-            self.tm_env,
-            '/some/event',
-        )
-        mock_load.assert_called_with(self.tm_env, '/some/event')
-        self.assertFalse(shutil.copyfile.called)
 
 
 if __name__ == '__main__':

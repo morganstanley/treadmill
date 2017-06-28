@@ -10,6 +10,10 @@ import tempfile
 import fnmatch
 
 import yaml
+try:
+    from yaml import CLoader as Loader
+except ImportError:
+    from yaml import Loader
 
 from treadmill import context
 from treadmill import schema
@@ -30,11 +34,8 @@ def watch_running(zkclient, cell_state):
         """Watch /running nodes."""
         cell_state.running = set(running)
         for name, item in cell_state.placement.iteritems():
-            state = item['state'] = (
-                'running' if name in cell_state.running else 'scheduled'
-            )
-            if item['host'] is not None:
-                item['state'] = state
+            if name in cell_state.running:
+                item['state'] = 'running'
         return True
 
     _LOGGER.info('Loaded running.')
@@ -118,7 +119,7 @@ def watch_finished_history(zkclient, cell_state):
                 path, data = row
                 instance = _get_instance(path)
                 if data:
-                    data = yaml.load(data)
+                    data = yaml.load(data, Loader=Loader)
                 cell_state.finished[instance] = data
             conn.close()
             os.unlink(f.name)

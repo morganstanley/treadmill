@@ -88,25 +88,20 @@ class EventMgr(object):
                 # The node is not there yet, wait.
                 _LOGGER.info('Server node missing.')
                 seen.clear()
-                self._cache_notify(False)
             elif event is not None and event.type == 'DELETED':
                 _LOGGER.info('Presence node deleted.')
                 seen.clear()
-                self._cache_notify(False)
             else:
                 _LOGGER.info('Presence is up.')
                 seen.set()
-                apps = zkclient.get_children(z.path.placement(self._hostname))
-                self._synchronize(zkclient, apps)
+            self._cache_notify(seen.is_set())
             return True
 
         @zkclient.ChildrenWatch(z.path.placement(self._hostname))
         @exc.exit_on_unhandled
         def _app_watch(apps):
             """Watch application placement."""
-            if seen.is_set():
-                self._synchronize(zkclient, apps)
-                self._cache_notify(True)
+            self._synchronize(zkclient, apps)
             return True
 
         while True:

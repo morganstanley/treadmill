@@ -88,10 +88,9 @@ class LinuxRuntimeRunTest(unittest.TestCase):
         }
         mock_ld_client.wait.return_value = localdisk
 
-        treadmill.runtime.linux._run._create_root_dir(self.tm_env,
-                                                      container_dir,
-                                                      '/some/root_dir',
-                                                      app)
+        treadmill.runtime.linux._run._create_root_dir(container_dir,
+                                                      app,
+                                                      mock_ld_client)
 
         treadmill.fs.create_filesystem.assert_called_with('/dev/foo')
         unshare.unshare.assert_called_with(unshare.CLONE_NEWNS)
@@ -148,14 +147,13 @@ class LinuxRuntimeRunTest(unittest.TestCase):
         os.makedirs(app_dir)
 
         app_run._apply_cgroup_limits(
-            self.tm_env,
-            app_dir,
+            mock_cgroup_client,
+            mock_ld_client,
+            mock_nwrk_client,
+            app_unique_name,
             manifest
         )
 
-        self.tm_env.svc_cgroup.make_client.assert_called_with(
-            os.path.join(app_dir, 'cgroups')
-        )
         mock_cgroup_client.put.assert_called_with(
             app_unique_name,
             {
@@ -163,17 +161,11 @@ class LinuxRuntimeRunTest(unittest.TestCase):
                 'cpu': '100',
             }
         )
-        self.tm_env.svc_localdisk.make_client.assert_called_with(
-            os.path.join(app_dir, 'localdisk')
-        )
         mock_ld_client.put.assert_called_with(
             app_unique_name,
             {
                 'size': '100G',
             }
-        )
-        self.tm_env.svc_network.make_client.assert_called_with(
-            os.path.join(app_dir, 'network')
         )
         mock_nwrk_client.put.assert_called_with(
             app_unique_name,
@@ -443,7 +435,7 @@ class LinuxRuntimeRunTest(unittest.TestCase):
     @mock.patch('treadmill.fs.mount_bind', mock.Mock())
     @mock.patch('treadmill.runtime.linux.image.get_image_repo', mock.Mock())
     @mock.patch('treadmill.apphook.configure', mock.Mock())
-    @mock.patch('treadmill.supervisor.exec_root_supervisor', mock.Mock())
+    @mock.patch('treadmill.subproc.exec_pid1', mock.Mock())
     @mock.patch('treadmill.subproc.check_call', mock.Mock())
     @mock.patch('treadmill.utils.rootdir',
                 mock.Mock(return_value='/treadmill'))
@@ -555,10 +547,9 @@ class LinuxRuntimeRunTest(unittest.TestCase):
         )
         # Create root dir
         treadmill.runtime.linux._run._create_root_dir.assert_called_with(
-            self.tm_env,
             app_dir,
-            os.path.join(app_dir, 'root'),
-            app
+            app,
+            self.tm_env.svc_localdisk.make_client.return_value
         )
 
         self.assertTrue(mock_watchdog.remove.called)
@@ -574,7 +565,7 @@ class LinuxRuntimeRunTest(unittest.TestCase):
     @mock.patch('treadmill.runtime.linux.image.get_image_repo', mock.Mock())
     @mock.patch('treadmill.fs.mount_bind', mock.Mock())
     @mock.patch('treadmill.apphook.configure', mock.Mock())
-    @mock.patch('treadmill.supervisor.exec_root_supervisor', mock.Mock())
+    @mock.patch('treadmill.subproc.exec_pid1', mock.Mock())
     @mock.patch('treadmill.subproc.check_call', mock.Mock())
     @mock.patch('treadmill.utils.rootdir',
                 mock.Mock(return_value='/treadmill'))
@@ -667,7 +658,7 @@ class LinuxRuntimeRunTest(unittest.TestCase):
     @mock.patch('treadmill.runtime.linux.image.get_image_repo', mock.Mock())
     @mock.patch('treadmill.fs.mount_bind', mock.Mock())
     @mock.patch('treadmill.apphook.configure', mock.Mock())
-    @mock.patch('treadmill.supervisor.exec_root_supervisor', mock.Mock())
+    @mock.patch('treadmill.subproc.exec_pid1', mock.Mock())
     @mock.patch('treadmill.subproc.check_call', mock.Mock())
     @mock.patch('treadmill.utils.rootdir',
                 mock.Mock(return_value='/treadmill'))

@@ -19,7 +19,7 @@ from treadmill import appenv
 from treadmill import context
 from treadmill import exc
 from treadmill import netdev
-from treadmill import subproc
+from treadmill import supervisor
 from treadmill import sysinfo
 from treadmill import utils
 from treadmill import zknamespace as z
@@ -132,12 +132,14 @@ def _blackout_terminate(tm_env):
         # we first shutdown cleanup so link in /var/tmp/treadmill/cleanup
         # will not be recycled before blackout clear
         _LOGGER.info('try to shutdown cleanup service')
-        subproc.check_call(['s6_svc', '-d', cleanupd_dir])
-        subproc.check_call(['s6_svwait', '-d', cleanupd_dir])
+        supervisor.control_service(cleanupd_dir,
+                                   supervisor.ServiceControlAction.down,
+                                   wait=supervisor.ServiceWaitAction.down)
 
         # shutdown all the applications by shutting down supervisor
         _LOGGER.info('try to shutdown supervisor')
-        subproc.check_call(['s6_svc', '-d', supervisor_dir])
+        supervisor.control_service(supervisor_dir,
+                                   supervisor.ServiceControlAction.down)
     else:
         # TODO: Implement terminating containers on windows
         pass

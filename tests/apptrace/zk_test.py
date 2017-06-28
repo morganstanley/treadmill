@@ -34,6 +34,10 @@ class AppTraceZKTest(mockzk.MockZookeeperTestCase):
     def test_trace_cleanup(self):
         """"Tests tasks cleanup."""
         zk_content = {
+            'scheduled': {
+                'app1#0003': {},
+                'app1#0004': {},
+            },
             'trace': {
                 '0001': {
                     'app1#0001,1000.00,s1,configured,2DqcoXnaIXEgy': {},
@@ -51,6 +55,22 @@ class AppTraceZKTest(mockzk.MockZookeeperTestCase):
                     'app1#0002,1005.00,configured,2DqcoXnaIXEgy': {},
                     'app1#0002,1006.00,configured,2DqcoXnaIXEgy': {},
                 },
+                '0003': {
+                    'app1#0003,1000.00,s1,configured,2DqcoXnaIXEgy': {},
+                    'app1#0003,1001.00,configured,2DqcoXnaIXEgy': {},
+                    'app1#0003,1003.00,configured,2DqcoXnaIXEgy': {},
+                    'app1#0003,1004.00,configured,2DqcoXnaIXEgy': {},
+                    'app1#0003,1005.00,configured,2DqcoXnaIXEgy': {},
+                    'app1#0003,1006.00,configured,2DqcoXnaIXEgy': {},
+                },
+                '0004': {
+                    'app1#0004,1000.00,s1,configured,2DqcoXnaIXEgy': {},
+                    'app1#0004,1001.00,configured,2DqcoXnaIXEgy': {},
+                    'app1#0004,1003.00,configured,2DqcoXnaIXEgy': {},
+                    'app1#0004,1004.00,configured,2DqcoXnaIXEgy': {},
+                    'app1#0004,1005.00,configured,2DqcoXnaIXEgy': {},
+                    'app1#0004,1006.00,configured,2DqcoXnaIXEgy': {},
+                },
             },
             'finished': {
             },
@@ -63,16 +83,15 @@ class AppTraceZKTest(mockzk.MockZookeeperTestCase):
         self.make_mock_zk(zk_content)
         zkclient = kazoo.client.KazooClient()
 
-        zk.cleanup_trace(zkclient, 10, 3)
-        self.assertFalse(kazoo.client.KazooClient.create.called)
-
         # Current time - 1000, expiration - 3 seconds, there are < 10 events
         # that are expired, nothing is uploaded.
-
+        zk.cleanup_trace(zkclient, 10, 3)
         self.assertEqual(0, len(zk_content['trace.history']))
+        self.assertFalse(kazoo.client.KazooClient.create.called)
 
+        # There are twelve expired events, expect batch to be uploaded.
+        # Instances app1#0003 and 0004 are running and will not be included.
         time.time.return_value = 1100
-        # There are twelve expired events, expect batch to be uploaded
         zk.cleanup_trace(zkclient, 10, 3)
         kazoo.client.KazooClient.create.assert_called_with(
             '/trace.history/trace.db.gzip-',
@@ -82,6 +101,18 @@ class AppTraceZKTest(mockzk.MockZookeeperTestCase):
         )
 
         self.assertEqual(10, kazoo.client.KazooClient.delete.call_count)
+        self.assertEqual(kazoo.client.KazooClient.delete.call_args_list, [
+            (('/trace/0001/app1#0001,1000.00,s1,configured,2DqcoXnaIXEgy',),),
+            (('/trace/0002/app1#0002,1000.00,s1,configured,2DqcoXnaIXEgy',),),
+            (('/trace/0001/app1#0001,1001.00,configured,2DqcoXnaIXEgy',),),
+            (('/trace/0002/app1#0002,1001.00,configured,2DqcoXnaIXEgy',),),
+            (('/trace/0001/app1#0001,1003.00,configured,2DqcoXnaIXEgy',),),
+            (('/trace/0002/app1#0002,1003.00,configured,2DqcoXnaIXEgy',),),
+            (('/trace/0001/app1#0001,1004.00,configured,2DqcoXnaIXEgy',),),
+            (('/trace/0002/app1#0002,1004.00,configured,2DqcoXnaIXEgy',),),
+            (('/trace/0001/app1#0001,1005.00,configured,2DqcoXnaIXEgy',),),
+            (('/trace/0002/app1#0002,1005.00,configured,2DqcoXnaIXEgy',),),
+        ])
 
     @mock.patch('kazoo.client.KazooClient.delete', mock.Mock())
     @mock.patch('kazoo.client.KazooClient.create', mock.Mock())

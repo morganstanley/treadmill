@@ -1,12 +1,13 @@
 """Interpolate template files."""
 from __future__ import absolute_import
-from __future__ import print_function
 
 import os
 
 import click
 import yaml
 import jinja2
+
+from treadmill import cli
 
 
 def init():
@@ -28,6 +29,6 @@ def init():
             with open(param, 'rb') as fd:
                 data.update(yaml.load(fd.read()))
 
-        print(env.get_template(os.path.basename(inputfile)).render(data))
+        cli.out(env.get_template(os.path.basename(inputfile)).render(data))
 
     return interpolate

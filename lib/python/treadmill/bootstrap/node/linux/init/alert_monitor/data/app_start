@@ -1,9 +1,0 @@
-#!/bin/sh
-#
-# Starts alert monitor service that forwards alerts to the masters.
-#
-
-# This service needs host tickets
-
-exec {{ treadmill }}/bin/treadmill sproc --cgroup . \
-    alerts monitor {{ dir }}/spool/alerts

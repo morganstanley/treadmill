@@ -19,7 +19,9 @@ _LOGGER = logging.getLogger(__name__)
 def init(api, cors, impl):
     """Configures REST handlers for allocation resource."""
 
-    app_ns = api.namespace('app', description='Local app REST operations')
+    app_ns = api.namespace(
+        'local-app', description='Local app REST operations'
+    )
 
     req_parser = api.parser()
     req_parser.add_argument('start',

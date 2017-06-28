@@ -25,9 +25,14 @@ _METRIC_STEP_SEC_MAX = 300
 
 _LOGGER = logging.getLogger(__name__)
 
+#            ( rrd file's basename,  cgroup name)
+CORE_RRDS = [('treadmill.apps.rrd', 'treadmill/apps'),
+             ('treadmill.core.rrd', 'treadmill/core'),
+             ('treadmill.system.rrd', 'treadmill')]
 
-def _core_svcs(root_dir):
-    """Contructs list of core services."""
+
+def _sys_svcs(root_dir):
+    """Contructs list of system services."""
     return sorted([
         os.path.basename(s)
         for s in glob.glob(os.path.join(root_dir, 'init', '*'))
@@ -37,9 +42,10 @@ def _core_svcs(root_dir):
 def init():
     """Top level command handler."""
 
-    # TODO: main is too long, need to be refactored.
+    # TODO: main is too long (R0915) and has too many branches (R0912),
+    #       need to be refactored.
     #
-    # pylint: disable=R0915
+    # pylint: disable=R0915,R0912
     @click.command()
     @click.option('--step', '-s',
                   type=click.IntRange(_METRIC_STEP_SEC_MIN,
@@ -68,7 +74,7 @@ def init():
             if metric_name.endswith('.rrd')
         )
 
-        sys_svcs = _core_svcs(approot)
+        sys_svcs = _sys_svcs(approot)
         sys_svcs_no_metrics = set()
 
         sys_maj_min = '{}:{}'.format(*fs.path_to_maj_min(approot))
@@ -77,33 +83,24 @@ def init():
         _LOGGER.info('Device %s maj:min = %s for approot: %s', sys_block_dev,
                      sys_maj_min, approot)
 
-        core_rrds = ['treadmill.apps.rrd',
-                     'treadmill.core.rrd',
-                     'treadmill.system.rrd']
-
-        for core_rrd in core_rrds:
-            rrdfile = os.path.join(core_metrics_dir, core_rrd)
-            if not os.path.exists(rrdfile):
-                rrdclient.create(rrdfile, step, interval)
-
         while True:
             starttime_sec = time.time()
-            rrd.update(
-                rrdclient,
-                os.path.join(core_metrics_dir, 'treadmill.apps.rrd'),
-                'treadmill/apps', sys_maj_min, sys_block_dev
-            )
-            rrd.update(
-                rrdclient,
-                os.path.join(core_metrics_dir, 'treadmill.core.rrd'),
-                'treadmill/core', sys_maj_min, sys_block_dev
-            )
-            rrd.update(
-                rrdclient,
-                os.path.join(core_metrics_dir, 'treadmill.system.rrd'),
-                'treadmill', sys_maj_min, sys_block_dev
-            )
-            count = 3
+            count = 0
+
+            for core_rrd in CORE_RRDS:
+                rrd_basename, cgrp = core_rrd
+
+                rrdfile = os.path.join(core_metrics_dir, rrd_basename)
+                if not os.path.exists(rrdfile):
+                    rrdclient.create(rrdfile, step, interval)
+
+                if cgrp == 'treadmill':
+                    rrd.update(rrdclient, rrdfile, cgrp, sys_maj_min,
+                               sys_block_dev)
+                else:
+                    rrd.update(rrdclient, rrdfile, cgrp, sys_maj_min)
+
+                count += 1
 
             for svc in sys_svcs:
                 if svc in sys_svcs_no_metrics:
@@ -115,8 +112,8 @@ def init():
                     rrdclient.create(rrdfile, step, interval)
 
                 svc_cgrp = os.path.join('treadmill', 'core', svc)
-                rrd.update(rrdclient, rrdfile, svc_cgrp, sys_maj_min,
-                           sys_block_dev)
+                rrd.update(rrdclient, rrdfile, svc_cgrp, sys_maj_min)
+
                 count += 1
 
             seen_apps = set()

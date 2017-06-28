@@ -4,6 +4,7 @@ Unit test for fs - configuring unshared chroot.
 
 import os
 import shutil
+import subprocess
 import tarfile
 import tempfile
 import unittest
@@ -329,6 +330,13 @@ Directory Hash Seed:      20c6af65-0208-4e71-99cb-d5532c02e3b8
         self.assertEqual(res['reserved block count'], '2')
         self.assertEqual(res['free blocks'], '3')
         self.assertEqual(res['block size'], '1024')
+
+        with mock.patch('treadmill.subproc.check_output',
+                        side_effect=subprocess.CalledProcessError(
+                            1, 'command', 'some error')):
+
+            self.assertEqual(fs.read_filesystem_info('/dev/treadmill/<uniq>'),
+                             {})
 
     @mock.patch('glob.glob',
                 mock.Mock(return_value=('/sys/class/block/sda2/dev',

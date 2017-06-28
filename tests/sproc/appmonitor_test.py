@@ -49,7 +49,9 @@ class AppMonitorTest(unittest.TestCase):
 
         state['scheduled']['foo.baz'].append('foo.baz#5')
         appmonitor.reevaluate(instance_api, state)
-        instance_api.delete.assert_called_with('foo.baz#3')
+        instance_api.delete.assert_called_with(
+            'foo.baz#3', deleted_by='monitor'
+        )
 
         self.assertEquals(101, state['monitors']['foo.bar']['last_update'])
         self.assertEquals(101, state['monitors']['foo.baz']['last_update'])
@@ -74,12 +76,16 @@ class AppMonitorTest(unittest.TestCase):
         state['scheduled']['foo.bar'] = []
 
         appmonitor.reevaluate(instance_api, state)
-        instance_api.create.assert_called_with('foo.bar', {}, count=2)
+        instance_api.create.assert_called_with(
+            'foo.bar', {}, count=2, created_by='monitor'
+        )
         self.assertEquals(1.0, state['monitors']['foo.bar']['available'])
 
         instance_api.create.reset_mock()
         appmonitor.reevaluate(instance_api, state)
-        instance_api.create.assert_called_with('foo.bar', {}, count=1)
+        instance_api.create.assert_called_with(
+            'foo.bar', {}, count=1, created_by='monitor'
+        )
         self.assertEquals(0.0, state['monitors']['foo.bar']['available'])
 
         # No available, create not called.
@@ -89,7 +95,9 @@ class AppMonitorTest(unittest.TestCase):
 
         time.time.return_value = 104
         appmonitor.reevaluate(instance_api, state)
-        instance_api.create.assert_called_with('foo.bar', {}, count=1)
+        instance_api.create.assert_called_with(
+            'foo.bar', {}, count=1, created_by='monitor'
+        )
         self.assertEquals(0.0, state['monitors']['foo.bar']['available'])
 
 

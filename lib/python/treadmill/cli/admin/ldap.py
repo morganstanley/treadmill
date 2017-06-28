@@ -1,6 +1,7 @@
 """Implementation of treadmill admin ldap CLI plugin."""
 from __future__ import absolute_import
 
+import json
 import logging
 
 import click
@@ -30,8 +31,8 @@ def server_group(parent):
     @click.option('-t', '--traits', help='List of server traits',
                   multiple=True, default=[])
     @click.option('-p', '--partition', help='Server partition')
-    @click.option('-d', '--data', help='Server specific data as key=value '
-                  'comma separated list', type=cli.LIST)
+    @click.option('-d', '--data', help='Server specific data in JSON',
+                  type=click.Path(exists=True, readable=True))
     @click.argument('server')
     @cli.admin.ON_EXCEPTIONS
     def configure(cell, traits, server, partition, data):
@@ -48,9 +49,8 @@ def server_group(parent):
                 partition = None
             attrs['partition'] = partition
         if data:
-            if data == ['-']:
-                data = None
-            attrs['data'] = data
+            with open(data, 'rb') as fd:
+                attrs['data'] = json.loads(fd.read())
 
         if attrs:
             try:
@@ -61,7 +61,7 @@ def server_group(parent):
         try:
             cli.out(formatter(admin_srv.get(server)))
         except ldap3.LDAPNoSuchObjectResult:
-            click.echo('Server does not exist: %s' % server, err=True)
+            cli.bad_exit('Server does not exist: %s', server)
 
     @server.command(name='list')
     @click.option('-c', '--cell', help='Treadmll cell.')
@@ -700,6 +700,7 @@ def ldap_allocations_group(parent):
     @click.option('-d', '--disk', help='Disk.',
                   callback=cli.validate_disk)
     @click.option('-r', '--rank', help='Rank.', type=int, default=100)
+    @click.option('-a', '--rank-adjustment', help='Rank adjustment.', type=int)
     @click.option('-u', '--max-utilization',
                   help='Max utilization.', type=float)
     @click.option('-t', '--traits', help='Allocation traits', type=cli.LIST)
@@ -707,8 +708,8 @@ def ldap_allocations_group(parent):
     @click.option('--cell', help='Cell.', required=True)
     @click.argument('allocation')
     @cli.admin.ON_EXCEPTIONS
-    def reserve(allocation, cell, memory, cpu, disk, rank, max_utilization,
-                traits, partition):
+    def reserve(allocation, cell, memory, cpu, disk, rank, rank_adjustment,
+                max_utilization, traits, partition):
         """Reserve capacity on a given cell"""
         admin_cell_alloc = admin.CellAllocation(context.GLOBAL.ldap.conn)
         data = {}
@@ -720,6 +721,8 @@ def ldap_allocations_group(parent):
             data['disk'] = disk
         if rank is not None:
             data['rank'] = rank
+        if rank_adjustment is not None:
+            data['rank_adjustment'] = rank_adjustment
         if max_utilization is not None:
             data['max_utilization'] = max_utilization
         if traits:

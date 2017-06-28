@@ -37,7 +37,7 @@ def stop(job_id=None, app_name=None):
         return
 
     _LOGGER.info('Stopping all instances: %r', filtered)
-    master.delete_apps(zkclient, filtered)
+    master.delete_apps(zkclient, filtered, 'cron')
 
 
 def start(job_id=None, app_name=None, count=1):
@@ -89,6 +89,6 @@ def start(job_id=None, app_name=None, count=1):
     _LOGGER.info('Configured: %s %r', app_name, configured)
 
     scheduled = master.create_apps(
-        zkclient, app_name, configured, count
+        zkclient, app_name, configured, count, 'cron'
     )
     _LOGGER.debug('scheduled: %r', scheduled)

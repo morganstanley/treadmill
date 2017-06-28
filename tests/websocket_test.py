@@ -153,16 +153,23 @@ class PubSubTest(unittest.TestCase):
         impl.sow_table = 'trace'
 
         conn = sqlite3.connect(temp.name)
-        conn.execute('CREATE TABLE trace ('
-                     ' path TEXT,'
-                     ' timestamp INTEGER,'
-                     ' data TEXT,'
-                     ' source TEXT)')
+        conn.execute(
+            """
+            CREATE TABLE trace (
+                path text, timestamp integer, data text,
+                directory text, name text
+            )
+            """
+        )
         conn.executemany(
-            'INSERT INTO trace (path, timestamp) values(?, ?)',
-            [('/aaa', 3),
-             ('/bbb', 2),
-             ('/ccc', 1)]
+            """
+            INSERT INTO trace (
+                path, timestamp, directory, name
+            ) VALUES(?, ?, ?, ?)
+            """,
+            [('/aaa', 3, '/', 'aaa'),
+             ('/bbb', 2, '/', 'bbb'),
+             ('/ccc', 1, '/', 'ccc')]
         )
         conn.commit()
         conn.close()

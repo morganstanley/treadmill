@@ -1,0 +1,1 @@
+{{ python }} -m treadmill sproc monitor containers --approot {{ dir }} -S {{ dir }}\running

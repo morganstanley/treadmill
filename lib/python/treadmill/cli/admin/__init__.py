@@ -1,7 +1,6 @@
 """Implementation of treadmill-admin CLI plugin."""
 from __future__ import absolute_import
 
-import importlib
 import logging
 import os
 import pkgutil
@@ -60,7 +59,7 @@ ON_EXCEPTIONS = cli.handle_exceptions([
 def init():
     """Return top level command handler."""
 
-    @click.group(cls=cli.make_multi_command(__name__))
+    @click.group(cls=cli.make_commands(__name__))
     @click.option('--ldap', envvar='TREADMILL_LDAP')
     @click.pass_context
     def run(ctx, ldap):

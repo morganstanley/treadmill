@@ -46,7 +46,7 @@ class API(object):
             instance_plugin = importlib.import_module(
                 'treadmill.plugins.api.instance')
         except ImportError as err:
-            _LOGGER.info('Unable to load auth plugin: %s', err)
+            _LOGGER.info('Unable to load instance plugin: %s', err)
 
         def _list(match=None):
             """List configured instances."""
@@ -79,11 +79,16 @@ class API(object):
             {'$ref': 'app.json#/resource_id'},
             {'allOf': [{'$ref': 'instance.json#/resource'},
                        {'$ref': 'instance.json#/verbs/create'}]},
-            count={'type': 'integer', 'minimum': 1, 'maximum': 1000}
+            count={'type': 'integer', 'minimum': 1, 'maximum': 1000},
+            created_by={'anyOf': [
+                {'type': 'null'},
+                {'$ref': 'common.json#/user'},
+            ]}
         )
-        def create(rsrc_id, rsrc, count=1):
+        def create(rsrc_id, rsrc, count=1, created_by=None):
             """Create (configure) instance."""
-            _LOGGER.info('create: count = %s, %s %r', count, rsrc_id, rsrc)
+            _LOGGER.info('create: count = %s, %s %r, created_by = %s',
+                         count, rsrc_id, rsrc, created_by)
 
             admin_app = admin.Application(context.GLOBAL.ldap.conn)
             if not rsrc:
@@ -106,6 +111,7 @@ class API(object):
             if 'proid' not in configured:
                 raise exc.TreadmillError(
                     'Missing required attribute: proid')
+
             if 'environment' not in configured:
                 raise exc.TreadmillError(
                     'Missing required attribute: environment')
@@ -116,8 +122,9 @@ class API(object):
             if 'affinity' not in configured:
                 configured['affinity'] = '{0}.{1}'.format(*rsrc_id.split('.'))
 
-            scheduled = master.create_apps(context.GLOBAL.zk.conn,
-                                           rsrc_id, configured, count)
+            scheduled = master.create_apps(
+                context.GLOBAL.zk.conn, rsrc_id, configured, count, created_by
+            )
             return scheduled
 
         @schema.schema(
@@ -133,12 +140,18 @@ class API(object):
             master.update_app_priorities(context.GLOBAL.zk.conn, delta)
             return master.get_app(context.GLOBAL.zk.conn, rsrc_id)
 
-        @schema.schema({'$ref': 'instance.json#/resource_id'})
-        def delete(rsrc_id):
+        @schema.schema(
+            {'$ref': 'instance.json#/resource_id'},
+            deleted_by={'anyOf': [
+                {'type': 'null'},
+                {'$ref': 'common.json#/user'},
+            ]}
+        )
+        def delete(rsrc_id, deleted_by=None):
             """Delete configured instance."""
-            _LOGGER.info('delete: %s', rsrc_id)
+            _LOGGER.info('delete: %s, deleted_by = %s', rsrc_id, deleted_by)
 
-            master.delete_apps(context.GLOBAL.zk.conn, [rsrc_id])
+            master.delete_apps(context.GLOBAL.zk.conn, [rsrc_id], deleted_by)
 
         self.list = _list
         self.get = get

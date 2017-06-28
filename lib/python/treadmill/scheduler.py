@@ -925,7 +925,7 @@ class Allocation(object):
 
         self.set_max_utilization(max_utilization)
         self.set_traits(traits)
-        self.update(reserved, rank)
+        self.update(reserved, rank, 0)
         self.apps = dict()
         self.sub_allocations = dict()
         self.path = []
@@ -953,12 +953,14 @@ class Allocation(object):
         else:
             assert 'Unsupported type: %r' % type(reserved)
 
-    def update(self, reserved, rank, max_utilization=None):
+    def update(self, reserved, rank, rank_adjustment, max_utilization=None):
         """Updates allocation."""
         if rank is not None:
             self.rank = rank
         else:
             self.rank = DEFAULT_RANK
+        if rank_adjustment is not None:
+            self.rank_adjustment = rank_adjustment
         self.set_reserved(reserved)
         self.set_max_utilization(max_utilization)
 
@@ -1039,7 +1041,7 @@ class Allocation(object):
 
             yield (rank, util, pending, app.global_order, app)
 
-    def utilization_queue(self, free_capacity):
+    def utilization_queue(self, free_capacity, visitor=None):
         """Returns utilization queue including the sub-allocs.
 
         All app queues from self and sub-allocs are merged in standard order,
@@ -1050,7 +1052,7 @@ class Allocation(object):
         with utilization < 1 will remain with utilzation < 1.
         """
         total_reserved = self.total_reserved()
-        queues = [alloc.utilization_queue(free_capacity)
+        queues = [alloc.utilization_queue(free_capacity, visitor)
                   for alloc in self.sub_allocations.values()]
 
         queues.append(self.priv_utilization_queue())
@@ -1069,7 +1071,10 @@ class Allocation(object):
             # - False < True, so for apps with same utilization we prefer
             #   those that already running (False == not pending)
             # - Global order
-            yield rank, util, pending, order, app
+            entry = (rank, util, pending, order, app)
+            if visitor:
+                visitor(self, entry)
+            yield entry
 
     def total_reserved(self):
         """Total reserved capacity including sub-allocs."""

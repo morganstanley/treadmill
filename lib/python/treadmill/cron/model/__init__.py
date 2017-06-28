@@ -2,26 +2,15 @@
 Model of cron job.
 """
 
-import importlib
 import logging
 import re
 
 from treadmill import exc
+from treadmill import plugin_manager
 
 _LOGGER = logging.getLogger(__name__)
 
-
-def _get_model_module(model):
-    """Get an importlib module based on the model"""
-    try:
-        model_module = re.sub('-', '_', model)
-        return importlib.import_module(
-            'treadmill.cron.model.{}'.format(model_module)
-        )
-    except ImportError as err:
-        raise exc.NotFound('{} cron model is not available: {}'.format(
-            model, err
-        ))
+_CRON_MODULES = plugin_manager.extensions('treadmill.cron')
 
 
 def create(scheduler, job_id, event, resource, expression, count):
@@ -29,7 +18,7 @@ def create(scheduler, job_id, event, resource, expression, count):
     model, action = event.split(':')
     _LOGGER.debug('model: %s, action: %s', model, action)
 
-    model_module = _get_model_module(model)
+    model_module = _CRON_MODULES()[model].plugin
     _LOGGER.debug('model_module: %r', model_module)
 
     return model_module.create(
@@ -42,7 +31,7 @@ def update(scheduler, job_id, event, resource, expression, count):
     model, action = event.split(':')
     _LOGGER.debug('model: %s, action: %s', model, action)
 
-    model_module = _get_model_module(model)
+    model_module = _CRON_MODULES()[model].plugin
     _LOGGER.debug('model_module: %r', model_module)
 
     return model_module.update(

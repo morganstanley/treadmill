@@ -17,7 +17,8 @@ class LocalFilesystemPlugin(image_fs.FilesystemPluginBase):
     def init(self):
         pass
 
-    def configure(self, root_dir, app):
+    def configure(self, container_dir, app):
+        root_dir = os.path.join(container_dir, 'root')
         newroot_norm = fs.norm_safe(root_dir)
         mounts = [
         ]

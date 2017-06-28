@@ -17,7 +17,7 @@ def models(api):
         'restart': fields.Nested(restart),
         'root': fields.Boolean(description='Run as root'),
     })
-    endpoint = api.model('Endpoint', {
+    endpoint = api.model('AppEndpoint', {
         'name': fields.String(description='Endpoint Name', required=True),
         'port': fields.Integer(description='Port', required=True),
         'type': fields.String(description='Type'),
@@ -63,6 +63,7 @@ def models(api):
         'vring': fields.Nested(vring),
         'data_retention_timeout': fields.String(
             description='Data retention timeout'),
+        'lease': fields.String(description='Application lease interval.'),
     }
 
     app_model = api.model(

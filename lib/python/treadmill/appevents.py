@@ -23,6 +23,65 @@ _SERVERS_ACL = zkutils.make_role_acl('servers', 'rwcda')
 _HOSTNAME = sysinfo.hostname()
 
 
+def _publish_zk(zkclient, when, instanceid, event_type, event_data, payload):
+    """Publish application event to ZK.
+    """
+    eventnode = '%s,%s,%s,%s' % (when, _HOSTNAME, event_type, event_data)
+    _LOGGER.debug('Creating %s', z.path.trace(instanceid, eventnode))
+    try:
+        zkutils.with_retry(
+            zkclient.create,
+            z.path.trace(instanceid, eventnode),
+            payload,
+            acl=[_SERVERS_ACL],
+            makepath=True
+        )
+    except kazoo.client.NodeExistsError:
+        pass
+
+    if event_type in ['aborted', 'killed', 'finished']:
+        # For terminal state, update the finished node with exit summary.
+        zkutils.with_retry(
+            zkutils.put,
+            zkclient,
+            z.path.finished(instanceid),
+            {'state': event_type,
+             'when': when,
+             'host': _HOSTNAME,
+             'data': event_data},
+            acl=[_SERVERS_ACL],
+        )
+
+        scheduled_node = z.path.scheduled(instanceid)
+        _LOGGER.info('Unscheduling, event=%s: %s', event_type, scheduled_node)
+        zkutils.with_retry(
+            zkutils.ensure_deleted, zkclient,
+            scheduled_node
+        )
+
+
+def post_zk(zkclient, event):
+    """Post and publish application event directly to ZK.
+
+    Can be used if event directory is unknown (i.e. master/scheduler "API").
+    """
+    _LOGGER.debug('post_zk: %r', event)
+
+    (
+        _ts,
+        _src,
+        instanceid,
+        event_type,
+        event_data,
+        payload
+    ) = event.to_data()
+    if not isinstance(payload, str):
+        payload = yaml.dump(payload)
+    _publish_zk(
+        zkclient, str(time.time()), instanceid, event_type, event_data, payload
+    )
+
+
 def post(events_dir, event):
     """Post application event to event directory.
     """
@@ -85,39 +144,10 @@ class AppEventsWatcher(object):
 
         _LOGGER.info('New event file - %r', path)
 
-        eventtime, appname, event, data = localpath.split(',', 4)
+        when, instanceid, event_type, event_data = localpath.split(',', 4)
         with open(path) as f:
-            eventnode = '%s,%s,%s,%s' % (eventtime, _HOSTNAME, event, data)
-            _LOGGER.debug('Creating %s', z.path.trace(appname, eventnode))
-            try:
-                zkutils.with_retry(
-                    self.zkclient.create,
-                    z.path.trace(appname, eventnode),
-                    f.read(),
-                    acl=[_SERVERS_ACL],
-                    makepath=True
-                )
-            except kazoo.client.NodeExistsError:
-                pass
-
-        if event in ['aborted', 'killed', 'finished']:
-            # For terminal state, update the finished node with exit summary.
-            zkutils.with_retry(
-                zkutils.put,
-                self.zkclient,
-                z.path.finished(appname),
-                {'state': event,
-                 'when': eventtime,
-                 'host': _HOSTNAME,
-                 'data': data},
-                acl=[_SERVERS_ACL],
-            )
-
-            scheduled_node = z.path.scheduled(appname)
-            _LOGGER.info('Unscheduling, event=%s: %s', event, scheduled_node)
-            zkutils.with_retry(
-                zkutils.ensure_deleted, self.zkclient,
-                scheduled_node
-            )
-
+            payload = f.read()
+        _publish_zk(
+            self.zkclient, when, instanceid, event_type, event_data, payload
+        )
         os.unlink(path)

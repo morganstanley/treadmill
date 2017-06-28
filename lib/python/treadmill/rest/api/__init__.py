@@ -3,7 +3,6 @@ from __future__ import absolute_import
 
 import os
 import logging
-import importlib
 import pkgutil
 
 import flask
@@ -17,12 +16,19 @@ from treadmill import authz
 from treadmill.rest import error_handlers
 from treadmill import rest
 from treadmill import utils
+from treadmill import plugin_manager
 from treadmill import webutils
 
 
 __path__ = pkgutil.extend_path(__path__, __name__)
 
 _LOGGER = logging.getLogger(__name__)
+
+_REST_APIS = plugin_manager.extensions('treadmill.rest.api')
+
+_APIS = plugin_manager.extensions('treadmill.api')
+
+_ERROR_HANDLERS = plugin_manager.extensions('treadmill.rest.error_handlers')
 
 
 def init(apis, title=None, cors_origin=None, authz_arg=None):
@@ -37,12 +43,7 @@ def init(apis, title=None, cors_origin=None, authz_arg=None):
     error_handlers.register(api)
 
     # load up any external error_handlers
-    try:
-        err_handlers_plugin = importlib.import_module(
-            'treadmill.plugins.rest.error_handlers')
-        err_handlers_plugin.init(api)
-    except ImportError as err:
-        _LOGGER.warn('Unable to load error_handlers plugin: %s', err)
+    _ERROR_HANDLERS().map(lambda ext: ext.plugin.init(api))
 
     @blueprint.route('/docs/', endpoint='docs')
     def _swagger_ui():
@@ -55,6 +56,12 @@ def init(apis, title=None, cors_origin=None, authz_arg=None):
     cors = webutils.cors(origin=cors_origin,
                          content_type='application/json',
                          credentials=True)
+
+    @rest.FLASK_APP.before_request
+    def _before_request_user_handler():
+        user = flask.request.environ.get('REMOTE_USER')
+        if user:
+            flask.g.user = user
 
     @rest.FLASK_APP.after_request
     def _after_request_cors_handler(response):
@@ -77,7 +84,7 @@ def init(apis, title=None, cors_origin=None, authz_arg=None):
 
     def user_clbk():
         """Get current user from the request."""
-        return flask.request.environ.get('REMOTE_USER')
+        return flask.g.get('user')
 
     if authz_arg is None:
         authorizer = authz.NullAuthorizer()
@@ -87,18 +94,11 @@ def init(apis, title=None, cors_origin=None, authz_arg=None):
     endpoints = []
     for apiname in apis:
         try:
-            apimod = apiname.replace('-', '_')
-            _LOGGER.info('Loading api: %s', apimod)
+            _LOGGER.info('Loading api: %s', apiname)
 
-            api_restmod = importlib.import_module(
-                '.'.join(['treadmill', 'rest', 'api', apimod])
-            )
-            api_implmod = importlib.import_module(
-                '.'.join(['treadmill', 'api', apimod])
-            )
+            api_impl = _APIS()[apiname].plugin.init(authorizer)
+            endpoint = _REST_APIS()[apiname].plugin.init(api, cors, api_impl)
 
-            api_impl = api_implmod.init(authorizer)
-            endpoint = api_restmod.init(api, cors, api_impl)
             if endpoint is None:
                 endpoint = apiname.replace('_', '-').replace('.', '/')
             if not endpoint.startswith('/'):
@@ -107,6 +107,6 @@ def init(apis, title=None, cors_origin=None, authz_arg=None):
             endpoints.append(endpoint)
 
         except ImportError as err:
-            _LOGGER.warn('Unable to load %s api: %s', apimod, err)
+            _LOGGER.warn('Unable to load %s api: %s', apiname, err)
 
     return endpoints
