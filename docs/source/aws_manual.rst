@@ -1,7 +1,10 @@
 Treadmill on AWS
 ==========================================================
 
-Assuming a box(vagrant/local machine) has the treadmill binary installed:
+Assuming a CentOS 7 box(vagrant/local machine) install the treadmill binary:
+::
+  sudo yum install -y epel-release && sudo yum install -y python34
+  sudo curl -L https://github.com/ThoughtWorksInc/treadmill/releases/download/0.1.0/treadmill -o /usr/bin/treadmill && sudo chmod +x /usr/bin/treadmill
 
 List treadmill AWS commands
 ::
@@ -77,7 +80,7 @@ Create Treadmill Cell
 
 ::
 
-  treadmill aws cell --create --key-file --with-freeipa <path/to/pem/file>
+  treadmill aws cell --create --with-freeipa --key-file <path/to/pem/file>
 
   --playbook      default: deploy/cell.yml
   --inventory     default: deploy/controller.inventory
@@ -101,6 +104,7 @@ SSH in master/node using the downloaded pem file
 
 ::
 
+  sudo su -
   treadmill admin master app schedule --env prod --proid treadmld --manifest <manifest_file> treadmld.foo
 
 
