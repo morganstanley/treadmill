@@ -1,6 +1,5 @@
 """Manage Treadmill app manifest."""
 from __future__ import absolute_import
-from __future__ import print_function
 
 import logging
 import urllib
@@ -53,7 +52,7 @@ def _show_list(apis, match, states, finished=False):
     names = [item['name']
              for item in response.json() if item['state'] in states]
     for name in names:
-        print(name)
+        cli.out(name)
 
 
 def _show_endpoints(apis, pattern, endpoint, proto):

@@ -8,24 +8,4 @@ exec {{ treadmill }}/bin/treadmill sproc \
     --cell {{ cell }} \
     monitor node_services \
     --approot {{ dir }} \
-    -s {{ dir }}/init/alert_monitor \
-    -s {{ dir }}/init/appcfgmgr \
-    -s {{ dir }}/init/appevents \
-    -s {{ dir }}/init/cgroup_service \
-    -s {{ dir }}/init/cleanup \
-    -s {{ dir }}/init/dnscache \
-    -s {{ dir }}/init/eventd \
-    -s {{ dir }}/init/fw \
-    -s {{ dir }}/init/fw_nodes_sync \
-    -s {{ dir }}/init/fw_prodperim \
-    -s {{ dir }}/init/host_tickets \
-    -s {{ dir }}/init/localdisk_service \
-    -s {{ dir }}/init/metrics \
-    -s {{ dir }}/init/network_service \
-    -s {{ dir }}/init/nodeinfo \
-    -s {{ dir }}/init/reboot_monitor \
-    -s {{ dir }}/init/rrdcached \
-    -s {{ dir }}/init/server_init \
-    -s {{ dir }}/init/supervisor \
-    -s {{ dir }}/init/version_monitor \
-    -s {{ dir }}/init/webauthd
+    -S {{ dir }}/init

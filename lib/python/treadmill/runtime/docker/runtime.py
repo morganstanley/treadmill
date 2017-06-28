@@ -26,11 +26,3 @@ class DockerRuntime(runtime_base.RuntimeBase):
     def _finish(self, watchdog, terminated):
         # TODO: Docker
         raise Exception("Not implemented.")
-
-    def _register(self, manifest, refresh_interval=None):
-        # TODO: Docker
-        raise Exception("Not implemented.")
-
-    def _monitor(self, manifest):
-        # TODO: Docker
-        raise Exception("Not implemented.")

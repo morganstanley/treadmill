@@ -3,14 +3,15 @@
 exec > {{ dir }}/stop.log
 exec 2>&1
 
-S6={{ _alias.s6 }}
+S6={{ s6 }}
+ECHO={{ echo }}
 
 unset KRB5CCNAME
 unset KRB5_KTNAME
 
-export PATH=$S6:${PATH}
+export PATH={{ s6 }}/bin:${PATH}
 
-$S6/bin/s6-svc -wd {{ dir }}/init/cleanup
-$S6/bin/s6-svscanctl -t {{ dir }}/init
+{{ s6_svc }} -wd {{ dir }}/init/cleanup
+{{ s6_svscanctl }} -t {{ dir }}/init
 
-$ECHO Done.
+${ECHO} Done.

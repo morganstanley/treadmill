@@ -7,14 +7,20 @@ import os
 import click
 
 from treadmill import cli
-from treadmill import cgroups
-from treadmill import cgutils
+from treadmill import osnoop
 
 _LOGGER = logging.getLogger(__name__)
 
 
+@osnoop.windows
 def _configure_core_cgroups(service_name):
     """Configure service specific cgroups."""
+    from treadmill import cgroups
+    from treadmill import cgutils
+
+    if service_name == '.':
+        service_name = os.path.basename(os.path.realpath(service_name))
+
     group = os.path.join('treadmill/core', service_name)
     # create group directory
     for subsystem in ['memory', 'cpu', 'cpuacct', 'blkio']:
@@ -70,10 +76,6 @@ def init():
         logging.getLogger().setLevel(log_level)
 
         if cgroup:
-            if cgroup == '.':
-                service_name = os.path.basename(os.path.realpath(cgroup))
-            else:
-                service_name = cgroup
-            _configure_core_cgroups(service_name)
+            _configure_core_cgroups(cgroup)
 
     return run

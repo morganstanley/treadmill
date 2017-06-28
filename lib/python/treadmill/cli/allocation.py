@@ -11,6 +11,8 @@ from treadmill import context
 from treadmill import admin
 
 
+_DEFAULT_PRIORITY = 1
+
 _LOGGER = logging.getLogger(__name__)
 
 
@@ -103,6 +105,8 @@ def init():
     @click.option('-c', '--cell', help='Treadmill cell')
     @click.option('-p', '--partition', help='Allocation partition')
     @click.option('-r', '--rank', help='Allocation rank', type=int)
+    @click.option('--rank-adjustment', help='Rank adjustment', type=int)
+    @click.option('--max-utilization', help='Maximum utilization', type=float)
     @click.option('--memory', help='Memory demand.',
                   metavar='G|M',
                   callback=cli.validate_memory)
@@ -114,7 +118,8 @@ def init():
                   callback=cli.validate_disk)
     @click.argument('allocation', required=True)
     @cli.ON_REST_EXCEPTIONS
-    def reserve(allocation, cell, partition, rank, memory, cpu, disk):
+    def reserve(allocation, cell, partition,  # pylint: disable=R0912
+                rank, rank_adjustment, max_utilization, memory, cpu, disk):
         """Reserve capacity on the cell."""
         restapi = context.GLOBAL.admin_api(ctx.get('api'))
 
@@ -127,40 +132,41 @@ def init():
             # Create reservation for the given cell.
             reservation_url = '/allocation/%s/reservation/%s' % (allocation,
                                                                  cell)
+
+            data = {}
+            if memory:
+                data['memory'] = memory
+            if cpu:
+                data['cpu'] = cpu
+            if disk:
+                data['disk'] = disk
+            if rank is not None:
+                data['rank'] = rank
+            if rank_adjustment is not None:
+                data['rank_adjustment'] = rank_adjustment
+            if max_utilization is not None:
+                data['max_utilization'] = max_utilization
+            if partition:
+                data['partition'] = partition
+
             try:
                 existing = restclient.get(restapi, reservation_url).json()
                 # TODO: need cleaner way of deleting attributes that are not
                 #       valid for update. It is a hack.
                 for attr in existing.keys():
                     if (attr not in
-                            ['memory', 'cpu', 'disk', 'rank', 'partition']):
+                            ['memory', 'cpu', 'disk', 'partition']):
                         del existing[attr]
 
-                if memory:
-                    existing['memory'] = memory
-                if cpu:
-                    existing['cpu'] = cpu
-                if disk:
-                    existing['disk'] = disk
-                if rank is not None:
-                    existing['rank'] = rank
-                if partition:
-                    existing['partition'] = partition
+                existing.update(data)
                 restclient.put(restapi, reservation_url, payload=existing)
+
             except restclient.NotFoundError:
-                payload = {
-                    'memory': memory,
-                    'disk': disk,
-                    'cpu': cpu,
-                    'rank': rank if rank is not None else 100
-                }
+                # some attributes need default values when creating
+                if not partition:
+                    data['partition'] = admin.DEFAULT_PARTITION
 
-                if partition:
-                    payload['partition'] = partition
-                else:
-                    payload['partition'] = admin.DEFAULT_PARTITION
-
-                restclient.post(restapi, reservation_url, payload=payload)
+                restclient.post(restapi, reservation_url, payload=data)
 
         _display_alloc(restapi, allocation)
 
@@ -179,14 +185,19 @@ def init():
                                                    cell,
                                                    pattern)
 
-        if not delete and priority is None:
-            raise click.UsageError(
-                'Must specify priority when creating/modifying assignments.')
-
         if delete:
             restclient.delete(restapi, url)
         else:
-            restclient.put(restapi, url, payload={'priority': priority})
+            default_prio = None
+            existing = restclient.get(restapi, url).json()
+            for assignment in existing:
+                if assignment['pattern'] == pattern:
+                    default_prio = assignment['priority']
+            if default_prio is None:
+                default_prio = _DEFAULT_PRIORITY
+
+            data = {'priority': priority if priority else default_prio}
+            restclient.put(restapi, url, payload=data)
 
         _display_alloc(restapi, allocation)
 

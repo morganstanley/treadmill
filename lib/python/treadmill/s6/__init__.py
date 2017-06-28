@@ -7,6 +7,10 @@ from .services import (
     ServiceType,
 )
 
+from .service_dir import (
+    ServiceDir,
+)
+
 from ._utils import (
     data_write,
     environ_dir_write,
@@ -17,6 +21,7 @@ from ._utils import (
 __all__ = [
     'LongrunService',
     'Service',
+    'ServiceDir',
     'ServiceType',
     'data_write',
     'environ_dir_write',

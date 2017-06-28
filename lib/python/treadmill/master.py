@@ -22,8 +22,8 @@ from treadmill import zkutils
 from treadmill import exc
 from treadmill import zknamespace as z
 from treadmill import scheduler
-from treadmill import sysinfo
 
+from treadmill.appcfg import abort as app_abort
 from treadmill.apptrace import events as traceevents
 
 _LOGGER = logging.getLogger(__name__)
@@ -398,7 +398,8 @@ class Master(object):
                 alloc.label = label
 
             capacity = resources(obj)
-            alloc.update(capacity, obj['rank'], obj.get('max-utilization'))
+            alloc.update(capacity, obj['rank'], obj.get('rank_adjustment'),
+                         obj.get('max-utilization'))
 
             for assignment in obj.get('assignments', []):
                 pattern = assignment['pattern'] + '[#]' + ('[0-9]' * 10)
@@ -732,6 +733,8 @@ class Master(object):
                     self.load_app(app)
             elif resource == 'cell':
                 self.load_cell()
+            elif resource == 'buckets':
+                self.load_buckets()
             elif resource == 'servers':
                 servers = zkutils.get_default(
                     self.zkclient,
@@ -1016,7 +1019,8 @@ class Master(object):
                 self.events_dir,
                 traceevents.AbortedTraceEvent(
                     instanceid=appname,
-                    why=type(exception).__name__
+                    why=app_abort.SCHEDULER,
+                    payload=exception
                 )
             )
 
@@ -1034,10 +1038,10 @@ def create_event(zkclient, priority, event, payload):
                     sequence=True))
 
 
-def create_apps(zkclient, app_id, app, count):
+def create_apps(zkclient, app_id, app, count, created_by=None):
     """Schedules new apps."""
     instance_ids = []
-    acl = zkutils.make_role_acl('servers', 'rwcd')
+    acl = zkutils.make_role_acl('servers', 'rwcda')
     for _idx in xrange(0, count):
         node_path = zkutils.put(zkclient,
                                 _app_node(app_id, existing=False),
@@ -1045,32 +1049,32 @@ def create_apps(zkclient, app_id, app, count):
                                 sequence=True,
                                 acl=[acl])
         instance_id = os.path.basename(node_path)
+        instance_ids.append(instance_id)
 
-        # Create task for the app, and put it in pending state.
-        # TODO: probably need to create PendingEvent and use to_data method.
-        task_node = z.path.trace(
-            instance_id,
-            '{time},{hostname},pending,{data}'.format(
-                time=time.time(),
-                hostname=sysinfo.hostname(),
-                data='created'
+        appevents.post_zk(
+            zkclient,
+            traceevents.PendingTraceEvent(
+                instanceid=instance_id,
+                why='%s:created' % created_by if created_by else 'created',
+                payload=''
             )
         )
-        try:
-            zkclient.create(task_node, '',
-                            acl=[_SERVERS_ACL], makepath=True)
-        except kazoo.client.NodeExistsError:
-            pass
-
-        instance_ids.append(instance_id)
 
     return instance_ids
 
 
-def delete_apps(zkclient, app_ids):
+def delete_apps(zkclient, app_ids, deleted_by=None):
     """Unschedules apps."""
     for app_id in app_ids:
         zkutils.ensure_deleted(zkclient, _app_node(app_id))
+
+        appevents.post_zk(
+            zkclient,
+            traceevents.PendingDeleteTraceEvent(
+                instanceid=app_id,
+                why='%s:deleted' % deleted_by if deleted_by else 'deleted'
+            )
+        )
 
 
 def get_app(zkclient, app_id):
@@ -1118,6 +1122,7 @@ def create_bucket(zkclient, bucket_id, parent_id, traits=0):
         'parent': parent_id
     }
     zkutils.put(zkclient, z.path.bucket(bucket_id), data, check_content=True)
+    create_event(zkclient, 0, 'buckets', None)
 
 
 def update_bucket_traits(zkclient, bucket_id, traits):
@@ -1135,6 +1140,7 @@ def get_bucket(zkclient, bucket_id):
 def delete_bucket(zkclient, bucket_id):
     """Deletes bucket definition from Zoookeeper."""
     zkutils.ensure_deleted(zkclient, z.path.bucket(bucket_id))
+    # NOTE: we never remove buckets, no need for event.
 
 
 def list_buckets(zkclient):

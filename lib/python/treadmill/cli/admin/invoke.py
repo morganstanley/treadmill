@@ -1,10 +1,8 @@
 """Implementation of treadmill-admin CLI plugin."""
 from __future__ import absolute_import
 
-import pwd
-import importlib
-import os
-import pkgutil
+
+import inspect
 
 import decorator
 import click
@@ -15,6 +13,11 @@ import yaml
 from treadmill import authz as authz_mod
 from treadmill import cli
 from treadmill import context
+from treadmill import plugin_manager
+from treadmill import userutil
+
+
+_APIS = plugin_manager.extensions('treadmill.api')
 
 
 class Context(object):
@@ -26,30 +29,6 @@ class Context(object):
     def authorize(self, resource, action, args, kwargs):
         """Invoke internal authorizer."""
         self.authorizer.authorize(resource, action, args, kwargs)
-
-
-def list_resource_types(api):
-    """List available resource types."""
-    apimod = importlib.import_module(api)
-    return sorted([
-        modulename for _loader, modulename, _ispkg
-        in pkgutil.iter_modules(apimod.__path__)
-    ])
-
-
-def _import_resource_mod(resource_type, debug=False):
-    """Safely import module for given resource type."""
-    # Ignore private variables.
-    if resource_type.startswith('_'):
-        return None
-
-    try:
-        return importlib.import_module('treadmill.api.' + resource_type)
-    except ImportError:
-        if not debug:
-            raise click.BadParameter(resource_type)
-        else:
-            raise
 
 
 def make_command(parent, name, func):
@@ -124,8 +103,9 @@ def make_command(parent, name, func):
 
 def make_resource_group(ctx, parent, resource_type, api=None):
     """Make click group for a resource type."""
+
     if api is None:
-        mod = _import_resource_mod(resource_type)
+        mod = _APIS()[resource_type].plugin
         if not mod:
             return
 
@@ -144,10 +124,13 @@ def make_resource_group(ctx, parent, resource_type, api=None):
             continue
 
         func = getattr(api, verb)
-        if hasattr(func, '__call__'):
-            make_command(_rsrc_group, verb, func)
-        elif hasattr(func, '__init__'):
+
+        if inspect.isclass(func):
             make_resource_group(ctx, _rsrc_group, verb, func)
+        elif inspect.isfunction(func):
+            make_command(_rsrc_group, verb, func)
+        else:
+            pass
 
 
 def init():
@@ -155,29 +138,30 @@ def init():
 
     ctx = Context()
 
-    @click.group()
+    @click.group(name='invoke')
     @click.option('--authz', required=False)
     @click.option('--cell', required=True,
                   envvar='TREADMILL_CELL',
                   callback=cli.handle_context_opt,
                   expose_value=False)
-    def invoke(authz):
+    def invoke_grp(authz):
         """Directly invoke Treadmill API without REST."""
         if authz is not None:
-            user_clbk = lambda: pwd.getpwuid(os.getuid()).pw_name
-            ctx.authorizer = authz_mod.ClientAuthorizer(user_clbk, authz)
+            ctx.authorizer = authz_mod.ClientAuthorizer(
+                userutil.get_current_username, authz
+            )
         else:
             ctx.authorizer = authz_mod.NullAuthorizer()
 
         if cli.OUTPUT_FORMAT == 'pretty':
             raise click.BadParameter('must use --outfmt [json|yaml]')
 
-    for resource in list_resource_types('treadmill.api'):
+    for resource in sorted(_APIS().names()):
         # TODO: for now, catch the ContextError as endpoint.py and state.py are
         # calling context.GLOBAL.zk.conn, which fails, as cell is not set yet
         try:
-            make_resource_group(ctx, invoke, resource)
+            make_resource_group(ctx, invoke_grp, resource)
         except context.ContextError:
             pass
 
-    return invoke
+    return invoke_grp

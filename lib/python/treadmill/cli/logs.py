@@ -142,6 +142,7 @@ def init():
                   help='Websocket API url to use.',
                   metavar='URL',
                   required=False)
+    @cli.ON_REST_EXCEPTIONS
     def logs(api, app_or_svc, host, service, uniq, ws_api):
         """View application's service logs.
 
@@ -197,10 +198,12 @@ def init():
             cli.bad_exit('No endpoint found on %s', host)
 
         api = 'http://{0}:{1}'.format(endpoint['host'], endpoint['port'])
-        logurl = '/app/%s/%s/%s/%s' % (urllib.quote(app),
-                                       urllib.quote(uniq),
-                                       logtype,
-                                       urllib.quote(logname))
+        logurl = '/local-app/%s/%s/%s/%s' % (
+            urllib.quote(app),
+            urllib.quote(uniq),
+            logtype,
+            urllib.quote(logname)
+        )
 
         log = restclient.get(api, logurl)
         click.echo(log.text)

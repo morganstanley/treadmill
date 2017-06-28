@@ -18,13 +18,13 @@ from twisted.internet import protocol
 import kazoo
 import kazoo.client
 
-from . import exc
-from . import gssapiprotocol
-from . import sysinfo
-from . import subproc
-from . import fs
-from . import zkutils
-from . import zknamespace as z
+from treadmill import exc
+from treadmill import gssapiprotocol
+from treadmill import sysinfo
+from treadmill import subproc
+from treadmill import fs
+from treadmill import zkutils
+from treadmill import zknamespace as z
 
 
 _LOGGER = logging.getLogger(__name__)

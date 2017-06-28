@@ -1,0 +1,11 @@
+#!/bin/sh
+#
+# Starts Treadmill cgroup management service
+# Runs as root.
+#
+
+exec {{ treadmill }}/bin/treadmill sproc \
+    --cell boyssondev \
+    monitor containers \
+    --approot {{ dir }} \
+    -S {{ dir }}/running

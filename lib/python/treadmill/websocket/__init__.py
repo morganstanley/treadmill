@@ -245,18 +245,22 @@ class DirWatchPubSub(object):
                         )
                     )
 
-    def _db_records(self, dbpath, sow_table, db_glob, since):
+    def _db_records(self, db_path, sow_table, watch, pattern, since):
         """Get matching records from db."""
-        _LOGGER.info('Using sow db: %s, glob: %s', dbpath, db_glob)
-        conn = sqlite3.connect(dbpath)
-        select_stmt = ('''
-        SELECT timestamp, path, data FROM %s
-          WHERE path GLOB ? AND timestamp >= ?
-          ORDER BY timestamp''' % sow_table)
+        _LOGGER.info('Using sow db: %s, sow table: %s, watch: %s, pattern: %s',
+                     db_path, sow_table, watch, pattern)
+        conn = sqlite3.connect(db_path)
+
+        # Before Python 3.7 GLOB pattern must not be parametrized to use index.
+        select_stmt = """
+            SELECT timestamp, path, data FROM %s
+            WHERE directory GLOB ? AND name GLOB '%s' AND timestamp >= ?
+            ORDER BY timestamp
+        """ % (sow_table, pattern)
 
         # Return open connection, as conn.execute is cursor iterator, not
         # materialized list.
-        return conn, conn.execute(select_stmt, (db_glob, since,))
+        return conn, conn.execute(select_stmt, (watch, since,))
 
     def _sow(self, watch, pattern, since, handler, impl):
         """Publish state of the world."""
@@ -282,14 +286,13 @@ class DirWatchPubSub(object):
             records = []
             if sow:
                 dbs = sorted(glob.glob(os.path.join(self.root, sow, '*')))
-                db_glob = os.path.join(watch, pattern)
-
                 for db in dbs:
                     if os.path.basename(db).startswith('.'):
                         continue
 
-                    conn, db_cursor = self._db_records(db, sow_table, db_glob,
-                                                       since)
+                    conn, db_cursor = self._db_records(
+                        db, sow_table, watch, pattern, since
+                    )
                     records.append(db_cursor)
                     db_connections.append(conn)
 

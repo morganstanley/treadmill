@@ -29,7 +29,7 @@ class MetricsAPITest(unittest.TestCase):
         tm_env_func = mock.Mock()
         tm_env_func.return_value = tm_env
 
-        self.met = local._MetricsAPI(tm_env_func)
+        self.met = local.mk_metrics_api(tm_env_func)()
 
     def test_metrics_fpath(self):
         """Test the path for application and service rrd metrics"""
@@ -71,7 +71,7 @@ class LogAPITest(unittest.TestCase):
         tm_env_func = mock.Mock()
         tm_env_func.return_value = tm_env
 
-        self.log = local._LogAPI(tm_env_func)
+        self.log = local.mk_logapi(tm_env_func)()
 
     # Don't complain about unused parameters
     # pylint: disable=W0613

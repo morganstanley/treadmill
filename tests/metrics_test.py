@@ -152,6 +152,10 @@ class MetricsTest(unittest.TestCase):
 
         self.assertEqual(metrics.get_fs_usage(None), {})
 
+    def test_calc_fs_usage(self):
+        """Test the fs usage compute logic."""
+        self.assertEqual(metrics.calc_fs_usage({}), 0)
+
 
 if __name__ == '__main__':
     unittest.main()

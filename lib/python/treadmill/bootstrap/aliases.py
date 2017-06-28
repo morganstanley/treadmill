@@ -9,6 +9,7 @@ _LINUX_ALIASES = {
     'basename': '/bin/basename',
     'brctl': '/usr/sbin/brctl',
     'cat': '/bin/cat',
+    'cd': None,
     'chmod': '/bin/chmod',
     'chown': '/bin/chown',
     'chroot': '/usr/sbin/chroot',
@@ -100,6 +101,13 @@ _LINUX_ALIASES = {
 }
 
 _WINDOWS_ALIASES = {
+    'winss': None,
+    'winss_log': None,
+    'winss_svc': None,
+    'winss_svok': None,
+    'winss_svscan': None,
+    'winss_svscanctl': None,
+    'winss_svwait': None,
 }
 
 if os.name == 'nt':

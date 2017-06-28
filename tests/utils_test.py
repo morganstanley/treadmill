@@ -177,7 +177,7 @@ class UtilsTest(unittest.TestCase):
 
         struct = {'required': 'foo'}
         utils.validate(struct, schema)
-        self.assertIn('optional', struct)
+        self.assertNotIn('optional', struct)
 
         struct = {'required': 'foo', 'optional': 'xxx'}
         utils.validate(struct, schema)

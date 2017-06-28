@@ -1,4 +1,5 @@
 """Runs the Treadmill container cleanup job."""
+
 from __future__ import absolute_import
 
 import glob
@@ -17,8 +18,8 @@ import treadmill
 
 _LOGGER = lc.ContainerAdapter(logging.getLogger(__name__))
 
-# FIXME(boysson): This extremely high timeout value comes from the fact that we
-#                 have a very high watchdog value in runtime.
+# FIXME: This extremely high timeout value comes from the fact that we
+#        have a very high watchdog value in runtime.
 _WATCHDOG_HEARTBEAT_SEC = 5 * 60
 
 # Maximum number of cleanup request to process per cycle. Be careful of
@@ -76,7 +77,7 @@ def init():
                                 container_dir
                             ]
                         )
-                    except subprocess.CalledProcessError as _err:
+                    except subprocess.CalledProcessError:
                         log.exception('Fatal error running %r.', treadmill_bin)
                         raise
 

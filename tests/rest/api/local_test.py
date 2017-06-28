@@ -59,7 +59,7 @@ def err(*args, **kwargs):
 
 
 class LocalTest(unittest.TestCase):
-    """Test the logic corresponding to the /app and /archive namespace."""
+    """Test the logic corresponding to the /local-app and /archive namespace"""
 
     def setUp(self):
         """Initialize the app with the corresponding logic."""
@@ -81,21 +81,25 @@ class LocalTest(unittest.TestCase):
         """Checking that the params for getting log fragments are passed."""
         self.impl.log.get.side_effect = return_params
 
-        resp = self.client.get('/app/proid.app/uniq/service/service_name')
+        resp = self.client.get(
+            '/local-app/proid.app/uniq/service/service_name'
+        )
 
         self.assertEqual(''.join(resp.response),
                          '{"start": 0, "limit": null, "order": "asc"}')
         self.assertEqual(resp.status_code, httplib.OK)
 
         resp = self.client.get(
-            '/app/proid.app/uniq/service/service_name?start=0&limit=5')
+            '/local-app/proid.app/uniq/service/service_name?start=0&limit=5')
 
         self.assertEqual(''.join(resp.response),
                          '{"start": 0, "limit": 5, "order": "asc"}')
         self.assertEqual(resp.status_code, httplib.OK)
 
         resp = self.client.get(
-            '/app/proid.app/uniq/sys/component?start=3&limit=9&order=desc')
+            '/local-app/proid.app/uniq/sys/component'
+            '?start=3&limit=9&order=desc'
+        )
         self.assertEqual(''.join(resp.response),
                          '{"start": 3, "limit": 9, "order": "desc"}')
         self.assertEqual(resp.status_code, httplib.OK)
@@ -104,11 +108,13 @@ class LocalTest(unittest.TestCase):
         """Dummy tests for returning application logs."""
         self.impl.log.get.side_effect = get_log_success
 
-        resp = self.client.get('/app/proid.app/uniq/service/service_name')
+        resp = self.client.get(
+            '/local-app/proid.app/uniq/service/service_name'
+        )
         self.assertEqual(list(resp.response), LOG_CONTENT)
         self.assertEqual(resp.status_code, httplib.OK)
 
-        resp = self.client.get('/app/proid.app/uniq/sys/component')
+        resp = self.client.get('/local-app/proid.app/uniq/sys/component')
         self.assertEqual(list(resp.response), LOG_CONTENT)
         self.assertEqual(resp.status_code, httplib.OK)
 
@@ -116,10 +122,12 @@ class LocalTest(unittest.TestCase):
         """Dummy tests for the case when logs cannot be found."""
         self.impl.log.get.side_effect = get_log_failure
 
-        resp = self.client.get('/app/proid.app/uniq/service/service_name')
+        resp = self.client.get(
+            '/local-app/proid.app/uniq/service/service_name'
+        )
         self.assertEqual(resp.status_code, httplib.NOT_FOUND)
 
-        resp = self.client.get('/app/proid.app/uniq/sys/component')
+        resp = self.client.get('/local-app/proid.app/uniq/sys/component')
         self.assertEqual(resp.status_code, httplib.NOT_FOUND)
 
     def test_arch_get(self):

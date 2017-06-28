@@ -4,6 +4,7 @@ Treadmill cron CLI.
 from __future__ import absolute_import
 
 import logging
+import urllib
 
 import click
 
@@ -37,7 +38,7 @@ def init():
 
     @cron_group.command()
     @click.argument('job_id')
-    @click.argument('event')
+    @click.argument('event', required=False)
     @click.option('--resource',
                   help='The resource to schedule, e.g. an app name')
     @click.option('--expression', help='The cron expression for scheduling')
@@ -75,11 +76,13 @@ def init():
         cli.out(_FORMATTER(job))
 
     @cron_group.command(name='list')
+    @click.option('--match', help='Cron name pattern match')
     @_ON_EXCEPTIONS
-    def _list():
+    def _list(match):
         """List out all cron events"""
         restapi = context.GLOBAL.cell_api(ctx['api'])
-        response = restclient.get(restapi, _REST_PATH)
+        url = '{}?{}'.format(_REST_PATH, urllib.urlencode([('match', match)]))
+        response = restclient.get(restapi, url)
         jobs = response.json()
         _LOGGER.debug('jobs: %r', jobs)
 

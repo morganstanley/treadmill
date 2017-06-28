@@ -28,6 +28,7 @@ class AppCfgManifestTest(unittest.TestCase):
         self.tm_env = mock.Mock(
             cell='testcell',
             zkurl='zookeeper://foo@foo:123',
+            apps_dir='apps',
         )
 
     def tearDown(self):
@@ -38,7 +39,12 @@ class AppCfgManifestTest(unittest.TestCase):
     @mock.patch('treadmill.appcfg.manifest.read', mock.Mock())
     @mock.patch('treadmill.subproc._check', mock.Mock(return_value=True))
     @mock.patch('treadmill.subproc.get_aliases',
-                mock.Mock(return_value={'sshd': '/path/to/sshd'}))
+                mock.Mock(return_value={
+                    'sshd': '/path/to/sshd',
+                    'chroot': '/path/to/chroot',
+                    'pid1': '/path/to/pid1',
+                    's6_svscan': '/path/to/s6-svscan'
+                }))
     def test_load(self):
         """Tests loading app manifest with resource allocation."""
         manifest = {
@@ -62,7 +68,7 @@ class AppCfgManifestTest(unittest.TestCase):
         treadmill.appcfg.manifest.read.return_value = manifest
         event_filename0 = os.path.join(self.root, 'proid.myapp#0')
 
-        app0 = app_manifest.load(self.tm_env, event_filename0)
+        app0 = app_manifest.load(self.tm_env, event_filename0, 'linux')
 
         treadmill.appcfg.manifest.read.assert_called_with(event_filename0,
                                                           'yaml')
@@ -75,37 +81,49 @@ class AppCfgManifestTest(unittest.TestCase):
         self.assertEqual(app0['cpu'], 100)
         self.assertEqual(app0['memory'], '100M')
         self.assertEqual(app0['disk'], '100G')
+        self.assertEqual(app0['uniqueid'], '42')
+        self.assertEqual(app0['cell'], 'testcell')
+        self.assertEqual(app0['zookeeper'], 'zookeeper://foo@foo:123')
+
         self.assertEqual(
-            app0['services'],
-            [
-                {
-                    'name': 'web_server',
-                    'command': '/bin/sleep 5',
-                    'restart': {
-                        'limit': 3,
-                        'interval': 60,
-                    },
-                    'root': False,
+            app0['services'][0],
+            {
+                'proid': 'foo',
+                'root': False,
+                'name': 'web_server',
+                'command': '/bin/sleep 5',
+                'restart': {
+                    'limit': 3,
+                    'interval': 60,
                 },
-            ]
+                'environ': [],
+                'config': None,
+                'downed': False,
+                'trace': True,
+            },
         )
-        self.assertEqual(
-            app0['system_services'],
-            [
-                {
-                    'command': (
-                        '/path/to/sshd -D -f /etc/ssh/sshd_config'
-                        ' -p $TREADMILL_ENDPOINT_SSH'
-                    ),
-                    'name': 'sshd',
-                    'proid': None,
-                    'restart': {
-                        'interval': 60,
-                        'limit': 5,
-                    },
-                },
-            ],
+
+        self.assertTrue(
+            any(x['name'] == "sshd" for x in app0['services'])
         )
+
+        self.assertTrue(
+            any(x['name'] == "register" for x in app0['system_services'])
+        )
+
+        self.assertTrue(
+            any(x['name'] == "hostaliases" for x in app0['system_services'])
+        )
+
+        self.assertTrue(
+            any(x['name'] == "monitor" for x in app0['system_services'])
+        )
+
+        self.assertTrue(
+            any(x['name'] == "start_container"
+                for x in app0['system_services'])
+        )
+
         self.assertEqual(
             app0['endpoints'],
             [
@@ -117,16 +135,18 @@ class AppCfgManifestTest(unittest.TestCase):
                 },
             ]
         )
-        self.assertEqual(app0['uniqueid'], '42')
-        self.assertEqual(app0['cell'], 'testcell')
-        self.assertEqual(app0['zookeeper'], 'zookeeper://foo@foo:123')
 
     @mock.patch('treadmill.appcfg.gen_uniqueid', mock.Mock(return_value='42'))
     @mock.patch('treadmill.appcfg.manifest.read', mock.Mock())
     @mock.patch('treadmill.proiddb.environment', mock.Mock(return_value='dev'))
     @mock.patch('treadmill.subproc._check', mock.Mock(return_value=True))
     @mock.patch('treadmill.subproc.get_aliases',
-                mock.Mock(return_value={'sshd': '/path/to/sshd'}))
+                mock.Mock(return_value={
+                    'sshd': '/path/to/sshd',
+                    'chroot': '/path/to/chroot',
+                    'pid1': '/path/to/pid1',
+                    's6_svscan': '/path/to/s6-svscan'
+                }))
     def test_load_normalize(self):
         """Test the normalization of manifests.
         """
@@ -177,13 +197,14 @@ class AppCfgManifestTest(unittest.TestCase):
         treadmill.appcfg.manifest.read.return_value = manifest
         event_filename0 = os.path.join(self.root, 'proid.myapp#0')
 
-        app0 = app_manifest.load(self.tm_env, event_filename0)
+        app0 = app_manifest.load(self.tm_env, event_filename0, 'linux')
 
         self.assertEqual(app0['type'], 'native')
         self.assertEqual(
             app0['services'],
             [
                 {
+                    'proid': 'foo',
                     'name': 'test1',
                     'command': '/bin/sleep 5',
                     'restart': {
@@ -191,8 +212,13 @@ class AppCfgManifestTest(unittest.TestCase):
                         'interval': 60,
                     },
                     'root': False,
+                    'environ': [],
+                    'config': None,
+                    'downed': False,
+                    'trace': True,
                 },
                 {
+                    'proid': 'foo',
                     'name': 'test2',
                     'command': '/bin/sleep 5',
                     'restart': {
@@ -200,27 +226,32 @@ class AppCfgManifestTest(unittest.TestCase):
                         'interval': 60,
                     },
                     'root': False,
+                    'environ': [],
+                    'config': None,
+                    'downed': False,
+                    'trace': True,
                 },
-            ]
-        )
-        self.assertEqual(
-            app0['system_services'],
-            [
                 {
                     'command': (
-                        '/path/to/sshd'
+                        'exec /path/to/sshd'
                         ' -D -f /etc/ssh/sshd_config'
                         ' -p $TREADMILL_ENDPOINT_SSH'
                     ),
                     'name': 'sshd',
-                    'proid': None,
+                    'proid': 'root',
                     'restart': {
                         'limit': 5,
                         'interval': 60,
                     },
+                    'root': True,
+                    'environ': [],
+                    'config': None,
+                    'downed': False,
+                    'trace': False,
                 },
             ]
         )
+
         self.assertEqual(app0['shared_ip'], False)
         self.assertEqual(app0['shared_network'], False)
         self.assertEqual(
@@ -263,7 +294,12 @@ class AppCfgManifestTest(unittest.TestCase):
     @mock.patch('treadmill.appcfg.manifest.read', mock.Mock())
     @mock.patch('treadmill.subproc._check', mock.Mock(return_value=True))
     @mock.patch('treadmill.subproc.get_aliases',
-                mock.Mock(return_value={'sshd': '/path/to/sshd'}))
+                mock.Mock(return_value={
+                    'sshd': '/path/to/sshd',
+                    'chroot': '/path/to/chroot',
+                    'pid1': '/path/to/pid1',
+                    's6_svscan': '/path/to/s6-svscan'
+                }))
     def test_load_with_env(self):
         """Tests loading app manifest with resource allocation."""
         manifest = {
@@ -290,14 +326,19 @@ class AppCfgManifestTest(unittest.TestCase):
         treadmill.appcfg.manifest.read.return_value = manifest
         event_filename0 = os.path.join(self.root, 'proid.myapp#0')
 
-        app0 = app_manifest.load(self.tm_env, event_filename0)
+        app0 = app_manifest.load(self.tm_env, event_filename0, 'linux')
         self.assertEqual(app0['environ'], [{'name': 'xxx', 'value': 'yyy'}])
 
     @mock.patch('treadmill.appcfg.gen_uniqueid', mock.Mock(return_value='42'))
     @mock.patch('treadmill.appcfg.manifest.read', mock.Mock())
     @mock.patch('treadmill.subproc._check', mock.Mock(return_value=True))
     @mock.patch('treadmill.subproc.get_aliases',
-                mock.Mock(return_value={'sshd': '/path/to/sshd'}))
+                mock.Mock(return_value={
+                    'sshd': '/path/to/sshd',
+                    'chroot': '/path/to/chroot',
+                    'pid1': '/path/to/pid1',
+                    's6_svscan': '/path/to/s6-svscan'
+                }))
     def test_load_docker_image(self):
         """Tests loading app manifest with a docker image defined."""
         manifest = {
@@ -312,7 +353,7 @@ class AppCfgManifestTest(unittest.TestCase):
         treadmill.appcfg.manifest.read.return_value = manifest
         event_filename0 = os.path.join(self.root, 'proid.myapp#0')
 
-        app0 = app_manifest.load(self.tm_env, event_filename0)
+        app0 = app_manifest.load(self.tm_env, event_filename0, 'linux')
         self.assertEqual(app0['image'], 'docker://test')
         self.assertEqual(app0['type'], 'docker')
 
@@ -320,7 +361,12 @@ class AppCfgManifestTest(unittest.TestCase):
     @mock.patch('treadmill.appcfg.manifest.read', mock.Mock())
     @mock.patch('treadmill.subproc._check', mock.Mock(return_value=True))
     @mock.patch('treadmill.subproc.get_aliases',
-                mock.Mock(return_value={'sshd': '/path/to/sshd'}))
+                mock.Mock(return_value={
+                    'sshd': '/path/to/sshd',
+                    'chroot': '/path/to/chroot',
+                    'pid1': '/path/to/pid1',
+                    's6_svscan': '/path/to/s6-svscan'
+                }))
     def test_load_tar_image(self):
         """Tests loading app manifest with a docker image defined."""
         manifest = {
@@ -345,7 +391,7 @@ class AppCfgManifestTest(unittest.TestCase):
         treadmill.appcfg.manifest.read.return_value = manifest
         event_filename0 = os.path.join(self.root, 'proid.myapp#0')
 
-        app0 = app_manifest.load(self.tm_env, event_filename0)
+        app0 = app_manifest.load(self.tm_env, event_filename0, 'linux')
         self.assertEqual(app0['image'], 'http://test')
         self.assertEqual(app0['type'], 'tar')
 
@@ -360,7 +406,7 @@ class AppCfgManifestTest(unittest.TestCase):
         treadmill.appcfg.manifest.read.return_value = manifest
 
         with self.assertRaises(exc.InvalidInputError):
-            app_manifest.load(self.tm_env, event_filename0)
+            app_manifest.load(self.tm_env, event_filename0, 'linux')
 
 if __name__ == '__main__':
     unittest.main()

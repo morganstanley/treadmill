@@ -1,0 +1,13 @@
+#!{{ _alias.execlineb }} -P
+
+{% if user and user != 'root' -%}
+{{ _alias.s6_setuidgid }} {{ user }}
+{% endif -%}
+
+{% if logdir != '.' -%}
+{{ _alias.if }} {
+    {{ _alias.mkdir }} -p -- {{ logdir }}
+}
+{% endif -%}
+
+{{ _alias.s6_log }} -b -p T n20 s1000000 {{ logdir }}

@@ -5,7 +5,6 @@ from __future__ import absolute_import
 
 import abc
 import logging
-import importlib
 import tornado.httpserver
 import tornado.ioloop
 import tornado.web
@@ -14,11 +13,15 @@ import tornado.netutil
 
 import flask
 
+from treadmill import plugin_manager
+
 
 FLASK_APP = flask.Flask(__name__)
 FLASK_APP.config['BUNDLE_ERRORS'] = True
 
 _LOGGER = logging.getLogger(__name__)
+
+_PLUGINS = plugin_manager.extensions('treadmill.rest.authorization')
 
 
 class RestServer(object):
@@ -74,9 +77,12 @@ class TcpRestServer(RestServer):
             _LOGGER.info('Starting REST server: %s:%s, auth: %s, protect: %r',
                          self.host, self.port, self.auth_type, self.protect)
             try:
-                mod = importlib.import_module(
-                    'treadmill.plugins.rest.auth.' + self.auth_type)
-                FLASK_APP.wsgi_app = mod.wrap(FLASK_APP.wsgi_app, self.protect)
+                auth = _PLUGINS()[self.auth_type]
+                FLASK_APP.wsgi_app = auth.plugin.wrap(FLASK_APP.wsgi_app,
+                                                      self.protect)
+            except KeyError:
+                _LOGGER.error('Unsupported auth type: %s', self.auth_type)
+                raise
             except:
                 _LOGGER.exception('Unable to load auth plugin.')
                 raise

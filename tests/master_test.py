@@ -625,7 +625,7 @@ class MasterTest(mockzk.MockZookeeperTestCase):
     @mock.patch('kazoo.client.KazooClient.get', mock.Mock())
     @mock.patch('kazoo.client.KazooClient.create', mock.Mock())
     @mock.patch('time.time', mock.Mock(return_value=123.34))
-    @mock.patch('treadmill.sysinfo.hostname', mock.Mock(return_value='xxx'))
+    @mock.patch('treadmill.appevents._HOSTNAME', 'xxx')
     def test_create_apps(self):
         """Tests app api."""
         zkclient = kazoo.client.KazooClient()
@@ -633,16 +633,20 @@ class MasterTest(mockzk.MockZookeeperTestCase):
 
         master.create_apps(zkclient, 'foo.bar', {}, 2)
         kazoo.client.KazooClient.create.assert_has_calls([
-            mock.call('/scheduled/foo.bar#',
-                      '{}\n',
-                      makepath=True,
-                      sequence=True,
-                      ephemeral=False,
-                      acl=mock.ANY),
-            mock.call('/trace/000C/foo.bar#12,123.34,xxx,pending,created',
-                      '',
-                      makepath=True,
-                      acl=mock.ANY),
+            mock.call(
+                '/scheduled/foo.bar#',
+                '{}\n',
+                makepath=True,
+                sequence=True,
+                ephemeral=False,
+                acl=mock.ANY
+            ),
+            mock.call(
+                '/trace/000C/foo.bar#12,123.34,xxx,pending,created',
+                '',
+                makepath=True,
+                acl=mock.ANY
+            ),
             # Mock call returns same instance (#12), so same task is created
             # twice.
             mock.call('/scheduled/foo.bar#',
@@ -655,6 +659,69 @@ class MasterTest(mockzk.MockZookeeperTestCase):
                       '',
                       makepath=True,
                       acl=mock.ANY)
+        ])
+
+        kazoo.client.KazooClient.create.reset_mock()
+        master.create_apps(zkclient, 'foo.bar', {}, 1, 'monitor')
+        kazoo.client.KazooClient.create.assert_has_calls([
+            mock.call('/scheduled/foo.bar#',
+                      '{}\n',
+                      makepath=True,
+                      sequence=True,
+                      ephemeral=False,
+                      acl=mock.ANY),
+            mock.call(
+                '/trace/000C/foo.bar#12,123.34,xxx,pending,monitor:created',
+                '',
+                makepath=True,
+                acl=mock.ANY
+            )
+        ])
+
+    @mock.patch('kazoo.client.KazooClient.get_children',
+                mock.Mock(return_value=[]))
+    @mock.patch('kazoo.client.KazooClient.delete', mock.Mock())
+    @mock.patch('kazoo.client.KazooClient.create', mock.Mock())
+    @mock.patch('time.time', mock.Mock(return_value=123.34))
+    @mock.patch('treadmill.appevents._HOSTNAME', 'xxx')
+    def test_delete_apps(self):
+        """Tests app api."""
+        zkclient = kazoo.client.KazooClient()
+
+        master.delete_apps(zkclient, ['foo.bar#12', 'foo.bar#22'])
+        kazoo.client.KazooClient.delete.assert_has_calls([
+            mock.call('/scheduled/foo.bar#12'),
+            mock.call('/scheduled/foo.bar#22')
+        ])
+        kazoo.client.KazooClient.create.assert_has_calls([
+            mock.call(
+                '/trace/000C/foo.bar#12,123.34,xxx,pending_delete,deleted',
+                '~\n...\n',
+                makepath=True,
+                acl=mock.ANY
+            ),
+            mock.call(
+                '/trace/0016/foo.bar#22,123.34,xxx,pending_delete,deleted',
+                '~\n...\n',
+                makepath=True,
+                acl=mock.ANY
+            )
+        ])
+
+        kazoo.client.KazooClient.delete.reset_mock()
+        kazoo.client.KazooClient.create.reset_mock()
+        master.delete_apps(zkclient, ['foo.bar#12'], 'monitor')
+        kazoo.client.KazooClient.delete.assert_has_calls([
+            mock.call('/scheduled/foo.bar#12')
+        ])
+        kazoo.client.KazooClient.create.assert_has_calls([
+            mock.call(
+                '/trace/000C/foo.bar#12,123.34,xxx,'
+                'pending_delete,monitor:deleted',
+                '~\n...\n',
+                makepath=True,
+                acl=mock.ANY
+            )
         ])
 
     @mock.patch('kazoo.client.KazooClient.get', mock.Mock(
@@ -726,6 +793,42 @@ class MasterTest(mockzk.MockZookeeperTestCase):
                       makepath=True, acl=mock.ANY,
                       sequence=True, ephemeral=False)
         ])
+
+    @mock.patch('kazoo.client.KazooClient.get', mock.Mock())
+    @mock.patch('kazoo.client.KazooClient.exists', mock.Mock())
+    @mock.patch('kazoo.client.KazooClient.get_children', mock.Mock())
+    @mock.patch('kazoo.client.KazooClient.set', mock.Mock())
+    @mock.patch('kazoo.client.KazooClient.create', mock.Mock())
+    @mock.patch('kazoo.client.KazooClient.exists', mock.Mock())
+    @mock.patch('time.time', mock.Mock(return_value=0))
+    def test_load_buckets(self):
+        """Test adding new buckets to the topology.
+        """
+        zk_content = {
+            'buckets': {
+                'pod:pod1': {
+                    'traits': None,
+                },
+                'pod:pod2': {
+                    'traits': None,
+                },
+                'rack:1234': {
+                    'traits': None,
+                    'parent': 'pod:pod1',
+                },
+            },
+        }
+        time.time.return_value = 100
+        self.make_mock_zk(zk_content)
+        self.master.load_buckets()
+
+        # Add a new server in a new bucket, make sure it is properly added.
+        zk_content['buckets']['rack:4321'] = {
+            'traits': None,
+            'parent': 'pod:pod2',
+        }
+        self.master.load_buckets()
+        self.assertIn('rack:4321', self.master.buckets)
 
     @mock.patch('kazoo.client.KazooClient.get', mock.Mock())
     @mock.patch('kazoo.client.KazooClient.exists', mock.Mock())

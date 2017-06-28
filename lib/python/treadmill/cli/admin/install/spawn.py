@@ -22,6 +22,7 @@ def init():
     def spawn(ctx, treadmill_id, run):
         """Installs Treadmill spawn."""
         dst_dir = ctx.obj['PARAMS']['dir']
+        profile = ctx.obj['PARAMS'].get('profile')
 
         bootstrap.wipe(
             os.path.join(dst_dir, 'wipe_me'),
@@ -44,7 +45,8 @@ def init():
             'spawn',
             dst_dir,
             ctx.obj['PARAMS'],
-            run=run_script
+            run=run_script,
+            profile=profile,
         )
 
     return spawn

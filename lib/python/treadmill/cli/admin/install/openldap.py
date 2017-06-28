@@ -8,6 +8,7 @@ import click
 
 from treadmill import bootstrap
 from treadmill import cli
+from treadmill import context
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -24,7 +25,7 @@ def init():
     @click.option('-o', '--owner', help='root user.')
     @click.option('-s', '--suffix',
                   help='suffix (e.g dc=example,dc=com).',
-                  required=True)
+                  required=False)
     @click.option('-u', '--uri', help='uri, e.g: ldap://...:20389',
                   required=True)
     @click.option('-m', '--masters', help='list of masters.',
@@ -34,6 +35,7 @@ def init():
     def openldap(ctx, gssapi, rootpw, owner, suffix, uri, masters, run):
         """Installs Treadmill Openldap server."""
         dst_dir = ctx.obj['PARAMS']['dir']
+        profile = ctx.obj['PARAMS'].get('profile')
 
         run_script = None
         if run:
@@ -52,14 +54,18 @@ def init():
             ctx.obj['PARAMS']['masters'] = masters
         else:
             ctx.obj['PARAMS']['masters'] = []
+
         if suffix:
             ctx.obj['PARAMS']['suffix'] = suffix
+        else:
+            ctx.obj['PARAMS']['suffix'] = context.GLOBAL.ldap.ldap_suffix
 
         bootstrap.install(
             'openldap',
             dst_dir,
             ctx.obj['PARAMS'],
-            run=run_script
+            run=run_script,
+            profile=profile,
         )
 
     return openldap

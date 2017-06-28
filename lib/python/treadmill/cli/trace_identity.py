@@ -1,7 +1,6 @@
 """Treadmill identity trace CLI."""
 
 from __future__ import absolute_import
-from __future__ import print_function
 
 import logging
 import sys
@@ -64,7 +63,7 @@ def init():
             identity_group = result['identity-group']
             identity = result['identity']
 
-            print('{identity_group}/{identity} {app} {host}'.format(
+            cli.out('{identity_group}/{identity} {app} {host}'.format(
                 identity_group=identity_group,
                 identity=identity,
                 app=app,

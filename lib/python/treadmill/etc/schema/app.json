@@ -186,7 +186,8 @@
                     "required": []
                 }
             },
-            "data_retention_timeout": { "$ref": "common.json#/time_interval" }
+            "data_retention_timeout": { "$ref": "common.json#/time_interval" },
+            "lease": { "$ref": "common.json#/time_interval" }
         }
     },
     "verbs": {

@@ -11,6 +11,7 @@ from treadmill import appcfg
 from treadmill import exc
 from treadmill import utils
 
+from treadmill.appcfg import abort as app_abort
 from treadmill.appcfg import manifest as app_manifest
 
 
@@ -80,12 +81,8 @@ class RuntimeBase(object):
         manifest_file = os.path.join(self.container_dir, appcfg.APP_JSON)
         manifest = app_manifest.read(manifest_file)
         if not self._can_run(manifest):
-            raise exc.ContainerSetupError(
-                'Runtime {0} does not support {1}.'.format(
-                    self.__class__.__name__,
-                    manifest.get('type')
-                )
-            )
+            raise exc.ContainerSetupError('invalid_type',
+                                          app_abort.AbortedReason.INVALID_TYPE)
 
         # Intercept SIGTERM from supervisor, so that initialization is not
         # left in broken state.
@@ -127,8 +124,8 @@ class RuntimeBase(object):
         # left in broken state.
         terminated = utils.make_signal_flag(utils.term_signal())
 
-        # FIXME(boysson): The watchdog value below is inflated to account for
-        #                 the extra archiving time.
+        # FIXME: The watchdog value below is inflated to account for
+        #        the extra archiving time.
         watchdog_name = 'app_finish-%s' % os.path.basename(self.container_dir)
         self.watchdog = self.tm_env.watchdogs.create(
             watchdog_name, self.finish_timeout,
@@ -136,26 +133,6 @@ class RuntimeBase(object):
         )
 
         self._finish(self.watchdog, terminated)
-
-    @abc.abstractmethod
-    def _register(self, manifest, refresh_interval=None):
-        """Register/Start container presence."""
-        pass
-
-    def register(self, manifest_file, refresh_interval=None):
-        """Register/Start container presence."""
-        manifest = app_manifest.read(manifest_file)
-        self._register(manifest, refresh_interval)
-
-    @abc.abstractmethod
-    def _monitor(self, manifest):
-        """Monitor container services."""
-        pass
-
-    def monitor(self, manifest_file):
-        """Monitor container services."""
-        manifest = app_manifest.read(manifest_file)
-        self._monitor(manifest)
 
     def __del__(self):
         if self.watchdog is not None:
