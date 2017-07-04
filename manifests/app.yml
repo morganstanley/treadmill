@@ -1,0 +1,16 @@
+services:
+  - name: echo
+    command: 'echo helloworld'
+    restart:
+      # retry :limit in :interval seconds.
+      limit: 0
+      interval: 60
+  - name: sleep
+    command: '/bin/sleep 30s'
+    restart:
+      # retry :limit in :interval seconds.
+      limit: 0
+      interval: 60
+cpu: 30%
+disk: 200M
+memory: 200M
