@@ -88,7 +88,7 @@ class Provider(object):
             for node in filtered_nodes:
                 results[priority_count].append(
                     priority_config.map(app, node))
-                priority_count += 1
+            priority_count += 1
 
         # Reduce phase.
         priority_count = 0
@@ -97,7 +97,7 @@ class Provider(object):
             if priority_config.reduce is not None:
                 priority_config.reduce(
                     app, filtered_nodes, results[priority_count])
-                priority_count += 1
+            priority_count += 1
 
         result = list()
         for i in range(len(filtered_nodes)):

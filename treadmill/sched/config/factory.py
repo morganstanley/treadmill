@@ -41,7 +41,8 @@ class ConfigFactory(object):
             if config[self.PRIORITIES_NAME] is not None:
                 for priority in config[self.PRIORITIES_NAME]:
                     self.algorithm_provider.register_priorities(
-                        priority[self.CONFIG_NAME], priority[self.PRIORITY_WEIGHT])
+                        priority[self.CONFIG_NAME],
+                        priority[self.PRIORITY_WEIGHT])
             else:
                 _LOGGER.fatal("There is no config about priorities defined!")
 

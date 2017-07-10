@@ -24,19 +24,13 @@ def resources(data):
 def prepareData(nodes_count, app_count, affinity):
     scheduler.DIMENSION_COUNT = 3
     cell = scheduler.Cell("local", labels=set([None]))
-    # for idx in range(0, nodes_count):
-    #     node = scheduler.Server('node' + str(idx), resources({
-    #         "memory": "2G",
-    #         "disk": "20G",
-    #         "cpu": "90%"
-    #     }), time.time() * 2)
-    #     cell.add_node(node)
-    node = scheduler.Server('node' + str(1), resources({
-        "memory": "2G",
-        "disk": "20G",
-        "cpu": "90%"
-    }), time.time() * 2)
-    cell.add_node(node)
+    for idx in range(0, nodes_count):
+        node = scheduler.Server('node' + str(idx), resources({
+            "memory": "2G",
+            "disk": "20G",
+            "cpu": "90%"
+        }), time.time() * 2)
+        cell.add_node(node)
 
     for app_idx in range(0, app_count):
         prio = random.randint(0, 5)
@@ -54,5 +48,5 @@ def prepareData(nodes_count, app_count, affinity):
 
 
 if __name__ == '__main__':
-    cell = prepareData(2, 1, affinity=lambda idx: None)
+    cell = prepareData(20, 1, affinity=lambda idx: None)
     print(cell.schedule())
