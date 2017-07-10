@@ -60,8 +60,8 @@ class Provider(object):
         for priority_item in self.priorities_functions:
             _LOGGER.debug('priority: ' + priority_item['name'])
         priority_queue = self._prioritize_nodes(app, filtered_nodes)
-        self._select_host(app, priority_queue)
-        return False
+        result = self._select_host(app, priority_queue)
+        return result
 
     def _find_nodes_that_fit(self, app, nodes):
         """Find the node that fits the application,
@@ -119,3 +119,4 @@ class Provider(object):
         node = host_priority_queue.get().server
         _LOGGER.debug('Select the server ' + node.name + ' to run the app.')
         app.server = node
+        return node.put(app)

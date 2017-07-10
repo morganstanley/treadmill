@@ -1241,7 +1241,7 @@ class CellTest(unittest.TestCase):
 
     @mock.patch('time.time', mock.Mock(return_value=10))
     def test_renew(self):
-        """Tests app restore."""
+        """Tests app renew."""
         cell = scheduler.Cell('top')
         server_a = scheduler.Server('a', [10, 10], traits=0,
                                     valid_until=1000)
