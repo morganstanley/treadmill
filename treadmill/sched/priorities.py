@@ -22,5 +22,5 @@ class ServerWithPriority(object):
         self.server = server
         return
 
-    def __cmp__(self, other):
-        return self.priority > other.priority
+    def __lt__(self, other):
+        return self.priority < other.priority
