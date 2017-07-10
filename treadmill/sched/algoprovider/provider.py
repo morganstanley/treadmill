@@ -7,6 +7,7 @@ from ..priorities import ServerWithPriority
 logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
 _LOGGER = logging.getLogger(__name__)
 
+
 class Provider(object):
     """Algorithm provider"""
     __slots__ = (
@@ -30,14 +31,16 @@ class Provider(object):
         return mod
 
     def register_priorities(self, name, weight):
-        priority_create_function = self.my_import('%s.%s' % (Provider.PRIORITIES_CLASS_PREFIX, name))
+        priority_create_function = self.my_import(
+            '%s.%s' % (Provider.PRIORITIES_CLASS_PREFIX, name))
         self.priorities_functions.append({
             'name': name,
             'priority': priority_create_function(weight)
         })
 
     def register_predicates(self, name):
-        predicate_create_function = self.my_import('%s.%s' % (Provider.PRECOCATES_CLASS_PREFIX, name))
+        predicate_create_function = self.my_import(
+            '%s.%s' % (Provider.PRECOCATES_CLASS_PREFIX, name))
         self.predicates_functions.append({
             'name': name,
             'predicate': predicate_create_function()
@@ -83,7 +86,8 @@ class Provider(object):
         for priority_item in self.priorities_functions:
             priority_config = priority_item['priority']
             for node in filtered_nodes:
-                results[priority_count].append(priority_config.map(app, node))
+                results[priority_count].append(
+                    priority_config.map(app, node))
                 priority_count += 1
 
         # Reduce phase.
@@ -91,18 +95,18 @@ class Provider(object):
         for priority_item in self.priorities_functions:
             priority_config = priority_item['priority']
             if priority_config.reduce is not None:
-                priority_config.reduce(app, filtered_nodes, results[priority_count])
+                priority_config.reduce(
+                    app, filtered_nodes, results[priority_count])
                 priority_count += 1
 
         result = list()
         for i in range(len(filtered_nodes)):
             result.append(ServerWithPriority(0, filtered_nodes[i]))
-            _LOGGER.debug(result[0].priority)
             priority_count = 0
             for priority_item in self.priorities_functions:
-                result[i].priority = result[i].priority + \
-                                     results[priority_count][i].priority * \
-                                     priority_item['priority'].weight
+                result[i].priority = (result[i].priority +
+                                      results[priority_count][i].priority *
+                                      priority_item['priority'].weight)
                 priority_count += 1
 
         result_priority = queue.PriorityQueue()
