@@ -18,30 +18,30 @@ class ConfigFactory(object):
         'algorithm_provider',
     )
 
+    PREDICATES_NAME = 'predicates'
+    PRIORITIES_NAME = 'priorities'
+    CONFIG_NAME = 'name'
+    PRIORITY_WEIGHT = 'weight'
+
     def __init__(self):
         self.algorithm_provider = provider.Provider()
 
     def read_config_from_file(self, file):
-        PRIDICATES_NAME = 'predicates'
-        PRIOTITIES_NAME = 'priorities'
-        CONFIG_NAME = 'name'
-        PRIORITY_WEIGHT = 'weight'
-
         with open(file, 'r') as config_file:
             json_str = config_file.read()
             config = json.loads(json_str)
             # TODO: `is not None` does not work to check if the ket exists.
-            if config[PRIDICATES_NAME] is not None:
-                for predicate in config[PRIDICATES_NAME]:
+            if config[self.PREDICATES_NAME] is not None:
+                for predicate in config[self.PREDICATES_NAME]:
                     self.algorithm_provider.register_predicates(
-                        predicate[CONFIG_NAME])
+                        predicate[self.CONFIG_NAME])
             else:
                 _LOGGER.fatal("There is no config about predicates defined!")
 
-            if config[PRIOTITIES_NAME] is not None:
-                for priority in config[PRIOTITIES_NAME]:
+            if config[self.PRIORITIES_NAME] is not None:
+                for priority in config[self.PRIORITIES_NAME]:
                     self.algorithm_provider.register_priorities(
-                        priority[CONFIG_NAME], priority[PRIORITY_WEIGHT])
+                        priority[self.CONFIG_NAME], priority[self.PRIORITY_WEIGHT])
             else:
                 _LOGGER.fatal("There is no config about priorities defined!")
 
