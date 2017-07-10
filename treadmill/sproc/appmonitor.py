@@ -64,7 +64,9 @@ def reevaluate(instance_api, state):
                 continue
 
             try:
-                instance_api.create(name, {}, count=allowed)
+                _scheduled = instance_api.create(
+                    name, {}, count=allowed, created_by='monitor'
+                )
                 conf['available'] -= allowed
 
             except ldap3.LDAPNoSuchObjectResult:
@@ -92,7 +94,7 @@ def reevaluate(instance_api, state):
         elif count < current_count:
             for extra in grouped[name][:current_count - count]:
                 try:
-                    instance_api.delete(extra)
+                    instance_api.delete(extra, deleted_by='monitor')
                 except Exception:  # pylint: disable=W0703
                     _LOGGER.exception('Unable to delete instance: %r', extra)
 

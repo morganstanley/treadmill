@@ -10,4 +10,4 @@ export PATH=$S6/bin:$PATH
 
 $ECHO "Terminating svscan in {{ dir }}/init"
 
-$S6/bin/s6-svscanctl -t $DIR/init
+$S6/bin/s6-svscanctl -q $DIR/init

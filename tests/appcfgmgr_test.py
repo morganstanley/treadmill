@@ -1,5 +1,4 @@
-"""
-Unit test for appcfgmgr - configuring node apps
+"""Unit test for appcfgmgr - configuring node apps
 """
 
 import os
@@ -31,7 +30,7 @@ class AppCfgMgrTest(unittest.TestCase):
         for tmp_dir in [self.cache, self.apps, self.running, self.cleanup]:
             os.mkdir(tmp_dir)
 
-        self.appcfgmgr = appcfgmgr.AppCfgMgr(root=self.root)
+        self.appcfgmgr = appcfgmgr.AppCfgMgr(root=self.root, runtime='linux')
         self.appcfgmgr.tm_env.root = self.root
         self.appcfgmgr.tm_env.cache_dir = self.cache
         self.appcfgmgr.tm_env.apps_dir = self.apps
@@ -55,6 +54,7 @@ class AppCfgMgrTest(unittest.TestCase):
         treadmill.appcfg.configure.configure.assert_called_with(
             self.appcfgmgr.tm_env,
             os.path.join(self.cache, 'foo#1'),
+            'linux'
         )
         treadmill.appcfg.configure.schedule.assert_called_with(
             '/test/foo',
@@ -62,7 +62,7 @@ class AppCfgMgrTest(unittest.TestCase):
         )
         self.assertTrue(res)
 
-    @mock.patch('treadmill.appcfg.abort.abort', mock.Mock())
+    @mock.patch('treadmill.appcfg.abort.report_aborted', mock.Mock())
     @mock.patch('treadmill.appcfg.configure.configure', mock.Mock())
     @mock.patch('treadmill.fs.rm_safe', mock.Mock())
     def test__configure_failure(self):
@@ -74,10 +74,11 @@ class AppCfgMgrTest(unittest.TestCase):
 
         res = self.appcfgmgr._configure('foo#1')
 
-        treadmill.appcfg.abort.abort.assert_called_with(
+        treadmill.appcfg.abort.report_aborted.assert_called_with(
             self.appcfgmgr.tm_env,
-            os.path.join(self.cache, 'foo#1'),
-            mock.ANY,
+            'foo#1',
+            why=treadmill.appcfg.abort.AbortedReason.UNKNOWN,
+            payload=mock.ANY,
         )
         treadmill.fs.rm_safe.assert_called_with(
             os.path.join(self.cache, 'foo#1')
@@ -298,9 +299,10 @@ class AppCfgMgrTest(unittest.TestCase):
         )
 
     @mock.patch('time.sleep', mock.Mock())
-    @mock.patch('treadmill.subproc.call',
-                mock.Mock(side_effect=[1, 1, 0, 1, 0]))
-    @mock.patch('treadmill.subproc.check_call', mock.Mock())
+    @mock.patch('treadmill.supervisor.is_supervised',
+                mock.Mock(side_effect=[False, False, True, False, True]))
+    @mock.patch('treadmill.supervisor.control_svscan', mock.Mock())
+    @mock.patch('treadmill.supervisor.control_service', mock.Mock())
     def test__refresh_supervisor(self):
         """Check how the supervisor is beeing refreshed.
         """
@@ -311,65 +313,34 @@ class AppCfgMgrTest(unittest.TestCase):
             instance_names=['foo#1', 'bar#2']
         )
 
-        treadmill.subproc.check_call.assert_has_calls(
+        treadmill.supervisor.control_svscan.assert_called_with(
+            self.running, (
+                treadmill.supervisor.SvscanControlAction.alarm,
+                treadmill.supervisor.SvscanControlAction.nuke
+            )
+        )
+
+        treadmill.supervisor.control_service.assert_has_calls(
             [
                 mock.call(
-                    [
-                        's6_svscanctl',
-                        '-an',
-                        self.running
-                    ]
+                    os.path.join(self.running, 'foo#1'),
+                    treadmill.supervisor.ServiceControlAction.once
                 ),
                 mock.call(
-                    [
-                        's6_svc',
-                        '-uO',
-                        os.path.join(self.running, 'foo#1'),
-                    ]
-                ),
-                mock.call(
-                    [
-                        's6_svc',
-                        '-uO',
-                        os.path.join(self.running, 'bar#2'),
-                    ]
+                    os.path.join(self.running, 'bar#2'),
+                    treadmill.supervisor.ServiceControlAction.once
                 ),
             ],
             any_order=True
         )
         # Make sure we did the right amount of retries
-        treadmill.subproc.call.assert_has_calls(
+        treadmill.supervisor.is_supervised.assert_has_calls(
             [
-                mock.call(
-                    [
-                        's6_svok',
-                        os.path.join(self.running, 'foo#1'),
-                    ]
-                ),
-                mock.call(
-                    [
-                        's6_svok',
-                        os.path.join(self.running, 'foo#1'),
-                    ]
-                ),
-                mock.call(
-                    [
-                        's6_svok',
-                        os.path.join(self.running, 'foo#1'),
-                    ]
-                ),
-                mock.call(
-                    [
-                        's6_svok',
-                        os.path.join(self.running, 'bar#2'),
-                    ]
-                ),
-                mock.call(
-                    [
-                        's6_svok',
-                        os.path.join(self.running, 'bar#2'),
-                    ]
-                ),
+                mock.call(os.path.join(self.running, 'foo#1')),
+                mock.call(os.path.join(self.running, 'foo#1')),
+                mock.call(os.path.join(self.running, 'foo#1')),
+                mock.call(os.path.join(self.running, 'bar#2')),
+                mock.call(os.path.join(self.running, 'bar#2')),
             ],
             any_order=True
         )

@@ -115,7 +115,7 @@ class AppTrace(object):
              event_type,
              event_data) in all_events:
 
-            if float(timestamp) <= float(self._last_event):
+            if timestamp < self._last_event:
                 continue
 
             if instanceid != self.instanceid:
@@ -178,8 +178,6 @@ def _upload_batch(zkclient, db_node_path, dbname, batch):
         conn.executescript(
             """
             CREATE INDEX path_timestamp_idx on %s (path, timestamp);
-
-            PRAGMA query_only = TRUE;
             """ % dbname
         )
     conn.close()
@@ -203,13 +201,16 @@ def _upload_batch(zkclient, db_node_path, dbname, batch):
 
 def cleanup_trace(zkclient, batch_size, expires_after):
     """Move expired traces into history folder, compressed as sqlite db."""
+    scheduled = zkclient.get_children(z.SCHEDULED)
     shards = zkclient.get_children(z.TRACE)
     traces = []
     for shard in shards:
         events = zkclient.get_children(z.path.trace_shard(shard))
         for event in events:
-            timestamp = float(event.split(',')[1])
-            if timestamp < time.time() - expires_after:
+            instanceid, timestamp, _ = event.split(',', 2)
+            timestamp = float(timestamp)
+            if ((instanceid not in scheduled and
+                 timestamp < time.time() - expires_after)):
                 traces.append((timestamp, shard, event))
 
     # Sort traces from older to latest.

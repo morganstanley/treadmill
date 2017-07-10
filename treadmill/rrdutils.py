@@ -11,6 +11,7 @@ import time
 
 from treadmill import fs
 from treadmill import subproc
+from treadmill import utils
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -107,10 +108,10 @@ class RRDClient(object):
             'RRA:AVERAGE:0.5:10m:3d',
         ]))
 
-    def update(self, rrdfile, data):
+    def update(self, rrdfile, data, update_str=None):
         """Updates rrd file with data, create if does not exist."""
-        rrd_update_str = ':'.join([str(int(time.time())),
-                                   _METRICS_FMT.format(**data)])
+        rrd_update_str = update_str or ':'.join([str(int(time.time())),
+                                                 _METRICS_FMT.format(**data)])
         try:
             self.command('UPDATE %s %s' % (rrdfile, rrd_update_str))
         except RRDError:
@@ -168,8 +169,9 @@ def forget_noexc(rrdfile, rrd_socket=SOCKET):
 
 def gen_graph(rrdfile, timeframe, rrdtool, outdir=None, reserved_rsrc=None):
     """Generate SVG images given rrd file."""
-    if not outdir:
-        outdir = rrdfile.rsplit('.', 1)[0]
+    outdir = outdir or rrdfile.rsplit('.', 1)[0]
+    reserved_rsrc = reserved_rsrc or dict(cpu='0%', disk='0G')
+
     fs.mkdir_safe(outdir)
 
     # stdout, stderr -> subproc.PIPE: don't output the result of the execution
@@ -195,7 +197,7 @@ def gen_graph(rrdfile, timeframe, rrdtool, outdir=None, reserved_rsrc=None):
         '--imgformat=SVG',
         '--start=%s' % first_ts,
         '--end=%s' % last_ts,
-        '--vertical-label=Bytes',
+        '--vertical-label=bytes',
         'DEF:memory_usage=%s:memory_usage:MAX' % rrdfile,
         'LINE1:memory_usage#0000FF:memory usage',
         'DEF:memory_hardlimit=%s:memory_hardlimit:MAX' % rrdfile,
@@ -214,6 +216,7 @@ def gen_graph(rrdfile, timeframe, rrdtool, outdir=None, reserved_rsrc=None):
         'HRULE:%s#CC0000:reservation of compute '
         '(%s)' % (reserved_rsrc['cpu'][:-1], reserved_rsrc['cpu']),
     ]
+
     cpu_ratio_args = [
         os.path.join(outdir, 'cpu_ratio.svg'),
         '--title=CPU Ratio [%s - %s]' % (from_, to),
@@ -254,16 +257,24 @@ def gen_graph(rrdfile, timeframe, rrdtool, outdir=None, reserved_rsrc=None):
         '--imgformat=SVG',
         '--start=%s' % first_ts,
         '--end=%s' % last_ts,
-        '--vertical-label=bytes/second',
+        '--vertical-label=bytes',
         'DEF:fs_used_bytes=%s:fs_used_bytes:MAX' % rrdfile,
         'LINE:fs_used_bytes#0000FF:used bytes',
-        'HRULE:%s#CC0000:fs size limit' % reserved_rsrc['disk'],
+        'HRULE:%s#CC0000:fs size limit '
+        '(%s)' % (utils.size_to_bytes(reserved_rsrc['disk']),
+                  reserved_rsrc['disk'])
     ]
 
     for arg in (memory_args, cpu_usage_args, cpu_ratio_args, blk_iops, blk_bps,
                 fs_usg):
-        subprocess.check_call([rrdtool, 'graph'] + arg,
-                              stdout=subprocess.PIPE)
+        try:
+            subprocess.check_call([rrdtool, 'graph'] + arg,
+                                  stdout=subprocess.PIPE)
+
+        except subprocess.CalledProcessError as err:
+            # not all datasource is present in every RRD file so let's
+            # continue if one of the graph generation fails
+            _LOGGER.exception(err.output)
 
     try:
         ms_rrd = importlib.import_module('treadmill.plugins.rrdutils')
@@ -288,7 +299,6 @@ src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorM
         $$k (kilo) \Leftrightarrow 10^{3}$$
         $$m (milli) \Leftrightarrow 10^{-3}$$
         $$u (micro) \Leftrightarrow 10^{-6}$$
-        $$n (nano) \Leftrightarrow 10^{-9}$$</td>
 </tr>
 <tr>
 <td><img src="cpu_usage.svg" /></td>

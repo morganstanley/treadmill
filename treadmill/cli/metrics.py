@@ -150,7 +150,7 @@ def _get_app_rsrc(instance, admin_api=None, cell_api=None):
                             '/instance/%s' % urllib.quote(instance)).json()
     except restclient.NotFoundError:
         mf = restclient.get(context.GLOBAL.admin_api(admin_api),
-                            '/app/%s' % instance).json()
+                            '/local-app/%s' % instance).json()
 
     return {rsrc: mf[rsrc] for rsrc in ('cpu', 'disk', 'memory')
             if rsrc in mf}
@@ -177,11 +177,9 @@ def _get_server_metrics(endpoint, server, timeframe, services=None,
     if not services:
         services = _SYSTEM_SERVICES
 
-    # FIXME: give a default value of system limit
-    # otherwise the command will crash
     for svc in services:
         _download_rrd(api, _metrics_url(svc), _rrdfile(outdir, server, svc),
-                      timeframe, {'cpu': '0%', 'disk': '0M', 'memory': '0M'})
+                      timeframe)
 
 
 def _download_rrd(nodeinfo_url, metrics_url, rrdfile, timeframe,

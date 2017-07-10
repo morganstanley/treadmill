@@ -185,8 +185,10 @@ def _run(script):
     os.execvp(script, [script])
 
 
-def install(package, dst_dir, params, run=None):
+def install(package, dst_dir, params, run=None, profile=None):
     """Installs the services."""
+    _LOGGER.info('install: %s - %s, profile: %s', package, dst_dir, profile)
+
     fullname = '.'.join([__name__, package])
 
     module = importlib.import_module(fullname)
@@ -198,8 +200,8 @@ def install(package, dst_dir, params, run=None):
 
     aliases_path = [fullname]
 
-    for _loader, name, _ in pkgutil.iter_modules(module.__path__):
-        extension = '.'.join([fullname, name])
+    if profile:
+        extension = '.'.join([fullname, profile])
         extension_module = importlib.import_module(extension)
         defaults.update(getattr(extension_module, 'DEFAULTS', {}))
         aliases.update(getattr(extension_module, 'ALIASES', {}))
@@ -221,12 +223,12 @@ def install(package, dst_dir, params, run=None):
 
         _install(fullname, PLATFORM, dst_dir, interpolated, rec=rec)
 
-        for _loader, name, _ in pkgutil.iter_modules(module.__path__):
-            extension = '.'.join([fullname, name])
+        if profile:
+            extension = '.'.join([fullname, profile])
             extension_module = importlib.import_module(extension)
             _install(
                 extension,
-                '.'.join([name, PLATFORM]), dst_dir, interpolated,
+                '.'.join([profile, PLATFORM]), dst_dir, interpolated,
                 rec=rec
             )
 

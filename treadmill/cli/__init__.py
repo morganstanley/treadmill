@@ -2,6 +2,7 @@
 """
 
 import codecs
+import collections
 import copy
 import functools
 import importlib
@@ -9,23 +10,24 @@ import json
 import logging
 import os
 import pkgutil
-import pkg_resources
 import re
 import sys
 import tempfile
 import traceback
 
-
 import click
+import pkg_resources
 import prettytable
 import yaml
 
 from six.moves import configparser
 
+import treadmill
+
 from treadmill import context
 from treadmill import utils
 from treadmill import restclient
-import collections
+from treadmill import plugin_manager
 
 
 __path__ = pkgutil.extend_path(__path__, __name__)
@@ -82,6 +84,29 @@ def make_multi_command(module_name, **click_args):
                         'Unable to load plugin: %s [ %s ]' % (name, f.name),
                         err=True)
                 return
+
+    return MCommand
+
+
+def make_commands(section, **click_args):
+    """Make a Click multicommand from all submodules of the module."""
+    commands = plugin_manager.extensions(section, cli=True)
+
+    class MCommand(click.MultiCommand):
+        """Treadmill CLI driver."""
+
+        def __init__(self, *args, **kwargs):
+            if kwargs and click_args:
+                kwargs.update(click_args)
+
+            click.MultiCommand.__init__(self, *args, **kwargs)
+
+        def list_commands(self, ctx):
+            """Return list of commands in section."""
+            return sorted(commands().names())
+
+        def get_command(self, ctx, name):
+            return commands()[name].plugin.init()
 
     return MCommand
 
@@ -392,6 +417,41 @@ def handle_exceptions(exclist):
 OUTPUT_FORMAT = 'pretty'
 
 
+def _repr_unicode(dumper, data):
+    """Fix yaml str representation."""
+    ascii_data = data.encode('ascii', 'ignore')
+    if '\n' in data:
+        return dumper.represent_scalar(u'tag:yaml.org,2002:str', ascii_data,
+                                       style='|')
+    else:
+        return dumper.represent_scalar(u'tag:yaml.org,2002:str', ascii_data)
+
+
+def _repr_tuple(dumper, data):
+    """Fix yaml tuple representation (use list)."""
+    return dumper.represent_list(list(data))
+
+
+def _repr_none(dumper, data_unused):
+    """Fix yaml None representation (use ~)."""
+    return dumper.represent_scalar(u'tag:yaml.org,2002:null', '~')
+
+
+# This will be invoked on module import once.
+yaml.add_representer(unicode, _repr_unicode)
+yaml.add_representer(str, _repr_unicode)
+yaml.add_representer(tuple, _repr_tuple)
+yaml.add_representer(type(None), _repr_none)
+
+
+def _dump_yaml(obj):
+    """Returns yaml representation of the object."""
+    return yaml.dump(obj,
+                     default_flow_style=False,
+                     explicit_start=True,
+                     explicit_end=True)
+
+
 def make_formatter(pretty_formatter):
     """Makes a formatter."""
 
@@ -402,7 +462,7 @@ def make_formatter(pretty_formatter):
 
         formatters = {
             'json': json.dumps,
-            'yaml': utils.dump_yaml,
+            'yaml': _dump_yaml,
         }
 
         if pretty_formatter is not None:
@@ -486,6 +546,7 @@ class AppPrettyFormatter(object):
             ('vring', None, vring_tbl),
             ('passthrough', None, '\n'.join),
             ('data-retention-timeout', 'data_retention_timeout', None),
+            ('lease', 'lease', None),
         ]
 
         format_item = make_dict_to_table(schema)
@@ -776,7 +837,8 @@ class AllocationPrettyFormatter(object):
             ('cell', 'cell', None),
             ('partition', None, None),
             ('rank', None, None),
-            ('max-utilization', None, None),
+            ('rank-adjustment', 'rank_adjustment', None),
+            ('max-utilization', 'max_utilization', None),
             ('memory', None, None),
             ('cpu', None, None),
             ('disk', None, None),

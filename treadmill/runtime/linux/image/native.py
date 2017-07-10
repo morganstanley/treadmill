@@ -9,8 +9,6 @@ import pwd
 import shutil
 import stat
 
-import treadmill
-
 from treadmill import appcfg
 from treadmill import cgroups
 from treadmill import fs
@@ -26,28 +24,25 @@ from . import _repository_base
 
 _LOGGER = logging.getLogger(__name__)
 
-_CONTAINER_ENV_DIR = 'environ'
+_CONTAINER_ENV_DIR = 'env'
 
 
-def create_environ_dir(env_dir, app):
+def _create_environ_dir(container_dir, root_dir, app):
     """Creates environ dir for s6-envdir."""
-    appenv = {envvar.name: envvar.value for envvar in app.environ}
-    supervisor.create_environ_dir(
-        os.path.join(env_dir, 'app'),
-        appenv
-    )
+    env_dir = os.path.join(container_dir, _CONTAINER_ENV_DIR)
 
     env = {
+        'TREADMILL_APP': app.app,
+        'TREADMILL_CELL': app.cell,
         'TREADMILL_CPU': app.cpu,
         'TREADMILL_DISK': app.disk,
-        'TREADMILL_MEMORY': app.memory,
-        'TREADMILL_CELL': app.cell,
-        'TREADMILL_APP': app.app,
-        'TREADMILL_INSTANCEID': app.task,
         'TREADMILL_HOST_IP': app.network.external_ip,
         'TREADMILL_IDENTITY': app.identity,
         'TREADMILL_IDENTITY_GROUP': app.identity_group,
+        'TREADMILL_INSTANCEID': app.task,
+        'TREADMILL_MEMORY': app.memory,
         'TREADMILL_PROID': app.proid,
+        'TREADMILL_ENV': app.environment,
     }
 
     for endpoint in app.endpoints:
@@ -62,12 +57,17 @@ def create_environ_dir(env_dir, app):
     )
 
     env['TREADMILL_CONTAINER_IP'] = app.network.vip
+    env['TREADMILL_GATEWAY_IP'] = app.network.gateway
+    if app.shared_ip:
+        env['TREADMILL_SERVICE_IP'] = app.host_ip
 
-    # Override appenv with mandatory treadmill environment.
-    supervisor.create_environ_dir(
-        os.path.join(env_dir, 'sys'),
-        env
-    )
+    supervisor.create_environ_dir(env_dir, env)
+
+    # Bind the environ directory in the container volume
+    fs.mkdir_safe(os.path.join(root_dir, _CONTAINER_ENV_DIR))
+    fs.mount_bind(root_dir, os.path.join('/', _CONTAINER_ENV_DIR),
+                  target=os.path.join(container_dir, _CONTAINER_ENV_DIR),
+                  bind_opt='--bind')
 
 
 def _create_logrun(directory):
@@ -88,152 +88,73 @@ def _create_sysrun(sys_dir, name, command, down=False):
         utils.touch(os.path.join(sys_dir, name, 'down'))
 
 
-def create_supervision_tree(container_dir, app):
+def _create_supervision_tree(container_dir, root_dir, app):
     """Creates s6 supervision tree."""
-    # Disable R0915: Too many statements
-    # pylint: disable=R0915
-    root_dir = os.path.join(container_dir, 'root')
-
-    # Services and sys directories will be restored when container restarts
-    # with data retention on existing volume.
-    #
-    # Sys directories will be removed. Services directory will stay, which
-    # present a danger of accumulating restart counters in finished files.
-    #
-    # TODO:
-    #
-    # It is rather arbitrary how restart counts should work when data is
-    # restored, but most likely services are "restart always" policy, so it
-    # will not affect them.
-    services_dir = os.path.join(container_dir, 'services')
     sys_dir = os.path.join(container_dir, 'sys')
-    if os.path.exists(sys_dir):
-        _LOGGER.info('Deleting existing sys dir: %s', sys_dir)
-        shutil.rmtree(sys_dir)
-
-    app_json = os.path.join(root_dir, 'app.json')
-
-    # Create /services directory for the supervisor
-    svcdir = os.path.join(root_dir, 'services')
-    fs.mkdir_safe(svcdir)
-
-    fs.mkdir_safe(services_dir)
-    fs.mount_bind(root_dir, '/services', services_dir)
-
-    root_pw = pwd.getpwnam('root')
-    proid_pw = pwd.getpwnam(app.proid)
-
-    # Create .s6-svscan directories for svscan finish
-    sys_svscandir = os.path.join(sys_dir, '.s6-svscan')
-    fs.mkdir_safe(sys_svscandir)
-
-    svc_svscandir = os.path.join(services_dir, '.s6-svscan')
-    fs.mkdir_safe(svc_svscandir)
-
-    # svscan finish scripts to wait on all services
-    utils.create_script(
-        os.path.join(sys_svscandir, 'finish'),
-        'svscan.finish',
-        timeout=6000
-    )
-
-    utils.create_script(
-        os.path.join(svc_svscandir, 'finish'),
-        'svscan.finish',
-        timeout=5000
-    )
-
-    for svc in app.services:
-        if getattr(svc, 'root', False):
-            svc_user = 'root'
-            svc_home = root_pw.pw_dir
-            svc_shell = root_pw.pw_shell
-        else:
-            svc_user = app.proid
-            svc_home = proid_pw.pw_dir
-            svc_shell = proid_pw.pw_shell
-
-        supervisor.create_service(
-            services_dir, svc_user, svc_home, svc_shell,
-            svc.name, svc.command,
-            env=app.environment, down=True,
-            envdirs=['/environ/app', '/environ/sys'], as_root=True,
-        )
-        _create_logrun(os.path.join(services_dir, svc.name))
-
-    for svc in app.system_services:
-        supervisor.create_service(
-            services_dir, 'root', root_pw.pw_dir, root_pw.pw_shell,
-            svc.name, svc.command,
-            env=app.environment, down=False,
-            envdirs=['/environ/sys'], as_root=True,
-        )
-        _create_logrun(os.path.join(services_dir, svc.name))
-
-    # Vring services
-    for cell in app.vring.cells:
-        fs.mkdir_safe(os.path.join(sys_dir, 'vring.%s' % cell))
-        cmd = '%s sproc --zookeeper - --cell %s vring %s' % (
-            treadmill.TREADMILL_BIN, cell, app_json)
-        utils.create_script(
-            os.path.join(sys_dir, 'vring.%s' % cell, 'run'),
-            'supervisor.run_sys',
-            cmd=cmd
-        )
-        _create_logrun(os.path.join(sys_dir, 'vring.%s' % cell))
-
-    # Create endpoint presence service
-    presence_monitor_cmd = '%s sproc presence monitor %s %s' % (
-        treadmill.TREADMILL_BIN,
-        app_json,
-        container_dir
-    )
-    presence_register_cmd = '%s sproc presence register %s %s' % (
-        treadmill.TREADMILL_BIN,
-        app_json,
-        container_dir
-    )
-    shadow_etc = os.path.join(container_dir, 'overlay', 'etc')
-    host_aliases_cmd = '%s sproc host-aliases --aliases-dir %s %s %s' % (
-        treadmill.TREADMILL_BIN,
-        os.path.join(shadow_etc, 'host-aliases'),
-        os.path.join(shadow_etc, 'hosts.original'),
-        os.path.join(shadow_etc, 'hosts'),
-    )
-
-    _create_sysrun(sys_dir, 'monitor', presence_monitor_cmd)
-    _create_sysrun(sys_dir, 'register', presence_register_cmd)
-    _create_sysrun(sys_dir, 'hostaliases', host_aliases_cmd)
-
-    cmd = None
-    args = None
-
-    if hasattr(app, 'command'):
-        cmd = app.command
-
-    if hasattr(app, 'args'):
-        args = app.args
-
-    if not cmd:
-        cmd = subproc.resolve('s6_svscan')
-        if not args:
-            args = ['/services']
-
-    _create_sysrun(
+    sys_svcdir = supervisor.create_services_dir(
         sys_dir,
-        'start_container',
-        '%s %s %s -m -p -i %s %s' % (
-            subproc.resolve('chroot'),
-            root_dir,
-            subproc.resolve('pid1'),
-            cmd,
-            ' '.join(args)
-        ),
-        down=True
+        finish_timeout=6000
+    )
+    for svc_def in app.system_services:
+        supervisor.create_service(
+            sys_svcdir,
+            name=svc_def.name,
+            app_run_script=svc_def.command,
+            userid='root',
+            environ_dir=os.path.join(container_dir, _CONTAINER_ENV_DIR),
+            environ={
+                envvar.name: envvar.value
+                for envvar in svc_def.environ
+            },
+            environment=app.environment,
+            downed=svc_def.downed,
+            trace=None,
+            monitor_policy={
+                'limit': svc_def.restart.limit,
+                'interval': svc_def.restart.interval,
+            }
+        )
+    sys_svcdir.write()
+
+    services_dir = os.path.join(container_dir, 'services')
+    services_svcdir = supervisor.create_services_dir(
+        services_dir,
+        finish_timeout=5000
     )
 
+    trace = {
+        'instanceid': app.name,
+        'uniqueid': app.uniqueid
+    }
+    for svc_def in app.services:
+        supervisor.create_service(
+            services_svcdir,
+            name=svc_def.name,
+            app_run_script=svc_def.command,
+            userid=svc_def.proid,
+            environ_dir='/' + _CONTAINER_ENV_DIR,
+            environ={
+                envvar.name: envvar.value
+                for envvar in svc_def.environ
+            },
+            environment=app.environment,
+            downed=False,
+            trace=trace if svc_def.trace else None,
+            monitor_policy={
+                'limit': svc_def.restart.limit,
+                'interval': svc_def.restart.interval,
+            }
+        )
+    services_svcdir.write()
 
-def make_fsroot(root, proid):
+    # Bind the service directory in the container volume
+    fs.mkdir_safe(os.path.join(root_dir, 'services'))
+    fs.mount_bind(root_dir, '/services',
+                  target=os.path.join(container_dir, 'services'),
+                  bind_opt='--bind')
+
+
+def make_fsroot(root_dir, proid):
     """Initializes directory structure for the container in a new root.
 
      - Bind directories in parent / (with exceptions - see below.)
@@ -244,7 +165,7 @@ def make_fsroot(root, proid):
        - /var/spool - create empty with dirs.
      - Bind everything in /var, skipping /spool/tickets
      """
-    newroot_norm = fs.norm_safe(root)
+    newroot_norm = fs.norm_safe(root_dir)
     mounts = [
         '/bin',
         '/common',
@@ -305,7 +226,7 @@ def make_fsroot(root, proid):
         fs.mount_tmpfs(newroot_norm, tmpfsdir, '4M')
 
 
-def etc_overlay(tm_env, container_dir, root_dir, app):
+def _create_etc_overlay(tm_env, container_dir, root_dir, app):
     """Create overlay configuration (etc) files for the container.
     """
     # ldpreloads
@@ -437,7 +358,7 @@ def _bind_etc_overlay(container_dir, root_dir):
                   bind_opt='--bind')
 
 
-def share_cgroup_info(app, root_dir):
+def share_cgroup_info(root_dir, app):
     """Shares subset of cgroup tree with the container."""
     # Bind /cgroup/memory inside chrooted environment to /cgroup/.../memory
     # of the container.
@@ -468,7 +389,7 @@ class NativeImage(_image_base.Image):
     def unpack(self, container_dir, root_dir, app):
         make_fsroot(root_dir, app.proid)
 
-        image_fs.configure_plugins(self.tm_env, root_dir, app)
+        image_fs.configure_plugins(self.tm_env, container_dir, app)
 
         # FIXME: Lots of things are still reading this file.
         #        Copy updated state manifest as app.json in the
@@ -476,14 +397,11 @@ class NativeImage(_image_base.Image):
         shutil.copy(os.path.join(container_dir, runtime.STATE_JSON),
                     os.path.join(root_dir, appcfg.APP_JSON))
 
-        # FIXME: env_dir should be in a well defined location (part of the
-        #        container "API").
-        env_dir = os.path.join(root_dir, 'environ')
-        create_environ_dir(env_dir, app)
-        create_supervision_tree(container_dir, app)
+        _create_environ_dir(container_dir, root_dir, app)
+        _create_supervision_tree(container_dir, root_dir, app)
+        _create_etc_overlay(self.tm_env, container_dir, root_dir, app)
 
-        share_cgroup_info(app, root_dir)
-        etc_overlay(self.tm_env, container_dir, root_dir, app)
+        share_cgroup_info(root_dir, app)
 
 
 class NativeImageRepository(_repository_base.ImageRepository):

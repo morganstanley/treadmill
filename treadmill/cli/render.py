@@ -7,6 +7,8 @@ import click
 import yaml
 import jinja2
 
+from treadmill import cli
+
 
 def init():
     """Return top level command handler."""
@@ -27,6 +29,6 @@ def init():
             with open(param, 'rb') as fd:
                 data.update(yaml.load(fd.read()))
 
-        print(env.get_template(os.path.basename(inputfile)).render(data))
+        cli.out(env.get_template(os.path.basename(inputfile)).render(data))
 
     return interpolate

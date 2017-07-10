@@ -13,8 +13,7 @@ from treadmill import fs
 from treadmill import iptables
 from treadmill import newnet
 from treadmill import runtime
-from treadmill import supervisor
-from treadmill import utils
+from treadmill import subproc
 
 from treadmill.syscall import unshare
 
@@ -29,17 +28,28 @@ def run(tm_env, container_dir, manifest, watchdog, terminated):
     """
     _LOGGER.info('Running %r', container_dir)
 
+    unique_name = appcfg.manifest_unique_name(manifest)
+
+    # Generate resources requests
+    fs.mkdir_safe(os.path.join(container_dir, 'resources'))
+
+    cgroup_client = tm_env.svc_cgroup.make_client(
+        os.path.join(container_dir, 'resources', 'cgroups')
+    )
+    localdisk_client = tm_env.svc_localdisk.make_client(
+        os.path.join(container_dir, 'resources', 'localdisk')
+    )
+    network_client = tm_env.svc_network.make_client(
+        os.path.join(container_dir, 'resources', 'network')
+    )
+
     # Apply memory limits first thing, so that app_run does not consume memory
     # from treadmill/core.
-    _apply_cgroup_limits(tm_env, container_dir, manifest)
+    _apply_cgroup_limits(cgroup_client, localdisk_client, network_client,
+                         unique_name, manifest)
 
     img_impl = image.get_image(tm_env, manifest)
 
-    unique_name = appcfg.manifest_unique_name(manifest)
-    # First wait for the network device to be ready
-    network_client = tm_env.svc_network.make_client(
-        os.path.join(container_dir, 'network')
-    )
     app_network = network_client.wait(unique_name)
 
     manifest['network'] = app_network
@@ -65,12 +75,8 @@ def run(tm_env, container_dir, manifest, watchdog, terminated):
     if not app.shared_network:
         _unshare_network(tm_env, app)
 
-    # Create root directory structure (chroot base).
-    # container_dir/<subdir>
-    root_dir = os.path.join(container_dir, 'root')
-
     # Create and format the container root volume.
-    _create_root_dir(tm_env, container_dir, root_dir, app)
+    root_dir = _create_root_dir(container_dir, app, localdisk_client)
 
     # NOTE: below here, MOUNT namespace is private
 
@@ -88,61 +94,30 @@ def run(tm_env, container_dir, manifest, watchdog, terminated):
     if not terminated:
         # hook container
         apphook.configure(tm_env, app)
-
-        sys_dir = os.path.join(container_dir, 'sys')
-        supervisor.exec_root_supervisor(sys_dir)
+        subproc.exec_pid1(['s6_svscan', os.path.join(container_dir, 'sys')])
 
 
-def _apply_cgroup_limits(tm_env, container_dir, manifest):
-    """Configures cgroups and limits.
-
-    :param tm_env:
-        Treadmill application environment
-    :type tm_env:
-        `appenv.AppEnvironment`
-    :param container_dir:
-        Full path to the container
-    :type container_dir:
-        ``str``
-    :param manifest:
-        App manifest.
-    :type manifest:
-        ``dict``
-    """
-    app = utils.to_obj(manifest)
-
-    # Generate a unique name for the app
-    unique_name = appcfg.app_unique_name(app)
-
-    # Setup the service clients
-    cgroup_client = tm_env.svc_cgroup.make_client(
-        os.path.join(container_dir, 'cgroups')
-    )
-    localdisk_client = tm_env.svc_localdisk.make_client(
-        os.path.join(container_dir, 'localdisk')
-    )
-    network_client = tm_env.svc_network.make_client(
-        os.path.join(container_dir, 'network')
-    )
-
+def _apply_cgroup_limits(cgroup_client, localdisk_client, network_client,
+                         unique_name, manifest):
+    """Configures cgroups and limits."""
     # Cgroup
     cgroup_req = {
-        'memory': app.memory,
-        'cpu': app.cpu,
+        'memory': manifest['memory'],
+        'cpu': manifest['cpu'],
     }
     # Local Disk
     localdisk_req = {
-        'size': app.disk,
+        'size': manifest['disk'],
     }
     # Network
     network_req = {
-        'environment': app.environment,
+        'environment': manifest['environment'],
     }
 
     cgroup_client.put(unique_name, cgroup_req)
     localdisk_client.put(unique_name, localdisk_req)
 
-    if not app.shared_network:
+    if not manifest['shared_network']:
         network_client.put(unique_name, network_req)
 
     app_cgroups = cgroup_client.wait(unique_name)
@@ -272,15 +247,16 @@ def _unshare_network(tm_env, app):
                          service_ip)
 
 
-def _create_root_dir(tm_env, container_dir, root_dir, app):
+def _create_root_dir(container_dir, app, localdisk_client):
     """Prepares chrooted environment."""
+    # Create root directory structure (chroot base).
+    # container_dir/<subdir>
+    root_dir = os.path.join(container_dir, 'root')
+
     # Generate a unique name for the app
     unique_name = appcfg.app_unique_name(app)
 
     # First wait for the block device to be ready
-    localdisk_client = tm_env.svc_localdisk.make_client(
-        os.path.join(container_dir, 'localdisk')
-    )
     localdisk = localdisk_client.wait(unique_name)
 
     already_initialized = fs.test_filesystem(localdisk['block_dev'])
@@ -295,3 +271,5 @@ def _create_root_dir(tm_env, container_dir, root_dir, app):
     unshare.unshare(unshare.CLONE_NEWNS)
     # Mount the container root volume
     fs.mount_filesystem(localdisk['block_dev'], root_dir)
+
+    return root_dir

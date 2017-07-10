@@ -114,6 +114,9 @@ attributeTypes:
   rank:
     desc: Treadmill rank
     type: int
+  rank-adjustment:
+    desc: Treadmill rank adjustment
+    type: int
   root:
     desc: Treadmill root
     type: str
@@ -217,6 +220,10 @@ attributeTypes:
     desc: Data retention timeout
     ignore_case: true
     type: str
+  lease:
+    desc: Lease interval
+    ignore_case: true
+    type: str
 dn: cn={1}treadmill,cn=schema,cn=config
 objectClasses:
   tmAllocation:
@@ -239,6 +246,7 @@ objectClasses:
     - pattern
     - priority
     - rank
+    - rank-adjustment
     - trait
   tmPartition:
     desc: Treadmill Partition
@@ -287,6 +295,7 @@ objectClasses:
     - ephemeral-ports-udp
     - schedule-once
     - data-retention-timeout
+    - lease
   tmCell:
     desc: Treadmill Cell
     must:

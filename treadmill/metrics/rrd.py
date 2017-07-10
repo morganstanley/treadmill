@@ -114,7 +114,7 @@ def app_metrics(cgrp, rrd_last, sys_major_minor, block_dev):
     return result
 
 
-def update(rrdclient, rrdfile, cgrp, sys_maj_min, block_dev):
+def update(rrdclient, rrdfile, cgrp, sys_maj_min, block_dev=None):
     """ get and update metrics in rrd files """
     rrd_last = rrdutils.lastupdate(rrdfile)
     try:

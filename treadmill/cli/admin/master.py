@@ -126,7 +126,7 @@ def app_group(parent):
 
         data['proid'] = proid
         scheduled = master.create_apps(context.GLOBAL.zk.conn,
-                                       app, data, count)
+                                       app, data, count, 'admin')
         for app_id in scheduled:
             print(app_id)
 
@@ -143,7 +143,7 @@ def app_group(parent):
     @cli.admin.ON_EXCEPTIONS
     def delete(apps):
         """Deletes (unschedules) the app by pattern"""
-        master.delete_apps(context.GLOBAL.zk.conn, apps)
+        master.delete_apps(context.GLOBAL.zk.conn, apps, 'admin')
 
     del list
     del schedule

@@ -3,6 +3,8 @@
 
 # pylint: disable=C0103
 
+import logging
+
 import click
 import kazoo
 
@@ -13,6 +15,9 @@ from treadmill import context
 from treadmill import master
 from treadmill import scheduler as treadmill_sched
 from treadmill import reports
+
+
+_LOGGER = logging.getLogger(__name__)
 
 
 def view_group(parent):
@@ -109,6 +114,53 @@ def view_group(parent):
     del queue
 
 
+def explain_group(parent):
+    """Scheduler explain CLI group."""
+
+    def _print_frame(df):
+        """Prints dataframe."""
+        if not df.empty:
+            pd.set_option('display.max_rows', None)
+            pd.set_option('float_format', lambda f: '%f' % f)
+            pd.set_option('expand_frame_repr', False)
+            print(df.to_string(index=False))
+
+    def _load():
+        """Load cell information."""
+        treadmill_sched.DIMENSION_COUNT = 3
+        cell_master = master.Master(context.GLOBAL.zk.conn,
+                                    context.GLOBAL.cell)
+        cell_master.load_buckets()
+        cell_master.load_cell()
+        cell_master.load_servers(readonly=True)
+        cell_master.load_allocations()
+        cell_master.load_strategies()
+        cell_master.load_apps()
+        cell_master.load_identity_groups()
+        cell_master.load_placement_data()
+
+        return cell_master
+
+    @parent.group()
+    def explain():
+        """Explain scheduler internals"""
+        pass
+
+    @explain.command()
+    @click.option('--instance', help='Application instance')
+    @click.option('--partition', help='Cell partition', default='_default')
+    @cli.admin.ON_EXCEPTIONS
+    def queue(instance, partition):
+        """Explain the application queue"""
+        cell_master = _load()
+        frame = reports.explain_queue(cell_master.cell,
+                                      partition,
+                                      pattern=instance)
+        _print_frame(frame)
+
+    del queue
+
+
 def init():
     """Return top level command handler."""
 
@@ -126,4 +178,5 @@ def init():
         pass
 
     view_group(top)
+    explain_group(top)
     return top

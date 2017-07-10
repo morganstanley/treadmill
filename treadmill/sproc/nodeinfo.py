@@ -20,7 +20,7 @@ from treadmill.rest import error_handlers  # noqa: F401
 
 _LOGGER = logging.getLogger(__name__)
 
-_SERVERS_ACL = zkutils.make_role_acl('servers', 'rwcd')
+_SERVERS_ACL = zkutils.make_role_acl('servers', 'rwcda')
 
 
 def init():

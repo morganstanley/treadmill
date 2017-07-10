@@ -1,0 +1,1 @@
+{{ python }} -m treadmill sproc monitor node_services --approot {{ dir }} -S {{ dir }}\init

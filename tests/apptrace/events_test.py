@@ -25,6 +25,8 @@ class AppTraceEventsTest(unittest.TestCase):
                 mock.Mock(set_spec=True))
     @mock.patch('treadmill.apptrace.events.PendingTraceEvent.from_data',
                 mock.Mock(set_spec=True))
+    @mock.patch('treadmill.apptrace.events.PendingDeleteTraceEvent.from_data',
+                mock.Mock(set_spec=True))
     @mock.patch('treadmill.apptrace.events.ScheduledTraceEvent.from_data',
                 mock.Mock(set_spec=True))
     @mock.patch(('treadmill.apptrace.events'
@@ -183,6 +185,50 @@ class AppTraceEventsTest(unittest.TestCase):
             )
         )
 
+    def test_pending_delete(self):
+        """PendingDelete event operations.
+        """
+        event = events.PendingDeleteTraceEvent(
+            why='deleted',
+            timestamp=2,
+            source='tests',
+            instanceid='proid.foo#123',
+            payload={'foo': 'bar'}
+        )
+        self.assertEqual(
+            event.to_dict(),
+            {
+                'event_type': 'pending_delete',
+                'timestamp': 2,
+                'source': 'tests',
+                'instanceid': 'proid.foo#123',
+                'payload': {'foo': 'bar'},
+                'why': 'deleted',
+            }
+        )
+        self.assertEqual(
+            event.to_data(),
+            (
+                2,
+                'tests',
+                'proid.foo#123',
+                'pending_delete',
+                'deleted',
+                {'foo': 'bar'},
+            )
+        )
+        self.assertEqual(
+            event,
+            events.PendingDeleteTraceEvent.from_data(
+                timestamp=2,
+                source='tests',
+                instanceid='proid.foo#123',
+                event_type='pending_delete',
+                event_data='deleted',
+                payload={'foo': 'bar'}
+            )
+        )
+
     def test_configured(self):
         """Configured event operations.
         """
@@ -323,7 +369,7 @@ class AppTraceEventsTest(unittest.TestCase):
             source='tests',
             instanceid='proid.foo#123',
             why='reason',
-            payload={'foo': 'bar'}
+            payload='test'
         )
         self.assertEqual(
             event.to_dict(),
@@ -333,7 +379,7 @@ class AppTraceEventsTest(unittest.TestCase):
                 'source': 'tests',
                 'instanceid': 'proid.foo#123',
                 'why': 'reason',
-                'payload': {'foo': 'bar'},
+                'payload': 'test',
             }
         )
         self.assertEqual(
@@ -344,7 +390,7 @@ class AppTraceEventsTest(unittest.TestCase):
                 'proid.foo#123',
                 'aborted',
                 'reason',
-                {'foo': 'bar'},
+                'test',
             )
         )
         self.assertEqual(
@@ -355,7 +401,7 @@ class AppTraceEventsTest(unittest.TestCase):
                 instanceid='proid.foo#123',
                 event_type='aborted',
                 event_data='reason',
-                payload={'foo': 'bar'}
+                payload='test'
             )
         )
 

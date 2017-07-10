@@ -15,13 +15,16 @@ from stevedore import driver
 
 from treadmill import exc
 from treadmill import utils
+from treadmill import plugin_manager
 
+from treadmill.appcfg import abort as app_abort
 from treadmill.appcfg import manifest as app_manifest
 
 
 STATE_JSON = 'state.json'
 
 _LOGGER = logging.getLogger(__name__)
+
 _RUNTIME_NAMESPACE = 'treadmill.runtime'
 
 
@@ -33,14 +36,12 @@ if os.name == 'posix':
     PROD_PORT_HIGH = iptables.PROD_PORT_HIGH
     NONPROD_PORT_LOW = iptables.NONPROD_PORT_LOW
     NONPROD_PORT_HIGH = iptables.NONPROD_PORT_HIGH
-    DEFAULT_RUNTIME = 'linux'
 else:
     PORT_SPAN = 8192
     PROD_PORT_LOW = 32768
     PROD_PORT_HIGH = PROD_PORT_LOW + PORT_SPAN - 1
     NONPROD_PORT_LOW = PROD_PORT_LOW + PORT_SPAN
     NONPROD_PORT_HIGH = NONPROD_PORT_LOW + PORT_SPAN - 1
-    DEFAULT_RUNTIME = 'docker'
 
 
 def get_runtime(runtime_name, tm_env, container_dir):
@@ -50,7 +51,7 @@ def get_runtime(runtime_name, tm_env, container_dir):
         name=runtime_name,
         invoke_on_load=True,
         invoke_args=(tm_env, container_dir),
-        on_load_failure_callback=utils.log_extension_failure
+        on_load_failure_callback=plugin_manager.log_extension_failure
     )
 
     if not runtime_driver:
@@ -126,8 +127,8 @@ def _allocate_sockets(environment, host_ip, sock_type, count):
 
         sockets.append(socket_)
     else:
-        raise exc.ContainerSetupError(
-            'run.alloc_sockets:{0} < {1}'.format(len(sockets), count))
+        raise exc.ContainerSetupError('{0} < {1}'.format(len(sockets), count),
+                                      app_abort.AbortedReason.PORTS)
 
     return sockets
 
@@ -135,8 +136,6 @@ def _allocate_sockets(environment, host_ip, sock_type, count):
 def _allocate_network_ports_proto(host_ip, manifest, proto, so_type):
     """Allocate ports for named and unnamed endpoints given protocol."""
     ephemeral_count = manifest['ephemeral_ports'].get(proto, 0)
-    if isinstance(ephemeral_count, list):
-        ephemeral_count = len(ephemeral_count)
 
     endpoints = [ep for ep in manifest['endpoints']
                  if ep.get('proto', 'tcp') == proto]
@@ -153,7 +152,7 @@ def _allocate_network_ports_proto(host_ip, manifest, proto, so_type):
         sock = sockets[idx]
         endpoint['real_port'] = sock.getsockname()[1]
 
-        # Specifying port 0 tells runtime that application wants to
+        # Specifying port 0 tells appmgr that application wants to
         # have same numeric port value in the container and in
         # the public interface.
         #

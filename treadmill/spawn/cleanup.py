@@ -10,7 +10,7 @@ import subprocess
 from treadmill import spawn
 from treadmill import fs
 from treadmill import dirwatch
-from treadmill import subproc
+from treadmill import supervisor
 from treadmill.spawn import utils as spawn_utils
 
 _LOGGER = logging.getLogger(__name__)
@@ -31,7 +31,10 @@ class Cleanup(object):
         """Tells the svscan instance to nuke the given scan dir."""
         _LOGGER.debug('Nuking directory %r', scan_dir)
         try:
-            subproc.check_call(['s6_svscanctl', '-an', scan_dir])
+            supervisor.control_svscan(scan_dir, (
+                supervisor.SvscanControlAction.alarm,
+                supervisor.SvscanControlAction.nuke
+            ))
         except subprocess.CalledProcessError as ex:
             _LOGGER.warning(ex)
 

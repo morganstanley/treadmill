@@ -68,7 +68,7 @@ def init():
             else:
                 output = instance
 
-            print(output)
+            cli.out(output)
             return True
 
         def on_error(result):

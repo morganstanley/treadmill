@@ -45,7 +45,7 @@ def make_endpoint_watcher(zkclient, state, proid):
 
 
 class API(object):
-    """Treadmill endpoint REST api."""
+    """Treadmill Endpoint REST api."""
 
     def __init__(self):
 

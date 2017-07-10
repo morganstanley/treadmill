@@ -191,6 +191,9 @@ def calc_fs_usage(fs_info):
     Reserved blocks are treated as used blocks because the primary goal of this
     usage metric is to indicate whether the container has to be resized.
     """
+    if not fs_info:
+        return 0
+
     blk_cnt = int(fs_info['block count'])
     free_blk_cnt = int(fs_info['free blocks'])
     blk_size = int(fs_info['block size'])

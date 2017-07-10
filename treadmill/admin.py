@@ -429,7 +429,14 @@ class Admin(object):
 
         for uri in self.uri:
             try:
-                server = ldap3.Server(uri)
+                # Disable W0212: Access to a protected member _is_ipv6 of a
+                #                client class
+                #
+                # This is needed because twisted monkey patches socket._is_ipv6
+                # and ldap3 code is wrong.
+                # pylint: disable=W0212
+                ldap3.Server._is_ipv6 = lambda x, y: False
+                server = ldap3.Server(uri, mode=ldap3.IP_V4_ONLY)
                 if self.user and self.password:
                     self.ldap = ldap3.Connection(
                         server,
@@ -953,7 +960,7 @@ class Server(LdapObject):
         ('cell', 'cell', str),
         ('trait', 'traits', [str]),
         ('partition', 'partition', str),
-        ('data', 'data', [str]),
+        ('data', 'data', dict),
     ]
 
     _oc = 'tmServer'
@@ -1062,6 +1069,7 @@ class Application(LdapObject):
         ('ephemeral-ports-tcp', 'ephemeral_ports_tcp', int),
         ('ephemeral-ports-udp', 'ephemeral_ports_udp', int),
         ('data-retention-timeout', 'data_retention_timeout', str),
+        ('lease', 'lease', str),
     ]
 
     _svc_schema = [
@@ -1432,8 +1440,9 @@ class CellAllocation(LdapObject):
         ('cpu', 'cpu', str),
         ('memory', 'memory', str),
         ('disk', 'disk', str),
-        ('max-utilization', 'max-utilization', str),
+        ('max-utilization', 'max_utilization', str),
         ('rank', 'rank', int),
+        ('rank-adjustment', 'rank_adjustment', int),
         ('trait', 'traits', [str]),
         ('partition', 'partition', str),
     ]
@@ -1476,9 +1485,10 @@ class CellAllocation(LdapObject):
         """Converts cell allocation object to dict."""
         obj = super(CellAllocation, self).from_entry(entry, dn)
 
-        ident = _dn2cellalloc_id(dn)
-        if ident:
-            obj['_id'] = ident
+        if dn:
+            ident = _dn2cellalloc_id(dn)
+            if ident:
+                obj['_id'] = ident
 
         grouped = _group_entry_by_opt(entry)
         assignments = _grouped_to_list_of_dict(
@@ -1497,6 +1507,9 @@ class CellAllocation(LdapObject):
 
         if 'partition' not in obj:
             obj['partition'] = DEFAULT_PARTITION
+
+        if 'max_utilization' in obj:
+            obj['max_utilization'] = float(obj['max_utilization'])
 
         return obj
 

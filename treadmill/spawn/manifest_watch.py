@@ -10,7 +10,7 @@ import subprocess
 from treadmill import spawn
 from treadmill import fs
 from treadmill import dirwatch
-from treadmill import subproc
+from treadmill import supervisor
 from treadmill import utils
 from treadmill.spawn import utils as spawn_utils
 from treadmill.spawn import instance
@@ -48,7 +48,8 @@ class ManifestWatch(object):
         """Tells the svscan instance to rescan the given scan dir."""
         _LOGGER.debug('Scanning directory %r', scan_dir)
         try:
-            subproc.check_call(['s6_svscanctl', '-a', scan_dir])
+            supervisor.control_svscan(scan_dir,
+                                      supervisor.SvscanControlAction.alarm)
         except subprocess.CalledProcessError as ex:
             _LOGGER.warning(ex)
 

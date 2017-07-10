@@ -4,6 +4,7 @@ import time
 import datetime
 import itertools
 import logging
+import fnmatch
 
 import numpy as np
 import pandas as pd
@@ -81,6 +82,7 @@ def allocations(cell):
             'cpu': alloc.reserved[1],
             'disk': alloc.reserved[2],
             'rank': alloc.rank,
+            'rank_adjustment': alloc.rank_adjustment,
             'traits': alloc.traits,
             'max_utilization': alloc.max_utilization,
         }
@@ -165,3 +167,72 @@ def utilization(prev_utilization, apps_df):
         return current
     else:
         return prev_utilization.append(current)
+
+
+class ExplainVisitor(object):
+    """Scheduler visitor"""
+
+    def __init__(self):
+        """Initialize result"""
+        self.result = []
+
+    def add(self, alloc, entry):
+        """Add new row to result"""
+        rank, util, _pending, _order, app = entry
+
+        alloc_name = '/'.join(alloc.path)
+        server = app.server if app.server else '-'
+
+        self.result.append({
+            'alloc': alloc_name,
+            'rank': rank,
+            'util': util if alloc_name else '',
+            'name': app.name,
+            'server': server if not alloc_name else '',
+        })
+
+    def finish(self):
+        """Post-process result array"""
+        def _sort_order(entry):
+            return (entry['alloc'], entry['util'])
+
+        result = sorted(self.result, key=_sort_order)
+
+        # annotate with position in alloc queue
+        pos = 1
+        alloc = ''
+        for row in result:
+            if row['alloc'] != alloc:
+                alloc = row['alloc']
+                pos = 1
+            row['pos'] = pos
+            pos = pos + 1
+
+        self.result = result
+
+    def filter(self, pattern):
+        """Filter result to rows with matching app instances"""
+        self.result = [row for row in self.result
+                       if fnmatch.fnmatch(row['name'], pattern)]
+
+
+def explain_queue(cell, partition, pattern=None):
+    """Compute dataframe for explaining app queue"""
+    alloc = cell.partitions[partition].allocation
+    size = cell.size(partition)
+    visitor = ExplainVisitor()
+    queue = alloc.utilization_queue(size, visitor.add)
+
+    # we run the generator to completion, and this builds up the
+    # visitor as a side-effect
+    for _ in queue:
+        pass
+
+    visitor.finish()
+
+    if pattern:
+        visitor.filter(pattern)
+
+    # set columns explicitly to control order
+    columns = ['pos', 'alloc', 'name', 'rank', 'util', 'server']
+    return pd.DataFrame(visitor.result, columns=columns)

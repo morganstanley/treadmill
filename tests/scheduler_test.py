@@ -133,10 +133,10 @@ class AllocationTest(unittest.TestCase):
 
     def test_rank_adjustment(self):
         """Test rank adjustment"""
-        alloc = scheduler.Allocation([3, 3])
+        alloc = scheduler.Allocation()
 
-        alloc.rank = 100
-        alloc.rank_adjustment = 10
+        alloc.update([3, 3], 100, 10)
+
         alloc.add(scheduler.Application('app1', 1, [1, 1], 'app1'))
         alloc.add(scheduler.Application('app2', 1, [2, 2], 'app1'))
         alloc.add(scheduler.Application('app3', 1, [3, 3], 'app1'))
@@ -150,7 +150,7 @@ class AllocationTest(unittest.TestCase):
         """Test updating allocation with allocation vector containing 0's"""
         alloc = scheduler.Allocation(None)
 
-        alloc.update([1, 0], None)
+        alloc.update([1, 0], None, None)
         self.assertEqual(1.0, alloc.reserved[0])
         self.assertEqual(0, alloc.reserved[1])
 
@@ -249,6 +249,24 @@ class AllocationTest(unittest.TestCase):
         self.assertEqual('r1', queue[0][-1].name)
         self.assertEqual('p1', queue[1][-1].name)
         self.assertEqual('r2', queue[2][-1].name)
+
+    def test_visitor(self):
+        """Test queue visitor"""
+        alloc = scheduler.Allocation()
+
+        sub_alloc_a = scheduler.Allocation()
+        sub_alloc_a.add(scheduler.Application('a1', 1, [1, 1], 'app1'))
+        alloc.add_sub_alloc('a', sub_alloc_a)
+
+        sub_alloc_b = scheduler.Allocation()
+        sub_alloc_b.add(scheduler.Application('b1', 1, [5, 5], 'app1'))
+        sub_alloc_b.add(scheduler.Application('b2', 1, [5, 5], 'app1'))
+        alloc.add_sub_alloc('b', sub_alloc_b)
+
+        result = []
+        list(alloc.utilization_queue([20., 20.],
+                                     visitor=lambda _, x: result.append(x)))
+        self.assertEquals(6, len(result))
 
 
 class TraitSetTest(unittest.TestCase):

@@ -38,7 +38,7 @@ def init():
 
             elif not last:
                 for instance_id in sorted(traces):
-                    print(instance_id)
+                    cli.out(instance_id)
                 return
 
             else:

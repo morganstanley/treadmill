@@ -18,19 +18,25 @@ ONE_DAY_IN_SECS = 60 * 60 * 24
 CRON_MODULE = 'treadmill.cron'
 
 
+_SCHEDULER = None
+
+
 def get_scheduler(zkclient):
     """Get scheduler"""
-    scheduler = twisted.TwistedScheduler()
-    zk_jobstore = zookeeper.ZooKeeperJobStore(
-        path=z.CRON_JOBS,
-        client=zkclient
-    )
+    global _SCHEDULER  # pylint: disable=W0603
 
-    scheduler.add_jobstore(zk_jobstore)
+    if not _SCHEDULER:
 
-    scheduler.start()
+        _SCHEDULER = twisted.TwistedScheduler()
+        zk_jobstore = zookeeper.ZooKeeperJobStore(
+            path=z.CRON_JOBS,
+            client=zkclient
+        )
 
-    return scheduler
+        _SCHEDULER.add_jobstore(zk_jobstore)
+        _SCHEDULER.start()
+
+    return _SCHEDULER
 
 
 def cron_to_dict(cron):

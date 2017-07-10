@@ -5,6 +5,7 @@ import sys
 
 import logging
 import json
+import six
 
 import click
 
@@ -50,7 +51,7 @@ def init():
 
             rules = ring['rules']
             for rule in rules:
-                utils.validate(rule, [('pattern', True, str),
+                utils.validate(rule, [('pattern', True, six.string_types),
                                       ('endpoints', True, list)])
 
             # Create translation for endpoint name to expected port #.

@@ -6,15 +6,12 @@ import logging
 import six
 
 import stevedore
-from stevedore import extension
 
-from treadmill import utils
+from treadmill import plugin_manager
 
 _LOGGER = logging.getLogger(__name__)
 
-
-_HOOK_PLUGIN_NAMESPACE = 'treadmill.apphooks'
-_HOOK_PLUGIN_EXTENSION_MANAGER = None
+_PLUGINS = plugin_manager.extensions('treadmill.apphooks')
 
 
 @six.add_metaclass(abc.ABCMeta)
@@ -49,37 +46,14 @@ class AppHookPluginBase(object):
         pass
 
 
-def _extension_manager():
-    """Gets the extension manager for image fs plugins."""
-    # Disable W0603: Using the global statement
-    global _HOOK_PLUGIN_EXTENSION_MANAGER  # pylint: disable=W0603
-
-    if _HOOK_PLUGIN_EXTENSION_MANAGER is not None:
-        return _HOOK_PLUGIN_EXTENSION_MANAGER
-
-    _HOOK_PLUGIN_EXTENSION_MANAGER = extension.ExtensionManager(
-        namespace=_HOOK_PLUGIN_NAMESPACE,
-        propagate_map_exceptions=True,
-        on_load_failure_callback=utils.log_extension_failure
-    )
-
-    return _HOOK_PLUGIN_EXTENSION_MANAGER
-
-
-def list_all_hooks():
-    """Lists all hook names."""
-    return _extension_manager().names()
-
-
 def init(tm_env):
     """Inits all plugins."""
-    for hook_name in list_all_hooks():
+    for hook_name in _PLUGINS().names():
         try:
             _LOGGER.info('Initializing plugin %r.', hook_name)
-            plugin = _extension_manager()[hook_name].plugin(tm_env)
-            plugin.init()
+            _PLUGINS()[hook_name].plugin(tm_env).init()
         except stevedore.exception.NoMatches:
-            _LOGGER.info('There are no hook plugins for %r.', hook_name)
+            _LOGGER.info('There are no app hook plugins for %r.', hook_name)
 
 
 def _configure(ext, app):
@@ -90,19 +64,18 @@ def _configure(ext, app):
 def configure(tm_env, app):
     """Configures all plugins."""
     try:
-        for hook_name in list_all_hooks():
+        for hook_name in _PLUGINS().names():
             _LOGGER.info('Configuring plugin %r', hook_name)
-            plugin = _extension_manager()[hook_name].plugin(tm_env)
-            plugin.configure(app)
+            _PLUGINS()[hook_name].plugin(tm_env).configure(app)
     except stevedore.exception.NoMatches:
-        _LOGGER.info('There are no fs plugins for image %r.', hook_name)
+        _LOGGER.info('There are no app hook plugins for %r.', hook_name)
 
 
 def cleanup(tm_env, app):
     """Configures all plugins."""
     try:
-        for hook_name in list_all_hooks():
-            plugin = _extension_manager()[hook_name].plugin(tm_env)
-            plugin.cleanup(app)
+        for hook_name in _PLUGINS().names():
+            _LOGGER.info('Cleanup plugin %r', hook_name)
+            _PLUGINS()[hook_name].plugin(tm_env).cleanup(app)
     except stevedore.exception.NoMatches:
-        _LOGGER.info('There are no fs plugins for image %r.', hook_name)
+        _LOGGER.info('There are no app hook plugins for %r.', hook_name)

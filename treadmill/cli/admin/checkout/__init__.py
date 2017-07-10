@@ -17,9 +17,9 @@ __path__ = pkgutil.extend_path(__path__, __name__)
 def init():
     """Top level command handler."""
 
-    @click.group(cls=cli.make_multi_command(__name__,
-                                            chain=True,
-                                            invoke_without_command=True))
+    @click.group(cls=cli.make_commands(__name__,
+                                       chain=True,
+                                       invoke_without_command=True))
     @click.option('--cell', required=True,
                   envvar='TREADMILL_CELL',
                   callback=cli.handle_context_opt,

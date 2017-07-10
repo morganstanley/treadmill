@@ -143,143 +143,152 @@ def _fragment_in_reverse(iterable, start=0, limit=None):
     return fragment
 
 
-class _MetricsAPI(object):
-    """Acess to the locally gathered metrics."""
+def mk_metrics_api(tm_env):
+    """Factory to create metrics api."""
 
-    def __init__(self, tm_env_func):
+    class _MetricsAPI(object):
+        """Acess to the locally gathered metrics."""
 
-        self.tm_env = tm_env_func
+        def _remove_ext(self, fname, extension='.rrd'):
+            """Returns the basename of a file and removes the extension as well.
+            """
+            res = os.path.basename(fname)
+            res = res[:-len(extension)]
 
-    def _remove_ext(self, fname, extension='.rrd'):
-        """Returns the basename of a file and removes the extension as well.
-        """
-        res = os.path.basename(fname)
-        res = res[:-len(extension)]
+            return res
 
-        return res
+        def get(self, rsrc_id, timeframe, as_json=False):
+            """Return the rrd metrics."""
+            with lc.LogContext(_LOGGER, rsrc_id):
+                _LOGGER.info('Get metrics')
+                id_ = self._unpack_id(rsrc_id)
+                file_ = self._get_rrd_file(**id_)
 
-    def get(self, rsrc_id, timeframe, as_json=False):
-        """Return the rrd metrics."""
-        with lc.LogContext(_LOGGER, rsrc_id):
-            _LOGGER.info('Get metrics')
+                if as_json:
+                    return rrdutils.get_json_metrics(file_, timeframe)
+
+                return file_
+
+        def _unpack_id(self, rsrc_id):
+            """Decompose resource_id to a dictionary.
+
+            Unpack the (core) service or the application name and "uniq name"
+            from rsrc_id to a dictionary.
+            """
+            if '/' in rsrc_id:
+                app, uniq = rsrc_id.split('/')
+                return {'app': app, 'uniq': uniq}
+
+            return {'service': rsrc_id}
+
+        def _get_rrd_file(
+                self, service=None,
+                app=None, uniq=None,
+                arch_extract=True):
+            """Return the rrd file path of an app or a core service."""
+            if uniq is None:
+                return self._core_rrd_file(service)
+
+            if uniq == 'running':
+                arch_extract = False
+                # find out uniq ...
+                state_json = os.path.join(tm_env().running_dir, app,
+                                          'state.json')
+                with open(state_json) as f:
+                    uniq = json.load(f)['uniqueid']
+
+            return self._app_rrd_file(app, uniq, arch_extract)
+
+        def _app_rrd_file(self, app, uniq, arch_extract=True):
+            """Return an application's rrd file."""
+            _LOGGER.info('Return %s', self._metrics_fpath(app=app, uniq=uniq))
+
+            return _get_file(
+                self._metrics_fpath(app=app, uniq=uniq),
+                arch_extract=arch_extract,
+                arch_fname=os.path.join(tm_env().archives_dir,
+                                        '%s-%s.sys.tar.gz' %
+                                        (app.replace('#', '-'), uniq)),
+                arch_extract_fname='metrics.rrd')
+
+        def _core_rrd_file(self, service):
+            """Return the given service's rrd file."""
+            _LOGGER.info('Return %s', self._metrics_fpath(service))
+
+            return _get_file(self._metrics_fpath(service), arch_extract=False)
+
+        def _metrics_fpath(self, service=None, app=None, uniq=None):
+            """Return the rrd metrics file's full path."""
+            if service is not None:
+                return os.path.join(tm_env().metrics_dir, 'core',
+                                    service + '.rrd')
+
+            return os.path.join(tm_env().metrics_dir, 'apps',
+                                '%s-%s.rrd' % (app.replace('#', '-'), uniq))
+
+        def file_path(self, rsrc_id):
+            """Return the rrd metrics file path."""
             id_ = self._unpack_id(rsrc_id)
-            file_ = self._get_rrd_file(**id_)
 
-            if as_json:
-                return rrdutils.get_json_metrics(file_, timeframe)
+            return self._metrics_fpath(**id_)
 
-            return file_
-
-    def _unpack_id(self, rsrc_id):
-        """Decompose resource_id to a dictionary.
-
-        Unpack the (core) service name or the application name and "uniq name"
-        from rsrc_id to a dictionary.
-        """
-        if '/' in rsrc_id:
-            app, uniq = rsrc_id.split('/')
-            return {'app': app, 'uniq': uniq}
-
-        return {'service': rsrc_id}
-
-    def _get_rrd_file(
-            self, service=None,
-            app=None, uniq=None,
-            arch_extract=True):
-        """Return the rrd file path of an app or a core service."""
-        if uniq is None:
-            return self._core_rrd_file(service)
-
-        if uniq == 'running':
-            arch_extract = False
-            # find out uniq ...
-            state_json = os.path.join(self.tm_env().running_dir, app,
-                                      'state.json')
-            with open(state_json) as f:
-                uniq = json.load(f)['uniqueid']
-
-        return self._app_rrd_file(app, uniq, arch_extract)
-
-    def _app_rrd_file(self, app, uniq, arch_extract=True):
-        """Return an application's rrd file."""
-        _LOGGER.info('Return %s', self._metrics_fpath(app=app, uniq=uniq))
-
-        return _get_file(
-            self._metrics_fpath(app=app, uniq=uniq),
-            arch_extract=arch_extract,
-            arch_fname=os.path.join(self.tm_env().archives_dir,
-                                    '%s-%s.sys.tar.gz' %
-                                    (app.replace('#', '-'), uniq)),
-            arch_extract_fname='metrics.rrd')
-
-    def _core_rrd_file(self, service):
-        """Return the given service's rrd file."""
-        _LOGGER.info('Return %s', self._metrics_fpath(service))
-
-        return _get_file(self._metrics_fpath(service), arch_extract=False)
-
-    def _metrics_fpath(self, service=None, app=None, uniq=None):
-        """Return the rrd metrics file's full path."""
-        if service is not None:
-            return os.path.join(self.tm_env().metrics_dir, 'core',
-                                service + '.rrd')
-
-        return os.path.join(self.tm_env().metrics_dir, 'apps',
-                            '%s-%s.rrd' % (app.replace('#', '-'), uniq))
-
-    def file_path(self, rsrc_id):
-        """Return the rrd metrics file path."""
-        id_ = self._unpack_id(rsrc_id)
-
-        return self._metrics_fpath(**id_)
+    return _MetricsAPI
 
 
-class _LogAPI(object):
-    """Access to log files."""
+def mk_logapi(tm_env):
+    """Factory  for log api."""
 
-    def __init__(self, tm_env_func):
-        self.tm_env = tm_env_func
+    class _LogAPI(object):
+        """Access to log files."""
 
-    def _get_logfile(self, instance, uniq, logtype, component):
-        """Return the corresponding log file."""
-        _LOGGER.info('Log: %s %s %s %s', instance, uniq, logtype, component)
-        if logtype == 'sys':
-            logfile = os.path.join('sys', component, 'log', 'current')
-        else:
-            logfile = os.path.join('services', component, 'log', 'current')
+        def _get_logfile(self, instance, uniq, logtype, component):
+            """Return the corresponding log file."""
+            _LOGGER.info('Log: %s %s %s %s',
+                         instance, uniq, logtype, component)
+            if logtype == 'sys':
+                logfile = os.path.join('data', 'sys', component, 'data',
+                                       'log', 'current')
+            else:
+                logfile = os.path.join('data', 'services', component, 'data',
+                                       'log', 'current')
 
-        if uniq == 'running':
-            fname = os.path.join(self.tm_env().running_dir, instance, logfile)
-        else:
-            fname = os.path.join(
-                _app_path(self.tm_env(), instance, uniq), logfile)
+            if uniq == 'running':
+                fname = os.path.join(tm_env().running_dir, instance, logfile)
+            else:
+                fname = os.path.join(
+                    _app_path(tm_env(), instance, uniq), logfile)
 
-        _LOGGER.info('Logfile: %s', fname)
-        return _get_file(fname,
-                         arch_fname=_archive_path(self.tm_env(), logtype,
-                                                  instance, uniq),
-                         arch_extract=bool(uniq != 'running'),
-                         arch_extract_fname=logfile)
+            _LOGGER.info('Logfile: %s', fname)
+            return _get_file(fname,
+                             arch_fname=_archive_path(tm_env(), logtype,
+                                                      instance, uniq),
+                             arch_extract=bool(uniq != 'running'),
+                             arch_extract_fname=logfile)
 
-    def get(self, log_id, start=0, limit=None, order=None):
-        """Get log file."""
-        instance, uniq, logtype, component = log_id.split('/')
-        with lc.LogContext(_LOGGER, '{}/{}'.format(instance, uniq)):
-            log_f = self._get_logfile(instance, uniq, logtype, component)
+        def get(self, log_id, start=0, limit=None, order=None):
+            """Get log file."""
+            instance, uniq, logtype, component = log_id.split('/')
+            if not limit:
+                limit = 'all'
 
-            _LOGGER.info('Requested {} items starting from line {} '
-                         'in {} order'.format(limit or 'all', start, order))
+            with lc.LogContext(_LOGGER, '{}/{}'.format(instance, uniq)):
+                log_f = self._get_logfile(instance, uniq, logtype, component)
 
-            if start is not None and start < 0:
-                raise exc.InvalidInputError(
-                    __name__,
-                    'Index cannot be less than 0, got: {}'.format(start))
+                _LOGGER.info('Requested {} items starting from line {} '
+                             'in {} order'.format(limit, start, order))
 
-            with open(log_f) as log:
-                if order == 'desc':
-                    return _fragment_in_reverse(log, start, limit)
+                if start is not None and start < 0:
+                    raise exc.InvalidInputError(
+                        __name__,
+                        'Index cannot be less than 0, got: {}'.format(start))
 
-                return _fragment(log, start, limit)
+                with open(log_f) as log:
+                    if order == 'desc':
+                        return _fragment_in_reverse(log, start, limit)
+
+                    return _fragment(log, start, limit)
+
+    return _LogAPI
 
 
 class API(object):
@@ -347,7 +356,7 @@ class API(object):
             for svc in glob.glob(services_glob):
                 try:
                     svc_name = os.path.basename(svc)
-                    ctime = os.stat(os.path.join(svc, 'log',
+                    ctime = os.stat(os.path.join(svc, 'log', 'data',
                                                  'current')).st_ctime
                     result[svc] = {
                         '_id': svc_name,
@@ -414,9 +423,9 @@ class API(object):
 
         self.list = _list
         self.get = _get
-        self.log = _LogAPI(tm_env)
+        self.log = mk_logapi(tm_env)
         self.archive = _ArchiveAPI()
-        self.metrics = _MetricsAPI(tm_env)
+        self.metrics = mk_metrics_api(tm_env)
 
 
 def init(_authorizer):

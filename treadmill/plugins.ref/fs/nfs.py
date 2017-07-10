@@ -15,5 +15,5 @@ class NFSFilesystemPlugin(image_fs.FilesystemPluginBase):
         This is done to avoid NFS delays at container create time."""
         pass
 
-    def configure(self, root_dir, app):
+    def configure(self, container_dir, app):
         pass

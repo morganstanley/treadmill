@@ -10,9 +10,13 @@ import os
 import pkgutil
 import signal
 import stat
+import tempfile
 import time
 import urllib.parse
 
+from collections import namedtuple
+
+import collections
 from collections import namedtuple
 
 # Pylint warning re string being deprecated
@@ -24,17 +28,16 @@ import string
 # http://stackoverflow.com/questions/13193278/understand-python-threading-bug
 import threading
 
-import yaml
-import jinja2
-
-import treadmill
-
-from treadmill import subproc
-from treadmill import osnoop
-
 if os.name != 'nt':
     import fcntl
     import pwd
+
+import jinja2
+import six
+
+import treadmill
+
+from treadmill import osnoop
 
 
 threading._DummyThread._Thread__stop = lambda x: 0  # pylint: disable=W0212
@@ -54,28 +57,41 @@ EXEC_MODE = (stat.S_IRUSR |
 _DEFAULT_BASE_ALPHABET = string.digits + string.ascii_lowercase
 
 
-def create_script(path, templatename, mode=EXEC_MODE, *args, **kwargs):
+def generate_template(templatename, **kwargs):
+    """This renders a JINJA template as a generator.
+
+    The templates exist in our lib/python/treadmill/templates directory.
+
+    :param ``str`` templatename:
+        The name of the template file.
+    :param ``dict`` kwargs:
+        key/value passed into the template.
+    """
+    template = JINJA2_ENV.get_template(templatename)
+    return template.generate(**kwargs)
+
+
+def create_script(filename, templatename, mode=EXEC_MODE, **kwargs):
     """This Creates a file from a JINJA template.
 
-    The templates exist in our lib/python/templates directory.
+    The templates exist in our lib/python/treadmill/templates directory.
 
-    templatename - The name of the template file.
-    mode - The mode for the file.  Defaults to +x
-    args and kwargs are passed into the template."""
-    template = JINJA2_ENV.get_template(templatename)
-
-    all_kwargs = {}
-
-    executables = subproc.get_aliases()
-    if executables:
-        all_kwargs.update(executables)
-
-    all_kwargs.update(kwargs)
-
-    with open(path, 'w') as f:
-        f.write(template.render(*args, **all_kwargs))
-    # cast to int required in order for default EXEC_MODE to work
-    os.chmod(path, int(mode))
+    :param ``str`` filename:
+        Name of the file to generate.
+    :param ``str`` templatename:
+        The name of the template file.
+    :param ``int`` mode:
+        The mode for the file (Defaults to +x).
+    :param ``dict`` kwargs:
+        key/value passed into the template.
+    """
+    filepath = os.path.dirname(filename)
+    with tempfile.NamedTemporaryFile(dir=filepath, delete=False) as f:
+        for data in generate_template(templatename, **kwargs):
+            f.write(data)
+        # cast to int required in order for default EXEC_MODE to work
+        os.fchmod(f.fileno(), int(mode))
+    os.rename(f.name, filename)
 
 
 def ip2int(ip_addr):
@@ -111,6 +127,15 @@ def to_obj(value, name='struct'):
         return value
 
 
+def get_iterable(obj):
+    """Gets an iterable from either a list or a single value."""
+    if isinstance(obj, collections.Iterable) and not isinstance(
+            obj, six.string_types):
+        return obj
+    else:
+        return (obj,)
+
+
 def sys_exit(code):
     """Exit using os._exit, bypassing any on_exit code.
 
@@ -120,45 +145,6 @@ def sys_exit(code):
     # pylint: disable=W0212
     _LOGGER.debug('os._exit, rc: %d', code)
     os._exit(code)
-
-
-def _repr_unicode(dumper, data):
-    """Fix yaml str representation."""
-    data = data.encode('ascii', 'ignore').decode()  # XXX:Is this the best way?
-    if '\n' in data:
-        return dumper.represent_scalar('tag:yaml.org,2002:str', data,
-                                       style='|')
-    else:
-        return dumper.represent_scalar('tag:yaml.org,2002:str', data)
-
-
-def _repr_tuple(dumper, data):
-    """Fix yaml tuple representation (use list)."""
-    return dumper.represent_list(list(data))
-
-
-def _repr_none(dumper, data_unused):
-    """Fix yaml None representation (use ~)."""
-    return dumper.represent_scalar('tag:yaml.org,2002:null', '~')
-
-
-# This will be invoked on module import once.
-yaml.add_representer(str, _repr_unicode)
-yaml.add_representer(tuple, _repr_tuple)
-yaml.add_representer(type(None), _repr_none)
-
-
-def dump_yaml(obj):
-    """Returns yaml representation of the object."""
-    return yaml.dump(obj,
-                     default_flow_style=False,
-                     explicit_start=True,
-                     explicit_end=True)
-
-
-def print_yaml(obj):
-    """Print yaml wih correct options."""
-    print(dump_yaml(obj))
 
 
 def hashcmp(file1, file2):
@@ -312,12 +298,12 @@ def validate(struct, schema):
                 raise treadmill.exc.InvalidInputError(
                     struct, 'Required field: %s' % field)
             else:
-                struct[field] = ftype()
+                continue
 
         if not isinstance(struct[field], ftype):
             raise treadmill.exc.InvalidInputError(
-                struct, 'Invalid type for %s, expected: %s' %
-                (field, str(ftype)))
+                struct, 'Invalid type for %s, expected: %s, got: %s' %
+                (field, str(ftype), type(struct[field])))
 
 
 _TIME_SCALE = {'S': 1,
@@ -566,9 +552,4 @@ def equals_list2dict(equals_list):
 
 def encode_uri_parts(path):
     """Encode URI path components"""
-    return '/'.join([urllib.parse.quote(part) for part in path.split('/')])
-
-
-def log_extension_failure(_manager, _entrypoint, exception):
-    """Logs errors for stevedore extensions."""
-    _LOGGER.error(str(exception))
+    return '/'.join([urllib.quote(part) for part in path.split('/')])

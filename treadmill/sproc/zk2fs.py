@@ -54,7 +54,7 @@ def _on_add_trace_shard(zk2fs_sync, zkpath):
     zk2fs_sync.sync_children(
         zkpath,
         on_add=lambda p: _on_add_trace_event(zk2fs_sync, p),
-        on_del=lambda p: None,
+        on_del=lambda p: _on_del_trace_event(zk2fs_sync, p),
         watch_data=False
     )
 
@@ -76,32 +76,60 @@ def _on_add_trace_event(zk2fs_sync, zkpath):
     zksync.write_data(fpath, None, utime, raise_err=False)
 
 
-def _on_add_trace_db(zk2fs_sync, zkpath, sow_db):
+def _on_del_trace_event(zk2fs_sync, zkpath):
+    """Invoked when trace event is deleted."""
+    fpath = zk2fs_sync.fpath(zkpath)
+    fs.rm_safe(fpath)
+
+
+def _on_add_trace_db(zk2fs_sync, zkpath, sow_dir, shard_len):
     """Called when new trace DB snapshot is added."""
     _LOGGER.info('Added trace db snapshot: %s', zkpath)
     data, _metadata = zk2fs_sync.zkclient.get(zkpath)
-    with tempfile.NamedTemporaryFile(delete=False, mode='wb', dir=sow_db) as f:
-        f.write(zlib.decompress(data))
+    with tempfile.NamedTemporaryFile(delete=False, mode='wb') as trace_db:
+        trace_db.write(zlib.decompress(data))
 
-    db_path = os.path.join(sow_db, os.path.basename(zkpath))
-    os.rename(f.name, db_path)
+    with tempfile.NamedTemporaryFile(delete=False, mode='wb') as sow_db:
+        pass
+    conn = sqlite3.connect(sow_db.name)
+    conn.executescript(
+        """
+        ATTACH DATABASE '{trace_db}' AS trace_db;
 
-    # Now that sow is up to date, cleanup records from file system.
-    with sqlite3.connect(db_path) as conn:
-        cursor = conn.cursor()
-        for row in cursor.execute('SELECT path FROM trace'):
-            fpath = os.path.join(zk2fs_sync.fsroot, row[0][1:])
-            fs.rm_safe(fpath)
+        BEGIN TRANSACTION;
+            CREATE TABLE {sow_table} (
+                path text, timestamp integer, data text,
+                directory text, name text
+            );
 
-    fs.rm_safe(f.name)
+            INSERT INTO {sow_table}
+            SELECT path, timestamp, data,
+                   SUBSTR(path, 1, {shard_len}), SUBSTR(path, {shard_len} + 2)
+            FROM trace_db.trace;
+
+            CREATE INDEX name_idx on {sow_table} (name);
+            CREATE INDEX path_idx on {sow_table} (path);
+        COMMIT;
+
+        DETACH DATABASE trace_db;
+        """.format(trace_db=trace_db.name,
+                   sow_table=apptrace.TRACE_SOW_TABLE,
+                   shard_len=shard_len)
+        )
+    conn.close()
+
+    db_name = os.path.basename(zkpath)
+    os.rename(sow_db.name, os.path.join(sow_dir, db_name))
+    fs.rm_safe(trace_db.name)
+
     utils.touch(zk2fs_sync.fpath(zkpath))
 
 
-def _on_del_trace_db(zk2fs_sync, zkpath, sow_db):
+def _on_del_trace_db(zk2fs_sync, zkpath, sow_dir):
     """Called when trace DB snapshot is deleted."""
     del zk2fs_sync
 
-    db_path = os.path.join(sow_db, os.path.basename(zkpath))
+    db_path = os.path.join(sow_dir, os.path.basename(zkpath))
     fs.rm_safe(db_path)
 
 
@@ -171,14 +199,25 @@ def init():
                 on_del=lambda p: _on_del_trace_shard(zk2fs_sync, p)
             )
 
-            trace_sow = os.path.join(zk2fs_sync.fsroot, apptrace.TRACE_SOW_DIR)
-            _LOGGER.info('Using trace sow db: %s', trace_sow)
-            fs.mkdir_safe(trace_sow)
+            trace_sow_dir = os.path.join(
+                zk2fs_sync.fsroot, apptrace.TRACE_SOW_DIR
+            )
+            _LOGGER.info('Using trace sow dir: %s', trace_sow_dir)
+            fs.mkdir_safe(trace_sow_dir)
+
+            shards = z.trace_shards()
+            shard_len = len(shards[0])
+            assert all(len(shard) == shard_len for shard in shards), (
+                'All shards should be of equal length.')
 
             zk2fs_sync.sync_children(
                 z.TRACE_HISTORY,
-                on_add=lambda p: _on_add_trace_db(zk2fs_sync, p, trace_sow),
-                on_del=lambda p: _on_del_trace_db(zk2fs_sync, p, trace_sow),
+                on_add=lambda p: _on_add_trace_db(
+                    zk2fs_sync, p, trace_sow_dir, shard_len
+                ),
+                on_del=lambda p: _on_del_trace_db(
+                    zk2fs_sync, p, trace_sow_dir
+                ),
             )
 
         zk2fs_sync.mark_ready()

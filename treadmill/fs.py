@@ -7,6 +7,7 @@ import io
 import logging
 import os
 import stat
+import subprocess
 import tarfile
 import tempfile
 
@@ -14,6 +15,7 @@ from treadmill import exc
 from treadmill import osnoop
 from treadmill import utils
 from treadmill import subproc
+
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -391,11 +393,15 @@ def read_filesystem_info(block_dev):
     :rtype:
         ``dict``
     """
+    res = {}
+
     # TODO: it might worth to convert the appropriate values to int, date etc.
     #       in the result.
-    output = subproc.check_output(['dumpe2fs', '-h', block_dev])
+    try:
+        output = subproc.check_output(['dumpe2fs', '-h', block_dev])
+    except subprocess.CalledProcessError:
+        return res
 
-    res = dict()
     for line in output.split(os.linesep):
         if not line.strip():
             continue

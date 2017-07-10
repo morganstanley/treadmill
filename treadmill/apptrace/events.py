@@ -218,6 +218,42 @@ class PendingTraceEvent(AppTraceEvent):
         return self.why
 
 
+class PendingDeleteTraceEvent(AppTraceEvent):
+    """Event emitted when a container instance is about to be deleted from the
+       scheduler.
+    """
+
+    __slots__ = (
+        'why',
+    )
+
+    def __init__(self, why,
+                 timestamp=None, source=None, instanceid=None, payload=None):
+        super(PendingDeleteTraceEvent, self).__init__(
+            timestamp=timestamp,
+            source=source,
+            instanceid=instanceid,
+            payload=payload
+        )
+        self.why = why
+
+    @classmethod
+    def from_data(cls, timestamp, source, instanceid, event_type, event_data,
+                  payload=None):
+        assert cls == getattr(AppTraceEventTypes, event_type).value
+        return cls(
+            timestamp=timestamp,
+            source=source,
+            instanceid=instanceid,
+            payload=payload,
+            why=event_data
+        )
+
+    @property
+    def event_data(self):
+        return self.why
+
+
 class ConfiguredTraceEvent(AppTraceEvent):
     """Event emitted when a container instance is configured on a node.
     """
@@ -499,6 +535,7 @@ class AppTraceEventTypes(enum.Enum):
     finished = FinishedTraceEvent
     killed = KilledTraceEvent
     pending = PendingTraceEvent
+    pending_delete = PendingDeleteTraceEvent
     scheduled = ScheduledTraceEvent
     service_exited = ServiceExitedTraceEvent
     service_running = ServiceRunningTraceEvent
@@ -520,6 +557,12 @@ class AppTraceEventHandler(object, metaclass=abc.ABCMeta):
             ),
         PendingTraceEvent:
             lambda self, event: self.on_pending(
+                when=event.timestamp,
+                instanceid=event.instanceid,
+                why=event.why
+            ),
+        PendingDeleteTraceEvent:
+            lambda self, event: self.on_pending_delete(
                 when=event.timestamp,
                 instanceid=event.instanceid,
                 why=event.why
@@ -608,6 +651,11 @@ class AppTraceEventHandler(object, metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def on_pending(self, when, instanceid, why):
         """Invoked when task is pending."""
+        pass
+
+    @abc.abstractmethod
+    def on_pending_delete(self, when, instanceid, why):
+        """Invoked when task is about to be deleted."""
         pass
 
     @abc.abstractmethod

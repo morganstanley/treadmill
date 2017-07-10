@@ -149,6 +149,36 @@ class ReportsTest(unittest.TestCase):
         self.assertEqual(util1.ix[time0]['bla.xxx']['cpu'], 1)
         self.assertEqual(util1.ix[time1]['foo.xxx']['count'], 2)
 
+    def test_explain_queue(self):
+        """Test explain queue"""
+        app1 = scheduler.Application('foo.xxx#1', 100,
+                                     demand=[1, 1, 1],
+                                     affinity='foo.xxx')
+        app2 = scheduler.Application('foo.xxx#2', 100,
+                                     demand=[1, 1, 1],
+                                     affinity='foo.xxx')
+        app3 = scheduler.Application('bla.xxx#3', 50,
+                                     demand=[1, 1, 1],
+                                     affinity='bla.xxx')
+
+        (self.cell.partitions[None].allocation
+         .get_sub_alloc('t1')
+         .get_sub_alloc('a2').add(app1))
+
+        (self.cell.partitions[None].allocation
+         .get_sub_alloc('t1')
+         .get_sub_alloc('a2').add(app2))
+
+        (self.cell.partitions[None].allocation
+         .get_sub_alloc('t2')
+         .get_sub_alloc('a1').add(app3))
+
+        df = reports.explain_queue(self.cell, None)
+        self.assertEqual(len(df), 9)
+
+        df = reports.explain_queue(self.cell, None, 'foo*')
+        self.assertEqual(len(df), 6)
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -8,6 +8,8 @@ import click
 import click.testing
 import mock
 
+from treadmill import restclient
+
 
 def _ret_event(event):
     """Noop, just return the positional args that it was invoked with."""
@@ -46,6 +48,21 @@ class LogsTest(unittest.TestCase):
             self.log_mod._filter_by_uniq(
                 {'event': event}, out, 'uniq_A'), True)
         self.assertEqual(out, [event])
+
+    @mock.patch('treadmill.cli.logs._find_running_instance',
+                mock.Mock(return_value={'host': 'host', 'uniq': 'uniq'}))
+    @mock.patch('treadmill.cli.logs._find_endpoints',
+                mock.Mock(return_value=[{'host': 'host', 'port': 1234}]))
+    @mock.patch('treadmill.restclient.get',
+                side_effect=restclient.NotFoundError('foobar'))
+    def test_no_logfile_found(self, _):
+        """Test the output if no log file can be found."""
+        result = self.runner.invoke(self.log_cli,
+                                    ['--cell', 'foo',
+                                     'proid.app#123/running/service/foo'])
+
+        # let's check that NotFoundError is handled
+        self.assertEqual(str(result.exception).find('foobar'), -1)
 
 
 if __name__ == '__main__':

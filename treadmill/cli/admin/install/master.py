@@ -27,6 +27,7 @@ def init():
 
         ctx.obj['PARAMS']['master_id'] = master_id
         dst_dir = ctx.obj['PARAMS']['dir']
+        profile = ctx.obj['PARAMS'].get('profile')
 
         if ldap_pwd:
             ctx.obj['PARAMS']['ldap_pwd'] = ldap_pwd
@@ -43,7 +44,8 @@ def init():
             'master',
             dst_dir,
             ctx.obj['PARAMS'],
-            run=run_sh
+            run=run_sh,
+            profile=profile,
         )
 
     return master

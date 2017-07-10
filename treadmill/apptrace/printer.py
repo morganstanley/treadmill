@@ -3,6 +3,8 @@
 
 from treadmill import utils
 
+from treadmill.appcfg import abort as app_abort
+
 from . import events
 
 
@@ -27,6 +29,15 @@ class AppTracePrinter(events.AppTraceEventHandler):
                 utils.strftime_utc(when), instanceid, why))
         else:
             print('%s - %s pending' % (
+                utils.strftime_utc(when), instanceid))
+
+    def on_pending_delete(self, when, instanceid, why):
+        """Invoked when task is about to be deleted."""
+        if why:
+            print('%s - %s pending delete: %s' % (
+                utils.strftime_utc(when), instanceid, why))
+        else:
+            print('%s - %s pending delete' % (
                 utils.strftime_utc(when), instanceid))
 
     def on_configured(self, when, instanceid, server, uniqueid):
@@ -55,8 +66,13 @@ class AppTracePrinter(events.AppTraceEventHandler):
 
     def on_aborted(self, when, instanceid, server, why):
         """Invoked when task is aborted"""
+        try:
+            why = app_abort.AbortedReason(why)
+        except ValueError:
+            why = app_abort.AbortedReason.UNKNOWN
+
         print('%s - %s aborted on %s [reason: %s]' % (
-            utils.strftime_utc(when), instanceid, server, why))
+            utils.strftime_utc(when), instanceid, server, why.description()))
 
     def on_service_running(self, when, instanceid, server, uniqueid, service):
         """Invoked when service is running."""
