@@ -19,6 +19,8 @@ import enum
 import numpy as np
 from functools import reduce
 
+from .sched.config import factory
+
 # logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
 _LOGGER = logging.getLogger(__name__)
 
@@ -1142,10 +1144,13 @@ class Cell(Bucket):
         'next_event_at',
         'apps',
         'identity_groups',
+        'flatten_nodes',
+        'algorithm_provider'
     )
 
     def __init__(self, name, labels=None):
         super(Cell, self).__init__(name, traits=0, level='cell')
+        self.flatten_nodes = list()
 
         if not labels:
             labels = set()
@@ -1156,6 +1161,8 @@ class Cell(Bucket):
         self.apps = dict()
         self.identity_groups = collections.defaultdict(IdentityGroup)
         self.next_event_at = np.inf
+        config = factory.ConfigFactory().read_config_from_file('/home/ist/code/treadmill/treadmill/sched/config/config.json').build()
+        self.algorithm_provider = config.algorithm_provider
 
     def add_app(self, allocation, app):
         """Adds application to the scheduled list."""
@@ -1392,7 +1399,10 @@ class Cell(Bucket):
         self._handle_inactive_servers(servers)
         self._fix_invalid_identities(queue, servers)
         # self._restore(queue, servers)
-        self._find_placements(queue, servers)
+
+        # For Test
+        # self._find_placements(queue, servers)
+        self._find_placements_new(queue, servers)
 
         after = [(app.server, app.placement_expiry)
                  for app in queue]
@@ -1426,6 +1436,128 @@ class Cell(Bucket):
 
     def resolve_reboot_conflicts(self):
         """Adjust server exipiration time to avoid conflicts."""
+        pass
+
+    # New defined functions.
+
+    def _find_placements_new(self, queue, servers):
+        """Run the queue and find placements."""
+        # Disable too many branches/statements warning
+        #
+        # TODO: refactor to get rid of warnings.
+        #
+        # pylint: disable=R0912
+        # pylint: disable=R0915
+        #
+        # At this point, if app.server is defined, it points to attached
+        # server.
+        evicted = dict()
+        reversed_queue = queue[::-1]
+
+        for app in queue:
+            _LOGGER.debug('scheduling %s', app.name)
+
+            if app.final_rank == _UNPLACED_RANK:
+                if app.server:
+                    assert app.server in servers
+                    assert app.has_identity()
+                    servers[app.server].remove(app.name)
+                    app.release_identity()
+
+                continue
+
+            restore = {}
+            if app.renew:
+                assert app.server
+                assert app.has_identity()
+                assert app.server in servers
+                server = servers[app.server]
+                if not server.renew(app):
+                    # Save information that will be used to restore placement
+                    # in case renewal fails.
+                    _LOGGER.debug('Cannot renew app %s on server %s',
+                                  app.name, app.server)
+                    restore['server'] = server
+                    restore['placement_expiry'] = app.placement_expiry
+                    server.remove(app.name)
+
+            # At this point app was either renewed on the same server, or
+            # temporarily removed from server if renew failed.
+            #
+            # If placement will be found, renew should remain False. If
+            # placement will not be found, renew will be set to True when
+            # placement is restored to the server it was running.
+            app.renew = False
+
+            if app.server:
+                assert app.server in servers
+                assert app.has_identity()
+                continue
+
+            assert app.server is None
+
+            if not app.acquire_identity():
+                _LOGGER.info('Unable to acquire identity: %s, %s', app.name,
+                             app.identity_group)
+                continue
+
+            # If app was evicted before, try to restore to the same node.
+            if app in evicted:
+                assert app.has_identity()
+
+                evicted_from, app_expiry = evicted[app]
+                del evicted[app]
+                if evicted_from.restore(app, app_expiry):
+                    app.evicted = False
+                    continue
+
+            assert app.server is None
+
+            if app.schedule_once and app.evicted:
+                continue
+
+            if not self.algorithm_provider.schedule(app, self.flatten_nodes):
+                # There is not enough capacity, from the end of the queue,
+                # evict apps, freeing capacity.
+                for evicted_app in reversed_queue:
+                    # We reached the app we can't place
+                    if evicted_app == app:
+                        break
+
+                    # The app is not yet placed, skip
+                    if not evicted_app.server:
+                        continue
+
+                    assert evicted_app.server in servers
+                    evicted_app_server = servers[evicted_app.server]
+
+                    evicted[evicted_app] = (evicted_app_server,
+                                            evicted_app.placement_expiry)
+                    evicted_app_server.remove(evicted_app.name)
+
+                    # TODO: we need to check affinity limit constraints on
+                    #       each level, all the way to the top.
+                    if evicted_app_server.put(app):
+                        break
+
+            # Placement failed.
+            if not app.server:
+                # If renewal attempt failed, restore previous placement and
+                # expiry date.
+                if restore:
+                    restore['server'].restore(app, restore['placement_expiry'])
+                    app.renew = True
+                else:
+                    app.release_identity()
+
+    def add_node(self, node):
+        super(Cell, self).add_node(node)
+        # Add the node to the list.
+        self.flatten_nodes.append(self.children_by_name[node.name])
+
+    def reset_children(self):
+        super(Cell, self).reset_children()
+        # TODO: Reset self.flatten_nodes.
         pass
 
 
