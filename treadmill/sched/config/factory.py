@@ -2,7 +2,7 @@ import logging
 import json
 import sys
 
-from ..algoprovider import provider
+from ..algoprovider import provider, default
 
 logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
 _LOGGER = logging.getLogger(__name__)
@@ -45,6 +45,10 @@ class ConfigFactory(object):
             else:
                 _LOGGER.fatal("There is no config about priorities defined!")
 
+        return self
+
+    def with_default_provider(self):
+        self.algorithm_provider = default.default_provider()
         return self
 
     def build(self):
