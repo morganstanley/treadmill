@@ -9,7 +9,6 @@ import sys
 import errno
 
 import os
-import hashlib
 import fnmatch
 
 from treadmill import sysinfo
@@ -56,12 +55,21 @@ def proc_read(*args):
         return f.read()
 
 
+def get_thread_id(pid):
+    """Read thread group id designated in /proc/<pid>/status"""
+    return proc_readlines(pid, 'status')[2][6:-1]
+
+
+def get_threads(pid):
+    """Read number of threads designated in /proc/<pid>/status"""
+    return proc_readlines(pid, 'status')[26][8:-1]
+
+
 def get_mem_stats(pid, use_pss=True):
     """Return private, shared memory given pid.
 
     Note: shared is always a subset of rss (trs is not always).
     """
-    mem_id = pid
     statm = proc_readline(pid, 'statm').split()
     rss = int(statm[1]) * _PAGESIZE
 
@@ -71,11 +79,7 @@ def get_mem_stats(pid, use_pss=True):
     have_pss = False
 
     if use_pss and os.path.exists(proc_path(pid, 'smaps')):
-        digester = hashlib.md5()
         for line in proc_readlines(pid, 'smaps'):
-            # Note we checksum smaps as maps is usually but
-            # not always different for separate processes.
-            digester.update(line.encode('latin1'))
             if line.startswith("Shared"):
                 shared_lines.append(line)
             elif line.startswith("Private"):
@@ -84,7 +88,6 @@ def get_mem_stats(pid, use_pss=True):
                 have_pss = True
                 pss_lines.append(line)
 
-        mem_id = digester.hexdigest()
         shared = sum([int(line.split()[1]) for line in shared_lines])
         private = sum([int(line.split()[1]) for line in private_lines])
 
@@ -101,10 +104,10 @@ def get_mem_stats(pid, use_pss=True):
         private = rss - shared
 
     # values are in Kbytes.
-    return (int(private * 1024), int(shared * 1024), have_pss, mem_id)
+    return (int(private * 1024), int(shared * 1024), have_pss)
 
 
-def get_cmd_name(pid):
+def get_cmd_name(pid, verbose):
     """Returns truncated command line name given pid."""
     cmdline = proc_read(pid, 'cmdline').split(r'\0')
     if cmdline[-1] == '' and len(cmdline) > 1:
@@ -116,12 +119,16 @@ def get_cmd_name(pid):
         # Some symlink targets were seen to contain NULs on RHEL 5 at least
         # https://github.com/pixelb/scripts/pull/10, so take string up to NUL
         path = path.split(r'\0')[0]
-    except OSError:
+    except OSError as e:
         val = sys.exc_info()[1]
         # either kernel thread or process gone
         if val.errno == errno.ENOENT or val.errno == errno.EPERM:
             raise LookupError
+        print('OS Error: {0}'.format(e))
         raise
+
+    if verbose:
+        return cmdline[0].replace('\x00', ' ')
 
     if path.endswith(' (deleted)'):
         path = path[:-10]
@@ -140,22 +147,22 @@ def get_cmd_name(pid):
     cmd = proc_readline(pid, 'status')[6:-1]
     if exe.startswith(cmd):
         cmd = exe
+
     return cmd
 
 
-def get_memory_usage(pids, exclude=None, use_pss=True):
+def get_memory_usage(pids, verbose=False, exclude=None, use_pss=True):
     """Returns memory stats for list of pids, aggregated by cmd line."""
     # TODO: pylint complains about too many branches, need to refactor.
     # pylint: disable=R0912
     meminfos = {}
-    mem_ids = {}
 
     for pid in pids:
-        if not pid:
+        thread_id = int(get_thread_id(pid))
+        if not pid or thread_id != pid:
             continue
-
         try:
-            cmd = get_cmd_name(pid)
+            cmd = get_cmd_name(pid, verbose)
         except LookupError:
             # kernel threads don't have exe links or
             # process gone
@@ -173,13 +180,12 @@ def get_memory_usage(pids, exclude=None, use_pss=True):
             if match:
                 continue
 
-        if cmd not in meminfos:
-            meminfos[cmd] = {}
+        meminfos[thread_id] = {}
 
-        meminfo = meminfos[cmd]
+        meminfo = meminfos[thread_id]
+        meminfo['name'] = cmd
         try:
-            private, shared, have_pss, mem_id = get_mem_stats(pid,
-                                                              use_pss=use_pss)
+            private, shared, have_pss = get_mem_stats(pid, use_pss=use_pss)
         except RuntimeError:
             continue  # process gone
 
@@ -192,20 +198,7 @@ def get_memory_usage(pids, exclude=None, use_pss=True):
             meminfo['shared'] = shared
 
         meminfo['private'] = meminfo.setdefault('private', 0) + private
-        meminfo['count'] = meminfo.setdefault('count', 0) + 1
-
-        mem_ids.setdefault(cmd, {}).update({mem_id: None})
-
-    # Aggregate for same progs.
-    for cmd, meminfo in meminfos.items():
-        cmd_count = meminfo['count']
-        if len(mem_ids[cmd]) == 1 and cmd_count > 1:
-            # Assume this program is using CLONE_VM without CLONE_THREAD
-            # so only account for one of the processes
-            meminfo['private'] /= cmd_count
-            if have_pss:
-                meminfo['shared'] /= cmd_count
-
+        meminfo['threads'] = get_threads(pid)
         meminfo['total'] = meminfo['private'] + meminfo['shared']
 
     return meminfos

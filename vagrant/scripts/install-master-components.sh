@@ -90,3 +90,11 @@ $TM admin install \
     --ldap-pwd secret
 
 add_svc treadmill-master
+
+touch /home/vagrant/.ssh/config
+cat << EOF > /home/vagrant/.ssh/config
+Host node
+  IdentityFile ~/treadmill/vagrant/.vagrant/machines/node/virtualbox/private_key
+EOF
+chmod 600 /home/vagrant/.ssh/config
+chown vagrant -R /home/vagrant/.ssh/config

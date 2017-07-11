@@ -101,7 +101,7 @@ def init():
 
         if app.find('#') == -1:
             # Instance is not specified, list matching and exit.
-            raise click.BadParameter('Speficy full instance name: xxx#nnn')
+            raise click.BadParameter('Specify full instance name: xxx#nnn')
 
         app_discovery = discovery.Discovery(context.GLOBAL.zk.conn, app, 'ssh')
         app_discovery.sync()
