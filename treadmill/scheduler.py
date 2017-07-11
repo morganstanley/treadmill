@@ -1484,6 +1484,7 @@ class Cell(Bucket):
                 assert app.has_identity()
                 assert app.server in servers
                 server = servers[app.server]
+                _LOGGER.debug("renew!!!!!")
                 if not server.renew(app):
                     # Save information that will be used to restore placement
                     # in case renewal fails.

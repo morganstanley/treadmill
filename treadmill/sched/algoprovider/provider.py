@@ -118,5 +118,5 @@ class Provider(object):
     def _select_host(app, host_priority_queue):
         node = host_priority_queue.get().server
         _LOGGER.debug('Select the server ' + node.name + ' to run the app.')
-        app.server = node
+        app.server = node.name
         return node.put(app)

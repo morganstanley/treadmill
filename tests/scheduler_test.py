@@ -871,7 +871,7 @@ class CellTest(unittest.TestCase):
         self.assertIsNotNone(app4.server)
 
     def test_affinity_limits(self):
-        """Simple placement test."""
+        """Test affinity limits"""
         cell = scheduler.Cell('top')
         left = scheduler.Bucket('left', traits=0)
         right = scheduler.Bucket('right', traits=0)

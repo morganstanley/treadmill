@@ -1,4 +1,4 @@
-from .predicates import match_app_constraints
+from .predicates import match_app_constraints, match_app_lifetime
 from .priorities import least_requests, spread
 
-__all__ = ['match_app_constraints', 'least_requests', 'spread']
+__all__ = ['match_app_constraints', 'match_app_lifetime', 'least_requests', 'spread']
