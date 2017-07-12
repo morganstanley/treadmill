@@ -783,6 +783,26 @@ class Server(Node):
             app.placement_expiry = time.time() + app.lease
         return True
 
+    def put_simple(self, app):
+        """Tries to put the app on the server.
+        Skip app check.
+        """
+        assert app.name not in self.apps
+        _LOGGER.debug('server.put: %s => %s', app.name, self.name)
+
+        prev_capacity = self.free_capacity.copy()
+        self.free_capacity -= app.demand
+        self.apps[app.name] = app
+
+        self.increment_affinity([app.affinity.name])
+        app.server = self.name
+        if self.parent:
+            self.parent.adjust_capacity_down(prev_capacity)
+
+        if app.placement_expiry is None:
+            app.placement_expiry = time.time() + app.lease
+        return True
+
     def restore(self, app, placement_expiry=None):
         """Put app back on the server, ignore app lifetime."""
         lease = app.lease

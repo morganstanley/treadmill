@@ -119,4 +119,4 @@ class Provider(object):
         node = host_priority_queue.get().server
         _LOGGER.debug('Select the server ' + node.name + ' to run the app.')
         app.server = node.name
-        return node.put(app)
+        return node.put_simple(app)
