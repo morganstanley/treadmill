@@ -11,7 +11,7 @@ function log {
   echo -e "[`TZ=Asia/Shanghai date`] ${1}"
 }
 
-ROOT=$(dirname "${BASH_SOURCE}")/..
+ROOT=$(dirname "${BASH_SOURCE}")/../..
 
 CELL="local"
 RSRC_ID=treadml.mock-app
