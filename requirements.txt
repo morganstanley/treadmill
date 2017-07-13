@@ -32,3 +32,5 @@ urllib_kerberos
 websocket-client>=0.40.0,<1
 boto==2.46.1
 boto3==1.4.4
+polling
+pyasn1==0.2.2
