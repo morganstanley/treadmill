@@ -15,5 +15,6 @@ Sphinx==1.4.8
 testrepository==0.0.20
 testtools==2.2.0
 tox==2.4.0
+coverage
 unittest2==1.1.0
 virtualenv==15.0.3
