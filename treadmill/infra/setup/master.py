@@ -1,5 +1,5 @@
 from treadmill.infra.setup import base_provision
-from treadmill.infra import configuration
+from treadmill.infra import configuration, constants
 
 
 class Master(base_provision.BaseProvision):
@@ -7,13 +7,12 @@ class Master(base_provision.BaseProvision):
             self,
             name,
             vpc_id,
-            domain,
     ):
         super(Master, self).__init__(
             name=name,
             vpc_id=vpc_id,
-            domain=domain,
         )
+        self.subnet_name = constants.TREADMILL_CELL_SUBNET_NAME
 
     def setup(
             self,
@@ -31,7 +30,6 @@ class Master(base_provision.BaseProvision):
             name=self.name,
             subnet_id=subnet_id,
             ldap_hostname=ldap_hostname,
-            domain=self.domain,
             tm_release=tm_release,
             app_root=app_root
         )

@@ -1,4 +1,7 @@
-yum install -y ipa-server
+yum install -y ipa-server haveged
+
+systemctl enable haveged
+systemctl start haveged
 
 ipa-server-install --unattended \
     --no-ntp --mkhomedir \
