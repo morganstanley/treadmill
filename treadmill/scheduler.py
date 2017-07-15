@@ -682,6 +682,9 @@ class Bucket(Node):
     def add_node(self, node):
         """Adds node to the bucket."""
         super(Bucket, self).add_node(node)
+        # Assume that the parent is cell.
+        if self.parent and isinstance(self.parent, Cell):
+            self.parent.add_server(self.children_by_name[node.name])
         self.adjust_capacity_up(node.free_capacity)
 
     def remove_node(self, node):
@@ -1447,7 +1450,6 @@ class Cell(Bucket):
 
     def schedule(self):
         """Run the scheduler."""
-        self._flatten_nodes(self)
         placement = []
         for label, partition in self.partitions.items():
             allocation = partition.allocation
@@ -1461,12 +1463,14 @@ class Cell(Bucket):
 
     # New defined functions.
 
-    def _flatten_nodes(self, node):
-        for node in node.children_iter():
-            if isinstance(node, Server):
-                self.flatten_nodes.append(node)
-            elif isinstance(node, Bucket):
-                self._flatten_nodes(node)
+    def add_node(self, node):
+        super(Cell, self).add_node(node)
+        if isinstance(node, Bucket):
+            return
+        self.add_server(self.children_by_name[node.name])
+
+    def add_server(self, server):
+        self.flatten_nodes.append(server)
 
     def _find_placements_new(self, queue, servers):
         """Run the queue and find placements."""
@@ -1582,12 +1586,6 @@ class Cell(Bucket):
                     app.renew = True
                 else:
                     app.release_identity()
-
-    # TODO: It could not deal with three-layer architecture.
-    # def add_node(self, node):
-    #     super(Cell, self).add_node(node)
-    #     # Add the node to the list.
-    #     self.flatten_nodes.append(self.children_by_name[node.name])
 
     def reset_children(self):
         super(Cell, self).reset_children()
