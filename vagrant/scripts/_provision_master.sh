@@ -28,7 +28,6 @@ run $SCRIPTDIR/build-pid1.sh
 run $SCRIPTDIR/venv.sh
 run $SCRIPTDIR/configure-etc-hosts.sh
 run $SCRIPTDIR/configure-profile.sh
-run $SCRIPTDIR/install-tinydns.sh
 run $SCRIPTDIR/install-master-components.sh
 
 echo 'master provisioned!'
