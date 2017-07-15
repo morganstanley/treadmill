@@ -1423,9 +1423,7 @@ class Cell(Bucket):
         self._fix_invalid_identities(queue, servers)
         # self._restore(queue, servers)
 
-        # For Test
-        # self._find_placements(queue, servers)
-        self._find_placements_new(queue, servers)
+        self._find_placements(queue, servers)
 
         after = [(app.server, app.placement_expiry)
                  for app in queue]
@@ -1472,7 +1470,9 @@ class Cell(Bucket):
     def add_server(self, server):
         self.flatten_nodes.append(server)
 
-    def _find_placements_new(self, queue, servers):
+
+class CellWithK8sScheduler(Cell):
+    def _find_placements(self, queue, servers):
         """Run the queue and find placements."""
         # Disable too many branches/statements warning
         #
@@ -1591,7 +1591,6 @@ class Cell(Bucket):
         super(Cell, self).reset_children()
         # TODO: Reset self.flatten_nodes.
         pass
-
 
 def dumps(cell):
     """Serializes cell to string."""

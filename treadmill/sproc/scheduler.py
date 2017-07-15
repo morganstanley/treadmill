@@ -13,12 +13,13 @@ def init():
 
     @click.command()
     @click.argument('events-dir', type=click.Path(exists=True))
-    def run(events_dir):
+    @click.argument('vendor', type=click.Choice(['native', 'k8s']))
+    def run(events_dir, scheduler_vendor):
         """Run Treadmill master scheduler."""
         scheduler.DIMENSION_COUNT = 3
         cell_master = master.Master(context.GLOBAL.zk.conn,
                                     context.GLOBAL.cell,
-                                    events_dir)
+                                    events_dir, shceduler_vendor)
         cell_master.run()
 
     return run
