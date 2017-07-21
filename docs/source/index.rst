@@ -12,7 +12,6 @@ Welcome to Treadmill documentation!
    aws_manual
    cli_docs
    dev
-   ansible
 
 Indices and tables
 ==================

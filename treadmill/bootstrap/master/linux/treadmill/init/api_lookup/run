@@ -5,6 +5,8 @@
 
 exec 2>&1
 
+export PEX_ROOT=/tmp/.pex_{{ treadmillid }}
+
 exec                                                                        \
     {{ s6 }}/bin/s6-setuidgid {{ treadmillid }}                             \
     {{ treadmill_bin }} sproc                                               \

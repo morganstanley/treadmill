@@ -11,7 +11,7 @@ _LOGGER = logging.getLogger(__name__)
 class Subnet(ec2object.EC2Object):
     def __init__(self, name=None, id=None, metadata=None,
                  vpc_id=None, instances=None):
-        super(Subnet, self).__init__(
+        super().__init__(
             name=name,
             id=id,
             metadata=metadata
@@ -64,22 +64,25 @@ class Subnet(ec2object.EC2Object):
             reverse_hosted_zone_id,
             role
         )
-        self.load_route_related_ids()
 
-        try:
+        remaining_instances = self._get_instances_by_filters(
+            filters=self._network_filters()
+        ).instances
+
+        if not remaining_instances:
+            self.load_route_related_ids()
+            self.ec2_conn.disassociate_route_table(
+                AssociationId=self.association_id
+            )
+            self.ec2_conn.delete_route_table(
+                RouteTableId=self.route_table_id
+            )
             self.ec2_conn.delete_subnet(
                 SubnetId=self.id
             )
-        except Exception:
+        else:
             _LOGGER.info('keeping the subnet as other instances are alive.')
             return
-
-        self.ec2_conn.disassociate_route_table(
-            AssociationId=self.association_id
-        )
-        self.ec2_conn.delete_route_table(
-            RouteTableId=self.route_table_id
-        )
 
     def get_instances(self, refresh=False, role=None):
         if role:
@@ -89,13 +92,18 @@ class Subnet(ec2object.EC2Object):
 
     def get_all_instances(self, refresh=False):
         if refresh or not self.instances:
-            self.instances = instances.Instances.get(
+            self.instances = self._get_instances_by_filters(
                 filters=self._network_filters()
             )
 
+    def _get_instances_by_filters(self, filters):
+        return instances.Instances.get(
+            filters=filters
+        )
+
     def get_instances_by_role(self, role, refresh=False):
         if refresh or not self.instances:
-            self.instances = instances.Instances.get(
+            self.instances = self._get_instances_by_filters(
                 filters=self._network_filters(
                     extra_filters=self._role_filter(role)
                 )
@@ -110,11 +118,10 @@ class Subnet(ec2object.EC2Object):
         if not self.instances:
             self.get_instances(refresh=True, role=role)
 
-        if self.instances:
-            self.instances.terminate(
-                hosted_zone_id=hosted_zone_id,
-                reverse_hosted_zone_id=reverse_hosted_zone_id,
-            )
+        self.instances.terminate(
+            hosted_zone_id=hosted_zone_id,
+            reverse_hosted_zone_id=reverse_hosted_zone_id,
+        )
 
     def refresh(self):
         self.metadata = self.ec2_conn.describe_subnets(
@@ -129,7 +136,7 @@ class Subnet(ec2object.EC2Object):
         if self.instances:
             _instance_details = list(map(
                 self._instance_details,
-                [i.metadata for i in self.instances.instances])
+                self.instances.instances)
             )
 
         return {
@@ -151,13 +158,19 @@ class Subnet(ec2object.EC2Object):
             RouteTableId=self.route_table_id
         )
 
-    def _instance_details(self, data):
+    def _instance_details(self, instance):
         return {
-            'Name': self._select_from_tags(data['Tags'], 'Name'),
-            'InstanceId': data['InstanceId'],
-            'InstanceState': data['State']['Name'],
-            'SecurityGroups': data['SecurityGroups'],
-            'SubnetId': data['SubnetId']
+            'Name': instance.name,
+            'HostName': instance.hostname,
+            'InstanceId': instance.id,
+            'InstanceState': instance.metadata['State']['Name'],
+            'SecurityGroups': instance.metadata['SecurityGroups'],
+            'SubnetId': instance.metadata['SubnetId'],
+            'PublicIpAddress': instance.metadata.get('PublicIpAddress', None),
+            'PrivateIpAddress': instance.metadata.get(
+                'PrivateIpAddress', None
+            ),
+            'InstanceType': instance.metadata.get('InstanceType', None),
         }
 
     def _select_from_tags(self, tags, selector):
@@ -188,7 +201,6 @@ class Subnet(ec2object.EC2Object):
                 'Name': 'tag-value',
                 'Values': [role]
             }
-
         ]
 
     def _association_filters(self):

@@ -1,4 +1,0 @@
----
-# tasks file for master
-- include: zookeeper.yml
-- include: services.yml

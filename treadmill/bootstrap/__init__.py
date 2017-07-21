@@ -205,12 +205,11 @@ def install(package, dst_dir, params, run=None):
         aliases.update(getattr(extension_module, 'ALIASES', {}))
         aliases_path.append(extension)
 
-    defaults.update(params)
-
     # TODO: this is ugly, error prone and should go away.
     #       aliases should be in default scope, everything else in _args.
     defaults['_alias'] = aliases
     defaults.update(aliases)
+    defaults.update(params)
 
     defaults['aliases_path'] = ':'.join(aliases_path)
 

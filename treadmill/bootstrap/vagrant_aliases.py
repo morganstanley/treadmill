@@ -4,6 +4,7 @@ ALIASES = {
     'pid1': '/opt/treadmill-pid1/bin/pid1',
     'treadmill': '/opt/treadmill',
     'treadmill_bin': '/opt/treadmill/bin/treadmill',
+    'profile': 'vagrant',
 
     # openldap
     'slapd': '/usr/sbin/slapd',
@@ -21,9 +22,6 @@ ALIASES = {
 
     'tkt-recv': None,
     'tkt-send': None,
-
-    'rrdcached': None,
-    'rrdtool': None,
 
     'logstash-forwarder': None,
 

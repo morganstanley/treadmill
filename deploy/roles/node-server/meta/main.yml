@@ -1,5 +1,0 @@
-dependencies:
-  - { role: base-setup }
-  - { role: treadmill-base-setup }
-  - { role: freeipa-client }
-  - { role: s6-pid1-setup }

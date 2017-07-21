@@ -1,3 +1,0 @@
-dependencies:
-  - { role: base-setup }
-  - { role: treadmill-base-setup }

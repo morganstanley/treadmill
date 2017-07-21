@@ -1,0 +1,16 @@
+memory: 1G
+cpu: 20%
+disk: 1G
+services:
+- command: |
+    exec treadmill sproc restapi -p 8000 \
+      --title 'Treadmill_Cell_API' \
+      -m instance,app-monitor,identity-group,nodeinfo --cors-origin='.*'
+  name: rest-api
+  restart:
+    limit: 5
+    interval: 60
+endpoints:
+- name: http
+  port: 8000
+  type: infra

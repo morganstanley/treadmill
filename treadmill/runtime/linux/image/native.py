@@ -259,6 +259,7 @@ def make_fsroot(root, proid):
         '/srv',
         '/sys',
         '/usr',
+        '/var/lib/sss',
         '/var/tmp/treadmill/env',
         '/var/tmp/treadmill/spool',
     ] + glob.glob('/opt/*')

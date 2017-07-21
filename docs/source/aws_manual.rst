@@ -12,12 +12,7 @@ SSH in the vagrant machine:
 
   vagrant ssh master
 
-Activate the virtual environment:
-::
-
-  source /opt/treadmill/bin/activate
-
-Virtual environment should have treadmill installed. List the treadmill options:
+Check treadmill exist:
 ::
 
   treadmill --help
@@ -47,20 +42,38 @@ Or create a credentials file ``~/.aws/credentials`` with following content:
 
 ----------------------------------------------------------
 
-
 List treadmill AWS commands
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ::
 
   treadmill cloud --help
 
 ----------------------------------------------------------
 
+List VPC
+^^^^^^^^
+::
+
+  treadmill cloud list vpc --vpc-id <vpc_id> --domain <domain>
+
+This lists all the EC2 instances and subnets inside the vpc.
+
+List Cell
+^^^^^^^^^
+::
+
+  treadmill cloud list cell --subnet-id <subnet_id> --domain <domain>
+
+This lists all the EC2 instances running inside a cell.
+
+-----------------------------------------------------------
+
 Initialize VPC
 ^^^^^^^^^^^^^^
 
 ::
 
-  treadmill cloud init
+  treadmill cloud init --domain <domain>
 
 This creates a VPC, Internet Gateway, Security Group and Route53 Hosted Zone. Default values are used to create these resources. The values can be overwritten from command line.
 
@@ -76,25 +89,13 @@ Initialize Domain
 
 ::
 
-  treadmill cloud init-domain --vpc-id <vpc_id> --key <key_name> --image-id <ami_id> --ipa-admin-password <password>
+  treadmill cloud init-domain --domain <domain> --vpc-id <vpc_id> --key <key_name> --image-id <ami_id> --ipa-admin-password <password>
 
 ipa-admin-password should be at least 8 characters long.
 
 Other values can be overwritten if required.
 
-This will create IPA Server.
-
-
-Initialize LDAP
-^^^^^^^^^^^^^^^
-
-LDAP can be initialized either along with cell or using the LDAP CLI. By default the cell initialization will create LDAP.
-
-::
-
-  treadmill cloud init-ldap --vpc-id <vpc_id> --key <key_name> --image-id <ami_id>
-
-This will setup LDAP Server.
+This will spin up IPA Server.
 
 
 Initialize Cell
@@ -102,9 +103,16 @@ Initialize Cell
 
 ::
 
-  treadmill cloud init-cell --vpc-id <vpc_id> --key <key_name> --image-id <ami_id> --without-ldap
+  treadmill cloud init-cell --domain <domain> --vpc-id <vpc_id> --key <key_name> --image-id <ami_id>
 
-This will setup 3 masters and 3 zookeeper boxes by default.
+This will setup 1 openldap, 3 masters and 3 zookeeper instances by default.
 
 At this point all the hosts will be registered with IPA server.
 
+
+SpinUp First Node
+^^^^^^^^^^^^^^^^^
+
+::
+
+  treadmill cloud add-node --domain <domain> --vpc-id <vpc_id> --key <key_name> --image-id <ami_id> --subnet-id <subnet-id>

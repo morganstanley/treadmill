@@ -42,7 +42,7 @@ class VPCTest(unittest.TestCase):
         _vpc.create(cidr_block='172.16.0.0/16')
 
         self.assertEquals(_vpc.id, self.vpc_id_mock)
-        self.assertEquals(_vpc.metadata, vpc_response_mock)
+        self.assertEquals(_vpc.metadata, vpc_response_mock['Vpc'])
         self.assertEquals(_vpc.cidr_block, '172.16.0.0/16')
         _connectionMock.create_vpc.assert_called_once_with(
             CidrBlock='172.16.0.0/16'
@@ -291,19 +291,30 @@ class VPCTest(unittest.TestCase):
 
     @mock.patch('treadmill.infra.connection.Connection')
     def test_load_hosted_zone_ids(self, connectionMock):
+        connectionMock.context.domain = 'foo.bar'
         _connectionMock = connectionMock('route53')
-        _connectionMock.list_hosted_zones = mock.Mock(return_value={
-            'HostedZones': [{
-                'Id': 'zone-id',
-                'Name': 'zone-name',
-            }, {
-                'Id': 'zone-id-reverse',
-                'Name': 'zone-name.in-addr-arpa',
-            }, {
-                'Id': 'zone-id-1',
-                'Name': 'zone-name-foo',
+        _connectionMockEc2 = connectionMock('ec2')
+        _connectionMock.describe_vpcs = mock.Mock(return_value={
+            'Vpcs': [{
+                'CidrBlock': '172.0.0.1'
             }]
         })
+        _connectionMock.list_hosted_zones_by_name.side_effect = [
+            {
+                'HostedZones': [{
+                    'Id': 'zone-id',
+                    'Name': 'zone-name',
+                }, {
+                    'Id': 'zone-id-1',
+                    'Name': 'zone-name-foo',
+                }]
+            }, {
+                'HostedZones': [{
+                    'Id': 'zone-id-reverse',
+                    'Name': 'zone-name.in-addr-arpa',
+                }]
+            }
+        ]
         _connectionMock.get_hosted_zone = mock.Mock()
         _connectionMock.get_hosted_zone.side_effect = [
             {
@@ -318,22 +329,22 @@ class VPCTest(unittest.TestCase):
             },
             {
                 'HostedZone': {
-                    'Id': 'zone-id-reverse',
-                    'Name': 'zone-name.in-addr.arpa',
-                },
-                'VPCs': [{
-                    'VPCRegion': 'region',
-                    'VPCId': self.vpc_id_mock
-                }]
-            },
-            {
-                'HostedZone': {
                     'Id': 'zone-id-1',
                     'Name': 'zone-name-foo',
                 },
                 'VPCs': [{
                     'VPCRegion': 'region',
                     'VPCId': 'foobar'
+                }]
+            },
+            {
+                'HostedZone': {
+                    'Id': 'zone-id-reverse',
+                    'Name': 'zone-name.in-addr.arpa',
+                },
+                'VPCs': [{
+                    'VPCRegion': 'region',
+                    'VPCId': self.vpc_id_mock
                 }]
             }
         ]
@@ -353,7 +364,16 @@ class VPCTest(unittest.TestCase):
             _vpc.reverse_hosted_zone_id,
             'zone-id-reverse'
         )
-        _connectionMock.list_hosted_zones.assert_called_once()
+        _connectionMockEc2.describe_vpcs.assert_called_once_with(
+            VpcIds=[self.vpc_id_mock]
+        )
+        self.assertCountEqual(
+            _connectionMock.list_hosted_zones_by_name.mock_calls,
+            [
+                mock.mock.call(DNSName='foo.bar'),
+                mock.mock.call(DNSName='0.172.in-addr.arpa')
+            ]
+        )
         self.assertCountEqual(
             _connectionMock.get_hosted_zone.mock_calls,
             [
@@ -558,17 +578,19 @@ class VPCTest(unittest.TestCase):
                      hosted_zone_ids_mock,
                      instances_mock):
         _connectionMock = connectionMock()
+        _vpc_metadata_mock = {
+            'VpcId': self.vpc_id_mock,
+            'CidrBlock': '172.0.0.1'
+        }
         _connectionMock.describe_vpcs = mock.Mock(
-            return_value={'Vpcs': [{'VpcId': self.vpc_id_mock, 'foo': 'bar'}]}
+            return_value={'Vpcs': [_vpc_metadata_mock]}
         )
         _vpc = vpc.VPC(id=self.vpc_id_mock)
         _vpc.refresh()
         self.assertIsInstance(_vpc, vpc.VPC)
         self.assertEqual(_vpc.id, self.vpc_id_mock)
-        self.assertEqual(
-            _vpc.metadata,
-            {'VpcId': self.vpc_id_mock, 'foo': 'bar'}
-        )
+        self.assertEqual(_vpc.metadata, _vpc_metadata_mock)
+        self.assertEqual(_vpc.cidr_block, '172.0.0.1')
         _connectionMock.describe_vpcs.assert_called_once_with(
             VpcIds=[self.vpc_id_mock]
         )

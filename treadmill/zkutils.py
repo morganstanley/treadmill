@@ -28,11 +28,16 @@ logging.getLogger('kazoo.client').setLevel(logging.WARNING)
 
 # This is the maximum time the start will try to connect for, i.e. 30 sec
 ZK_MAX_CONNECTION_START_TIMEOUT = 30
+_VAGRANT_PROFILE = 'vagrant'
+_ZK_PLUGIN_MOD = None
 
-try:
-    _ZK_PLUGIN_MOD = importlib.import_module('treadmill.plugins.zookeeper')
-except ImportError:
-    _ZK_PLUGIN_MOD = None
+if os.environ.get('TREADMILL_PROFILE', None) != _VAGRANT_PROFILE:
+    try:
+        _ZK_PLUGIN_MOD = importlib.import_module(
+            'treadmill.plugins.zookeeper'
+        )
+    except ImportError:
+        pass
 
 
 def _is_valid_perm(perm):
@@ -115,7 +120,7 @@ def make_default_acl(acls):
     """Constructs a default Treadmill acl."""
     realacl = [
         make_role_acl('readers', 'r'),
-        make_role_acl('admin', 'rwcda'),
+        make_role_acl('admins', 'rwcda'),
         make_self_acl('rwcda'),
     ]
     if acls:

@@ -8,6 +8,7 @@ import importlib
 import click
 import click.testing
 from botocore.exceptions import ClientError
+import pkg_resources
 
 from treadmill.infra import vpc
 
@@ -34,10 +35,15 @@ class CellCLITest(unittest.TestCase):
 
     def test_setup_cell(self):
         self.destroy_attempted = False
-        result_init = self.runner.invoke(self.configure_cli, [
-            'init',
-            '--domain=treadmill.org'
-        ])
+        options_fixture_file = pkg_resources.resource_filename(
+            __name__, 'init_cell_options.yml'
+        )
+        result_init = self.runner.invoke(
+            self.configure_cli, [
+                'init',
+                '-f=' + options_fixture_file
+            ]
+        )
         cell_info = {}
         vpc_info = {}
 
@@ -60,7 +66,8 @@ class CellCLITest(unittest.TestCase):
                 '--image-id=ami-9e2f0988',
                 '--vpc-id=' + vpc_info['VpcId'],
                 '--cell-cidr-block=172.23.0.0/24',
-                '--domain=treadmill.org'
+                '--domain=treadmill.org',
+                '--ipa-admin-password=Tre@dmill1',
             ]
         )
 

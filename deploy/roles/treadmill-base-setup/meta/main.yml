@@ -1,2 +1,0 @@
-dependencies:
-  - { role: fetch-facts, resources: ['master_facts']}

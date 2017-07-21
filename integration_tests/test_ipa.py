@@ -30,7 +30,7 @@ class IPATest(unittest.TestCase):
                 ]
             )
 
-    def test_setup_ipa(self):
+    def test_setup_ipa_and_ldap_in_same_subnet(self):
         self.destroy_attempted = False
         result_init = self.runner.invoke(self.configure_cli, [
             'init',
@@ -59,7 +59,7 @@ class IPATest(unittest.TestCase):
                 '--image-id=ami-9e2f0988',
                 '--vpc-id=' + vpc_info['VpcId'],
                 '--subnet-cidr-block=172.23.0.0/24',
-                '--ipa-admin-password=secret'
+                '--ipa-admin-password=Tre@dmill1',
             ]
         )
 
@@ -90,7 +90,8 @@ class IPATest(unittest.TestCase):
                 '--image-id=ami-9e2f0988',
                 '--vpc-id=' + vpc_info['VpcId'],
                 '--ldap-subnet-id=' + subnet_info['SubnetId'],
-                '--domain=treadmill.org'
+                '--domain=treadmill.org',
+                '--ipa-admin-password=Tre@dmill1',
             ]
         )
 
@@ -134,6 +135,140 @@ class IPATest(unittest.TestCase):
                 'ldap',
                 '--vpc-id=' + vpc_info['VpcId'],
                 '--subnet-id=' + subnet_info['SubnetId'],
+                '--domain=treadmill.org'
+            ]
+        )
+        _vpc.subnet_ids = []
+        vpc_info = _vpc.show()
+
+        self.assertEqual(len(vpc_info['Subnets']), 0)
+
+        self.runner.invoke(
+            self.configure_cli, [
+                'delete',
+                'vpc',
+                '--vpc-id=' + _vpc.id,
+                '--domain=treadmill.org'
+            ]
+        )
+
+        self.destroy_attempted = True
+
+        with self.assertRaises(ClientError) as error:
+            _vpc.ec2_conn.describe_vpcs(
+                VpcIds=[vpc_info['VpcId']]
+            )
+        self.assertEqual(
+            error.exception.response['Error']['Code'],
+            'InvalidVpcID.NotFound'
+        )
+
+    def test_setup_ipa_and_ldap_in_different_subnets(self):
+        self.destroy_attempted = False
+        result_init = self.runner.invoke(
+            self.configure_cli,
+            [
+                'init',
+                '--domain=treadmill.org'
+            ]
+        )
+        subnet_info = {}
+        vpc_info = {}
+
+        try:
+            vpc_info = ast.literal_eval(result_init.output)
+        except Exception as e:
+            if result_init.exception:
+                print(result_init.exception)
+            else:
+                print(e)
+
+        self.vpc_id = vpc_info['VpcId']
+        self.assertIsNotNone(vpc_info['VpcId'])
+        self.assertEqual(vpc_info['Subnets'], [])
+
+        result_domain_init = self.runner.invoke(
+            self.configure_cli, [
+                'init-domain',
+                '--key=ms_treadmill_dev',
+                '--image-id=ami-9e2f0988',
+                '--vpc-id=' + vpc_info['VpcId'],
+                '--subnet-cidr-block=172.23.0.0/24',
+                '--ipa-admin-password=Tre@dmill1',
+                '--domain=treadmill.org'
+            ]
+        )
+
+        try:
+            subnet_info = ast.literal_eval(result_domain_init.output)
+        except Exception as e:
+            if result_domain_init.exception:
+                print(result_domain_init.exception)
+            else:
+                print(e)
+
+        _vpc = vpc.VPC(id=vpc_info['VpcId'])
+        vpc_info = _vpc.show()
+        self.assertEqual(subnet_info['VpcId'], vpc_info['VpcId'])
+        self.assertEqual(len(subnet_info['Instances']), 1)
+        self.assertCountEqual(
+            [i['Name'] for i in subnet_info['Instances']],
+            ['TreadmillIPA1']
+        )
+        self.assertIsNotNone(subnet_info['SubnetId'])
+        self.assertEqual(len(vpc_info['Subnets']), 1)
+        self.assertEqual(vpc_info['Subnets'][0], subnet_info['SubnetId'])
+
+        result_ldap_init = self.runner.invoke(
+            self.configure_cli, [
+                'init-ldap',
+                '--key=ms_treadmill_dev',
+                '--image-id=ami-9e2f0988',
+                '--vpc-id=' + vpc_info['VpcId'],
+                '--domain=treadmill.org'
+            ]
+        )
+
+        try:
+            ldap_subnet_info = ast.literal_eval(result_ldap_init.output)
+        except Exception as e:
+            if result_ldap_init.exception:
+                print(result_ldap_init.exception)
+            else:
+                print(e)
+
+        _vpc.subnet_ids = None
+        vpc_info = _vpc.show()
+
+        self.assertEqual(ldap_subnet_info['VpcId'], vpc_info['VpcId'])
+        self.assertEqual(len(ldap_subnet_info['Instances']), 1)
+        self.assertCountEqual(
+            [i['Name'] for i in ldap_subnet_info['Instances']],
+            ['TreadmillLDAP1']
+        )
+        self.assertIsNotNone(ldap_subnet_info['SubnetId'])
+
+        self.runner.invoke(
+            self.configure_cli, [
+                'delete',
+                'domain',
+                '--vpc-id=' + vpc_info['VpcId'],
+                '--subnet-id=' + subnet_info['SubnetId'],
+                '--domain=treadmill.org'
+            ]
+        )
+
+        _vpc.subnet_ids = None
+        vpc_info = _vpc.show()
+
+        self.assertEqual(len(vpc_info['Subnets']), 1)
+
+        self.runner.invoke(
+            self.configure_cli, [
+                'delete',
+                'ldap',
+                '--vpc-id=' + vpc_info['VpcId'],
+                '--subnet-id=' + ldap_subnet_info['SubnetId'],
                 '--domain=treadmill.org'
             ]
         )

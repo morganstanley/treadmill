@@ -45,14 +45,16 @@ class MasterTest(unittest.TestCase):
 
     @mock.patch('builtins.open', create=True)
     def test_master_configuration_script_data(self, open_mock):
-        config = configuration.Master('', '', '', '', '')
+        config = configuration.Master('', '', '', '', '', '')
         expected_script_data = {
             'provision-base.sh': [
                 'DOMAIN', 'NAME', 'SUBNET_ID', 'LDAP_HOSTNAME', 'APP_ROOT',
             ],
             'install-ipa-client.sh': [],
             'install-treadmill.sh': ['TREADMILL_RELEASE'],
-            'configure-master.sh': [],
+            'configure-master.sh': [
+                'SUBNET_ID', 'APP_ROOT', 'IPA_ADMIN_PASSWORD'
+            ],
         }
 
         self.assertCountEqual(
@@ -74,14 +76,16 @@ class LDAPTest(unittest.TestCase):
 
     @mock.patch('builtins.open', create=True)
     def test_ldap_configuration_script_data(self, open_mock):
-        config = configuration.LDAP('', '', '', '', '')
+        config = configuration.LDAP('', '', '', '', '', '')
         expected_script_data = {
             'provision-base.sh': [
                 'DOMAIN', 'NAME', 'SUBNET_ID', 'LDAP_HOSTNAME', 'APP_ROOT',
             ],
             'install-ipa-client.sh': [],
             'install-treadmill.sh': ['TREADMILL_RELEASE'],
-            'configure-ldap.sh': ['SUBNET_ID', 'APP_ROOT', 'LDAP_HOSTNAME'],
+            'configure-ldap.sh': [
+                'SUBNET_ID', 'APP_ROOT', 'IPA_ADMIN_PASSWORD', 'DOMAIN'
+            ],
         }
 
         self.assertCountEqual(
@@ -138,11 +142,13 @@ class ZookeeperTest(unittest.TestCase):
     def test_zookeeper_configuration_script_data(self, open_mock):
         config = configuration.Zookeeper(
             name='zookeeper',
+            ldap_hostname='ldap_host',
+            ipa_admin_password='ipa_admin_password'
         )
         expected_script_data = {
-            'provision-base.sh': ['DOMAIN', 'NAME'],
+            'provision-base.sh': ['DOMAIN', 'NAME', 'LDAP_HOSTNAME'],
             'install-ipa-client.sh': [],
-            'provision-zookeeper.sh': ['DOMAIN'],
+            'provision-zookeeper.sh': ['DOMAIN', 'IPA_ADMIN_PASSWORD'],
         }
 
         self.assertCountEqual(
@@ -170,13 +176,17 @@ class NodeTest(unittest.TestCase):
             app_root='/var/tmp',
             subnet_id='sub-123',
             ldap_hostname='ldap_host',
+            ipa_admin_password='Tre@admill1',
+            with_api=False,
         )
         expected_script_data = {
             'provision-base.sh': ['DOMAIN', 'NAME', 'APP_ROOT', 'SUBNET_ID',
-                                  'LDAP_HOSTNAME'],
+                                  'LDAP_HOSTNAME', 'ROLE'],
             'install-ipa-client.sh': [],
             'install-treadmill.sh': ['TREADMILL_RELEASE'],
-            'configure-node.sh': ['APP_ROOT'],
+            'configure-node.sh': [
+                'APP_ROOT', 'SUBNET_ID', 'IPA_ADMIN_PASSWORD'
+            ],
         }
 
         self.assertCountEqual(

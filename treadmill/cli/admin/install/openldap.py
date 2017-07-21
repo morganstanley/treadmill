@@ -30,11 +30,9 @@ def init():
     @click.option('-m', '--masters', help='list of masters.',
                   type=cli.LIST)
     @click.option('--run/--no-run', is_flag=True, default=False)
-    @click.option('--enable-sasl', is_flag=True, default=False)
-    @click.option('--ldap-hostname', default='ldapserver')
     @click.pass_context
     def openldap(ctx, gssapi, rootpw, owner, suffix, uri,
-                 masters, run, enable_sasl, ldap_hostname):
+                 masters, run):
         """Installs Treadmill Openldap server."""
         dst_dir = ctx.obj['PARAMS']['dir']
 
@@ -57,10 +55,6 @@ def init():
             ctx.obj['PARAMS']['masters'] = []
         if suffix:
             ctx.obj['PARAMS']['suffix'] = suffix
-        if enable_sasl:
-            ctx.obj['PARAMS']['enable_sasl'] = enable_sasl
-        if ldap_hostname:
-            ctx.obj['PARAMS']['ldap_hostname'] = ldap_hostname
 
         bootstrap.install(
             'openldap',

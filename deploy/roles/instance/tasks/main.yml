@@ -1,5 +1,0 @@
----
-- include: get-controller-ip.yml
-- include: create-security-group.yml
-- include: create-instance.yml
-- include: create-dns-entry.yml

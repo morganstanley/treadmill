@@ -14,9 +14,8 @@ import re
 import sys
 import tempfile
 import traceback
-
-
 import click
+
 import prettytable
 import yaml
 
@@ -31,6 +30,7 @@ import collections
 __path__ = pkgutil.extend_path(__path__, __name__)
 
 EXIT_CODE_DEFAULT = 1
+IPA_PASSWORD_RE = re.compile('.{8,}')
 
 
 def init_logger(name):
@@ -933,6 +933,21 @@ def handle_not_authorized(err):
     msgs = [re.sub(r'failure: ', '    ', line) for line in msg.split(r'\n')]
     echo_red('Not authorized.')
     click.echo('\n'.join(msgs), nl=False)
+
+
+def validate_ipa_password(ctx, param, value):
+    """IPA admin password valdiation"""
+    value = value or click.prompt(
+        'IPA admin password ', hide_input=True, confirmation_prompt=True
+    )
+    if not IPA_PASSWORD_RE.match(value):
+        raise click.BadParameter('Password must be greater than 8 characters.')
+    return value
+
+
+def ipa_password_prompt(ctx, param, value):
+    """IPA admin password prompt"""
+    return value or click.prompt('IPA admin password ', hide_input=True)
 
 
 REST_EXCEPTIONS = [

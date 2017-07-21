@@ -4,16 +4,6 @@ from treadmill.infra import configuration, connection
 
 
 class IPA(base_provision.BaseProvision):
-    def __init__(
-            self,
-            name,
-            vpc_id,
-    ):
-        super(IPA, self).__init__(
-            name=name,
-            vpc_id=vpc_id,
-        )
-
     def setup(
             self,
             image_id,
@@ -32,7 +22,7 @@ class IPA(base_provision.BaseProvision):
             ipa_admin_password=ipa_admin_password,
             tm_release=tm_release
         )
-        super(IPA, self).setup(
+        super().setup(
             image_id=image_id,
             count=count,
             cidr_block=cidr_block,
@@ -44,7 +34,7 @@ class IPA(base_provision.BaseProvision):
         self._update_route53('UPSERT')
 
     def destroy(self, subnet_id):
-        super(IPA, self).destroy(
+        super().destroy(
             subnet_id=subnet_id
         )
 

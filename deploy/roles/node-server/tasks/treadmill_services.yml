@@ -1,6 +1,0 @@
----
-- name: Start node services
-  shell: ". ~/.bashrc && nohup treadmill admin install --profile aws node --run > node_services.out 2>&1 &"
-
-- name: Register Node to LDAP
-  shell: ". ~/.bashrc && nohup treadmill admin ldap server configure -c {{vpc_id}} {{ansible_hostname.lower()}}.{{domain}} > admin_ldap.out 2>&1 &"

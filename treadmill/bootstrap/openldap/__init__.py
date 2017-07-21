@@ -20,7 +20,7 @@ DEFAULTS = {
                  {'name': '{1}mdb',
                   'objectclass': 'olcMdbConfig',
                   'owner': '{{owner}}',
-                  'rootdn': 'cn=Manager,{{ suffix }}',
+                  'rootdn': 'cn=Manager,cn=config',
                   'rootpw': '{{ rootpw }}',
                   'suffix': '{{ suffix }}'}],
     'log_levels': [16384],

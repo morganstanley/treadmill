@@ -15,6 +15,7 @@ class VPC:
         self.route53_conn = connection.Connection(resource=constants.ROUTE_53)
         self.id = id
         self.metadata = metadata
+        self.cidr_block = None
         self.instances = []
         self.secgroup_ids = []
         self.subnet_ids = []
@@ -25,21 +26,24 @@ class VPC:
         self.association_ids = []
         self.hosted_zone_id = None
         self.reverse_hosted_zone_id = None
-        self.hosted_zone_ids = []
+        self.hosted_zone_ids = set()
 
     def refresh(self):
-        self.metadata, = self.ec2_conn.describe_vpcs(
-            VpcIds=[self.id]
-        )['Vpcs']
+        self._load()
         self.get_instances()
         self.load_hosted_zone_ids()
         self.load_security_group_ids()
 
+    def _load(self):
+        self.metadata, = self.ec2_conn.describe_vpcs(
+            VpcIds=[self.id]
+        )['Vpcs']
+        self.cidr_block = self.metadata['CidrBlock']
+
     def create(self, cidr_block):
-        vpc_response = self.ec2_conn.create_vpc(CidrBlock=cidr_block)
-        self.cidr_block = vpc_response['Vpc']['CidrBlock']
-        self.id = vpc_response['Vpc']['VpcId']
-        self.metadata = vpc_response
+        self.metadata = self.ec2_conn.create_vpc(CidrBlock=cidr_block)['Vpc']
+        self.cidr_block = self.metadata['CidrBlock']
+        self.id = self.metadata['VpcId']
         self.ec2_conn.create_tags(
             Resources=[self.id],
             Tags=[{
@@ -129,7 +133,15 @@ class VPC:
             setattr(self, identifier, _hosted_zone_id)
 
     def load_hosted_zone_ids(self):
-        hosted_zones = self.route53_conn.list_hosted_zones()['HostedZones']
+        forward_hosted_zones = self.route53_conn.list_hosted_zones_by_name(
+            DNSName=connection.Connection.context.domain
+        )['HostedZones']
+        reverse_hosted_zones = self.route53_conn.list_hosted_zones_by_name(
+            DNSName=self._reverse_domain_name()
+        )['HostedZones']
+
+        hosted_zones = forward_hosted_zones + reverse_hosted_zones
+
         for hosted_zone in hosted_zones:
             _hosted_zone_id = hosted_zone['Id']
             hosted_zone_details = self.route53_conn.get_hosted_zone(
@@ -141,7 +153,9 @@ class VPC:
                     self.reverse_hosted_zone_id = _hosted_zone_id
                 else:
                     self.hosted_zone_id = _hosted_zone_id
-                self.hosted_zone_ids.append(_hosted_zone_id)
+                self.hosted_zone_ids.add(_hosted_zone_id)
+
+        self.hosted_zone_ids = list(self.hosted_zone_ids)
 
     def delete_hosted_zones(self):
         if not self.hosted_zone_ids:
@@ -259,7 +273,7 @@ class VPC:
             'Subnets': self.subnet_ids,
             'Instances': list(map(
                 self._instance_details,
-                [i.metadata for i in self.instances.instances])
+                self.instances.instances)
             )
         }
 
@@ -285,6 +299,8 @@ class VPC:
         )
 
     def _reverse_domain_name(self):
+        if not self.cidr_block:
+            self._load()
         cidr_block_octets = self.cidr_block.split('.')
         return '.'.join([
             cidr_block_octets[1],
@@ -292,13 +308,19 @@ class VPC:
             constants.REVERSE_DNS_TLD
         ])
 
-    def _instance_details(self, data):
+    def _instance_details(self, instance):
         return {
-            'Name': self._select_from_tags(data['Tags'], 'Name'),
-            'InstanceId': data['InstanceId'],
-            'InstanceState': data['State']['Name'],
-            'SecurityGroups': data['SecurityGroups'],
-            'SubnetId': data['SubnetId']
+            'Name': instance.name,
+            'HostName': instance.hostname,
+            'InstanceId': instance.id,
+            'InstanceState': instance.metadata['State']['Name'],
+            'SecurityGroups': instance.metadata['SecurityGroups'],
+            'SubnetId': instance.metadata['SubnetId'],
+            'PublicIpAddress': instance.metadata.get('PublicIpAddress', None),
+            'PrivateIpAddress': instance.metadata.get(
+                'PrivateIpAddress', None
+            ),
+            'InstanceType': instance.metadata.get('InstanceType', None),
         }
 
     def _select_from_tags(self, tags, selector):
