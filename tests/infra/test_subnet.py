@@ -50,7 +50,7 @@ class SubnetTest(unittest.TestCase):
 
     @mock.patch('treadmill.infra.connection.Connection')
     def test_create(self, ConnectionMock):
-        ConnectionMock.region_name = 'us-east-1'
+        ConnectionMock.context.region_name = 'us-east-1'
         conn_mock = ConnectionMock()
         subnet_json_mock = {
             'Subnet': {
@@ -133,7 +133,7 @@ class SubnetTest(unittest.TestCase):
             }
         )
 
-        get_instances_mock.assert_called_once_with(refresh=True)
+        get_instances_mock.assert_called_once_with(refresh=True, role=None)
         refresh_mock.assert_called_once()
 
 

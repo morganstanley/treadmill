@@ -1,3 +1,4 @@
 ---
 pid1: /bin/pid1
 treadmill_bin: /bin/treadmill
+ipa: /bin/ipa

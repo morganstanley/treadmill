@@ -1,6 +1,6 @@
 from treadmill.infra import constants
 from treadmill.infra.setup import base_provision
-from treadmill.infra import configuration
+from treadmill.infra import configuration, connection
 
 
 class IPA(base_provision.BaseProvision):
@@ -8,12 +8,10 @@ class IPA(base_provision.BaseProvision):
             self,
             name,
             vpc_id,
-            domain,
     ):
         super(IPA, self).__init__(
             name=name,
             vpc_id=vpc_id,
-            domain=domain,
         )
 
     def setup(
@@ -32,7 +30,6 @@ class IPA(base_provision.BaseProvision):
             name=self.name,
             cell=subnet_id,
             ipa_admin_password=ipa_admin_password,
-            domain=self.domain,
             tm_release=tm_release
         )
         super(IPA, self).setup(
@@ -64,44 +61,43 @@ class IPA(base_provision.BaseProvision):
             '_ldap._tcp': '0 100 389',
             '_ntp._udp': '0 100 123'
         }
-
-        for _rec, _value in srv_records.items():
+        for instance in self.subnet.instances.instances:
+            for _rec, _value in srv_records.items():
+                self._change_srv_record(
+                    action=action,
+                    name=self._rec_name(_rec),
+                    value=self._srv_rec_value(_value, instance.name),
+                    record_type='SRV'
+                )
             self._change_srv_record(
                 action=action,
-                hosted_zone_id=self.vpc.hosted_zone_id,
-                name=self._rec_name(_rec),
-                value=self._srv_rec_value(_value),
-                record_type='SRV'
+                name=self._rec_name('ipa-ca'),
+                value=self.subnet.instances.instances[0].private_ip,
+                record_type='A'
             )
-        self._change_srv_record(
-            action=action,
-            hosted_zone_id=self.vpc.hosted_zone_id,
-            name=self._rec_name('ipa-ca'),
-            value=self.subnet.instances.instances[0].private_ip,
-            record_type='A'
-        )
-        self._change_srv_record(
-            action=action,
-            hosted_zone_id=self.vpc.hosted_zone_id,
-            name=self._rec_name('_kerberos'),
-            value='"{0}"'.format(self.domain.upper()),
-            record_type='TXT'
-        )
+            self._change_srv_record(
+                action=action,
+                name=self._rec_name('_kerberos'),
+                value='"{0}"'.format(
+                    connection.Connection.context.domain.upper()
+                ),
+                record_type='TXT'
+            )
 
-    def _rec_name(self, name):
-        return name + '.' + self.domain + '.'
+    def _rec_name(self, rec):
+        return rec + '.' + connection.Connection.context.domain + '.'
 
-    def _srv_rec_value(self, value):
-        return value + ' ' + self.name + '.' + self.domain + '.'
+    def _srv_rec_value(self, value, instance_name):
+        return value + ' ' + instance_name + '.' \
+            + connection.Connection.context.domain + '.'
 
     def _change_srv_record(self,
                            action,
-                           hosted_zone_id,
                            name,
                            value,
                            record_type):
         self.route_53_conn.change_resource_record_sets(
-            HostedZoneId=hosted_zone_id.split('/')[-1],
+            HostedZoneId=self.vpc.hosted_zone_id.split('/')[-1],
             ChangeBatch={
                 'Changes': [{
                     'Action': action,
