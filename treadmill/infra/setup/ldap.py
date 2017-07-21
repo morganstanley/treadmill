@@ -7,12 +7,10 @@ class LDAP(base_provision.BaseProvision):
             self,
             name,
             vpc_id,
-            domain,
     ):
         super(LDAP, self).__init__(
             name=name,
             vpc_id=vpc_id,
-            domain=domain,
         )
 
     def setup(
@@ -28,7 +26,6 @@ class LDAP(base_provision.BaseProvision):
             subnet_id=None
     ):
         self.configuration = configuration.LDAP(
-            domain=self.domain,
             subnet_id=subnet_id,
             ldap_hostname=ldap_hostname,
             tm_release=tm_release,

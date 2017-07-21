@@ -8,7 +8,7 @@ from treadmill.api import cloud_host
 import subprocess
 
 
-class ApiCellTest(unittest.TestCase):
+class ApiCloudHostTest(unittest.TestCase):
     """treadmill.api.cloud_host tests."""
 
     def setUp(self):
@@ -19,10 +19,7 @@ class ApiCellTest(unittest.TestCase):
 
     def test_create(self):
         _ipa_result_mock = b'foo\n bar\n goo\n tao\n random password: tao-pass-goo-foo' # noqa :E501
-        subprocess.check_output = mock.create_autospec(
-            subprocess.check_output,
-            return_value=_ipa_result_mock
-        )
+        subprocess.check_output = mock.Mock(return_value=_ipa_result_mock)
 
         self.assertEqual(
             self.cloud_host.create('some-host'),
@@ -35,6 +32,31 @@ class ApiCellTest(unittest.TestCase):
             'some-host',
             "--random",
             "--force"
+        ])
+
+    def test_delete(self):
+        _ipa_result_mock = b'------------------\nDeleted host "some-host"\n------------------\n' # noqa :E501
+        subprocess.check_output = mock.Mock(return_value=_ipa_result_mock)
+
+        self.cloud_host.delete('some-host')
+
+        subprocess.check_output.assert_called_once_with([
+            "ipa",
+            "host-del",
+            'some-host'
+        ])
+
+    def test_delete_failure(self):
+        _ipa_result_mock = b'------------------\nCould not Delete host "some-host"\n------------------\n' # noqa :E501
+        subprocess.check_output = mock.Mock(return_value=_ipa_result_mock)
+
+        with self.assertRaises(AssertionError):
+            self.cloud_host.delete('some-host')
+
+        subprocess.check_output.assert_called_once_with([
+            "ipa",
+            "host-del",
+            'some-host'
         ])
 
 

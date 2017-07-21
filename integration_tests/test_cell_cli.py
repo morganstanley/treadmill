@@ -34,12 +34,14 @@ class CellCLITest(unittest.TestCase):
 
     def test_setup_cell(self):
         self.destroy_attempted = False
-        result_init = self.runner.invoke(self.configure_cli, ['init'])
+        result_init = self.runner.invoke(self.configure_cli, [
+            'init',
+            '--domain=treadmill.org'
+        ])
         cell_info = {}
         vpc_info = {}
 
         try:
-            print(result_init.output)
             vpc_info = ast.literal_eval(result_init.output)
         except Exception as e:
             if result_init.exception:
@@ -57,13 +59,13 @@ class CellCLITest(unittest.TestCase):
                 '--key=ms_treadmill_dev',
                 '--image-id=ami-9e2f0988',
                 '--vpc-id=' + vpc_info['VpcId'],
-                '--cell-cidr-block=172.23.0.0/24'
+                '--cell-cidr-block=172.23.0.0/24',
+                '--domain=treadmill.org'
             ]
         )
 
         result = {}
         try:
-            print(result_cell_init.output)
             result = ast.literal_eval(result_cell_init.output)
         except Exception as e:
             if result_cell_init.exception:
@@ -74,7 +76,7 @@ class CellCLITest(unittest.TestCase):
         cell_info = result['Cell']
         ldap_info = result['Ldap']
 
-        _vpc = vpc.VPC(id=vpc_info['VpcId'], domain='ms.treadmill')
+        _vpc = vpc.VPC(id=vpc_info['VpcId'])
         _vpc_info = _vpc.show()
 
         self.assertEqual(cell_info['VpcId'], vpc_info['VpcId'])
@@ -118,7 +120,7 @@ class CellCLITest(unittest.TestCase):
                 'cell',
                 '--subnet-id=' + cell_info['SubnetId'],
                 '--vpc-id=' + vpc_info['VpcId'],
-                '--domain=' + _vpc.domain
+                '--domain=treadmill.org'
             ]
         )
         self.runner.invoke(
@@ -127,7 +129,7 @@ class CellCLITest(unittest.TestCase):
                 'cell',
                 '--subnet-id=' + ldap_info['SubnetId'],
                 '--vpc-id=' + vpc_info['VpcId'],
-                '--domain=' + _vpc.domain
+                '--domain=treadmill.org'
             ]
         )
         _vpc.instances = None
@@ -141,7 +143,7 @@ class CellCLITest(unittest.TestCase):
                 'delete',
                 'vpc',
                 '--vpc-id=' + vpc_info['VpcId'],
-                '--domain=' + _vpc.domain
+                '--domain=treadmill.org'
             ]
         )
         self.destroy_attempted = True

@@ -4,15 +4,17 @@ from treadmill.infra import constants
 from treadmill.infra import subnet
 
 import time
+import logging
+
+_LOGGER = logging.getLogger(__name__)
 
 
 class VPC:
-    def __init__(self, domain, id=None, metadata=None):
+    def __init__(self, id=None, metadata=None):
         self.ec2_conn = connection.Connection()
         self.route53_conn = connection.Connection(resource=constants.ROUTE_53)
         self.id = id
         self.metadata = metadata
-        self.domain = domain
         self.instances = []
         self.secgroup_ids = []
         self.subnet_ids = []
@@ -56,9 +58,8 @@ class VPC:
             cidr_block,
             secgroup_name,
             secgroup_desc,
-            domain
     ):
-        _vpc = VPC(domain=domain)
+        _vpc = VPC()
         _vpc.create(cidr_block=cidr_block)
         _vpc.create_internet_gateway()
         _vpc.create_security_group(secgroup_name, secgroup_desc)
@@ -111,13 +112,13 @@ class VPC:
             name = self._reverse_domain_name()
         else:
             identifier = 'hosted_zone_id'
-            name = self.domain
+            name = connection.Connection.context.domain
 
         if not getattr(self, identifier):
             _hosted_zone_id = self.route53_conn.create_hosted_zone(
                 Name=name,
                 VPC={
-                    'VPCRegion': connection.Connection.region_name,
+                    'VPCRegion': connection.Connection.context.region_name,
                     'VPCId': self.id,
                 },
                 HostedZoneConfig={
@@ -151,8 +152,8 @@ class VPC:
                 Id=id
             )
 
-    def get_instances(self):
-        if not self.instances:
+    def get_instances(self, refresh=False):
+        if refresh or not self.instances:
             self.instances = instances.Instances.get(
                 filters=self._filters()
             )
@@ -166,7 +167,6 @@ class VPC:
         self.instances.terminate(
             hosted_zone_id=self.hosted_zone_id,
             reverse_hosted_zone_id=self.reverse_hosted_zone_id,
-            domain=self.domain
         )
 
     def load_security_group_ids(self):
@@ -183,7 +183,7 @@ class VPC:
         for secgroup_id in self.secgroup_ids:
             self.ec2_conn.delete_security_group(GroupId=secgroup_id)
 
-    def get_route_related_ids(self):
+    def load_route_related_ids(self):
         response = self.ec2_conn.describe_route_tables(Filters=self._filters())
         if not self.association_ids:
             self.association_ids = self._get_ids_from_associations(
@@ -191,10 +191,9 @@ class VPC:
                 'RouteTableAssociationId'
             )
         if not self.route_table_ids:
-            self.route_table_ids = self._get_ids_from_associations(
-                response['RouteTables'],
-                'RouteTableId'
-            )
+            self.route_table_ids = [
+                route['RouteTableId'] for route in response['RouteTables']
+            ]
         if not self.subnet_ids:
             self.subnet_ids = self._get_ids_from_associations(
                 response['RouteTables'],
@@ -202,16 +201,19 @@ class VPC:
 
     def delete_route_tables(self):
         if not self.route_related_ids:
-            self.get_route_related_ids()
+            self.load_route_related_ids()
 
         for ass_id in self.association_ids:
             self.ec2_conn.disassociate_route_table(
                 AssociationId=ass_id
             )
         for route_table_id in self.route_table_ids:
-            self.ec2_conn.delete_route_table(
-                RouteTableId=route_table_id
-            )
+            try:
+                self.ec2_conn.delete_route_table(
+                    RouteTableId=route_table_id
+                )
+            except Exception as ex:
+                _LOGGER.info(ex)
         for subnet_id in self.subnet_ids:
             self.ec2_conn.delete_subnet(
                 SubnetId=subnet_id
@@ -250,8 +252,8 @@ class VPC:
         self.ec2_conn.delete_vpc(VpcId=self.id)
 
     def show(self):
-        self.get_instances()
-        self.get_route_related_ids()
+        self.get_instances(refresh=True)
+        self.load_route_related_ids()
         return {
             'VpcId': self.id,
             'Subnets': self.subnet_ids,
@@ -265,7 +267,7 @@ class VPC:
         _default_options = [
             {
                 'Key': 'domain-name',
-                'Values': [self.domain]
+                'Values': [connection.Connection.context.domain]
             },
             {
                 'Key': 'domain-name-servers',

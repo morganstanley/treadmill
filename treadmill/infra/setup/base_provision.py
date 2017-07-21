@@ -2,20 +2,24 @@ from treadmill.infra import instances
 from treadmill.infra import connection
 from treadmill.infra import vpc
 from treadmill.infra import subnet
+from treadmill.infra import constants
 
 
 class BaseProvision:
     def __init__(
             self,
             name,
-            vpc_id,
-            domain,
+            vpc_id
     ):
         self.name = name
-        self.vpc = vpc.VPC(id=vpc_id, domain=domain)
-        self.domain = domain
-        self.route_53_conn = connection.Connection('route53')
+        self.vpc = vpc.VPC(id=vpc_id)
+        self.route_53_conn = connection.Connection(constants.ROUTE_53)
         self.instances = None
+        _role = constants.ROLES.get(
+            self.__class__.__name__.upper(),
+            'DEFAULT'
+        )
+        self.role = _role
 
     def setup(
             self,
@@ -35,10 +39,12 @@ class BaseProvision:
         self.vpc.load_internet_gateway_ids()
         self.vpc.load_security_group_ids()
 
+        if not getattr(self, 'subnet_name', None):
+            self.subnet_name = self.name
         if not subnet_id:
             self.vpc.create_subnet(
                 cidr_block=cidr_block,
-                name=self.name,
+                name=self.subnet_name,
                 gateway_id=self.vpc.gateway_ids[0]
             )
             self.subnet = self.vpc.subnets[-1]
@@ -64,7 +70,7 @@ class BaseProvision:
             user_data=user_data,
             hosted_zone_id=self.vpc.hosted_zone_id,
             reverse_hosted_zone_id=self.vpc.reverse_hosted_zone_id,
-            domain=self.domain
+            role=self.role
         )
 
     def destroy(self, subnet_id):
@@ -73,7 +79,7 @@ class BaseProvision:
         self.subnet.destroy(
             hosted_zone_id=self.vpc.hosted_zone_id,
             reverse_hosted_zone_id=self.vpc.reverse_hosted_zone_id,
-            domain=self.domain
+            role=self.role
         )
 
     def show(self):

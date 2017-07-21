@@ -97,6 +97,7 @@ _LINUX_ALIASES = {
     'unshare': '/usr/bin/unshare',
     'vgchange': '/sbin/vgchange',
     'vgremove': '/sbin/vgremove',
+    'ipa': '/bin/ipa'
 }
 
 _WINDOWS_ALIASES = {

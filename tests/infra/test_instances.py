@@ -52,7 +52,33 @@ class InstanceTest(unittest.TestCase):
         )
 
     @mock.patch('treadmill.infra.instances.connection.Connection')
-    def test_upsert_dns_record(self, ConnectionMock):
+    def test_create_tags_with_role(self, ConnectionMock):
+        conn_mock = ConnectionMock()
+        conn_mock.create_tags = mock.Mock()
+
+        instance = Instance(
+            name='foo',
+            id='1',
+            metadata={'AmiLaunchIndex': 100},
+            role='role-name'
+        )
+        instance.create_tags()
+        self.assertEquals(instance.name, 'foo101')
+
+        conn_mock.create_tags.assert_called_once_with(
+            Resources=['1'],
+            Tags=[{
+                'Key': 'Name',
+                'Value': 'foo101'
+            }, {
+                'Key': 'Role',
+                'Value': 'role-name'
+            }]
+        )
+
+    @mock.patch('treadmill.infra.instances.connection.Connection')
+    def test_configure_dns_record(self, ConnectionMock):
+        ConnectionMock.context.domain = 'joo.goo'
         conn_mock = ConnectionMock('route53')
         conn_mock.change_resource_record_sets = mock.Mock()
 
@@ -61,9 +87,8 @@ class InstanceTest(unittest.TestCase):
             id='1',
             metadata={'PrivateIpAddress': '10.1.2.3'}
         )
-        instance.upsert_dns_record(
+        instance.configure_dns_record(
             hosted_zone_id='zone-id',
-            domain='joo.goo'
         )
         self.assertEquals(instance.private_ip, '10.1.2.3')
 
@@ -85,7 +110,8 @@ class InstanceTest(unittest.TestCase):
         )
 
     @mock.patch('treadmill.infra.instances.connection.Connection')
-    def test_upsert_dns_record_reverse(self, ConnectionMock):
+    def test_confgiure_dns_record_reverse(self, ConnectionMock):
+        ConnectionMock.context.domain = 'joo.goo'
         conn_mock = ConnectionMock('route53')
         conn_mock.change_resource_record_sets = mock.Mock()
 
@@ -94,9 +120,8 @@ class InstanceTest(unittest.TestCase):
             id='1',
             metadata={'PrivateIpAddress': '10.1.2.3'}
         )
-        instance.upsert_dns_record(
+        instance.configure_dns_record(
             hosted_zone_id='reverse-zone-id',
-            domain='joo.goo',
             reverse=True
         )
 
@@ -119,6 +144,7 @@ class InstanceTest(unittest.TestCase):
 
     @mock.patch('treadmill.infra.instances.connection.Connection')
     def test_delete_dns_record(self, ConnectionMock):
+        ConnectionMock.context.domain = 'joo.goo'
         conn_mock = ConnectionMock('route53')
         conn_mock.change_resource_record_sets = mock.Mock()
 
@@ -129,7 +155,6 @@ class InstanceTest(unittest.TestCase):
         )
         instance.delete_dns_record(
             hosted_zone_id='zone-id',
-            domain='joo.goo'
         )
         self.assertEquals(instance.private_ip, '10.1.2.3')
 
@@ -152,6 +177,7 @@ class InstanceTest(unittest.TestCase):
 
     @mock.patch('treadmill.infra.instances.connection.Connection')
     def test_delete_dns_record_reverse(self, ConnectionMock):
+        ConnectionMock.context.domain = 'joo.goo'
         conn_mock = ConnectionMock('route53')
         conn_mock.change_resource_record_sets = mock.Mock()
 
@@ -162,7 +188,6 @@ class InstanceTest(unittest.TestCase):
         )
         instance.delete_dns_record(
             hosted_zone_id='reverse-zone-id',
-            domain='joo.goo',
             reverse=True
         )
 
@@ -189,9 +214,10 @@ class InstancesTest(unittest.TestCase):
 
     @mock.patch('treadmill.infra.instances.connection.Connection')
     def test_create(self, ConnectionMock):
+        ConnectionMock.context.domain = 'joo.goo'
         instance1_metadata_mock = {
             'InstanceId': 1,
-            'AmiLaunchIndex': 999
+            'AmiLaunchIndex': 0
         }
         instance2_metadata_mock = {
             'InstanceId': 2,
@@ -226,7 +252,7 @@ class InstancesTest(unittest.TestCase):
             user_data='',
             hosted_zone_id='zone-id',
             reverse_hosted_zone_id='reverse-zone-id',
-            domain='joo.goo'
+            role='role'
         ).instances
 
         instance_ids = [i.id for i in instances]
@@ -237,6 +263,8 @@ class InstancesTest(unittest.TestCase):
         self.assertCountEqual(instance_ids, [1, 2])
         self.assertEquals(instances[0].metadata, instance1_metadata_mock)
         self.assertEquals(instances[1].metadata, instance2_metadata_mock)
+        self.assertEquals(instances[0].role, 'role')
+        self.assertEquals(instances[1].role, 'role')
 
         conn_mock.run_instances.assert_called_with(
             ImageId='foo-123',
@@ -244,8 +272,12 @@ class InstancesTest(unittest.TestCase):
             KeyName='key',
             MaxCount=2,
             MinCount=2,
-            SecurityGroupIds=None,
-            SubnetId='',
+            NetworkInterfaces=[{
+                'Groups': None,
+                'AssociatePublicIpAddress': True,
+                'SubnetId': '',
+                'DeviceIndex': 0
+            }],
             UserData='',
         )
         conn_mock.describe_instances.assert_called_with(
@@ -261,7 +293,7 @@ class InstancesTest(unittest.TestCase):
                                 'ResourceRecords': [{
                                     'Value': ''
                                 }],
-                                'Name': 'foo1000.joo.goo.',
+                                'Name': 'foo1.joo.goo.',
                                 'TTL': 3600,
                                 'Type': 'A'
                             },
@@ -275,7 +307,7 @@ class InstancesTest(unittest.TestCase):
                         'Changes': [{
                             'ResourceRecordSet': {
                                 'ResourceRecords': [{
-                                    'Value': 'foo1000.joo.goo.'
+                                    'Value': 'foo1.joo.goo.'
                                 }],
                                 'Name': '.in-addr.arpa',
                                 'TTL': 3600,
@@ -327,7 +359,10 @@ class InstancesTest(unittest.TestCase):
                     Resources=[1],
                     Tags=[{
                         'Key': 'Name',
-                        'Value': 'foo1000'
+                        'Value': 'foo1'
+                    }, {
+                        'Value': 'role',
+                        'Key': 'Role'
                     }]
                 ),
                 mock.mock.call(
@@ -335,9 +370,11 @@ class InstancesTest(unittest.TestCase):
                     Tags=[{
                         'Key': 'Name',
                         'Value': 'foo600'
+                    }, {
+                        'Value': 'role',
+                        'Key': 'Role'
                     }]
                 )
-
             ]
         )
 
@@ -351,7 +388,7 @@ class InstancesTest(unittest.TestCase):
         instance = Instances(instances=[instance_1_mock])
         instance.volume_ids = ['vol-id0']
 
-        instance.terminate('zone-id', 'reverse-zone-id', 'tw.treadmill.test')
+        instance.terminate('zone-id', 'reverse-zone-id')
 
         conn_mock.describe_instance_status.assert_called()
         self.assertCountEqual(
@@ -359,11 +396,9 @@ class InstancesTest(unittest.TestCase):
             [
                 mock.mock.call(
                     'zone-id',
-                    'tw.treadmill.test'
                 ),
                 mock.mock.call(
                     reverse=True,
-                    domain='tw.treadmill.test',
                     hosted_zone_id='reverse-zone-id'
                 )
             ]
@@ -380,7 +415,7 @@ class InstancesTest(unittest.TestCase):
         )
 
     @mock.patch('treadmill.infra.instances.connection.Connection')
-    def test_get_volume_ids(self, connectionMock):
+    def test_load_volume_ids(self, connectionMock):
         conn_mock = connectionMock()
         conn_mock.describe_volumes = mock.Mock(return_value={
             'Volumes': [{
@@ -389,7 +424,7 @@ class InstancesTest(unittest.TestCase):
         })
 
         instance = Instances([Instance(id=1)])
-        instance.get_volume_ids()
+        instance.load_volume_ids()
 
         self.assertEquals(instance.volume_ids, ['vol-id'])
         conn_mock.describe_volumes.assert_called_once_with(

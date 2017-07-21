@@ -7,7 +7,7 @@ yum -y install python34
 AMI_LAUNCH_INDEX=$(curl http://169.254.169.254/latest/meta-data/ami-launch-index)
 ID=$((AMI_LAUNCH_INDEX+1))
 LDAP_DC=ou=treadmill,$(echo "{{ DOMAIN }}" | sed -E 's/([a-z]*)\.([a-z]*)/dc=\1,dc=\2/g')
-LDAP_URL=ldap://{{ LDAP_HOSTNAME }}.{{ DOMAIN }}:1389
+LDAP_URL=ldap://{{ LDAP_HOSTNAME }}.{{ DOMAIN }}:22389
 ZK_URL=zookeeper://foo@TreadmillZookeeper1.{{ DOMAIN }}:2181,TreadmillZookeeper2.{{ DOMAIN }}:2181,TreadmillZookeeper3.{{ DOMAIN }}:2181
 
 hostnamectl set-hostname "{{ NAME }}${ID}.{{ DOMAIN }}"
@@ -21,7 +21,7 @@ export TREADMILL_ZOOKEEPER=$ZK_URL
 export TREADMILL_LDAP=$LDAP_URL
 export TREADMILL_LDAP_SUFFIX=dc=${LDAP_DC}
 export TREADMILL_CELL={{ SUBNET_ID }}
-export TREADMILL_APPROOT={{ APPROOT }}
+export TREADMILL_APPROOT={{ APP_ROOT }}
 export TREADMILL_DNS_DOMAIN={{ DOMAIN }}
 export PEX_ROOT=/tmp/pex
 EOF

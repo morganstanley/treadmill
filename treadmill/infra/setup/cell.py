@@ -7,13 +7,11 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class Cell:
-    def __init__(self, domain, subnet_id=None, vpc_id=None):
-        self.domain = domain
-        self.vpc = vpc.VPC(id=vpc_id, domain=self.domain)
+    def __init__(self, subnet_id=None, vpc_id=None):
+        self.vpc = vpc.VPC(id=vpc_id)
         self.master = master.Master(
             name=None,
             vpc_id=self.vpc.id,
-            domain=self.domain,
         )
         self.master.subnet = subnet.Subnet(id=subnet_id)
         self.id = subnet_id
@@ -37,7 +35,7 @@ class Cell:
 
     def setup_zookeeper(self, name, key, image_id, instance_type,
                         subnet_cidr_block):
-        self.zookeeper = zookeeper.Zookeeper(name, self.vpc.id, self.domain)
+        self.zookeeper = zookeeper.Zookeeper(name, self.vpc.id)
         self.zookeeper.setup(
             image_id=image_id,
             key=key,
@@ -72,7 +70,6 @@ class Cell:
         self.master.subnet.destroy(
             hosted_zone_id=self.vpc.hosted_zone_id,
             reverse_hosted_zone_id=self.vpc.reverse_hosted_zone_id,
-            domain=self.domain
         )
 
     def show(self):

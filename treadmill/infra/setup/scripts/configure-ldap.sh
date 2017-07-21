@@ -55,6 +55,6 @@ s6-setuidgid treadmld \
 echo Configuring local cell
 
 s6-setuidgid treadmld \
-    treadmill admin ldap cell configure {{ SUBNET_ID }} --version 0.1 --root {{ APPROOT }} \
+    treadmill admin ldap cell configure {{ SUBNET_ID }} --version 0.1 --root {{ APP_ROOT }} \
         --username treadmld \
         --location local.local

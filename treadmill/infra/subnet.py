@@ -3,6 +3,10 @@ from treadmill.infra import connection
 from treadmill.infra import constants
 from treadmill.infra import instances
 
+import logging
+
+_LOGGER = logging.getLogger(__name__)
+
 
 class Subnet(ec2object.EC2Object):
     def __init__(self, name=None, id=None, metadata=None,
@@ -33,7 +37,7 @@ class Subnet(ec2object.EC2Object):
         _subnet._create_route_table(gateway_id)
         return _subnet
 
-    def get_route_related_ids(self):
+    def load_route_related_ids(self):
         response = self.ec2_conn.describe_route_tables(
             Filters=self._association_filters()
         )
@@ -49,37 +53,67 @@ class Subnet(ec2object.EC2Object):
             response['RouteTables'],
             'SubnetId')[0]
 
-    def destroy(self, hosted_zone_id,
-                reverse_hosted_zone_id, domain):
-        self.terminate_instances(hosted_zone_id,
-                                 reverse_hosted_zone_id, domain)
-        self.get_route_related_ids()
+    def destroy(
+            self,
+            hosted_zone_id,
+            reverse_hosted_zone_id,
+            role=None
+    ):
+        self.terminate_instances(
+            hosted_zone_id,
+            reverse_hosted_zone_id,
+            role
+        )
+        self.load_route_related_ids()
+
+        try:
+            self.ec2_conn.delete_subnet(
+                SubnetId=self.id
+            )
+        except Exception:
+            _LOGGER.info('keeping the subnet as other instances are alive.')
+            return
+
         self.ec2_conn.disassociate_route_table(
             AssociationId=self.association_id
         )
         self.ec2_conn.delete_route_table(
             RouteTableId=self.route_table_id
         )
-        self.ec2_conn.delete_subnet(
-            SubnetId=self.id
-        )
 
-    def get_instances(self, refresh=False):
+    def get_instances(self, refresh=False, role=None):
+        if role:
+            self.get_instances_by_role(refresh=refresh, role=role)
+        else:
+            self.get_all_instances(refresh=refresh)
+
+    def get_all_instances(self, refresh=False):
         if refresh or not self.instances:
             self.instances = instances.Instances.get(
                 filters=self._network_filters()
             )
 
-    def terminate_instances(self, hosted_zone_id,
-                            reverse_hosted_zone_id, domain):
+    def get_instances_by_role(self, role, refresh=False):
+        if refresh or not self.instances:
+            self.instances = instances.Instances.get(
+                filters=self._network_filters(
+                    extra_filters=self._role_filter(role)
+                )
+            )
+
+    def terminate_instances(
+            self,
+            hosted_zone_id,
+            reverse_hosted_zone_id,
+            role
+    ):
         if not self.instances:
-            self.get_instances()
+            self.get_instances(refresh=True, role=role)
 
         if self.instances:
             self.instances.terminate(
                 hosted_zone_id=hosted_zone_id,
                 reverse_hosted_zone_id=reverse_hosted_zone_id,
-                domain=domain
             )
 
     def refresh(self):
@@ -88,9 +122,9 @@ class Subnet(ec2object.EC2Object):
         )['Subnets'][0]
         self.vpc_id = self.metadata.get('VpcId', None)
 
-    def show(self):
+    def show(self, role=None):
         self.refresh()
-        self.get_instances(refresh=True)
+        self.get_instances(refresh=True, role=role)
         _instance_details = None
         if self.instances:
             _instance_details = list(map(
@@ -142,7 +176,20 @@ class Subnet(ec2object.EC2Object):
             "us-west-2": "us-west-2a"
         }
 
-        return _map.get(connection.Connection.region_name, None)
+        return _map.get(connection.Connection.context.region_name, None)
+
+    def _role_filter(self, role):
+        return [
+            {
+                'Name': 'tag-key',
+                'Values': ['Role']
+            },
+            {
+                'Name': 'tag-value',
+                'Values': [role]
+            }
+
+        ]
 
     def _association_filters(self):
         return [{
@@ -150,11 +197,16 @@ class Subnet(ec2object.EC2Object):
             'Values': [self.id]
         }]
 
-    def _network_filters(self):
-        return [{
+    def _network_filters(self, extra_filters=None):
+        default_filters = [{
             'Name': 'network-interface.subnet-id',
             'Values': [self.id]
         }]
+
+        if extra_filters:
+            return default_filters + extra_filters
+        else:
+            return default_filters
 
     def _get_ids_from_associations(self, routes, key):
         return [
