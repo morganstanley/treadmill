@@ -48,7 +48,7 @@ def _configure_core_cgroups(service_name):
 def init():
     """Return top level command handler."""
 
-    @click.group(cls=cli.make_multi_command('treadmill.sproc'))
+    @click.group(cls=cli.make_commands('treadmill.sproc'))
     @click.option('--cgroup',
                   help='Create separate cgroup for the service.')
     @click.option('--cell', required=True,
@@ -71,7 +71,7 @@ def init():
         else:
             log_level = logging.DEBUG
 
-        logging.getLogger('kazoo').setLevel(log_level)
+        logging.getLogger('kazoo').setLevel(logging.INFO)
         logging.getLogger('treadmill').setLevel(log_level)
         logging.getLogger().setLevel(log_level)
 

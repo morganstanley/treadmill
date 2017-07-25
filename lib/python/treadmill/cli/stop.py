@@ -22,7 +22,7 @@ def init():
     @click.option('--all', 'all_instances', required=False, is_flag=True,
                   help='Stop all instances matching the app provided')
     @click.argument('instances', nargs=-1)
-    @cli.ON_REST_EXCEPTIONS
+    @cli.handle_exceptions(restclient.CLI_REST_EXCEPTIONS)
     def stop(api, all_instances, instances):
         """Stop (unschedule, terminate) Treadmill instance(s)."""
         if not instances:

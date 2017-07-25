@@ -12,11 +12,12 @@ import tests.treadmill_test_deps  # pylint: disable=W0611
 
 import mock
 
-from treadmill.s6 import services
+from treadmill.supervisor import s6
+from treadmill.supervisor import _service_base
 
 
 class ServiceTest(unittest.TestCase):
-    """Mock test for treadmill.s6.services.Service.
+    """Mock test for treadmill.supervisor.s6.
     """
     def setUp(self):
         self.root = tempfile.mkdtemp()
@@ -25,22 +26,22 @@ class ServiceTest(unittest.TestCase):
         if self.root and os.path.isdir(self.root):
             shutil.rmtree(self.root)
 
-    @mock.patch('treadmill.s6.services.LongrunService',
+    @mock.patch('treadmill.supervisor.s6.services.LongrunService',
                 mock.Mock(spec_set=True))
     def test_new(self):
         """Test service factory.
         """
-        mock_svc = services.Service.new(
-            self.root, 'mock', services.ServiceType.LongRun,
-            foo=1, bar=2, baz=3
+        mock_svc = s6.create_service(
+            self.root, 'mock', _service_base.ServiceType.LongRun,
+            run_script='test'
         )
 
         self.assertIsNotNone(mock_svc)
-        services.LongrunService.assert_called_with(
-            directory=self.root, name='mock', foo=1, bar=2, baz=3
+        s6.services.LongrunService.assert_called_with(
+            self.root, 'mock', run_script='test'
         )
 
-    def test_from_dir(self):
+    def test_read_dir(self):
         """Test service reading.
         """
         mock_svc_dir = os.path.join(self.root, 'my_svc')
@@ -60,14 +61,15 @@ class ServiceTest(unittest.TestCase):
         with open(os.path.join(mock_svc_dir, 'env', 'FOO'), 'a') as f:
             f.write('bar\n')
 
-        mock_svc = services.Service.from_dir(mock_svc_dir)
+        mock_svc = _service_base.Service.read_dir(mock_svc_dir,
+                                                  s6.create_service)
 
         self.assertIsNotNone(mock_svc)
         self.assertEqual(
             mock_svc.directory,
             os.path.join(self.root, 'my_svc')
         )
-        self.assertEqual(mock_svc.type, services.ServiceType.LongRun)
+        self.assertEqual(mock_svc.type, _service_base.ServiceType.LongRun)
         self.assertEqual(mock_svc.run_script, 'mock run script')
         self.assertEqual(mock_svc.default_down, True)
         self.assertEqual(mock_svc.notification_fd, 42)

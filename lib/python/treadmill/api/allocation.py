@@ -3,7 +3,6 @@ from __future__ import absolute_import
 
 from collections import defaultdict
 import logging
-import importlib
 import ldap3
 
 from treadmill import admin
@@ -12,6 +11,7 @@ from treadmill import context
 from treadmill import exc
 from treadmill import schema
 from treadmill import utils
+from treadmill import plugin_manager
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -95,17 +95,22 @@ def _check_capacity(cell, allocation, rsrc):
             __name__, 'Not enough disk capacity in partition.')
 
 
+def _api_plugins(initialized):
+    """Return api  plugins."""
+    if initialized is not None:
+        return initialized
+
+    plugins_ns = 'treadmill.api.allocation.plugins'
+    return [
+        plugin_manager.load(plugins_ns, name)
+        for name in context.GLOBAL.get('api.allocation.plugins', [])
+    ]
+
+
 class API(object):
     """Treadmill Allocation REST api."""
 
     def __init__(self):
-
-        allocation_plugin = None
-        try:
-            allocation_plugin = importlib.import_module(
-                'treadmill.plugins.api.allocation')
-        except ImportError as err:
-            _LOGGER.info('Unable to load allocation plugin: %s', err)
 
         def _admin_alloc():
             """Lazily return admin allocation object."""
@@ -159,11 +164,21 @@ class API(object):
 
             def __init__(self):
 
+                self.plugins = None
+
                 @schema.schema({'$ref': 'reservation.json#/resource_id'})
                 def get(rsrc_id):
                     """Get reservation configuration."""
                     allocation, cell = rsrc_id.rsplit('/', 1)
-                    return _admin_cell_alloc().get([cell, allocation])
+                    inst = _admin_cell_alloc().get([cell, allocation])
+                    if inst is None:
+                        return inst
+
+                    self.plugins = _api_plugins(self.plugins)
+                    for plugin in self.plugins:
+                        inst = plugin.remove_attributes(inst)
+
+                    return inst
 
                 @schema.schema(
                     {'$ref': 'reservation.json#/resource_id'},
@@ -176,9 +191,11 @@ class API(object):
                     _check_capacity(cell, allocation, rsrc)
                     if 'rank' not in rsrc:
                         rsrc['rank'] = _DEFAULT_RANK
-                    if allocation_plugin:
-                        rsrc = allocation_plugin.add_rank_adjustment(rsrc_id,
-                                                                     rsrc)
+
+                    self.plugins = _api_plugins(self.plugins)
+                    for plugin in self.plugins:
+                        rsrc = plugin.add_attributes(rsrc_id, rsrc)
+
                     _admin_cell_alloc().create([cell, allocation], rsrc)
                     return _admin_cell_alloc().get([cell, allocation])
 

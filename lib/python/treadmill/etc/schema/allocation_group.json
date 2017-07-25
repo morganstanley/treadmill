@@ -1,0 +1,31 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "resource_id": {
+        "type": "string"
+    },
+    "resource": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+            "eonid": {
+                "$ref": "common.json#/system_id"
+            },
+            "environment": {
+                "$ref": "common.json#/environment"
+            },
+            "admins": {
+                "type": "array",
+                "items": { "$ref": "common.json#/user" },
+                "minItems": 0
+            }
+        }
+    },
+    "verbs": {
+        "create": {
+            "required": [ "environment", "eonid" ]
+        },
+        "update": {
+            "required": [ "admins" ]
+        }
+    }
+}

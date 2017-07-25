@@ -24,12 +24,6 @@ __path__ = pkgutil.extend_path(__path__, __name__)
 
 _LOGGER = logging.getLogger(__name__)
 
-_REST_APIS = plugin_manager.extensions('treadmill.rest.api')
-
-_APIS = plugin_manager.extensions('treadmill.api')
-
-_ERROR_HANDLERS = plugin_manager.extensions('treadmill.rest.error_handlers')
-
 
 def init(apis, title=None, cors_origin=None, authz_arg=None):
     """Module initialization."""
@@ -43,7 +37,8 @@ def init(apis, title=None, cors_origin=None, authz_arg=None):
     error_handlers.register(api)
 
     # load up any external error_handlers
-    _ERROR_HANDLERS().map(lambda ext: ext.plugin.init(api))
+    for module in plugin_manager.load_all('treadmill.rest.error_handlers'):
+        module.init(api)
 
     @blueprint.route('/docs/', endpoint='docs')
     def _swagger_ui():
@@ -96,8 +91,10 @@ def init(apis, title=None, cors_origin=None, authz_arg=None):
         try:
             _LOGGER.info('Loading api: %s', apiname)
 
-            api_impl = _APIS()[apiname].plugin.init(authorizer)
-            endpoint = _REST_APIS()[apiname].plugin.init(api, cors, api_impl)
+            api_impl = plugin_manager.load(
+                'treadmill.api', apiname).init(authorizer)
+            endpoint = plugin_manager.load(
+                'treadmill.rest.api', apiname).init(api, cors, api_impl)
 
             if endpoint is None:
                 endpoint = apiname.replace('_', '-').replace('.', '/')

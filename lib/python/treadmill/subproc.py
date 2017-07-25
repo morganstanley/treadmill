@@ -4,9 +4,9 @@ from __future__ import absolute_import
 import logging
 import os
 import subprocess
-import importlib
 
 import treadmill
+from treadmill import plugin_manager
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -36,7 +36,7 @@ def get_aliases(aliases_path=None):
 
     exes = {}
     for name in aliases_path.split(':'):
-        alias_mod = importlib.import_module(name)
+        alias_mod = plugin_manager.load('treadmill.bootstrap', name)
         exes.update(getattr(alias_mod, 'ALIASES'))
 
     tm = os.environ.get('TREADMILL')

@@ -1,152 +1,32 @@
-"""S6 services management.
+"""s6 services management.
 """
 
 from __future__ import absolute_import
 
 import abc
 import errno
-import logging
 import os
-import sys
+import logging
 
-import enum
 import six
 
 from treadmill import fs
-from ._utils import (
-    data_read,
-    data_write,
-    environ_dir_read,
-    environ_dir_write,
-    script_read,
-    script_write,
-    set_list_read,
-    set_list_write,
-    value_read,
-    value_write,
-)
+
+from .. import _utils
+from .. import _service_base
+
 
 _LOGGER = logging.getLogger(__name__)
 
 
-class ServiceType(enum.Enum):
-    """Types of s6 services (per s6-rc definitions).
-    """
-    LongRun = b'longrun'
-    Oneshot = b'oneshot'
-    Bundle = b'bundle'
-
-
-@six.add_metaclass(abc.ABCMeta)
-class Service(object):
-    """Abstract base class / factory of all s6 services.
-    """
-    __slots__ = (
-        '_dir',
-        '_name',
-    )
-
-    def __init__(self, directory, name):
-        self._name = name
-        self._dir = os.path.join(directory, name)
-
-    def __repr__(self):
-        return '{type}({name})'.format(
-            type=self.__class__.__name__,
-            name=self._name,
-        )
-
-    @abc.abstractproperty
-    def type(self):
-        """Type of the service.
-
-        :returns ``ServiceType``:
-            Type of the service.
-        """
-        pass
-
-    @property
-    def name(self):
-        """Name of the service.
-
-        :returns ``str``:
-            Name of the service.
-        """
-        return self._name
-
-    @property
-    def directory(self):
-        """Base filesystem directory of the service.
-
-        :returns ``str``:
-            Base directory of the service.
-        """
-        return self._dir
-
-    @abc.abstractmethod
-    def write(self):
-        """Write down the service definition.
-        """
-        fs.mkdir_safe(self._dir)
-        data_write(os.path.join(self._dir, 'type'), self.type.value)
-
-    @classmethod
-    def new(cls, svc_basedir, svc_name, svc_type, **kw_args):
-        """Factory function instantiating a new service object from parameters.
-
-        :param ``str`` svc_basedir:
-            Base directory where to create the service.
-        :param ``str`` svc_name:
-            Name of the new service.
-        :param ``ServiceType`` svc_type:
-            Type for the new service.
-        :param ``dict`` kw_args:
-            Additional argument passed to the constructor of the new service.
-        :returns ``Service``:
-            New instance of the service
-        """
-        svc_mod = sys.modules[cls.__module__]
-        svc_type = ServiceType(svc_type)
-        svc_cls = getattr(svc_mod, svc_type.name.capitalize() + cls.__name__)
-        if svc_cls is None:
-            _LOGGER.critical('No implementation for service type %r', svc_type)
-            svc_cls = cls
-
-        return svc_cls(directory=svc_basedir,
-                       name=svc_name,
-                       **kw_args)
-
-    @classmethod
-    def from_dir(cls, directory):
-        """Factory function instantiating a new service object from an existing
-        directory.
-
-        :param ``str`` directory:
-            Directory where to read the service definition from.
-        :returns ``Service``:
-            New service instance or ``None`` if parsing failed.
-        """
-        try:
-            svc_type = data_read(os.path.join(directory, 'type'))
-        except IOError as err:
-            if err.errno is errno.ENOENT:
-                return None
-            raise
-        svc_basedir = os.path.dirname(directory)
-        svc_name = os.path.basename(directory)
-        return cls.new(svc_basedir=svc_basedir,
-                       svc_name=svc_name,
-                       svc_type=svc_type)
-
-
-class BundleService(Service):
+class BundleService(_service_base.Service):
     """s6 rc bundle service.
     """
     __slots__ = (
         '_contents',
     )
 
-    _TYPE = ServiceType.Bundle
+    _TYPE = _service_base.ServiceType.Bundle
 
     def __init__(self, directory, name, contents=None):
         super(BundleService, self).__init__(directory, name)
@@ -165,7 +45,7 @@ class BundleService(Service):
         """Gets the contents of the bundle.
         """
         if self._contents is None:
-            self._contents = set_list_read(self._contents_file)
+            self._contents = _utils.set_list_read(self._contents_file)
         return self._contents
 
     def write(self):
@@ -178,11 +58,11 @@ class BundleService(Service):
         elif self._contents is not None:
             if not len(self._contents):
                 raise ValueError('Invalid Bundle: empty')
-            set_list_write(self._contents_file, self._contents)
+            _utils.set_list_write(self._contents_file, self._contents)
 
 
 @six.add_metaclass(abc.ABCMeta)
-class _AtomicService(Service):
+class _AtomicService(_service_base.Service):
     """Abstract base class for all atomic services (per s6-rc definition).
     """
     __slots__ = (
@@ -229,7 +109,7 @@ class _AtomicService(Service):
             Service environ dictionary.
         """
         if self._env is None:
-            self._env = environ_dir_read(self.env_dir)
+            self._env = _utils.environ_dir_read(self.env_dir)
         return self._env
 
     @environ.setter
@@ -248,7 +128,7 @@ class _AtomicService(Service):
             Service dependencies set.
         """
         if self._dependencies is None:
-            self._dependencies = set_list_read(self._dependencies_file)
+            self._dependencies = _utils.set_list_read(self._dependencies_file)
         return self._dependencies
 
     @dependencies.setter
@@ -263,7 +143,7 @@ class _AtomicService(Service):
             Amount of milliseconds to wait. 0 means infinitely.
         """
         if self._timeout_up is None:
-            self._timeout_up = value_read(
+            self._timeout_up = _utils.value_read(
                 os.path.join(self._dir, 'timeout-up'),
                 default=0
             )
@@ -277,7 +157,7 @@ class _AtomicService(Service):
             Amount of milliseconds to wait. 0 means infinitely.
         """
         if self._timeout_down is None:
-            self._timeout_down = value_read(
+            self._timeout_down = _utils.value_read(
                 os.path.join(self._dir, 'timeout-down'),
                 default=0
             )
@@ -292,16 +172,16 @@ class _AtomicService(Service):
         fs.mkdir_safe(self.env_dir)
         fs.mkdir_safe(self.data_dir)
         if self._dependencies is not None:
-            set_list_write(self._dependencies_file, self._dependencies)
+            _utils.set_list_write(self._dependencies_file, self._dependencies)
         if self._env is not None:
-            environ_dir_write(self.env_dir, self._env)
+            _utils.environ_dir_write(self.env_dir, self._env)
         if self._timeout_up is not None:
-            value_write(
+            _utils.value_write(
                 os.path.join(self._dir, 'timeout-up'),
                 self._timeout_up
             )
         if self._timeout_down is not None:
-            value_write(
+            _utils.value_write(
                 os.path.join(self._dir, 'timeout-down'),
                 self._timeout_down
             )
@@ -323,7 +203,7 @@ class LongrunService(_AtomicService):
         '_timeout_finish',
     )
 
-    _TYPE = ServiceType.LongRun
+    _TYPE = _service_base.ServiceType.LongRun
 
     def __init__(self, directory, name,
                  run_script=None, finish_script=None, notification_fd=None,
@@ -366,7 +246,7 @@ class LongrunService(_AtomicService):
         """s6 "really up" notification fd.
         """
         if self._notification_fd is None:
-            self._notification_fd = value_read(
+            self._notification_fd = _utils.value_read(
                 os.path.join(self._dir, 'notification-fd'),
                 default=-1
             )
@@ -403,7 +283,7 @@ class LongrunService(_AtomicService):
         """Service run script.
         """
         if self._run_script is None:
-            self._run_script = script_read(self._run_file)
+            self._run_script = _utils.script_read(self._run_file)
         return self._run_script
 
     @run_script.setter
@@ -416,7 +296,7 @@ class LongrunService(_AtomicService):
         """
         if self._finish_script is None:
             try:
-                self._finish_script = script_read(self._finish_file)
+                self._finish_script = _utils.script_read(self._finish_file)
             except IOError as err:
                 if err.errno is not errno.ENOENT:
                     raise
@@ -432,7 +312,7 @@ class LongrunService(_AtomicService):
         """
         if self._log_run_script is None:
             try:
-                self._log_run_script = script_read(self._log_run_file)
+                self._log_run_script = _utils.script_read(self._log_run_file)
             except IOError as err:
                 if err.errno is not errno.ENOENT:
                     raise
@@ -450,13 +330,19 @@ class LongrunService(_AtomicService):
         :returns ``int``:
             Amount of milliseconds to wait. 0 means infinitely. Default 5000.
         """
-        # XXX: FIXME
         if self._timeout_finish is None:
-            self._timeout_finish = value_read(
+            self._timeout_finish = _utils.value_read(
                 os.path.join(self._dir, 'timeout-finish'),
                 default=5000
             )
         return self._timeout_finish
+
+    @timeout_finish.setter
+    def timeout_finish(self, timeout_finish):
+        """Service finish script timeout.
+        """
+        if self._timeout_finish is not None:
+            self._timeout_finish = int(timeout_finish, 10)
 
     @property
     def _pipeline_name_file(self):
@@ -467,7 +353,7 @@ class LongrunService(_AtomicService):
         """Gets the name of the pipeline.
         """
         if self._pipeline_name is None:
-            self._pipeline_name = data_read(self._pipeline_name_file)
+            self._pipeline_name = _utils.data_read(self._pipeline_name_file)
         return self._pipeline_name
 
     @pipeline_name.setter
@@ -483,7 +369,7 @@ class LongrunService(_AtomicService):
         """Gets which services this service is a producer for.
         """
         if self._producer_for is None:
-            self._producer_for = data_read(self._producer_for_file)
+            self._producer_for = _utils.data_read(self._producer_for_file)
         return self._producer_for
 
     @producer_for.setter
@@ -501,7 +387,7 @@ class LongrunService(_AtomicService):
         """Gets which services this service is a consumer for.
         """
         if self._consumer_for is None:
-            self._consumer_for = data_read(self._consumer_for_file)
+            self._consumer_for = _utils.data_read(self._consumer_for_file)
         return self._consumer_for
 
     @consumer_for.setter
@@ -520,46 +406,46 @@ class LongrunService(_AtomicService):
         if self._run_script is None and not os.path.exists(self._run_file):
             raise ValueError('Invalid LongRun service: not run script')
         elif self._run_script is not None:
-            script_write(self._run_file, self._run_script)
+            _utils.script_write(self._run_file, self._run_script)
             # Handle the case where the run script is a generator
             if not isinstance(self._run_script, basestring):
                 self._run_script = None
         # Optional settings
         if self._finish_script is not None:
-            script_write(self._finish_file, self._finish_script)
+            _utils.script_write(self._finish_file, self._finish_script)
             # Handle the case where the finish script is a generator
             if not isinstance(self._finish_script, basestring):
                 self._finish_script = None
         if self._log_run_script is not None:
             # Create the log dir on the spot
             fs.mkdir_safe(os.path.dirname(self._log_run_file))
-            script_write(self._log_run_file, self._log_run_script)
+            _utils.script_write(self._log_run_file, self._log_run_script)
             # Handle the case where the run script is a generator
             if not isinstance(self._log_run_script, basestring):
                 self._log_run_script = None
         if self._default_down:
-            data_write(
+            _utils.data_write(
                 os.path.join(self._dir, 'down'),
                 None
             )
         else:
             fs.rm_safe(os.path.join(self._dir, 'down'))
         if self._timeout_finish is not None:
-            value_write(
+            _utils.value_write(
                 os.path.join(self._dir, 'timeout-finish'),
                 self._timeout_finish
             )
         if self._notification_fd is not None:
-            value_write(
+            _utils.value_write(
                 os.path.join(self._dir, 'notification-fd'),
                 self._notification_fd
             )
         if self._pipeline_name is not None:
-            data_write(self._pipeline_name_file, self._pipeline_name)
+            _utils.data_write(self._pipeline_name_file, self._pipeline_name)
         if self._producer_for is not None:
-            data_write(self._producer_for_file, self._producer_for)
+            _utils.data_write(self._producer_for_file, self._producer_for)
         if self._consumer_for is not None:
-            data_write(self._consumer_for_file, self._consumer_for)
+            _utils.data_write(self._consumer_for_file, self._consumer_for)
 
 
 class OneshotService(_AtomicService):
@@ -571,7 +457,7 @@ class OneshotService(_AtomicService):
     )
     # XXX timeout-up/timeout-down
 
-    _TYPE = ServiceType.Oneshot
+    _TYPE = _service_base.ServiceType.Oneshot
 
     def __init__(self, directory, name=None,
                  up_script=None, down_script=None,
@@ -602,7 +488,7 @@ class OneshotService(_AtomicService):
         """Gets the one shot service up file.
         """
         if self._up is None:
-            self._up = script_read(self._up_file)
+            self._up = _utils.script_read(self._up_file)
         return self._up
 
     @up.setter
@@ -616,7 +502,7 @@ class OneshotService(_AtomicService):
         """Gets the one-shot service down file.
         """
         if self._down is None:
-            self._down = script_read(self._down_file)
+            self._down = _utils.script_read(self._down_file)
         return self._down
 
     @down.setter
@@ -633,19 +519,46 @@ class OneshotService(_AtomicService):
         if not self._up and not os.path.exists(self._up_file):
             raise ValueError('Invalid Oneshot service: not up script')
         elif self._up is not None:
-            script_write(self._up_file, self._up)
+            _utils.script_write(self._up_file, self._up)
             if not isinstance(self._up_file, basestring):
                 self._up_file = None
         # Optional settings
         if self._down is not None:
-            script_write(self._down_file, self._down)
+            _utils.script_write(self._down_file, self._down)
             if not isinstance(self._down_file, basestring):
                 self._down_file = None
 
 
+def create_service(svc_basedir, svc_name, svc_type, **kwargs):
+    """Factory function instantiating a new service object from parameters.
+
+    :param ``str`` svc_basedir:
+        Base directory where to create the service.
+    :param ``str`` svc_name:
+        Name of the new service.
+    :param ``_service_base.ServiceType`` svc_type:
+        Type for the new service.
+    :param ``dict`` kw_args:
+        Additional argument passed to the constructor of the new service.
+    :returns ``Service``:
+        New instance of the service
+    """
+    cls = {
+        _service_base.ServiceType.Bundle: BundleService,
+        _service_base.ServiceType.LongRun: LongrunService,
+        _service_base.ServiceType.Oneshot: OneshotService,
+    }.get(svc_type, None)
+
+    if cls is None:
+        _LOGGER.critical('No implementation for service type %r', svc_type)
+        cls = LongrunService
+
+    return cls(svc_basedir, svc_name, **kwargs)
+
+
 __all__ = (
-    'Service',
     'BundleService',
     'LongrunService',
-    'OneshotService'
+    'OneshotService',
+    'create_service',
 )

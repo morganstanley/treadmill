@@ -7,6 +7,7 @@ import logging
 import click
 
 from treadmill import bootstrap
+from treadmill import context
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -17,9 +18,14 @@ def init():
 
     @click.command()
     @click.option('--run/--no-run', is_flag=True, default=False)
+    @click.option('--benchmark/--no-benchmark', is_flag=True, default=False)
     @click.pass_context
-    def node(ctx, run):
+    def node(ctx, run, benchmark):
         """Installs Treadmill node."""
+
+        ctx.obj['PARAMS']['zookeeper'] = context.GLOBAL.zk.url
+        ctx.obj['PARAMS']['ldap'] = context.GLOBAL.ldap.url
+
         params = ctx.obj['PARAMS']
         dst_dir = params['dir']
         profile = ctx.obj['PARAMS'].get('profile')
@@ -35,6 +41,10 @@ def init():
         )
 
         run_script = None
+
+        if benchmark and os.name != 'nt':
+            run_script = os.path.join(dst_dir, 'bin', 'benchmark.sh')
+
         if run:
             if os.name == 'nt':
                 run_script = os.path.join(dst_dir, 'bin', 'run.cmd')

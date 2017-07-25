@@ -4,11 +4,11 @@ from __future__ import absolute_import
 import logging
 
 import click
-import yaml
 
 from treadmill import cli
 from treadmill import context
 from treadmill import restclient
+from treadmill import yamlwrapper as yaml
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -129,7 +129,7 @@ def init():
                   type=(str, int), multiple=True)
     @click.argument('appname')
     @click.argument('command', nargs=-1)
-    @cli.ON_REST_EXCEPTIONS
+    @cli.handle_exceptions(restclient.CLI_REST_EXCEPTIONS)
     def run(api,
             count,
             manifest,

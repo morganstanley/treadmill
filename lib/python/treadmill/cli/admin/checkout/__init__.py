@@ -61,8 +61,6 @@ def init():
 
         runner.run(suite)
 
-    # commands.init(run)
-
     del run_tests
 
     return run

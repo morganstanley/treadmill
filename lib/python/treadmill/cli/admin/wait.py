@@ -6,13 +6,13 @@ import sys
 import logging
 
 import click
-import yaml
 
 from treadmill import cli
 from treadmill import context
 from treadmill import exc
 from treadmill import utils
 from treadmill import zknamespace as z
+from treadmill import yamlwrapper as yaml
 
 from treadmill.apptrace import (events, zk)
 

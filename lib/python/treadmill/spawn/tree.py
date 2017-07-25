@@ -66,18 +66,21 @@ class Tree(object):
                 os.path.join(app, 'run'),
                 'svscan.run',
                 max=self.max_per_bucket,
-                service_dir=running
+                service_dir=running,
+                **subproc.get_aliases()
             )
 
             utils.create_script(
                 os.path.join(log, 'run'),
-                'logger.run'
+                'logger.run',
+                **subproc.get_aliases()
             )
 
             utils.create_script(
                 os.path.join(svscan, 'finish'),
                 'svscan.finish',
-                timeout=4800
+                timeout=4800,
+                **subproc.get_aliases()
             )
 
         for app_dir in os.listdir(self.paths.svscan_tree_dir):

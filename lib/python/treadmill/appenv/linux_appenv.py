@@ -11,8 +11,8 @@ from treadmill import fs
 from treadmill import iptables
 from treadmill import rulefile
 from treadmill import services
-
 from treadmill.runtime.linux.image import fs as image_fs
+
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -43,6 +43,7 @@ class LinuxAppEnvironment(appenv.AppEnvironment):
     RULES_DIR = 'rules'
 
     def __init__(self, root):
+
         super(LinuxAppEnvironment, self).__init__(root)
 
         self.svc_cgroup_dir = os.path.join(self.root, self.SVC_CGROUP_DIR)

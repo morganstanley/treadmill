@@ -5,7 +5,6 @@ from __future__ import absolute_import
 import logging
 
 from treadmill import appcfg
-from treadmill import context
 
 from treadmill.runtime import runtime_base
 
@@ -44,5 +43,4 @@ class LinuxRuntime(runtime_base.RuntimeBase):
                     terminated)
 
     def _finish(self, watchdog, terminated):
-        app_finish.finish(self.tm_env, context.GLOBAL.zk.conn,
-                          self.container_dir, watchdog)
+        app_finish.finish(self.tm_env, self.container_dir, watchdog)

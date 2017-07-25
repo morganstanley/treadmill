@@ -4,7 +4,6 @@ from __future__ import absolute_import
 
 import errno
 import glob
-import importlib
 import json
 import logging
 import os
@@ -13,8 +12,6 @@ import signal
 import socket
 import subprocess
 import tarfile
-
-import kazoo
 
 from treadmill import appevents
 from treadmill import appcfg
@@ -29,8 +26,6 @@ from treadmill import services
 from treadmill import supervisor
 from treadmill import sysinfo
 from treadmill import utils
-from treadmill import zknamespace as z
-from treadmill import zkutils
 
 from treadmill.appcfg import abort as app_abort
 from treadmill.apptrace import events
@@ -41,7 +36,7 @@ _LOGGER = lc.ContainerAdapter(logging.getLogger(__name__))
 _ARCHIVE_LIMIT = utils.size_to_bytes('1G')
 
 
-def finish(tm_env, zkclient, container_dir, watchdog):
+def finish(tm_env, container_dir, watchdog):
     """Frees allocated resources and mark then as available.
     """
     with lc.LogContext(_LOGGER, os.path.basename(container_dir),
@@ -53,7 +48,7 @@ def finish(tm_env, zkclient, container_dir, watchdog):
 
         app = runtime.load_app(data_dir)
         if app is not None:
-            _cleanup(tm_env, zkclient, data_dir, app)
+            _cleanup(tm_env, data_dir, app)
         else:
             app = runtime.load_app(data_dir, appcfg.APP_JSON)
 
@@ -81,9 +76,13 @@ def finish(tm_env, zkclient, container_dir, watchdog):
             elif exitinfo is not None:
                 _post_exit_event(tm_env, app, exitinfo)
 
+            else:
+                app_abort.report_aborted(tm_env, app.name,
+                                         why=app_abort.AbortedReason.UNKNOWN)
+
         # cleanup monitor with container information
         if app:
-            apphook.cleanup(tm_env, app)
+            apphook.cleanup(tm_env, app, container_dir)
 
         # Delete the app directory (this includes the tarball, if any)
         shutil.rmtree(container_dir)
@@ -169,7 +168,7 @@ def _post_exit_event(tm_env, app, exitinfo):
     )
 
 
-def _cleanup(tm_env, zkclient, container_dir, app):
+def _cleanup(tm_env, container_dir, app):
     """Cleanup a container that actually ran.
     """
     # Too many branches.
@@ -258,19 +257,9 @@ def _cleanup(tm_env, zkclient, container_dir, app):
             raise
 
     try:
-        _archive_logs(tm_env, app.name, container_dir)
+        _archive_logs(tm_env, appcfg.app_unique_name(app), container_dir)
     except Exception:  # pylint: disable=W0703
         _LOGGER.exception('Unexpected exception storing local logs.')
-
-    # Append or create the tarball with folders outside of container
-    # Compress and send the tarball to HCP
-    try:
-        archive_filename = fs.tar(sources=container_dir,
-                                  target=archive_filename,
-                                  compression='gzip').name
-        _send_container_archive(zkclient, app, archive_filename)
-    except:  # pylint: disable=W0702
-        _LOGGER.exception("Failed to update archive")
 
 
 def _cleanup_network(tm_env, app, network_client):
@@ -413,28 +402,6 @@ def _kill_apps_by_root(approot):
             _LOGGER.critical('Cannot open %s/root', proc, exc_info=True)
 
     return procs_killed
-
-
-def _send_container_archive(zkclient, app, archive_file):
-    """This sends the archives of the container to warm storage.
-
-    It sends the archive (tarball) up to WARM storage if the archive is
-    configured for the cell.  If it is not configured or it fails for any
-    reason, it continues without exception.  This ensures that failures do not
-    cause disk to fill up."""
-
-    try:
-        # Connect to zk to get the WARM name and auth key
-        config = zkutils.with_retry(zkutils.get, zkclient, z.ARCHIVE_CONFIG)
-
-        plugin = importlib.import_module(
-            'treadmill.plugins.archive'
-        )
-        # yes, we want to call with **
-        uploader = plugin.Uploader(**config)
-        uploader(archive_file, app)
-    except kazoo.client.NoNodeError:
-        _LOGGER.error('Archive not configured in zookeeper.')
 
 
 def _copy_metrics(metrics_file, container_dir):

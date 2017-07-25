@@ -31,9 +31,13 @@ class TraceAPI(object):
             _LOGGER.info('Adding trace subscription: %s', subscription)
             return subscription
 
-        def on_event(filename, _operation, content):
+        def on_event(filename, operation, content):
             """Event handler."""
             if not filename.startswith('/trace/'):
+                return
+
+            # Ignore deletes for trace files, as they are not real events.
+            if operation == 'd':
                 return
 
             _shard, event = filename[len('/trace/'):].split('/')

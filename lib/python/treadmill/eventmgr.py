@@ -22,8 +22,6 @@ import tempfile
 import kazoo
 import kazoo.client
 
-import yaml
-
 from treadmill import appenv
 from treadmill import context
 from treadmill import exc
@@ -31,6 +29,7 @@ from treadmill import fs
 from treadmill import sysinfo
 from treadmill import zkutils
 from treadmill import zknamespace as z
+from treadmill import yamlwrapper as yaml
 
 
 _LOGGER = logging.getLogger(__name__)

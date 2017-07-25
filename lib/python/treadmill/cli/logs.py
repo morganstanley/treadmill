@@ -142,7 +142,7 @@ def init():
                   help='Websocket API url to use.',
                   metavar='URL',
                   required=False)
-    @cli.ON_REST_EXCEPTIONS
+    @cli.handle_exceptions(restclient.CLI_REST_EXCEPTIONS)
     def logs(api, app_or_svc, host, service, uniq, ws_api):
         """View application's service logs.
 

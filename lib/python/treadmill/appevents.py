@@ -7,13 +7,13 @@ import os
 import time
 
 import kazoo.client
-import yaml
 
 from treadmill import exc
 from treadmill import dirwatch
 from treadmill import sysinfo
 from treadmill import zkutils
 from treadmill import zknamespace as z
+from treadmill import yamlwrapper as yaml
 
 
 _LOGGER = logging.getLogger(__name__)

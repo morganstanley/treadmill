@@ -4,16 +4,16 @@ from __future__ import absolute_import
 import logging
 
 import click
-import yaml
 
 from .. import cli
 from treadmill import restclient
 from treadmill import context
+from treadmill import yamlwrapper as yaml
 
 
 _LOGGER = logging.getLogger(__name__)
 
-_FORMATTER = cli.make_formatter(cli.AppPrettyFormatter)
+_FORMATTER = cli.make_formatter('app')
 
 _APP_REST_PATH = '/app/'
 
@@ -66,7 +66,7 @@ def init():
     @click.option('--delete', help='Delete the app.',
                   is_flag=True, default=False)
     @click.argument('appname', required=False)
-    @cli.ON_REST_EXCEPTIONS
+    @cli.handle_exceptions(restclient.CLI_REST_EXCEPTIONS)
     def configure(api, manifest, delete, appname):
         """Configure a Treadmill app"""
         restapi = context.GLOBAL.admin_api(api)

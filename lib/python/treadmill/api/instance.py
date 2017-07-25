@@ -2,7 +2,6 @@
 from __future__ import absolute_import
 
 import fnmatch
-import importlib
 import logging
 
 from treadmill import admin
@@ -12,6 +11,7 @@ from treadmill import exc
 from treadmill import master
 from treadmill import schema
 from treadmill import utils
+from treadmill import plugin_manager
 
 from treadmill.api import app
 
@@ -36,17 +36,44 @@ def _validate(rsrc):
             'disk size should be larger than or equal to 100M')
 
 
+def _check_required_attributes(configured):
+    """Check that all required attributes are populated."""
+    if 'proid' not in configured:
+        raise exc.TreadmillError(
+            'Missing required attribute: proid')
+
+    if 'environment' not in configured:
+        raise exc.TreadmillError(
+            'Missing required attribute: environment')
+
+
+def _set_defaults(configured, rsrc_id):
+    """Set defaults."""
+    if 'identity_group' not in configured:
+        configured['identity_group'] = None
+
+    if 'affinity' not in configured:
+        configured['affinity'] = '{0}.{1}'.format(*rsrc_id.split('.'))
+
+
+def _api_plugins(initialized):
+    """Return instance plugins."""
+    if initialized is not None:
+        return initialized
+
+    plugins_ns = 'treadmill.api.instance.plugins'
+    return [
+        plugin_manager.load(plugins_ns, name)
+        for name in context.GLOBAL.get('api.instance.plugins', [])
+    ]
+
+
 class API(object):
     """Treadmill Instance REST api."""
 
     def __init__(self):
 
-        instance_plugin = None
-        try:
-            instance_plugin = importlib.import_module(
-                'treadmill.plugins.api.instance')
-        except ImportError as err:
-            _LOGGER.info('Unable to load instance plugin: %s', err)
+        self.plugins = None
 
         def _list(match=None):
             """List configured instances."""
@@ -70,10 +97,10 @@ class API(object):
                 return inst
 
             inst['_id'] = rsrc_id
-            if instance_plugin:
-                return instance_plugin.remove_attributes(inst)
-            else:
-                return inst
+            self.plugins = _api_plugins(self.plugins)
+            for plugin in self.plugins:
+                inst = plugin.remove_attributes(inst)
+            return inst
 
         @schema.schema(
             {'$ref': 'app.json#/resource_id'},
@@ -104,23 +131,12 @@ class API(object):
 
             _validate(configured)
 
-            if instance_plugin:
-                configured = instance_plugin.add_attributes(rsrc_id,
-                                                            configured)
+            self.plugins = _api_plugins(self.plugins)
+            for plugin in self.plugins:
+                configured = plugin.add_attributes(rsrc_id, configured)
 
-            if 'proid' not in configured:
-                raise exc.TreadmillError(
-                    'Missing required attribute: proid')
-
-            if 'environment' not in configured:
-                raise exc.TreadmillError(
-                    'Missing required attribute: environment')
-
-            if 'identity_group' not in configured:
-                configured['identity_group'] = None
-
-            if 'affinity' not in configured:
-                configured['affinity'] = '{0}.{1}'.format(*rsrc_id.split('.'))
+            _check_required_attributes(configured)
+            _set_defaults(configured, rsrc_id)
 
             scheduled = master.create_apps(
                 context.GLOBAL.zk.conn, rsrc_id, configured, count, created_by

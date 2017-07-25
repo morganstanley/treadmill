@@ -1,6 +1,6 @@
 """Treadmill spawn extension."""
+
 import os
-import zlib
 
 BUCKETS = 256
 MAX_PER_BUCKET = 1000

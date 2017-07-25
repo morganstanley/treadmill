@@ -5,7 +5,6 @@
 #
 
 exec {{ treadmill }}/bin/treadmill sproc \
-    --cell boyssondev \
     monitor containers \
     --approot {{ dir }} \
     -S {{ dir }}/running

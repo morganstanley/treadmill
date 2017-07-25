@@ -6,15 +6,18 @@ import glob
 import logging
 import os
 import subprocess
+import sys
 
 import click
 
 from treadmill import appenv
 from treadmill import dirwatch
 from treadmill import logcontext as lc
-from treadmill import subproc
 
 import treadmill
+
+if os.name == 'nt':
+    from treadmill.syscall import winsymlink  # pylint: disable=W0611
 
 _LOGGER = lc.ContainerAdapter(logging.getLogger(__name__))
 
@@ -59,26 +62,33 @@ def init():
                 container_dir = os.readlink(fullpath)
                 log.info('Cleanup: %s => %s', path, container_dir)
                 if os.path.exists(container_dir):
+                    if os.name == 'posix':
+                        finish_script = [
+                            os.path.join(
+                                treadmill.TREADMILL,
+                                'bin',
+                                'treadmill'
+                            ),
+                            'sproc',
+                            'finish',
+                            container_dir
+                        ]
+                    else:
+                        finish_script = [
+                            sys.executable,
+                            '-m',
+                            'treadmill',
+                            'sproc',
+                            'finish',
+                            container_dir
+                        ]
 
-                    treadmill_bin = os.path.join(
-                        treadmill.TREADMILL,
-                        'bin',
-                        'treadmill'
-                    )
+                    log.info('invoking treadmill finish: %r', finish_script)
 
                     try:
-                        log.info('invoking treadmill_bin script: %r',
-                                 treadmill_bin)
-                        subproc.check_call(
-                            [
-                                treadmill_bin,
-                                'sproc',
-                                'finish',
-                                container_dir
-                            ]
-                        )
+                        subprocess.check_call(finish_script)
                     except subprocess.CalledProcessError:
-                        log.exception('Fatal error running %r.', treadmill_bin)
+                        log.exception('Fatal error running %r.', finish_script)
                         raise
 
                 else:

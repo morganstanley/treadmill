@@ -587,6 +587,7 @@ class PartitionTest(unittest.TestCase):
             'cpu': '42%',
             'disk': '100G',
             'down-threshold': 42,
+            'systems': [],
         }
 
         ldap_entry = {

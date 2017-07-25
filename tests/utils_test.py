@@ -17,9 +17,9 @@ import string
 import tests.treadmill_test_deps  # pylint: disable=W0611
 
 import mock
-import yaml
 
 from treadmill import utils
+from treadmill import yamlwrapper as yaml
 
 
 class UtilsTest(unittest.TestCase):
@@ -317,7 +317,6 @@ class UtilsTest(unittest.TestCase):
 
     def test_to_yaml(self):
         """Tests conversion of dict to yaml representation."""
-
         obj = {
             'xxx': unichr(40960) + u'abcd' + unichr(1972)
         }

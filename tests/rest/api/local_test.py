@@ -16,13 +16,13 @@ import tests.treadmill_test_deps
 import flask
 import flask_restplus as restplus
 import mock
-import yaml
 
 import treadmill
 from treadmill import webutils
 from treadmill.exc import FileNotFoundError
 from treadmill.rest import error_handlers
 from treadmill.rest.api import local
+from treadmill import yamlwrapper as yaml
 
 LOG_CONTENT = range(1, 10)
 
@@ -86,7 +86,7 @@ class LocalTest(unittest.TestCase):
         )
 
         self.assertEqual(''.join(resp.response),
-                         '{"start": 0, "limit": null, "order": "asc"}')
+                         '{"start": 0, "limit": -1, "order": "asc"}')
         self.assertEqual(resp.status_code, httplib.OK)
 
         resp = self.client.get(

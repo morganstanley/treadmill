@@ -7,6 +7,7 @@ import logging
 import click
 
 from treadmill import bootstrap
+from treadmill import context
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -23,6 +24,8 @@ def init():
     def zookeeper(ctx, run, master_id):
         """Installs Treadmill master."""
 
+        ctx.obj['PARAMS']['zookeeper'] = context.GLOBAL.zk.url
+        ctx.obj['PARAMS']['ldap'] = context.GLOBAL.ldap.url
         ctx.obj['PARAMS']['master_id'] = master_id
         dst_dir = ctx.obj['PARAMS']['dir']
         profile = ctx.obj['PARAMS'].get('profile')

@@ -5,12 +5,13 @@ import errno
 import logging
 import os
 import time
-import yaml
 
 from treadmill import cgroups
 from treadmill import cgutils
 from treadmill import fs
 from treadmill import psmem
+from treadmill import yamlwrapper as yaml
+
 
 NANOSECS_PER_10MILLI = 10000000
 

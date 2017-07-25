@@ -3,9 +3,9 @@ from __future__ import absolute_import
 
 import logging
 import os
-import yaml
 
 from treadmill.spawn import utils as spawn_utils
+from treadmill import yamlwrapper as yaml
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -59,3 +59,6 @@ class Instance(object):
 
         self.settings.update(docs[0])
         self.manifest = docs[1]
+
+        if self.manifest is None:
+            self.manifest = {}

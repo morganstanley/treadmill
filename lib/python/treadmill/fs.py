@@ -6,6 +6,7 @@ import errno
 import glob
 import logging
 import os
+import re
 import stat
 import subprocess
 import tarfile
@@ -18,6 +19,8 @@ from treadmill import subproc
 
 
 _LOGGER = logging.getLogger(__name__)
+
+_UUID_RE = re.compile(r'.*UUID="(.*?)".*')
 
 
 def rm_safe(path):
@@ -129,6 +132,12 @@ def create_excl(filename, size=0, mode=(stat.S_IRUSR | stat.S_IWUSR)):
 
 ###############################################################################
 # mount
+
+@osnoop.windows
+def umount_filesystem(target_dir):
+    """umount filesystem on target directory."""
+    subproc.check_call(['umount', '-n', '-f', target_dir])
+
 
 @osnoop.windows
 def mount_filesystem(block_dev, target_dir):
@@ -410,6 +419,17 @@ def read_filesystem_info(block_dev):
         res[key.lower()] = val.strip()
 
     return res
+
+
+@osnoop.windows
+def device_uuid(block_dev):
+    """Get device uuid"""
+    output = subproc.check_output(['blkid', block_dev])
+    match_obj = _UUID_RE.match(output)
+    if match_obj is None:
+        raise ValueError('Invalid device: %s' % block_dev)
+    else:
+        return match_obj.group(1)
 
 
 @osnoop.windows

@@ -15,6 +15,7 @@ from treadmill import checkout
 from treadmill import context
 from treadmill import cli
 from treadmill import restclient
+from treadmill import utils
 from treadmill.websocket import client as ws_client
 
 
@@ -44,6 +45,9 @@ def run_unix(host, port, ssh, command):
     if not host or not port:
         return -2
 
+    if not utils.which(ssh):
+        cli.bad_exit('{} cannot be found in the PATH'.format(ssh))
+
     ssh = [ssh,
            '-o', 'UserKnownHostsFile=/dev/null',
            '-o', 'StrictHostKeyChecking=no',
@@ -60,6 +64,10 @@ def run_putty(host, port, sshcmd, command):
 
     # Trick putty into storing ssh key automatically.
     plink = os.path.join(os.path.dirname(sshcmd), 'plink.exe')
+
+    if not utils.which(plink):
+        cli.bad_exit('{} cannot be found in the PATH'.format(plink))
+
     store_key_cmd = [plink, '-P', port,
                      '%s@%s' % (os.environ['USERNAME'], host), 'exit']
 
@@ -87,6 +95,9 @@ def run_putty(host, port, sshcmd, command):
         if not devnull:
             devnull['fd'] = os.open(os.devnull, os.O_RDWR)
         return devnull['fd']
+
+    if not utils.which(sshcmd):
+        cli.bad_exit('{} cannot be found in the PATH'.format(sshcmd))
 
     _LOGGER.debug('Starting ssh: %s', ssh)
     try:

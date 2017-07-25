@@ -11,7 +11,6 @@ except ImportError:
     pass
 
 import click
-import requests
 
 # pylint complains about imports from treadmill not grouped, but import
 # dependencies need to come first.
@@ -54,20 +53,20 @@ from treadmill import cli
               callback=cli.handle_context_opt,
               is_eager=True,
               expose_value=False)
+@click.option('--profile', required=False,
+              envvar='TREADMILL_PROFILE',
+              callback=cli.handle_context_opt,
+              is_eager=True,
+              expose_value=False)
 @click.option('--outfmt', type=click.Choice(['json', 'yaml']))
 @click.option('--debug/--no-debug',
               help='Sets logging level to debug',
               is_flag=True, default=False)
-@click.option('--with-proxy', required=False, is_flag=True,
-              help='Enable proxy environment variables.',
-              default=False)
 @click.pass_context
-def run(ctx, with_proxy, outfmt, debug):
+def run(ctx, outfmt, debug):
     """Treadmill CLI."""
     ctx.obj = {}
     ctx.obj['logging.debug'] = False
-
-    requests.Session().trust_env = with_proxy
 
     if outfmt:
         cli.OUTPUT_FORMAT = outfmt

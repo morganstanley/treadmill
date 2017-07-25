@@ -17,7 +17,7 @@ from treadmill import restclient
 _LOGGER = logging.getLogger(__name__)
 
 _EXCEPTIONS = []
-_EXCEPTIONS.extend(cli.REST_EXCEPTIONS)
+_EXCEPTIONS.extend(restclient.CLI_REST_EXCEPTIONS)
 
 _ON_EXCEPTIONS = cli.handle_exceptions(_EXCEPTIONS)
 
@@ -26,7 +26,7 @@ _REST_PATH = '/app-monitor/'
 
 def init():  # pylint: disable=R0912
     """Configures application monitor"""
-    formatter = cli.make_formatter(cli.AppMonitorPrettyFormatter)
+    formatter = cli.make_formatter('app-monitor')
     ctx = {}
 
     @click.group()

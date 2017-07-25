@@ -41,6 +41,19 @@ class LVMTest(unittest.TestCase):
         )
 
     @mock.patch('treadmill.subproc.check_call', mock.Mock())
+    def test_pvremove(self):
+        """Test LVM Physical Volume removal"""
+        lvm.pvremove('some_blockdev')
+
+        treadmill.subproc.check_call.assert_called_with(
+            [
+                'lvm', 'pvremove',
+                '--force',
+                'some_blockdev',
+            ]
+        )
+
+    @mock.patch('treadmill.subproc.check_call', mock.Mock())
     def test_vgcreate(self):
         """Test LVM Volume Group creation"""
         lvm.vgcreate('some_group', 'some_blockdev')

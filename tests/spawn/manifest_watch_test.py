@@ -43,6 +43,7 @@ class ManifestWatchTest(unittest.TestCase):
     @mock.patch('treadmill.utils.create_script', mock.Mock())
     @mock.patch('treadmill.spawn.manifest_watch.ManifestWatch._scan',
                 mock.Mock())
+    @mock.patch('treadmill.subproc.get_aliases', mock.Mock(return_value={}))
     def test_create_instance(self, mock_open):
         """Tests basic create instance functionality."""
         watch = manifest_watch.ManifestWatch('/does/not/exist', 2)

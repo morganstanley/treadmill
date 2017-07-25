@@ -24,6 +24,7 @@ SERVERS = '/servers'
 PARTITIONS = '/partitions'
 REBOOTS = '/reboots'
 SERVER_PRESENCE = '/server.presence'
+STATE_REPORTS = '/reports'
 STRATEGIES = '/strategies'
 FINISHED = '/finished'
 FINISHED_HISTORY = '/finished.history'
@@ -150,6 +151,7 @@ path.finished = _make_path_f(FINISHED)
 path.finished_history = _make_path_f(FINISHED_HISTORY)
 path.trace_history = _make_path_f(TRACE_HISTORY)
 path.trace_shard = _make_path_f(TRACE)
+path.state_report = _make_path_f(STATE_REPORTS)
 
 # Special methods
 path.endpoint = _path_endpoint

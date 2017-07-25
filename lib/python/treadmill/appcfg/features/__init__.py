@@ -2,25 +2,21 @@
 
 import pkgutil
 
-from stevedore import extension
-
 from treadmill import utils
 from treadmill import plugin_manager
 
 
 __path__ = pkgutil.extend_path(__path__, __name__)
 
-_PLUGINS = plugin_manager.extensions('treadmill.features')
-
 
 def list_all_features():
     """Lists all feature names."""
-    return _PLUGINS().names()
+    return plugin_manager.names('treadmill.features')
 
 
 def feature_exists(feature):
     """Tests if the feature exists."""
-    return feature in _PLUGINS()
+    return feature in plugin_manager.names('treadmill.features')
 
 
 def get_feature(feature):
@@ -28,4 +24,4 @@ def get_feature(feature):
     if not feature_exists(feature):
         return None
 
-    return _PLUGINS()[feature].plugin()
+    return plugin_manager.load('treadmill.features', feature)

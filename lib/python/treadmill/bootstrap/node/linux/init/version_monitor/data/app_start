@@ -7,4 +7,4 @@
 # This service needs host tickets
 
 exec {{ treadmill }}/bin/treadmill sproc --cgroup . \
-    version_monitor -- {{ dir }}/bin/reset.sh
+    version-monitor -- {{ dir }}/bin/reset.sh

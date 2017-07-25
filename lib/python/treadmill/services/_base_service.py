@@ -19,16 +19,16 @@ import tempfile
 import time
 
 import six
-import yaml
 
-from .. import exc
-from .. import fs
-from .. import logcontext as lc
-from .. import dirwatch
-from .. import utils
-from .. import watchdog
+from treadmill import exc
+from treadmill import fs
+from treadmill import logcontext as lc
+from treadmill import dirwatch
+from treadmill import utils
+from treadmill import watchdog
 
-from ..syscall import eventfd
+from treadmill.syscall import eventfd
+from treadmill import yamlwrapper as yaml
 
 
 _LOGGER = lc.ContainerAdapter(logging.getLogger(__name__))

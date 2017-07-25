@@ -62,6 +62,7 @@ _TREADMILL_ATTR_OID_PREFIX = '1.3.6.1.4.1.360.10.6.1.'
 _TREADMILL_OBJCLS_OID_PREFIX = '1.3.6.1.4.1.360.10.6.2.'
 
 DEFAULT_PARTITION = '_default'
+DEFAULT_TENANT = '_default'
 
 
 def _entry_2_dict(entry, schema):
@@ -1250,6 +1251,7 @@ class Cell(LdapObject):
         ('version', 'version', str),
         ('root', 'root', str),
         ('data', 'data', dict),
+        ('status', 'status', str),
     ]
 
     _oc = 'tmCell'
@@ -1554,6 +1556,7 @@ class Partition(LdapObject):
         ('cpu', 'cpu', str),
         ('disk', 'disk', str),
         ('memory', 'memory', str),
+        ('system', 'systems', [int]),
         ('down-threshold', 'down-threshold', int)
     ]
 

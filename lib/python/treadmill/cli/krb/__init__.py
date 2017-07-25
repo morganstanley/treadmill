@@ -6,7 +6,6 @@ import os
 import pkgutil
 import tempfile
 import traceback
-import yaml
 
 import click
 import dns.exception  # pylint: disable=E0611
@@ -18,6 +17,7 @@ import treadmill
 from treadmill import restclient
 from treadmill import cli
 from treadmill import context
+from treadmill import yamlwrapper as yaml
 
 
 __path__ = pkgutil.extend_path(__path__, __name__)

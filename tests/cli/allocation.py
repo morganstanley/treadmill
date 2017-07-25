@@ -2,7 +2,6 @@
 Unit test for treadmill.cli.allocation
 """
 
-import importlib
 import unittest
 
 # Disable W0611: Unused import
@@ -13,6 +12,7 @@ import click.testing
 import mock
 
 import treadmill
+from treadmill import plugin_manager
 
 
 class AllocationTest(unittest.TestCase):
@@ -21,8 +21,8 @@ class AllocationTest(unittest.TestCase):
     def setUp(self):
         """Setup common test variables"""
         self.runner = click.testing.CliRunner()
-        self.alloc_cli = importlib.import_module(
-            'treadmill.cli.allocation').init()
+        self.alloc_cli = plugin_manager.load('treadmill.cli',
+                                             'allocation').init()
 
     @mock.patch('treadmill.restclient.delete',
                 mock.Mock(return_value=mock.MagicMock()))

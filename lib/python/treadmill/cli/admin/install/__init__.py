@@ -4,13 +4,13 @@ from __future__ import absolute_import
 import os
 import pkgutil
 import sys
-import yaml
 
 import click
 
 import treadmill
 from treadmill import cli
 from treadmill import context
+from treadmill import yamlwrapper as yaml
 
 
 __path__ = pkgutil.extend_path(__path__, __name__)
@@ -38,14 +38,11 @@ def init():
 
         if cell:
             context.GLOBAL.cell = cell
-            context.GLOBAL.resolve(cell)
 
         ctx.obj['PARAMS'] = {
             'cell': cell,
-            'zookeeper': context.GLOBAL.zk.url,
-            'ldap': context.GLOBAL.ldap.url,
             'dns_domain': context.GLOBAL.dns_domain,
-            'ldap_suffix': context.GLOBAL.ldap.ldap_suffix,
+            'ldap_suffix': context.GLOBAL.ldap_suffix,
             'treadmill': treadmill.TREADMILL,
             'dir': install_dir,
             'profile': profile,

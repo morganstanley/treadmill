@@ -1,4 +1,6 @@
-"""Implementation of treadmill admin ldap CLI plugin."""
+"""Implementation of treadmill admin ldap CLI plugin.
+"""
+
 from __future__ import absolute_import
 
 import json
@@ -6,12 +8,12 @@ import logging
 
 import click
 import ldap3
-import yaml
 import pkg_resources
 
 from treadmill import admin
 from treadmill import cli
 from treadmill import context
+from treadmill import yamlwrapper as yaml
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -19,7 +21,7 @@ _LOGGER = logging.getLogger(__name__)
 
 def server_group(parent):
     """Configures server CLI group"""
-    formatter = cli.make_formatter(cli.ServerPrettyFormatter)
+    formatter = cli.make_formatter('server')
 
     @parent.group()
     def server():
@@ -93,7 +95,7 @@ def server_group(parent):
 
 def dns_group(parent):  # pylint: disable=R0912
     """Configures Critical DNS CLI group"""
-    formatter = cli.make_formatter(cli.DNSPrettyFormatter)
+    formatter = cli.make_formatter('dns')
 
     _default_nameservers = ['localhost']
 
@@ -168,7 +170,7 @@ def dns_group(parent):  # pylint: disable=R0912
 
 def app_groups_group(parent):  # pylint: disable=R0912
     """Configures App Groups"""
-    formatter = cli.make_formatter(cli.AppGroupPrettyFormatter)
+    formatter = cli.make_formatter('appgroup')
 
     @parent.group(name='app-group')
     def app_group():  # pylint: disable=W0621
@@ -274,7 +276,7 @@ def app_group(parent):
     # Disable too many branches.
     #
     # pylint: disable=R0912
-    formatter = cli.make_formatter(cli.AppPrettyFormatter)
+    formatter = cli.make_formatter('app')
 
     @parent.group()
     def app():
@@ -328,7 +330,7 @@ def app_group(parent):
 def schema_group(parent):
     """Schema CLI group"""
 
-    formatter = cli.make_formatter(cli.LdapSchemaPrettyFormatter)
+    formatter = cli.make_formatter('ldap-schema')
 
     @parent.command()
     @click.option('-u', '--update', help='Refresh LDAP schema.', is_flag=True,
@@ -435,7 +437,7 @@ def cell_group(parent):
     # Disable too many branches warning.
     #
     # pylint: disable=R0912
-    formatter = cli.make_formatter(cli.CellPrettyFormatter)
+    formatter = cli.make_formatter('cell')
 
     @parent.group()
     @cli.admin.ON_EXCEPTIONS
@@ -453,12 +455,13 @@ def cell_group(parent):
     @click.option('--ssq-namespace', help='SSQ namespace.')
     @click.option('-d', '--data', help='Cell specific data in YAML',
                   type=click.Path(exists=True, readable=True))
+    @click.option('--status', help='Cell status')
     @click.option('-m', '--manifest', help='Load cell from manifest file.',
                   type=click.Path(exists=True, readable=True))
     @click.argument('cell')
     @cli.admin.ON_EXCEPTIONS
     def configure(cell, version, root, location, username, archive_server,
-                  archive_username, ssq_namespace, data, manifest):
+                  archive_username, ssq_namespace, data, status, manifest):
         """Create, get or modify cell configuration"""
         admin_cell = admin.Cell(context.GLOBAL.ldap.conn)
         attrs = {}
@@ -482,6 +485,8 @@ def cell_group(parent):
             attrs['archive-username'] = archive_username
         if ssq_namespace:
             attrs['ssq-namespace'] = ssq_namespace
+        if status:
+            attrs['status'] = status
         if data:
             with open(data, 'rb') as fd:
                 attrs['data'] = yaml.load(fd.read())
@@ -600,7 +605,7 @@ def cell_group(parent):
 
 def ldap_tenant_group(parent):
     """Configures tenant CLI group"""
-    formatter = cli.make_formatter(cli.TenantPrettyFormatter)
+    formatter = cli.make_formatter('tenant')
 
     @parent.group()
     def tenant():
@@ -661,7 +666,7 @@ def ldap_allocations_group(parent):
     # "too many branches" pylint warning.
     #
     # pylint: disable=R0912
-    formatter = cli.make_formatter(cli.AllocationPrettyFormatter)
+    formatter = cli.make_formatter('allocation')
 
     @parent.group()
     def allocation():
@@ -802,7 +807,7 @@ def ldap_allocations_group(parent):
 
 def partition_group(parent):
     """Configures Partition CLI group"""
-    formatter = cli.make_formatter(cli.PartitionPrettyFormatter)
+    formatter = cli.make_formatter('partition')
 
     @parent.group()
     @click.option('--cell', required=True,
@@ -820,10 +825,11 @@ def partition_group(parent):
                   callback=cli.validate_cpu)
     @click.option('-d', '--disk', help='Disk.',
                   callback=cli.validate_disk)
+    @click.option('-s', '--systems', help='System eon id list', type=cli.LIST)
     @click.option('-t', '--down-threshold', help='Down threshold.')
-    @click.argument('label')
+    @click.argument('partition')
     @cli.admin.ON_EXCEPTIONS
-    def configure(memory, cpu, disk, down_threshold, label):
+    def configure(memory, cpu, disk, systems, down_threshold, partition):
         """Create, get or modify partition configuration"""
         cell = context.GLOBAL.cell
         admin_part = admin.Partition(context.GLOBAL.ldap.conn)
@@ -835,19 +841,24 @@ def partition_group(parent):
             attrs['cpu'] = cpu
         if disk:
             attrs['disk'] = disk
+        if systems:
+            if systems == ['-']:
+                attrs['systems'] = None
+            else:
+                attrs['systems'] = map(int, systems)
         if down_threshold:
             attrs['down-threshold'] = down_threshold
 
         if attrs:
             try:
-                admin_part.create([label, cell], attrs)
+                admin_part.create([partition, cell], attrs)
             except ldap3.LDAPEntryAlreadyExistsResult:
-                admin_part.update([label, cell], attrs)
+                admin_part.update([partition, cell], attrs)
 
         try:
-            cli.out(formatter(admin_part.get([label, cell])))
+            cli.out(formatter(admin_part.get([partition, cell])))
         except ldap3.LDAPNoSuchObjectResult:
-            click.echo('Partition does not exist: %s' % label, err=True)
+            click.echo('Partition does not exist: %s' % partition, err=True)
 
     @partition.command(name='list')
     @cli.admin.ON_EXCEPTIONS

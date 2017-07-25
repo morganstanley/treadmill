@@ -296,6 +296,8 @@ class MasterTest(mockzk.MockZookeeperTestCase):
                       {'expires': 500, 'identity': None}, acl=mock.ANY),
         ])
 
+        treadmill.zkutils.ensure_deleted.reset_mock()
+        treadmill.zkutils.put.reset_mock()
         srv_1.state = scheduler.State.down
         self.master.reschedule()
 
@@ -305,7 +307,7 @@ class MasterTest(mockzk.MockZookeeperTestCase):
         treadmill.zkutils.put.assert_has_calls([
             mock.call(mock.ANY, '/placement/3/app1',
                       {'expires': 500, 'identity': None}, acl=mock.ANY),
-            mock.call(mock.ANY, '/placement', mock.ANY),
+            mock.call(mock.ANY, '/placement', mock.ANY, acl=mock.ANY),
         ])
 
     @mock.patch('kazoo.client.KazooClient.get', mock.Mock())
@@ -909,7 +911,7 @@ class MasterTest(mockzk.MockZookeeperTestCase):
         self.master.load_servers()
         self.master.load_apps()
         self.master.load_placement_data()
-        self.master.load_schedule()
+        self.master.init_schedule()
 
         # Valid until is rounded to the end of day - reboot time + 21
         self.assertEqual(
@@ -1001,6 +1003,97 @@ class MasterTest(mockzk.MockZookeeperTestCase):
             makepath=True, acl=mock.ANY, sequence=True, ephemeral=False
         )
 
+    @mock.patch('kazoo.client.KazooClient.get', mock.Mock())
+    @mock.patch('kazoo.client.KazooClient.exists', mock.Mock())
+    @mock.patch('kazoo.client.KazooClient.get_children', mock.Mock())
+    @mock.patch('treadmill.zkutils.ensure_exists', mock.Mock())
+    @mock.patch('treadmill.zkutils.ensure_deleted', mock.Mock())
+    @mock.patch('treadmill.zkutils.put', mock.Mock())
+    @mock.patch('time.time', mock.Mock())
+    def test_readonly_master(self):
+        """Tests the ZK operations of a readonly master."""
+        zk_content = {
+            'server.presence': {
+                'test1.xx.com': {},
+                'test2.xx.com': {},
+            },
+            'cell': {
+                'pod:pod1': {},
+            },
+            'buckets': {
+                'pod:pod1': {
+                    'traits': None,
+                },
+                'rack:1234': {
+                    'traits': None,
+                    'parent': 'pod:pod1',
+                },
+            },
+            'identity-groups': {},
+            'servers': {
+                'test1.xx.com': {
+                    'memory': '16G',
+                    'disk': '128G',
+                    'cpu': '400%',
+                    'parent': 'rack:1234',
+                    'up_since': 100,
+                },
+                'test2.xx.com': {
+                    'memory': '16G',
+                    'disk': '128G',
+                    'cpu': '400%',
+                    'parent': 'rack:1234',
+                    'up_since': 200,
+                },
+            },
+            # Comments indicate zkutils functions that would get called
+            # for each entity if the master weren't in readonly mode
+            'placement': {  # ensure_exists and put on each placement
+                'test1.xx.com': {
+                    '.data': """
+                        state: up
+                        since: 100
+                    """,
+                    'xxx.app1#1234': '',  # on two servers: ensure_deleted
+                    'xxx.app2#2345': '',  # not scheduled: ensure_deleted
+                },
+                'test2.xx.com': {
+                    '.data': """
+                        state: up
+                        since: 100
+                    """,
+                    'xxx.app1#1234': '',  # on two servers: ensure_deleted
+                }
+            },
+            'scheduled': {
+                'xxx.app1#1234': {
+                    'affinity': 'app1',
+                    'memory': '1G',
+                    'disk': '1G',
+                    'cpu': '100%',
+                },
+                'xxx.app3#6789': {  # gets scheduled by init_schedule: put
+                    'affinity': 'app3',
+                    'memory': '1G',
+                    'disk': '1G',
+                    'cpu': '100%',
+                },
+            }
+        }
+
+        time.time.return_value = 500
+        self.make_mock_zk(zk_content)
+        ro_master = master.Master(
+            kazoo.client.KazooClient(),
+            'test-cell',
+            readonly=True
+        )
+        ro_master.load_model()
+        ro_master.init_schedule()
+
+        self.assertFalse(treadmill.zkutils.ensure_deleted.called)
+        self.assertFalse(treadmill.zkutils.ensure_exists.called)
+        self.assertFalse(treadmill.zkutils.put.called)
 
 if __name__ == '__main__':
     unittest.main()

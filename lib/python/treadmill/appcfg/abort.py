@@ -62,10 +62,13 @@ def flag_aborted(container_dir, why=None, payload=None):
     Called when aborting in failed run step.
     Consumed by cleanup script.
     """
+    if payload is not None:
+        payload = str(payload)
+
     with open(os.path.join(container_dir, 'aborted'), 'w+') as f:
         json.dump({
             'why': _why_str(why),
-            'payload': str(payload)
+            'payload': payload
         }, f)
 
 
@@ -74,11 +77,14 @@ def report_aborted(tm_env, instance, why=None, payload=None):
 
     Called when aborting after failed configure step or from cleanup.
     """
+    if payload is not None:
+        payload = str(payload)
+
     appevents.post(
         tm_env.app_events_dir,
         events.AbortedTraceEvent(
-            why=_why_str(why),
             instanceid=instance,
-            payload=str(payload)
+            why=_why_str(why),
+            payload=payload
         )
     )

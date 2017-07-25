@@ -8,16 +8,13 @@ import decorator
 import click
 
 import jsonschema
-import yaml
 
 from treadmill import authz as authz_mod
 from treadmill import cli
 from treadmill import context
 from treadmill import plugin_manager
 from treadmill import userutil
-
-
-_APIS = plugin_manager.extensions('treadmill.api')
+from treadmill import yamlwrapper as yaml
 
 
 class Context(object):
@@ -105,7 +102,7 @@ def make_resource_group(ctx, parent, resource_type, api=None):
     """Make click group for a resource type."""
 
     if api is None:
-        mod = _APIS()[resource_type].plugin
+        mod = plugin_manager.load('treadmill.api', resource_type)
         if not mod:
             return
 
@@ -153,10 +150,10 @@ def init():
         else:
             ctx.authorizer = authz_mod.NullAuthorizer()
 
-        if cli.OUTPUT_FORMAT == 'pretty':
+        if cli.OUTPUT_FORMAT is None:
             raise click.BadParameter('must use --outfmt [json|yaml]')
 
-    for resource in sorted(_APIS().names()):
+    for resource in sorted(plugin_manager.names('treadmill.api')):
         # TODO: for now, catch the ContextError as endpoint.py and state.py are
         # calling context.GLOBAL.zk.conn, which fails, as cell is not set yet
         try:

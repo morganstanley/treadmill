@@ -5,13 +5,11 @@ import logging
 
 import six
 
-import stevedore
-
 from treadmill import plugin_manager
 
 _LOGGER = logging.getLogger(__name__)
 
-_PLUGINS = plugin_manager.extensions('treadmill.apphooks')
+_PLUGINS_NS = 'treadmill.apphooks'
 
 
 @six.add_metaclass(abc.ABCMeta)
@@ -36,46 +34,32 @@ class AppHookPluginBase(object):
         pass
 
     @abc.abstractmethod
-    def configure(self, app):
+    def configure(self, app, container_dir):
         """Configures the hook in plugin."""
         pass
 
     @abc.abstractmethod
-    def cleanup(self, app):
+    def cleanup(self, app, container_dir):
         """cleanup the hook in plugin."""
         pass
 
 
 def init(tm_env):
     """Inits all plugins."""
-    for hook_name in _PLUGINS().names():
-        try:
-            _LOGGER.info('Initializing plugin %r.', hook_name)
-            _PLUGINS()[hook_name].plugin(tm_env).init()
-        except stevedore.exception.NoMatches:
-            _LOGGER.info('There are no app hook plugins for %r.', hook_name)
+    for hook in plugin_manager.load_all(_PLUGINS_NS):
+        _LOGGER.info('Initializing plugin %r.', hook)
+        hook(tm_env).init()
 
 
-def _configure(ext, app):
-    _LOGGER.info('Configuring plugin %r', ext.entry_point_target)
-    ext.obj.configure(app)
-
-
-def configure(tm_env, app):
+def configure(tm_env, app, container_dir):
     """Configures all plugins."""
-    try:
-        for hook_name in _PLUGINS().names():
-            _LOGGER.info('Configuring plugin %r', hook_name)
-            _PLUGINS()[hook_name].plugin(tm_env).configure(app)
-    except stevedore.exception.NoMatches:
-        _LOGGER.info('There are no app hook plugins for %r.', hook_name)
+    for hook in plugin_manager.load_all(_PLUGINS_NS):
+        _LOGGER.info('Configuring plugin %r.', hook)
+        hook(tm_env).configure(app, container_dir)
 
 
-def cleanup(tm_env, app):
-    """Configures all plugins."""
-    try:
-        for hook_name in _PLUGINS().names():
-            _LOGGER.info('Cleanup plugin %r', hook_name)
-            _PLUGINS()[hook_name].plugin(tm_env).cleanup(app)
-    except stevedore.exception.NoMatches:
-        _LOGGER.info('There are no app hook plugins for %r.', hook_name)
+def cleanup(tm_env, app, container_dir):
+    """Cleanup all plugins."""
+    for hook in plugin_manager.load_all(_PLUGINS_NS):
+        _LOGGER.info('Initializing plugin %r.', hook)
+        hook(tm_env).cleanup(app, container_dir)

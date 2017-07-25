@@ -20,19 +20,19 @@ import socket
 import time
 
 import click
-import yaml
 
 # TODO: now that modules are split in two directories, pylint
 #                complaines about core module not found.
 # pylint: disable=E0611
-from .. import context
-from .. import exc
-from .. import firewall as fw
-from .. import dirwatch
-from .. import iptables
-from .. import rulefile
-from .. import utils
-from .. import watchdog
+from treadmill import context
+from treadmill import exc
+from treadmill import firewall as fw
+from treadmill import dirwatch
+from treadmill import iptables
+from treadmill import rulefile
+from treadmill import utils
+from treadmill import watchdog
+from treadmill import yamlwrapper as yaml
 
 
 # R0915: Need to refactor long function into smaller pieces.

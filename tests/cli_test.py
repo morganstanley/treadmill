@@ -1,5 +1,4 @@
-"""
-Unit test for treadmill.cli.
+"""Unit test for treadmill.cli.
 """
 
 import sys
@@ -12,6 +11,7 @@ import click
 import mock
 
 from treadmill import cli
+from treadmill.formatter import tablefmt
 
 
 def _lines(tbl):
@@ -28,8 +28,8 @@ class CliTest(unittest.TestCase):
                   ('b', None, None),
                   ('c', None, None)]
 
-        tbl = cli.make_dict_to_table(schema)
-        list_tbl = cli.make_list_to_table(schema)
+        tbl = tablefmt.make_dict_to_table(schema)
+        list_tbl = tablefmt.make_list_to_table(schema)
 
         self.assertEqual(
             _lines(tbl({'a': 1, 'b': 2, 'c': [1, 2, 3]})),
@@ -82,8 +82,11 @@ class CliTest(unittest.TestCase):
         sys.exit.assert_called_with(1)
 
     def test_combine(self):
-        """Test combining lists."""
+        """Test combining lists.
+        """
+        self.assertEqual(['a', 'b', 'c'], cli.combine(['a', 'b,c']))
         self.assertEqual(None, cli.combine(['-']))
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -9,17 +9,12 @@ import sqlite3
 import tempfile
 import fnmatch
 
-import yaml
-try:
-    from yaml import CLoader as Loader
-except ImportError:
-    from yaml import Loader
-
 from treadmill import context
 from treadmill import schema
 from treadmill import exc
 from treadmill import zknamespace as z
 from treadmill import zkutils
+from treadmill import yamlwrapper as yaml
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -106,7 +101,8 @@ def watch_finished_history(zkclient, cell_state):
     @zkclient.ChildrenWatch(z.FINISHED_HISTORY)
     def _watch_finished_snapshots(snapshots):
         """Watch /finished.history nodes."""
-        for db_node in set(snapshots) - loaded_snapshots:
+
+        for db_node in sorted(set(snapshots) - loaded_snapshots):
             _LOGGER.debug('Loading snapshot: %s', db_node)
             data, _stat = zkclient.get(z.path.finished_history(db_node))
 
@@ -119,11 +115,12 @@ def watch_finished_history(zkclient, cell_state):
                 path, data = row
                 instance = _get_instance(path)
                 if data:
-                    data = yaml.load(data, Loader=Loader)
+                    data = yaml.load(data)
                 cell_state.finished[instance] = data
             conn.close()
             os.unlink(f.name)
 
+        loaded_snapshots.update(snapshots)
         return True
 
     _LOGGER.info('Loaded finished snapshots.')

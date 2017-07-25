@@ -19,7 +19,7 @@ import treadmill.services
 import treadmill.subproc
 import treadmill.rulefile
 
-from treadmill import s6
+from treadmill import supervisor
 from treadmill import utils
 
 from treadmill.runtime.linux.image import native
@@ -153,7 +153,7 @@ class NativeImageTest(unittest.TestCase):
     @mock.patch('treadmill.fs.mkdir_safe', mock.Mock())
     @mock.patch('treadmill.fs.mount_bind', mock.Mock())
     @mock.patch('treadmill.supervisor.create_service', mock.Mock())
-    @mock.patch('treadmill.supervisor.create_services_dir', mock.Mock())
+    @mock.patch('treadmill.supervisor.create_scan_dir', mock.Mock())
     @mock.patch('treadmill.utils.create_script', mock.Mock())
     @mock.patch('treadmill.subproc.get_aliases', mock.Mock(return_value={
         'chroot': '/bin/ls', 'pid1': '/bin/ls'}))
@@ -231,8 +231,8 @@ class NativeImageTest(unittest.TestCase):
         )
         base_dir = '/some/dir'
 
-        mock_service_dir = mock.create_autospec(s6.ServiceDir)
-        treadmill.supervisor.create_services_dir.return_value =\
+        mock_service_dir = mock.create_autospec(supervisor.ScanDir)
+        treadmill.supervisor.create_scan_dir.return_value =\
             mock_service_dir
 
         native.create_supervision_tree(

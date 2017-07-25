@@ -30,9 +30,11 @@ def init():
                   required=True)
     @click.option('-m', '--masters', help='list of masters.',
                   type=cli.LIST)
+    @click.option('--first-time/--no-first-time', is_flag=True, default=False)
     @click.option('--run/--no-run', is_flag=True, default=False)
     @click.pass_context
-    def openldap(ctx, gssapi, rootpw, owner, suffix, uri, masters, run):
+    def openldap(ctx, gssapi, rootpw, owner, suffix, uri, masters,
+                 first_time, run):
         """Installs Treadmill Openldap server."""
         dst_dir = ctx.obj['PARAMS']['dir']
         profile = ctx.obj['PARAMS'].get('profile')
@@ -55,10 +57,13 @@ def init():
         else:
             ctx.obj['PARAMS']['masters'] = []
 
+        if first_time:
+            ctx.obj['PARAMS']['first_time'] = first_time
+
         if suffix:
             ctx.obj['PARAMS']['suffix'] = suffix
         else:
-            ctx.obj['PARAMS']['suffix'] = context.GLOBAL.ldap.ldap_suffix
+            ctx.obj['PARAMS']['suffix'] = context.GLOBAL.ldap_suffix
 
         bootstrap.install(
             'openldap',

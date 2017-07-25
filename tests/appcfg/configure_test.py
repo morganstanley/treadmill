@@ -1,7 +1,7 @@
-"""
-Unit test for treadmill.appcfg.configure
+"""Unit test for treadmill.appcfg.configure
 """
 
+import __builtin__
 import os
 import shutil
 import tempfile
@@ -44,14 +44,16 @@ class AppCfgConfigureTest(unittest.TestCase):
         if self.root and os.path.isdir(self.root):
             shutil.rmtree(self.root)
 
+    @mock.patch('__builtin__.open', mock.MagicMock(auto_spec=True))
     @mock.patch('pwd.getpwnam', mock.Mock(auto_spec=True))
     @mock.patch('shutil.copyfile', mock.Mock(auto_spec=True))
-    @mock.patch('treadmill.utils.rootdir',
-                mock.Mock(return_value='/treadmill'))
     @mock.patch('treadmill.appcfg.manifest.load', auto_spec=True)
     @mock.patch('treadmill.appevents.post', mock.Mock(auto_spec=True))
     @mock.patch('treadmill.subproc.get_aliases', mock.Mock(return_value={}))
-    def test_configure(self, mock_load):
+    @mock.patch('treadmill.supervisor.create_service', auto_spec=True)
+    @mock.patch('treadmill.utils.rootdir',
+                mock.Mock(return_value='/treadmill'))
+    def test_configure(self, mock_create_svc, mock_load):
         """Tests that appcfg.configure creates necessary s6 layout."""
         manifest = {
             'proid': 'foo',
@@ -82,28 +84,28 @@ class AppCfgConfigureTest(unittest.TestCase):
         mock_load.return_value = manifest
         app_unique_name = 'proid.myapp-0-00000000AAAAA'
         app_dir = os.path.join(self.root, 'apps', app_unique_name)
+        mock_create_svc.return_value.data_dir = os.path.join(app_dir, 'data')
 
         app_cfg.configure(self.tm_env, '/some/event', 'linux')
 
         mock_load.assert_called_with(self.tm_env, '/some/event', 'linux')
+        mock_create_svc.assert_called_with(
+            self.tm_env.apps_dir,
+            name=app_unique_name,
+            app_run_script=mock.ANY,
+            downed=True,
+            monitor_policy={'limit': 0, 'interval': 60},
+            userid='root',
+            environ={},
+            environment='dev'
+        )
+        __builtin__.open.assert_has_call(
+            mock.call(os.path.join(app_dir, 'data', 'app.json'), 'w')
+        )
+
         shutil.copyfile.assert_called_with(
             '/some/event',
             os.path.join(app_dir, 'data', 'manifest.yml')
-        )
-        self.assertTrue(
-            os.path.exists(
-                os.path.join(app_dir, 'run')
-            )
-        )
-        self.assertTrue(
-            os.path.exists(
-                os.path.join(app_dir, 'finish')
-            )
-        )
-        self.assertTrue(
-            os.path.exists(
-                os.path.join(app_dir, 'log', 'run')
-            )
         )
 
         treadmill.appevents.post.assert_called_with(

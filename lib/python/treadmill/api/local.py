@@ -6,6 +6,7 @@ import errno
 import glob
 import logging
 import os
+import re
 import tarfile
 import thread
 
@@ -85,7 +86,7 @@ def _fragment(iterable, start=0, limit=None):
     # TODO: Naive implementation. Needs to be rewritten to a solution with
     # file pointer moving around etc. if it turns out that this isn't
     # performant enough.
-    if limit is not None:
+    if limit >= 0:
         try:
             fragment = collections.deque(maxlen=limit)
             steps_to_make = start + limit
@@ -127,7 +128,7 @@ def _fragment_in_reverse(iterable, start=0, limit=None):
     # file pointer moving around etc. if it turns out that this isn't
     # performant enough.
     maxlen = None
-    if limit is not None:
+    if limit >= 0:
         maxlen = start + limit
 
     fragment = collections.deque(iterable, maxlen)
@@ -149,6 +150,29 @@ def mk_metrics_api(tm_env):
     class _MetricsAPI(object):
         """Acess to the locally gathered metrics."""
 
+        def __init__(self):
+
+            def _get(rsrc_id, timeframe, as_json=False):
+                """Return the rrd metrics."""
+                with lc.LogContext(_LOGGER, rsrc_id):
+                    _LOGGER.info('Get metrics')
+                    id_ = self._unpack_id(rsrc_id)
+                    file_ = self._get_rrd_file(**id_)
+
+                    if as_json:
+                        return rrdutils.get_json_metrics(file_, timeframe)
+
+                    return file_
+
+            def _file_path(rsrc_id):
+                """Return the rrd metrics file path."""
+                id_ = self._unpack_id(rsrc_id)
+
+                return self._metrics_fpath(**id_)
+
+            self.file_path = _file_path
+            self.get = _get
+
         def _remove_ext(self, fname, extension='.rrd'):
             """Returns the basename of a file and removes the extension as well.
             """
@@ -156,18 +180,6 @@ def mk_metrics_api(tm_env):
             res = res[:-len(extension)]
 
             return res
-
-        def get(self, rsrc_id, timeframe, as_json=False):
-            """Return the rrd metrics."""
-            with lc.LogContext(_LOGGER, rsrc_id):
-                _LOGGER.info('Get metrics')
-                id_ = self._unpack_id(rsrc_id)
-                file_ = self._get_rrd_file(**id_)
-
-                if as_json:
-                    return rrdutils.get_json_metrics(file_, timeframe)
-
-                return file_
 
         def _unpack_id(self, rsrc_id):
             """Decompose resource_id to a dictionary.
@@ -192,7 +204,7 @@ def mk_metrics_api(tm_env):
             if uniq == 'running':
                 arch_extract = False
                 # find out uniq ...
-                state_json = os.path.join(tm_env().running_dir, app,
+                state_json = os.path.join(tm_env().running_dir, app, 'data',
                                           'state.json')
                 with open(state_json) as f:
                     uniq = json.load(f)['uniqueid']
@@ -206,9 +218,7 @@ def mk_metrics_api(tm_env):
             return _get_file(
                 self._metrics_fpath(app=app, uniq=uniq),
                 arch_extract=arch_extract,
-                arch_fname=os.path.join(tm_env().archives_dir,
-                                        '%s-%s.sys.tar.gz' %
-                                        (app.replace('#', '-'), uniq)),
+                arch_fname=_archive_path(tm_env(), 'sys', app, uniq),
                 arch_extract_fname='metrics.rrd')
 
         def _core_rrd_file(self, service):
@@ -226,12 +236,6 @@ def mk_metrics_api(tm_env):
             return os.path.join(tm_env().metrics_dir, 'apps',
                                 '%s-%s.rrd' % (app.replace('#', '-'), uniq))
 
-        def file_path(self, rsrc_id):
-            """Return the rrd metrics file path."""
-            id_ = self._unpack_id(rsrc_id)
-
-            return self._metrics_fpath(**id_)
-
     return _MetricsAPI
 
 
@@ -241,16 +245,78 @@ def mk_logapi(tm_env):
     class _LogAPI(object):
         """Access to log files."""
 
+        def __init__(self):
+
+            def _get(log_id, start=0, limit=None, order=None):
+                """Get log file."""
+                instance, uniq, logtype, component = log_id.split('/')
+                with lc.LogContext(_LOGGER, '{}/{}'.format(instance, uniq)):
+                    log_f = self._get_logfile(instance, uniq,
+                                              logtype, component)
+
+                    _LOGGER.info('Requested {} items starting from line {} '
+                                 'in {} order'.format(limit, start, order))
+
+                    if start is not None and start < 0:
+                        raise exc.InvalidInputError(
+                            __name__,
+                            'Index cannot be less than 0, got: {}'.format(
+                                start
+                            )
+                        )
+
+                    with open(log_f) as log:
+                        if order == 'desc':
+                            return _fragment_in_reverse(log, start, limit)
+
+                        return _fragment(log, start, limit)
+
+            self.get = _get
+
         def _get_logfile(self, instance, uniq, logtype, component):
             """Return the corresponding log file."""
             _LOGGER.info('Log: %s %s %s %s',
                          instance, uniq, logtype, component)
+            try:
+                return self._get_logfile_new(instance, uniq, logtype,
+                                             component)
+            except exc.FileNotFoundError:
+                return self._get_logfile_old(instance, uniq, logtype,
+                                             component)
+
+        def _get_logfile_new(self, instance, uniq, logtype, component):
+            """Return the log file according to the newer file layout."""
+
             if logtype == 'sys':
-                logfile = os.path.join('data', 'sys', component, 'data',
+                logfile = os.path.join('sys', component, 'data',
                                        'log', 'current')
             else:
-                logfile = os.path.join('data', 'services', component, 'data',
+                logfile = os.path.join('services', component, 'data',
                                        'log', 'current')
+
+            if uniq == 'running':
+                fname = os.path.join(tm_env().running_dir, instance, 'data',
+                                     logfile)
+            else:
+                fname = os.path.join(
+                    _app_path(tm_env(), instance, uniq), 'data', logfile)
+
+            _LOGGER.info('Logfile: %s', fname)
+
+            return _get_file(fname,
+                             arch_fname=_archive_path(tm_env(), logtype,
+                                                      instance, uniq),
+                             arch_extract=bool(uniq != 'running'),
+                             arch_extract_fname=logfile)
+
+        def _get_logfile_old(self, instance, uniq, logtype, component):
+            """Return the log file according to the old file layout."""
+            # TODO: method should be deleted once the old containers disappear
+
+            if logtype == 'sys':
+                logfile = os.path.join('sys', component, 'log', 'current')
+            else:
+                logfile = os.path.join('services', component, 'log', 'current')
 
             if uniq == 'running':
                 fname = os.path.join(tm_env().running_dir, instance, logfile)
@@ -259,34 +325,12 @@ def mk_logapi(tm_env):
                     _app_path(tm_env(), instance, uniq), logfile)
 
             _LOGGER.info('Logfile: %s', fname)
+
             return _get_file(fname,
                              arch_fname=_archive_path(tm_env(), logtype,
                                                       instance, uniq),
                              arch_extract=bool(uniq != 'running'),
                              arch_extract_fname=logfile)
-
-        def get(self, log_id, start=0, limit=None, order=None):
-            """Get log file."""
-            instance, uniq, logtype, component = log_id.split('/')
-            if not limit:
-                limit = 'all'
-
-            with lc.LogContext(_LOGGER, '{}/{}'.format(instance, uniq)):
-                log_f = self._get_logfile(instance, uniq, logtype, component)
-
-                _LOGGER.info('Requested {} items starting from line {} '
-                             'in {} order'.format(limit, start, order))
-
-                if start is not None and start < 0:
-                    raise exc.InvalidInputError(
-                        __name__,
-                        'Index cannot be less than 0, got: {}'.format(start))
-
-                with open(log_f) as log:
-                    if order == 'desc':
-                        return _fragment_in_reverse(log, start, limit)
-
-                    return _fragment(log, start, limit)
 
     return _LogAPI
 
@@ -334,7 +378,16 @@ class API(object):
             """List all finished instances."""
             result = {}
             archive_glob = os.path.join(tm_env().archives_dir, '*.sys.tar.gz')
-            for archive in glob.glob(archive_glob):
+            pattern = re.compile(r'''.*/        # archives dir
+                                     \w+        # proid
+                                     \.         # .
+                                     \w+        # app
+                                     -\d+       # id
+                                     -\w+       # uniq
+                                     .sys.tar.gz''', re.X)
+
+            for archive in [f for f in glob.glob(archive_glob)
+                            if pattern.match(f)]:
                 try:
                     full_name = os.path.basename(archive)[:-len('.sys.tar.gz')]
                     name, instance, uniq = full_name.rsplit('-', 2)
@@ -385,11 +438,11 @@ class API(object):
             """Get instance info."""
             instance, uniq = uniqid.split('/')
             if uniq == 'running':
-                fname = os.path.join(tm_env().running_dir, instance,
+                fname = os.path.join(tm_env().running_dir, instance, 'data',
                                      'state.json')
             else:
                 fname = os.path.join(
-                    _app_path(tm_env(), instance, uniq), 'state.json')
+                    _app_path(tm_env(), instance, uniq), 'data', 'state.json')
 
             try:
                 with open(fname) as f:
@@ -409,9 +462,9 @@ class API(object):
             def __init__(self):
 
                 def _get(archive_id):
-                    """Get log file."""
-                    instance, uniq, logtype = archive_id.split('/')
-                    arch_path = _archive_path(tm_env(), logtype, instance,
+                    """Get arch file path."""
+                    instance, uniq, arch_type = archive_id.split('/')
+                    arch_path = _archive_path(tm_env(), arch_type, instance,
                                               uniq)
                     if not os.path.exists(arch_path):
                         raise exc.FileNotFoundError(
@@ -423,9 +476,9 @@ class API(object):
 
         self.list = _list
         self.get = _get
-        self.log = mk_logapi(tm_env)
+        self.log = mk_logapi(tm_env)()
         self.archive = _ArchiveAPI()
-        self.metrics = mk_metrics_api(tm_env)
+        self.metrics = mk_metrics_api(tm_env)()
 
 
 def init(_authorizer):

@@ -5,6 +5,7 @@ from __future__ import absolute_import
 import logging
 import os
 import shutil
+import sys
 import tempfile
 
 import json
@@ -44,7 +45,7 @@ def configure(tm_env, event, runtime):
                 - run
 
     The 'run' script is responsible for creating container environment
-     and starting the container.
+    and starting the container.
 
     The 'finish' script is invoked when container terminates and will
     deallocate any resources (NAT rules, etc) that were allocated for the
@@ -65,19 +66,23 @@ def configure(tm_env, event, runtime):
     uniq_name = appcfg.app_unique_name(app)
 
     # Write the actual container start script
-    run_script = ' '.join([
-        'exec', treadmill.TREADMILL_BIN,
-        'sproc', 'run', '.'
-    ])
+    if os.name == 'nt':
+        run_script = ' '.join([
+            sys.executable, '-m', 'treadmill', 'sproc', 'run', 'data'
+        ])
+    else:
+        run_script = ' '.join([
+            'exec', treadmill.TREADMILL_BIN, 'sproc', 'run', '.'
+        ])
 
     # Create the service for that container
     container_svc = supervisor.create_service(
         tm_env.apps_dir,
         name=uniq_name,
         app_run_script=run_script,
+        userid='root',
         downed=True,
         monitor_policy={'limit': 0, 'interval': 60},
-        userid='root',
         environ={},
         environment=app.environment
     )

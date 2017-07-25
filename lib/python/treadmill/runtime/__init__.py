@@ -10,8 +10,6 @@ import tempfile
 
 import json
 
-from stevedore import driver
-
 from treadmill import exc
 from treadmill import utils
 from treadmill import plugin_manager
@@ -45,19 +43,11 @@ else:
 
 def get_runtime(runtime_name, tm_env, container_dir):
     """Gets the runtime implementation with the given name."""
-    runtime_driver = driver.DriverManager(
-        namespace=_RUNTIME_NAMESPACE,
-        name=runtime_name,
-        invoke_on_load=True,
-        invoke_args=(tm_env, container_dir),
-        on_load_failure_callback=plugin_manager.log_extension_failure
-    )
-
-    if not runtime_driver:
-        raise Exception('Runtime {0} is not supported.',
-                        runtime_name)
-
-    return runtime_driver.driver
+    try:
+        runtime_cls = plugin_manager.load(_RUNTIME_NAMESPACE, runtime_name)
+        return runtime_cls(tm_env, container_dir)
+    except KeyError:
+        _LOGGER.error('Runtime not supported: %s', runtime_name)
 
 
 def load_app(container_dir, app_json=STATE_JSON):

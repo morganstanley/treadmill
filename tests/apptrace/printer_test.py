@@ -1,9 +1,8 @@
-"""
-Unit test for Treadmill apptrace printer module.
+"""Unit test for Treadmill apptrace printer module.
 """
 
 import unittest
-import StringIO
+import io
 
 
 # Disable W0611: Unused import
@@ -22,7 +21,7 @@ class AppTracePrinterTest(unittest.TestCase):
     def setUp(self):
         self.trace_printer = printer.AppTracePrinter()
 
-    @mock.patch('sys.stdout', new_callable=StringIO.StringIO)
+    @mock.patch('sys.stdout', new_callable=io.StringIO)
     def test_scheduled(self, stdout_mock):
         """Test printing Scheduled event.
         """
@@ -43,7 +42,7 @@ class AppTracePrinterTest(unittest.TestCase):
             'proid.foo#123 scheduled on here: because\n'
         )
 
-    @mock.patch('sys.stdout', new_callable=StringIO.StringIO)
+    @mock.patch('sys.stdout', new_callable=io.StringIO)
     def test_pending(self, stdout_mock):
         """Test printing Pending event.
         """
@@ -63,7 +62,7 @@ class AppTracePrinterTest(unittest.TestCase):
             'proid.foo#123 pending: created\n'
         )
 
-    @mock.patch('sys.stdout', new_callable=StringIO.StringIO)
+    @mock.patch('sys.stdout', new_callable=io.StringIO)
     def test_pending_delete(self, stdout_mock):
         """Test printing PendingDelete event.
         """
@@ -83,7 +82,7 @@ class AppTracePrinterTest(unittest.TestCase):
             'proid.foo#123 pending delete: deleted\n'
         )
 
-    @mock.patch('sys.stdout', new_callable=StringIO.StringIO)
+    @mock.patch('sys.stdout', new_callable=io.StringIO)
     def test_configured(self, stdout_mock):
         """Test printing Configured event.
         """
@@ -103,7 +102,7 @@ class AppTracePrinterTest(unittest.TestCase):
             'proid.foo#123/AAAA configured on tests\n'
         )
 
-    @mock.patch('sys.stdout', new_callable=StringIO.StringIO)
+    @mock.patch('sys.stdout', new_callable=io.StringIO)
     def test_deleted(self, stdout_mock):
         """Test printing Deleted event.
         """
@@ -122,7 +121,7 @@ class AppTracePrinterTest(unittest.TestCase):
             'proid.foo#123 deleted\n'
         )
 
-    @mock.patch('sys.stdout', new_callable=StringIO.StringIO)
+    @mock.patch('sys.stdout', new_callable=io.StringIO)
     def test_finished(self, stdout_mock):
         """Test printing Finished event.
         """
@@ -143,7 +142,7 @@ class AppTracePrinterTest(unittest.TestCase):
             'proid.foo#123 finished on tests\n'
         )
 
-    @mock.patch('sys.stdout', new_callable=StringIO.StringIO)
+    @mock.patch('sys.stdout', new_callable=io.StringIO)
     def test_aborted(self, stdout_mock):
         """Test printing Aborted event.
         """
@@ -163,7 +162,7 @@ class AppTracePrinterTest(unittest.TestCase):
             'proid.foo#123 aborted on tests [reason: unknown]\n'
         )
 
-    @mock.patch('sys.stdout', new_callable=StringIO.StringIO)
+    @mock.patch('sys.stdout', new_callable=io.StringIO)
     def test_killed(self, stdout_mock):
         """Test printing Killed event.
         """
@@ -183,7 +182,7 @@ class AppTracePrinterTest(unittest.TestCase):
             'proid.foo#123 killed, out of memory\n'
         )
 
-    @mock.patch('sys.stdout', new_callable=StringIO.StringIO)
+    @mock.patch('sys.stdout', new_callable=io.StringIO)
     def test_service_running(self, stdout_mock):
         """Test printing ServiceRunning event.
         """
@@ -204,7 +203,7 @@ class AppTracePrinterTest(unittest.TestCase):
             'proid.foo#123/AAAA/service/web.web running\n'
         )
 
-    @mock.patch('sys.stdout', new_callable=StringIO.StringIO)
+    @mock.patch('sys.stdout', new_callable=io.StringIO)
     def test_service_exited(self, stdout_mock):
         """Test printing ServiceExited event.
         """

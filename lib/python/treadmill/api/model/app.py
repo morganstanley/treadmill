@@ -39,6 +39,11 @@ def models(api):
         'cells': fields.List(fields.String(description='Cell')),
         'rules': fields.List(fields.Nested(vring_rule)),
     })
+    affinity_limits = api.model('AffinityLimit', {
+        'pod': fields.Integer(description='Pod'),
+        'rack': fields.Integer(description='Rack'),
+        'server': fields.Integer(description='Server'),
+    })
 
     application = {
         '_id': fields.String(description='Name'),
@@ -64,6 +69,7 @@ def models(api):
         'data_retention_timeout': fields.String(
             description='Data retention timeout'),
         'lease': fields.String(description='Application lease interval.'),
+        'affinity_limits': fields.Nested(affinity_limits),
     }
 
     app_model = api.model(
