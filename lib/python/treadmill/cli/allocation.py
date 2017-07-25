@@ -26,7 +26,7 @@ def _display_tenant(restapi, tenant):
 
     tenant_obj['allocations'] = allocations_obj
 
-    tenant_formatter = cli.make_formatter(cli.TenantPrettyFormatter)
+    tenant_formatter = cli.make_formatter('tenant')
     cli.out(tenant_formatter(tenant_obj))
 
 
@@ -34,14 +34,14 @@ def _display_alloc(restapi, allocation):
     """Display allocation."""
     alloc_url = '/allocation/%s' % allocation
     allocation_obj = restclient.get(restapi, alloc_url).json()
-    alloc_formatter = cli.make_formatter(cli.AllocationPrettyFormatter)
+    alloc_formatter = cli.make_formatter('allocation')
     cli.out(alloc_formatter(allocation_obj))
 
 
 def init():
     """Return top level command handler."""
 
-    alloc_formatter = cli.make_formatter(cli.AllocationPrettyFormatter)
+    alloc_formatter = cli.make_formatter('allocation')
     ctx = {}
 
     @click.group(name='allocation')
@@ -53,7 +53,7 @@ def init():
             ctx['api'] = api
 
     @allocation_grp.command(name='list')
-    @cli.ON_REST_EXCEPTIONS
+    @cli.handle_exceptions(restclient.CLI_REST_EXCEPTIONS)
     def _list():
         """Configure allocation tenant."""
         restapi = context.GLOBAL.admin_api(ctx.get('api'))
@@ -65,7 +65,7 @@ def init():
     @click.option('-e', '--env', help='Environment')
     @click.option('-n', '--name', help='Allocation name')
     @click.argument('tenant', required=True)
-    @cli.ON_REST_EXCEPTIONS
+    @cli.handle_exceptions(restclient.CLI_REST_EXCEPTIONS)
     def configure(tenant, systems, name, env):
         """Configure allocation tenant."""
         restapi = context.GLOBAL.admin_api(ctx.get('api'))
@@ -117,7 +117,7 @@ def init():
                   metavar='G|M',
                   callback=cli.validate_disk)
     @click.argument('allocation', required=True)
-    @cli.ON_REST_EXCEPTIONS
+    @cli.handle_exceptions(restclient.CLI_REST_EXCEPTIONS)
     def reserve(allocation, cell, partition,  # pylint: disable=R0912
                 rank, rank_adjustment, max_utilization, memory, cpu, disk):
         """Reserve capacity on the cell."""
@@ -177,7 +177,7 @@ def init():
     @click.option('--delete', help='Delete assignment.',
                   is_flag=True, default=False)
     @click.argument('allocation', required=True)
-    @cli.ON_REST_EXCEPTIONS
+    @cli.handle_exceptions(restclient.CLI_REST_EXCEPTIONS)
     def assign(allocation, cell, pattern, priority, delete):
         """Assign application pattern:priority to the allocation."""
         restapi = context.GLOBAL.admin_api(ctx.get('api'))
@@ -203,7 +203,7 @@ def init():
 
     @allocation_grp.command()
     @click.argument('item', required=True)
-    @cli.ON_REST_EXCEPTIONS
+    @cli.handle_exceptions(restclient.CLI_REST_EXCEPTIONS)
     def delete(item):
         """Delete a tenant/allocation/reservation."""
         restapi = context.GLOBAL.admin_api(ctx.get('api'))

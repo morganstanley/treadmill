@@ -3,7 +3,6 @@ from __future__ import absolute_import
 
 import collections
 import datetime
-import importlib
 import logging
 import multiprocessing
 import os
@@ -22,6 +21,7 @@ from treadmill import context
 from treadmill import fs
 from treadmill import utils
 from treadmill import sysinfo
+from treadmill import plugin_manager
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -98,9 +98,9 @@ def _cleanup(outdir, age):
 def init():
     """Return top level command handler."""
 
-    @click.group(cls=cli.make_multi_command('treadmill.cli.admin.checkout',
-                                            chain=True,
-                                            invoke_without_command=True))
+    @click.group(cls=cli.make_commands('treadmill.cli.admin.checkout',
+                                       chain=True,
+                                       invoke_without_command=True))
     @click.option('--outdir', help='Output directory.',
                   required=True, type=click.Path(exists=True))
     @click.option('--interval', help='Interval between tests.',
@@ -111,21 +111,22 @@ def init():
     @click.option('--age',
                   help='Max report age to keep.',
                   default='1d')
-    @click.option('--plugin',
-                  help='Result processing plugin.')
+    @click.option('--processor',
+                  help='Result processing plugin.',
+                  type=cli.LIST)
     @click.option('--port', type=int,
                   help='Web server port.')
-    def run(outdir, interval, randomize, age, plugin, port):
+    def run(outdir, interval, randomize, age, processor, port):
         """Test treadmill infrastructure."""
         del outdir
         del interval
         del randomize
         del age
-        del plugin
+        del processor
         del port
 
     @run.resultcallback()
-    def run_tests(tests, outdir, interval, randomize, age, plugin, port):
+    def run_tests(tests, outdir, interval, randomize, age, processor, port):
         """Test treadmill infrastructure."""
 
         if port is not None:
@@ -133,15 +134,6 @@ def init():
 
         _LOGGER.info('Starting tests: %s', outdir)
         fs.mkdir_safe(outdir)
-
-        checkout_ext = None
-        if plugin:
-            try:
-                checkout_ext = importlib.import_module(plugin)
-            except Exception:  # pylint: disable=W0703
-                _LOGGER.exception('Checkout plugin not found.')
-
-        # time.sleep(random.randint(0, 60))
 
         while True:
 
@@ -172,21 +164,20 @@ def init():
                         title='Treadmill cell checkout',
                         description='Treamdill cell checkout tests'
                     )
-
                     result = runner.run(suite)
-                    if checkout_ext:
-                        checkout_ext.process(context.GLOBAL.cell,
-                                             report_url, result)
 
             except Exception as err:  # pylint: disable=W0703
                 _LOGGER.exception('Unhandled exception during checkout')
+
+                result = None
                 with open(report_file, 'w+') as stream:
                     stream.write(str(err))
                     traceback.print_exc(file=stream)
 
-                    if checkout_ext:
-                        checkout_ext.process(context.GLOBAL.cell,
-                                             report_url, None)
+            for name in processor:
+                plugin_manager.load(
+                    'treadmill.checkout.processors', name
+                ).process(context.GLOBAL.cell, report_url, result)
 
             _cleanup(outdir, age)
 

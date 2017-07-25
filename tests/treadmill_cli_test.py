@@ -41,7 +41,6 @@ class TreadmillShowTest(unittest.TestCase):
         check_help(self, [])
         check_help(self, ['--cell', '-', 'pending'])
 
-    @mock.patch('treadmill.context.ZkContext._resolve', mock.Mock())
     @mock.patch('kazoo.client.KazooClient.get_children', mock.Mock())
     def test_action(self):
         """Test show actions."""
@@ -68,7 +67,6 @@ class TreadmillSchedulerTest(unittest.TestCase):
         check_help(self, ['--cell', '-', 'view', 'apps'])
         check_help(self, ['--cell', '-', 'view', 'queue'])
 
-    @mock.patch('treadmill.context.ZkContext._resolve', mock.Mock())
     @mock.patch('kazoo.client.KazooClient.get_children', mock.Mock())
     def test_action(self):
         """Test scheduler commands."""

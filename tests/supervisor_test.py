@@ -31,8 +31,7 @@ class SupervisorTest(unittest.TestCase):
     def setUpClass(cls):
         aliases_path = os.environ.get('TREADMILL_ALIASES_PATH')
         if aliases_path is None:
-            os.environ['TREADMILL_ALIASES_PATH'] = (
-                'treadmill.bootstrap.aliases')
+            os.environ['TREADMILL_ALIASES_PATH'] = 'node:node.ms'
 
         os.environ['PATH'] = ':'.join(os.environ['PATH'].split(':') + [
             os.path.join(subproc.resolve('s6'), 'bin')
@@ -50,7 +49,7 @@ class SupervisorTest(unittest.TestCase):
     @mock.patch('pwd.getpwnam', mock.Mock(auto_spec=True))
     def test_create_service(self):
         """Checks various options when creating the service."""
-        svc_dir = supervisor.create_services_dir(self.root, 5000)
+        svc_dir = supervisor.create_scan_dir(self.root, 5000)
 
         supervisor.create_service(
             svc_dir,
@@ -81,7 +80,7 @@ class SupervisorTest(unittest.TestCase):
     @mock.patch('pwd.getpwnam', mock.Mock(auto_spec=True))
     def test_create_service_optional(self):
         """Checks optional components of create service."""
-        svc_dir = supervisor.create_services_dir(self.root, 5000)
+        svc_dir = supervisor.create_scan_dir(self.root, 5000)
 
         supervisor.create_service(
             svc_dir,
@@ -110,7 +109,7 @@ class SupervisorTest(unittest.TestCase):
 
     def test_create_service_bad_userid(self):
         """Tests creating a service with a bad userid."""
-        svc_dir = supervisor.create_services_dir(self.root, 5000)
+        svc_dir = supervisor.create_scan_dir(self.root, 5000)
 
         self.assertRaises(
             KeyError,

@@ -14,11 +14,11 @@ from tests.testutils import mockzk
 
 import kazoo
 import mock
-import yaml
 
 import treadmill
 from treadmill import context
 from treadmill import eventmgr
+from treadmill import yamlwrapper as yaml
 
 
 class MockEvent(object):

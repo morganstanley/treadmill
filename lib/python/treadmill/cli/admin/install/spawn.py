@@ -7,6 +7,7 @@ import logging
 import click
 
 from treadmill import bootstrap
+from treadmill import context
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -21,6 +22,9 @@ def init():
     @click.pass_context
     def spawn(ctx, treadmill_id, run):
         """Installs Treadmill spawn."""
+        ctx.obj['PARAMS']['zookeeper'] = context.GLOBAL.zk.url
+        ctx.obj['PARAMS']['ldap'] = context.GLOBAL.ldap.url
+
         dst_dir = ctx.obj['PARAMS']['dir']
         profile = ctx.obj['PARAMS'].get('profile')
 

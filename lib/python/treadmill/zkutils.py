@@ -18,11 +18,12 @@ import kazoo.client
 import kazoo.exceptions
 import kazoo.security
 from kazoo.protocol import states
-import yaml
 
 from treadmill import userutil
 from treadmill import utils
 from treadmill import sysinfo
+from treadmill import yamlwrapper as yaml
+
 
 _LOGGER = logging.getLogger(__name__)
 

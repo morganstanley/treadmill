@@ -1,6 +1,5 @@
 """Unit test for treadmill.cli.logs."""
 
-import importlib
 import unittest
 
 # Disable W0611: Unused import
@@ -11,6 +10,7 @@ import click.testing
 import mock
 
 from treadmill import restclient
+from treadmill import plugin_manager
 
 
 def _ret_event(event):
@@ -26,7 +26,7 @@ class LogsTest(unittest.TestCase):
     def setUp(self):
         """Setup common test variables"""
         self.runner = click.testing.CliRunner()
-        self.log_mod = importlib.import_module('treadmill.cli.logs')
+        self.log_mod = plugin_manager.load('treadmill.cli', 'logs')
         self.log_cli = self.log_mod.init()
 
     @mock.patch('treadmill.apptrace.events.AppTraceEvent.from_dict',

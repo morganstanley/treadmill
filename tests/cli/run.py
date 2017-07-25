@@ -2,7 +2,6 @@
 Unit test for treadmill.cli.configure
 """
 
-import importlib
 import tempfile
 import unittest
 
@@ -12,9 +11,10 @@ import tests.treadmill_test_deps  # pylint: disable=W0611
 import click
 import click.testing
 import mock
-import yaml
 
 import treadmill
+from treadmill import plugin_manager
+from treadmill import yamlwrapper as yaml
 
 
 class RunTest(unittest.TestCase):
@@ -23,7 +23,7 @@ class RunTest(unittest.TestCase):
     def setUp(self):
         """Setup common test variables"""
         self.runner = click.testing.CliRunner()
-        self.cli = importlib.import_module('treadmill.cli.run').init()
+        self.cli = plugin_manager.load('treadmill.cli', 'run').init()
 
     @mock.patch('treadmill.restclient.post',
                 mock.Mock(return_value=mock.MagicMock()))

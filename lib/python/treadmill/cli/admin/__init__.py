@@ -6,10 +6,10 @@ import os
 import pkgutil
 import tempfile
 import traceback
-import yaml
 
 import click
 import dns.exception  # pylint: disable=E0611
+import dns.resolver
 import kazoo
 import kazoo.exceptions
 import ldap3
@@ -18,6 +18,7 @@ import treadmill
 from treadmill import restclient
 from treadmill import cli
 from treadmill import context
+from treadmill import yamlwrapper as yaml
 
 
 __path__ = pkgutil.extend_path(__path__, __name__)
@@ -47,7 +48,7 @@ ON_EXCEPTIONS = cli.handle_exceptions([
     (ldap3.LDAPNoSuchObjectResult, _handle_no_such_ldap_obj),
     (kazoo.exceptions.NoAuthError, 'Error: not authorized.'),
     (kazoo.exceptions.NoNodeError, 'Error: resource does not exist.'),
-    (restclient.NotAuthorizedError, cli.handle_not_authorized),
+    (restclient.NotAuthorizedError, restclient.handle_not_authorized),
     (restclient.MaxRequestRetriesError, None),
     (dns.exception.Timeout, 'Error: DNS server timeout.'),
     (dns.resolver.NXDOMAIN, 'Error: Could not resolve DNS record.'),

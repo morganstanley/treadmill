@@ -2,6 +2,9 @@
 from __future__ import absolute_import
 
 import sys
+import errno
+import time
+import socket as sock
 
 import click
 
@@ -42,12 +45,21 @@ def init():
             rest_server = rest.TcpRestServer(port, auth_type=auth,
                                              protect=api_paths,
                                              workers=workers)
+        # TODO: need to rename that - conflicts with import socket.
         elif socket:
             rest_server = rest.UdsRestServer(socket)
         else:
             click.echo('port or socket must be specified')
             sys.exit(1)
 
-        rest_server.run()
+        try:
+            rest_server.run()
+        except sock.error as sock_err:
+            print sock_err
+            if sock_err.errno == errno.EADDRINUSE:
+                # TODO: hack, but please keep it for now, otherwise on the
+                #       setup several master processes run on same server
+                #       lookup api (listen on port 8080) is in tight loop.
+                time.sleep(5)
 
     return top

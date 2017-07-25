@@ -2,9 +2,15 @@
 
 from __future__ import absolute_import
 
+import logging
+import time
+
 from treadmill import appcfg
 
 from treadmill.runtime import runtime_base
+
+
+_LOGGER = logging.getLogger(__name__)
 
 
 class DockerRuntime(runtime_base.RuntimeBase):
@@ -21,8 +27,9 @@ class DockerRuntime(runtime_base.RuntimeBase):
 
     def _run(self, manifest, watchdog, terminated):
         # TODO: Docker
-        raise Exception("Not implemented.")
+        _LOGGER.info("starting %r", manifest)
+        time.sleep(60)
 
     def _finish(self, watchdog, terminated):
         # TODO: Docker
-        raise Exception("Not implemented.")
+        _LOGGER.info("finished")

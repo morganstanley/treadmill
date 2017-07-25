@@ -592,14 +592,19 @@ class Node(object):
             _LOGGER.info('Missing traits: %s on %s', app.traits, self.name)
             return False
 
-        if (self.affinity_counters[app.affinity.name] >=
-                app.affinity.limits[self.level]):
+        if not self.check_app_affinity_limit(app):
             return False
 
         if _any_gt(app.demand, self.free_capacity):
             return False
 
         return True
+
+    def check_app_affinity_limit(self, app):
+        """Check app affinity limits"""
+        count = self.affinity_counters[app.affinity.name]
+        limit = app.affinity.limits[self.level]
+        return count < limit
 
     def put(self, _app):
         """Abstract method, should never be called."""
@@ -913,13 +918,13 @@ class Allocation(object):
     )
 
     def __init__(self, reserved=None, rank=None, traits=None,
-                 max_utilization=None):
+                 max_utilization=None, partition=None):
         self.set_reserved(reserved)
 
         self.rank = None
         self.rank_adjustment = 0
         self.traits = 0
-        self.label = None
+        self.label = partition
         self.max_utilization = _MAX_UTILIZATION
         self.reserved = zero_capacity()
 
@@ -1087,6 +1092,7 @@ class Allocation(object):
         self.sub_allocations[name] = alloc
         assert not alloc.path
         alloc.path = self.path + [name]
+        alloc.label = self.label
 
     def remove_sub_alloc(self, name):
         """Remove chlid allocation."""
@@ -1108,10 +1114,14 @@ class Partition(object):
         'max_server_uptime',
         'max_lease',
         'threshold',
+        'label',
     )
 
-    def __init__(self, max_server_uptime=None, max_lease=None, threshold=None):
-        self.allocation = Allocation()
+    def __init__(self, max_server_uptime=None, max_lease=None, threshold=None,
+                 label=None):
+        self.label = label
+        self.allocation = Allocation(partition=label)
+
         # Default -
         if not max_server_uptime:
             max_server_uptime = DEFAULT_SERVER_UPTIME
@@ -1134,6 +1144,18 @@ class Partition(object):
                             23, 59, 59, 0, 0, 0))
 
 
+class PartitionDict(dict):
+    """Dict that creates partitions on demand.
+
+    We use this instead of collections.defaultdict so that we can provide
+    the new partition with its label, to be propagated to its allocations.
+    """
+    def __missing__(self, label):
+        """Create a new partition, passing the label to its constructor."""
+        self[label] = Partition(label=label)
+        return self[label]
+
+
 class Cell(Bucket):
     """Top level node."""
     __slots__ = (
@@ -1143,15 +1165,10 @@ class Cell(Bucket):
         'identity_groups',
     )
 
-    def __init__(self, name, labels=None):
+    def __init__(self, name):
         super(Cell, self).__init__(name, traits=0, level='cell')
 
-        if not labels:
-            labels = set()
-
-        assert isinstance(labels, set)
-        self.partitions = collections.defaultdict(Partition)
-
+        self.partitions = PartitionDict()
         self.apps = dict()
         self.identity_groups = collections.defaultdict(IdentityGroup)
         self.next_event_at = np.inf

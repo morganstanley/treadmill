@@ -4,10 +4,10 @@ from __future__ import absolute_import
 import os
 
 import click
-import yaml
 import jinja2
 
 from treadmill import cli
+from treadmill import yamlwrapper as yaml
 
 
 def init():

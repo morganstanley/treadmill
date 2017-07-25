@@ -89,13 +89,13 @@ def _create_sysrun(sys_dir, name, command, down=False):
 def create_supervision_tree(container_dir, root_dir, app):
     """Creates s6 supervision tree."""
     sys_dir = os.path.join(container_dir, 'sys')
-    sys_svcdir = supervisor.create_services_dir(
+    sys_scandir = supervisor.create_scan_dir(
         sys_dir,
         finish_timeout=6000
     )
     for svc_def in app.system_services:
         supervisor.create_service(
-            sys_svcdir,
+            sys_scandir,
             name=svc_def.name,
             app_run_script=svc_def.command,
             userid='root',
@@ -112,10 +112,10 @@ def create_supervision_tree(container_dir, root_dir, app):
                 'interval': svc_def.restart.interval,
             }
         )
-    sys_svcdir.write()
+    sys_scandir.write()
 
     services_dir = os.path.join(container_dir, 'services')
-    services_svcdir = supervisor.create_services_dir(
+    services_scandir = supervisor.create_scan_dir(
         services_dir,
         finish_timeout=5000
     )
@@ -126,7 +126,7 @@ def create_supervision_tree(container_dir, root_dir, app):
     }
     for svc_def in app.services:
         supervisor.create_service(
-            services_svcdir,
+            services_scandir,
             name=svc_def.name,
             app_run_script=svc_def.command,
             userid=svc_def.proid,
@@ -143,7 +143,7 @@ def create_supervision_tree(container_dir, root_dir, app):
                 'interval': svc_def.restart.interval,
             }
         )
-    services_svcdir.write()
+    services_scandir.write()
 
     # Bind the service directory in the container volume
     fs.mkdir_safe(os.path.join(root_dir, 'services'))

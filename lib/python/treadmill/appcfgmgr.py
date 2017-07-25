@@ -300,7 +300,7 @@ class AppCfgMgr(object):
             if self._configure(instance_name):
                 added_instances.add(instance_name)
 
-        _LOGGER.debug('End resuld: %r / %r - %r + %r',
+        _LOGGER.debug('End result: %r / %r - %r + %r',
                       cached_containers,
                       running_instances,
                       removed_instances,

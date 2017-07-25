@@ -13,11 +13,11 @@ from treadmill import context
 
 _LOGGER = logging.getLogger(__name__)
 
-_STATE_FORMATTER = cli.make_formatter(cli.InstanceStatePrettyFormatter)
+_STATE_FORMATTER = cli.make_formatter('instance-state')
 
-_ENDPOINT_FORMATTER = cli.make_formatter(cli.EndpointPrettyFormatter)
+_ENDPOINT_FORMATTER = cli.make_formatter('endpoint')
 
-_APP_FORMATTER = cli.make_formatter(cli.AppPrettyFormatter)
+_APP_FORMATTER = cli.make_formatter('app')
 
 
 def _show_state(apis, match, finished):
@@ -103,7 +103,7 @@ def init():
         ctx['api'] = api
 
     @show.command()
-    @cli.ON_REST_EXCEPTIONS
+    @cli.handle_exceptions(restclient.CLI_REST_EXCEPTIONS)
     @click.option('--match', help='Application name pattern match')
     @click.option('--finished', is_flag=True, default=False,
                   help='Show finished instances.')
@@ -113,7 +113,7 @@ def init():
         return _show_state(apis, match, finished)
 
     @show.command()
-    @cli.ON_REST_EXCEPTIONS
+    @cli.handle_exceptions(restclient.CLI_REST_EXCEPTIONS)
     @click.option('--match', help='Application name pattern match')
     def pending(match):
         """Show pending instances."""
@@ -121,7 +121,7 @@ def init():
         return _show_list(apis, match, ['pending'])
 
     @show.command()
-    @cli.ON_REST_EXCEPTIONS
+    @cli.handle_exceptions(restclient.CLI_REST_EXCEPTIONS)
     @click.option('--match', help='Application name pattern match')
     def running(match):
         """Show running instances."""
@@ -129,7 +129,7 @@ def init():
         return _show_list(apis, match, ['running'])
 
     @show.command()
-    @cli.ON_REST_EXCEPTIONS
+    @cli.handle_exceptions(restclient.CLI_REST_EXCEPTIONS)
     @click.option('--match', help='Application name pattern match')
     def finished(match):
         """Show finished instances."""
@@ -137,7 +137,7 @@ def init():
         return _show_list(apis, match, ['finished'], finished=True)
 
     @show.command()
-    @cli.ON_REST_EXCEPTIONS
+    @cli.handle_exceptions(restclient.CLI_REST_EXCEPTIONS)
     @click.option('--match', help='Application name pattern match')
     def scheduled(match):
         """Show scheduled instances."""
@@ -145,7 +145,7 @@ def init():
         return _show_list(apis, match, ['running', 'scheduled'])
 
     @show.command(name='all')
-    @cli.ON_REST_EXCEPTIONS
+    @cli.handle_exceptions(restclient.CLI_REST_EXCEPTIONS)
     @click.option('--match', help='Application name pattern match')
     def _all(match):
         """Show scheduled instances."""
@@ -153,7 +153,7 @@ def init():
         return _show_list(apis, match, ['pending', 'running', 'scheduled'])
 
     @show.command()
-    @cli.ON_REST_EXCEPTIONS
+    @cli.handle_exceptions(restclient.CLI_REST_EXCEPTIONS)
     @click.argument('pattern')
     @click.argument('endpoint', required=False)
     @click.argument('proto', required=False)
@@ -163,7 +163,7 @@ def init():
         return _show_endpoints(apis, pattern, endpoint, proto)
 
     @show.command()
-    @cli.ON_REST_EXCEPTIONS
+    @cli.handle_exceptions(restclient.CLI_REST_EXCEPTIONS)
     @click.argument('instance_id')
     def instance(instance_id):
         """Show scheduled instance manifest."""

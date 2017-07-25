@@ -33,7 +33,8 @@ def init(api, cors, impl):
                             help='The number of lines to return. '
                             '-1 (the default) means no limit ie. return all'
                             ' the lines in the file from "start".',
-                            location='args', required=False, type=int)
+                            location='args', required=False, type=int,
+                            default=-1)
     req_parser.add_argument('order',
                             choices=('asc', 'desc'), default='asc',
                             help="The order of the log lines to return. 'asc':"

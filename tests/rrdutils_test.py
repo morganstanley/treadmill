@@ -10,7 +10,6 @@ import shutil
 import sys
 import tempfile
 import unittest
-import subprocess
 
 # Disable W0611: Unused import
 import tests.treadmill_test_deps  # pylint: disable=W0611
@@ -66,29 +65,6 @@ class RrdUtilsTest(unittest.TestCase):
         subprocess_mock.assert_called_with(
             [rrdutils.RRDTOOL, 'first', 'foo.rrd', '--rraindex',
              rrdutils.TIMEFRAME_TO_RRA_IDX['long']])
-
-    @mock.patch('treadmill.rrdutils.RRDClient.command', noop)
-    def test_gen_graph(self):
-        """Smoke test to check gen_graph()"""
-        self.rrdclient.create(self.rrd_file, 15, 5)
-
-        with self.assertRaises(rrdutils.RRDToolNotFoundError):
-            rrdutils.gen_graph(self.rrd_file, 'short', 'no_such_cmd')
-
-        try:
-            # actually executing the create()
-            subprocess.check_call(CMD,
-                                  stderr=subprocess.PIPE,
-                                  stdout=subprocess.PIPE)
-
-        # if no rrdtool utility can be found then skip the rest
-        except OSError:
-            return
-
-        # generating graph wo/ being reserved resources defined
-        # FIXME: I don't understand why this fails on Train and doesn't fail
-        # if I run it locally
-        # rrdutils.gen_graph(self.rrd_file, 'short', rrdtool, self.outdir)
 
 
 if __name__ == '__main__':

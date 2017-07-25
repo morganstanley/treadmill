@@ -6,9 +6,9 @@ from __future__ import absolute_import
 
 import os
 import logging
-import yaml
 
 from treadmill import schema
+from treadmill import yamlwrapper as yaml
 
 
 _LOGGER = logging.getLogger(__name__)

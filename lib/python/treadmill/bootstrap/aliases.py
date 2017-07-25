@@ -7,6 +7,7 @@ _LINUX_ALIASES = {
     'awk': '/usr/bin/awk',
     'backtick': None,
     'basename': '/bin/basename',
+    'blkid': '/sbin/blkid',
     'brctl': '/usr/sbin/brctl',
     'cat': '/bin/cat',
     'cd': None,
@@ -34,6 +35,7 @@ _LINUX_ALIASES = {
     'import': None,
     'importas': None,
     'ionice': '/usr/bin/ionice',
+    'iozone': None,
     'ip': '/sbin/ip',
     'ipset': '/usr/sbin/ipset',
     'iptables': '/sbin/iptables',
@@ -108,6 +110,8 @@ _WINDOWS_ALIASES = {
     'winss_svscan': None,
     'winss_svscanctl': None,
     'winss_svwait': None,
+    'powershell': 'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\'
+                  'powershell.exe',
 }
 
 if os.name == 'nt':

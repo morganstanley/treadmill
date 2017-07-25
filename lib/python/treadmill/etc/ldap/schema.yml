@@ -224,6 +224,9 @@ attributeTypes:
     desc: Lease interval
     ignore_case: true
     type: str
+  status:
+    desc: Status
+    type: str
 dn: cn={1}treadmill,cn=schema,cn=config
 objectClasses:
   tmAllocation:
@@ -256,6 +259,7 @@ objectClasses:
     - cpu
     - disk
     - memory
+    - system
     - down-threshold
   tmApp:
     desc: Treadmill Application
@@ -315,6 +319,7 @@ objectClasses:
     - master-zk-followers-port
     - master-zk-election-port
     - data
+    - status
   tmServer:
     desc: Treadmill Server
     must:

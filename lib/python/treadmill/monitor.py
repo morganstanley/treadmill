@@ -1,12 +1,15 @@
-"""Supervises services."""
+"""Supervises services.
+"""
 
 from __future__ import absolute_import
 
 import abc
+import collections
 import errno
 import json
 import logging
 import os
+import subprocess
 import tempfile
 
 import enum
@@ -34,7 +37,7 @@ class Monitor(object):
     __slots__ = (
         '_dirwatcher',
         '_down_action',
-        '_down_reason',
+        '_down_reasons',
         '_policy_impl',
         '_services',
         '_services_dir',
@@ -46,17 +49,12 @@ class Monitor(object):
                  event_hook=None):
         self._dirwatcher = None
         self._down_action = down_action
-        self._down_reason = None
+        self._down_reasons = collections.deque()
         self._event_hook = event_hook
         self._policy_impl = policy_impl
         self._services = list(service_dirs)
         self._services_dir = services_dir
         self._service_policies = {}
-
-    @property
-    def down_reason(self):
-        """Gets the down reason for the monitor"""
-        return self._down_reason
 
     def _on_created(self, new_entry):
         if os.path.basename(new_entry)[0] == '.':
@@ -114,7 +112,7 @@ class Monitor(object):
         self._process(policy)
 
     def _process(self, policy):
-        """Process an event on the service directory
+        """Process an event on the service directory.
         """
         result = policy.check()
 
@@ -125,26 +123,45 @@ class Monitor(object):
         self._went_down(policy.service, reason)
 
         if result is MonitorRestartPolicyResult.FAIL:
-            self._down_reason = reason
+            self._down_reasons.append(reason)
             return
 
         else:
             self._bring_up(policy.service)
+            self._went_up(policy.service)
 
     def _went_down(self, service, data):
-        """Called when the service went down."""
+        """Called when the service went down.
+
+        :params ``supervisor.Service`` service:
+            Service that went down.
+        :params ``dict`` data:
+            Policy reason data why the service went down.
+
+        """
         _LOGGER.info('Service went down %r', service)
         if self._event_hook:
             self._event_hook.down(service, data)
 
+    def _went_up(self, service):
+        """Called when the service went up.
+
+        :params ``supervisor.Service`` service:
+            Service that went down.
+        """
+        _LOGGER.info('Service went up %r', service)
+        if self._event_hook:
+            self._event_hook.up(service)
+
     def _bring_up(self, service):
-        """Brings up the given service."""
+        """Brings up the given service.
+
+        :params ``supervisor.Service`` service:
+            Service to bring up.
+        """
         _LOGGER.info('Bringing up service %r', service)
         supervisor.control_service(service.directory,
                                    supervisor.ServiceControlAction.up)
-
-        if self._event_hook:
-            self._event_hook.up(service)
 
     def run(self):
         """Run the monitor.
@@ -170,15 +187,21 @@ class Monitor(object):
         for service_dir in service_dirs:
             self._add_service(service_dir)
 
-        while True:
-            while self._down_reason is None:
+        running = True
+        while running:
+            while not self._down_reasons:
                 if self._dirwatcher.wait_for_events():
                     self._dirwatcher.process_events()
 
-            if self._down_action.execute(self._down_reason):
-                self._down_reason = None
+            # Process all the down reasons through the down_action callback.
+            for down_reason in self._down_reasons:
+                if not self._down_action.execute(down_reason):
+                    # If one of the down_action stops the monitor, break early.
+                    running = False
+                    break
             else:
-                break
+                # Clear the down reasons now that we have processed them all.
+                self._down_reasons.clear()
 
 
 @six.add_metaclass(abc.ABCMeta)
@@ -230,7 +253,8 @@ class MonitorNodeDown(MonitorDownAction):
                     signal=data['signal']
                 )
             )
-            os.fchmod(f.fileno(), 0o644)
+            if os.name == 'posix':
+                os.fchmod(f.fileno(), 0o644)
         os.rename(
             f.name,
             os.path.join(self._watchdog_dir, 'Monitor-%s' % data['service'])
@@ -265,6 +289,14 @@ class MonitorContainerCleanup(MonitorDownAction):
                 pass
             else:
                 raise
+
+        try:
+            supervisor.control_svscan(self._running_dir, [
+                supervisor.SvscanControlAction.alarm,
+                supervisor.SvscanControlAction.nuke
+            ])
+        except subprocess.CalledProcessError as err:
+            _LOGGER.warn('Failed to nuke svscan: %r', self._running_dir)
 
         return True
 
@@ -466,8 +498,8 @@ class MonitorRestartPolicy(MonitorPolicy):
             with open(os.path.join(service.data_dir,
                                    supervisor.POLICY_JSON)) as f:
                 policy_conf = json.load(f)
-                self._policy_limit = policy_conf['limit']
-                self._policy_interval = policy_conf['interval']
+            self._policy_limit = policy_conf['limit']
+            self._policy_interval = policy_conf['interval']
 
         except IOError as err:
             if err.errno == errno.ENOENT:

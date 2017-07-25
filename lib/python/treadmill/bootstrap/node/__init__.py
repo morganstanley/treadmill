@@ -22,6 +22,7 @@ DEFAULTS = {
     'treadmill_cpu_cores': None,
     'treadmill_mem': None,
     'treadmill_core_mem': None,
+    'localdisk_benchmark_location': None,
     'localdisk_img_location': None,
     'localdisk_img_size': None,
     'localdisk_block_dev': None,

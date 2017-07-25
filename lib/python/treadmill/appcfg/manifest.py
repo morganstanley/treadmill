@@ -6,7 +6,6 @@ import logging
 import os
 
 import json
-import yaml
 import six
 
 import treadmill
@@ -15,6 +14,7 @@ from treadmill import context
 from treadmill import subproc
 from treadmill import supervisor
 from treadmill import utils
+from treadmill import yamlwrapper as yaml
 
 from treadmill.appcfg import features
 
@@ -429,7 +429,7 @@ def _add_linux_services(manifest):
 def _add_features(manifest, runtime):
     """Configure optional container features."""
     for feature in manifest.get('features', []):
-        feature_mod = features.get_feature(feature)
+        feature_mod = features.get_feature(feature)()
 
         if feature_mod is None:
             _LOGGER.error('Unable to load feature: %s', feature)

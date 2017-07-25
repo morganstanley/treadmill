@@ -2,4 +2,6 @@
 
 exec 2>&1
 
-exec {{ treadmill_spawn_run }} -d {{ id }} {{ name }}
+exec {{ treadmill_spawn_run }} -d
+     {%- if service_exit %} --service-exit {% endif %} \
+     {{ id }} {{ name }}

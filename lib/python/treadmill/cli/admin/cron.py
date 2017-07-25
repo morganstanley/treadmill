@@ -18,9 +18,10 @@ from treadmill import exc
 
 from treadmill.cron import model as cron_model
 
+
 _LOGGER = logging.getLogger(__name__)
 
-_FORMATTER = cli.make_formatter(cli.CronPrettyFormatter)
+_FORMATTER = cli.make_formatter('cron')
 
 ON_EXCEPTIONS = cli.handle_exceptions([
     (exc.InvalidInputError, None),

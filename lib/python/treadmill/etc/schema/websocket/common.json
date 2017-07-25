@@ -6,7 +6,7 @@
             "pattern": "^/[a-z\\-]+$"
         },
         "since": {
-            "type": "integer"
+            "type": "number"
         },
         "snapshot": {
             "type": "boolean"

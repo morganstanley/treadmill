@@ -2,10 +2,10 @@
 from __future__ import absolute_import
 
 import click
-import yaml
 
 from treadmill import cli
 from treadmill import restclient
+from treadmill import yamlwrapper as yaml
 
 
 def init():
@@ -29,7 +29,7 @@ def init():
 
     @top.command()
     @click.argument('path')
-    @cli.ON_REST_EXCEPTIONS
+    @cli.handle_exceptions(restclient.CLI_REST_EXCEPTIONS)
     def get(path):
         """REST GET request."""
         response = restclient.get(ctx['api'], path)
@@ -40,7 +40,7 @@ def init():
     @top.command()
     @click.argument('path')
     @click.argument('payload', type=click.Path(exists=True, readable=True))
-    @cli.ON_REST_EXCEPTIONS
+    @cli.handle_exceptions(restclient.CLI_REST_EXCEPTIONS)
     def post(path, payload):
         """REST POST request."""
         with open(payload, 'rb') as fd:
@@ -53,7 +53,7 @@ def init():
     @top.command()
     @click.argument('path')
     @click.argument('payload', type=click.Path(exists=True, readable=True))
-    @cli.ON_REST_EXCEPTIONS
+    @cli.handle_exceptions(restclient.CLI_REST_EXCEPTIONS)
     def put(path, payload):
         """REST PUT request."""
         with open(payload, 'rb') as fd:
@@ -65,7 +65,7 @@ def init():
 
     @top.command()
     @click.argument('path')
-    @cli.ON_REST_EXCEPTIONS
+    @cli.handle_exceptions(restclient.CLI_REST_EXCEPTIONS)
     def delete(path):
         """REST DELETE request."""
         response = restclient.delete(ctx['api'], path)

@@ -6,7 +6,6 @@ import os
 import shutil
 import time
 import zlib
-import sqlite3
 import tempfile
 
 import click
@@ -71,9 +70,11 @@ def _on_add_trace_event(zk2fs_sync, zkpath):
 
     # Extract timestamp.
     _name, timestamp, _rest = os.path.basename(fpath).split(',', 2)
-    utime = int(float(timestamp))
+    utime = float(timestamp)
 
-    zksync.write_data(fpath, None, utime, raise_err=False)
+    zksync.write_data(
+        fpath, None, utime, raise_err=False, tmp_dir=zk2fs_sync.tmp_dir
+    )
 
 
 def _on_del_trace_event(zk2fs_sync, zkpath):
@@ -82,55 +83,27 @@ def _on_del_trace_event(zk2fs_sync, zkpath):
     fs.rm_safe(fpath)
 
 
-def _on_add_trace_db(zk2fs_sync, zkpath, sow_dir, shard_len):
+def _on_add_trace_db(zk2fs_sync, zkpath, sow_dir, tmp_dir):
     """Called when new trace DB snapshot is added."""
     _LOGGER.info('Added trace db snapshot: %s', zkpath)
     data, _metadata = zk2fs_sync.zkclient.get(zkpath)
-    with tempfile.NamedTemporaryFile(delete=False, mode='wb') as trace_db:
+    with tempfile.NamedTemporaryFile(
+        delete=False, mode='wb', dir=tmp_dir
+    ) as trace_db:
         trace_db.write(zlib.decompress(data))
-
-    with tempfile.NamedTemporaryFile(delete=False, mode='wb') as sow_db:
-        pass
-    conn = sqlite3.connect(sow_db.name)
-    conn.executescript(
-        """
-        ATTACH DATABASE '{trace_db}' AS trace_db;
-
-        BEGIN TRANSACTION;
-            CREATE TABLE {sow_table} (
-                path text, timestamp integer, data text,
-                directory text, name text
-            );
-
-            INSERT INTO {sow_table}
-            SELECT path, timestamp, data,
-                   SUBSTR(path, 1, {shard_len}), SUBSTR(path, {shard_len} + 2)
-            FROM trace_db.trace;
-
-            CREATE INDEX name_idx on {sow_table} (name);
-            CREATE INDEX path_idx on {sow_table} (path);
-        COMMIT;
-
-        DETACH DATABASE trace_db;
-        """.format(trace_db=trace_db.name,
-                   sow_table=apptrace.TRACE_SOW_TABLE,
-                   shard_len=shard_len)
-        )
-    conn.close()
-
     db_name = os.path.basename(zkpath)
-    os.rename(sow_db.name, os.path.join(sow_dir, db_name))
-    fs.rm_safe(trace_db.name)
+    os.rename(trace_db.name, os.path.join(sow_dir, db_name))
 
     utils.touch(zk2fs_sync.fpath(zkpath))
 
 
 def _on_del_trace_db(zk2fs_sync, zkpath, sow_dir):
     """Called when trace DB snapshot is deleted."""
-    del zk2fs_sync
-
     db_path = os.path.join(sow_dir, os.path.basename(zkpath))
     fs.rm_safe(db_path)
+
+    fpath = zk2fs_sync.fpath(zkpath)
+    fs.rm_safe(fpath)
 
 
 def init():
@@ -162,7 +135,11 @@ def init():
         """Starts appcfgmgr process."""
 
         fs.mkdir_safe(root)
-        zk2fs_sync = zksync.Zk2Fs(context.GLOBAL.zk.conn, root)
+
+        tmp_dir = os.path.join(root, '.tmp')
+        fs.mkdir_safe(tmp_dir)
+
+        zk2fs_sync = zksync.Zk2Fs(context.GLOBAL.zk.conn, root, tmp_dir)
 
         if servers:
             zk2fs_sync.sync_children(z.path.server(), watch_data=False)
@@ -205,15 +182,10 @@ def init():
             _LOGGER.info('Using trace sow dir: %s', trace_sow_dir)
             fs.mkdir_safe(trace_sow_dir)
 
-            shards = z.trace_shards()
-            shard_len = len(shards[0])
-            assert all(len(shard) == shard_len for shard in shards), (
-                'All shards should be of equal length.')
-
             zk2fs_sync.sync_children(
                 z.TRACE_HISTORY,
                 on_add=lambda p: _on_add_trace_db(
-                    zk2fs_sync, p, trace_sow_dir, shard_len
+                    zk2fs_sync, p, trace_sow_dir, tmp_dir
                 ),
                 on_del=lambda p: _on_del_trace_db(
                     zk2fs_sync, p, trace_sow_dir

@@ -1,7 +1,6 @@
 """Unit test for treadmill.cli.ssh
 """
 
-import importlib
 import unittest
 
 # Disable W0611: Unused import
@@ -11,6 +10,13 @@ import click
 import click.testing
 from gevent import queue as g_queue
 import mock
+
+from treadmill import plugin_manager
+
+
+class BadExit(Exception):
+    """Test exception"""
+    pass
 
 
 # W0212: don't compain about protected member access
@@ -22,7 +28,7 @@ class SshTest(unittest.TestCase):
     def setUp(self):
         """Setup common test variables"""
         self.runner = click.testing.CliRunner()
-        self.ssh_mod = importlib.import_module('treadmill.cli.ssh')
+        self.ssh_mod = plugin_manager.load('treadmill.cli', 'ssh')
         self.ssh_cli = self.ssh_mod.init()
 
     @mock.patch('treadmill.cli.ssh.run_ssh', mock.Mock())
@@ -61,6 +67,20 @@ class SshTest(unittest.TestCase):
 
         with self.assertRaises(ValueError):
             q.task_done()
+
+    @mock.patch('treadmill.cli.bad_exit', side_effect=BadExit())
+    def test_run_unix(self, bad_exit):
+        """Test run_unix()."""
+        with self.assertRaises(BadExit):
+            self.ssh_mod.run_unix('host', 'port', 'no_such_ssh_cmd', 'cmd')
+            self.assertTrue(bad_exit.called())
+
+    @mock.patch('treadmill.cli.bad_exit', side_effect=BadExit())
+    def test_run_putty(self, bad_exit):
+        """Test run_putty()."""
+        with self.assertRaises(BadExit):
+            self.ssh_mod.run_putty('host', 'port', 'no_such_putty_cmd', 'cmd')
+            self.assertTrue(bad_exit.called())
 
 
 if __name__ == '__main__':

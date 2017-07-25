@@ -93,7 +93,7 @@ def run(tm_env, container_dir, manifest, watchdog, terminated):
 
     if not terminated:
         # hook container
-        apphook.configure(tm_env, app)
+        apphook.configure(tm_env, app, container_dir)
         subproc.exec_pid1(['s6_svscan', os.path.join(container_dir, 'sys')])
 
 

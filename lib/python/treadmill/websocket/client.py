@@ -20,7 +20,7 @@ class _RetryError(Exception):
 
     def __init__(self, since):
         Exception.__init__(self)
-        self.since = int(since)
+        self.since = since
 
 
 class ConnectionError(Exception):
@@ -32,7 +32,7 @@ def _ws_events(ws_conn, message, snapshot, since, on_message, on_error):
     # Pylint complains too many nested blocks.
     #
     # pylint: disable=R0101
-    last_timestamp = 0
+    last_timestamp = since
     subscription_msg = {'since': since,
                         'snapshot': snapshot}
     subscription_msg.update(message)
@@ -51,7 +51,7 @@ def _ws_events(ws_conn, message, snapshot, since, on_message, on_error):
                         on_error(result)
                     break
 
-                last_timestamp = result.get('when', int(time.time()))
+                last_timestamp = result.get('when', time.time())
                 if on_message:
                     if not on_message(result):
                         break

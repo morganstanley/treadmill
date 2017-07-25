@@ -9,7 +9,6 @@ import math
 
 import click
 import ldap3
-import yaml
 
 from treadmill import context
 from treadmill import exc
@@ -17,6 +16,8 @@ from treadmill import authz
 from treadmill import zkutils
 from treadmill import zknamespace as z
 from treadmill.api import instance
+from treadmill import yamlwrapper as yaml
+from treadmill import zkwatchers
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -27,6 +28,9 @@ _INTERVAL = float(60 * 60)
 
 def reevaluate(instance_api, state):
     """Evaluate state and adjust app count based on monitor"""
+    # Disable too many branches warning.
+    #
+    # pylint: disable=R0912
 
     grouped = dict(state['scheduled'])
     monitors = dict(state['monitors'])
@@ -68,6 +72,9 @@ def reevaluate(instance_api, state):
                     name, {}, count=allowed, created_by='monitor'
                 )
                 conf['available'] -= allowed
+
+            except exc.TreadmillError as tm_err:
+                _LOGGER.warn('Invalid manifest: %s, %s', name, str(tm_err))
 
             except ldap3.LDAPNoSuchObjectResult:
                 # TODO: may need to rationalize this and not expose low
@@ -132,19 +139,19 @@ def _run_sync():
         """Watch monitor."""
 
         # Establish data watch on each monitor.
-        @zkclient.DataWatch(z.path.appmonitor(name))
+        @zkwatchers.ExistingDataWatch(zkclient, z.path.appmonitor(name))
         @exc.exit_on_unhandled
-        def _monitor_data_watch(data, _stat, event):
+        def _monitor_data_watch(data, stat, event):
             """Monitor individual monitor."""
-            if (event and event.type == 'DELETED') or (data is None):
-                _LOGGER.info('Removing watch on deleted monitor: %r', name)
-                return False
+            if (event is not None and event.type == 'DELETED') or stat is None:
+                _LOGGER.info('Removing watch on deleted monitor: %s', name)
+                return
 
             try:
                 count = yaml.load(data)['count']
             except Exception:  # pylint: disable=W0703
-                _LOGGER.exception('Invalid monitor: %r', name)
-                return False
+                _LOGGER.exception('Invalid monitor: %s', name)
+                return
 
             _LOGGER.info('Reconfigure monitor: %s, count: %s', name, count)
             state['monitors'][name] = {
@@ -153,7 +160,6 @@ def _run_sync():
                 'last_update': time.time(),
                 'rate': (2.0 * count / _INTERVAL)
             }
-            return True
 
     @zkclient.ChildrenWatch(z.path.appmonitor())
     @exc.exit_on_unhandled

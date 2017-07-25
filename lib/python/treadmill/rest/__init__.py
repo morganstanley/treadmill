@@ -21,8 +21,6 @@ FLASK_APP.config['BUNDLE_ERRORS'] = True
 
 _LOGGER = logging.getLogger(__name__)
 
-_PLUGINS = plugin_manager.extensions('treadmill.rest.authorization')
-
 
 class RestServer(object):
     """REST Server."""
@@ -77,9 +75,10 @@ class TcpRestServer(RestServer):
             _LOGGER.info('Starting REST server: %s:%s, auth: %s, protect: %r',
                          self.host, self.port, self.auth_type, self.protect)
             try:
-                auth = _PLUGINS()[self.auth_type]
-                FLASK_APP.wsgi_app = auth.plugin.wrap(FLASK_APP.wsgi_app,
-                                                      self.protect)
+                auth = plugin_manager.load('treadmill.rest.authentication',
+                                           self.auth_type)
+                FLASK_APP.wsgi_app = auth.wrap(FLASK_APP.wsgi_app,
+                                               self.protect)
             except KeyError:
                 _LOGGER.error('Unsupported auth type: %s', self.auth_type)
                 raise

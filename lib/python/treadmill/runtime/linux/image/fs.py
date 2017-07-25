@@ -5,8 +5,6 @@ import logging
 
 import six
 
-import stevedore
-
 from treadmill import appcfg
 from treadmill import plugin_manager
 
@@ -49,42 +47,16 @@ class FilesystemPluginBase(object):
         pass
 
 
-def _extension_manager(tm_env, name):
-    """Gets the extension manager for image fs plugins."""
-    _LOGGER.debug('Creating an extention manager for %r.', name)
-    return plugin_manager.extensions(
-        _FS_PLUGIN_NAMESPACE.format(name),
-        invoke_on_load=True,
-        invoke_args=[tm_env]
-    )()
-
-
-def _init(ext):
-    _LOGGER.info('Initializing plugin %r.', ext.entry_point_target)
-    ext.obj.init()
-
-
 def init_plugins(tm_env):
     """Inits all plugins."""
     for app_type in appcfg.AppType:
-        try:
-            _extension_manager(tm_env, app_type.value).map(_init)
-        except stevedore.exception.NoMatches:
-            _LOGGER.info('There are no fs plugins for image %r.',
-                         app_type.value)
-
-
-def _configure(ext, container_dir, app):
-    _LOGGER.info('Configuring plugin %r for container_dir %r.',
-                 ext.entry_point_target, container_dir)
-    ext.obj.configure(container_dir, app)
+        namespace = _FS_PLUGIN_NAMESPACE.format(app_type.value)
+        for plugin in plugin_manager.load_all(namespace):
+            plugin(tm_env).init()
 
 
 def configure_plugins(tm_env, container_dir, app):
     """Configures all plugins."""
-    try:
-        _extension_manager(tm_env, app.type).map(
-            _configure, container_dir, app
-        )
-    except stevedore.exception.NoMatches:
-        _LOGGER.info('There are no fs plugins for image %r.', app.type)
+    namespace = _FS_PLUGIN_NAMESPACE.format(app.type)
+    for plugin in plugin_manager.load_all(namespace):
+        plugin(tm_env).configure(container_dir, app)

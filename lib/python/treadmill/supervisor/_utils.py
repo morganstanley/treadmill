@@ -1,4 +1,4 @@
-"""S6 management utilities.
+"""Supervision management utilities.
 """
 
 from __future__ import absolute_import
@@ -33,11 +33,12 @@ def data_write(filename, data):
     with open(filename, 'w') as f:
         if data is not None:
             f.write(data.encode(encoding='utf8', errors='replace') + '\n')
-        os.fchmod(f.fileno(), 0o644)
+        if os.name == 'posix':
+            os.fchmod(f.fileno(), 0o644)
 
 
 def environ_dir_write(env_dir, env, update=False):
-    """Create environment directory suitable for s6-envdir.
+    """Create environment directory suitable for envdir.
 
     :params ``str`` env_dir:
         Directory to use as the envdir. Must exist.
@@ -70,7 +71,8 @@ def environ_dir_write(env_dir, env, update=False):
                     .replace(b'\n', b'\x00')
                 )
                 f.write(data)
-                os.fchmod(f.fileno(), 0o644)
+                if os.name == 'posix':
+                    os.fchmod(f.fileno(), 0o644)
 
 
 def environ_dir_read(env_dir):
@@ -135,7 +137,8 @@ def set_list_write(filename, entries):
     }
     with open(filename, 'w') as f:
         f.writelines(values)
-        os.fchmod(f.fileno(), 0o644)
+        if os.name == 'posix':
+            os.fchmod(f.fileno(), 0o644)
 
 
 def value_read(filename, default=0):
@@ -169,7 +172,8 @@ def value_write(filename, value):
     """
     with open(filename, 'w') as f:
         f.write('%d\n' % value)
-        os.fchmod(f.fileno(), 0o644)
+        if os.name == 'posix':
+            os.fchmod(f.fileno(), 0o644)
 
 
 def script_read(filename):
@@ -207,7 +211,8 @@ def script_write(filename, script):
                 .encode(encoding='utf8', errors='replace')
             )
             f.write(data)
-        os.fchmod(f.fileno(), 0o755)
+        if os.name == 'posix':
+            os.fchmod(f.fileno(), 0o755)
 
 
 __all__ = (

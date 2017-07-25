@@ -15,14 +15,16 @@ from treadmill import exc
 from treadmill import utils
 from treadmill import zknamespace as z
 from treadmill import zkutils
+from treadmill import zkwatchers
 
 
 _LOGGER = logging.getLogger(__name__)
 
 
-def write_data(fpath, data, modified, raise_err=True):
+def write_data(fpath, data, modified, raise_err=True, tmp_dir=None):
     """Safely write data to file path."""
-    with tempfile.NamedTemporaryFile(dir=os.path.dirname(fpath),
+    tmp_dir = tmp_dir or os.path.dirname(fpath)
+    with tempfile.NamedTemporaryFile(dir=tmp_dir,
                                      delete=False,
                                      prefix='.tmp') as temp:
         if data:
@@ -41,11 +43,12 @@ def write_data(fpath, data, modified, raise_err=True):
 class Zk2Fs(object):
     """Syncronize Zookeeper with file system."""
 
-    def __init__(self, zkclient, fsroot):
+    def __init__(self, zkclient, fsroot, tmp_dir=None):
         self.watches = set()
         self.processed_once = set()
         self.zkclient = zkclient
         self.fsroot = fsroot
+        self.tmp_dir = tmp_dir
         self.ready = False
 
         self.zkclient.add_listener(zkutils.exit_on_lost)
@@ -66,34 +69,38 @@ class Zk2Fs(object):
         """Default callback invoked on node delete, remove file."""
         fs.rm_safe(self.fpath(zkpath))
 
-    def _default_on_add(self, zknode):
-        """Default callback invoked on node is added, default - sync data."""
-        self.sync_data(zknode)
+    def _default_on_add(self, zkpath):
+        """Default callback invoked on node is added, default - sync data.
+
+        Race condition is possible in which added node does no longer exist
+        when we try to sync data.
+        """
+        try:
+            self.sync_data(zkpath)
+        except kazoo.client.NoNodeError:
+            _LOGGER.warn('Tried to add node that no longer exists: %s', zkpath)
+            fpath = self.fpath(zkpath)
+            fs.rm_safe(fpath)
 
     def _write_data(self, fpath, data, stat):
         """Write Zookeeper data to filesystem.
         """
-        write_data(fpath, data, stat.last_modified, raise_err=True)
+        write_data(fpath, data, stat.last_modified,
+                   raise_err=True, tmp_dir=self.tmp_dir)
 
     def _data_watch(self, zkpath, data, stat, event):
         """Invoked when data changes."""
         fpath = self.fpath(zkpath)
-        if data is None and event is None:
-            _LOGGER.info('Node does not exist: %s', zkpath)
+        if event is not None and event.type == 'DELETED':
+            _LOGGER.info('Node deleted: %s', zkpath)
             self.watches.discard(zkpath)
             fs.rm_safe(fpath)
-
-        elif event is not None and event.type == 'DELETED':
-            _LOGGER.info('Node removed: %s', zkpath)
+        elif stat is None:
+            _LOGGER.info('Node does not exist: %s', zkpath)
             self.watches.discard(zkpath)
             fs.rm_safe(fpath)
         else:
             self._write_data(fpath, data, stat)
-
-        # Returning False will not renew the watch.
-        renew = zkpath in self.watches
-        _LOGGER.info('Renew watch on %s - %s', zkpath, renew)
-        return renew
 
     def _filter_children_actions(self, sorted_children, sorted_filenames, add,
                                  remove, common):
@@ -189,14 +196,12 @@ class Zk2Fs(object):
         """Sync zk node data to file."""
 
         if zkpath in self.watches:
-            @self.zkclient.DataWatch(zkpath)
+            @zkwatchers.ExistingDataWatch(self.zkclient, zkpath)
             @exc.exit_on_unhandled
             def _data_watch(data, stat, event):
                 """Invoked when data changes."""
-                renew = self._data_watch(zkpath, data, stat, event)
+                self._data_watch(zkpath, data, stat, event)
                 self._update_last()
-                return renew
-
         else:
             fpath = self.fpath(zkpath)
             data, stat = self.zkclient.get(zkpath)

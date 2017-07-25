@@ -2,7 +2,6 @@
 Unit test for treadmill.cli.show
 """
 
-import importlib
 import unittest
 
 # Disable W0611: Unused import
@@ -14,6 +13,7 @@ import mock
 import requests
 
 from treadmill import restclient
+from treadmill import plugin_manager
 
 
 class ShowTest(unittest.TestCase):
@@ -22,8 +22,7 @@ class ShowTest(unittest.TestCase):
     def setUp(self):
         """Setup common test variables"""
         self.runner = click.testing.CliRunner()
-        self.configure_cli = importlib.import_module(
-            'treadmill.cli.show').init()
+        self.cli = plugin_manager.load('treadmill.cli', 'show').init()
 
     @mock.patch('treadmill.restclient.get',
                 mock.Mock(return_value=mock.MagicMock(requests.Response)))
@@ -45,7 +44,7 @@ class ShowTest(unittest.TestCase):
         ]
 
         result = self.runner.invoke(
-            self.configure_cli,
+            self.cli,
             ['--cell', 'test', 'endpoints', 'proid.app'])
         self.assertEqual(result.exit_code, 0)
         self.assertIn('proid.app#12345', result.output)
@@ -70,7 +69,7 @@ class ShowTest(unittest.TestCase):
         ]
 
         result = self.runner.invoke(
-            self.configure_cli,
+            self.cli,
             ['--cell', 'test', 'endpoints', 'proid.app'])
         self.assertEqual(result.exit_code, 0)
         self.assertIn('proid.app#12345', result.output)

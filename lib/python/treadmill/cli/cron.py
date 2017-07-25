@@ -14,8 +14,8 @@ from treadmill import restclient
 
 _LOGGER = logging.getLogger(__name__)
 
-_ON_EXCEPTIONS = cli.handle_exceptions(cli.REST_EXCEPTIONS)
-_FORMATTER = cli.make_formatter(cli.CronPrettyFormatter)
+_ON_EXCEPTIONS = cli.handle_exceptions(restclient.CLI_REST_EXCEPTIONS)
+_FORMATTER = cli.make_formatter('cron')
 
 _REST_PATH = '/cron/'
 
@@ -81,7 +81,10 @@ def init():
     def _list(match):
         """List out all cron events"""
         restapi = context.GLOBAL.cell_api(ctx['api'])
-        url = '{}?{}'.format(_REST_PATH, urllib.urlencode([('match', match)]))
+        url = _REST_PATH
+        if match:
+            url = '{}?{}'.format(url, urllib.urlencode([('match', match)]))
+
         response = restclient.get(restapi, url)
         jobs = response.json()
         _LOGGER.debug('jobs: %r', jobs)

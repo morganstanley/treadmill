@@ -6,13 +6,13 @@ import unittest
 import tests.treadmill_test_deps  # pylint: disable=W0611
 
 import mock
-import yaml
 import jsonschema
 
 from treadmill import admin
 from treadmill import exc
 from treadmill import master
 from treadmill.api import instance
+from treadmill import yamlwrapper as yaml
 
 
 def _create_apps(_zkclient, _app_id, app, _count, _created_by):
@@ -29,6 +29,8 @@ class ApiInstanceTest(unittest.TestCase):
                 mock.Mock(return_value=admin.Admin(None, None)))
     @mock.patch('treadmill.context.ZkContext.conn', mock.Mock())
     @mock.patch('treadmill.master.create_apps', mock.Mock())
+    @mock.patch('treadmill.api.instance._check_required_attributes',
+                mock.Mock())
     def test_normalize_run_once(self):
         """Test missing defaults which cause the app to fail."""
         doc = """
@@ -96,6 +98,10 @@ class ApiInstanceTest(unittest.TestCase):
                     'affinity_limits': {}
                 }))
     @mock.patch('treadmill.master.create_apps')
+    @mock.patch('treadmill.api.instance._check_required_attributes',
+                mock.Mock())
+    @mock.patch('treadmill.api.instance._set_defaults',
+                mock.Mock())
     def test_instance_create_configured(self, create_apps_mock):
         """Test creating configured instance."""
         create_apps_mock.side_effect = _create_apps
@@ -117,13 +123,10 @@ class ApiInstanceTest(unittest.TestCase):
             'args': [],
             'environ': [],
             'affinity_limits': {},
-            'affinity': 'proid.app',
-            'proid': 'proid',
-            'environment': None,
-            'identity_group': None
         }
 
         self.instance.create('proid.app', {})
+
         create_apps_mock.assert_called_once_with(
             mock.ANY, 'proid.app', app, 1, None
         )

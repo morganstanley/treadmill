@@ -70,7 +70,6 @@ def init():
     @click.argument('dest')
     def hosts_aliases_cmd(aliases_dir, source, dest):
         """Manage /etc/hosts aliases."""
-
         aliases = {}
         with open(source, 'rb') as fd:
             original = fd.read()

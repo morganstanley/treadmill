@@ -10,6 +10,7 @@ import logging
 import os
 import pkgutil
 import stat
+import sys
 import tempfile
 import time
 import urllib
@@ -552,3 +553,71 @@ def equals_list2dict(equals_list):
 def encode_uri_parts(path):
     """Encode URI path components"""
     return '/'.join([urllib.quote(part) for part in path.split('/')])
+
+
+# R0912(too-many-branches): Too many branches (13/12)
+# pylint: disable=R0912
+def which(cmd, mode=os.F_OK | os.X_OK, path=None):
+    """TODO: This function has been copied from the shutil package shipped with
+    python 3.4.4. This func has to be deleted once we've upgraded to python 3.
+
+    Given a command, mode, and a PATH string, return the path which
+    conforms to the given mode on the PATH, or None if there is no such
+    file.
+
+    `mode` defaults to os.F_OK | os.X_OK. `path` defaults to the result
+    of os.environ.get("PATH"), or can be overridden with a custom search
+    path.
+
+    """
+    # Check that a given file can be accessed with the correct mode.
+    # Additionally check that `file` is not a directory, as on Windows
+    # directories pass the os.access check.
+    def _access_check(filename, mode):
+        return (os.path.exists(filename) and os.access(filename, mode)
+                and not os.path.isdir(filename))
+
+    # If we're given a path with a directory part, look it up directly rather
+    # than referring to PATH directories. This includes checking relative to
+    # the current directory, e.g. ./script
+    if os.path.dirname(cmd):
+        if _access_check(cmd, mode):
+            return cmd
+        return None
+
+    if path is None:
+        path = os.environ.get("PATH", os.defpath)
+    if not path:
+        return None
+    path = path.split(os.pathsep)
+
+    if sys.platform == "win32":
+        # The current directory takes precedence on Windows.
+        if os.curdir not in path:
+            path.insert(0, os.curdir)
+
+        # PATHEXT is necessary to check on Windows.
+        pathext = os.environ.get("PATHEXT", "").split(os.pathsep)
+        # See if the given file matches any of the expected path extensions.
+        # This will allow us to short circuit when given "python.exe".
+        # If it does match, only test that one, otherwise we have to try
+        # others.
+        if any(cmd.lower().endswith(ext.lower()) for ext in pathext):
+            files = [cmd]
+        else:
+            files = [cmd + ext for ext in pathext]
+    else:
+        # On other platforms you don't have things like PATHEXT to tell you
+        # what file suffixes are executable, so just pass on cmd as-is.
+        files = [cmd]
+
+    seen = set()
+    for dir_ in path:
+        normdir = os.path.normcase(dir_)
+        if normdir not in seen:
+            seen.add(normdir)
+            for thefile in files:
+                name = os.path.join(dir_, thefile)
+                if _access_check(name, mode):
+                    return name
+    return None

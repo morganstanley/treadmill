@@ -1,5 +1,4 @@
-"""
-Unit test for monitor
+"""Unit test for monitor
 """
 
 import json
@@ -8,7 +7,7 @@ import shutil
 import tempfile
 import unittest
 
-from collections import namedtuple
+from collections import (deque, namedtuple)
 
 # Disable W0611: Unused import
 import tests.treadmill_test_deps  # pylint: disable=W0611
@@ -17,6 +16,7 @@ import mock
 
 import treadmill
 from treadmill import monitor
+from treadmill import supervisor
 
 
 class MonitorTest(unittest.TestCase):
@@ -106,9 +106,16 @@ class MonitorTest(unittest.TestCase):
         mon._service_policies['/some/dir/svc/data/exits'] = mock_pol_inst
 
         mon._on_created('/some/dir/svc/data/exits/1.111,2,3')
+        mon._on_created('/some/dir/svc/data/exits/1.112,2,3')
 
         self.assertTrue(mock_pol_inst.check.called)
-        self.assertEqual(mon._down_reason, {'mock': 'data'})
+        self.assertEqual(
+            list(mon._down_reasons),
+            [
+                {'mock': 'data'},
+                {'mock': 'data'},
+            ]
+        )
         self.assertFalse(treadmill.monitor.Monitor._add_service.called)
 
     @mock.patch('treadmill.monitor.MonitorDownAction', spec_set=True)
@@ -131,7 +138,7 @@ class MonitorTest(unittest.TestCase):
         mon._process(mock_pol_inst)
 
         self.assertTrue(mock_pol_inst.check.called)
-        self.assertIsNone(mon._down_reason)
+        self.assertEqual(len(mon._down_reasons), 0)
 
     @mock.patch('treadmill.supervisor.control_service',
                 mock.Mock(spec_set=True))
@@ -159,13 +166,13 @@ class MonitorTest(unittest.TestCase):
         mon._process(mock_pol_inst)
 
         self.assertTrue(mock_pol_inst.check.called)
-        self.assertIsNone(mon._down_reason)
+        self.assertEqual(len(mon._down_reasons), 0)
         self.assertTrue(mock_event_hook_inst.down.called)
         self.assertTrue(mock_event_hook_inst.up.called)
 
-        treadmill.supervisor.control_service.assert_called_with(
+        supervisor.control_service.assert_called_with(
             mock_pol_inst.service.directory,
-            treadmill.supervisor.ServiceControlAction.up
+            supervisor.ServiceControlAction.up
         )
 
     @mock.patch('treadmill.monitor.MonitorDownAction', spec_set=True)
@@ -195,7 +202,7 @@ class MonitorTest(unittest.TestCase):
         mon._process(mock_pol_inst)
 
         self.assertTrue(mock_pol_inst.check.called)
-        self.assertIsNone(mon._down_reason)
+        self.assertEqual(len(mon._down_reasons), 0)
 
         treadmill.supervisor.control_service.assert_called_with(
             mock_pol_inst.service.directory,
@@ -227,7 +234,7 @@ class MonitorTest(unittest.TestCase):
         mon._process(mock_pol_inst)
 
         self.assertTrue(mock_pol_inst.check.called)
-        self.assertEqual(mon._down_reason, {'a': 'test'})
+        self.assertEqual(list(mon._down_reasons), [{'a': 'test'}])
 
     @mock.patch('os.listdir', mock.Mock(spec_set=True, return_value=['baz']))
     @mock.patch('treadmill.supervisor.open_service', mock.Mock(spec_set=True))
@@ -248,11 +255,19 @@ class MonitorTest(unittest.TestCase):
             down_action=mock_down_action()
         )
         mock_down_action_inst = mock_down_action.return_value
-        mock_down_action_inst.execute.return_value = False
+        mock_down_action_inst.execute.side_effect = [
+            True, False,  # First failure is fine, second stops the monitor
+        ]
         mock_dirwatch_inst = mock_dirwatch.return_value
 
         def _mock_policy_down():
-            mon._down_reason = {'mock': 'data'}
+            mon._down_reasons = deque(
+                [
+                    {'mock': 'data'},
+                    {'more': 'data'},
+                    {'again': 'data'},
+                ]
+            )
 
         mock_dirwatch_inst.process_events.side_effect = \
             _mock_policy_down
@@ -274,8 +289,15 @@ class MonitorTest(unittest.TestCase):
         self.assertTrue(mock_dirwatch.called)
         self.assertTrue(mock_dirwatch_inst.wait_for_events.called)
         self.assertTrue(mock_dirwatch_inst.process_events.called)
-        mock_down_action_inst.execute.assert_called_with({'mock': 'data'})
-        self.assertIsNotNone(mon._down_reason)
+        mock_down_action_inst.execute.assert_has_calls(
+            [
+                mock.call({'mock': 'data'}),
+                mock.call({'more': 'data'}),
+            ]
+        )
+        # Make sure the down_reasons queue wasn't cleared (since one of the
+        # down actions took down the monitor.
+        self.assertEqual(len(mon._down_reasons), 3)
 
 
 class MonitorContainerCleanupTest(unittest.TestCase):
@@ -289,6 +311,7 @@ class MonitorContainerCleanupTest(unittest.TestCase):
             shutil.rmtree(self.root)
 
     @mock.patch('os.rename', mock.Mock())
+    @mock.patch('treadmill.supervisor.control_svscan', mock.Mock())
     def test_execute(self):
         """Test shutting down of the node.
         """
@@ -309,6 +332,13 @@ class MonitorContainerCleanupTest(unittest.TestCase):
         # This MonitorContainerCleanup stops the monitor.
         self.assertEqual(res, True)
         self.assertTrue(os.rename.called)
+
+        supervisor.control_svscan.assert_called_with(
+            os.path.join(self.root, 'running'), [
+                supervisor.SvscanControlAction.alarm,
+                supervisor.SvscanControlAction.nuke
+            ]
+        )
 
 
 class MonitorContainerDownTest(unittest.TestCase):

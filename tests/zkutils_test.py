@@ -10,9 +10,9 @@ import tests.treadmill_test_deps  # pylint: disable=W0611
 import kazoo
 import kazoo.client
 import mock
-import yaml
 
 from treadmill import zkutils
+from treadmill import yamlwrapper as yaml
 
 
 class ZkTest(unittest.TestCase):

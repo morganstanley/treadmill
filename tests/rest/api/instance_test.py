@@ -14,6 +14,7 @@ import flask_restplus as restplus
 import mock
 
 import treadmill
+from treadmill import exc
 from treadmill import webutils
 from treadmill.rest import error_handlers
 from treadmill.rest.api import instance
@@ -76,6 +77,14 @@ class InstanceTest(unittest.TestCase):
             self.impl.create.assert_called_once_with(
                 'proid.app', rsrc, 2, 'foo@BAR.BAZ'
             )
+
+        self.impl.create.side_effect = exc.InvalidInputError('foo', 'bar')
+        resp = self.client.post(
+            '/instance/user@group.app',
+            data=json.dumps(rsrc),
+            content_type='application/json'
+        )
+        self.assertEqual(resp.status_code, httplib.BAD_REQUEST)
 
     def test_delete_instance(self):
         """Test deleting an instance."""

@@ -113,7 +113,7 @@ class PubSubTest(unittest.TestCase):
             {'echo': 2},
         ]
         open(os.path.join(self.root, 'xxx'), 'w+').close()
-        modified = int(os.stat(os.path.join(self.root, 'xxx')).st_mtime)
+        modified = os.stat(os.path.join(self.root, 'xxx')).st_mtime
 
         pubsub._sow('/', '*', 0, handler, impl)
 
@@ -182,7 +182,7 @@ class PubSubTest(unittest.TestCase):
         ]
 
         open(os.path.join(self.root, 'xxx'), 'w+').close()
-        modified = int(os.stat(os.path.join(self.root, 'xxx')).st_mtime)
+        modified = os.stat(os.path.join(self.root, 'xxx')).st_mtime
 
         pubsub._sow('/', '*', 0, handler, impl)
 

@@ -45,6 +45,7 @@ def init(api, cors, impl):
         'ssq-namespace': fields.String(description='SSQ Namespace'),
         'location': fields.String(description='Location'),
         'version': fields.String(description='Version'),
+        'status': fields.String(description='Status'),
         'masters': fields.List(fields.Nested(master)),
         'partitions': fields.List(fields.Nested(partition)),
     }

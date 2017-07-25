@@ -11,6 +11,7 @@ import subprocess
 from treadmill import spawn
 from treadmill import fs
 from treadmill import dirwatch
+from treadmill import subproc
 from treadmill import supervisor
 from treadmill import utils
 from treadmill.spawn import utils as spawn_utils
@@ -74,15 +75,20 @@ class ManifestWatch(object):
             os.path.join(job, 'run'),
             'spawn.run',
             id=inst.id,
-            name=inst.name)
+            name=inst.name,
+            service_exit=inst.settings.get('service_exit', False),
+            **subproc.get_aliases()
+        )
 
         utils.create_script(
             os.path.join(job, 'finish'),
             'spawn.finish',
             id=inst.id,
-            stop=inst.settings['stop'],
-            reconnect=inst.settings['reconnect'],
-            reconnect_timeout=inst.settings['reconnect_timeout'])
+            stop=inst.settings.get('stop', False),
+            reconnect=inst.settings.get('reconnect', False),
+            reconnect_timeout=inst.settings.get('reconnect_timeout', 0),
+            **subproc.get_aliases()
+        )
 
         with open(os.path.join(data_dir, 'manifest'), 'w') as f:
             json.dump(inst.manifest, f)

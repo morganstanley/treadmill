@@ -5,14 +5,16 @@ import os
 import errno
 import logging
 import tempfile
-import importlib
 import pkgutil
 import stat
+import subprocess
+import sys
 
 import pkg_resources
 import jinja2
 
 from treadmill import fs
+from treadmill import plugin_manager
 
 # This is required so that symlink API (os.symlink and other link related)
 # work properly on windows.
@@ -99,8 +101,8 @@ def _render(value, params):
 
 def _install(package, src_dir, dst_dir, params, prefix_len=None, rec=None):
     """Interpolate source directory into target directory with params."""
-
-    contents = pkg_resources.resource_listdir(package, src_dir)
+    package_name = package.__name__
+    contents = pkg_resources.resource_listdir(package_name, src_dir)
 
     if prefix_len is None:
         prefix_len = len(src_dir) + 1
@@ -108,7 +110,8 @@ def _install(package, src_dir, dst_dir, params, prefix_len=None, rec=None):
     for item in contents:
         resource_path = '/'.join([src_dir, item])
         dst_path = os.path.join(dst_dir, resource_path[prefix_len:])
-        if pkg_resources.resource_isdir(package, '/'.join([src_dir, item])):
+        if pkg_resources.resource_isdir(package_name,
+                                        '/'.join([src_dir, item])):
             fs.mkdir_safe(dst_path)
             if rec:
                 rec.write('%s/\n' % dst_path)
@@ -123,7 +126,7 @@ def _install(package, src_dir, dst_dir, params, prefix_len=None, rec=None):
                 continue
 
             _LOGGER.info('Render: %s => %s', resource_path, dst_path)
-            resource_str = pkg_resources.resource_string(package,
+            resource_str = pkg_resources.resource_string(package_name,
                                                          resource_path)
             if rec:
                 rec.write('%s\n' % dst_path)
@@ -180,30 +183,39 @@ def _interpolate(value, params=None):
 
 def _run(script):
     """Runs the services."""
-    os.execvp(script, [script])
+    if os.name == 'nt':
+        sys.exit(subprocess.call(script))
+    else:
+        os.execvp(script, [script])
 
 
 def install(package, dst_dir, params, run=None, profile=None):
     """Installs the services."""
     _LOGGER.info('install: %s - %s, profile: %s', package, dst_dir, profile)
 
-    fullname = '.'.join([__name__, package])
+    aliases_path = [package]
 
-    module = importlib.import_module(fullname)
+    module = plugin_manager.load('treadmill.bootstrap', package)
+    if profile:
+        extension_name = '{}.{}'.format(package, profile)
+        aliases_path.append(extension_name)
+
+        try:
+            extension_module = plugin_manager.load('treadmill.bootstrap',
+                                                   extension_name)
+        except KeyError:
+            _LOGGER.info('Extension not defined: %s, profile: %s',
+                         package, profile)
+
     defaults = {}
     defaults.update(getattr(module, 'DEFAULTS', {}))
 
     aliases = {}
     aliases.update(getattr(module, 'ALIASES', {}))
 
-    aliases_path = [fullname]
-
-    if profile:
-        extension = '.'.join([fullname, profile])
-        extension_module = importlib.import_module(extension)
+    if extension_module:
         defaults.update(getattr(extension_module, 'DEFAULTS', {}))
         aliases.update(getattr(extension_module, 'ALIASES', {}))
-        aliases_path.append(extension)
 
     defaults.update(params)
 
@@ -219,13 +231,11 @@ def install(package, dst_dir, params, run=None, profile=None):
     fs.mkdir_safe(dst_dir)
     with open(os.path.join(dst_dir, '.install'), 'w+') as rec:
 
-        _install(fullname, PLATFORM, dst_dir, interpolated, rec=rec)
+        _install(module, PLATFORM, dst_dir, interpolated, rec=rec)
 
-        if profile:
-            extension = '.'.join([fullname, profile])
-            extension_module = importlib.import_module(extension)
+        if extension_module:
             _install(
-                extension,
+                extension_module,
                 '.'.join([profile, PLATFORM]), dst_dir, interpolated,
                 rec=rec
             )
