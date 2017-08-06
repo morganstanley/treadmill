@@ -12,4 +12,6 @@ export PEX_ROOT=/tmp/.pex_{{ treadmillid }}
 exec                                                                        \
     {{ s6 }}/bin/s6-setuidgid {{ treadmillid }}                             \
     {{ treadmill_bin }} sproc                                               \
-        scheduler /treadmill/appevents
+        scheduler /treadmill/appevents                                      \
+        --vendor k8s                                                        \
+        --config ./config.json

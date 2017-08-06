@@ -24,6 +24,7 @@ from treadmill import zknamespace as z
 from treadmill import scheduler
 from treadmill import sysinfo
 
+from treadmill.sched import utils as sched_utils
 from treadmill.apptrace import events as traceevents
 
 _LOGGER = logging.getLogger(__name__)
@@ -99,9 +100,16 @@ EVENT_BATCH_COUNT = 20
 class Master(object):
     """Treadmill master scheduler."""
 
-    def __init__(self, zkclient, cellname, events_dir=None):
+    def __init__(self, zkclient, cellname,
+                 scheduler_vendor='native', config=None, events_dir=None):
+        if scheduler_vendor == 'k8s':
+            _LOGGER.debug('Using k8s scheduler.')
+            self.cell = scheduler.CellWithK8sScheduler(cellname, config)
+        elif scheduler_vendor == 'native':
+            _LOGGER.debug('Using native scheduler.')
+            self.cell = scheduler.Cell(cellname)
+
         self.zkclient = zkclient
-        self.cell = scheduler.Cell(cellname)
         self.events_dir = events_dir
 
         self.buckets = dict()
@@ -361,16 +369,16 @@ class Master(object):
         if not state_since:
             state_since = {'state': 'down', 'since': time.time()}
 
-        state = scheduler.State(state_since['state'])
+        state = sched_utils.State(state_since['state'])
         since = state_since['since']
         server.set_state(state, since)
 
         # If presence does not exist - adjust state to down.
         if not is_up:
-            server.state = scheduler.State.down
+            server.state = sched_utils.State.down
         else:
-            if server.state is not scheduler.State.frozen:
-                server.state = scheduler.State.up
+            if server.state is not sched_utils.State.frozen:
+                server.state = sched_utils.State.up
 
         # Record server state:
         state, since = server.get_state()
@@ -573,7 +581,7 @@ class Master(object):
         """Given current presence set, adjust status."""
         down_servers = set([
             servername for servername in self.servers
-            if self.servers[servername].state is scheduler.State.down])
+            if self.servers[servername].state is sched_utils.State.down])
         up_servers = set(self.servers.keys()) - down_servers
 
         # Server was up, but now is down.
@@ -942,7 +950,7 @@ class Master(object):
             why = ''
             if before is not None:
                 if (before not in self.servers or
-                        self.servers[before].state == scheduler.State.down):
+                        self.servers[before].state == sched_utils.State.down):
                     why = '{server}:down'.format(server=before)
                 else:
                     # TODO: it will be nice to put app utilization at the time

@@ -1,0 +1,13 @@
+{
+  "predicates": [
+    {
+      "name": "match_app_constraints"
+    }
+  ],
+  "priorities": [
+    {
+      "name": "spread",
+      "weight": 1
+    }
+  ]
+}

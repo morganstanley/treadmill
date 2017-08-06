@@ -18,6 +18,7 @@ import treadmill
 import treadmill.exc
 from treadmill import master
 from treadmill import scheduler
+from treadmill.sched import utils as sched_utils
 
 from tests.testutils import mockzk
 
@@ -185,7 +186,7 @@ class MasterTest(mockzk.MockZookeeperTestCase):
         self.master.load_servers()
 
         self.assertEqual(
-            (scheduler.State.down, 100),
+            (sched_utils.State.down, 100),
             self.master.servers['test.xx.com'].get_state()
         )
 
@@ -194,7 +195,7 @@ class MasterTest(mockzk.MockZookeeperTestCase):
         time.time.return_value = 200
         self.master.adjust_server_state('test.xx.com')
         self.assertEqual(
-            (scheduler.State.up, 200),
+            (sched_utils.State.up, 200),
             self.master.servers['test.xx.com'].get_state()
         )
 
@@ -293,7 +294,7 @@ class MasterTest(mockzk.MockZookeeperTestCase):
                       {'expires': 500, 'identity': None}, acl=mock.ANY),
         ])
 
-        srv_1.state = scheduler.State.down
+        srv_1.state = sched_utils.State.down
         self.master.reschedule()
 
         treadmill.zkutils.ensure_deleted.assert_has_calls([
@@ -390,7 +391,7 @@ class MasterTest(mockzk.MockZookeeperTestCase):
                       {'expires': 500, 'identity': None}, acl=mock.ANY),
         ])
 
-        srv_1.state = scheduler.State.down
+        srv_1.state = sched_utils.State.down
         self.master.reschedule()
 
         treadmill.zkutils.ensure_deleted.assert_has_calls([
@@ -477,7 +478,7 @@ class MasterTest(mockzk.MockZookeeperTestCase):
         self.master.load_placement_data()
 
         self.assertTrue(
-            self.master.servers['test.xx.com'].state is scheduler.State.up)
+            self.master.servers['test.xx.com'].state is sched_utils.State.up)
 
         # Reschedule should produce no events.
         treadmill.zkutils.ensure_deleted.reset_mock()

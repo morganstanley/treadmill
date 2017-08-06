@@ -12,6 +12,7 @@ import sys
 import mock
 import numpy as np
 
+from treadmill.sched import utils as sched_utils
 from treadmill import scheduler
 from functools import reduce
 
@@ -871,7 +872,7 @@ class CellTest(unittest.TestCase):
         self.assertIsNotNone(app4.server)
 
     def test_affinity_limits(self):
-        """Simple placement test."""
+        """Test affinity limits"""
         cell = scheduler.Cell('top')
         left = scheduler.Bucket('left', traits=0)
         right = scheduler.Bucket('right', traits=0)
@@ -985,7 +986,7 @@ class CellTest(unittest.TestCase):
 
         # Mark srv_a as down, unsticky app migrates right away,
         # sticky stays.
-        srvs[first_srv].state = scheduler.State.down
+        srvs[first_srv].state = sched_utils.State.down
 
         cell.schedule()
         self.assertEqual(sticky_apps[0].server, first_srv)
@@ -1008,8 +1009,8 @@ class CellTest(unittest.TestCase):
         second_srv = sticky_apps[0].server
 
         # Mark srv_a as up, srv_y as down.
-        srvs[first_srv].state = scheduler.State.up
-        srvs[second_srv].state = scheduler.State.down
+        srvs[first_srv].state = sched_utils.State.up
+        srvs[second_srv].state = sched_utils.State.down
 
         cell.schedule()
         self.assertEqual(sticky_apps[0].server, second_srv)
@@ -1033,7 +1034,7 @@ class CellTest(unittest.TestCase):
         # down node y.
         self.assertIsNone(sticky_apps[2].server)
 
-        srvs[second_srv].state = scheduler.State.up
+        srvs[second_srv].state = sched_utils.State.up
         cell.schedule()
         # Original app still on 'y', timeout did not expire
         self.assertEqual(sticky_apps[0].server, second_srv)
@@ -1145,7 +1146,7 @@ class CellTest(unittest.TestCase):
         self.assertFalse(apps[0].evicted)
         self.assertFalse(apps[0].evicted)
 
-        cell.children_by_name[apps[0].server].state = scheduler.State.down
+        cell.children_by_name[apps[0].server].state = sched_utils.State.down
         cell.remove_node_by_name(apps[1].server)
 
         cell.schedule()
@@ -1241,7 +1242,7 @@ class CellTest(unittest.TestCase):
 
     @mock.patch('time.time', mock.Mock(return_value=10))
     def test_renew(self):
-        """Tests app restore."""
+        """Tests app renew."""
         cell = scheduler.Cell('top')
         server_a = scheduler.Server('a', [10, 10], traits=0,
                                     valid_until=1000)

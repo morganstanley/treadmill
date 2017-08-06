@@ -14,11 +14,13 @@ import itertools
 import time
 import sys
 
-import enum
-
 import numpy as np
 from functools import reduce
 
+from treadmill.sched.config import factory as sched_factory
+from treadmill.sched import utils
+
+# logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
 _LOGGER = logging.getLogger(__name__)
 
 MAX_PRIORITY = 100
@@ -186,23 +188,6 @@ class IdentityGroup(object):
         else:
             self.available -= set(range(count, self.count))
         self.count = count
-
-
-# Disable pylint complaint about not having __init__
-#
-# pylint: disable=W0232
-class State(enum.Enum):
-    """Enumeration of node/server states."""
-
-    # Ready to accept new applications.
-    # pylint complains: Invalid class attribute name "up"
-    up = 'up'  # pylint: disable=C0103
-
-    # Applications need to be migrated.
-    down = 'down'
-
-    # Existing applications can stay, but will not accept new.
-    frozen = 'frozen'
 
 
 class Affinity(object):
@@ -471,7 +456,7 @@ class Node(object):
         self.labels = set()
         self.affinity_counters = collections.Counter()
         self.valid_until = valid_until
-        self._state = State.up
+        self._state = utils.State.up
         self._state_since = time.time()
 
     def empty(self):
@@ -681,7 +666,7 @@ class Bucket(Node):
 
             free_capacity = zero_capacity()
             for child_node in self.children_iter():
-                if child_node.state is not State.up:
+                if child_node.state is not utils.State.up:
                     continue
 
                 free_capacity = np.maximum(free_capacity,
@@ -697,7 +682,19 @@ class Bucket(Node):
     def add_node(self, node):
         """Adds node to the bucket."""
         super(Bucket, self).add_node(node)
+        # Assume that the parent is cell.
+        if isinstance(node, Server):
+            _LOGGER.debug("Add node to cell.flatten_nodes.")
+            self.add_server_to_cell(node)
         self.adjust_capacity_up(node.free_capacity)
+
+    def add_server_to_cell(self, node):
+        working_node = self
+        while working_node.parent is not None:
+            working_node = working_node.parent
+        _LOGGER.debug(working_node)
+        if isinstance(working_node, Cell):
+            working_node.add_server(node)
 
     def remove_node(self, node):
         """Removes node from the bucket."""
@@ -734,7 +731,7 @@ class Bucket(Node):
 
             _LOGGER.debug('Trying node: %s:', node.name)
 
-            if node.state is not State.up:
+            if node.state is not utils.State.up:
                 _LOGGER.debug('Node not up: %s, %s', node.name, node.state)
             else:
                 if node.put(app):
@@ -750,6 +747,7 @@ class Server(Node):
 
     __slots__ = (
         'init_capacity',
+        'parent_counters',
         'apps',
     )
 
@@ -760,6 +758,7 @@ class Server(Node):
         self.init_capacity = np.array(capacity, dtype=float)
         self.free_capacity = self.init_capacity.copy()
         self.apps = dict()
+        self.parent_counters = dict()
 
     def __str__(self):
         return 'server: %s %s' % (self.name, self.init_capacity)
@@ -797,6 +796,38 @@ class Server(Node):
         if app.placement_expiry is None:
             app.placement_expiry = time.time() + app.lease
         return True
+
+    def put_simple(self, app):
+        """Tries to put the app on the server.
+        Skip app check.
+        """
+        assert app.name not in self.apps
+        _LOGGER.debug('server.put: %s => %s', app.name, self.name)
+
+        prev_capacity = self.free_capacity.copy()
+        self.free_capacity -= app.demand
+        self.apps[app.name] = app
+
+        self.increment_affinity([app.affinity.name])
+        app.server = self.name
+        if self.parent:
+            self.parent.adjust_capacity_down(prev_capacity)
+
+        if app.placement_expiry is None:
+            app.placement_expiry = time.time() + app.lease
+        return True
+
+    def update_parent_counters(self):
+        """Update all affinity info to the server, including racks and cell."""
+        node = self
+        while True:
+            node = node.parent
+            if not node:
+                break
+            if self.parent_counters.get(node.level):
+                self.parent_counters[node.level].append(node.affinity_counters)
+            else:
+                self.parent_counters[node.level] = [node.affinity_counters]
 
     def restore(self, app, placement_expiry=None):
         """Put app back on the server, ignore app lifetime."""
@@ -869,10 +900,10 @@ class Server(Node):
         if self.state is state:
             return
 
-        if state == State.up:
+        if state == utils.State.up:
             if self.parent:
                 self.parent.adjust_capacity_up(self.free_capacity)
-        elif state == State.down or state == State.frozen:
+        elif state == utils.State.down or state == utils.State.frozen:
             if self.parent:
                 self.parent.adjust_capacity_down(self.free_capacity)
         else:
@@ -1141,10 +1172,13 @@ class Cell(Bucket):
         'next_event_at',
         'apps',
         'identity_groups',
+        'flatten_nodes',
+        'algorithm_provider'
     )
 
     def __init__(self, name, labels=None):
         super(Cell, self).__init__(name, traits=0, level='cell')
+        self.flatten_nodes = list()
 
         if not labels:
             labels = set()
@@ -1242,7 +1276,7 @@ class Cell(Bucket):
         for server in servers.values():
             state, since = server.get_state()
 
-            if state == State.down:
+            if state == utils.State.down:
                 _LOGGER.debug('Server state is down: %s', server.name)
                 to_be_moved = []
                 for name, app in server.apps.items():
@@ -1391,6 +1425,7 @@ class Cell(Bucket):
         self._handle_inactive_servers(servers)
         self._fix_invalid_identities(queue, servers)
         # self._restore(queue, servers)
+
         self._find_placements(queue, servers)
 
         after = [(app.server, app.placement_expiry)
@@ -1425,6 +1460,156 @@ class Cell(Bucket):
 
     def resolve_reboot_conflicts(self):
         """Adjust server exipiration time to avoid conflicts."""
+        pass
+
+    # New defined functions.
+
+    def add_node(self, node):
+        super(Cell, self).add_node(node)
+        if isinstance(node, Bucket):
+            return
+        _LOGGER.debug("Add node directly to cell.")
+        self.add_server(self.children_by_name[node.name])
+
+    def add_server(self, server):
+        self.flatten_nodes.append(server)
+
+
+class CellWithK8sScheduler(Cell):
+    def __init__(self, cellname, config=None, labels=None):
+        super(CellWithK8sScheduler, self).__init__(cellname, labels=labels)
+        if config:
+            scheduler_config = sched_factory.ConfigFactory()\
+                .read_config_from_file(config).build()
+            self.algorithm_provider = scheduler_config.algorithm_provider
+        else:
+            _LOGGER.fatal("There is no config file provided.")
+
+    def _find_placements(self, queue, servers):
+        """Run the queue and find placements."""
+        # Disable too many branches/statements warning
+        #
+        # TODO: refactor to get rid of warnings.
+        #
+        # pylint: disable=R0912
+        # pylint: disable=R0915
+        #
+        # At this point, if app.server is defined, it points to attached
+        # server.
+        evicted = dict()
+        reversed_queue = queue[::-1]
+
+        for app in queue:
+            _LOGGER.debug('scheduling %s', app.name)
+
+            if app.final_rank == _UNPLACED_RANK:
+                if app.server:
+                    assert app.server in servers
+                    assert app.has_identity()
+                    servers[app.server].remove(app.name)
+                    app.release_identity()
+
+                continue
+
+            restore = {}
+            if app.renew:
+                assert app.server
+                assert app.has_identity()
+                assert app.server in servers
+                server = servers[app.server]
+                _LOGGER.debug("renew!!!!!")
+                if not server.renew(app):
+                    # Save information that will be used to restore placement
+                    # in case renewal fails.
+                    _LOGGER.debug('Cannot renew app %s on server %s',
+                                  app.name, app.server)
+                    restore['server'] = server
+                    restore['placement_expiry'] = app.placement_expiry
+                    server.remove(app.name)
+
+            # At this point app was either renewed on the same server, or
+            # temporarily removed from server if renew failed.
+            #
+            # If placement will be found, renew should remain False. If
+            # placement will not be found, renew will be set to True when
+            # placement is restored to the server it was running.
+            app.renew = False
+
+            if app.server:
+                assert app.server in servers
+                assert app.has_identity()
+                continue
+
+            assert app.server is None
+
+            if not app.acquire_identity():
+                _LOGGER.info('Unable to acquire identity: %s, %s', app.name,
+                             app.identity_group)
+                continue
+
+            # If app was evicted before, try to restore to the same node.
+            if app in evicted:
+                assert app.has_identity()
+
+                evicted_from, app_expiry = evicted[app]
+                del evicted[app]
+                if evicted_from.restore(app, app_expiry):
+                    app.evicted = False
+                    continue
+
+            assert app.server is None
+
+            if app.schedule_once and app.evicted:
+                continue
+
+            for node in self.flatten_nodes:
+                node.update_parent_counters()
+
+            if not self.algorithm_provider.schedule(app, self.flatten_nodes):
+                # There is not enough capacity, from the end of the queue,
+                # evict apps, freeing capacity.
+                for evicted_app in reversed_queue:
+                    # We reached the app we can't place
+                    if evicted_app == app:
+                        break
+
+                    # The app is not yet placed, skip
+                    if not evicted_app.server:
+                        continue
+
+                    assert evicted_app.server in servers
+                    evicted_app_server = servers[evicted_app.server]
+
+                    evicted[evicted_app] = (evicted_app_server,
+                                            evicted_app.placement_expiry)
+                    evicted_app_server.remove(evicted_app.name)
+
+                    node = evicted_app_server
+                    flag = True
+                    while True:
+                        node = node.parent
+                        if not node:
+                            break
+                        if (node.affinity_counters[app.affinity.name] >=
+                                app.affinity.limits[node.level]):
+                            flag = False
+                    if flag:
+                        if evicted_app_server.put(app):
+                            break
+
+            # Placement failed.
+            if not app.server:
+                # If renewal attempt failed, restore previous placement and
+                # expiry date.
+                if restore:
+                    restore['server'].restore(app, restore['placement_expiry'])
+                    app.renew = True
+                else:
+                    app.release_identity()
+
+    def reset_children(self):
+        super(Cell, self).reset_children()
+        # TODO: Reset self.flatten_nodes.
         pass
 
 
