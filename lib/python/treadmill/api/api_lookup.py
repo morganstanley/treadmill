@@ -1,4 +1,5 @@
-"""Implementation of API lookup API."""
+"""Implementation of API lookup API.
+"""
 
 from treadmill import authz
 from treadmill import context
@@ -57,7 +58,7 @@ class API(object):
                 @schema.schema()
                 def get():
                     """Get Admin API SRV records"""
-                    result = ctx.admin_api_srv()
+                    result = ctx.dns.admin_api_srv()
                     return _result_to_resource(result)
 
                 self.list = _list
@@ -73,7 +74,7 @@ class API(object):
                 def get(cell_name):
                     """Get Cell API SRV records for given cell"""
                     try:
-                        result = ctx.cell_api_srv(cell_name)
+                        result = ctx.dns.cell_api_srv(cell_name)
                         return _result_to_resource(result)
                     except context.ContextError:
                         raise NoSuchCellException(cell_name)
@@ -95,7 +96,7 @@ class API(object):
                 def get(cell_name):
                     """Get State API SRV records for given cell"""
                     try:
-                        result = ctx.state_api_srv(cell_name)
+                        result = ctx.dns.state_api_srv(cell_name)
                         return _result_to_resource(result)
                     except context.ContextError:
                         raise NoSuchCellException(cell_name)
@@ -116,7 +117,7 @@ class API(object):
                 def get(cell_name):
                     """Get WS API SRV records for given cell"""
                     try:
-                        result = ctx.ws_api_srv(cell_name)
+                        result = ctx.dns.ws_api_srv(cell_name)
                         return _result_to_resource(result)
                     except context.ContextError:
                         raise NoSuchCellException(cell_name)

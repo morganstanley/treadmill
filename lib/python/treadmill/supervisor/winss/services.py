@@ -162,8 +162,11 @@ class LongrunService(_service_base.Service):
     def timeout_finish(self, timeout_finish):
         """Service finish script timeout.
         """
-        if self._timeout_finish is not None:
-            self._timeout_finish = int(timeout_finish, 10)
+        if timeout_finish is not None:
+            if isinstance(timeout_finish, (int, long)):
+                self._timeout_finish = timeout_finish
+            else:
+                self._timeout_finish = int(timeout_finish, 10)
 
     @property
     def environ(self):

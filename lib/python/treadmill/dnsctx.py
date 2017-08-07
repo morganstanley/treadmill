@@ -13,7 +13,8 @@ _LOGGER = logging.getLogger(__name__)
 
 
 def _resolve_srv(dns_domain, dns_server, srv_rec):
-    """Returns list of host, port tuples for given srv record."""
+    """Returns randomized list of host, port tuples for given srv record.
+    """
     _LOGGER.debug('Query DNS -t SRV %s.%s', srv_rec, dns_domain)
     if not dns_domain:
         raise context.ContextError('Treadmill DNS domain not specified.')
@@ -26,7 +27,8 @@ def _resolve_srv(dns_domain, dns_server, srv_rec):
 
 
 def _srv_to_urls(srv_recs, protocol=None):
-    """Randomizes and converts SRV records to URLs."""
+    """Converts list of SRV records to list of URLs.
+    """
     return [dnsutils.srv_rec_to_url(srv_rec,
                                     protocol=protocol)
             for srv_rec in srv_recs]
@@ -38,40 +40,69 @@ def _api(ctx, target, proto=None):
     if not srv_recs:
         raise context.ContextError('No srv records found: %s' % target)
 
-    return _srv_to_urls(srv_recs, proto)
+    return (srv_recs, proto)
 
 
-def _cell_api(ctx):
-    if not ctx.cell:
-        raise context.ContextError('Cell not specified.')
-    return _api(ctx, '_http._tcp.cellapi.{}.cell'.format(ctx.cell), 'http')
+def _cell_api(ctx, scope=None):
+    if scope is None:
+        if not ctx.cell:
+            raise context.ContextError('Cell not specified.')
+        scope = cell_scope(ctx.cell)
+    return _api(
+        ctx,
+        '_http._tcp.cellapi.{scope}'.format(scope=scope),
+        'http'
+    )
 
 
-def _state_api(ctx):
-    if not ctx.cell:
-        raise context.ContextError('Cell not specified.')
-    return _api(ctx, '_http._tcp.stateapi.{}.cell'.format(ctx.cell), 'http')
+def _state_api(ctx, scope=None):
+    if scope is None:
+        if not ctx.cell:
+            raise context.ContextError('Cell not specified.')
+        scope = cell_scope(ctx.cell)
+    return _api(
+        ctx,
+        '_http._tcp.stateapi.{scope}'.format(scope=scope),
+        'http'
+    )
 
 
-def _ws_api(ctx):
-    if not ctx.cell:
-        raise context.ContextError('Cell not specified.')
-    return _api(ctx, '_ws._tcp.wsapi.{}.cell'.format(ctx.cell), 'ws')
+def _ws_api(ctx, scope=None):
+    if scope is None:
+        if not ctx.cell:
+            raise context.ContextError('Cell not specified.')
+        scope = cell_scope(ctx.cell)
+    return _api(
+        ctx,
+        '_ws._tcp.wsapi.{scope}'.format(scope=scope),
+        'ws'
+    )
 
 
-def _admin_api(ctx):
+def _admin_api(ctx, scope=None):
     """Resolve admin API SRV records."""
     # Default.
     #
-    for scope in ctx.get('api_scope', []):
-        try:
-            result = _api(ctx, '_http._tcp.adminapi.' + scope, 'http')
-            if result:
-                return result
-        except context.ContextError:
-            pass
+    def _lookup(ctx, scope):
+        return _api(
+            ctx,
+            '_http._tcp.adminapi.{scope}'.format(scope=scope),
+            'http'
+        )
 
-    raise context.ContextError('no admin api found.')
+    if scope is not None:
+        return _lookup(ctx, scope)
+
+    else:
+        for scope in ctx.get('api_scope', []):
+            try:
+                result = _lookup(ctx, scope)
+                if result:
+                    return result
+            except context.ContextError:
+                pass
+
+        raise context.ContextError('no admin api found.')
 
 
 def _zk_url(ctx):
@@ -101,26 +132,47 @@ def _ldap_url(ctx):
         '_ldap._tcp.%s.%s' % (ctx.cell, ctx.dns_domain),
         ctx.dns_server
     )
-    url = ','.join(['ldap://%s:%s' % (rec[0], rec[1])
-                    for rec in ldap_srv_rec])
-    return url
+    return ','.join(_srv_to_urls(ldap_srv_rec, 'ldap'))
 
 
 _RESOLVERS = {
-    'admin_api': _admin_api,
-    'cell_api': _cell_api,
-    'state_api': _state_api,
-    'ws_api': _ws_api,
-    'zk_url': _zk_url,
+    'admin_api': lambda ctx: _srv_to_urls(*_admin_api(ctx)),
+    'cell_api': lambda ctx: _srv_to_urls(*_cell_api(ctx)),
     'ldap_url': _ldap_url,
+    'state_api': lambda ctx: _srv_to_urls(*_state_api(ctx)),
+    'ws_api': lambda ctx: _srv_to_urls(*_ws_api(ctx)),
+    'zk_url': _zk_url,
 }
 
 
 def resolve(ctx, attr):
-    """Resolve attribute from DNS."""
-    value = _RESOLVERS[attr](ctx)
-    _LOGGER.debug('Resolved from DNS: %s - %s', attr, value)
+    """URL Resolve attribute from DNS.
+    """
+    url = _RESOLVERS[attr](ctx)
+    _LOGGER.debug('Resolved from DNS: %s - %s', attr, url)
+    return url
+
+
+_APILOOKUPS = {
+    'admin_api': _admin_api,
+    'cell_api': _cell_api,
+    'state_api': _state_api,
+    'ws_api': _ws_api,
+}
+
+
+def lookup(ctx, attr, scope=None):
+    """Do a srv lookup in DNS.
+    """
+    value = _APILOOKUPS[attr](ctx, scope=scope)
+    _LOGGER.debug('API SRV Lookedup from DNS: %s - %r', attr, value)
     return value
+
+
+def cell_scope(cell):
+    """Returns a cell's scope (subdomain) in DNS.
+    """
+    return '{cell}.cell'.format(cell=cell)
 
 
 def init(_ctx):

@@ -87,29 +87,24 @@ class ContextTest(unittest.TestCase):
         ctx1 = context.Context()
         ctx1.ldap_suffix = 'dc=test'
         ctx1.dns_domain = 'x'
+        ctx1.cell = 'somecell'
 
         treadmill.dnsutils.txt.return_value = [
             'zookeeper://tmtest@xxx:123,yyy:345/treadmill/somecell',
         ]
         treadmill.dnsutils.srv.return_value = [
-            ('ldaphost', 1234, 10, 10)
+            ('ldaphost1', 1234, 10, 10),
+            ('ldaphost2', 2345, 10, 10)
         ]
-        ctx1.cell = 'somecell'
         ctx1.get('zk_url')
         self.assertEqual(
             'zookeeper://tmtest@xxx:123,yyy:345/treadmill/somecell',
             ctx1.zk.url
         )
-
-        ctx1.get('ldap_url')
-        # TODO: This was the case of resolving ldap from dns given cell name,
-        #       which is not longer used (at least admin api works without it).
-        #       Need to investigate more, but seems benign.
-        #
-        # self.assertEqual(
-        #    'ldap://ldaphost:1234',
-        #    ctx1.ldap.url
-        # )
+        self.assertEqual(
+            'ldap://ldaphost1:1234,ldap://ldaphost2:2345',
+            ctx1.ldap.url
+        )
 
         # Test automatic resolve invocation
         ctx2 = context.Context()

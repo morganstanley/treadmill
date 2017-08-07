@@ -1,4 +1,5 @@
-"""Treadmill context."""
+"""Treadmill context.
+"""
 
 from __future__ import absolute_import
 
@@ -40,10 +41,61 @@ class DnsContext(object):
 
     __slots__ = (
         '_context',
+        '_dns',
     )
 
     def __init__(self, ctx):
         self._context = ctx
+        self._dns = None
+
+    @property
+    def _resolver(self):
+        if self._dns is not None:
+            return self._dns
+
+        dns = plugin_manager.load('treadmill.context', 'dns')
+        dns.init(self._context)
+        self._dns = dns
+        return self._dns
+
+    def admin_api_srv(self):
+        """Get Admin API SRV record data.
+        """
+        (srv_entry, _proto) = self._resolver.lookup(
+            self._context,
+            'admin_api'
+        )
+        return srv_entry
+
+    def state_api_srv(self, cell):
+        """Get State API SRV record data.
+        """
+        (srv_entry, _proto) = self._resolver.lookup(
+            self._context,
+            'state_api',
+            scope=self._resolver.cell_scope(cell)
+        )
+        return srv_entry
+
+    def cell_api_srv(self, cell):
+        """Get Cell API SRV record data.
+        """
+        (srv_entry, _proto) = self._resolver.lookup(
+            self._context,
+            'cell_api',
+            scope=self._resolver.cell_scope(cell)
+        )
+        return srv_entry
+
+    def ws_api_srv(self, cell):
+        """Get Websocket API SRV record data.
+        """
+        (srv_entry, _proto) = self._resolver.lookup(
+            self._context,
+            'ws_api',
+            scope=self._resolver.cell_scope(cell)
+        )
+        return srv_entry
 
 
 class AdminContext(object):
@@ -251,19 +303,22 @@ class Context(object):
                 self._stack.discard(attr)
 
         if attr not in self._profile:
-            if self._defaults is not None:
-                self._profile[attr] = self._defaults.get(attr, default)
-            else:
-                self._profile[attr] = default
+            # Attr was not found, look for it in _defaults
+            if (self._defaults is not None
+                    and self._defaults.get(attr) is not None):
+                self._profile[attr] = self._defaults[attr]
+
+        if attr not in self._profile and default is not None:
+            self._profile[attr] = default
 
         # The end of the function attribute is recorded in the profile and
         # never evaluated again.
         #
         # volatile attributes are evaluated all the time.
         if volatile:
-            return self._profile.pop(attr)
+            return self._profile.pop(attr, default)
         else:
-            return self._profile[attr]
+            return self._profile.get(attr, default)
 
     def set(self, attr, value):
         """Set profile attribute."""
