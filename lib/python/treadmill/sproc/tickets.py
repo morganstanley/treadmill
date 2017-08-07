@@ -15,9 +15,6 @@ import os
 import fnmatch
 import glob
 import subprocess
-import pwd
-import tempfile
-import shutil
 
 import click
 
@@ -29,7 +26,6 @@ from treadmill import sysinfo
 from treadmill import zkutils
 from treadmill import dirwatch
 from treadmill import utils
-from treadmill import fs
 
 
 _SERVERS_ACL = zkutils.make_role_acl('servers', 'rwcda')
@@ -46,31 +42,16 @@ def _renew_tickets(tkt_spool_dir, match):
     for tkt in glob.glob(os.path.join(tkt_spool_dir, match)):
         _LOGGER.info('Renew ticket: %s', tkt)
         try:
-            owner, _realm = os.path.basename(tkt).split('@')
-            uid = pwd.getpwnam(owner).pw_uid
-            with tempfile.NamedTemporaryFile(dir='/tmp',
-                                             prefix='%s' % uid,
-                                             delete=False) as tkt_tmp:
-
-                shutil.copy(tkt, tkt_tmp.name)
-                os.chown(tkt_tmp.name, uid, -1)
-                subproc.check_call(
-                    ['kinit', '-R'],
-                    environ={'KRB5CCNAME': 'FILE:' + tkt_tmp.name},
-                    runas=owner
-                )
-                _LOGGER.info('Tickets renewed successfully.')
-                shutil.copy(tkt_tmp.name, tkt)
-                _LOGGER.info('Tickets renamed successfully.')
-        except KeyError:
-            _LOGGER.info('Invalid ticket owner, no account: %s', tkt)
+            subproc.check_call(
+                ['kinit', '-R'],
+                environ={'KRB5CCNAME': 'FILE:' + tkt},
+            )
+            _LOGGER.info('Tickets renewed successfully.')
         except subprocess.CalledProcessError as err:
             _LOGGER.info('Tickets not renewable, kinit rc: %s',
                          err.returncode)
         except OSError as os_err:
             _LOGGER.warn('Error renewing tickets: %s', os_err)
-
-        fs.rm_safe(tkt_tmp.name)
 
         subproc.call(['klist', '-e', '-5', tkt])
 

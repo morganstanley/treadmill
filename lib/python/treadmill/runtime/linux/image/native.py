@@ -57,7 +57,7 @@ def create_environ_dir(container_dir, root_dir, app):
     env['TREADMILL_CONTAINER_IP'] = app.network.vip
     env['TREADMILL_GATEWAY_IP'] = app.network.gateway
     if app.shared_ip:
-        env['TREADMILL_SERVICE_IP'] = app.host_ip
+        env['TREADMILL_SERVICE_IP'] = app.network.external_ip
 
     supervisor.create_environ_dir(env_dir, env)
 

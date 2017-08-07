@@ -1,4 +1,5 @@
-"""Wrapper for iptables/ipset"""
+"""Wrapper for iptables/ipset
+"""
 
 from __future__ import absolute_import
 

@@ -60,6 +60,13 @@ def cron_to_dict(cron):
     if len(cexpression) > 6:
         trigger_args['year'] = cexpression[6]
     if len(cexpression) > 7:
+        value = cexpression[7]
+        if value == '*':
+            raise exc.InvalidInputError(
+                __name__,
+                'TimeZone can not be "*"',
+            )
+
         trigger_args['timezone'] = cexpression[7]
     _LOGGER.debug('trigger_args: %r', trigger_args)
 

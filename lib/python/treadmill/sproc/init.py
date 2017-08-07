@@ -192,24 +192,29 @@ def _node_initialize(tm_env, zkclient, hostname,
                      zk_server_path, zk_presence_path):
     """Node initialization. Should only be done on a cold start.
     """
-    new_node_info = sysinfo.node_info(tm_env)
+    try:
+        new_node_info = sysinfo.node_info(tm_env)
 
-    # Merging scheduler data with node_info data
-    node_info = zkutils.get(zkclient, zk_server_path)
-    node_info.update(new_node_info)
-    _LOGGER.info('Registering node: %s: %s, %r',
-                 zk_server_path, hostname, node_info)
+        # Merging scheduler data with node_info data
+        node_info = zkutils.get(zkclient, zk_server_path)
+        node_info.update(new_node_info)
+        _LOGGER.info('Registering node: %s: %s, %r',
+                     zk_server_path, hostname, node_info)
 
-    zkutils.update(zkclient, zk_server_path, node_info)
-    host_acl = zkutils.make_host_acl(hostname, 'rwcda')
-    _LOGGER.debug('host_acl: %r', host_acl)
-    zkutils.put(zkclient,
-                zk_presence_path, {'seen': False},
-                acl=[host_acl],
-                ephemeral=True)
+        zkutils.update(zkclient, zk_server_path, node_info)
+        host_acl = zkutils.make_host_acl(hostname, 'rwcda')
+        _LOGGER.debug('host_acl: %r', host_acl)
+        zkutils.put(zkclient,
+                    zk_presence_path, {'seen': False},
+                    acl=[host_acl],
+                    ephemeral=True)
 
-    # Invoke the local node initialization
-    tm_env.initialize(node_info)
+        # Invoke the local node initialization
+        tm_env.initialize(node_info)
+
+    except Exception:  # pylint: disable=W0703
+        _LOGGER.exception('Node initialization failed')
+        zkclient.stop()
 
 
 def _exit_clear_watchdog_on_lost(state):

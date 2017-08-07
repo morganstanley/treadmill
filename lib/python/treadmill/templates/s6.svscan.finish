@@ -4,11 +4,11 @@
 {{ _alias.fdmove }} -c 2 1
 
 {{ _alias.if }} {
-    {{ _alias.echo }} "Waiting for all services in {{ services_dir }} to really finish"
+    {{ _alias.echo }} "Waiting for all services in {{ scan_dir }} to really finish"
 }
 
 {{ _alias.if }} {
-    {{ _alias.elglob }} SVC_DIRS {{ services_dir }}/* {{ _alias.s6_svwait }} -aD -t {{ timeout }} $SVC_DIRS
+    {{ _alias.elglob }} SVC_DIRS {{ scan_dir }}/* {{ _alias.s6_svwait }} -aD -t {{ timeout }} $SVC_DIRS
 }
 
 {{ _alias.if }} {

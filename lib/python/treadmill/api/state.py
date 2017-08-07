@@ -1,4 +1,6 @@
-"""Implementation of state API."""
+"""Implementation of state API.
+"""
+
 from __future__ import absolute_import
 
 import logging
@@ -8,6 +10,8 @@ import zlib
 import sqlite3
 import tempfile
 import fnmatch
+
+import six
 
 from treadmill import context
 from treadmill import schema
@@ -28,7 +32,7 @@ def watch_running(zkclient, cell_state):
     def _watch_running(running):
         """Watch /running nodes."""
         cell_state.running = set(running)
-        for name, item in cell_state.placement.iteritems():
+        for name, item in six.viewitems(cell_state.placement):
             if name in cell_state.running:
                 item['state'] = 'running'
         return True
@@ -193,12 +197,12 @@ class API(object):
                 match += '#*'
             filtered = [
                 {'name': name, 'state': item['state'], 'host': item['host']}
-                for name, item in cell_state.placement.iteritems()
+                for name, item in six.viewitems(cell_state.placement.copy())
                 if fnmatch.fnmatch(name, match)
             ]
 
             if finished:
-                for name in cell_state.finished.iterkeys():
+                for name in six.viewkeys(cell_state.finished.copy()):
                     if fnmatch.fnmatch(name, match):
                         state = cell_state.get_finished(name)
                         item = {'name': name}

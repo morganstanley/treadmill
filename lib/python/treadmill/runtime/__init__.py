@@ -105,9 +105,11 @@ def _allocate_sockets(environment, host_ip, sock_type, count):
             break
 
         socket_ = socket.socket(socket.AF_INET, sock_type)
-        socket_.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         try:
             socket_.bind((host_ip, real_port))
+            if sock_type == socket.SOCK_STREAM:
+                socket_.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                socket_.listen(0)
         except socket.error as err:
             if err.errno == errno.EADDRINUSE:
                 continue

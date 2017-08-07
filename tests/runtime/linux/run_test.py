@@ -724,6 +724,41 @@ class LinuxRuntimeRunTest(unittest.TestCase):
 
         self.assertTrue(mock_watchdog.remove.called)
 
+    @mock.patch('socket.socket.bind', mock.Mock())
+    @mock.patch('socket.socket.listen', mock.Mock())
+    def test_allocate_network_ports(self):
+        """Test allocate network ports"""
+        manifest = {
+            'type': 'native',
+            'shared_network': False,
+            'disk': '100G',
+            'name': 'proid.myapp#0',
+            'memory': '100M',
+            'environment': 'dev',
+            'uniqueid': 'ID1234',
+            'proid': 'foo',
+            'services': [
+                {
+                    'name': 'web_server',
+                    'command': '/bin/true',
+                    'restart': {
+                        'limit': 3,
+                        'interval': 60,
+                    },
+                }
+            ],
+            'endpoints': [
+                {'name': 'http', 'port': 8000},
+                {'name': 'port0', 'port': 0}
+            ],
+            'ephemeral_ports': {},
+            'cpu': '100%'
+        }
+
+        treadmill.runtime.allocate_network_ports('0.0.0.0', manifest)
+        socket.socket.bind.assert_called_with(mock.ANY)
+        socket.socket.listen.assert_called_with(0)
+
 
 if __name__ == '__main__':
     unittest.main()

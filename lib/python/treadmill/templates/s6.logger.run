@@ -6,7 +6,9 @@
 
 {% if logdir != '.' -%}
 {{ _alias.if }} {
-    {{ _alias.mkdir }} -p -- {{ logdir }}
+    # XXX: Remove me. LaaS backward compat.
+    # {{ _alias.mkdir }} -p -- {{ logdir }}
+    {{ _alias.ln }} -vfns ../log/ {{ logdir }}
 }
 {% endif -%}
 
