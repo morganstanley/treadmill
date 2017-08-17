@@ -10,13 +10,26 @@ _LOGGER = logging.getLogger(__name__)
 
 class Instance(ec2object.EC2Object):
     def __init__(self, name=None, id=None, metadata=None, role=None):
-        super(Instance, self).__init__(
+        super().__init__(
             id=id,
             name=name,
             metadata=metadata,
             role=role
         )
         self.private_ip = self._get_private_ip()
+
+    def create_tags(self):
+        self.name = self.name + str(
+            self.metadata['AmiLaunchIndex'] + 1
+        )
+        if self.role == constants.ROLES['NODE']:
+            self.name = self.name + '-' + self.id
+
+        super().create_tags()
+
+    @property
+    def hostname(self):
+        return self.name.lower() + '.' + connection.Connection.context.domain
 
     def configure_dns_record(self, hosted_zone_id, reverse=False):
         self._change_resource_record_sets(

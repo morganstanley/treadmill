@@ -1,8 +1,0 @@
----
-- name: Fetch Nodes EC2 Facts
-  ec2_remote_facts:
-    filters:
-      instance-state-name: [running, pending]
-      "tag:Name": "{{ node_server.name }}"
-    region: "{{ vpc.region }}"
-  register: instance_facts_node_server

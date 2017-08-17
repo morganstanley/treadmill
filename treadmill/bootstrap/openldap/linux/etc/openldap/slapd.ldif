@@ -44,11 +44,6 @@ dn: olcDatabase={{ backend.name }},cn=config
 objectClass: olcDatabaseConfig
 {%- if backend.objectclass is defined %}
 objectClass: {{ backend.objectclass }}
-{%- else %}
-{%- if enable_sasl is defined %}
-olcSaslHost: {{ ldap_hostname }}.{{ dns_domain }}
-olcSaslRealm: {{ dns_domain.upper() }}
-{%- endif %}
 {%- endif %}
 olcDatabase: {{ backend.name }}
 {%- if backend.objectclass == "olcMdbConfig" %}

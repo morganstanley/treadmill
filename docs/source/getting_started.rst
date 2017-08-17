@@ -80,7 +80,7 @@ Schedule an App (e.g. python webserver - port 8000 )
 
 ::
 
-   treadmill admin master app schedule --env prod --proid treadmld --manifest deploy/manifest.yml treadmld.foo
+   treadmill admin master app schedule --env prod --proid treadmld --manifest treadmill/infra/manifests/python_server.yml treadmld.foo
 
 
 -------------------------------------------------------------------------

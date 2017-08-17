@@ -2,7 +2,6 @@
 """
 
 import os
-import sys
 import pkgutil
 
 __path__ = pkgutil.extend_path(__path__, __name__)
@@ -18,5 +17,5 @@ else:
 
 # TODO: looks like another hack. Ideally we need to remove dependency
 #       on this.
-TREADMILL = os.path.dirname(os.path.realpath(sys.path[0]))
+TREADMILL = os.environ.get('TREADMILL', '/opt/treadmill')
 TREADMILL_BIN = os.path.join(TREADMILL, 'bin', _TREADMILL_SCRIPT)

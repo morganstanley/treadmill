@@ -29,7 +29,7 @@ def init(api, cors, impl):
             """Adds host to IPA."""
             return impl.create(hostname)
 
-        @webutils.delete_api(api, cors, marshal=api.marshal_list_with)
+        @webutils.delete_api(api, cors)
         def delete(self, hostname):
             """Deletes host from IPA."""
             return impl.delete(hostname)

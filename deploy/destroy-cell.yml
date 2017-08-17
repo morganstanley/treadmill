@@ -1,9 +1,0 @@
----
-- hosts: controller
-  pre_tasks:
-    - include_vars: "{{ item }}"
-      with_items:
-        - "{{aws_config | default('config/aws.yml')}}"
-        - "config/treadmill.yml"
-  roles:
-    - {role: destroy-cell}

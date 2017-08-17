@@ -110,6 +110,7 @@ class API(object):
         self.create = create
         self.update = update
         self.delete = delete
+        self.scheduler = scheduler
 
 
 def init(authorizer):

@@ -3,17 +3,6 @@ from treadmill.infra import configuration, constants
 
 
 class Master(base_provision.BaseProvision):
-    def __init__(
-            self,
-            name,
-            vpc_id,
-    ):
-        super(Master, self).__init__(
-            name=name,
-            vpc_id=vpc_id,
-        )
-        self.subnet_name = constants.TREADMILL_CELL_SUBNET_NAME
-
     def setup(
             self,
             image_id,
@@ -24,6 +13,7 @@ class Master(base_provision.BaseProvision):
             key,
             instance_type,
             app_root,
+            ipa_admin_password,
             subnet_id=None,
     ):
         self.configuration = configuration.Master(
@@ -31,9 +21,11 @@ class Master(base_provision.BaseProvision):
             subnet_id=subnet_id,
             ldap_hostname=ldap_hostname,
             tm_release=tm_release,
-            app_root=app_root
+            app_root=app_root,
+            ipa_admin_password=ipa_admin_password
         )
-        super(Master, self).setup(
+        self.subnet_name = constants.TREADMILL_CELL_SUBNET_NAME
+        super().setup(
             image_id=image_id,
             count=count,
             cidr_block=cidr_block,

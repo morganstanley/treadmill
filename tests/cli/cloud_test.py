@@ -41,6 +41,7 @@ class CloudTest(unittest.TestCase):
         Test cloud init cell
         """
         cell = cell_mock()
+        cell.id = 'sub-123'
         _ldap_mock = ldap_mock()
         result = self.runner.invoke(
             self.configure_cli, [
@@ -50,16 +51,19 @@ class CloudTest(unittest.TestCase):
                 '--image-id=img-123',
                 '--subnet-id=sub-123',
                 '--vpc-id=vpc-123',
-                '--cell-cidr-block=172.24.0.0/24'
+                '--cell-cidr-block=172.24.0.0/24',
+                '--ipa-admin-password=ipa_pass',
             ])
 
         self.assertEqual(result.exit_code, 0)
         cell.setup_zookeeper.assert_called_once_with(
             name='TreadmillZookeeper',
             key='key',
+            ldap_hostname='treadmillldap1',
             image_id='img-123',
             instance_type=constants.INSTANCE_TYPES['EC2']['micro'],
             subnet_cidr_block='172.24.0.0/24',
+            ipa_admin_password='ipa_pass',
         )
         cell.setup_master.assert_called_once_with(
             name='TreadmillMaster',
@@ -71,6 +75,7 @@ class CloudTest(unittest.TestCase):
             ldap_hostname='treadmillldap1',
             app_root='/var/tmp',
             subnet_cidr_block='172.24.0.0/24',
+            ipa_admin_password='ipa_pass'
         )
         self.assertEqual(
             ldap_mock.mock_calls[1],
@@ -88,7 +93,9 @@ class CloudTest(unittest.TestCase):
             ldap_hostname='treadmillldap1',
             app_root='/var/tmp',
             cidr_block='172.23.1.0/24',
-            subnet_id=None
+            subnet_id=None,
+            cell_subnet_id='sub-123',
+            ipa_admin_password='ipa_pass',
         )
 
     @mock.patch('treadmill.cli.cloud.ldap.LDAP')
@@ -108,16 +115,19 @@ class CloudTest(unittest.TestCase):
                 '--vpc-id=vpc-123',
                 '--cell-cidr-block=172.24.0.0/24',
                 '--domain=treadmill.org',
-                '--without-ldap'
+                '--without-ldap',
+                '--ipa-admin-password=ipa_pass',
             ])
 
         self.assertEqual(result.exit_code, 0)
         cell.setup_zookeeper.assert_called_once_with(
             name='TreadmillZookeeper',
             key='key',
+            ldap_hostname='treadmillldap1',
             image_id='img-123',
             instance_type=constants.INSTANCE_TYPES['EC2']['micro'],
             subnet_cidr_block='172.24.0.0/24',
+            ipa_admin_password='ipa_pass',
         )
         cell.setup_master.assert_called_once_with(
             name='TreadmillMaster',
@@ -129,6 +139,7 @@ class CloudTest(unittest.TestCase):
             ldap_hostname='treadmillldap1',
             app_root='/var/tmp',
             subnet_cidr_block='172.24.0.0/24',
+            ipa_admin_password='ipa_pass'
         )
 
         _ldap_mock.setup.assert_not_called()
@@ -148,18 +159,21 @@ class CloudTest(unittest.TestCase):
                 '--subnet-id=sub-123',
                 '--count=2',
                 '--domain=treadmill.org',
+                '--ipa-admin-password=Tre@admill1',
             ])
 
         self.assertEqual(result.exit_code, 0)
         node_mock.setup.assert_called_once_with(
-            app_root='/var/tmp',
+            app_root='/var/tmp/treadmill-node',
             count=2,
             image_id='img-123',
-            instance_type=constants.INSTANCE_TYPES['EC2']['micro'],
+            instance_type=constants.INSTANCE_TYPES['EC2']['large'],
             key='key',
             ldap_hostname='treadmillldap1',
             subnet_id='sub-123',
-            tm_release='0.1.0'
+            tm_release='0.1.0',
+            ipa_admin_password='Tre@admill1',
+            with_api=False,
         )
 
     @mock.patch('treadmill.cli.cloud.ipa.IPA')
@@ -171,7 +185,7 @@ class CloudTest(unittest.TestCase):
         result = self.runner.invoke(
             self.configure_cli, [
                 'init-domain',
-                '--ipa-admin-password=secret',
+                '--ipa-admin-password=Tre@dmil1',
                 '--key=key',
                 '--image-id=img-123',
                 '--vpc-id=vpc-123',
@@ -183,7 +197,7 @@ class CloudTest(unittest.TestCase):
             image_id='img-123',
             count=1,
             cidr_block='172.23.2.0/24',
-            ipa_admin_password='secret',
+            ipa_admin_password='Tre@dmil1',
             tm_release='0.1.0',
             key='key',
             instance_type=constants.INSTANCE_TYPES['EC2']['medium'],
@@ -193,7 +207,7 @@ class CloudTest(unittest.TestCase):
     @mock.patch('treadmill.cli.cloud.ipa.IPA')
     def test_delete_domain(self, ipa_mock):
         """
-        Test cloud init domain
+        Test cloud delete domain
         """
         ipa = ipa_mock()
         result = self.runner.invoke(
@@ -208,4 +222,24 @@ class CloudTest(unittest.TestCase):
         self.assertEqual(result.exit_code, 0)
         ipa.destroy.assert_called_once_with(
             subnet_id='sub-123'
+        )
+
+    @mock.patch('treadmill.cli.cloud.node.Node')
+    def test_delete_node_by_instance_id(self, node_mock):
+        """
+        Test cloud delete node
+        """
+        _node_mock = node_mock()
+        result = self.runner.invoke(
+            self.configure_cli, [
+                'delete',
+                'node',
+                '--vpc-id=vpc-123',
+                '--instance-id=instance-123',
+                '--name=foo',
+                '--domain=treadmill.org',
+            ])
+        self.assertEqual(result.exit_code, 0)
+        _node_mock.destroy.assert_called_once_with(
+            instance_id='instance-123'
         )

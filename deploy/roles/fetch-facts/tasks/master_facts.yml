@@ -1,8 +1,0 @@
----
-- name: Fetch Master EC2 Facts
-  ec2_remote_facts:
-    filters:
-      instance-state-name: [running, pending]
-      "tag:Name": "{{ master.name }}"
-    region: "{{ vpc.region }}"
-  register: instance_facts_master
