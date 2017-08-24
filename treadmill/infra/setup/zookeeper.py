@@ -3,7 +3,7 @@ from treadmill.infra import configuration, constants
 
 
 class Zookeeper(base_provision.BaseProvision):
-    def setup(self, image_id, key, cidr_block, instance_type, ldap_hostname,
+    def setup(self, image, key, cidr_block, instance_type, ldap_hostname,
               ipa_admin_password, subnet_id=None):
         self.configuration = configuration.Zookeeper(
             self.name,
@@ -12,7 +12,7 @@ class Zookeeper(base_provision.BaseProvision):
         )
         self.subnet_name = constants.TREADMILL_CELL_SUBNET_NAME
         super().setup(
-            image_id=image_id,
+            image=image,
             count=3,
             cidr_block=cidr_block,
             subnet_id=subnet_id,

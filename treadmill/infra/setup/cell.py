@@ -33,11 +33,11 @@ class Cell:
         self.vpc.create_hosted_zone(reverse=True)
         self.vpc.associate_dhcp_options()
 
-    def setup_zookeeper(self, name, key, image_id, instance_type,
+    def setup_zookeeper(self, name, key, image, instance_type,
                         subnet_cidr_block, ldap_hostname, ipa_admin_password):
         self.zookeeper = zookeeper.Zookeeper(name, self.vpc.id)
         self.zookeeper.setup(
-            image_id=image_id,
+            image=image,
             key=key,
             cidr_block=subnet_cidr_block,
             instance_type=instance_type,
@@ -46,16 +46,15 @@ class Cell:
         )
         self.id = self.zookeeper.subnet.id
 
-    def setup_master(self, name, key, count, image_id, instance_type,
+    def setup_master(self, name, key, count, image, instance_type,
                      tm_release, ldap_hostname,
                      app_root, ipa_admin_password, subnet_cidr_block=None):
         if not self.vpc.id:
             raise('Provide vpc_id in init or setup vpc prior.')
 
-        self.master.vpc.id = self.vpc.id
         self.master.name = name
         self.master.setup(
-            image_id=image_id,
+            image=image,
             count=count,
             cidr_block=subnet_cidr_block,
             key=key,

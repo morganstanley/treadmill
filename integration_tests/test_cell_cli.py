@@ -8,7 +8,7 @@ import importlib
 import click
 import click.testing
 from botocore.exceptions import ClientError
-import pkg_resources
+import time
 
 from treadmill.infra import vpc
 
@@ -17,6 +17,8 @@ class CellCLITest(unittest.TestCase):
     """Tests EC2 cell setup."""
 
     def setUp(self):
+
+        self.vpc_name = 'IntegrationTest-' + str(time.time())
         self.runner = click.testing.CliRunner()
         self.configure_cli = importlib.import_module(
             'treadmill.cli.cloud'
@@ -26,24 +28,28 @@ class CellCLITest(unittest.TestCase):
         if not self.destroy_attempted:
             self.runner.invoke(
                 self.configure_cli, [
+                    '--domain=treadmill.org',
                     'delete',
                     'vpc',
-                    '--vpc-id=' + self.vpc_id,
-                    '--domain=treadmill.org'
-                ]
+                    '--vpc-name=' + self.vpc_name,
+                ],
+                obj={}
             )
 
     def test_setup_cell(self):
         self.destroy_attempted = False
-        options_fixture_file = pkg_resources.resource_filename(
-            __name__, 'init_cell_options.yml'
-        )
+
         result_init = self.runner.invoke(
-            self.configure_cli, [
+            self.configure_cli,
+            [
+                '--domain=treadmill.org',
                 'init',
-                '-f=' + options_fixture_file
-            ]
+                'vpc',
+                '--name=' + self.vpc_name
+            ],
+            obj={}
         )
+
         cell_info = {}
         vpc_info = {}
 
@@ -57,18 +63,22 @@ class CellCLITest(unittest.TestCase):
 
         self.vpc_id = vpc_info['VpcId']
         self.assertIsNotNone(vpc_info['VpcId'])
+        self.assertEqual(vpc_info['Name'], self.vpc_name)
         self.assertEqual(vpc_info['Subnets'], [])
 
         result_cell_init = self.runner.invoke(
             self.configure_cli, [
-                'init-cell',
-                '--key=ms_treadmill_dev',
-                '--image-id=ami-9e2f0988',
-                '--vpc-id=' + vpc_info['VpcId'],
-                '--cell-cidr-block=172.23.0.0/24',
                 '--domain=treadmill.org',
+                'init',
+                'cell',
+                '--tm-release=0.1.0',
+                '--key=ms_treadmill_dev',
+                '--image=RHEL-7.4',
+                '--vpc-name=' + self.vpc_name,
+                '--cell-cidr-block=172.23.0.0/24',
                 '--ipa-admin-password=Tre@dmill1',
-            ]
+            ],
+            obj={}
         )
 
         result = {}
@@ -79,7 +89,6 @@ class CellCLITest(unittest.TestCase):
                 print(result_cell_init.exception)
             else:
                 print(e)
-
         cell_info = result['Cell']
         ldap_info = result['Ldap']
 
@@ -123,21 +132,23 @@ class CellCLITest(unittest.TestCase):
 
         self.runner.invoke(
             self.configure_cli, [
+                '--domain=treadmill.org',
                 'delete',
                 'cell',
                 '--subnet-id=' + cell_info['SubnetId'],
-                '--vpc-id=' + vpc_info['VpcId'],
-                '--domain=treadmill.org'
-            ]
+                '--vpc-name=' + self.vpc_name
+            ],
+            obj={}
         )
         self.runner.invoke(
             self.configure_cli, [
+                '--domain=treadmill.org',
                 'delete',
-                'cell',
+                'ldap',
                 '--subnet-id=' + ldap_info['SubnetId'],
-                '--vpc-id=' + vpc_info['VpcId'],
-                '--domain=treadmill.org'
-            ]
+                '--vpc-name=' + self.vpc_name
+            ],
+            obj={}
         )
         _vpc.instances = None
         _vpc.subnet_ids = []
@@ -147,11 +158,12 @@ class CellCLITest(unittest.TestCase):
 
         self.runner.invoke(
             self.configure_cli, [
+                '--domain=treadmill.org',
                 'delete',
                 'vpc',
-                '--vpc-id=' + vpc_info['VpcId'],
-                '--domain=treadmill.org'
-            ]
+                '--vpc-name=' + self.vpc_name
+            ],
+            obj={}
         )
         self.destroy_attempted = True
 

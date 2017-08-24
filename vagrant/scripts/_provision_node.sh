@@ -21,8 +21,6 @@ function run {
 
 run $SCRIPTDIR/install-base.sh
 run $SCRIPTDIR/create-users.sh
-run $SCRIPTDIR/build-s6.sh
-run $SCRIPTDIR/build-pid1.sh
 run $SCRIPTDIR/install-node-packages.sh
 run $SCRIPTDIR/venv.sh
 run $SCRIPTDIR/configure-etc-hosts.sh

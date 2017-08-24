@@ -1,5 +1,4 @@
 .. AUTO-GENERATED FILE - DO NOT EDIT!! Use `make cli_docs`.
-
 ==============================================================
 CLI
 ==============================================================
@@ -191,10 +190,6 @@ Module: treadmill.cli.admin.cron
 
 
 
-		DNS domain is not set.
-
-		
-		
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Module: treadmill.cli.admin.diag
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -639,6 +634,817 @@ Module: treadmill.cli.admin.invoke
 		  list    List tenants.
 		  update  Update tenant.
 
+
+
+		Usage: allocation assignment [OPTIONS] COMMAND [ARGS]...
+		
+		  Assignment API.
+		
+		Options:
+		  --help  Show this message and exit.
+		
+		Commands:
+		  create  Create assignment.
+		  delete  Delete assignment.
+		  get     Get assignment configuration.
+		  update  Update assignment.
+
+		Usage: allocation create [OPTIONS] RSRC_ID RSRC
+		
+		  Create allocation.
+		
+		Options:
+		  --help  Show this message and exit.
+
+		Usage: allocation delete [OPTIONS] RSRC_ID
+		
+		  Delete allocation.
+		
+		Options:
+		  --help  Show this message and exit.
+
+		Usage: allocation get [OPTIONS] RSRC_ID
+		
+		  Get allocation configuration.
+		
+		Options:
+		  --help  Show this message and exit.
+
+		Usage: allocation list [OPTIONS]
+		
+		  List allocations.
+		
+		Options:
+		  --tenant_id TEXT
+		  --help            Show this message and exit.
+
+		Usage: allocation reservation [OPTIONS] COMMAND [ARGS]...
+		
+		  Reservation API.
+		
+		Options:
+		  --help  Show this message and exit.
+		
+		Commands:
+		  create  Create reservation.
+		  delete  Delete reservation.
+		  get     Get reservation configuration.
+		  update  Create reservation.
+
+		Usage: allocation update [OPTIONS] RSRC_ID RSRC
+		
+		  Update allocation.
+		
+		Options:
+		  --help  Show this message and exit.
+
+
+
+		Usage: assignment create [OPTIONS] RSRC_ID RSRC
+		
+		  Create assignment.
+		
+		Options:
+		  --help  Show this message and exit.
+
+		Usage: assignment delete [OPTIONS] RSRC_ID
+		
+		  Delete assignment.
+		
+		Options:
+		  --help  Show this message and exit.
+
+		Usage: assignment get [OPTIONS] RSRC_ID
+		
+		  Get assignment configuration.
+		
+		Options:
+		  --help  Show this message and exit.
+
+		Usage: assignment update [OPTIONS] RSRC_ID RSRC
+		
+		  Update assignment.
+		
+		Options:
+		  --help  Show this message and exit.
+
+
+
+		Usage: reservation create [OPTIONS] RSRC_ID RSRC
+		
+		  Create reservation.
+		
+		Options:
+		  --help  Show this message and exit.
+
+		Usage: reservation delete [OPTIONS] RSRC_ID
+		
+		  Delete reservation.
+		
+		Options:
+		  --help  Show this message and exit.
+
+		Usage: reservation get [OPTIONS] RSRC_ID
+		
+		  Get reservation configuration.
+		
+		Options:
+		  --help  Show this message and exit.
+
+		Usage: reservation update [OPTIONS] RSRC_ID RSRC
+		
+		  Create reservation.
+		
+		Options:
+		  --help  Show this message and exit.
+
+
+
+		Usage: api_lookup adminapi [OPTIONS] COMMAND [ARGS]...
+		
+		  Treadmill Admin API Lookup API
+		
+		Options:
+		  --help  Show this message and exit.
+		
+		Commands:
+		  get   Get Admin API SRV records
+		  list  Constructs a command handler.
+
+		Usage: api_lookup cellapi [OPTIONS] COMMAND [ARGS]...
+		
+		  Treadmill Cell API Lookup API
+		
+		Options:
+		  --help  Show this message and exit.
+		
+		Commands:
+		  get   Get Cell API SRV records for given cell
+		  list  Constructs a command handler.
+
+		Usage: api_lookup get [OPTIONS]
+		
+		  No get method
+		
+		Options:
+		  --help  Show this message and exit.
+
+		Usage: api_lookup list [OPTIONS]
+		
+		  Constructs a command handler.
+		
+		Options:
+		  --help  Show this message and exit.
+
+		Usage: api_lookup stateapi [OPTIONS] COMMAND [ARGS]...
+		
+		  Treadmill State API Lookup API
+		
+		Options:
+		  --help  Show this message and exit.
+		
+		Commands:
+		  get   Get State API SRV records for given cell
+		  list  Constructs a command handler.
+
+		Usage: api_lookup wsapi [OPTIONS] COMMAND [ARGS]...
+		
+		  Treadmill WS API Lookup API
+		
+		Options:
+		  --help  Show this message and exit.
+		
+		Commands:
+		  get   Get WS API SRV records for given cell
+		  list  Constructs a command handler.
+
+
+
+		Usage: adminapi get [OPTIONS]
+		
+		  Get Admin API SRV records
+		
+		Options:
+		  --help  Show this message and exit.
+
+		Usage: adminapi list [OPTIONS]
+		
+		  Constructs a command handler.
+		
+		Options:
+		  --help  Show this message and exit.
+
+
+
+		Usage: cellapi get [OPTIONS] CELL_NAME
+		
+		  Get Cell API SRV records for given cell
+		
+		Options:
+		  --help  Show this message and exit.
+
+		Usage: cellapi list [OPTIONS]
+		
+		  Constructs a command handler.
+		
+		Options:
+		  --help  Show this message and exit.
+
+
+
+		Usage: stateapi get [OPTIONS] CELL_NAME
+		
+		  Get State API SRV records for given cell
+		
+		Options:
+		  --help  Show this message and exit.
+
+		Usage: stateapi list [OPTIONS]
+		
+		  Constructs a command handler.
+		
+		Options:
+		  --help  Show this message and exit.
+
+
+
+		Usage: wsapi get [OPTIONS] CELL_NAME
+		
+		  Get WS API SRV records for given cell
+		
+		Options:
+		  --help  Show this message and exit.
+
+		Usage: wsapi list [OPTIONS]
+		
+		  Constructs a command handler.
+		
+		Options:
+		  --help  Show this message and exit.
+
+
+
+		Usage: app create [OPTIONS] RSRC_ID RSRC
+		
+		  Create (configure) application.
+		
+		Options:
+		  --help  Show this message and exit.
+
+		Usage: app delete [OPTIONS] RSRC_ID
+		
+		  Delete configured application.
+		
+		Options:
+		  --help  Show this message and exit.
+
+		Usage: app get [OPTIONS] RSRC_ID
+		
+		  Get application configuration.
+		
+		Options:
+		  --help  Show this message and exit.
+
+		Usage: app list [OPTIONS]
+		
+		  List configured applications.
+		
+		Options:
+		  --match TEXT
+		  --help        Show this message and exit.
+
+		Usage: app update [OPTIONS] RSRC_ID RSRC
+		
+		  Update application configuration.
+		
+		Options:
+		  --help  Show this message and exit.
+
+
+
+		Usage: app_group create [OPTIONS] RSRC_ID RSRC
+		
+		  Create (configure) application.
+		
+		Options:
+		  --help  Show this message and exit.
+
+		Usage: app_group delete [OPTIONS] RSRC_ID
+		
+		  Delete configured application.
+		
+		Options:
+		  --help  Show this message and exit.
+
+		Usage: app_group get [OPTIONS] RSRC_ID
+		
+		  Get application configuration.
+		
+		Options:
+		  --help  Show this message and exit.
+
+		Usage: app_group list [OPTIONS]
+		
+		  List configured applications.
+		
+		Options:
+		  --match TEXT
+		  --help        Show this message and exit.
+
+		Usage: app_group update [OPTIONS] RSRC_ID RSRC
+		
+		  Update application configuration.
+		
+		Options:
+		  --help  Show this message and exit.
+
+
+
+		Usage: app_monitor create [OPTIONS] RSRC_ID RSRC
+		
+		  Create (configure) application monitor.
+		
+		Options:
+		  --help  Show this message and exit.
+
+		Usage: app_monitor delete [OPTIONS] RSRC_ID
+		
+		  Delete configured application monitor.
+		
+		Options:
+		  --help  Show this message and exit.
+
+		Usage: app_monitor get [OPTIONS] RSRC_ID
+		
+		  Get application monitor configuration.
+		
+		Options:
+		  --help  Show this message and exit.
+
+		Usage: app_monitor list [OPTIONS]
+		
+		  List configured monitors.
+		
+		Options:
+		  --match TEXT
+		  --help        Show this message and exit.
+
+		Usage: app_monitor update [OPTIONS] RSRC_ID RSRC
+		
+		  Update application configuration.
+		
+		Options:
+		  --help  Show this message and exit.
+
+
+
+		Usage: cell create [OPTIONS] RSRC_ID RSRC
+		
+		  Create cell.
+		
+		Options:
+		  --help  Show this message and exit.
+
+		Usage: cell delete [OPTIONS] RSRC_ID
+		
+		  Delete cell.
+		
+		Options:
+		  --help  Show this message and exit.
+
+		Usage: cell get [OPTIONS] RSRC_ID
+		
+		  Get cell configuration.
+		
+		Options:
+		  --help  Show this message and exit.
+
+		Usage: cell list [OPTIONS]
+		
+		  List cells.
+		
+		Options:
+		  --help  Show this message and exit.
+
+		Usage: cell update [OPTIONS] RSRC_ID RSRC
+		
+		  Update cell.
+		
+		Options:
+		  --help  Show this message and exit.
+
+
+
+		Usage: cloud_host create [OPTIONS] HOSTNAME
+		
+		  Constructs a command handler.
+		
+		Options:
+		  --help  Show this message and exit.
+
+		Usage: cloud_host delete [OPTIONS] HOSTNAME
+		
+		  Constructs a command handler.
+		
+		Options:
+		  --help  Show this message and exit.
+
+
+
+		Usage: cron create [OPTIONS] RSRC_ID RSRC
+		
+		  Create (configure) instance.
+		
+		Options:
+		  --help  Show this message and exit.
+
+		Usage: cron delete [OPTIONS] RSRC_ID
+		
+		  Delete configured instance.
+		
+		Options:
+		  --help  Show this message and exit.
+
+		Usage: cron get [OPTIONS] RSRC_ID
+		
+		  Get instance configuration.
+		
+		Options:
+		  --help  Show this message and exit.
+
+		Usage: cron list [OPTIONS]
+		
+		  List configured instances.
+		
+		Options:
+		  --match TEXT
+		  --help        Show this message and exit.
+
+		Usage: cron scheduler [OPTIONS]
+		
+		  Lazily get scheduler
+		
+		Options:
+		  --help  Show this message and exit.
+
+		Usage: cron update [OPTIONS] RSRC_ID RSRC
+		
+		  Update instance configuration.
+		
+		Options:
+		  --help  Show this message and exit.
+
+
+
+		Usage: dns get [OPTIONS] RSRC_ID
+		
+		  Get DNS server entry
+		
+		Options:
+		  --help  Show this message and exit.
+
+		Usage: dns list [OPTIONS]
+		
+		  List DNS servers
+		
+		Options:
+		  --help  Show this message and exit.
+
+
+
+		Usage: identity_group create [OPTIONS] RSRC_ID RSRC
+		
+		  Create (configure) application group.
+		
+		Options:
+		  --help  Show this message and exit.
+
+		Usage: identity_group delete [OPTIONS] RSRC_ID
+		
+		  Delete configured application group.
+		
+		Options:
+		  --help  Show this message and exit.
+
+		Usage: identity_group get [OPTIONS] RSRC_ID
+		
+		  Get application group configuration.
+		
+		Options:
+		  --help  Show this message and exit.
+
+		Usage: identity_group list [OPTIONS]
+		
+		  List configured identity groups.
+		
+		Options:
+		  --match TEXT
+		  --help        Show this message and exit.
+
+		Usage: identity_group update [OPTIONS] RSRC_ID RSRC
+		
+		  Update application configuration.
+		
+		Options:
+		  --help  Show this message and exit.
+
+
+
+		Usage: instance create [OPTIONS] RSRC_ID RSRC
+		
+		  Create (configure) instance.
+		
+		Options:
+		  --count INTEGER
+		  --help           Show this message and exit.
+
+		Usage: instance delete [OPTIONS] RSRC_ID
+		
+		  Delete configured instance.
+		
+		Options:
+		  --help  Show this message and exit.
+
+		Usage: instance get [OPTIONS] RSRC_ID
+		
+		  Get instance configuration.
+		
+		Options:
+		  --help  Show this message and exit.
+
+		Usage: instance list [OPTIONS]
+		
+		  List configured instances.
+		
+		Options:
+		  --match TEXT
+		  --help        Show this message and exit.
+
+		Usage: instance update [OPTIONS] RSRC_ID RSRC
+		
+		  Update instance configuration.
+		
+		Options:
+		  --help  Show this message and exit.
+
+
+
+		Usage: local archive [OPTIONS] COMMAND [ARGS]...
+		
+		  Access to archive files.
+		
+		Options:
+		  --help  Show this message and exit.
+		
+		Commands:
+		  get  Get log file.
+
+		Usage: local get [OPTIONS] UNIQID
+		
+		  Get instance info.
+		
+		Options:
+		  --help  Show this message and exit.
+
+		Usage: local list [OPTIONS]
+		
+		  List all instances on the node.
+		
+		Options:
+		  --inc_svc BOOLEAN
+		  --state TEXT
+		  --help             Show this message and exit.
+
+		Usage: local log [OPTIONS] COMMAND [ARGS]...
+		
+		  Access to log files.
+		
+		Options:
+		  --help  Show this message and exit.
+		
+		Commands:
+		  _get_logfile  Return the corresponding log file.
+		  get           Get log file.
+		  tm_env        Lazy instantiate app environment.
+
+		Usage: local metrics [OPTIONS] COMMAND [ARGS]...
+		
+		  Acess to the locally gathered metrics.
+		
+		Options:
+		  --help  Show this message and exit.
+		
+		Commands:
+		  _app_rrd_file   Return an application's rrd file.
+		  _core_rrd_file  Return the given service's rrd file.
+		  _get_rrd_file   Return the rrd file path of an app or a core...
+		  _metrics_fpath  Return the rrd metrics file's full path.
+		  _remove_ext     Returns the basename of a file and removes...
+		  _unpack_id      Decompose resource_id to a dictionary.
+		  file_path       Return the rrd metrics file path.
+		  get             Return the rrd metrics.
+		  tm_env          Lazy instantiate app environment.
+
+
+
+		Usage: archive get [OPTIONS] ARCHIVE_ID
+		
+		  Get log file.
+		
+		Options:
+		  --help  Show this message and exit.
+
+
+
+		Usage: log _get_logfile [OPTIONS] SELF INSTANCE UNIQ LOGTYPE COMPONENT
+		
+		  Return the corresponding log file.
+		
+		Options:
+		  --help  Show this message and exit.
+
+		Usage: log get [OPTIONS] SELF LOG_ID
+		
+		  Get log file.
+		
+		Options:
+		  --order TEXT
+		  --limit TEXT
+		  --start INTEGER
+		  --help           Show this message and exit.
+
+		Usage: log tm_env [OPTIONS]
+		
+		  Lazy instantiate app environment.
+		
+		Options:
+		  --_metrics_api TEXT
+		  --help               Show this message and exit.
+
+
+
+		Usage: metrics _app_rrd_file [OPTIONS] SELF APP UNIQ
+		
+		  Return an application's rrd file.
+		
+		Options:
+		  --arch_extract BOOLEAN
+		  --help                  Show this message and exit.
+
+		Usage: metrics _core_rrd_file [OPTIONS] SELF SERVICE
+		
+		  Return the given service's rrd file.
+		
+		Options:
+		  --help  Show this message and exit.
+
+		Usage: metrics _get_rrd_file [OPTIONS] SELF
+		
+		  Return the rrd file path of an app or a core service.
+		
+		Options:
+		  --arch_extract BOOLEAN
+		  --uniq TEXT
+		  --app TEXT
+		  --service TEXT
+		  --help                  Show this message and exit.
+
+		Usage: metrics _metrics_fpath [OPTIONS] SELF
+		
+		  Return the rrd metrics file's full path.
+		
+		Options:
+		  --uniq TEXT
+		  --app TEXT
+		  --service TEXT
+		  --help          Show this message and exit.
+
+		Usage: metrics _remove_ext [OPTIONS] SELF FNAME
+		
+		  Returns the basename of a file and removes the extension as well.
+		
+		Options:
+		  --extension TEXT
+		  --help            Show this message and exit.
+
+		Usage: metrics _unpack_id [OPTIONS] SELF RSRC_ID
+		
+		  Decompose resource_id to a dictionary.
+		
+		  Unpack the (core) service name or the application name and "uniq name" from
+		  rsrc_id to a dictionary.
+		
+		Options:
+		  --help  Show this message and exit.
+
+		Usage: metrics file_path [OPTIONS] SELF RSRC_ID
+		
+		  Return the rrd metrics file path.
+		
+		Options:
+		  --help  Show this message and exit.
+
+		Usage: metrics get [OPTIONS] SELF RSRC_ID TIMEFRAME
+		
+		  Return the rrd metrics.
+		
+		Options:
+		  --as_json BOOLEAN
+		  --help             Show this message and exit.
+
+		Usage: metrics tm_env [OPTIONS]
+		
+		  Lazy instantiate app environment.
+		
+		Options:
+		  --_metrics_api TEXT
+		  --help               Show this message and exit.
+
+
+
+		Usage: nodeinfo get [OPTIONS] HOSTNAME
+		
+		  Get hostname nodeinfo endpoint info.
+		
+		Options:
+		  --help  Show this message and exit.
+
+
+
+		Usage: server create [OPTIONS] RSRC_ID RSRC
+		
+		  Create server.
+		
+		Options:
+		  --help  Show this message and exit.
+
+		Usage: server delete [OPTIONS] RSRC_ID
+		
+		  Delete server.
+		
+		Options:
+		  --help  Show this message and exit.
+
+		Usage: server get [OPTIONS] RSRC_ID
+		
+		  Get server configuration.
+		
+		Options:
+		  --help  Show this message and exit.
+
+		Usage: server list [OPTIONS]
+		
+		  List servers by cell and/or features.
+		
+		Options:
+		  --partition TEXT
+		  --cell TEXT
+		  --help            Show this message and exit.
+
+		Usage: server update [OPTIONS] RSRC_ID RSRC
+		
+		  Update server.
+		
+		Options:
+		  --help  Show this message and exit.
+
+
+
+		Usage: tenant create [OPTIONS] RSRC_ID RSRC
+		
+		  Create tenant.
+		
+		Options:
+		  --help  Show this message and exit.
+
+		Usage: tenant delete [OPTIONS] RSRC_ID
+		
+		  Delete tenant.
+		
+		Options:
+		  --help  Show this message and exit.
+
+		Usage: tenant get [OPTIONS] RSRC_ID
+		
+		  Get tenant configuration.
+		
+		Options:
+		  --help  Show this message and exit.
+
+		Usage: tenant list [OPTIONS]
+		
+		  List tenants.
+		
+		Options:
+		  --help  Show this message and exit.
+
+		Usage: tenant update [OPTIONS] RSRC_ID RSRC
+		
+		  Update tenant.
+		
+		Options:
+		  --help  Show this message and exit.
+
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Module: treadmill.cli.admin.ldap
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -796,6 +1602,312 @@ Module: treadmill.cli.admin.ldap
 		  delete     Delete a tenant
 		  list       List configured tenants
 
+
+
+		Usage: allocation assign [OPTIONS] ALLOCATION
+		
+		  Manage application assignments
+		
+		Options:
+		  --pattern TEXT      Application name pattern.  [required]
+		  --priority INTEGER  Assigned priority.  [required]
+		  --cell TEXT         Cell.  [required]
+		  --delete            Delete assignment.
+		  --help              Show this message and exit.
+
+		Usage: allocation configure [OPTIONS] ALLOCATION
+		
+		  Create, get or modify allocation configuration
+		
+		Options:
+		  -e, --environment [dev|qa|uat|prod]
+		                                  Environment
+		  --help                          Show this message and exit.
+
+		Usage: allocation delete [OPTIONS] ALLOCATION
+		
+		  Delete an allocation
+		
+		Options:
+		  --help  Show this message and exit.
+
+		Usage: allocation list [OPTIONS]
+		
+		  List configured allocations
+		
+		Options:
+		  --help  Show this message and exit.
+
+		Usage: allocation reserve [OPTIONS] ALLOCATION
+		
+		  Reserve capacity on a given cell
+		
+		Options:
+		  -m, --memory TEXT            Memory.
+		  -c, --cpu TEXT               CPU.
+		  -d, --disk TEXT              Disk.
+		  -r, --rank INTEGER           Rank.
+		  -u, --max-utilization FLOAT  Max utilization.
+		  -t, --traits LIST            Allocation traits
+		  -p, --partition TEXT         Allocation partition
+		  --cell TEXT                  Cell.  [required]
+		  --help                       Show this message and exit.
+
+
+
+		Usage: app configure [OPTIONS] APP
+		
+		  Create, get or modify an app configuration
+		
+		Options:
+		  -m, --manifest PATH  Application manifest.
+		  --help               Show this message and exit.
+
+		Usage: app delete [OPTIONS] APP
+		
+		  Delete applicaiton
+		
+		Options:
+		  --help  Show this message and exit.
+
+		Usage: app list [OPTIONS]
+		
+		  List configured applicaitons
+		
+		Options:
+		  --help  Show this message and exit.
+
+
+
+		Usage: app-group cells [OPTIONS] NAME
+		
+		  Add or remove cells from the app-group
+		
+		Options:
+		  --add LIST     Cells to to add.
+		  --remove LIST  Cells to to remove.
+		  --help         Show this message and exit.
+
+		Usage: app-group configure [OPTIONS] NAME
+		
+		  Create, get or modify an App Group
+		
+		Options:
+		  --group-type TEXT  App group type
+		  --cell LIST        Cell app pattern could be in; comma separated list of cells
+		  --pattern TEXT     App pattern
+		  --endpoints LIST   App group endpoints, comma separated list.
+		  --data LIST        App group specific data as key=value comma separated list
+		  --help             Show this message and exit.
+
+		Usage: app-group delete [OPTIONS] NAME
+		
+		  Delete an App Group entry
+		
+		Options:
+		  --help  Show this message and exit.
+
+		Usage: app-group get [OPTIONS] NAME
+		
+		  Get an App Group entry
+		
+		Options:
+		  --help  Show this message and exit.
+
+		Usage: app-group list [OPTIONS]
+		
+		  List App Group entries
+		
+		Options:
+		  --help  Show this message and exit.
+
+
+
+		Usage: cell configure [OPTIONS] CELL
+		
+		  Create, get or modify cell configuration
+		
+		Options:
+		  -v, --version TEXT       Version.
+		  -r, --root TEXT          Distro root.
+		  -l, --location TEXT      Cell location.
+		  -u, --username TEXT      Cell proid account.
+		  --archive-server TEXT    Archive server.
+		  --archive-username TEXT  Archive username.
+		  --ssq-namespace TEXT     SSQ namespace.
+		  -d, --data PATH          Cell specific data in YAML
+		  -m, --manifest PATH      Load cell from manifest file.
+		  --help                   Show this message and exit.
+
+		Usage: cell delete [OPTIONS] CELL
+		
+		  Delete a cell
+		
+		Options:
+		  --help  Show this message and exit.
+
+		Usage: cell insert [OPTIONS] CELL
+		
+		  Add master server to a cell
+		
+		Options:
+		  --idx [1|2|3|4|5]            Master index.  [required]
+		  --hostname TEXT              Master hostname.  [required]
+		  --client-port INTEGER        Zookeeper client port.  [required]
+		  --kafka-client-port INTEGER  Kafka client port.
+		  --jmx-port INTEGER           Zookeeper jmx port.
+		  --followers-port INTEGER     Zookeeper followers port.
+		  --election-port INTEGER      Zookeeper election port.
+		  --help                       Show this message and exit.
+
+		Usage: cell list [OPTIONS]
+		
+		  Displays master servers
+		
+		Options:
+		  --help  Show this message and exit.
+
+		Usage: cell remove [OPTIONS] CELL
+		
+		  Remove master server from a cell
+		
+		Options:
+		  --idx [1|2|3]  Master index.  [required]
+		  --help         Show this message and exit.
+
+
+
+		Usage: direct delete [OPTIONS] REC_DN
+		
+		  Delete LDAP object by DN
+		
+		Options:
+		  --help  Show this message and exit.
+
+		Usage: direct get [OPTIONS] REC_DN
+		
+		  List all defined DNs
+		
+		Options:
+		  -c, --cls TEXT    Object class  [required]
+		  -a, --attrs LIST  Addition attributes
+		  --help            Show this message and exit.
+
+		Usage: direct list [OPTIONS]
+		
+		  List all defined DNs
+		
+		Options:
+		  --root TEXT  Search root.
+		  --help       Show this message and exit.
+
+
+
+		Usage: dns configure [OPTIONS] NAME
+		
+		  Create, get or modify Critical DNS quorum
+		
+		Options:
+		  --server LIST        Server name
+		  -m, --manifest PATH  Load DNS from manifest file  [required]
+		  --help               Show this message and exit.
+
+		Usage: dns delete [OPTIONS] NAME
+		
+		  Delete Critical DNS server
+		
+		Options:
+		  --help  Show this message and exit.
+
+		Usage: dns list [OPTIONS] [NAME]
+		
+		  Displays Critical DNS servers list
+		
+		Options:
+		  --server TEXT  List servers matching this name
+		  --help         Show this message and exit.
+
+
+
+		Usage: partition configure [OPTIONS] LABEL
+		
+		  Create, get or modify partition configuration
+		
+		Options:
+		  -m, --memory TEXT          Memory.
+		  -c, --cpu TEXT             CPU.
+		  -d, --disk TEXT            Disk.
+		  -t, --down-threshold TEXT  Down threshold.
+		  --help                     Show this message and exit.
+
+		Usage: partition delete [OPTIONS] LABEL
+		
+		  Delete a partition
+		
+		Options:
+		  --help  Show this message and exit.
+
+		Usage: partition list [OPTIONS]
+		
+		  List partitions
+		
+		Options:
+		  --help  Show this message and exit.
+
+
+
+		Usage: server configure [OPTIONS] SERVER
+		
+		  Create, get or modify server configuration
+		
+		Options:
+		  -c, --cell TEXT       Treadmll cell
+		  -t, --traits TEXT     List of server traits
+		  -p, --partition TEXT  Server partition
+		  -d, --data LIST       Server specific data as key=value comma separated list
+		  --help                Show this message and exit.
+
+		Usage: server delete [OPTIONS] [SERVERS]...
+		
+		  Delete server(s)
+		
+		Options:
+		  --help  Show this message and exit.
+
+		Usage: server list [OPTIONS]
+		
+		  List servers
+		
+		Options:
+		  -c, --cell TEXT       Treadmll cell.
+		  -t, --traits TEXT     List of server traits
+		  -p, --partition TEXT  Server partition
+		  --help                Show this message and exit.
+
+
+
+		Usage: tenant configure [OPTIONS] TENANT
+		
+		  Create, get or modify tenant configuration
+		
+		Options:
+		  -s, --system INTEGER  System eon id
+		  --help                Show this message and exit.
+
+		Usage: tenant delete [OPTIONS] TENANT
+		
+		  Delete a tenant
+		
+		Options:
+		  --help  Show this message and exit.
+
+		Usage: tenant list [OPTIONS]
+		
+		  List configured tenants
+		
+		Options:
+		  --help  Show this message and exit.
+
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Module: treadmill.cli.admin.master
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -893,6 +2005,163 @@ Module: treadmill.cli.admin.master
 		  delete     Delete server configuration
 		  list       List servers
 
+
+
+		Usage: app configure [OPTIONS] INSTANCE
+		
+		  View app instance configuration
+		
+		Options:
+		  --help  Show this message and exit.
+
+		Usage: app delete [OPTIONS] [APPS]...
+		
+		  Deletes (unschedules) the app by pattern
+		
+		Options:
+		  --help  Show this message and exit.
+
+		Usage: app list [OPTIONS]
+		
+		  List apps
+		
+		Options:
+		  --help  Show this message and exit.
+
+		Usage: app schedule [OPTIONS] APP
+		
+		  Schedule app(s) on the cell master
+		
+		Options:
+		  -m, --manifest PATH      [required]
+		  --env [dev|qa|uat|prod]  Proid environment.  [required]
+		  --proid TEXT             Proid.  [required]
+		  -n, --count INTEGER
+		  --help                   Show this message and exit.
+
+
+
+		Usage: bucket configure [OPTIONS] BUCKET
+		
+		  Create, get or modify bucket configuration
+		
+		Options:
+		  -f, --features TEXT  Bucket features, - to reset
+		  --help               Show this message and exit.
+
+		Usage: bucket delete [OPTIONS] BUCKET
+		
+		  Delete bucket
+		
+		Options:
+		  --help  Show this message and exit.
+
+		Usage: bucket list [OPTIONS]
+		
+		  Delete bucket
+		
+		Options:
+		  --help  Show this message and exit.
+
+
+
+		Usage: cell insert [OPTIONS] BUCKET
+		
+		  Add top level bucket to the cell
+		
+		Options:
+		  --help  Show this message and exit.
+
+		Usage: cell list [OPTIONS]
+		
+		  List top level bucket in the cell
+		
+		Options:
+		  --help  Show this message and exit.
+
+		Usage: cell remove [OPTIONS] BUCKET
+		
+		  Remove top level bucket to the cell
+		
+		Options:
+		  --help  Show this message and exit.
+
+
+
+		Usage: identity-group configure [OPTIONS] GROUP
+		
+		  Create, get or modify identity group configuration
+		
+		Options:
+		  -n, --count INTEGER
+		  --help               Show this message and exit.
+
+		Usage: identity-group delete [OPTIONS] GROUP
+		
+		  Deletes identity group
+		
+		Options:
+		  --help  Show this message and exit.
+
+		Usage: identity-group list [OPTIONS]
+		
+		  List all configured identity groups
+		
+		Options:
+		  --help  Show this message and exit.
+
+
+
+		Usage: monitor configure [OPTIONS] APP
+		
+		  Create, get or modify an app monitor configuration
+		
+		Options:
+		  -n, --count INTEGER
+		  --help               Show this message and exit.
+
+		Usage: monitor delete [OPTIONS] APP
+		
+		  Deletes app monitor
+		
+		Options:
+		  --help  Show this message and exit.
+
+		Usage: monitor list [OPTIONS]
+		
+		  List all configured monitors
+		
+		Options:
+		  --help  Show this message and exit.
+
+
+
+		Usage: server configure [OPTIONS] SERVER
+		
+		  Create, get or modify server configuration
+		
+		Options:
+		  -f, --features TEXT  Server features, - to reset.
+		  -p, --parent TEXT    Server parent / separated.
+		  -m, --memory TEXT    Server memory.
+		  -c, --cpu TEXT       Server cpu, %.
+		  -d, --disk TEXT      Server disk.
+		  --help               Show this message and exit.
+
+		Usage: server delete [OPTIONS] SERVER
+		
+		  Delete server configuration
+		
+		Options:
+		  --help  Show this message and exit.
+
+		Usage: server list [OPTIONS]
+		
+		  List servers
+		
+		Options:
+		  --help  Show this message and exit.
+
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Module: treadmill.cli.admin.ok
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -955,6 +2224,37 @@ Module: treadmill.cli.admin.scheduler
 		  apps     View apps report
 		  queue    View utilization queue
 		  servers  View servers report
+
+
+
+		Usage: view allocs [OPTIONS]
+		
+		  View allocation report
+		
+		Options:
+		  --help  Show this message and exit.
+
+		Usage: view apps [OPTIONS]
+		
+		  View apps report
+		
+		Options:
+		  --help  Show this message and exit.
+
+		Usage: view queue [OPTIONS]
+		
+		  View utilization queue
+		
+		Options:
+		  --help  Show this message and exit.
+
+		Usage: view servers [OPTIONS]
+		
+		  View servers report
+		
+		Options:
+		  --features / --no-features
+		  --help                      Show this message and exit.
 
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Module: treadmill.cli.admin.show
@@ -1125,34 +2425,6 @@ Module: treadmill.cli.allocation
 		  --help                Show this message and exit.
 
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-Module: treadmill.cli.aws
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-::
-
-		Usage: aws [OPTIONS] COMMAND [ARGS]...
-		
-		  Manage treadmill on AWS
-		
-		Options:
-		  --help  Show this message and exit.
-		
-		Commands:
-		  cell  Manage treadmill cell on AWS
-		  init  Initialise ansible files for AWS deployment
-		  node  Manage treadmill node
-
-
-
-		
-		Usage: aws init [OPTIONS]
-		
-		  Initialise ansible files for AWS deployment
-		
-		Options:
-		  --help  Show this message and exit.
-
-		
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Module: treadmill.cli.cell
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ::
@@ -1192,120 +2464,84 @@ Module: treadmill.cli.cloud
 
 		Usage: cloud [OPTIONS] COMMAND [ARGS]...
 		
-		  Manage treadmill on cloud
+		  Manage Treadmill on cloud
 		
 		Options:
-		  --help  Show this message and exit.
+		  --domain TEXT  Domain for hosted zone  [required]
+		  --help         Show this message and exit.
 		
 		Commands:
-		  add-node            Add new node
 		  delete              Delete Treadmill EC2 Objects
 		  delete-hosted-zone  Delete Hosted Zones
-		  disable-port        Disable Port from my ip
-		  enable-port         Enable Port from my ip
-		  init                Initialize treadmill VPC
-		  init-cell           Initialize treadmill cell
-		  init-domain         Initialize treadmill domain
-		  init-ldap           Initialize treadmill cell
+		  init                Initialize Treadmill EC2 Objects
 		  list                Show Treadmill Cloud Resources
+		  port                enable/disable EC2 instance port
 
 
 
-		Usage: cloud add-node [OPTIONS]
+
+
+		Usage: delete cell [OPTIONS]
 		
-		  Add new node
+		  Delete Cell (Subnet)
 		
 		Options:
-		  --vpc-id TEXT              VPC ID of cell  [required]
+		  --vpc-name TEXT   VPC Name  [required]
+		  --subnet-id TEXT  Subnet ID of cell  [required]
+		  --help            Show this message and exit.
+
+		Usage: delete domain [OPTIONS]
+		
+		  Delete IPA
+		
+		Options:
+		  --vpc-name TEXT   VPC Name  [required]
+		  --subnet-id TEXT  Subnet ID of IPA  [required]
+		  --name TEXT       Name of Instance
+		  --help            Show this message and exit.
+
+		Usage: delete ldap [OPTIONS]
+		
+		  Delete LDAP
+		
+		Options:
+		  --vpc-name TEXT   VPC Name  [required]
+		  --subnet-id TEXT  Subnet ID of LDAP  [required]
+		  --name TEXT       Name of Instance
+		  --help            Show this message and exit.
+
+		Usage: delete node [OPTIONS]
+		
+		  Delete Node
+		
+		Options:
+		  --vpc-name TEXT     VPC Name  [required]
+		  --name TEXT         Instance Name
+		  --instance-id TEXT  Instance ID
+		  --help              Show this message and exit.
+
+		Usage: delete vpc [OPTIONS]
+		
+		  Delete VPC
+		
+		Options:
+		  --vpc-name TEXT  VPC Name  [required]
+		  --help           Show this message and exit.
+
+
+
+		Usage: init cell [OPTIONS]
+		
+		  Initialize Treadmill Cell
+		
+		Options:
+		  --vpc-name TEXT            VPC Name  [required]
 		  --region TEXT              Region for the vpc
-		  --domain TEXT              Domain for hosted zone  [required]
-		  --name TEXT                Node name
-		  --key TEXT                 SSH Key Name  [required]
-		  --count INTEGER            Number of treadmill nodes to spin up
-		  --image-id TEXT            AMI ID to use for new node instance  [required]
-		  --instance-type TEXT       AWS ec2 instance type
-		  --tm-release TEXT          Treadmill release to use
-		  --ldap-hostname TEXT       LDAP hostname
-		  --app-root TEXT            Treadmill app root
-		  --subnet-id TEXT           Subnet ID  [required]
-		  --ipa-admin-password TEXT  Password for IPA admin
-		  --with-api                 Provision node with treadmill APIs
-		  -m, --manifest TEXT        Options YAML file.  NOTE: This argument is mutually
-		                             exclusive with arguments: [tm_release,
-		                             ipa_admin_passwordwith_api, domain, ldap_hostname,
-		                             instance_type, region, key, image_id, subnet_id,
-		                             vpc_id, count, app_root, name].
-		  --help                     Show this message and exit.
-
-		Usage: cloud delete [OPTIONS] COMMAND [ARGS]...
-		
-		  Delete Treadmill EC2 Objects
-		
-		Options:
-		  --help  Show this message and exit.
-		
-		Commands:
-		  cell    Delete Cell (Subnet)
-		  domain  Delete IPA
-		  ldap    Delete LDAP
-		  node    Delete Node
-		  vpc     Delete VPC
-
-		Usage: cloud delete-hosted-zone [OPTIONS]
-		
-		  Delete Hosted Zones
-		
-		Options:
-		  --zones-to-retain TEXT  Hosted Zone IDs to retain  [required]
-		  --help                  Show this message and exit.
-
-		Usage: cloud disable-port [OPTIONS]
-		
-		  Disable Port from my ip
-		
-		Options:
-		  --protocol TEXT               Protocol
-		  -p, --port TEXT               Port  [required]
-		  -s, --security-group-id TEXT  Security Group ID  [required]
-		  --help                        Show this message and exit.
-
-		Usage: cloud enable-port [OPTIONS]
-		
-		  Enable Port from my ip
-		
-		Options:
-		  --protocol TEXT               Protocol
-		  -p, --port TEXT               Port  [required]
-		  -s, --security-group-id TEXT  Security Group ID  [required]
-		  --help                        Show this message and exit.
-
-		Usage: cloud init [OPTIONS]
-		
-		  Initialize treadmill VPC
-		
-		Options:
-		  --domain TEXT          Domain for hosted zone  [required]
-		  --region TEXT          Region for the vpc
-		  --vpc-cidr-block TEXT  CIDR block for the vpc
-		  --secgroup_name TEXT   Security group name
-		  --secgroup_desc TEXT   Description for the security group
-		  -m, --manifest TEXT    Options YAML file.  NOTE: This argument is mutually
-		                         exclusive with arguments: [domain, vpc_cidr_block,
-		                         region, secgroup_desc, secgroup_name].
-		  --help                 Show this message and exit.
-
-		Usage: cloud init-cell [OPTIONS]
-		
-		  Initialize treadmill cell
-		
-		Options:
-		  --vpc-id TEXT              VPC ID of cell  [required]
-		  --region TEXT              Region for the vpc
-		  --domain TEXT              Domain for hosted zone  [required]
 		  --name TEXT                Treadmill master name
 		  --key TEXT                 SSH Key Name  [required]
-		  --count INTEGER            Number of treadmill masters to spin up
-		  --image-id TEXT            AMI ID to use for new instances  [required]
+		  --count INTEGER            Number of Treadmill masters to spin up
+		  --image TEXT               Image to use for new instances e.g. RHEL-7.4
+		                             [required]
 		  --instance-type TEXT       AWS ec2 instance type
 		  --tm-release TEXT          Treadmill release to use
 		  --ldap-hostname TEXT       LDAP hostname
@@ -1317,22 +2553,21 @@ Module: treadmill.cli.cloud
 		  --without-ldap             Flag for LDAP Server
 		  --ipa-admin-password TEXT  Password for IPA admin
 		  -m, --manifest TEXT        Options YAML file.  NOTE: This argument is mutually
-		                             exclusive with arguments: [tm_release,
-		                             without_ldap, domain, ldap_hostname, instance_type,
-		                             region, key, image_id, subnet_id,
-		                             ipa_admin_password, cell_cidr_blockldap_subnet_id,
-		                             ldap_cidr_block, vpc_id, count, app_root, name].
+		                             exclusive with arguments: [count, app_root,
+		                             tm_release, key, vpc_id, ldap_cidr_block,
+		                             cell_cidr_blockldap_subnet_id, ldap_hostname,
+		                             image, instance_type, subnet_id, name,
+		                             without_ldap, region, ipa_admin_password].
 		  --help                     Show this message and exit.
 
-		Usage: cloud init-domain [OPTIONS]
+		Usage: init domain [OPTIONS]
 		
-		  Initialize treadmill domain
+		  Initialize Treadmill Domain (IPA)
 		
 		Options:
 		  --name TEXT                Name of the instance
 		  --region TEXT              Region for the vpc
-		  --vpc-id TEXT              VPC ID of cell  [required]
-		  --domain TEXT              Domain for hosted zone  [required]
+		  --vpc-name TEXT            VPC Name  [required]
 		  --subnet-cidr-block TEXT   Cidr block of subnet for IPA
 		  --subnet-id TEXT           Subnet ID
 		  --count INTEGER            Count of the instances
@@ -1340,25 +2575,25 @@ Module: treadmill.cli.cloud
 		  --tm-release TEXT          Treadmill Release
 		  --key TEXT                 SSH key name  [required]
 		  --instance-type TEXT       Instance type
-		  --image-id TEXT            AMI ID to use for new master instance  [required]
+		  --image TEXT               Image to use for new master instance e.g. RHEL-7.4
+		                             [required]
 		  -m, --manifest TEXT        Options YAML file.  NOTE: This argument is mutually
-		                             exclusive with arguments: [tm_release, domain,
-		                             instance_type, region, key, image_id,
-		                             ipa_admin_password, vpc_id, count,
-		                             subnet_cidr_blocksubnet_id, name].
+		                             exclusive with arguments: [count, tm_release, key,
+		                             vpc_id, subnet_cidr_blocksubnet_id, image,
+		                             instance_type, name, region, ipa_admin_password].
 		  --help                     Show this message and exit.
 
-		Usage: cloud init-ldap [OPTIONS]
+		Usage: init ldap [OPTIONS]
 		
-		  Initialize treadmill cell
+		  Initialize Treadmill LDAP
 		
 		Options:
-		  --vpc-id TEXT              VPC ID of cell  [required]
+		  --vpc-name TEXT            VPC name  [required]
 		  --region TEXT              Region for the vpc
-		  --domain TEXT              Domain for hosted zone  [required]
 		  --key TEXT                 SSH Key Name  [required]
-		  --count INTEGER            Number of treadmill ldap instances to spin up
-		  --image-id TEXT            AMI ID to use for instances  [required]
+		  --count INTEGER            Number of Treadmill ldap instances to spin up
+		  --image TEXT               Image to use for instances e.g. RHEL-7.4
+		                             [required]
 		  --instance-type TEXT       AWS ec2 instance type
 		  --tm-release TEXT          Treadmill release to use
 		  --ldap-hostname TEXT       LDAP hostname
@@ -1368,23 +2603,93 @@ Module: treadmill.cli.cloud
 		  --cell-subnet-id TEXT      Subnet ID of Cell
 		  --ipa-admin-password TEXT  Password for IPA admin
 		  -m, --manifest TEXT        Options YAML file.  NOTE: This argument is mutually
-		                             exclusive with arguments: [tm_release,
-		                             ipa_admin_passwordldap_cidr_block, ldap_subnet_id,
-		                             cell_subnet_id, domain, ldap_hostname,
-		                             instance_type, region, key, image_id, vpc_id,
-		                             count, app_root].
+		                             exclusive with arguments: [vpc_name, count,
+		                             app_root, tm_release, key, ldap_hostname,
+		                             ipa_admin_passwordldap_cidr_block, cell_subnet_id,
+		                             instance_type, image, ldap_subnet_id, region].
 		  --help                     Show this message and exit.
 
-		Usage: cloud list [OPTIONS] COMMAND [ARGS]...
+		Usage: init node [OPTIONS]
 		
-		  Show Treadmill Cloud Resources
+		  Initialize new Node in Cell
 		
 		Options:
-		  --help  Show this message and exit.
+		  --vpc-name TEXT            VPC Name  [required]
+		  --region TEXT              Region for the vpc
+		  --name TEXT                Node name
+		  --key TEXT                 SSH Key Name  [required]
+		  --count INTEGER            Number of Treadmill nodes to spin up
+		  --image TEXT               Image to use for new node instance e.g. RHEL-7.4
+		                             [required]
+		  --instance-type TEXT       AWS ec2 instance type
+		  --tm-release TEXT          Treadmill release to use
+		  --ldap-hostname TEXT       LDAP hostname
+		  --app-root TEXT            Treadmill app root
+		  --subnet-id TEXT           Subnet ID  [required]
+		  --ipa-admin-password TEXT  Password for IPA admin
+		  --with-api                 Provision node with Treadmill APIs
+		  -m, --manifest TEXT        Options YAML file.  NOTE: This argument is mutually
+		                             exclusive with arguments: [count, app_root,
+		                             tm_release, key, vpc_id, ldap_hostname, image,
+		                             instance_type, ipa_admin_passwordwith_api,
+		                             subnet_id, name, region].
+		  --help                     Show this message and exit.
+
+		Usage: init vpc [OPTIONS]
 		
-		Commands:
-		  cell  Show Cell
-		  vpc   Show VPC
+		  Initialize Treadmill VPC
+		
+		Options:
+		  --region TEXT          Region for the vpc
+		  --vpc-cidr-block TEXT  CIDR block for the vpc
+		  --secgroup_name TEXT   Security group name
+		  --secgroup_desc TEXT   Description for the security group
+		  --name TEXT            VPC name  [required]
+		  -m, --manifest TEXT    Options YAML file.  NOTE: This argument is mutually
+		                         exclusive with arguments: [secgroup_name, name,
+		                         vpc_cidr_block, secgroup_desc, region].
+		  --help                 Show this message and exit.
+
+
+
+		Usage: list cell [OPTIONS]
+		
+		  Show Cell
+		
+		Options:
+		  --vpc-name TEXT   VPC Name
+		  --subnet-id TEXT  Subnet ID of cell
+		  --help            Show this message and exit.
+
+		Usage: list vpc [OPTIONS]
+		
+		  Show VPC(s)
+		
+		Options:
+		  --vpc-name TEXT  VPC Name
+		  --help           Show this message and exit.
+
+
+
+		Usage: port disable [OPTIONS]
+		
+		  Disable Port from my ip
+		
+		Options:
+		  --protocol TEXT               Protocol
+		  -p, --port TEXT               Port  [required]
+		  -s, --security-group-id TEXT  Security Group ID  [required]
+		  --help                        Show this message and exit.
+
+		Usage: port enable [OPTIONS]
+		
+		  Enable Port from my ip
+		
+		Options:
+		  --protocol TEXT               Protocol
+		  -p, --port TEXT               Port  [required]
+		  -s, --security-group-id TEXT  Security Group ID  [required]
+		  --help                        Show this message and exit.
 
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Module: treadmill.cli.configure

@@ -5,7 +5,7 @@ from treadmill.infra import configuration, constants, instances
 class Node(base_provision.BaseProvision):
     def setup(
             self,
-            image_id,
+            image,
             count,
             key,
             tm_release,
@@ -27,7 +27,7 @@ class Node(base_provision.BaseProvision):
         )
         self.subnet_name = constants.TREADMILL_CELL_SUBNET_NAME
         super().setup(
-            image_id=image_id,
+            image=image,
             count=count,
             subnet_id=subnet_id,
             key=key,

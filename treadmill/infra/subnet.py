@@ -22,15 +22,14 @@ class Subnet(ec2object.EC2Object):
     @classmethod
     def create(cls, cidr_block, vpc_id, name, gateway_id):
         _ec2_conn = connection.Connection()
-        response = _ec2_conn.create_subnet(
+        metadata = _ec2_conn.create_subnet(
             VpcId=vpc_id,
             CidrBlock=cidr_block,
             AvailabilityZone=Subnet._availability_zone()
-        )
+        )['Subnet']
         _subnet = Subnet(
-            id=response['Subnet']['SubnetId'],
             name=name,
-            metadata=response,
+            metadata=metadata,
             vpc_id=vpc_id
         )
         _subnet.create_tags()
@@ -49,9 +48,6 @@ class Subnet(ec2object.EC2Object):
             response['RouteTables'],
             'RouteTableId'
         )[0]
-        self.id = self._get_ids_from_associations(
-            response['RouteTables'],
-            'SubnetId')[0]
 
     def destroy(
             self,

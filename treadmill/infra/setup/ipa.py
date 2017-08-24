@@ -6,7 +6,7 @@ from treadmill.infra import configuration, connection
 class IPA(base_provision.BaseProvision):
     def setup(
             self,
-            image_id,
+            image,
             count,
             cidr_block,
             ipa_admin_password,
@@ -23,7 +23,7 @@ class IPA(base_provision.BaseProvision):
             tm_release=tm_release
         )
         super().setup(
-            image_id=image_id,
+            image=image,
             count=count,
             cidr_block=cidr_block,
             subnet_id=subnet_id,

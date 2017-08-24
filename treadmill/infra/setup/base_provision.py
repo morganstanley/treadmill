@@ -23,7 +23,7 @@ class BaseProvision:
 
     def setup(
             self,
-            image_id,
+            image,
             count,
             key,
             instance_type,
@@ -61,7 +61,7 @@ class BaseProvision:
 
         self.subnet.instances = instances.Instances.create(
             name=self.name,
-            image_id=image_id,
+            image=image,
             count=count,
             subnet_id=self.subnet.id,
             instance_type=instance_type,

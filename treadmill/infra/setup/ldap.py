@@ -5,7 +5,7 @@ from treadmill.infra import configuration
 class LDAP(base_provision.BaseProvision):
     def setup(
             self,
-            image_id,
+            image,
             count,
             key,
             cidr_block,
@@ -26,7 +26,7 @@ class LDAP(base_provision.BaseProvision):
             ipa_admin_password=ipa_admin_password,
         )
         super().setup(
-            image_id=image_id,
+            image=image,
             count=count,
             cidr_block=cidr_block,
             subnet_id=subnet_id,

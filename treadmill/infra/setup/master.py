@@ -5,7 +5,7 @@ from treadmill.infra import configuration, constants
 class Master(base_provision.BaseProvision):
     def setup(
             self,
-            image_id,
+            image,
             count,
             cidr_block,
             ldap_hostname,
@@ -26,7 +26,7 @@ class Master(base_provision.BaseProvision):
         )
         self.subnet_name = constants.TREADMILL_CELL_SUBNET_NAME
         super().setup(
-            image_id=image_id,
+            image=image,
             count=count,
             cidr_block=cidr_block,
             subnet_id=subnet_id,
