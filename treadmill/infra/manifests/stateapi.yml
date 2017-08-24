@@ -13,3 +13,6 @@ endpoints:
 - name: http
   port: 8000
   type: infra
+environ:
+- name: KRB5CCNAME
+  value: /etc/tickets/treadmld
