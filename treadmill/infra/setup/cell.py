@@ -42,9 +42,11 @@ class Cell:
             cidr_block=subnet_cidr_block,
             instance_type=instance_type,
             ldap_hostname=ldap_hostname,
-            ipa_admin_password=ipa_admin_password
+            ipa_admin_password=ipa_admin_password,
+            subnet_id=self.id
         )
-        self.id = self.zookeeper.subnet.id
+        if not self.id:
+            self.id = self.zookeeper.subnet.id
 
     def setup_master(self, name, key, count, image_id, instance_type,
                      tm_release, ldap_hostname,
