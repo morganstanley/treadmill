@@ -1,7 +1,6 @@
 from treadmill.infra import connection, constants
 from treadmill.infra import subnet, ec2object, instances
 
-import time
 import logging
 
 _LOGGER = logging.getLogger(__name__)
@@ -22,14 +21,10 @@ class VPC(ec2object.EC2Object):
         self.gateway_ids = []
         self.subnets = []
         self.association_ids = []
-        self.hosted_zone_id = None
-        self.reverse_hosted_zone_id = None
-        self.hosted_zone_ids = set()
 
     def refresh(self):
         self._load()
         self.get_instances()
-        self.load_hosted_zone_ids()
         self.load_security_group_ids()
 
     def _load(self):
@@ -93,9 +88,6 @@ class VPC(ec2object.EC2Object):
         _vpc = VPC.create(name=name, cidr_block=cidr_block)
         _vpc.create_internet_gateway()
         _vpc.create_security_group(secgroup_name, secgroup_desc)
-        _vpc.create_hosted_zone()
-        _vpc.create_hosted_zone(reverse=True)
-        _vpc.associate_dhcp_options()
 
         return _vpc
 
@@ -136,62 +128,6 @@ class VPC(ec2object.EC2Object):
             }]
         )
 
-    def create_hosted_zone(self, reverse=False):
-        if reverse:
-            identifier = 'reverse_hosted_zone_id'
-            name = self._reverse_domain_name()
-        else:
-            identifier = 'hosted_zone_id'
-            name = connection.Connection.context.domain
-
-        if not getattr(self, identifier):
-            _hosted_zone_id = self.route53_conn.create_hosted_zone(
-                Name=name,
-                VPC={
-                    'VPCRegion': connection.Connection.context.region_name,
-                    'VPCId': self.id,
-                },
-                HostedZoneConfig={
-                    'PrivateZone': True
-                },
-                CallerReference=str(int(time.time()))
-            )['HostedZone']['Id']
-            setattr(self, identifier, _hosted_zone_id)
-
-    def load_hosted_zone_ids(self):
-        forward_hosted_zones = self.route53_conn.list_hosted_zones_by_name(
-            DNSName=connection.Connection.context.domain
-        )['HostedZones']
-        reverse_hosted_zones = self.route53_conn.list_hosted_zones_by_name(
-            DNSName=self._reverse_domain_name()
-        )['HostedZones']
-
-        hosted_zones = forward_hosted_zones + reverse_hosted_zones
-
-        for hosted_zone in hosted_zones:
-            _hosted_zone_id = hosted_zone['Id']
-            hosted_zone_details = self.route53_conn.get_hosted_zone(
-                Id=_hosted_zone_id
-            )
-            if self.id in [_vpc['VPCId']
-                           for _vpc in hosted_zone_details['VPCs']]:
-                if 'in-addr.arpa' in hosted_zone_details['HostedZone']['Name']:
-                    self.reverse_hosted_zone_id = _hosted_zone_id
-                else:
-                    self.hosted_zone_id = _hosted_zone_id
-                self.hosted_zone_ids.add(_hosted_zone_id)
-
-        self.hosted_zone_ids = list(self.hosted_zone_ids)
-
-    def delete_hosted_zones(self):
-        if not self.hosted_zone_ids:
-            self.load_hosted_zone_ids()
-
-        for id in self.hosted_zone_ids:
-            self.route53_conn.delete_hosted_zone(
-                Id=id
-            )
-
     def get_instances(self, refresh=False):
         if refresh or not self.instances:
             self.instances = instances.Instances.get(
@@ -201,13 +137,8 @@ class VPC(ec2object.EC2Object):
     def terminate_instances(self):
         if not self.instances:
             self.get_instances()
-        if not self.hosted_zone_ids:
-            self.load_hosted_zone_ids()
 
-        self.instances.terminate(
-            hosted_zone_id=self.hosted_zone_id,
-            reverse_hosted_zone_id=self.reverse_hosted_zone_id,
-        )
+        self.instances.terminate()
 
     def load_security_group_ids(self):
         if not self.secgroup_ids:
@@ -296,7 +227,6 @@ class VPC(ec2object.EC2Object):
         self.delete_internet_gateway()
         self.delete_security_groups()
         self.delete_route_tables()
-        self.delete_hosted_zones()
         self.ec2_conn.delete_vpc(VpcId=self.id)
         self.delete_dhcp_options()
 
@@ -319,10 +249,6 @@ class VPC(ec2object.EC2Object):
             {
                 'Key': 'domain-name',
                 'Values': [connection.Connection.context.domain]
-            },
-            {
-                'Key': 'domain-name-servers',
-                'Values': ['AmazonProvidedDNS']
             }
         ]
         response = self.ec2_conn.create_dhcp_options(
@@ -350,7 +276,7 @@ class VPC(ec2object.EC2Object):
         )['Subnets']
         return [s['SubnetId'] for s in subnets]
 
-    def _reverse_domain_name(self):
+    def reverse_domain_name(self):
         if not self.cidr_block:
             self._load()
         cidr_block_octets = self.cidr_block.split('.')

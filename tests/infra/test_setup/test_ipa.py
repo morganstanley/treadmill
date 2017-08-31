@@ -25,11 +25,29 @@ class IPATest(unittest.TestCase):
         conn_mock = ConnectionMock('route53')
         _vpc_id_mock = 'vpc-id'
         _vpc_mock = VPCMock(id=_vpc_id_mock)
-        _vpc_mock.hosted_zone_id = 'hosted-zone-id'
-        _vpc_mock.reverse_hosted_zone_id = 'reverse-hosted-zone-id'
         _vpc_mock.secgroup_ids = ['secgroup_id']
         _vpc_mock.gateway_ids = [123]
-        _vpc_mock.subnets = [mock.Mock(id='subnet-id')]
+
+        conn_mock.describe_instance_status = mock.Mock(
+            return_value={
+                'InstanceStatuses': [
+                    {'InstanceStatus': {'Details': [{'Status': 'passed'}]}}
+                ]
+            }
+        )
+
+        _private_ip = '1.1.1.1'
+        _vpc_mock.subnets = [mock.Mock(
+            id='subnet-id',
+            show=mock.Mock(return_value={
+                'Instances': [{
+                    'InstanceId': 'i-foo',
+                    'InstanceState': 'running',
+                    'PrivateIpAddress': _private_ip
+                }]
+            })
+        )]
+
         _ipa_configuration_mock = IPAConfigurationMock()
         _ipa_configuration_mock.get_userdata = mock.Mock(
             return_value='user-data-script'
@@ -48,6 +66,10 @@ class IPATest(unittest.TestCase):
             instance_type='small'
         )
 
+        _vpc_mock.associate_dhcp_options.assert_called_once_with([{
+            'Key': 'domain-name-servers', 'Values': [_private_ip]
+        }])
+
         self.assertEqual(ipa.subnet.instances, instances_mock)
         InstancesMock.create.assert_called_once_with(
             image='foo-123',
@@ -58,11 +80,8 @@ class IPATest(unittest.TestCase):
             key_name='some-key',
             secgroup_ids=['secgroup_id'],
             user_data='user-data-script',
-            hosted_zone_id='hosted-zone-id',
-            reverse_hosted_zone_id='reverse-hosted-zone-id',
             role='IPA'
         )
-        _vpc_mock.load_hosted_zone_ids.assert_called_once()
         _vpc_mock.load_security_group_ids.assert_called_once()
         _vpc_mock.create_subnet.assert_called_once_with(
             cidr_block='cidr-block',
@@ -76,184 +95,17 @@ class IPATest(unittest.TestCase):
                 ipa_admin_password='ipa-admin-password',
                 tm_release='release',
                 cell=None,
-                name='ipa'
+                name='ipa',
+                vpc=_vpc_mock,
             )
         )
         _ipa_configuration_mock.get_userdata.assert_called_once()
-
-        expected_calls = [
-            mock.mock.call(
-                HostedZoneId='hosted-zone-id',
-                ChangeBatch={
-                    'Changes': [{
-                        'Action': 'UPSERT',
-                        'ResourceRecordSet': {
-                            'Name': '_kerberos-master._tcp.foo.bar.',
-                            'Type': 'SRV',
-                            'TTL': 86400,
-                            'ResourceRecords': [{
-                                'Value': '0 100 88 ipa.foo.bar.'
-                            }]
-                        }
-                    }]
-                }
-            ),
-            mock.mock.call(
-                HostedZoneId='hosted-zone-id',
-                ChangeBatch={
-                    'Changes': [{
-                        'Action': 'UPSERT',
-                        'ResourceRecordSet': {
-                            'Name': '_kerberos-master._udp.foo.bar.',
-                            'Type': 'SRV',
-                            'TTL': 86400,
-                            'ResourceRecords': [{
-                                'Value': '0 100 88 ipa.foo.bar.'
-                            }]
-                        }
-                    }]
-                }
-            ),
-            mock.mock.call(
-                HostedZoneId='hosted-zone-id',
-                ChangeBatch={
-                    'Changes': [{
-                        'Action': 'UPSERT',
-                        'ResourceRecordSet': {
-                            'Name': '_kerberos._tcp.foo.bar.',
-                            'Type': 'SRV',
-                            'TTL': 86400,
-                            'ResourceRecords': [{
-                                'Value': '0 100 88 ipa.foo.bar.'
-                            }]
-                        }
-                    }]
-                }
-            ),
-            mock.mock.call(
-                HostedZoneId='hosted-zone-id',
-                ChangeBatch={
-                    'Changes': [{
-                        'Action': 'UPSERT',
-                        'ResourceRecordSet': {
-                            'Name': '_kerberos._udp.foo.bar.',
-                            'Type': 'SRV',
-                            'TTL': 86400,
-                            'ResourceRecords': [{
-                                'Value': '0 100 88 ipa.foo.bar.'
-                            }]
-                        }
-                    }]
-                }
-            ),
-            mock.mock.call(
-                HostedZoneId='hosted-zone-id',
-                ChangeBatch={
-                    'Changes': [{
-                        'Action': 'UPSERT',
-                        'ResourceRecordSet': {
-                            'Name': '_kpasswd._tcp.foo.bar.',
-                            'Type': 'SRV',
-                            'TTL': 86400,
-                            'ResourceRecords': [{
-                                'Value': '0 100 464 ipa.foo.bar.'
-                            }]
-                        }
-                    }]
-                }
-            ),
-            mock.mock.call(
-                HostedZoneId='hosted-zone-id',
-                ChangeBatch={
-                    'Changes': [{
-                        'Action': 'UPSERT',
-                        'ResourceRecordSet': {
-                            'Name': '_kpasswd._udp.foo.bar.',
-                            'Type': 'SRV',
-                            'TTL': 86400,
-                            'ResourceRecords': [{
-                                'Value': '0 100 464 ipa.foo.bar.'
-                            }]
-                        }
-                    }]
-                }
-            ),
-            mock.mock.call(
-                HostedZoneId='hosted-zone-id',
-                ChangeBatch={
-                    'Changes': [{
-                        'Action': 'UPSERT',
-                        'ResourceRecordSet': {
-                            'Name': '_ldap._tcp.foo.bar.',
-                            'Type': 'SRV',
-                            'TTL': 86400,
-                            'ResourceRecords': [{
-                                'Value': '0 100 389 ipa.foo.bar.'
-                            }]
-                        }
-                    }]
-                }
-            ),
-            mock.mock.call(
-                HostedZoneId='hosted-zone-id',
-                ChangeBatch={
-                    'Changes': [{
-                        'Action': 'UPSERT',
-                        'ResourceRecordSet': {
-                            'Name': '_ntp._udp.foo.bar.',
-                            'Type': 'SRV',
-                            'TTL': 86400,
-                            'ResourceRecords': [{
-                                'Value': '0 100 123 ipa.foo.bar.'
-                            }]
-                        }
-                    }]
-                }
-            ),
-            mock.mock.call(
-                HostedZoneId='hosted-zone-id',
-                ChangeBatch={
-                    'Changes': [{
-                        'Action': 'UPSERT',
-                        'ResourceRecordSet': {
-                            'Name': 'ipa-ca.foo.bar.',
-                            'Type': 'A',
-                            'TTL': 86400,
-                            'ResourceRecords': [{
-                                'Value': '1.1.1.1'
-                            }]
-                        }
-                    }]
-                }
-            ),
-            mock.mock.call(
-                HostedZoneId='hosted-zone-id',
-                ChangeBatch={
-                    'Changes': [{
-                        'Action': 'UPSERT',
-                        'ResourceRecordSet': {
-                            'Name': '_kerberos.foo.bar.',
-                            'Type': 'TXT',
-                            'TTL': 86400,
-                            'ResourceRecords': [{
-                                'Value': '"FOO.BAR"'
-                            }]
-                        }
-                    }]
-                }
-            )
-        ]
-        self.assertCountEqual(
-            conn_mock.change_resource_record_sets.mock_calls,
-            expected_calls
-        )
 
     @mock.patch('treadmill.infra.subnet.Subnet')
     @mock.patch('treadmill.infra.connection.Connection')
     @mock.patch('treadmill.infra.vpc.VPC')
     def test_ipa_destroy(self, VPCMock, ConnectionMock, SubnetMock):
         ConnectionMock.context.domain = 'foo.bar'
-        conn_mock = ConnectionMock('route53')
         _subnet_mock = SubnetMock(
             id='subnet-id'
         )
@@ -263,12 +115,6 @@ class IPATest(unittest.TestCase):
             _instance
         ])
 
-        vpc_mock = VPCMock(
-            id='vpc-id',
-        )
-        vpc_mock.load_hosted_zone_ids = mock.Mock()
-        vpc_mock.hosted_zone_id = 'hosted-zone-id'
-        vpc_mock.reverse_hosted_zone_id = 'reverse-hosted-zone-id'
         ipa = IPA(
             vpc_id='vpc-id',
             name='ipa-setup'
@@ -278,175 +124,4 @@ class IPATest(unittest.TestCase):
             subnet_id='subnet-id'
         )
 
-        vpc_mock.load_hosted_zone_ids.assert_called_once()
-        _subnet_mock.destroy.assert_called_once_with(
-            hosted_zone_id='hosted-zone-id',
-            reverse_hosted_zone_id='reverse-hosted-zone-id',
-            role='IPA'
-        )
-        expected_calls = [
-            mock.mock.call(
-                HostedZoneId='hosted-zone-id',
-                ChangeBatch={
-                    'Changes': [{
-                        'Action': 'DELETE',
-                        'ResourceRecordSet': {
-                            'Name': '_kerberos-master._tcp.foo.bar.',
-                            'Type': 'SRV',
-                            'TTL': 86400,
-                            'ResourceRecords': [{
-                                'Value': '0 100 88 ipa.foo.bar.'
-                            }]
-                        }
-                    }]
-                }
-            ),
-            mock.mock.call(
-                HostedZoneId='hosted-zone-id',
-                ChangeBatch={
-                    'Changes': [{
-                        'Action': 'DELETE',
-                        'ResourceRecordSet': {
-                            'Name': '_kerberos-master._udp.foo.bar.',
-                            'Type': 'SRV',
-                            'TTL': 86400,
-                            'ResourceRecords': [{
-                                'Value': '0 100 88 ipa.foo.bar.'
-                            }]
-                        }
-                    }]
-                }
-            ),
-            mock.mock.call(
-                HostedZoneId='hosted-zone-id',
-                ChangeBatch={
-                    'Changes': [{
-                        'Action': 'DELETE',
-                        'ResourceRecordSet': {
-                            'Name': '_kerberos._tcp.foo.bar.',
-                            'Type': 'SRV',
-                            'TTL': 86400,
-                            'ResourceRecords': [{
-                                'Value': '0 100 88 ipa.foo.bar.'
-                            }]
-                        }
-                    }]
-                }
-            ),
-            mock.mock.call(
-                HostedZoneId='hosted-zone-id',
-                ChangeBatch={
-                    'Changes': [{
-                        'Action': 'DELETE',
-                        'ResourceRecordSet': {
-                            'Name': '_kerberos._udp.foo.bar.',
-                            'Type': 'SRV',
-                            'TTL': 86400,
-                            'ResourceRecords': [{
-                                'Value': '0 100 88 ipa.foo.bar.'
-                            }]
-                        }
-                    }]
-                }
-            ),
-            mock.mock.call(
-                HostedZoneId='hosted-zone-id',
-                ChangeBatch={
-                    'Changes': [{
-                        'Action': 'DELETE',
-                        'ResourceRecordSet': {
-                            'Name': '_kpasswd._tcp.foo.bar.',
-                            'Type': 'SRV',
-                            'TTL': 86400,
-                            'ResourceRecords': [{
-                                'Value': '0 100 464 ipa.foo.bar.'
-                            }]
-                        }
-                    }]
-                }
-            ),
-            mock.mock.call(
-                HostedZoneId='hosted-zone-id',
-                ChangeBatch={
-                    'Changes': [{
-                        'Action': 'DELETE',
-                        'ResourceRecordSet': {
-                            'Name': '_kpasswd._udp.foo.bar.',
-                            'Type': 'SRV',
-                            'TTL': 86400,
-                            'ResourceRecords': [{
-                                'Value': '0 100 464 ipa.foo.bar.'
-                            }]
-                        }
-                    }]
-                }
-            ),
-            mock.mock.call(
-                HostedZoneId='hosted-zone-id',
-                ChangeBatch={
-                    'Changes': [{
-                        'Action': 'DELETE',
-                        'ResourceRecordSet': {
-                            'Name': '_ldap._tcp.foo.bar.',
-                            'Type': 'SRV',
-                            'TTL': 86400,
-                            'ResourceRecords': [{
-                                'Value': '0 100 389 ipa.foo.bar.'
-                            }]
-                        }
-                    }]
-                }
-            ),
-            mock.mock.call(
-                HostedZoneId='hosted-zone-id',
-                ChangeBatch={
-                    'Changes': [{
-                        'Action': 'DELETE',
-                        'ResourceRecordSet': {
-                            'Name': '_ntp._udp.foo.bar.',
-                            'Type': 'SRV',
-                            'TTL': 86400,
-                            'ResourceRecords': [{
-                                'Value': '0 100 123 ipa.foo.bar.'
-                            }]
-                        }
-                    }]
-                }
-            ),
-            mock.mock.call(
-                HostedZoneId='hosted-zone-id',
-                ChangeBatch={
-                    'Changes': [{
-                        'Action': 'DELETE',
-                        'ResourceRecordSet': {
-                            'Name': 'ipa-ca.foo.bar.',
-                            'Type': 'A',
-                            'TTL': 86400,
-                            'ResourceRecords': [{
-                                'Value': '1.1.1.1'
-                            }]
-                        }
-                    }]
-                }
-            ),
-            mock.mock.call(
-                HostedZoneId='hosted-zone-id',
-                ChangeBatch={
-                    'Changes': [{
-                        'Action': 'DELETE',
-                        'ResourceRecordSet': {
-                            'Name': '_kerberos.foo.bar.',
-                            'Type': 'TXT',
-                            'TTL': 86400,
-                            'ResourceRecords': [{
-                                'Value': '"FOO.BAR"'
-                            }]
-                        }
-                    }]
-                }
-            )
-        ]
-        self.assertCountEqual(
-            conn_mock.change_resource_record_sets.mock_calls,
-            expected_calls
-        )
+        _subnet_mock.destroy.assert_called_once_with(role='IPA')

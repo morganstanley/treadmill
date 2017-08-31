@@ -13,7 +13,7 @@ class BaseProvision:
     ):
         self.name = name
         self.vpc = vpc.VPC(id=vpc_id)
-        self.route_53_conn = connection.Connection(constants.ROUTE_53)
+        self.ec2_conn = connection.Connection()
         self.instances = None
         _role = constants.ROLES.get(
             self.__class__.__name__.upper(),
@@ -35,7 +35,6 @@ class BaseProvision:
                 'Subnet CIDR block required for creating new subnet'
             )
 
-        self.vpc.load_hosted_zone_ids()
         self.vpc.load_internet_gateway_ids()
         self.vpc.load_security_group_ids()
 
@@ -68,19 +67,12 @@ class BaseProvision:
             key_name=key,
             secgroup_ids=self.vpc.secgroup_ids,
             user_data=user_data,
-            hosted_zone_id=self.vpc.hosted_zone_id,
-            reverse_hosted_zone_id=self.vpc.reverse_hosted_zone_id,
             role=self.role
         )
 
     def destroy(self, subnet_id):
-        self.vpc.load_hosted_zone_ids()
         self.subnet = subnet.Subnet(id=subnet_id)
-        self.subnet.destroy(
-            hosted_zone_id=self.vpc.hosted_zone_id,
-            reverse_hosted_zone_id=self.vpc.reverse_hosted_zone_id,
-            role=self.role
-        )
+        self.subnet.destroy(role=self.role)
 
     def show(self):
         return self.subnet.show()

@@ -49,17 +49,8 @@ class Subnet(ec2object.EC2Object):
             'RouteTableId'
         )[0]
 
-    def destroy(
-            self,
-            hosted_zone_id,
-            reverse_hosted_zone_id,
-            role=None
-    ):
-        self.terminate_instances(
-            hosted_zone_id,
-            reverse_hosted_zone_id,
-            role
-        )
+    def destroy(self, role=None):
+        self.terminate_instances(role)
 
         remaining_instances = self._get_instances_by_filters(
             filters=self._network_filters()
@@ -105,19 +96,11 @@ class Subnet(ec2object.EC2Object):
                 )
             )
 
-    def terminate_instances(
-            self,
-            hosted_zone_id,
-            reverse_hosted_zone_id,
-            role
-    ):
+    def terminate_instances(self, role):
         if not self.instances:
             self.get_instances(refresh=True, role=role)
 
-        self.instances.terminate(
-            hosted_zone_id=hosted_zone_id,
-            reverse_hosted_zone_id=reverse_hosted_zone_id,
-        )
+        self.instances.terminate()
 
     def refresh(self):
         self.metadata = self.ec2_conn.describe_subnets(

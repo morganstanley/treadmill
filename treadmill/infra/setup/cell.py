@@ -29,9 +29,6 @@ class Cell:
 
         self.vpc.create_internet_gateway()
         self.vpc.create_security_group(secgroup_name, secgroup_desc)
-        self.vpc.create_hosted_zone()
-        self.vpc.create_hosted_zone(reverse=True)
-        self.vpc.associate_dhcp_options()
 
     def setup_zookeeper(self, name, key, image, instance_type,
                         subnet_cidr_block, ldap_hostname, ipa_admin_password):
@@ -70,11 +67,7 @@ class Cell:
         self.show()
 
     def destroy(self):
-        self.vpc.load_hosted_zone_ids()
-        self.master.subnet.destroy(
-            hosted_zone_id=self.vpc.hosted_zone_id,
-            reverse_hosted_zone_id=self.vpc.reverse_hosted_zone_id,
-        )
+        self.master.subnet.destroy()
 
     def show(self):
         self.output = self.master.subnet.show()

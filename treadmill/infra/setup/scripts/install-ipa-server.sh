@@ -1,16 +1,27 @@
-yum install -y ipa-server haveged
+yum install -y ipa-server haveged ipa-server-dns
 
 systemctl enable haveged
 systemctl start haveged
+
+PRIVATE_IP=$(ip addr | grep 'state UP' -A2 | tail -n1 | awk '{print $2}' | cut -f1  -d'/')
 
 ipa-server-install --unattended \
     --no-ntp --mkhomedir \
     --domain "{{ DOMAIN }}" \
     --realm "{{ DOMAIN|upper }}" \
     -a "{{ IPA_ADMIN_PASSWORD }}" \
-    -p "{{ IPA_ADMIN_PASSWORD }}"
+    -p "{{ IPA_ADMIN_PASSWORD }}" \
+    --setup-dns \
+    --reverse-zone="{{ REVERSE_ZONE }}." \
+    --forwarder "8.8.8.8" \
+    --ip-address "${PRIVATE_IP}" \
+    --allow-zone-overlap \
 
 echo "{{ IPA_ADMIN_PASSWORD }}" | kinit admin
+
+ipa dnszone-mod "{{ DOMAIN }}" --allow-sync-ptr=TRUE
+
+ipa dnsrecord-add "{{ DOMAIN }}" ipa-ca --a-rec ${PRIVATE_IP}
 
 TMHOSTADM_OUTPUT=$(ipa -n user-add tmhostadm --first tmhostadm --last proid --shell /bin/bash --class proid --random)
 TMP_TMHOSTADM_PASSWORD=$(echo "${TMHOSTADM_OUTPUT}" | grep 'Random password:' | awk '{print $3}')

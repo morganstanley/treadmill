@@ -112,12 +112,13 @@ class IPATest(unittest.TestCase):
             tm_release='some-release',
             name='ipa',
             cell='subnet-id',
+            vpc=mock.Mock(),
         )
         expected_script_data = {
             'provision-base.sh': ['DOMAIN', 'NAME'],
             'install-treadmill.sh': ['TREADMILL_RELEASE'],
             'install-ipa-server.sh': [
-                'DOMAIN', 'IPA_ADMIN_PASSWORD', 'CELL'
+                'DOMAIN', 'IPA_ADMIN_PASSWORD', 'CELL', 'REVERSE_ZONE',
             ],
         }
 

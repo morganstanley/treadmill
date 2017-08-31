@@ -570,19 +570,7 @@ def init():
         """Delete Cell (Subnet)"""
         domain = ctx.obj['DOMAIN']
         connection.Connection.context.domain = domain
-        _vpc = vpc.VPC(id=vpc_id)
-        _vpc.load_hosted_zone_ids()
-
-        if subnet_id not in _vpc.list_cells():
-            raise click.BadParameter(
-                'Subnet %s is not a Treadmill cell' %
-                (subnet_id)
-            )
-
-        subnet.Subnet(id=subnet_id).destroy(
-            hosted_zone_id=_vpc.hosted_zone_id,
-            reverse_hosted_zone_id=_vpc.reverse_hosted_zone_id
-        )
+        subnet.Subnet(id=subnet_id).destroy()
 
     @delete.command(name='domain')
     @click.option('--vpc-name', 'vpc_id',

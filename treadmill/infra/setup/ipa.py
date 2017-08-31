@@ -1,9 +1,14 @@
-from treadmill.infra import constants
 from treadmill.infra.setup import base_provision
-from treadmill.infra import configuration, connection
+from treadmill.infra import configuration, constants
+import polling
+import time
 
 
 class IPA(base_provision.BaseProvision):
+    @property
+    def metadata(self):
+        return self.subnet.show(constants.ROLES['IPA'])['Instances'][0]
+
     def setup(
             self,
             image,
@@ -19,8 +24,9 @@ class IPA(base_provision.BaseProvision):
         self.configuration = configuration.IPA(
             name=self.name,
             cell=subnet_id,
+            vpc=self.vpc,
             ipa_admin_password=ipa_admin_password,
-            tm_release=tm_release
+            tm_release=tm_release,
         )
         super().setup(
             image=image,
@@ -31,74 +37,26 @@ class IPA(base_provision.BaseProvision):
             instance_type=instance_type
         )
 
-        self._update_route53('UPSERT')
+        def get_ipa_status():
+            while self.metadata['InstanceState'] != 'running':
+                time.sleep(2)
+            return self.ec2_conn.describe_instance_status(
+                InstanceIds=[self.metadata['InstanceId']]
+            )['InstanceStatuses'][0]['InstanceStatus']['Details'][0]['Status']
+
+        polling.poll(
+            lambda: get_ipa_status() == 'passed',
+            step=10,
+            timeout=300
+        )
+        self.vpc.associate_dhcp_options([
+            {
+                'Key': 'domain-name-servers',
+                'Values': [self.metadata['PrivateIpAddress']]
+            }
+        ])
 
     def destroy(self, subnet_id):
         super().destroy(
             subnet_id=subnet_id
-        )
-
-        self._update_route53('DELETE')
-
-    def _update_route53(self, action):
-        srv_records = {
-            '_kerberos-master._tcp': '0 100 88',
-            '_kerberos-master._udp': '0 100 88',
-            '_kerberos._tcp': '0 100 88',
-            '_kerberos._udp': '0 100 88',
-            '_kpasswd._tcp': '0 100 464',
-            '_kpasswd._udp': '0 100 464',
-            '_ldap._tcp': '0 100 389',
-            '_ntp._udp': '0 100 123'
-        }
-        for instance in self.subnet.instances.instances:
-            for _rec, _value in srv_records.items():
-                self._change_srv_record(
-                    action=action,
-                    name=self._rec_name(_rec),
-                    value=self._srv_rec_value(_value, instance.name),
-                    record_type='SRV'
-                )
-            self._change_srv_record(
-                action=action,
-                name=self._rec_name('ipa-ca'),
-                value=self.subnet.instances.instances[0].private_ip,
-                record_type='A'
-            )
-            self._change_srv_record(
-                action=action,
-                name=self._rec_name('_kerberos'),
-                value='"{0}"'.format(
-                    connection.Connection.context.domain.upper()
-                ),
-                record_type='TXT'
-            )
-
-    def _rec_name(self, rec):
-        return rec + '.' + connection.Connection.context.domain + '.'
-
-    def _srv_rec_value(self, value, instance_name):
-        return value + ' ' + instance_name + '.' \
-            + connection.Connection.context.domain + '.'
-
-    def _change_srv_record(self,
-                           action,
-                           name,
-                           value,
-                           record_type):
-        self.route_53_conn.change_resource_record_sets(
-            HostedZoneId=self.vpc.hosted_zone_id.split('/')[-1],
-            ChangeBatch={
-                'Changes': [{
-                    'Action': action,
-                    'ResourceRecordSet': {
-                        'Name': name,
-                        'Type': record_type,
-                        'TTL': constants.IPA_ROUTE_53_RECORD_SET_TTL,
-                        'ResourceRecords': [{
-                            'Value': value
-                        }]
-                    }
-                }]
-            }
         )

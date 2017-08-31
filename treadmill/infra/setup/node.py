@@ -53,9 +53,4 @@ class Node(base_provision.BaseProvision):
         else:
             return
 
-        self.vpc.load_hosted_zone_ids()
-
-        _instances.terminate(
-            hosted_zone_id=self.vpc.hosted_zone_id,
-            reverse_hosted_zone_id=self.vpc.reverse_hosted_zone_id
-        )
+        _instances.terminate()

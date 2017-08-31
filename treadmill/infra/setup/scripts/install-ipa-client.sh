@@ -1,5 +1,5 @@
 # install
-yum install -y ipa-client
+yum install -y ipa-client ipa-server-dns
 
 # get OTP from IPA cloud-host service
 HOST_FQDN=$(hostname -f)
@@ -23,7 +23,7 @@ if [ $REQ_STATUS -eq 0 ] ; then
     else
         ipa-client-install --unattended --no-ntp \
             --mkhomedir --no-krb5-offline-password \
-            --password "$ONE_TIME_PASSWORD"
+            --password "$ONE_TIME_PASSWORD" --enable-dns-updates
     fi
 else
     echo "Failed to add $HOST_FQDN to IPA"
