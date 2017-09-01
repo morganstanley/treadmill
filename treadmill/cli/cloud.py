@@ -3,6 +3,7 @@ import click
 from pprint import pprint
 import logging
 import re
+import pkg_resources
 
 from treadmill.infra import constants, connection, vpc, subnet
 from treadmill.infra.setup import ipa, ldap, node, cell
@@ -61,6 +62,23 @@ def init():
     def _ipa_password_prompt(ctx, param, value):
         """IPA admin password prompt"""
         return value or click.prompt('IPA admin password ', hide_input=True)
+
+    def _current_release_version(ctx, param, value):
+        """Treadmill current release version"""
+        version = None
+
+        try:
+            version = pkg_resources.resource_string(
+                'treadmill',
+                'VERSION.txt'
+            )
+        except Exception:
+            pass
+
+        if version:
+            return version.decode('utf-8').strip()
+        else:
+            raise click.BadParameter('No version specified in VERSION.txt')
 
     @click.group()
     @click.option('--domain', required=True,
@@ -175,7 +193,8 @@ def init():
                   default=constants.INSTANCE_TYPES['EC2']['micro'],
                   help='AWS ec2 instance type')
     # TODO: Pick the current Treadmill release by default.
-    @click.option('--tm-release', default='0.1.0',
+    @click.option('--tm-release',
+                  callback=_current_release_version,
                   help='Treadmill release to use')
     @click.option('--ldap-hostname', default='treadmillldap1',
                   help='LDAP hostname')
@@ -210,7 +229,6 @@ def init():
                   ldap_cidr_block, ldap_subnet_id, cell_subnet_id,
                   ipa_admin_password, manifest):
         """Initialize Treadmill LDAP"""
-
         domain = ctx.obj['DOMAIN']
         if region:
             connection.Connection.context.region_name = region
@@ -257,7 +275,8 @@ def init():
                   default=constants.INSTANCE_TYPES['EC2']['micro'],
                   help='AWS ec2 instance type')
     # TODO: Pick the current Treadmill release by default.
-    @click.option('--tm-release', default='0.1.0',
+    @click.option('--tm-release',
+                  callback=_current_release_version,
                   help='Treadmill release to use')
     @click.option('--ldap-hostname', default='treadmillldap1',
                   help='LDAP hostname')
@@ -377,7 +396,9 @@ def init():
     @click.option('--ipa-admin-password', callback=_validate_ipa_password,
                   envvar='TREADMILL_IPA_ADMIN_PASSWORD',
                   help='Password for IPA admin')
-    @click.option('--tm-release', default='0.1.0', help='Treadmill Release')
+    @click.option('--tm-release',
+                  callback=_current_release_version,
+                  help='Treadmill Release')
     @click.option('--key', required=True, help='SSH key name')
     @click.option('--instance-type',
                   default=constants.INSTANCE_TYPES['EC2']['medium'],
@@ -451,7 +472,8 @@ def init():
     @click.option('--instance-type',
                   default=constants.INSTANCE_TYPES['EC2']['large'],
                   help='AWS ec2 instance type')
-    @click.option('--tm-release', default='0.1.0',
+    @click.option('--tm-release',
+                  callback=_current_release_version,
                   help='Treadmill release to use')
     @click.option('--ldap-hostname', default='treadmillldap1',
                   help='LDAP hostname')

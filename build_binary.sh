@@ -36,6 +36,7 @@ else
     rm -rf ~/rpmbuild
 
     if [ ! -z "$1" ]; then
+        echo $2 > VERSION.txt
         if [ ! -d "/tmp/hub-linux-amd64-2.3.0-pre10" ]; then
             wget -O /tmp/hub-linux-amd64-2.3.0-pre10.tgz http://github.com/github/hub/releases/download/v2.3.0-pre10/hub-linux-amd64-2.3.0-pre10.tgz && tar -xvzf /tmp/hub-linux-amd64-2.3.0-pre10.tgz -C /tmp/
         fi
