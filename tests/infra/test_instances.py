@@ -12,9 +12,7 @@ from treadmill.infra.instances import Instances
 class InstanceTest(unittest.TestCase):
     """Tests EC2 instance"""
 
-    @mock.patch('treadmill.infra.instances.connection.Connection')
-    def test_init(self, ConnectionMock):
-        conn_mock = ConnectionMock()
+    def test_init(self):
         instance = Instance(
             id=1,
             metadata={
@@ -28,12 +26,12 @@ class InstanceTest(unittest.TestCase):
 
         self.assertEquals(instance.name, 'goo')
         self.assertEquals(instance.private_ip, '1.1.1.1')
-        self.assertEquals(instance.ec2_conn, conn_mock)
 
-    @mock.patch('treadmill.infra.instances.connection.Connection')
+    @mock.patch('treadmill.infra.connection.Connection')
     def test_create_tags(self, ConnectionMock):
         conn_mock = ConnectionMock()
         conn_mock.create_tags = mock.Mock()
+        Instance.ec2_conn = conn_mock
 
         instance = Instance(
             name='foo',
@@ -56,7 +54,7 @@ class InstanceTest(unittest.TestCase):
         ConnectionMock.context.domain = 'do.main'
         conn_mock = ConnectionMock()
         conn_mock.create_tags = mock.Mock()
-
+        Instance.ec2_conn = conn_mock
         instance = Instance(
             name='foo',
             id='1',
@@ -83,6 +81,7 @@ class InstanceTest(unittest.TestCase):
         ConnectionMock.context.domain = 'do.main'
         conn_mock = ConnectionMock()
         conn_mock.create_tags = mock.Mock()
+        Instance.ec2_conn = conn_mock
 
         instance = Instance(
             name='Foo',
@@ -110,6 +109,7 @@ class InstanceTest(unittest.TestCase):
         ConnectionMock.context.domain = 'joo.goo'
         conn_mock = ConnectionMock('route53')
         conn_mock.change_resource_record_sets = mock.Mock()
+        Instance.route53_conn = conn_mock
 
         instance = Instance(
             name='foo',
@@ -143,6 +143,7 @@ class InstanceTest(unittest.TestCase):
         ConnectionMock.context.domain = 'joo.goo'
         conn_mock = ConnectionMock('route53')
         conn_mock.change_resource_record_sets = mock.Mock()
+        Instance.route53_conn = conn_mock
 
         instance = Instance(
             name='instance-name',
@@ -176,6 +177,7 @@ class InstanceTest(unittest.TestCase):
         ConnectionMock.context.domain = 'joo.goo'
         conn_mock = ConnectionMock('route53')
         conn_mock.change_resource_record_sets = mock.Mock()
+        Instance.route53_conn = conn_mock
 
         instance = Instance(
             name='foo',
@@ -209,6 +211,7 @@ class InstanceTest(unittest.TestCase):
         ConnectionMock.context.domain = 'joo.goo'
         conn_mock = ConnectionMock('route53')
         conn_mock.change_resource_record_sets = mock.Mock()
+        Instance.route53_conn = conn_mock
 
         instance = Instance(
             name='instance-name',
@@ -269,11 +272,15 @@ class InstancesTest(unittest.TestCase):
             'Reservations': [{'Instances': instances_mock}]
         })
         conn_mock.create_tags = mock.Mock()
+        conn_mock.describe_images = mock.Mock(return_value={
+            'Images': [{'ImageId': 'ami-123'}]
+        })
+        Instance.ec2_conn = Instance.route53_conn = conn_mock
 
         instances = Instances.create(
             key_name='key',
             name='foo',
-            image_id='foo-123',
+            image='foo-123',
             count=2,
             instance_type='t2.small',
             subnet_id='',
@@ -296,7 +303,7 @@ class InstancesTest(unittest.TestCase):
         self.assertEquals(instances[1].role, 'role')
 
         conn_mock.run_instances.assert_called_with(
-            ImageId='foo-123',
+            ImageId='ami-123',
             InstanceType='t2.small',
             KeyName='key',
             MaxCount=2,
@@ -417,6 +424,7 @@ class InstancesTest(unittest.TestCase):
         instance = Instances(instances=[instance_1_mock])
         instance.volume_ids = ['vol-id0']
 
+        Instance.ec2_conn = conn_mock
         instance.terminate('zone-id', 'reverse-zone-id')
 
         conn_mock.describe_instance_status.assert_called()
@@ -452,6 +460,7 @@ class InstancesTest(unittest.TestCase):
             }]
         })
 
+        Instance.ec2_conn = conn_mock
         instance = Instances([Instance(id=1)])
         instance.load_volume_ids()
 
@@ -467,6 +476,7 @@ class InstancesTest(unittest.TestCase):
     def test_load_json_without_criteria(self, ConnectionMock):
         conn_mock = ConnectionMock()
 
+        Instance.ec2_conn = conn_mock
         self.assertEqual(Instances.load_json(), [])
 
         conn_mock.describe_instances.assert_not_called()
@@ -481,6 +491,7 @@ class InstancesTest(unittest.TestCase):
         conn_mock.describe_instances = mock.Mock(return_value={
             'Reservations': [{'Instances': sample_instances}]
         })
+        Instance.ec2_conn = conn_mock
 
         instance_details = Instances.load_json([1, 2, 3])
 
@@ -499,6 +510,7 @@ class InstancesTest(unittest.TestCase):
         conn_mock.describe_instances = mock.Mock(return_value={
             'Reservations': [{'Instances': sample_instances}]
         })
+        Instance.ec2_conn = conn_mock
 
         instance_details = Instances.load_json(filters=[{'foo': 'bar'}])
 
@@ -506,6 +518,31 @@ class InstancesTest(unittest.TestCase):
             Filters=[{'foo': 'bar'}]
         )
         self.assertEquals(instance_details, sample_instances)
+
+    @mock.patch('treadmill.infra.instances.connection.Connection')
+    def test_get_ami_id(self, ConnectionMock):
+        conn_mock = ConnectionMock()
+
+        sample_images = [
+            {'ImageId': 'ami-123', 'CreationDate': '2017-08-23T00:00:00.000Z'},
+            {'ImageId': 'ami-456', 'CreationDate': '2016-08-23T00:00:00.000Z'}
+        ]
+
+        conn_mock.describe_images = mock.Mock(return_value={
+            'Images': sample_images
+        })
+        Instance.ec2_conn = conn_mock
+
+        ami_id = Instances.get_ami_id('foo-bar')
+
+        conn_mock.describe_images.assert_called_once_with(
+            Filters=[
+                {'Name': 'name', 'Values': ['foo-bar*']},
+                {'Name': 'owner-id', 'Values': ['309956199498']},
+                {'Name': 'image-type', 'Values': ['machine']}
+            ]
+        )
+        self.assertEquals(ami_id, 'ami-123')
 
 
 if __name__ == '__main__':

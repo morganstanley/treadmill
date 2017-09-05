@@ -22,9 +22,6 @@ run $SCRIPTDIR/install-base.sh
 run $SCRIPTDIR/install-master-packages.sh
 run $SCRIPTDIR/install-ldap.sh
 run $SCRIPTDIR/create-users.sh
-run $SCRIPTDIR/build-s6.sh
-run $SCRIPTDIR/build-zookeeper.sh
-run $SCRIPTDIR/build-pid1.sh
 run $SCRIPTDIR/venv.sh
 run $SCRIPTDIR/configure-etc-hosts.sh
 run $SCRIPTDIR/configure-profile.sh

@@ -39,7 +39,7 @@ class IPATest(unittest.TestCase):
             vpc_id=_vpc_id_mock,
         )
         ipa.setup(
-            image_id='foo-123',
+            image='foo-123',
             count=1,
             cidr_block='cidr-block',
             key='some-key',
@@ -50,7 +50,7 @@ class IPATest(unittest.TestCase):
 
         self.assertEqual(ipa.subnet.instances, instances_mock)
         InstancesMock.create.assert_called_once_with(
-            image_id='foo-123',
+            image='foo-123',
             name='ipa',
             count=1,
             subnet_id='subnet-id',

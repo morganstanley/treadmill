@@ -37,7 +37,7 @@ class LDAPTest(unittest.TestCase):
         )
         ldap.subnet_name = 'ldap-subnet-name'
         ldap.setup(
-            image_id='foo-123',
+            image='foo-123',
             count=1,
             cidr_block='cidr-block',
             key='some-key',
@@ -51,7 +51,7 @@ class LDAPTest(unittest.TestCase):
 
         self.assertEqual(ldap.subnet.instances, instances_mock)
         InstancesMock.create.assert_called_once_with(
-            image_id='foo-123',
+            image='foo-123',
             name='ldap',
             count=1,
             subnet_id='subnet-id',

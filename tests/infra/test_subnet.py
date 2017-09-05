@@ -13,6 +13,8 @@ class SubnetTest(unittest.TestCase):
     @mock.patch('treadmill.infra.connection.Connection')
     def test_init(self, ConnectionMock):
         conn_mock = ConnectionMock()
+        Subnet.ec2_conn = Subnet.route53_conn = conn_mock
+
         subnet = Subnet(
             id=1,
             vpc_id='vpc-id',
@@ -33,6 +35,7 @@ class SubnetTest(unittest.TestCase):
         conn_mock = ConnectionMock()
         conn_mock.create_tags = mock.Mock()
 
+        Subnet.ec2_conn = Subnet.route53_conn = conn_mock
         subnet = Subnet(
             name='foo',
             id='1',
@@ -53,15 +56,17 @@ class SubnetTest(unittest.TestCase):
         ConnectionMock.context.region_name = 'us-east-1'
         conn_mock = ConnectionMock()
         subnet_json_mock = {
-            'Subnet': {
-                'SubnetId': '1'
-            }
+            'SubnetId': '1'
         }
-        conn_mock.create_subnet = mock.Mock(return_value=subnet_json_mock)
+
+        conn_mock.create_subnet = mock.Mock(return_value={
+            'Subnet': subnet_json_mock
+        })
         conn_mock.create_route_table = mock.Mock(return_value={
             'RouteTable': {'RouteTableId': 'route-table-id'}
         })
 
+        Subnet.ec2_conn = Subnet.route53_conn = conn_mock
         _subnet = Subnet.create(
             cidr_block='172.23.0.0/24',
             vpc_id='vpc-id',
@@ -107,6 +112,7 @@ class SubnetTest(unittest.TestCase):
             'Subnets': [subnet_json_mock]
         })
 
+        Subnet.ec2_conn = Subnet.route53_conn = conn_mock
         _subnet = Subnet(id='subnet-id', vpc_id=None, metadata=None)
         _subnet.refresh()
 
@@ -115,8 +121,11 @@ class SubnetTest(unittest.TestCase):
 
     @mock.patch.object(Subnet, 'refresh')
     @mock.patch.object(Subnet, 'get_instances')
-    @mock.patch('treadmill.infra.connection.Connection', mock.Mock())
-    def test_show(self, get_instances_mock, refresh_mock):
+    @mock.patch('treadmill.infra.connection.Connection')
+    def test_show(self, ConnectionMock, get_instances_mock, refresh_mock):
+        conn_mock = ConnectionMock()
+        Subnet.ec2_conn = Subnet.route53_conn = conn_mock
+
         _subnet = Subnet(id='subnet-id',
                          vpc_id='vpc-id',
                          metadata=None)

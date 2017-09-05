@@ -21,7 +21,6 @@ DEFAULTS = {
                   'objectclass': 'olcMdbConfig',
                   'owner': '{{owner}}',
                   'rootdn': 'cn=Manager,cn=config',
-                  'rootpw': '{{ rootpw }}',
                   'suffix': '{{ suffix }}'}],
     'log_levels': [16384],
     'schemas': ['file://{{ openldap }}/etc/openldap/schema/core.ldif']

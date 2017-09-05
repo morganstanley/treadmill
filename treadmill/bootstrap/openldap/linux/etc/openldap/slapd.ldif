@@ -51,7 +51,7 @@ olcDbDirectory: {{ dir }}/openldap-data
 olcSuffix: {{ backend.suffix }}
 {%- endif %}
 olcRootDN: {{ backend.rootdn }}
-{%- if rootpw %}
+{%- if rootpw  and backend.objectclass != "olcMdbConfig" %}
 olcRootPW: {{ rootpw }}
 {%- endif %}
 {%- if gssapi %}
