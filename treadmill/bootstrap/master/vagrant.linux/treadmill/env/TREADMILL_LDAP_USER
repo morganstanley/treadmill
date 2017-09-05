@@ -1,1 +1,1 @@
-cn=Manager,dc=local
+cn=Manager,cn=config
