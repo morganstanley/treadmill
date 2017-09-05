@@ -35,12 +35,22 @@ add_svc openldap
 echo Initializing openldap
 sleep 3
 
-
 /opt/s6/bin/s6-setuidgid treadmld \
     $TM admin ldap init
 
-/opt/s6/bin/s6-setuidgid treadmld \
-    $TM admin ldap schema --update
+(
+# FIXME: Flaky command. Works after a few re-runs.
+TIMEOUT=120
+
+retry_count=0
+until ( /opt/s6/bin/s6-setuidgid treadmld \
+    $TM admin ldap schema --update ) || [ $retry_count -eq $TIMEOUT ]
+do
+    retry_count=`expr $retry_count + 1`
+    echo "Trying ldap schema update : $retry_count"
+    sleep 1
+done
+)
 
 echo Configuring local cell
 
