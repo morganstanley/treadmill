@@ -48,8 +48,7 @@ class VPC(ec2object.EC2Object):
 
         if len(vpcs) > 1:
             raise ValueError("Multiple VPCs with name: " + name)
-
-        if vpcs:
+        elif vpcs:
             return vpcs[0]['VpcId']
 
     @classmethod
@@ -88,7 +87,12 @@ class VPC(ec2object.EC2Object):
         _vpc = VPC.create(name=name, cidr_block=cidr_block)
         _vpc.create_internet_gateway()
         _vpc.create_security_group(secgroup_name, secgroup_desc)
-
+        _vpc.associate_dhcp_options([
+            {
+                'Key': 'domain-name-servers',
+                'Values': ['AmazonProvidedDNS']
+            }
+        ])
         return _vpc
 
     def create_subnet(self, cidr_block, name, gateway_id):
@@ -215,9 +219,8 @@ class VPC(ec2object.EC2Object):
             )
 
     def delete_dhcp_options(self):
-        if not self.metadata:
-            self._load()
-
+        if self.metadata['DhcpOptionsId'] == 'default':
+            return
         self.ec2_conn.delete_dhcp_options(
             DhcpOptionsId=self.metadata['DhcpOptionsId']
         )
@@ -227,6 +230,10 @@ class VPC(ec2object.EC2Object):
         self.delete_internet_gateway()
         self.delete_security_groups()
         self.delete_route_tables()
+
+        if not self.metadata:
+            self._load()
+
         self.ec2_conn.delete_vpc(VpcId=self.id)
         self.delete_dhcp_options()
 
@@ -244,7 +251,7 @@ class VPC(ec2object.EC2Object):
             )
         }
 
-    def associate_dhcp_options(self, options=[]):
+    def _create_dhcp_options(self, options=None):
         _default_options = [
             {
                 'Key': 'domain-name',
@@ -252,10 +259,17 @@ class VPC(ec2object.EC2Object):
             }
         ]
         response = self.ec2_conn.create_dhcp_options(
-            DhcpConfigurations=_default_options + options
+            DhcpConfigurations=_default_options + (options or [])
         )
 
-        self.dhcp_options_id = response['DhcpOptions']['DhcpOptionsId']
+        return response['DhcpOptions']['DhcpOptionsId']
+
+    def associate_dhcp_options(self, options=None, default=False):
+        if default:
+            self.dhcp_options_id = 'default'
+        else:
+            self.dhcp_options_id = self._create_dhcp_options(options)
+
         self.ec2_conn.associate_dhcp_options(
             DhcpOptionsId=self.dhcp_options_id,
             VpcId=self.id
@@ -267,10 +281,6 @@ class VPC(ec2object.EC2Object):
                 {
                     'Name': 'vpc-id',
                     'Values': [self.id]
-                },
-                {
-                    'Name': 'tag:Name',
-                    'Values': [constants.TREADMILL_CELL_SUBNET_NAME]
                 }
             ]
         )['Subnets']
@@ -289,6 +299,7 @@ class VPC(ec2object.EC2Object):
     def _instance_details(self, instance):
         return {
             'Name': instance.name,
+            'Role': instance.role,
             'HostName': instance.hostname,
             'InstanceId': instance.id,
             'InstanceState': instance.metadata['State']['Name'],

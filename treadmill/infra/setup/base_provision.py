@@ -27,6 +27,7 @@ class BaseProvision:
             count,
             key,
             instance_type,
+            subnet_name,
             subnet_id=None,
             cidr_block=None,
     ):
@@ -38,8 +39,7 @@ class BaseProvision:
         self.vpc.load_internet_gateway_ids()
         self.vpc.load_security_group_ids()
 
-        if not getattr(self, 'subnet_name', None):
-            self.subnet_name = self.name
+        self.subnet_name = subnet_name
         if not subnet_id:
             self.vpc.create_subnet(
                 cidr_block=cidr_block,

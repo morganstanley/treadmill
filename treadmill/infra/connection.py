@@ -27,6 +27,10 @@ class Connection(metaclass=Singleton):
         domain=None
     )
 
+    @classmethod
+    def get_credentials(cls):
+        return cls.session.get_credentials()
+
     def __init__(self, resource=constants.EC2):
         pass
 

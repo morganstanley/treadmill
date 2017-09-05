@@ -18,7 +18,9 @@ class IPA(base_provision.BaseProvision):
             tm_release,
             key,
             instance_type,
-            subnet_id=None
+            proid,
+            subnet_name,
+            subnet_id=None,
     ):
 
         self.configuration = configuration.IPA(
@@ -27,6 +29,7 @@ class IPA(base_provision.BaseProvision):
             vpc=self.vpc,
             ipa_admin_password=ipa_admin_password,
             tm_release=tm_release,
+            proid=proid
         )
         super().setup(
             image=image,
@@ -34,7 +37,8 @@ class IPA(base_provision.BaseProvision):
             cidr_block=cidr_block,
             subnet_id=subnet_id,
             key=key,
-            instance_type=instance_type
+            instance_type=instance_type,
+            subnet_name=subnet_name
         )
 
         def get_ipa_status():
@@ -49,6 +53,8 @@ class IPA(base_provision.BaseProvision):
             step=10,
             timeout=300
         )
+        self.vpc.associate_dhcp_options(default=True)
+        self.vpc.delete_dhcp_options()
         self.vpc.associate_dhcp_options([
             {
                 'Key': 'domain-name-servers',

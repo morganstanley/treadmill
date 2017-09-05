@@ -23,13 +23,13 @@ done
 (
 cat <<EOF
 mkdir -p /var/spool/tickets
-kinit -k -t /etc/krb5.keytab -c /var/spool/tickets/treadmld
-chown treadmld:treadmld /var/spool/tickets/treadmld
+kinit -k -t /etc/krb5.keytab -c /var/spool/tickets/"${PROID}"
+chown "${PROID}":"${PROID}" /var/spool/tickets/"${PROID}"
 EOF
-) > /etc/cron.hourly/hostkey-treadmld-kinit
+) > /etc/cron.hourly/hostkey-"${PROID}"-kinit
 
-chmod 755 /etc/cron.hourly/hostkey-treadmld-kinit
-/etc/cron.hourly/hostkey-treadmld-kinit
+chmod 755 /etc/cron.hourly/hostkey-"${PROID}"-kinit
+/etc/cron.hourly/hostkey-"${PROID}"-kinit
 
 (
 cat <<EOF
@@ -57,13 +57,13 @@ EOF
     --override "network_device=eth0 rrdtool=/usr/bin/rrdtool rrdcached=/usr/bin/rrdcached" \
     node
 
-ipa-getkeytab -r -p treadmld -D "cn=Directory Manager" -w "{{ IPA_ADMIN_PASSWORD }}" -k /etc/treadmld.keytab
-chown treadmld:treadmld /etc/treadmld.keytab
-su -c "kinit -k -t /etc/treadmld.keytab treadmld" treadmld
+ipa-getkeytab -r -p "${PROID}" -D "cn=Directory Manager" -w "{{ IPA_ADMIN_PASSWORD }}" -k /etc/"${PROID}".keytab
+chown "${PROID}":"${PROID}" /etc/"${PROID}".keytab
+su -c "kinit -k -t /etc/${PROID}.keytab ${PROID}" "${PROID}"
 
-s6-setuidgid treadmld {{ TREADMILL }} admin ldap server configure "$(hostname -f)" --cell "{{ SUBNET_ID }}"
+s6-setuidgid "${PROID}" {{ TREADMILL }} admin ldap server configure "$(hostname -f)" --cell "{{ SUBNET_ID }}"
 
 /bin/systemctl daemon-reload
 /bin/systemctl enable treadmill-node.service --now
 
-ln -s /var/spool/tickets/treadmld {{ APP_ROOT }}/spool/krb5cc_host
+ln -s /var/spool/tickets/"${PROID}" {{ APP_ROOT }}/spool/krb5cc_host

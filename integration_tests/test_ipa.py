@@ -70,6 +70,7 @@ class IPATest(unittest.TestCase):
                 '--vpc-name=' + self.vpc_name,
                 '--subnet-cidr-block=172.23.0.0/24',
                 '--ipa-admin-password=Tre@dmill1',
+                '--subnet-name=TreadmillIPA'
             ],
             obj={}
         )
@@ -103,7 +104,7 @@ class IPATest(unittest.TestCase):
                 '--key=ms_treadmill_dev',
                 '--image=RHEL-7.4',
                 '--vpc-name=' + self.vpc_name,
-                '--ldap-subnet-id=' + subnet_info['SubnetId'],
+                '--subnet-name=TreadmillIPA',
                 '--ipa-admin-password=Tre@dmill1',
             ],
             obj={}
@@ -130,7 +131,7 @@ class IPATest(unittest.TestCase):
                 'delete',
                 'domain',
                 '--vpc-name=' + self.vpc_name,
-                '--subnet-id=' + subnet_info['SubnetId'],
+                '--subnet-name=TreadmillIPA',
             ],
             obj={}
         )
@@ -150,7 +151,7 @@ class IPATest(unittest.TestCase):
                 'delete',
                 'ldap',
                 '--vpc-name=' + self.vpc_name,
-                '--subnet-id=' + subnet_info['SubnetId'],
+                '--subnet-name=TreadmillIPA',
             ],
             obj={}
         )
@@ -217,6 +218,7 @@ class IPATest(unittest.TestCase):
                 '--vpc-name=' + self.vpc_name,
                 '--subnet-cidr-block=172.23.0.0/24',
                 '--ipa-admin-password=Tre@dmill1',
+                '--subnet-name=TreadmillIPA'
             ],
             obj={}
         )
@@ -251,6 +253,7 @@ class IPATest(unittest.TestCase):
                 '--image=RHEL-7.4',
                 '--vpc-name=' + self.vpc_name,
                 '--ipa-admin-password=Tre@dmill1',
+                '--subnet-name=TreadmillLDAP'
             ],
             obj={}
         )
@@ -280,7 +283,7 @@ class IPATest(unittest.TestCase):
                 'delete',
                 'domain',
                 '--vpc-name=' + self.vpc_name,
-                '--subnet-id=' + subnet_info['SubnetId'],
+                '--subnet-name=TreadmillIPA',
             ],
             obj={}
         )
@@ -296,7 +299,7 @@ class IPATest(unittest.TestCase):
                 'delete',
                 'ldap',
                 '--vpc-name=' + self.vpc_name,
-                '--subnet-id=' + ldap_subnet_info['SubnetId'],
+                '--subnet-name=TreadmillLDAP',
             ],
             obj={}
         )

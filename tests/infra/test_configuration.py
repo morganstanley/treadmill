@@ -45,10 +45,11 @@ class MasterTest(unittest.TestCase):
 
     @mock.patch('builtins.open', create=True)
     def test_master_configuration_script_data(self, open_mock):
-        config = configuration.Master('', '', '', '', '', '')
+        config = configuration.Master('', '', '', '', '', '', '')
         expected_script_data = {
             'provision-base.sh': [
-                'DOMAIN', 'NAME', 'SUBNET_ID', 'LDAP_HOSTNAME', 'APP_ROOT',
+                'DOMAIN', 'NAME', 'SUBNET_ID', 'LDAP_HOSTNAME',
+                'APP_ROOT', 'PROID'
             ],
             'install-ipa-client.sh': [],
             'install-treadmill.sh': ['TREADMILL_RELEASE'],
@@ -79,12 +80,13 @@ class LDAPTest(unittest.TestCase):
         config = configuration.LDAP('', '', '', '', '', '', '')
         expected_script_data = {
             'provision-base.sh': [
-                'DOMAIN', 'NAME', 'SUBNET_ID', 'LDAP_HOSTNAME', 'APP_ROOT',
+                'DOMAIN', 'NAME', 'LDAP_HOSTNAME',
+                'APP_ROOT', 'PROID'
             ],
             'install-ipa-client.sh': [],
             'install-treadmill.sh': ['TREADMILL_RELEASE'],
             'configure-ldap.sh': [
-                'SUBNET_ID', 'APP_ROOT', 'IPA_ADMIN_PASSWORD', 'DOMAIN',
+                'APP_ROOT', 'IPA_ADMIN_PASSWORD', 'DOMAIN',
                 'IPA_SERVER_HOSTNAME'
             ],
         }
@@ -114,9 +116,10 @@ class IPATest(unittest.TestCase):
             name='ipa',
             cell='subnet-id',
             vpc=mock.Mock(),
+            proid='foobar'
         )
         expected_script_data = {
-            'provision-base.sh': ['DOMAIN', 'NAME'],
+            'provision-base.sh': ['DOMAIN', 'NAME', 'PROID'],
             'install-treadmill.sh': ['TREADMILL_RELEASE'],
             'install-ipa-server.sh': [
                 'DOMAIN', 'IPA_ADMIN_PASSWORD', 'CELL', 'REVERSE_ZONE',
@@ -145,10 +148,11 @@ class ZookeeperTest(unittest.TestCase):
         config = configuration.Zookeeper(
             name='zookeeper',
             ldap_hostname='ldap_host',
-            ipa_server_hostname='ipa_server_hostname'
+            ipa_server_hostname='ipa_server_hostname',
+            proid='foobar'
         )
         expected_script_data = {
-            'provision-base.sh': ['DOMAIN', 'NAME', 'LDAP_HOSTNAME'],
+            'provision-base.sh': ['DOMAIN', 'NAME', 'LDAP_HOSTNAME', 'PROID'],
             'install-ipa-client.sh': [],
             'provision-zookeeper.sh': ['DOMAIN', 'IPA_SERVER_HOSTNAME'],
         }
@@ -180,10 +184,11 @@ class NodeTest(unittest.TestCase):
             ldap_hostname='ldap_host',
             ipa_admin_password='Tre@admill1',
             with_api=False,
+            proid='foobar'
         )
         expected_script_data = {
             'provision-base.sh': ['DOMAIN', 'NAME', 'APP_ROOT', 'SUBNET_ID',
-                                  'LDAP_HOSTNAME', 'ROLE'],
+                                  'LDAP_HOSTNAME', 'ROLE', 'PROID'],
             'install-ipa-client.sh': [],
             'install-treadmill.sh': ['TREADMILL_RELEASE'],
             'configure-node.sh': [

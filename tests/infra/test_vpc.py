@@ -4,7 +4,7 @@ Unit test for VPC.
 
 import unittest
 import mock
-from treadmill.infra import vpc, constants
+from treadmill.infra import vpc
 
 
 class VPCTest(unittest.TestCase):
@@ -450,6 +450,10 @@ class VPCTest(unittest.TestCase):
         )
         create_internet_gateway_mock.assert_called_once()
         create_security_group_mock.assert_called_once()
+        associate_dhcp_options_mock.assert_called_once_with([{
+            'Key': 'domain-name-servers',
+            'Values': ['AmazonProvidedDNS']
+        }])
 
     @mock.patch('treadmill.infra.connection.Connection')
     def test_all(
@@ -500,10 +504,6 @@ class VPCTest(unittest.TestCase):
                 {
                     'Name': 'vpc-id',
                     'Values': ['vpc-123']
-                },
-                {
-                    'Name': 'tag:Name',
-                    'Values': [constants.TREADMILL_CELL_SUBNET_NAME]
                 }
             ]
         )

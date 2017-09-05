@@ -2471,13 +2471,63 @@ Module: treadmill.cli.cloud
 		  --help         Show this message and exit.
 		
 		Commands:
-		  delete              Delete Treadmill EC2 Objects
-		  delete-hosted-zone  Delete Hosted Zones
-		  init                Initialize Treadmill EC2 Objects
-		  list                Show Treadmill Cloud Resources
-		  port                enable/disable EC2 instance port
+		  delete  Delete Treadmill EC2 Objects
+		  init    Initialize Treadmill EC2 Objects
+		  list    Show Treadmill Cloud Resources
+		  port    enable/disable EC2 instance port
 
 
+
+		Usage: cloud delete [OPTIONS] COMMAND [ARGS]...
+		
+		  Delete Treadmill EC2 Objects
+		
+		Options:
+		  --help  Show this message and exit.
+		
+		Commands:
+		  cell    Delete Cell (Subnet)
+		  domain  Delete IPA
+		  ldap    Delete LDAP
+		  node    Delete Node
+		  vpc     Delete VPC
+
+		Usage: cloud init [OPTIONS] COMMAND [ARGS]...
+		
+		  Initialize Treadmill EC2 Objects
+		
+		Options:
+		  --proid TEXT  Proid user for treadmill
+		  --help        Show this message and exit.
+		
+		Commands:
+		  cell    Initialize Treadmill Cell
+		  domain  Initialize Treadmill Domain (IPA)
+		  ldap    Initialize Treadmill LDAP
+		  node    Initialize new Node in Cell
+		  vpc     Initialize Treadmill VPC
+
+		Usage: cloud list [OPTIONS] COMMAND [ARGS]...
+		
+		  Show Treadmill Cloud Resources
+		
+		Options:
+		  --help  Show this message and exit.
+		
+		Commands:
+		  cell  Show Cell
+		  vpc   Show VPC(s)
+
+		Usage: cloud port [OPTIONS] COMMAND [ARGS]...
+		
+		  enable/disable EC2 instance port
+		
+		Options:
+		  --help  Show this message and exit.
+		
+		Commands:
+		  disable  Disable Port from my ip
+		  enable   Enable Port from my ip
 
 
 
@@ -2536,28 +2586,29 @@ Module: treadmill.cli.cloud
 		
 		Options:
 		  --vpc-name TEXT            VPC Name  [required]
-		  --region TEXT              Region for the vpc
-		  --name TEXT                Treadmill master name
 		  --key TEXT                 SSH Key Name  [required]
-		  --count INTEGER            Number of Treadmill masters to spin up
 		  --image TEXT               Image to use for new instances e.g. RHEL-7.4
 		                             [required]
+		  --count INTEGER            Number of Treadmill masters to spin up
+		  --region TEXT              Region for the vpc
+		  --name TEXT                Treadmill master name
 		  --instance-type TEXT       AWS ec2 instance type
 		  --tm-release TEXT          Treadmill release to use
 		  --ldap-hostname TEXT       LDAP hostname
 		  --app-root TEXT            Treadmill app root
 		  --cell-cidr-block TEXT     CIDR block for the cell
 		  --ldap-cidr-block TEXT     CIDR block for LDAP
-		  --subnet-id TEXT           Subnet ID
-		  --ldap-subnet-id TEXT      Subnet ID for LDAP
+		  --subnet-name TEXT         Subnet Name
+		  --ldap-subnet-name TEXT    Subnet Name for LDAP
 		  --without-ldap             Flag for LDAP Server
 		  --ipa-admin-password TEXT  Password for IPA admin
 		  -m, --manifest TEXT        Options YAML file.  NOTE: This argument is mutually
-		                             exclusive with arguments: [count, app_root,
-		                             tm_release, key, vpc_id, ldap_cidr_block,
-		                             cell_cidr_blockldap_subnet_id, ldap_hostname,
-		                             image, instance_type, subnet_id, name,
-		                             without_ldap, region, ipa_admin_password].
+		                             exclusive with arguments: [app_root, key,
+		                             ipa_admin_password,
+		                             cell_cidr_blockldap_subnet_name, tm_release,
+		                             without_ldap, ldap_hostname, name, vpc_id,
+		                             instance_type, subnet_name, region, count, image,
+		                             ldap_cidr_block].
 		  --help                     Show this message and exit.
 
 		Usage: init domain [OPTIONS]
@@ -2565,22 +2616,22 @@ Module: treadmill.cli.cloud
 		  Initialize Treadmill Domain (IPA)
 		
 		Options:
+		  --vpc-name TEXT            VPC Name  [required]
+		  --key TEXT                 SSH key name  [required]
+		  --image TEXT               Image to use for new master instance e.g. RHEL-7.4
+		                             [required]
 		  --name TEXT                Name of the instance
 		  --region TEXT              Region for the vpc
-		  --vpc-name TEXT            VPC Name  [required]
 		  --subnet-cidr-block TEXT   Cidr block of subnet for IPA
-		  --subnet-id TEXT           Subnet ID
+		  --subnet-name TEXT         Subnet Name
 		  --count INTEGER            Count of the instances
 		  --ipa-admin-password TEXT  Password for IPA admin
 		  --tm-release TEXT          Treadmill Release
-		  --key TEXT                 SSH key name  [required]
 		  --instance-type TEXT       Instance type
-		  --image TEXT               Image to use for new master instance e.g. RHEL-7.4
-		                             [required]
 		  -m, --manifest TEXT        Options YAML file.  NOTE: This argument is mutually
-		                             exclusive with arguments: [count, tm_release, key,
-		                             vpc_id, subnet_cidr_blocksubnet_id, image,
-		                             instance_type, name, region, ipa_admin_password].
+		                             exclusive with arguments: [key, ipa_admin_password,
+		                             tm_release, name, subnet_cidr_blocksubnet_name,
+		                             vpc_id, instance_type, region, count, image].
 		  --help                     Show this message and exit.
 
 		Usage: init ldap [OPTIONS]
@@ -2589,24 +2640,23 @@ Module: treadmill.cli.cloud
 		
 		Options:
 		  --vpc-name TEXT            VPC name  [required]
-		  --region TEXT              Region for the vpc
 		  --key TEXT                 SSH Key Name  [required]
-		  --count INTEGER            Number of Treadmill ldap instances to spin up
 		  --image TEXT               Image to use for instances e.g. RHEL-7.4
 		                             [required]
+		  --count INTEGER            Number of Treadmill ldap instances to spin up
+		  --region TEXT              Region for the vpc
 		  --instance-type TEXT       AWS ec2 instance type
 		  --tm-release TEXT          Treadmill release to use
 		  --ldap-hostname TEXT       LDAP hostname
 		  --app-root TEXT            Treadmill app root
 		  --ldap-cidr-block TEXT     CIDR block for LDAP
-		  --ldap-subnet-id TEXT      Subnet ID for LDAP
-		  --cell-subnet-id TEXT      Subnet ID of Cell
+		  --subnet-name TEXT         Subnet Name for LDAP
 		  --ipa-admin-password TEXT  Password for IPA admin
 		  -m, --manifest TEXT        Options YAML file.  NOTE: This argument is mutually
-		                             exclusive with arguments: [vpc_name, count,
-		                             app_root, tm_release, key, ldap_hostname,
-		                             ipa_admin_passwordldap_cidr_block, cell_subnet_id,
-		                             instance_type, image, ldap_subnet_id, region].
+		                             exclusive with arguments: [app_root, key, vpc_name,
+		                             tm_release, ldap_hostname, instance_type,
+		                             ipa_admin_passwordldap_cidr_block, subnet_name,
+		                             region, count, image].
 		  --help                     Show this message and exit.
 
 		Usage: init node [OPTIONS]
@@ -2615,24 +2665,24 @@ Module: treadmill.cli.cloud
 		
 		Options:
 		  --vpc-name TEXT            VPC Name  [required]
-		  --region TEXT              Region for the vpc
-		  --name TEXT                Node name
 		  --key TEXT                 SSH Key Name  [required]
-		  --count INTEGER            Number of Treadmill nodes to spin up
 		  --image TEXT               Image to use for new node instance e.g. RHEL-7.4
 		                             [required]
+		  --subnet-name TEXT         Subnet Name  [required]
+		  --region TEXT              Region for the vpc
+		  --name TEXT                Node name
+		  --count INTEGER            Number of Treadmill nodes to spin up
 		  --instance-type TEXT       AWS ec2 instance type
 		  --tm-release TEXT          Treadmill release to use
 		  --ldap-hostname TEXT       LDAP hostname
 		  --app-root TEXT            Treadmill app root
-		  --subnet-id TEXT           Subnet ID  [required]
 		  --ipa-admin-password TEXT  Password for IPA admin
 		  --with-api                 Provision node with Treadmill APIs
 		  -m, --manifest TEXT        Options YAML file.  NOTE: This argument is mutually
-		                             exclusive with arguments: [count, app_root,
-		                             tm_release, key, vpc_id, ldap_hostname, image,
-		                             instance_type, ipa_admin_passwordwith_api,
-		                             subnet_id, name, region].
+		                             exclusive with arguments: [app_root, key,
+		                             tm_release, ldap_hostname, name, vpc_id,
+		                             instance_type, subnet_name,
+		                             ipa_admin_passwordwith_api, region, count, image].
 		  --help                     Show this message and exit.
 
 		Usage: init vpc [OPTIONS]
@@ -2640,14 +2690,14 @@ Module: treadmill.cli.cloud
 		  Initialize Treadmill VPC
 		
 		Options:
+		  --name TEXT            VPC name  [required]
 		  --region TEXT          Region for the vpc
 		  --vpc-cidr-block TEXT  CIDR block for the vpc
 		  --secgroup_name TEXT   Security group name
 		  --secgroup_desc TEXT   Description for the security group
-		  --name TEXT            VPC name  [required]
 		  -m, --manifest TEXT    Options YAML file.  NOTE: This argument is mutually
-		                         exclusive with arguments: [secgroup_name, name,
-		                         vpc_cidr_block, secgroup_desc, region].
+		                         exclusive with arguments: [region, secgroup_desc, name,
+		                         vpc_cidr_block, secgroup_name].
 		  --help                 Show this message and exit.
 
 
@@ -2676,9 +2726,9 @@ Module: treadmill.cli.cloud
 		  Disable Port from my ip
 		
 		Options:
-		  --protocol TEXT               Protocol
 		  -p, --port TEXT               Port  [required]
 		  -s, --security-group-id TEXT  Security Group ID  [required]
+		  --protocol TEXT               Protocol
 		  --help                        Show this message and exit.
 
 		Usage: port enable [OPTIONS]
@@ -2686,9 +2736,9 @@ Module: treadmill.cli.cloud
 		  Enable Port from my ip
 		
 		Options:
-		  --protocol TEXT               Protocol
 		  -p, --port TEXT               Port  [required]
 		  -s, --security-group-id TEXT  Security Group ID  [required]
+		  --protocol TEXT               Protocol
 		  --help                        Show this message and exit.
 
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
