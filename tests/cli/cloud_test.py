@@ -8,13 +8,23 @@ from treadmill.infra import constants, connection
 
 
 class CloudTest(unittest.TestCase):
+
     def setUp(self):
+        self.patched = mock.patch(
+            'treadmill.cli.cloud.pkg_resources.resource_string',
+            mock.Mock(return_value=b'0.1.0')
+        )
+        self.patched.start()
+
         connection.Connection.context.region_name = 'foobar'
         self.vpc_id_mock = 'vpc-123'
         self.vpc_name = 'vpc-name'
         self.runner = click.testing.CliRunner()
         self.configure_cli = importlib.import_module(
             'treadmill.cli.cloud').init()
+
+    def tearDown(self):
+        self.patched.stop()
 
     @mock.patch('treadmill.cli.cloud.vpc.VPC')
     def test_init_vpc(self, vpc_mock):
@@ -82,7 +92,6 @@ class CloudTest(unittest.TestCase):
                 '--domain=treadmill.org',
                 'init',
                 'cell',
-                '--tm-release=0.1.0',
                 '--key=key',
                 '--image=img-123',
                 '--subnet-id=sub-123',
@@ -153,7 +162,6 @@ class CloudTest(unittest.TestCase):
                 '--domain=treadmill.org',
                 'init',
                 'cell',
-                '--tm-release=0.1.0',
                 '--key=key',
                 '--image=img-123',
                 '--subnet-id=sub-123',
@@ -204,7 +212,6 @@ class CloudTest(unittest.TestCase):
                 '--domain=treadmill.org',
                 'init',
                 'node',
-                '--tm-release=0.1.0',
                 '--key=key',
                 '--image=img-123',
                 '--vpc-name=' + self.vpc_name,
@@ -244,7 +251,6 @@ class CloudTest(unittest.TestCase):
                 '--domain=test.treadmill',
                 'init',
                 'domain',
-                '--tm-release=0.1.0',
                 '--ipa-admin-password=Tre@dmil1',
                 '--key=key',
                 '--image=img-123',
