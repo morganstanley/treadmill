@@ -62,16 +62,6 @@ def init():
         """IPA admin password prompt"""
         return value or click.prompt('IPA admin password ', hide_input=True)
 
-    @click.group()
-    @click.option('--domain', required=True,
-                  envvar='TREADMILL_DNS_DOMAIN',
-                  callback=_validate_domain,
-                  help='Domain for hosted zone')
-    @click.pass_context
-    def cloud(ctx, domain):
-        """Manage Treadmill on cloud"""
-        ctx.obj['DOMAIN'] = domain
-
     class MutuallyExclusiveOption(Option):
         def __init__(self, *args, **kwargs):
             self.mutually_exclusive = set(kwargs.pop('mutually_exclusive', []))
@@ -102,10 +92,26 @@ def init():
                 with open(_file, 'r') as stream:
                     data = yaml.load(stream)
 
-                opts.update(data)
+                _command_name = ctx.command.name
+                if data.get(_command_name, None):
+                    opts.update(data[_command_name])
+                else:
+                    raise click.BadParameter(
+                        'Manifest file should have %s scope' % _command_name
+                    )
                 ctx.params = opts
 
             return super().handle_parse_result(ctx, opts, args)
+
+    @click.group()
+    @click.option('--domain', required=True,
+                  envvar='TREADMILL_DNS_DOMAIN',
+                  callback=_validate_domain,
+                  help='Domain for hosted zone')
+    @click.pass_context
+    def cloud(ctx, domain):
+        """Manage Treadmill on cloud"""
+        ctx.obj['DOMAIN'] = domain
 
     @cloud.group()
     def init():
