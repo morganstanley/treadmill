@@ -149,6 +149,27 @@ class Instances:
         )
 
     @classmethod
+    def get_ipa(cls, vpc_id):
+        _instances = cls.get(
+            filters=[
+                {
+                    'Name': 'vpc-id',
+                    'Values': [vpc_id]
+                },
+                {
+                    'Name': 'tag-key',
+                    'Values': ['Role']
+                },
+                {
+                    'Name': 'tag-value',
+                    'Values': [constants.ROLES['IPA']]
+                }
+            ]
+        ).instances
+        if _instances:
+            return _instances[0]
+
+    @classmethod
     def create(
             cls,
             name,

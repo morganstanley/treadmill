@@ -17,6 +17,8 @@ class LDAPTest(unittest.TestCase):
     @mock.patch('treadmill.infra.instances.Instances')
     def test_setup_ldap(self, InstancesMock, VPCMock,
                         ConnectionMock, LDAPConfigurationMock):
+        ipa_instance_mock = mock.Mock(hostname='ipa-server-hostname')
+        InstancesMock.get_ipa = mock.Mock(return_value=ipa_instance_mock)
         instance_mock = mock.Mock(private_ip='1.1.1.1')
         instances_mock = mock.Mock(instances=[instance_mock])
         InstancesMock.create = mock.Mock(return_value=instances_mock)
@@ -50,6 +52,7 @@ class LDAPTest(unittest.TestCase):
         )
 
         self.assertEqual(ldap.subnet.instances, instances_mock)
+        InstancesMock.get_ipa.assert_called()
         InstancesMock.create.assert_called_once_with(
             image='foo-123',
             name='ldap',
@@ -80,6 +83,7 @@ class LDAPTest(unittest.TestCase):
                 name='ldap',
                 app_root='app-root',
                 ipa_admin_password='ipa_pass',
+                ipa_server_hostname='ipa-server-hostname'
             )
         )
         _ldap_configuration_mock.get_userdata.assert_called_once()

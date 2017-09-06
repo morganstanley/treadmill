@@ -27,6 +27,10 @@ ipa role-add-privilege "Host Enroller" --privileges "Host Enrollment"
 ipa role-add-privilege "Host Enroller" --privileges "Host Administrators"
 ipa role-add-member "Host Enroller" --users tmhostadm
 
+ipa role-add "Service Admin" --desc "Service Admin"
+ipa role-add-privilege "Service Admin" --privileges "Service Administrators"
+ipa role-add-member "Service Admin" --users tmhostadm
+
 kadmin.local -q "xst -norandkey -k /tmp/tmhostadm.keytab tmhostadm"
 chown tmhostadm:tmhostadm /tmp/tmhostadm.keytab
 

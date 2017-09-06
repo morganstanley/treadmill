@@ -520,6 +520,50 @@ class InstancesTest(unittest.TestCase):
         self.assertEquals(instance_details, sample_instances)
 
     @mock.patch('treadmill.infra.instances.connection.Connection')
+    def test_get_ipa(self, ConnectionMock):
+        conn_mock = ConnectionMock()
+
+        sample_instances = [
+            {'InstanceId': 1}
+        ]
+        conn_mock.describe_instances = mock.Mock(return_value={
+            'Reservations': [{'Instances': sample_instances}]
+        })
+        Instance.ec2_conn = conn_mock
+
+        result = Instances.get_ipa(vpc_id='vpc-id')
+
+        conn_mock.describe_instances.assert_called_once_with(
+            Filters=[
+                {'Name': 'vpc-id', 'Values': ['vpc-id']},
+                {'Name': 'tag-key', 'Values': ['Role']},
+                {'Name': 'tag-value', 'Values': ['IPA']}
+            ]
+        )
+        self.assertIsInstance(result, Instance)
+        self.assertEquals(result.metadata, sample_instances[0])
+
+    @mock.patch('treadmill.infra.instances.connection.Connection')
+    def test_get_ipa_no_instance(self, ConnectionMock):
+        conn_mock = ConnectionMock()
+
+        conn_mock.describe_instances = mock.Mock(return_value={
+            'Reservations': [{'Instances': []}]
+        })
+        Instance.ec2_conn = conn_mock
+
+        result = Instances.get_ipa(vpc_id='vpc-id')
+
+        conn_mock.describe_instances.assert_called_once_with(
+            Filters=[
+                {'Name': 'vpc-id', 'Values': ['vpc-id']},
+                {'Name': 'tag-key', 'Values': ['Role']},
+                {'Name': 'tag-value', 'Values': ['IPA']}
+            ]
+        )
+        self.assertIsNone(result)
+
+    @mock.patch('treadmill.infra.instances.connection.Connection')
     def test_get_ami_id(self, ConnectionMock):
         conn_mock = ConnectionMock()
 
