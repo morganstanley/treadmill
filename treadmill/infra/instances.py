@@ -33,56 +33,11 @@ class Instance(ec2object.EC2Object):
     def hostname(self):
         return self.name.lower() + '.' + connection.Connection.context.domain
 
-    def configure_dns_record(self, hosted_zone_id, reverse=False):
-        self._change_resource_record_sets(
-            'UPSERT',
-            hosted_zone_id,
-            reverse
-        )
-
-    def delete_dns_record(self, hosted_zone_id, reverse=False):
-        self._change_resource_record_sets(
-            'DELETE',
-            hosted_zone_id,
-            reverse
-        )
-
     def _get_private_ip(self):
         return self.metadata.get(
             'PrivateIpAddress',
             ''
         ) if self.metadata else ''
-
-    def _change_resource_record_sets(
-            self,
-            action,
-            hosted_zone_id,
-            reverse=False
-    ):
-        if reverse:
-            _name, _type, _value = self._reverse_dns_record_attrs()
-        else:
-            _name, _type, _value = self._forward_dns_record_attrs()
-
-        try:
-            self.route53_conn.change_resource_record_sets(
-                HostedZoneId=hosted_zone_id.split('/')[-1],
-                ChangeBatch={
-                    'Changes': [{
-                        'Action': action,
-                        'ResourceRecordSet': {
-                            'Name': _name,
-                            'Type': _type,
-                            'TTL': constants.ROUTE_53_RECORD_SET_TTL,
-                            'ResourceRecords': [{
-                                'Value': _value
-                            }]
-                        }
-                    }]
-                }
-            )
-        except Exception as ex:
-            _LOGGER.info(ex)
 
     def _reverse_dns_record_attrs(self):
         return [
@@ -159,8 +114,6 @@ class Instances:
             subnet_id,
             secgroup_ids,
             user_data,
-            hosted_zone_id,
-            reverse_hosted_zone_id,
             role
     ):
         conn = connection.Connection()
@@ -191,13 +144,6 @@ class Instances:
                 role=role
             )
             _instance.create_tags()
-            _instance.configure_dns_record(
-                hosted_zone_id
-            )
-            _instance.configure_dns_record(
-                reverse_hosted_zone_id,
-                reverse=True
-            )
             _instances.append(_instance)
 
         return Instances(instances=_instances)
@@ -212,16 +158,7 @@ class Instances:
             )
             self.volume_ids = [v['VolumeId'] for v in volumes['Volumes']]
 
-    def terminate(self, hosted_zone_id, reverse_hosted_zone_id):
-        for instance in self.instances:
-            instance.delete_dns_record(
-                hosted_zone_id
-            )
-            instance.delete_dns_record(
-                hosted_zone_id=reverse_hosted_zone_id,
-                reverse=True
-            )
-
+    def terminate(self):
         if self.ids:
             self.ec2_conn.terminate_instances(
                 InstanceIds=self.ids

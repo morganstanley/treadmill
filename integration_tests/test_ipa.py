@@ -210,7 +210,7 @@ class IPATest(unittest.TestCase):
             self.configure_cli, [
                 '--domain=treadmill.org',
                 'init',
-                'domain'
+                'domain',
                 '--tm-release=0.1.0',
                 '--key=ms_treadmill_dev',
                 '--image=RHEL-7.4',
@@ -250,6 +250,7 @@ class IPATest(unittest.TestCase):
                 '--key=ms_treadmill_dev',
                 '--image=RHEL-7.4',
                 '--vpc-name=' + self.vpc_name,
+                '--ipa-admin-password=Tre@dmill1',
             ],
             obj={}
         )
@@ -306,7 +307,7 @@ class IPATest(unittest.TestCase):
 
         self.runner.invoke(
             self.configure_cli, [
-                '--domain=treadmill.org'
+                '--domain=treadmill.org',
                 'delete',
                 'vpc',
                 '--vpc-name=' + self.vpc_name,

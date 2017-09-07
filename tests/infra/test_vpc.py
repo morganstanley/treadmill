@@ -129,84 +129,6 @@ class VPCTest(unittest.TestCase):
             }]
         )
 
-    @mock.patch('treadmill.infra.connection.Connection')
-    @mock.patch('time.time', mock.Mock(return_value=786.007))
-    def test_create_hosted_zone(self, connectionMock):
-        connectionMock.context.domain = 'foo.bar'
-        _connectionMock = connectionMock('route53')
-        connectionMock.context.region_name = 'us-east-1'
-        expected_hosted_zone = {
-            'HostedZone': {
-                'Id': 'Some-Zone-Id'
-            },
-            'VPC': {
-                'Id': self.vpc_id_mock
-            }
-        }
-        _connectionMock.create_hosted_zone = mock.Mock(
-            return_value=expected_hosted_zone
-        )
-        vpc.VPC.ec2_conn = vpc.VPC.route53_conn = _connectionMock
-
-        _vpc = vpc.VPC(id=self.vpc_id_mock)
-        _vpc.create_hosted_zone()
-
-        self.assertEquals(
-            _vpc.hosted_zone_id,
-            expected_hosted_zone['HostedZone']['Id']
-        )
-        _connectionMock.create_hosted_zone.assert_called_once_with(
-            Name='foo.bar',
-            VPC={
-                'VPCRegion': 'us-east-1',
-                'VPCId': self.vpc_id_mock,
-            },
-            HostedZoneConfig={
-                'PrivateZone': True
-            },
-            CallerReference='786'
-        )
-
-    @mock.patch('treadmill.infra.connection.Connection')
-    @mock.patch('time.time', mock.Mock(return_value=786.007))
-    def test_create_hosted_zone_reverse(self, connectionMock):
-        _connectionMock = connectionMock('route53')
-        connectionMock.context.region_name = 'us-east-1'
-        expected_hosted_zone = {
-            'HostedZone': {
-                'Id': 'Some-Zone-Id'
-            },
-            'VPC': {
-                'Id': self.vpc_id_mock
-            }
-        }
-        _connectionMock.create_hosted_zone = mock.Mock(
-            return_value=expected_hosted_zone
-        )
-
-        vpc.VPC.ec2_conn = vpc.VPC.route53_conn = _connectionMock
-
-        _vpc = vpc.VPC(
-            id=self.vpc_id_mock,
-            metadata={'CidrBlock': '172.10.0.0/16'})
-        _vpc.create_hosted_zone(reverse=True)
-
-        self.assertEquals(
-            _vpc.reverse_hosted_zone_id,
-            expected_hosted_zone['HostedZone']['Id']
-        )
-        _connectionMock.create_hosted_zone.assert_called_once_with(
-            Name='10.172.in-addr.arpa',
-            VPC={
-                'VPCRegion': 'us-east-1',
-                'VPCId': self.vpc_id_mock,
-            },
-            HostedZoneConfig={
-                'PrivateZone': True
-            },
-            CallerReference='786'
-        )
-
     @mock.patch('treadmill.infra.instances.connection.Connection')
     @mock.patch('treadmill.infra.instances.Instances')
     @mock.patch('treadmill.infra.vpc.instances.Instances')
@@ -250,16 +172,10 @@ class VPCTest(unittest.TestCase):
         vpc.VPC.ec2_conn = vpc.VPC.route53_conn = _connectionMock
         _vpc = vpc.VPC(id=self.vpc_id_mock)
         _vpc.instances = instances_obj_mock
-        _vpc.hosted_zone_ids = [1, 2]
-        _vpc.hosted_zone_id = 1
-        _vpc.reverse_hosted_zone_id = 2
 
         _vpc.terminate_instances()
 
-        instances_obj_mock.terminate.assert_called_once_with(
-            hosted_zone_id=1,
-            reverse_hosted_zone_id=2,
-        )
+        instances_obj_mock.terminate.assert_called_once_with()
 
     @mock.patch('treadmill.infra.connection.Connection')
     def test_load_security_group_ids(self, connectionMock):
@@ -301,116 +217,6 @@ class VPCTest(unittest.TestCase):
                 mock.mock.call(GroupId='secgroup-id-0'),
                 mock.mock.call(GroupId='secgroup-id-1')
             ]
-        )
-
-    @mock.patch('treadmill.infra.connection.Connection')
-    def test_load_hosted_zone_ids(self, connectionMock):
-        connectionMock.context.domain = 'foo.bar'
-        _connectionMock = connectionMock('route53')
-        _connectionMockEc2 = connectionMock('ec2')
-        _connectionMock.describe_vpcs = mock.Mock(return_value={
-            'Vpcs': [{
-                'CidrBlock': '172.0.0.1'
-            }]
-        })
-        _connectionMock.list_hosted_zones_by_name.side_effect = [
-            {
-                'HostedZones': [{
-                    'Id': 'zone-id',
-                    'Name': 'zone-name',
-                }, {
-                    'Id': 'zone-id-1',
-                    'Name': 'zone-name-foo',
-                }]
-            }, {
-                'HostedZones': [{
-                    'Id': 'zone-id-reverse',
-                    'Name': 'zone-name.in-addr-arpa',
-                }]
-            }
-        ]
-        _connectionMock.get_hosted_zone = mock.Mock()
-        _connectionMock.get_hosted_zone.side_effect = [
-            {
-                'HostedZone': {
-                    'Id': 'zone-id',
-                    'Name': 'zone-name',
-                },
-                'VPCs': [{
-                    'VPCRegion': 'region',
-                    'VPCId': self.vpc_id_mock
-                }]
-            },
-            {
-                'HostedZone': {
-                    'Id': 'zone-id-1',
-                    'Name': 'zone-name-foo',
-                },
-                'VPCs': [{
-                    'VPCRegion': 'region',
-                    'VPCId': 'foobar'
-                }]
-            },
-            {
-                'HostedZone': {
-                    'Id': 'zone-id-reverse',
-                    'Name': 'zone-name.in-addr.arpa',
-                },
-                'VPCs': [{
-                    'VPCRegion': 'region',
-                    'VPCId': self.vpc_id_mock
-                }]
-            }
-        ]
-
-        vpc.VPC.ec2_conn = vpc.VPC.route53_conn = _connectionMock
-        _vpc = vpc.VPC(id=self.vpc_id_mock)
-        _vpc.load_hosted_zone_ids()
-
-        self.assertCountEqual(
-            _vpc.hosted_zone_ids,
-            ['zone-id', 'zone-id-reverse']
-        )
-        self.assertEqual(
-            _vpc.hosted_zone_id,
-            'zone-id'
-        )
-        self.assertEqual(
-            _vpc.reverse_hosted_zone_id,
-            'zone-id-reverse'
-        )
-        _connectionMockEc2.describe_vpcs.assert_called_once_with(
-            VpcIds=[self.vpc_id_mock]
-        )
-        self.assertCountEqual(
-            _connectionMock.list_hosted_zones_by_name.mock_calls,
-            [
-                mock.mock.call(DNSName='foo.bar'),
-                mock.mock.call(DNSName='0.172.in-addr.arpa')
-            ]
-        )
-        self.assertCountEqual(
-            _connectionMock.get_hosted_zone.mock_calls,
-            [
-                mock.mock.call(Id='zone-id'),
-                mock.mock.call(Id='zone-id-reverse'),
-                mock.mock.call(Id='zone-id-1')
-            ]
-        )
-
-    @mock.patch('treadmill.infra.connection.Connection')
-    def test_delete_hosted_zones(self, connectionMock):
-        _connectionMock = connectionMock('route53')
-        _connectionMock.delete_hosted_zone = mock.Mock()
-
-        vpc.VPC.ec2_conn = vpc.VPC.route53_conn = _connectionMock
-        _vpc = vpc.VPC(id=self.vpc_id_mock)
-        _vpc.hosted_zone_ids = [1]
-
-        _vpc.delete_hosted_zones()
-
-        _connectionMock.delete_hosted_zone.assert_called_once_with(
-            Id=1
         )
 
     @mock.patch('treadmill.infra.connection.Connection')
@@ -489,7 +295,6 @@ class VPCTest(unittest.TestCase):
             SubnetId='subnet-id'
         )
 
-    @mock.patch.object(vpc.VPC, 'delete_hosted_zones')
     @mock.patch.object(vpc.VPC, 'delete_route_tables')
     @mock.patch.object(vpc.VPC, 'delete_security_groups')
     @mock.patch.object(vpc.VPC, 'delete_internet_gateway')
@@ -502,7 +307,6 @@ class VPCTest(unittest.TestCase):
             delete_internet_gateway_mock,
             delete_security_groups_mock,
             delete_route_tables_mock,
-            delete_hosted_zones_mock
     ):
         _connectionMock = connectionMock()
         _connectionMock.delete_vpc = mock.Mock()
@@ -516,7 +320,6 @@ class VPCTest(unittest.TestCase):
         delete_internet_gateway_mock.assert_called_once()
         delete_security_groups_mock.assert_called_once()
         delete_route_tables_mock.assert_called_once()
-        delete_hosted_zones_mock.assert_called_once()
         _connectionMock.delete_vpc.assert_called_once_with(
             VpcId=self.vpc_id_mock
         )
@@ -583,10 +386,6 @@ class VPCTest(unittest.TestCase):
                     'Key': 'domain-name',
                     'Values': ['cloud.ms.com']
                 },
-                {
-                    'Key': 'domain-name-servers',
-                    'Values': ['AmazonProvidedDNS']
-                }
             ]
         )
         _connectionMock.associate_dhcp_options.assert_called_once_with(
@@ -595,13 +394,11 @@ class VPCTest(unittest.TestCase):
         )
 
     @mock.patch.object(vpc.VPC, 'get_instances')
-    @mock.patch.object(vpc.VPC, 'load_hosted_zone_ids')
     @mock.patch.object(vpc.VPC, 'load_security_group_ids')
     @mock.patch('treadmill.infra.connection.Connection')
     def test_refresh(self,
                      connectionMock,
                      security_group_ids_mock,
-                     hosted_zone_ids_mock,
                      instances_mock):
         _connectionMock = connectionMock()
         _vpc_metadata_mock = {
@@ -622,11 +419,9 @@ class VPCTest(unittest.TestCase):
             VpcIds=[self.vpc_id_mock]
         )
         instances_mock.assert_called_once()
-        hosted_zone_ids_mock.assert_called_once()
         security_group_ids_mock.assert_called_once()
 
     @mock.patch.object(vpc.VPC, 'associate_dhcp_options')
-    @mock.patch.object(vpc.VPC, 'create_hosted_zone')
     @mock.patch.object(vpc.VPC, 'create_security_group')
     @mock.patch.object(vpc.VPC, 'create_internet_gateway')
     @mock.patch('treadmill.infra.connection.Connection')
@@ -635,7 +430,6 @@ class VPCTest(unittest.TestCase):
             connectionMock,
             create_internet_gateway_mock,
             create_security_group_mock,
-            create_hosted_zone_mock,
             associate_dhcp_options_mock
     ):
         _connectionMock = connectionMock()
@@ -656,14 +450,6 @@ class VPCTest(unittest.TestCase):
         )
         create_internet_gateway_mock.assert_called_once()
         create_security_group_mock.assert_called_once()
-        self.assertCountEqual(
-            create_hosted_zone_mock.mock_calls,
-            [
-                mock.mock.call(),
-                mock.mock.call(reverse=True)
-            ]
-        )
-        associate_dhcp_options_mock.assert_called_once()
 
     @mock.patch('treadmill.infra.connection.Connection')
     def test_all(

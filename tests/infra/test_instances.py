@@ -104,142 +104,6 @@ class InstanceTest(unittest.TestCase):
             }]
         )
 
-    @mock.patch('treadmill.infra.instances.connection.Connection')
-    def test_configure_dns_record(self, ConnectionMock):
-        ConnectionMock.context.domain = 'joo.goo'
-        conn_mock = ConnectionMock('route53')
-        conn_mock.change_resource_record_sets = mock.Mock()
-        Instance.route53_conn = conn_mock
-
-        instance = Instance(
-            name='foo',
-            id='1',
-            metadata={'PrivateIpAddress': '10.1.2.3'}
-        )
-        instance.configure_dns_record(
-            hosted_zone_id='zone-id',
-        )
-        self.assertEquals(instance.private_ip, '10.1.2.3')
-
-        conn_mock.change_resource_record_sets.assert_called_once_with(
-            HostedZoneId='zone-id',
-            ChangeBatch={
-                'Changes': [{
-                    'Action': 'UPSERT',
-                    'ResourceRecordSet': {
-                        'Name': 'foo.joo.goo.',
-                        'Type': 'A',
-                        'TTL': 3600,
-                        'ResourceRecords': [{
-                            'Value': '10.1.2.3'
-                        }]
-                    }
-                }]
-            }
-        )
-
-    @mock.patch('treadmill.infra.instances.connection.Connection')
-    def test_confgiure_dns_record_reverse(self, ConnectionMock):
-        ConnectionMock.context.domain = 'joo.goo'
-        conn_mock = ConnectionMock('route53')
-        conn_mock.change_resource_record_sets = mock.Mock()
-        Instance.route53_conn = conn_mock
-
-        instance = Instance(
-            name='instance-name',
-            id='1',
-            metadata={'PrivateIpAddress': '10.1.2.3'}
-        )
-        instance.configure_dns_record(
-            hosted_zone_id='reverse-zone-id',
-            reverse=True
-        )
-
-        conn_mock.change_resource_record_sets.assert_called_once_with(
-            HostedZoneId='reverse-zone-id',
-            ChangeBatch={
-                'Changes': [{
-                    'Action': 'UPSERT',
-                    'ResourceRecordSet': {
-                        'Name': '3.2.1.10.in-addr.arpa',
-                        'Type': 'PTR',
-                        'TTL': 3600,
-                        'ResourceRecords': [{
-                            'Value': 'instance-name.joo.goo.'
-                        }]
-                    }
-                }]
-            }
-        )
-
-    @mock.patch('treadmill.infra.instances.connection.Connection')
-    def test_delete_dns_record(self, ConnectionMock):
-        ConnectionMock.context.domain = 'joo.goo'
-        conn_mock = ConnectionMock('route53')
-        conn_mock.change_resource_record_sets = mock.Mock()
-        Instance.route53_conn = conn_mock
-
-        instance = Instance(
-            name='foo',
-            id='1',
-            metadata={'PrivateIpAddress': '10.1.2.3'}
-        )
-        instance.delete_dns_record(
-            hosted_zone_id='zone-id',
-        )
-        self.assertEquals(instance.private_ip, '10.1.2.3')
-
-        conn_mock.change_resource_record_sets.assert_called_once_with(
-            HostedZoneId='zone-id',
-            ChangeBatch={
-                'Changes': [{
-                    'Action': 'DELETE',
-                    'ResourceRecordSet': {
-                        'Name': 'foo.joo.goo.',
-                        'Type': 'A',
-                        'TTL': 3600,
-                        'ResourceRecords': [{
-                            'Value': '10.1.2.3'
-                        }]
-                    }
-                }]
-            }
-        )
-
-    @mock.patch('treadmill.infra.instances.connection.Connection')
-    def test_delete_dns_record_reverse(self, ConnectionMock):
-        ConnectionMock.context.domain = 'joo.goo'
-        conn_mock = ConnectionMock('route53')
-        conn_mock.change_resource_record_sets = mock.Mock()
-        Instance.route53_conn = conn_mock
-
-        instance = Instance(
-            name='instance-name',
-            id='1',
-            metadata={'PrivateIpAddress': '10.1.2.3'}
-        )
-        instance.delete_dns_record(
-            hosted_zone_id='reverse-zone-id',
-            reverse=True
-        )
-
-        conn_mock.change_resource_record_sets.assert_called_once_with(
-            HostedZoneId='reverse-zone-id',
-            ChangeBatch={
-                'Changes': [{
-                    'Action': 'DELETE',
-                    'ResourceRecordSet': {
-                        'Name': '3.2.1.10.in-addr.arpa',
-                        'Type': 'PTR',
-                        'TTL': 3600,
-                        'ResourceRecords': [{
-                            'Value': 'instance-name.joo.goo.'
-                        }]
-                    }
-                }]
-            }
-        )
-
 
 class InstancesTest(unittest.TestCase):
     """Tests instances collection"""
@@ -286,8 +150,6 @@ class InstancesTest(unittest.TestCase):
             subnet_id='',
             secgroup_ids=None,
             user_data='',
-            hosted_zone_id='zone-id',
-            reverse_hosted_zone_id='reverse-zone-id',
             role='role'
         ).instances
 
@@ -319,100 +181,6 @@ class InstancesTest(unittest.TestCase):
         conn_mock.describe_instances.assert_called_with(
             InstanceIds=[1, 2]
         )
-        self.assertCountEqual(
-            conn_mock.change_resource_record_sets.mock_calls,
-            [
-                mock.mock.call(
-                    ChangeBatch={
-                        'Changes': [{
-                            'ResourceRecordSet': {
-                                'ResourceRecords': [{
-                                    'Value': ''
-                                }],
-                                'Name': 'foo1.joo.goo.',
-                                'TTL': 3600,
-                                'Type': 'A'
-                            },
-                            'Action': 'UPSERT'
-                        }]
-                    },
-                    HostedZoneId='zone-id'
-                ),
-                mock.mock.call(
-                    ChangeBatch={
-                        'Changes': [{
-                            'ResourceRecordSet': {
-                                'ResourceRecords': [{
-                                    'Value': 'foo1.joo.goo.'
-                                }],
-                                'Name': '.in-addr.arpa',
-                                'TTL': 3600,
-                                'Type': 'PTR'
-                            },
-                            'Action': 'UPSERT'
-                        }]
-                    },
-                    HostedZoneId='reverse-zone-id'
-                ),
-                mock.mock.call(
-                    ChangeBatch={
-                        'Changes': [{
-                            'ResourceRecordSet': {
-                                'ResourceRecords': [{
-                                    'Value': ''
-                                }],
-                                'Name': 'foo600.joo.goo.',
-                                'TTL': 3600,
-                                'Type': 'A'
-                            },
-                            'Action': 'UPSERT'
-                        }]
-                    },
-                    HostedZoneId='zone-id'
-                ),
-                mock.mock.call(
-                    ChangeBatch={
-                        'Changes': [{
-                            'ResourceRecordSet': {
-                                'ResourceRecords': [{
-                                    'Value': 'foo600.joo.goo.'
-                                }],
-                                'Name': '.in-addr.arpa',
-                                'TTL': 3600,
-                                'Type': 'PTR'
-                            },
-                            'Action': 'UPSERT'
-                        }]
-                    },
-                    HostedZoneId='reverse-zone-id'
-                )
-            ]
-        )
-        self.assertCountEqual(
-            conn_mock.create_tags.mock_calls,
-            [
-                mock.mock.call(
-                    Resources=[1],
-                    Tags=[{
-                        'Key': 'Name',
-                        'Value': 'foo1'
-                    }, {
-                        'Value': 'role',
-                        'Key': 'Role'
-                    }]
-                ),
-                mock.mock.call(
-                    Resources=[2],
-                    Tags=[{
-                        'Key': 'Name',
-                        'Value': 'foo600'
-                    }, {
-                        'Value': 'role',
-                        'Key': 'Role'
-                    }]
-                )
-            ]
-        )
 
     @mock.patch('treadmill.infra.instances.Instance')
     @mock.patch('treadmill.infra.instances.connection.Connection')
@@ -425,22 +193,9 @@ class InstancesTest(unittest.TestCase):
         instance.volume_ids = ['vol-id0']
 
         Instance.ec2_conn = conn_mock
-        instance.terminate('zone-id', 'reverse-zone-id')
+        instance.terminate()
 
         conn_mock.describe_instance_status.assert_called()
-        self.assertCountEqual(
-            instance_1_mock.delete_dns_record.mock_calls,
-            [
-                mock.mock.call(
-                    'zone-id',
-                ),
-                mock.mock.call(
-                    reverse=True,
-                    hosted_zone_id='reverse-zone-id'
-                )
-            ]
-
-        )
         conn_mock.terminate_instances.assert_called_once_with(
             InstanceIds=[1]
         )

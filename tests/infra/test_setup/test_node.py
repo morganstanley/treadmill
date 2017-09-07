@@ -18,12 +18,6 @@ class NodeTest(unittest.TestCase):
                                          ConnectionMock, InstancesMock):
         _instances_obj_mock = mock.Mock()
         InstancesMock.get = mock.Mock(return_value=_instances_obj_mock)
-        vpc_mock = VPCMock(
-            id='vpc-id',
-        )
-        vpc_mock.load_hosted_zone_ids = mock.Mock()
-        vpc_mock.hosted_zone_id = 'hosted-zone-id'
-        vpc_mock.reverse_hosted_zone_id = 'reverse-hosted-zone-id'
 
         node = Node(
             vpc_id='vpc-id',
@@ -33,12 +27,8 @@ class NodeTest(unittest.TestCase):
             instance_id='instance-id'
         )
 
-        vpc_mock.load_hosted_zone_ids.assert_called_once()
         InstancesMock.get.assert_called_once_with(ids=['instance-id'])
-        _instances_obj_mock.terminate.assert_called_once_with(
-            hosted_zone_id='hosted-zone-id',
-            reverse_hosted_zone_id='reverse-hosted-zone-id',
-        )
+        _instances_obj_mock.terminate.assert_called_once_with()
 
     @mock.patch('treadmill.infra.instances.Instances')
     @mock.patch('treadmill.infra.connection.Connection')
@@ -47,12 +37,6 @@ class NodeTest(unittest.TestCase):
                                            ConnectionMock, InstancesMock):
         _instances_obj_mock = mock.Mock()
         InstancesMock.get = mock.Mock(return_value=_instances_obj_mock)
-        vpc_mock = VPCMock(
-            id='vpc-id',
-        )
-        vpc_mock.load_hosted_zone_ids = mock.Mock()
-        vpc_mock.hosted_zone_id = 'hosted-zone-id'
-        vpc_mock.reverse_hosted_zone_id = 'reverse-hosted-zone-id'
 
         node = Node(
             vpc_id='vpc-id',
@@ -60,7 +44,6 @@ class NodeTest(unittest.TestCase):
         )
         node.destroy()
 
-        vpc_mock.load_hosted_zone_ids.assert_called_once()
         InstancesMock.get.assert_called_once_with(
             filters=[
                 {
@@ -73,10 +56,7 @@ class NodeTest(unittest.TestCase):
                 },
             ]
         )
-        _instances_obj_mock.terminate.assert_called_once_with(
-            hosted_zone_id='hosted-zone-id',
-            reverse_hosted_zone_id='reverse-hosted-zone-id',
-        )
+        _instances_obj_mock.terminate.assert_called_once_with()
 
     @mock.patch('treadmill.infra.instances.Instances')
     @mock.patch('treadmill.infra.connection.Connection')
@@ -88,14 +68,10 @@ class NodeTest(unittest.TestCase):
             InstancesMock
     ):
         InstancesMock.get = mock.Mock()
-        vpc_mock = VPCMock()
-        vpc_mock.load_hosted_zone_ids = mock.Mock()
-
         node = Node(
             vpc_id='vpc-id',
             name=None
         )
         node.destroy()
 
-        vpc_mock.load_hosted_zone_ids.assert_not_called()
         InstancesMock.get.assert_not_called()

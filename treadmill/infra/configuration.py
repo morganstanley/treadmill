@@ -95,7 +95,7 @@ class LDAP(Configuration):
 
 
 class IPA(Configuration):
-    def __init__(self, name, cell, ipa_admin_password, tm_release):
+    def __init__(self, name, vpc, cell, ipa_admin_password, tm_release):
         setup_scripts = [
             {
                 'name': 'provision-base.sh',
@@ -111,7 +111,8 @@ class IPA(Configuration):
                 'vars': {
                     'DOMAIN': connection.Connection.context.domain,
                     'IPA_ADMIN_PASSWORD': ipa_admin_password,
-                    'CELL': cell
+                    'CELL': cell,
+                    'REVERSE_ZONE': vpc.reverse_domain_name(),
                 },
             },
         ]

@@ -22,8 +22,6 @@ class LDAPTest(unittest.TestCase):
         InstancesMock.create = mock.Mock(return_value=instances_mock)
         _vpc_id_mock = 'vpc-id'
         _vpc_mock = VPCMock(id=_vpc_id_mock)
-        _vpc_mock.hosted_zone_id = 'hosted-zone-id'
-        _vpc_mock.reverse_hosted_zone_id = 'reverse-hosted-zone-id'
         _vpc_mock.gateway_ids = [123]
         _vpc_mock.secgroup_ids = ['secgroup-id']
         _vpc_mock.subnets = [mock.Mock(id='subnet-id')]
@@ -58,12 +56,9 @@ class LDAPTest(unittest.TestCase):
             instance_type='small',
             secgroup_ids=['secgroup-id'],
             key_name='some-key',
-            hosted_zone_id='hosted-zone-id',
-            reverse_hosted_zone_id='reverse-hosted-zone-id',
             user_data='user-data-script',
-            role='LDAP'
+            role='LDAP',
         )
-        _vpc_mock.load_hosted_zone_ids.assert_called_once()
         _vpc_mock.load_security_group_ids.assert_called_once()
         _vpc_mock.create_subnet.assert_called_once_with(
             cidr_block='cidr-block',
@@ -93,12 +88,6 @@ class LDAPTest(unittest.TestCase):
         _subnet_mock.instances = mock.Mock(instances=[
             mock.Mock(private_ip='1.1.1.1')
         ])
-        vpc_mock = VPCMock(
-            id='vpc-id',
-        )
-        vpc_mock.load_hosted_zone_ids = mock.Mock()
-        vpc_mock.hosted_zone_id = 'hosted-zone-id'
-        vpc_mock.reverse_hosted_zone_id = 'reverse-hosted-zone-id'
         ldap = LDAP(
             vpc_id='vpc-id',
             name='ldap'
@@ -106,9 +95,4 @@ class LDAPTest(unittest.TestCase):
         ldap.destroy(
             subnet_id='subnet-id'
         )
-        _subnet_mock.destroy.assert_called_once_with(
-            hosted_zone_id='hosted-zone-id',
-            reverse_hosted_zone_id='reverse-hosted-zone-id',
-            role='LDAP'
-        )
-        vpc_mock.load_hosted_zone_ids.assert_called_once()
+        _subnet_mock.destroy.assert_called_once_with(role='LDAP')
