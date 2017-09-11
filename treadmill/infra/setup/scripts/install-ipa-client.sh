@@ -1,15 +1,15 @@
 # install
 yum install -y ipa-client ipa-server-dns
 
-# get OTP from IPA cloud-host service
+# get OTP from IPA Host Service
 HOST_FQDN=$(hostname -f)
-REQ_URL="http://ipa-ca:8000/cloud-host/${HOST_FQDN}"
+REQ_URL="http://ipa-ca:8000/ipa/host"
 
 REQ_STATUS=254
 TIMEOUT_RETRY_COUNT=0
 while [ $REQ_STATUS -eq 254 ] && [ $TIMEOUT_RETRY_COUNT -ne 30 ]
 do
-    REQ_OUTPUT=$(curl --connect-timeout 5 -d "hostname=${HOST_FQDN}" "${REQ_URL}" 2>&1) && REQ_STATUS=0 || REQ_STATUS=254
+    REQ_OUTPUT=$(curl --connect-timeout 5 -H "Content-Type: application/json" -X POST -d '{"hostname": "'${HOST_FQDN}'"}' "${REQ_URL}" 2>&1) && REQ_STATUS=0 || REQ_STATUS=254
     TIMEOUT_RETRY_COUNT=$((TIMEOUT_RETRY_COUNT+1))
     sleep 60
 done

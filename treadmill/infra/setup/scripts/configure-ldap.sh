@@ -4,7 +4,7 @@ yum -y install openldap openldap-clients openldap-servers ipa-admintools
 
 echo Adding host to service keytab retrieval list
 
-REQ_URL="http://ipa-ca:8000/cloud-host/ipa/service"
+REQ_URL="http://ipa-ca:8000/ipa/service"
 REQ_STATUS=254
 TIMEOUT_RETRY_COUNT=0
 while [ $REQ_STATUS -eq 254 ] && [ $TIMEOUT_RETRY_COUNT -ne 30 ]
