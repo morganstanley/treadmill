@@ -64,7 +64,7 @@ class Master(Configuration):
 
 class LDAP(Configuration):
     def __init__(self, name, cell_subnet_id, tm_release, app_root,
-                 ldap_hostname, ipa_admin_password):
+                 ldap_hostname, ipa_admin_password, ipa_server_hostname):
         setup_scripts = [
             {
                 'name': 'provision-base.sh',
@@ -88,6 +88,7 @@ class LDAP(Configuration):
                     'APP_ROOT': app_root,
                     'IPA_ADMIN_PASSWORD': ipa_admin_password,
                     'DOMAIN': connection.Connection.context.domain,
+                    'IPA_SERVER_HOSTNAME': ipa_server_hostname
                 },
             },
         ]
@@ -120,7 +121,7 @@ class IPA(Configuration):
 
 
 class Zookeeper(Configuration):
-    def __init__(self, name, ldap_hostname, ipa_admin_password):
+    def __init__(self, name, ldap_hostname, ipa_server_hostname):
         setup_scripts = [
             {
                 'name': 'provision-base.sh',
@@ -136,7 +137,7 @@ class Zookeeper(Configuration):
                 'name': 'provision-zookeeper.sh',
                 'vars': {
                     'DOMAIN': connection.Connection.context.domain,
-                    'IPA_ADMIN_PASSWORD': ipa_admin_password,
+                    'IPA_SERVER_HOSTNAME': ipa_server_hostname
                 },
             },
         ]

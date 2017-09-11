@@ -23,11 +23,22 @@ HOST_FQDN=$(hostname -f)
 
 export TREADMILL_CELL=$subnet_id
 
-echo "{{ IPA_ADMIN_PASSWORD }}" | kinit admin
-ipa service-add --force "zookeeper/$HOST_FQDN"
+echo Adding host to service keytab retrieval list
+
+REQ_URL="http://ipa-ca:8000/cloud-host/ipa/service"
+REQ_STATUS=254
+TIMEOUT_RETRY_COUNT=0
+while [ $REQ_STATUS -eq 254 ] && [ $TIMEOUT_RETRY_COUNT -ne 30 ]
+do
+    REQ_OUTPUT=$(curl --connect-timeout 5 -H "Content-Type: application/json" -X POST -d '{"domain": "{{ DOMAIN }}", "hostname": "'${HOST_FQDN}'", "service": "'zookeeper/$HOST_FQDN'"}' "${REQ_URL}" 2>&1) && REQ_STATUS=0 || REQ_STATUS=254
+    TIMEOUT_RETRY_COUNT=$((TIMEOUT_RETRY_COUNT+1))
+    sleep 60
+done
+
+kinit -kt /etc/krb5.keytab
 
 echo Retrieving zookeeper service keytab
-ipa-getkeytab -p "zookeeper/$HOST_FQDN" -D "cn=Directory Manager" -w "{{ IPA_ADMIN_PASSWORD }}" -k /etc/zk.keytab
+ipa-getkeytab -s "{{ IPA_SERVER_HOSTNAME }}" -p "zookeeper/$HOST_FQDN@{{ DOMAIN|upper }}" -k /etc/zk.keytab
 
 envsubst < /etc/zookeeper/conf/treadmill.conf > /etc/zookeeper/conf/temp.conf
 mv /etc/zookeeper/conf/temp.conf /etc/zookeeper/conf/treadmill.conf -f

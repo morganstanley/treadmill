@@ -2,11 +2,23 @@ echo Installing openldap
 
 yum -y install openldap openldap-clients openldap-servers ipa-admintools
 
-echo "{{ IPA_ADMIN_PASSWORD }}" | kinit admin
-ipa service-add --force "ldap/treadmillldap1.{{ DOMAIN }}@{{ DOMAIN|upper }}"
+echo Adding host to service keytab retrieval list
 
-echo Retrieving LDAP service keytab
-ipa-getkeytab -p "ldap/treadmillldap1.{{ DOMAIN }}" -D "cn=Directory Manager" -w "{{ IPA_ADMIN_PASSWORD }}" -k /etc/ldap.keytab
+REQ_URL="http://ipa-ca:8000/cloud-host/ipa/service"
+REQ_STATUS=254
+TIMEOUT_RETRY_COUNT=0
+while [ $REQ_STATUS -eq 254 ] && [ $TIMEOUT_RETRY_COUNT -ne 30 ]
+do
+    REQ_OUTPUT=$(curl --connect-timeout 5 -H "Content-Type: application/json" -X POST -d '{"domain": "{{ DOMAIN }}", "hostname": "'${HOST_FQDN}'", "service": "'ldap/$HOST_FQDN'"}' "${REQ_URL}" 2>&1) && REQ_STATUS=0 || REQ_STATUS=254
+    TIMEOUT_RETRY_COUNT=$((TIMEOUT_RETRY_COUNT+1))
+    sleep 60
+done
+
+kinit -kt /etc/krb5.keytab
+
+echo Retrieving ldap service keytab
+ipa-getkeytab -s "{{ IPA_SERVER_HOSTNAME }}" -p "ldap/$HOST_FQDN@{{ DOMAIN|upper }}" -k /etc/ldap.keytab
+
 ipa-getkeytab -r -p treadmld -D "cn=Directory Manager" -w "{{ IPA_ADMIN_PASSWORD }}" -k /etc/treadmld.keytab
 chown treadmld:treadmld /etc/ldap.keytab /etc/treadmld.keytab
 

@@ -27,8 +27,32 @@ class API(object):
 
             assert 'Deleted host "' + hostname + '"' in result
 
+        def ipa_service_add(args):
+            domain = args.get('domain')
+            hostname = args.get('hostname')
+            _service = args.get('service')
+            _service_with_domain = _service + '@' + domain.upper()
+
+            subprocess.check_output([
+                "ipa",
+                "service-add",
+                "--force",
+                _service
+            ])
+
+            result = subprocess.check_output([
+                "ipa",
+                "service-allow-retrieve-keytab",
+                _service_with_domain,
+                "--hosts=" + hostname
+            ])
+
+            result = result.decode('utf-8').strip().split("\n")[-2]
+            assert 'members added 1' in result
+
         self.create = create
         self.delete = delete
+        self.ipa_service_add = ipa_service_add
 
 
 def init(authorizer):
