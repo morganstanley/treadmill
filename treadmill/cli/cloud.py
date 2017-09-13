@@ -5,6 +5,8 @@ import logging
 import re
 import pkg_resources
 
+from .. import cli
+from treadmill import restclient
 from treadmill.infra import constants, connection, vpc, subnet
 from treadmill.infra.setup import ipa, ldap, node, cell
 from treadmill.infra.utils import security_group, hosted_zones
@@ -710,5 +712,111 @@ def init():
     def delete_hosted_zones(zones_to_retain):
         """Delete Hosted Zones"""
         hosted_zones.delete_obsolete(zones_to_retain)
+
+    @cloud.group(name='ipa')
+    @click.option('--api',
+                  required=True,
+                  help='API url to use.',
+                  envvar='TREADMILL_IPA_RESTAPI')
+    @click.pass_context
+    def ipa_grp(ctx, api):
+        """Create & Delete IPA Users, Hosts and Services"""
+        if api:
+            ctx.obj['api'] = api
+
+    @ipa_grp.group(name='user')
+    def user_grp():
+        """Create and Delete IPA Users"""
+        pass
+
+    @user_grp.command('create')
+    @click.argument('username')
+    @cli.ON_REST_EXCEPTIONS
+    @click.pass_context
+    def create_user(ctx, username):
+        """Creates an IPA User"""
+        cli.out(
+            restclient.post(
+                api=ctx.obj.get('api'),
+                url='/user',
+                payload={'username': username},
+                headers={'Content-Type': 'application/json'}
+            )
+        )
+
+    @user_grp.command('delete')
+    @click.argument('username')
+    @cli.ON_REST_EXCEPTIONS
+    @click.pass_context
+    def delete_user(ctx, username):
+        """Deletes an IPA User"""
+        cli.out(
+            restclient.delete(
+                api=ctx.obj.get('api'),
+                url='/user',
+                payload={'username': username},
+                headers={'Content-Type': 'application/json'}
+            )
+        )
+
+    @ipa_grp.group(name='host')
+    def host_grp():
+        """Create and Delete IPA Hosts"""
+        pass
+
+    @host_grp.command('create')
+    @click.argument('hostname')
+    @cli.ON_REST_EXCEPTIONS
+    @click.pass_context
+    def create_host(ctx, hostname):
+        """Creates an IPA Host"""
+        cli.out(
+            restclient.post(
+                api=ctx.obj.get('api'),
+                url='/host',
+                payload={'hostname': hostname},
+                headers={'Content-Type': 'application/json'}
+            )
+        )
+
+    @host_grp.command('delete')
+    @click.argument('hostname')
+    @cli.ON_REST_EXCEPTIONS
+    @click.pass_context
+    def delete_host(ctx, hostname):
+        """Deletes an IPA Host"""
+        cli.out(
+            restclient.delete(
+                api=ctx.obj.get('api'),
+                url='/host',
+                payload={'hostname': hostname},
+                headers={'Content-Type': 'application/json'}
+            )
+        )
+
+    @ipa_grp.group(name='service')
+    def service_grp():
+        """Add and Delete IPA Service"""
+        pass
+
+    @service_grp.command('add')
+    @click.argument('hostname')
+    @click.argument('service')
+    @cli.ON_REST_EXCEPTIONS
+    @click.pass_context
+    def service_add(ctx, service, hostname):
+        """Adds an IPA Service"""
+        cli.out(
+            restclient.post(
+                api=ctx.obj.get('api'),
+                url='/service',
+                payload={
+                    'service': service,
+                    'domain': ctx.obj.get('DOMAIN'),
+                    'hostname': hostname
+                },
+                headers={'Content-Type': 'application/json'}
+            )
+        )
 
     return cloud
