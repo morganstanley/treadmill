@@ -56,8 +56,8 @@ chmod 755 /etc/cron.hourly/tmhostadm-kinit
 
 export TREADMILL_CELL="{{ CELL }}"
 
-nohup su -c "{{ TREADMILL }} sproc restapi -p 8000 --title 'Treadmill_Cloud_Host_API' \
-    -m cloud_host --cors-origin='.*'" tmhostadm > /var/log/cloud_host.out 2>&1 &
+nohup su -c "{{ TREADMILL }} sproc restapi -p 8000 --title 'Treadmill_IPA_API' \
+    -m ipa --cors-origin='.*'" tmhostadm > /var/log/ipa_api.out 2>&1 &
 
 TREADMLD_OUTPUT=$(ipa -n user-add --first=treadmld --last=proid --shell /bin/bash --class proid --random treadmld)
 TMP_TREADMLD_PASSWORD=$(echo "${TREADMLD_OUTPUT}" | grep 'Random password:' | awk '{print $3}')
