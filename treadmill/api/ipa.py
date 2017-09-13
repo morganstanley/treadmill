@@ -56,52 +56,62 @@ class API(object):
 
         def add_user(args):
             username = args.get('username')
-            result = subprocess.check_output([
-                'ipa',
-                '-n',
-                'user-add',
-                '--first=' + username,
-                '--last=proid',
-                '--shell=/bin/bash',
-                '--class=proid',
-                '--random',
-                username
-            ])
 
-            otp = re.search(
-                r'Random password: .*',
-                result.decode('utf-8')
-            ).group(0).split(": ")[-1]
-
-            new_pwd = subprocess.check_output([
-                'openssl',
-                'rand',
-                '-base64',
-                '12'
-            ])
-
-            kpasswd_proc = subprocess.Popen(
-                [
-                    'kpasswd',
+            try:
+                result = subprocess.check_output([
+                    'ipa',
+                    '-n',
+                    'user-add',
+                    '--first=' + username,
+                    '--last=proid',
+                    '--shell=/bin/bash',
+                    '--class=proid',
+                    '--random',
                     username
-                ],
-                stdout=subprocess.PIPE,
-                stdin=subprocess.PIPE,
-                stderr=subprocess.PIPE
-            )
-            kpasswd_proc.communicate(
-                input=otp.encode('utf-8') + b'\n' + new_pwd + new_pwd
-            )
+                ])
+            except subprocess.CalledProcessError:
+                return 'Couldn\'t add user, it may already exist.'
+
+            if result:
+                otp = re.search(
+                    r'Random password: .*',
+                    result.decode('utf-8')
+                ).group(0).split(": ")[-1]
+
+                new_pwd = subprocess.check_output([
+                    'openssl',
+                    'rand',
+                    '-base64',
+                    '12'
+                ])
+
+                kpasswd_proc = subprocess.Popen(
+                    [
+                        'kpasswd',
+                        username
+                    ],
+                    stdout=subprocess.PIPE,
+                    stdin=subprocess.PIPE,
+                    stderr=subprocess.PIPE
+                )
+                kpasswd_proc.communicate(
+                    input=otp.encode('utf-8') + b'\n' + new_pwd + new_pwd
+                )
 
         def delete_user(args):
             username = args.get('username')
-            result = subprocess.check_output([
-                'ipa',
-                'user-del',
-                username
-            ]).decode('utf-8')
 
-            assert 'Deleted user "' + username + '"' in result
+            try:
+                result = subprocess.check_output([
+                    'ipa',
+                    'user-del',
+                    username
+                ]).decode('utf-8')
+            except subprocess.CalledProcessError:
+                return 'Couldn\'t delete user, it may not exist.'
+
+            if result:
+                assert 'Deleted user "' + username + '"' in result
 
         self.add_host = add_host
         self.delete_host = delete_host

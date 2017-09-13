@@ -741,7 +741,7 @@ def init():
                 url='/user',
                 payload={'username': username},
                 headers={'Content-Type': 'application/json'}
-            )
+            ).content
         )
 
     @user_grp.command('delete')
@@ -750,13 +750,14 @@ def init():
     @click.pass_context
     def delete_user(ctx, username):
         """Deletes an IPA User"""
+        response = restclient.delete(
+            api=ctx.obj.get('api'),
+            url='/user',
+            payload={'username': username},
+            headers={'Content-Type': 'application/json'}
+        )
         cli.out(
-            restclient.delete(
-                api=ctx.obj.get('api'),
-                url='/user',
-                payload={'username': username},
-                headers={'Content-Type': 'application/json'}
-            )
+            response.content
         )
 
     @ipa_grp.group(name='host')
@@ -776,7 +777,7 @@ def init():
                 url='/host',
                 payload={'hostname': hostname},
                 headers={'Content-Type': 'application/json'}
-            )
+            ).content
         )
 
     @host_grp.command('delete')
@@ -791,7 +792,7 @@ def init():
                 url='/host',
                 payload={'hostname': hostname},
                 headers={'Content-Type': 'application/json'}
-            )
+            ).content
         )
 
     @ipa_grp.group(name='service')
@@ -816,7 +817,7 @@ def init():
                     'hostname': hostname
                 },
                 headers={'Content-Type': 'application/json'}
-            )
+            ).content
         )
 
     return cloud
