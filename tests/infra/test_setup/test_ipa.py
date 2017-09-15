@@ -63,12 +63,17 @@ class IPATest(unittest.TestCase):
             key='some-key',
             tm_release='release',
             ipa_admin_password='ipa-admin-password',
-            instance_type='small'
+            instance_type='small',
+            proid='foobar',
+            subnet_name='sub-name'
         )
 
-        _vpc_mock.associate_dhcp_options.assert_called_once_with([{
-            'Key': 'domain-name-servers', 'Values': [_private_ip]
-        }])
+        _vpc_mock.associate_dhcp_options.assert_has_calls([
+            mock.call(default=True),
+            mock.call([{
+                'Key': 'domain-name-servers', 'Values': [_private_ip]
+            }]),
+        ])
 
         self.assertEqual(ipa.subnet.instances, instances_mock)
         InstancesMock.create.assert_called_once_with(
@@ -85,7 +90,7 @@ class IPATest(unittest.TestCase):
         _vpc_mock.load_security_group_ids.assert_called_once()
         _vpc_mock.create_subnet.assert_called_once_with(
             cidr_block='cidr-block',
-            name='ipa',
+            name='sub-name',
             gateway_id=123
         )
 
@@ -97,6 +102,7 @@ class IPATest(unittest.TestCase):
                 cell=None,
                 name='ipa',
                 vpc=_vpc_mock,
+                proid='foobar'
             )
         )
         _ipa_configuration_mock.get_userdata.assert_called_once()

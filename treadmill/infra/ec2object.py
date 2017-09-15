@@ -1,17 +1,13 @@
 from treadmill.infra import connection
-from treadmill.infra import constants
 
 
 class EC2Object:
     ec2_conn = connection.Connection()
-    route53_conn = connection.Connection(
-        resource=constants.ROUTE_53
-    )
 
     def __init__(self, name=None, id=None, metadata=None, role=None):
         self._id = id
         self.metadata = metadata
-        self.role = role
+        self._role = role
         self._name = name
 
     @property
@@ -19,8 +15,12 @@ class EC2Object:
         return self._extract_id() or self._id
 
     @property
+    def role(self):
+        return self._extract_attr_from_tags('Role') or self._role or ''
+
+    @property
     def name(self):
-        return self._extract_name() or self._name or ''
+        return self._extract_attr_from_tags('Name') or self._name or ''
 
     def create_tags(self):
         if self.name:
@@ -47,11 +47,11 @@ class EC2Object:
                 None
             )
 
-    def _extract_name(self):
+    def _extract_attr_from_tags(self, attr):
         if self._tag_exists():
             return [t['Value']
                     for t in self.metadata['Tags']
-                    if t['Key'] == 'Name'][0]
+                    if t['Key'] == attr][0]
 
     def _tag_exists(self):
         return self.metadata and self.metadata.get('Tags', None)

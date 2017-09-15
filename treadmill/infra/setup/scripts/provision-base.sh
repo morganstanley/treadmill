@@ -31,6 +31,7 @@ export TREADMILL_DNS_DOMAIN={{ DOMAIN }}
 export TREADMILL=/opt/treadmill
 export PEX_ROOT=/tmp/pex
 export PATH=$PATH:/opt/s6/bin:/opt/treadmill/bin
+export PROID={{ PROID }}
 EOF
 ) >> /etc/profile.d/treadmill_profile.sh
 

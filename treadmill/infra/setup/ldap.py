@@ -14,8 +14,9 @@ class LDAP(base_provision.BaseProvision):
             instance_type,
             app_root,
             ldap_hostname,
-            cell_subnet_id,
             ipa_admin_password,
+            proid,
+            subnet_name,
             subnet_id=None
     ):
         ipa_server_hostname = instances.Instances.get_ipa(
@@ -23,13 +24,13 @@ class LDAP(base_provision.BaseProvision):
         ).hostname
 
         self.configuration = configuration.LDAP(
-            cell_subnet_id=cell_subnet_id,
             ldap_hostname=ldap_hostname,
             tm_release=tm_release,
             app_root=app_root,
             name=self.name,
             ipa_admin_password=ipa_admin_password,
-            ipa_server_hostname=ipa_server_hostname
+            ipa_server_hostname=ipa_server_hostname,
+            proid=proid
         )
         super().setup(
             image=image,
@@ -37,5 +38,6 @@ class LDAP(base_provision.BaseProvision):
             cidr_block=cidr_block,
             subnet_id=subnet_id,
             key=key,
-            instance_type=instance_type
+            instance_type=instance_type,
+            subnet_name=subnet_name
         )

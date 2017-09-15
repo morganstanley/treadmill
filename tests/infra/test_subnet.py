@@ -145,6 +145,19 @@ class SubnetTest(unittest.TestCase):
         get_instances_mock.assert_called_once_with(refresh=True, role=None)
         refresh_mock.assert_called_once()
 
+    @mock.patch('treadmill.infra.connection.Connection')
+    def test_get_subnet_id_from_name(self, ConnectionMock):
+        conn_mock = ConnectionMock()
+
+        conn_mock.describe_subnets = mock.Mock(return_value={
+            'Subnets': [{'SubnetId': 'sub-123'}]
+        })
+
+        self.assertEquals(
+            Subnet.get_subnet_id_from_name('vpc-id', 'SomeSubnet'),
+            'sub-123'
+        )
+
 
 if __name__ == '__main__':
     unittest.main()

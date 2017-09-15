@@ -12,7 +12,7 @@ def loop_commands(cli, commands):
 
 def output(cli, *_commands):
     _commands = list(_commands) + ['--help']
-    result = runner.invoke(cli, _commands)
+    result = runner.invoke(cli, _commands, obj={})
     if result.exit_code == 0:
         return result.output
     else:

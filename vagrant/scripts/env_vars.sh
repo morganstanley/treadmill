@@ -9,6 +9,7 @@ export TREADMILL_LDAP=ldap://master:22389
 export TREADMILL_LDAP_SUFFIX=dc=local
 export TREADMILL_LDAP_PWD=secret
 export TREADMILL_LDAP_USER=cn=Manager,cn=config
+export TREADMILL_DNS_DOMAIN=treadmill.org
 export TREADMILL_PROFILE=vagrant
 export TREADMILL=/opt/treadmill
 export LC_ALL=en_US.utf8
