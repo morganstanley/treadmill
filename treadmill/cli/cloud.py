@@ -8,6 +8,7 @@ import pkg_resources
 from treadmill.infra import constants, connection, vpc, subnet
 from treadmill.infra.setup import ipa, ldap, node, cell
 from treadmill.infra.utils import security_group, hosted_zones
+from treadmill import cli
 
 
 import yaml
@@ -162,6 +163,7 @@ def init():
                                       'name'],
                   help="Options YAML file. ")
     @click.pass_context
+    @cli.ON_CLOUD_EXCEPTIONS
     def init_vpc(ctx, region, vpc_cidr_block,
                  secgroup_name, secgroup_desc,
                  name, manifest):
@@ -230,6 +232,7 @@ def init():
                                       'ldap_cidr_block'],
                   help="Options YAML file. ")
     @click.pass_context
+    @cli.ON_CLOUD_EXCEPTIONS
     def init_ldap(ctx, vpc_id, region, key, count, image,
                   instance_type, tm_release, ldap_hostname, app_root,
                   ldap_cidr_block, ldap_subnet_id, cell_subnet_id,
@@ -319,6 +322,7 @@ def init():
                                       'ldap_cidr_block'],
                   help="Options YAML file. ")
     @click.pass_context
+    @cli.ON_CLOUD_EXCEPTIONS
     def init_cell(ctx, vpc_id, region, name, key, count, image,
                   instance_type, tm_release, ldap_hostname, app_root,
                   cell_cidr_block, ldap_cidr_block, subnet_id, ldap_subnet_id,
@@ -426,6 +430,7 @@ def init():
                                       'ipa_admin_password'],
                   help="Options YAML file. ")
     @click.pass_context
+    @cli.ON_CLOUD_EXCEPTIONS
     def init_domain(ctx, name, region, vpc_id, subnet_cidr_block, subnet_id,
                     count, ipa_admin_password, tm_release, key,
                     instance_type, image, manifest):
@@ -508,6 +513,7 @@ def init():
                                       'with_api'],
                   help="Options YAML file. ")
     @click.pass_context
+    @cli.ON_CLOUD_EXCEPTIONS
     def init_node(ctx, vpc_id, region, name, key, count, image,
                   instance_type, tm_release, ldap_hostname, app_root,
                   subnet_id, ipa_admin_password, with_api, manifest):
@@ -580,6 +586,7 @@ def init():
     @click.option('--name', help='Name of Instance',
                   default="TreadmillIPA")
     @click.pass_context
+    @cli.ON_CLOUD_EXCEPTIONS
     def delete_domain(ctx, vpc_id, subnet_id, name):
         """Delete IPA"""
         domain = ctx.obj['DOMAIN']
@@ -596,6 +603,7 @@ def init():
     @click.option('--name', help='Name of Instance',
                   default="TreadmillLDAP")
     @click.pass_context
+    @cli.ON_CLOUD_EXCEPTIONS
     def delete_ldap(ctx, vpc_id, subnet_id, name):
         """Delete LDAP"""
         domain = ctx.obj['DOMAIN']
@@ -611,6 +619,7 @@ def init():
     @click.option('--name', help='Instance Name', required=False)
     @click.option('--instance-id', help='Instance ID', required=False)
     @click.pass_context
+    @cli.ON_CLOUD_EXCEPTIONS
     def delete_node(ctx, vpc_id, name, instance_id):
         """Delete Node"""
         domain = ctx.obj['DOMAIN']
@@ -633,6 +642,7 @@ def init():
                   callback=_convert_to_vpc_id,
                   help='VPC Name')
     @click.pass_context
+    @cli.ON_CLOUD_EXCEPTIONS
     def vpc_resources(ctx, vpc_id):
         """Show VPC(s)"""
         domain = ctx.obj['DOMAIN']
@@ -652,6 +662,7 @@ def init():
                   help='VPC Name')
     @click.option('--subnet-id', help='Subnet ID of cell')
     @click.pass_context
+    @cli.ON_CLOUD_EXCEPTIONS
     def cell_resources(ctx, vpc_id, subnet_id):
         """Show Cell"""
         domain = ctx.obj['DOMAIN']
@@ -691,6 +702,7 @@ def init():
     @click.option('-p', '--port', required=True, help='Port')
     @click.option('-s', '--security-group-id', required=True,
                   help='Security Group ID')
+    @cli.ON_CLOUD_EXCEPTIONS
     def enable_port(security_group_id, port, protocol):
         """Enable Port from my ip"""
         security_group.enable(port, security_group_id, protocol)
@@ -700,6 +712,7 @@ def init():
     @click.option('-p', '--port', required=True, help='Port')
     @click.option('-s', '--security-group-id', required=True,
                   help='Security Group ID')
+    @cli.ON_CLOUD_EXCEPTIONS
     def disable_port(security_group_id, port, protocol):
         """Disable Port from my ip"""
         security_group.disable(port, security_group_id, protocol)
@@ -707,6 +720,7 @@ def init():
     @cloud.command(name='delete-hosted-zone')
     @click.option('--zones-to-retain', required=True,
                   help='Hosted Zone IDs to retain', multiple=True)
+    @cli.ON_CLOUD_EXCEPTIONS
     def delete_hosted_zones(zones_to_retain):
         """Delete Hosted Zones"""
         hosted_zones.delete_obsolete(zones_to_retain)

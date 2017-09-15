@@ -25,6 +25,7 @@ from treadmill import context
 from treadmill import utils
 from treadmill import restclient
 import collections
+from botocore import exceptions as botoexceptions
 
 
 __path__ = pkgutil.extend_path(__path__, __name__)
@@ -945,3 +946,15 @@ REST_EXCEPTIONS = [
 ]
 
 ON_REST_EXCEPTIONS = handle_exceptions(REST_EXCEPTIONS)
+
+CLOUD_EXCEPTIONS = [
+    (botoexceptions.DataNotFoundError, 'Unable to load data'),
+    (botoexceptions.EndpointConnectionError, 
+        'Could not connect to endpoint URL'),
+    (botoexceptions.NoCredentialsError, "Unable to locate credentials"),
+    (botoexceptions.CredentialRetrievalError, "Error when retrieving credentials"),
+    (botoexceptions.NoRegionError, 
+        "You must specify a region in your AWS config file"),
+]
+
+ON_CLOUD_EXCEPTIONS = handle_exceptions(CLOUD_EXCEPTIONS)

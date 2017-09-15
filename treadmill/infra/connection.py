@@ -31,6 +31,9 @@ class Connection(metaclass=Singleton):
         pass
 
     def __new__(cls, resource=constants.EC2):
-        return boto3.client(
-            resource, region_name=cls.context.region_name
-        )
+        try:
+            return boto3.client(
+                resource, region_name=cls.context.region_name
+            )
+        except Exception as err:
+            print("AWS Client Exception: {}".format(str(err)))
