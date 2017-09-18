@@ -204,14 +204,13 @@ def init():
     @click.option('--tm-release',
                   callback=_current_release_version,
                   help='Treadmill release to use')
-    @click.option('--ldap-hostname', default='treadmillldap1',
-                  help='LDAP hostname')
     @click.option('--app-root', default='/var/tmp',
                   help='Treadmill app root')
     @click.option('--ldap-cidr-block', default='172.23.1.0/24',
                   help='CIDR block for LDAP')
     @click.option('--ldap-subnet-id', help='Subnet ID for LDAP')
-    @click.option('--cell-subnet-id', help='Subnet ID of Cell')
+    @click.option('--cell-subnet-id', help='Subnet ID of Cell',
+                  required=True)
     @click.option('--ipa-admin-password', callback=_ipa_password_prompt,
                   envvar='TREADMILL_IPA_ADMIN_PASSWORD',
                   help='Password for IPA admin')
@@ -224,7 +223,6 @@ def init():
                                       'image',
                                       'instance_type',
                                       'tm_release',
-                                      'ldap_hostname',
                                       'app_root',
                                       'ldap_subnet_id',
                                       'cell_subnet_id',
@@ -233,7 +231,7 @@ def init():
                   help="Options YAML file. ")
     @click.pass_context
     def init_ldap(ctx, vpc_id, region, key, count, image,
-                  instance_type, tm_release, ldap_hostname, app_root,
+                  instance_type, tm_release, app_root,
                   ldap_cidr_block, ldap_subnet_id, cell_subnet_id,
                   ipa_admin_password, manifest):
         """Initialize Treadmill LDAP"""
@@ -255,7 +253,6 @@ def init():
             instance_type=instance_type,
             tm_release=tm_release,
             app_root=app_root,
-            ldap_hostname=ldap_hostname,
             cidr_block=ldap_cidr_block,
             cell_subnet_id=cell_subnet_id,
             subnet_id=ldap_subnet_id,
@@ -286,8 +283,6 @@ def init():
     @click.option('--tm-release',
                   callback=_current_release_version,
                   help='Treadmill release to use')
-    @click.option('--ldap-hostname', default='treadmillldap1',
-                  help='LDAP hostname')
     @click.option('--app-root', default='/var/tmp', help='Treadmill app root')
     @click.option('--cell-cidr-block', default='172.23.0.0/24',
                   help='CIDR block for the cell')
@@ -304,14 +299,13 @@ def init():
     @click.option('-m', '--' + _OPTIONS_FILE,
                   cls=MutuallyExclusiveOption,
                   mutually_exclusive=['region',
-                                      'vpc_id',
+                                      'vpc_name',
                                       'name',
                                       'key',
                                       'count',
                                       'image',
                                       'instance_type',
                                       'tm_release',
-                                      'ldap_hostname',
                                       'app_root',
                                       'cell_cidr_block'
                                       'ldap_subnet_id',
@@ -322,7 +316,7 @@ def init():
                   help="Options YAML file. ")
     @click.pass_context
     def init_cell(ctx, vpc_id, region, name, key, count, image,
-                  instance_type, tm_release, ldap_hostname, app_root,
+                  instance_type, tm_release, app_root,
                   cell_cidr_block, ldap_cidr_block, subnet_id, ldap_subnet_id,
                   without_ldap, ipa_admin_password, manifest):
         """Initialize Treadmill Cell"""
@@ -352,7 +346,6 @@ def init():
                 instance_type=instance_type,
                 tm_release=tm_release,
                 app_root=app_root,
-                ldap_hostname=ldap_hostname,
                 cidr_block=ldap_cidr_block,
                 cell_subnet_id=_cell.id,
                 subnet_id=ldap_subnet_id,
@@ -367,7 +360,6 @@ def init():
             image=image,
             instance_type=instance_type,
             subnet_cidr_block=cell_cidr_block,
-            ldap_hostname=ldap_hostname,
             ipa_admin_password=ipa_admin_password
         )
 
@@ -378,7 +370,6 @@ def init():
             image=image,
             instance_type=instance_type,
             tm_release=tm_release,
-            ldap_hostname=ldap_hostname,
             app_root=app_root,
             subnet_cidr_block=cell_cidr_block,
             ipa_admin_password=ipa_admin_password
@@ -483,8 +474,6 @@ def init():
     @click.option('--tm-release',
                   callback=_current_release_version,
                   help='Treadmill release to use')
-    @click.option('--ldap-hostname', default='treadmillldap1',
-                  help='LDAP hostname')
     @click.option('--app-root', default='/var/tmp/treadmill-node',
                   help='Treadmill app root')
     @click.option('--subnet-id', required=True, help='Subnet ID')
@@ -496,14 +485,13 @@ def init():
     @click.option('-m', '--' + _OPTIONS_FILE,
                   cls=MutuallyExclusiveOption,
                   mutually_exclusive=['region',
-                                      'vpc_id',
+                                      'vpc_name',
                                       'name',
                                       'key',
                                       'count',
                                       'image',
                                       'instance_type',
                                       'tm_release',
-                                      'ldap_hostname',
                                       'app_root',
                                       'subnet_id',
                                       'ipa_admin_password'
@@ -511,7 +499,7 @@ def init():
                   help="Options YAML file. ")
     @click.pass_context
     def init_node(ctx, vpc_id, region, name, key, count, image,
-                  instance_type, tm_release, ldap_hostname, app_root,
+                  instance_type, tm_release, app_root,
                   subnet_id, ipa_admin_password, with_api, manifest):
         """Initialize new Node in Cell"""
 
@@ -535,7 +523,6 @@ def init():
             instance_type=instance_type,
             tm_release=tm_release,
             app_root=app_root,
-            ldap_hostname=ldap_hostname,
             subnet_id=subnet_id,
             ipa_admin_password=ipa_admin_password,
             with_api=with_api,

@@ -107,7 +107,6 @@ class CloudTest(unittest.TestCase):
         cell.setup_zookeeper.assert_called_once_with(
             name='TreadmillZookeeper',
             key='key',
-            ldap_hostname='treadmillldap1',
             image='img-123',
             instance_type=constants.INSTANCE_TYPES['EC2']['micro'],
             subnet_cidr_block='172.24.0.0/24',
@@ -120,7 +119,6 @@ class CloudTest(unittest.TestCase):
             image='img-123',
             instance_type=constants.INSTANCE_TYPES['EC2']['micro'],
             tm_release='0.1.0',
-            ldap_hostname='treadmillldap1',
             app_root='/var/tmp',
             subnet_cidr_block='172.24.0.0/24',
             ipa_admin_password='ipa_pass'
@@ -138,7 +136,6 @@ class CloudTest(unittest.TestCase):
             image='img-123',
             instance_type=constants.INSTANCE_TYPES['EC2']['micro'],
             tm_release='0.1.0',
-            ldap_hostname='treadmillldap1',
             app_root='/var/tmp',
             cidr_block='172.23.1.0/24',
             subnet_id=None,
@@ -178,7 +175,6 @@ class CloudTest(unittest.TestCase):
         cell.setup_zookeeper.assert_called_once_with(
             name='TreadmillZookeeper',
             key='key',
-            ldap_hostname='treadmillldap1',
             image='img-123',
             instance_type=constants.INSTANCE_TYPES['EC2']['micro'],
             subnet_cidr_block='172.24.0.0/24',
@@ -191,7 +187,6 @@ class CloudTest(unittest.TestCase):
             image='img-123',
             instance_type=constants.INSTANCE_TYPES['EC2']['micro'],
             tm_release='0.1.0',
-            ldap_hostname='treadmillldap1',
             app_root='/var/tmp',
             subnet_cidr_block='172.24.0.0/24',
             ipa_admin_password='ipa_pass'
@@ -231,7 +226,6 @@ class CloudTest(unittest.TestCase):
             image='img-123',
             instance_type=constants.INSTANCE_TYPES['EC2']['large'],
             key='key',
-            ldap_hostname='treadmillldap1',
             subnet_id='sub-123',
             tm_release='0.1.0',
             ipa_admin_password='Tre@admill1',
