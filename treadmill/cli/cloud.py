@@ -193,8 +193,6 @@ def init():
                   help='VPC name')
     @click.option('--region', help='Region for the vpc')
     @click.option('--key', required=True, help='SSH Key Name')
-    @click.option('--count', default='1', type=int,
-                  help='Number of Treadmill ldap instances to spin up')
     @click.option('--image', required=True,
                   help='Image to use for instances e.g. RHEL-7.4')
     @click.option('--instance-type',
@@ -219,7 +217,6 @@ def init():
                   mutually_exclusive=['region',
                                       'vpc_name',
                                       'key',
-                                      'count',
                                       'image',
                                       'instance_type',
                                       'tm_release',
@@ -230,7 +227,7 @@ def init():
                                       'ldap_cidr_block'],
                   help="Options YAML file. ")
     @click.pass_context
-    def init_ldap(ctx, vpc_id, region, key, count, image,
+    def init_ldap(ctx, vpc_id, region, key, image,
                   instance_type, tm_release, app_root,
                   ldap_cidr_block, ldap_subnet_id, cell_subnet_id,
                   ipa_admin_password, manifest):
