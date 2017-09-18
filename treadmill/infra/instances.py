@@ -20,15 +20,6 @@ class Instance(ec2object.EC2Object):
         )
         self.private_ip = self._get_private_ip()
 
-    def create_tags(self):
-        self._name = self._name + str(
-            self.metadata['AmiLaunchIndex'] + 1
-        )
-        if self.role == constants.ROLES['NODE']:
-            self._name = self._name + '-' + self.id
-
-        super().create_tags()
-
     @property
     def hostname(self):
         return self.name.lower() + '.' + connection.Connection.context.domain
@@ -104,7 +95,7 @@ class Instances:
         )
 
     @classmethod
-    def get_ipa(cls, vpc_id):
+    def get_by_roles(cls, vpc_id, roles):
         _instances = cls.get(
             filters=[
                 {
@@ -117,12 +108,24 @@ class Instances:
                 },
                 {
                     'Name': 'tag-value',
-                    'Values': [constants.ROLES['IPA']]
+                    'Values': roles
                 }
             ]
         ).instances
         if _instances:
-            return _instances[0]
+            return _instances
+
+    @classmethod
+    def get_hostnames_by_roles(cls, vpc_id, roles):
+        _instances = cls.get_by_roles(
+            vpc_id=vpc_id,
+            roles=roles
+        )
+        _hostnames = {}
+        for _i in _instances:
+            _hostnames[_i.role] = _i.hostname
+
+        return _hostnames
 
     @classmethod
     def create(
