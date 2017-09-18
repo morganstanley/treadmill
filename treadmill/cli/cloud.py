@@ -354,6 +354,7 @@ def init():
         _cell.setup_zookeeper(
             name='TreadmillZookeeper',
             key=key,
+            count=count,
             image=image,
             instance_type=instance_type,
             subnet_cidr_block=cell_cidr_block,
