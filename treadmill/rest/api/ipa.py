@@ -39,6 +39,72 @@ def init(api, cors, impl):
         'service', service_req_model
     )
 
+    server_req_model = {
+        'vpc_name': fields.String(description='VPC Name'),
+        'domain': fields.String(description='Domain'),
+        'role': fields.String(description='Role'),
+        'key': fields.String(description='Key'),
+        'image': fields.String(description='Image'),
+        'name': fields.String(description='Instance Name'),
+        'ipa_admin_password': fields.String(description='IPA Admin Password'),
+        'subnet_id': fields.String(description='Cell ID'),
+        'region': fields.String(description='Region'),
+        'with_api': fields.String(description='With API Flag'),
+        'instance_type': fields.String(description='Instance Type'),
+        'tm_release': fields.String(
+            description='Treadmill Release URL/Version'
+        ),
+        'app_root': fields.String(description='Server APP Root'),
+    }
+
+    server_model = api.model(
+        'server', server_req_model
+    )
+
+    ldap_req_model = {
+        'vpc_name': fields.String(description='VPC Name'),
+        'domain': fields.String(description='Domain'),
+        'role': fields.String(description='Role'),
+        'key': fields.String(description='Key'),
+        'image': fields.String(description='Image'),
+        'name': fields.String(description='Instance Name'),
+        'ipa_admin_password': fields.String(description='IPA Admin Password'),
+        'cell_subnet_id': fields.String(description='Cell ID'),
+        'region': fields.String(description='Region'),
+        'ldap_subnet_id': fields.String(description='LDAP Subnet ID'),
+        'ldap_cidr_block': fields.String(description='LDAP CIDR Block'),
+        'instance_type': fields.String(description='Instance Type'),
+        'tm_release': fields.String(
+            description='Treadmill Release URL/Version'
+        ),
+        'app_root': fields.String(description='Server APP Root'),
+    }
+
+    ldap_model = api.model(
+        'server', ldap_req_model
+    )
+
+    cell_req_model = {
+        'vpc_name': fields.String(description='VPC Name'),
+        'domain': fields.String(description='Domain'),
+        'role': fields.String(description='Role'),
+        'key': fields.String(description='Key'),
+        'image': fields.String(description='Image'),
+        'region': fields.String(description='Region'),
+        'ipa_admin_password': fields.String(description='IPA Admin Password'),
+        'instance_type': fields.String(description='Instance Type'),
+        'tm_release': fields.String(
+            description='Treadmill Release URL/Version'
+        ),
+        'app_root': fields.String(description='Server APP Root'),
+        'cell_cidr_block': fields.String(description='Cell CIDR Block'),
+        'subnet_id': fields.String(description='Subnet ID'),
+    }
+
+    cell_model = api.model(
+        'server', cell_req_model
+    )
+
     host_req_model = {
         'hostname': fields.String(description='Hostname'),
     }
@@ -112,3 +178,39 @@ def init(api, cors, impl):
         def post(self):
             """Add Service to IPA"""
             return impl.service_add(flask.request.json)
+
+    @namespace.route('/server')
+    class _Server(restplus.Resource):
+        """Treadmill Node Server"""
+        @webutils.post_api(
+            api,
+            cors,
+            req_model=server_model
+        )
+        def post(self):
+            "Configure Worker Node"""
+            return impl.configure(flask.request.json)
+
+    @namespace.route('/ldap')
+    class _LDAP(restplus.Resource):
+        """Treadmill LDAP Server"""
+        @webutils.post_api(
+            api,
+            cors,
+            req_model=ldap_model
+        )
+        def post(self):
+            """Configure LDAP Server"""
+            return impl.configure(flask.request.json)
+
+    @namespace.route('/cell')
+    class _Cell(restplus.Resource):
+        """Treadmill CELL"""
+        @webutils.post_api(
+            api,
+            cors,
+            req_model=cell_model
+        )
+        def post(self):
+            """Configure Treadmill CELL"""
+            return impl.configure(flask.request.json)

@@ -1,6 +1,8 @@
 from treadmill import authz
 import subprocess
 import re
+import yaml
+import os
 
 
 class API(object):
@@ -115,11 +117,79 @@ class API(object):
             if result:
                 assert 'Deleted user "' + username + '"' in result
 
+        def configure(args):
+            role = args.pop('role').lower()
+            domain = args.pop('domain')
+            default_mandatory_params = [
+                'role',
+                'vpc_name',
+                'domain',
+                'key',
+                'image',
+                'name',
+                'ipa_admin_password',
+            ]
+
+            _params = dict(filter(
+                lambda item: item[1] is not None, args.items()
+            ))
+
+            def _validate_mandatory_params(_params):
+                _mandatory_args = dict(filter(
+                    lambda item: item[0] in _params, args.items()
+                ))
+                return None not in _mandatory_args.values()
+
+            def _instantiate(_mandatory_params_for_role):
+                if _validate_mandatory_params(
+                    default_mandatory_params + _mandatory_params_for_role
+                ):
+                    _content = {}
+                    _content[role] = _params
+
+                    _manifest_file = role + '.yml'
+                    _file_path = os.path.join('/tmp/', _manifest_file)
+                    with open(_file_path, 'w') as f:
+                        yaml.dump(_content, f, default_flow_style=False)
+
+                    subprocess.check_output([
+                        'treadmill',
+                        'cloud',
+                        '--domain',
+                        domain,
+                        'init',
+                        role,
+                        '-m',
+                        _file_path
+                    ])
+                else:
+                    raise ValueError(
+                        ', '.join(default_mandatory_params) +
+                        ' are mandatory arguments.'
+                    )
+
+            _mandatory_params = []
+
+            if role == 'node':
+                _mandatory_params = [
+                    'subnet_id',
+                    'ldap_hostname'
+                ]
+            elif role == 'ldap':
+                _mandatory_params = [
+                    'cell_subnet_id',
+                ]
+            elif role == 'cell':
+                _params['without_ldap'] = True
+
+            _instantiate(_mandatory_params)
+
         self.add_host = add_host
         self.delete_host = delete_host
         self.service_add = service_add
         self.add_user = add_user
         self.delete_user = delete_user
+        self.configure = configure
 
 
 def init(authorizer):
