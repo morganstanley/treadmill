@@ -241,7 +241,7 @@ def get_state(svcroot):
 
 def _service_wait(svcroot, up_opt, any_all_opt, timeout=0, subset=None):
     """Given services directory, wait for services to be in given state."""
-    services = glob.glob(os.path.join(svcroot, '*'))
+    services = sorted(glob.glob(os.path.join(svcroot, '*')))
     if subset is not None:
         services = [svc for svc in services if os.path.basename(svc) in subset]
 
