@@ -656,7 +656,7 @@ def init():
         if vpc_id:
             vpcs = [vpc_id]
         else:
-            vpcs = [vpc.id for vpc in vpc.VPC.all()]
+            vpcs = [_vpc.id for _vpc in vpc.VPC.all()]
 
         result = []
 
