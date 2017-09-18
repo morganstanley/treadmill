@@ -39,13 +39,13 @@ class InstanceTest(unittest.TestCase):
             metadata={'AmiLaunchIndex': 100}
         )
         instance.create_tags()
-        self.assertEquals(instance.name, 'foo101')
+        self.assertEquals(instance.name, 'foo')
 
         conn_mock.create_tags.assert_called_once_with(
             Resources=['1'],
             Tags=[{
                 'Key': 'Name',
-                'Value': 'foo101'
+                'Value': 'foo'
             }]
         )
 
@@ -62,45 +62,17 @@ class InstanceTest(unittest.TestCase):
             role='role-name'
         )
         instance.create_tags()
-        self.assertEquals(instance.name, 'foo101')
-        self.assertEquals(instance.hostname, 'foo101.do.main')
+        self.assertEquals(instance.name, 'foo')
+        self.assertEquals(instance.hostname, 'foo.do.main')
 
         conn_mock.create_tags.assert_called_once_with(
             Resources=['1'],
             Tags=[{
                 'Key': 'Name',
-                'Value': 'foo101'
+                'Value': 'foo'
             }, {
                 'Key': 'Role',
                 'Value': 'role-name'
-            }]
-        )
-
-    @mock.patch('treadmill.infra.instances.connection.Connection')
-    def test_create_tags_with_node_role(self, ConnectionMock):
-        ConnectionMock.context.domain = 'do.main'
-        conn_mock = ConnectionMock()
-        conn_mock.create_tags = mock.Mock()
-        Instance.ec2_conn = conn_mock
-
-        instance = Instance(
-            name='Foo',
-            id='instanceid',
-            metadata={'AmiLaunchIndex': 100},
-            role='NODE'
-        )
-        instance.create_tags()
-        self.assertEquals(instance.name, 'Foo101-instanceid')
-        self.assertEquals(instance.hostname, 'foo101-instanceid.do.main')
-
-        conn_mock.create_tags.assert_called_once_with(
-            Resources=['instanceid'],
-            Tags=[{
-                'Key': 'Name',
-                'Value': 'Foo101-instanceid'
-            }, {
-                'Key': 'Role',
-                'Value': 'NODE'
             }]
         )
 
@@ -275,7 +247,7 @@ class InstancesTest(unittest.TestCase):
         self.assertEquals(instance_details, sample_instances)
 
     @mock.patch('treadmill.infra.instances.connection.Connection')
-    def test_get_ipa(self, ConnectionMock):
+    def test_get_by_roles(self, ConnectionMock):
         conn_mock = ConnectionMock()
 
         sample_instances = [
@@ -286,7 +258,7 @@ class InstancesTest(unittest.TestCase):
         })
         Instance.ec2_conn = conn_mock
 
-        result = Instances.get_ipa(vpc_id='vpc-id')
+        result = Instances.get_by_roles(vpc_id='vpc-id', roles=['IPA'])
 
         conn_mock.describe_instances.assert_called_once_with(
             Filters=[
@@ -295,11 +267,11 @@ class InstancesTest(unittest.TestCase):
                 {'Name': 'tag-value', 'Values': ['IPA']}
             ]
         )
-        self.assertIsInstance(result, Instance)
-        self.assertEquals(result.metadata, sample_instances[0])
+        self.assertIsInstance(result[0], Instance)
+        self.assertEquals(result[0].metadata, sample_instances[0])
 
     @mock.patch('treadmill.infra.instances.connection.Connection')
-    def test_get_ipa_no_instance(self, ConnectionMock):
+    def test_get_by_roles_no_instance(self, ConnectionMock):
         conn_mock = ConnectionMock()
 
         conn_mock.describe_instances = mock.Mock(return_value={
@@ -307,7 +279,7 @@ class InstancesTest(unittest.TestCase):
         })
         Instance.ec2_conn = conn_mock
 
-        result = Instances.get_ipa(vpc_id='vpc-id')
+        result = Instances.get_by_roles(vpc_id='vpc-id', roles=['IPA'])
 
         conn_mock.describe_instances.assert_called_once_with(
             Filters=[
@@ -317,6 +289,34 @@ class InstancesTest(unittest.TestCase):
             ]
         )
         self.assertIsNone(result)
+
+    @mock.patch('treadmill.infra.instances.connection.Connection')
+    def test_hostnames_by_roles(self, ConnectionMock):
+        ConnectionMock.context.domain = 'domain'
+        conn_mock = ConnectionMock()
+        sample_instances = [
+            {'InstanceId': 1, 'Tags': [
+                {'Key': 'Name', 'Value': 'IPA-NAME'},
+                {'Key': 'Role', 'Value': 'IPA'}
+            ]}
+        ]
+        conn_mock.describe_instances = mock.Mock(return_value={
+            'Reservations': [{'Instances': sample_instances}]
+        })
+        Instance.ec2_conn = conn_mock
+
+        result = Instances.get_hostnames_by_roles(
+            vpc_id='vpc-id', roles=['IPA']
+        )
+
+        conn_mock.describe_instances.assert_called_once_with(
+            Filters=[
+                {'Name': 'vpc-id', 'Values': ['vpc-id']},
+                {'Name': 'tag-key', 'Values': ['Role']},
+                {'Name': 'tag-value', 'Values': ['IPA']}
+            ]
+        )
+        self.assertEquals(result, {'IPA': 'ipa-name.domain'})
 
     @mock.patch('treadmill.infra.instances.connection.Connection')
     def test_get_ami_id(self, ConnectionMock):
