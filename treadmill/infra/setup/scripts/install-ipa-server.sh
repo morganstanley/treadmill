@@ -56,7 +56,7 @@ chmod 755 /etc/cron.hourly/tmhostadm-kinit
 
 export TREADMILL_CELL="{{ CELL }}"
 
-nohup su -c "{{ TREADMILL }} sproc restapi -p 8000 --title 'Treadmill_IPA_API' \
+nohup su -c "{{ TREADMILL }} sproc restapi -p 5108 --title 'Treadmill_IPA_API' \
     -m ipa --cors-origin='.*'" tmhostadm > /var/log/ipa_api.out 2>&1 &
 
 TREADMLD_OUTPUT=$(ipa -n user-add --first=treadmld --last=proid --shell /bin/bash --class proid --random treadmld)
