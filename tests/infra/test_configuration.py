@@ -191,8 +191,8 @@ class NodeTest(unittest.TestCase):
             otp='otp'
         )
         expected_script_data = {
-            'provision-base.sh': ['DOMAIN', 'HOSTNAME', 'APP_ROOT', 'SUBNET_ID',
-                                  'LDAP_HOSTNAME'],
+            'provision-base.sh': ['DOMAIN', 'HOSTNAME', 'APP_ROOT',
+                                  'SUBNET_ID', 'LDAP_HOSTNAME'],
             'install-ipa-client-with-otp.sh': ['OTP'],
             'install-treadmill.sh': ['TREADMILL_RELEASE'],
             'configure-node.sh': [

@@ -1,6 +1,7 @@
 from urllib import request
 from treadmill.infra import connection
 
+
 def enable(port, group_id, protocol='tcp'):
     my_ip = request.urlopen(
         'http://ip.42.pl/raw'
