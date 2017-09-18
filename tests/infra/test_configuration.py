@@ -50,7 +50,7 @@ class MasterTest(unittest.TestCase):
             'provision-base.sh': [
                 'DOMAIN', 'NAME', 'SUBNET_ID', 'LDAP_HOSTNAME', 'APP_ROOT',
             ],
-            'install-ipa-client.sh': [],
+            'install-ipa-client-with-otp.sh': [],
             'install-treadmill.sh': ['TREADMILL_RELEASE'],
             'configure-master.sh': [
                 'SUBNET_ID', 'APP_ROOT', 'IPA_ADMIN_PASSWORD'
@@ -81,7 +81,7 @@ class LDAPTest(unittest.TestCase):
             'provision-base.sh': [
                 'DOMAIN', 'NAME', 'SUBNET_ID', 'LDAP_HOSTNAME', 'APP_ROOT',
             ],
-            'install-ipa-client.sh': [],
+            'install-ipa-client-with-otp.sh': [],
             'install-treadmill.sh': ['TREADMILL_RELEASE'],
             'configure-ldap.sh': [
                 'SUBNET_ID', 'APP_ROOT', 'IPA_ADMIN_PASSWORD', 'DOMAIN',
@@ -149,7 +149,7 @@ class ZookeeperTest(unittest.TestCase):
         )
         expected_script_data = {
             'provision-base.sh': ['DOMAIN', 'NAME', 'LDAP_HOSTNAME'],
-            'install-ipa-client.sh': [],
+            'install-ipa-client-with-otp.sh': [],
             'provision-zookeeper.sh': ['DOMAIN', 'IPA_SERVER_HOSTNAME'],
         }
 
@@ -184,7 +184,7 @@ class NodeTest(unittest.TestCase):
         expected_script_data = {
             'provision-base.sh': ['DOMAIN', 'NAME', 'APP_ROOT', 'SUBNET_ID',
                                   'LDAP_HOSTNAME', 'ROLE'],
-            'install-ipa-client.sh': [],
+            'install-ipa-client-with-otp.sh': [],
             'install-treadmill.sh': ['TREADMILL_RELEASE'],
             'configure-node.sh': [
                 'APP_ROOT', 'SUBNET_ID', 'IPA_ADMIN_PASSWORD'
