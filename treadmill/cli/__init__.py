@@ -949,11 +949,12 @@ ON_REST_EXCEPTIONS = handle_exceptions(REST_EXCEPTIONS)
 
 CLOUD_EXCEPTIONS = [
     (botoexceptions.DataNotFoundError, 'Unable to load data'),
-    (botoexceptions.EndpointConnectionError, 
+    (botoexceptions.EndpointConnectionError,
         'Could not connect to endpoint URL'),
     (botoexceptions.NoCredentialsError, "Unable to locate credentials"),
-    (botoexceptions.CredentialRetrievalError, "Error when retrieving credentials"),
-    (botoexceptions.NoRegionError, 
+    (botoexceptions.CredentialRetrievalError,
+        "Error when retrieving credentials"),
+    (botoexceptions.NoRegionError,
         "You must specify a region in your AWS config file"),
 ]
 
