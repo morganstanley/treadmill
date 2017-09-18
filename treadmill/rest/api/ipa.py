@@ -10,6 +10,15 @@ from flask_restplus import fields
 from treadmill import webutils  # pylint: disable=E0611
 
 
+def handle_api_error(func):
+    def wrapper(*args):
+        try:
+            return func(*args)
+        except Exception as e:
+            return flask.abort(400, {'message': e.message})
+    return wrapper
+
+
 # Old style classes, no init method.
 #
 # pylint: disable=W0232
@@ -77,15 +86,17 @@ def init(api, cors, impl):
             cors,
             req_model=user_model
         )
+        @handle_api_error
         def post(self):
             """Adds User to IPA."""
-            return impl.add_user(flask.request.json)
+            impl.add_user(flask.request.json)
 
         @webutils.delete_api(
             api,
             cors,
             req_model=user_model
         )
+        @handle_api_error
         def delete(self):
             """Deletes User from IPA."""
             return impl.delete_user(flask.request.json)

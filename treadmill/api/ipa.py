@@ -69,8 +69,9 @@ class API(object):
                     '--random',
                     username
                 ])
-            except subprocess.CalledProcessError:
-                return 'Couldn\'t add user, it may already exist.'
+            except subprocess.CalledProcessError as e:
+                e.message = 'Couldn\'t add user, it may already exist.'
+                raise
 
             if result:
                 otp = re.search(
@@ -107,8 +108,9 @@ class API(object):
                     'user-del',
                     username
                 ]).decode('utf-8')
-            except subprocess.CalledProcessError:
-                return 'Couldn\'t delete user, it may not exist.'
+            except subprocess.CalledProcessError as e:
+                e.message = 'Couldn\'t delete user, it may not exist.'
+                raise
 
             if result:
                 assert 'Deleted user "' + username + '"' in result
