@@ -11,7 +11,7 @@ class EC2Object:
     def __init__(self, name=None, id=None, metadata=None, role=None):
         self._id = id
         self.metadata = metadata
-        self.role = role
+        self._role = role
         self._name = name
 
     @property
@@ -21,6 +21,10 @@ class EC2Object:
     @property
     def name(self):
         return self._extract_name() or self._name or ''
+
+    @property
+    def role(self):
+        return self._extract_role() or self._role or ''
 
     def create_tags(self):
         if self.name:
@@ -52,6 +56,12 @@ class EC2Object:
             return [t['Value']
                     for t in self.metadata['Tags']
                     if t['Key'] == 'Name'][0]
+
+    def _extract_role(self):
+        if self._tag_exists():
+            return [t['Value']
+                    for t in self.metadata['Tags']
+                    if t['Key'] == 'Role'][0]
 
     def _tag_exists(self):
         return self.metadata and self.metadata.get('Tags', None)
