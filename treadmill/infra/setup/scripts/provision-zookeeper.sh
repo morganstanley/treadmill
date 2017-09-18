@@ -25,7 +25,7 @@ export TREADMILL_CELL=$subnet_id
 
 echo Adding host to service keytab retrieval list
 
-REQ_URL="http://ipa-ca:8000/ipa/service"
+REQ_URL="http://ipa-ca:5108/ipa/service"
 REQ_STATUS=254
 TIMEOUT_RETRY_COUNT=0
 while [ $REQ_STATUS -eq 254 ] && [ $TIMEOUT_RETRY_COUNT -ne 30 ]
@@ -70,9 +70,7 @@ chown -R treadmld:treadmld /var/lib/zookeeper
 
 su -c "zookeeper-server-initialize" treadmld
 
-AMI_LAUNCH_INDEX=$(curl http://169.254.169.254/latest/meta-data/ami-launch-index)
-ZK_ID=$((AMI_LAUNCH_INDEX+1))
-su -c "echo $ZK_ID > /var/lib/zookeeper/myid" treadmld
+su -c "echo {{ IDX }} > /var/lib/zookeeper/myid" treadmld
 
 chown treadmld:treadmld /etc/zk.keytab
 kinit -k
