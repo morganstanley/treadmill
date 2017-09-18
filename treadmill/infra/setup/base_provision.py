@@ -76,3 +76,14 @@ class BaseProvision:
 
     def show(self):
         return self.subnet.show()
+
+    def _hostname_cluster(self, count):
+        _hostnames = {}
+
+        for _idx in range(0, count):
+            _idx_s = str(_idx + 1)
+            _hostnames[
+                self.name + _idx_s + '.' + connection.Connection.context.domain
+            ] = _idx_s
+
+        return _hostnames
