@@ -119,6 +119,7 @@ def init():
                     raise click.BadParameter(
                         'Manifest file should have %s scope' % _command_name
                     )
+                opts['vpc_id'] = opts.pop('vpc_name')
                 ctx.params = opts
 
             return super().handle_parse_result(ctx, opts, args)
