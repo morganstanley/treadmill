@@ -31,7 +31,8 @@ class Cell:
         self.vpc.create_security_group(secgroup_name, secgroup_desc)
 
     def setup_zookeeper(self, name, key, image, instance_type,
-                        subnet_cidr_block, ldap_hostname, ipa_admin_password, count=3):
+                        subnet_cidr_block, ldap_hostname,
+                        ipa_admin_password, count=3):
         self.zookeeper = zookeeper.Zookeeper(name, self.vpc.id)
         self.zookeeper.setup(
             image=image,
