@@ -70,7 +70,7 @@ def init(api, cors, impl):
     }
 
     server_del_model = api.model(
-        'server', server_del_req_model
+        'server_del', server_del_req_model
     )
 
     ldap_req_model = {
@@ -93,7 +93,7 @@ def init(api, cors, impl):
     }
 
     ldap_model = api.model(
-        'server', ldap_req_model
+        'ldap', ldap_req_model
     )
 
     ldap_del_req_model = {
@@ -105,7 +105,7 @@ def init(api, cors, impl):
     }
 
     ldap_del_model = api.model(
-        'server', ldap_del_req_model
+        'ldap_del', ldap_del_req_model
     )
 
     cell_req_model = {
@@ -126,7 +126,7 @@ def init(api, cors, impl):
     }
 
     cell_model = api.model(
-        'server', cell_req_model
+        'cell', cell_req_model
     )
 
     cell_del_req_model = {
@@ -136,7 +136,7 @@ def init(api, cors, impl):
     }
 
     cell_del_model = api.model(
-        'server', cell_del_req_model
+        'cell_del', cell_del_req_model
     )
 
     host_req_model = {
