@@ -607,12 +607,12 @@ def init():
         _node = node.Node(name=name, vpc_id=vpc_id)
         _node.destroy(instance_id=instance_id)
 
-    @cloud.group()
-    def list():
+    @cloud.group('list')
+    def _list():
         """Show Treadmill Cloud Resources"""
         pass
 
-    @list.command(name='vpc')
+    @_list.command(name='vpc')
     @click.option('--vpc-name', 'vpc_id',
                   callback=_convert_to_vpc_id,
                   help='VPC Name')
@@ -630,7 +630,7 @@ def init():
 
         click.echo(result)
 
-    @list.command(name='cell')
+    @_list.command(name='cell')
     @click.option('--vpc-name', 'vpc_id',
                   callback=_convert_to_vpc_id,
                   help='VPC Name')
