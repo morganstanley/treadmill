@@ -39,14 +39,6 @@ def init(api, cors, impl):
         'service', service_req_model
     )
 
-    user_req_model = {
-        'username': fields.String(description='Username'),
-    }
-
-    user_model = api.model(
-        'user', user_req_model
-    )
-
     @namespace.route('/host/<hostname>')
     @api.doc(params={'hostname': 'Hostname'})
     class _Host(restplus.Resource):
@@ -68,29 +60,28 @@ def init(api, cors, impl):
             """Deletes host from IPA."""
             return impl.delete_host(hostname)
 
-    @namespace.route('/user')
+    @namespace.route('/user/<username>')
+    @api.doc(params={'username': 'Username'})
     class _User(restplus.Resource):
         """Treadmill IPA User"""
 
         @webutils.post_api(
             api,
             cors,
-            req_model=user_model
         )
         @handle_api_error
-        def post(self):
+        def post(self, username):
             """Adds User to IPA."""
-            impl.add_user(flask.request.json)
+            impl.add_user(username)
 
         @webutils.delete_api(
             api,
             cors,
-            req_model=user_model
         )
         @handle_api_error
-        def delete(self):
+        def delete(self, username):
             """Deletes User from IPA."""
-            return impl.delete_user(flask.request.json)
+            return impl.delete_user(username)
 
     @namespace.route('/service')
     class _Service(restplus.Resource):

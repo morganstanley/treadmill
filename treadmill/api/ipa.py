@@ -52,9 +52,7 @@ class API(object):
 
             assert 'members added 1' in _result
 
-        def add_user(args):
-            username = args.get('username')
-
+        def add_user(username):
             try:
                 result = subprocess.check_output([
                     'ipa',
@@ -97,9 +95,7 @@ class API(object):
                     input=otp.encode('utf-8') + b'\n' + new_pwd + new_pwd
                 )
 
-        def delete_user(args):
-            username = args.get('username')
-
+        def delete_user(username):
             try:
                 result = subprocess.check_output([
                     'ipa',
