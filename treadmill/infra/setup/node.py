@@ -25,7 +25,7 @@ class Node(base_provision.BaseProvision):
             ]
         )[constants.ROLES['LDAP']]
 
-        otp = ipa.API().add_host({'hostname': self.hostname})
+        otp = ipa.API().add_host(hostname=self.hostname)
         self.configuration = configuration.Node(
             tm_release=tm_release,
             app_root=app_root,

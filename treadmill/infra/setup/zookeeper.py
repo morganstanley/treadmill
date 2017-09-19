@@ -26,7 +26,7 @@ class Zookeeper(base_provision.BaseProvision):
                 return subnet_id
         _name = self.name
         for _zk_h in _zk_hostnames.keys():
-            _otp = _ipa.add_host({'hostname': _zk_h})
+            _otp = _ipa.add_host(hostname=_zk_h)
             _idx = _zk_hostnames[_zk_h]
             self.configuration = configuration.Zookeeper(
                 ldap_hostname=_hostnames[constants.ROLES['LDAP']],

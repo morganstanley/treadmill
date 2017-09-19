@@ -35,7 +35,7 @@ class Master(base_provision.BaseProvision):
 
         _name = self.name
         for _master_h in _master_hostnames.keys():
-            _otp = _ipa.add_host({'hostname': _master_h})
+            _otp = _ipa.add_host(hostname=_master_h)
             _idx = _master_hostnames[_master_h]
             self.configuration = configuration.Master(
                 hostname=_master_h,
