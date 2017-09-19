@@ -134,11 +134,11 @@ def init():
         ctx.obj['DOMAIN'] = domain
 
     @cloud.group()
-    def init():
-        """Initialize Treadmill EC2 Objects"""
+    def configure():
+        """Configure Treadmill EC2 Objects"""
         pass
 
-    @init.command(name='vpc')
+    @configure.command(name='vpc')
     @click.option('--region', help='Region for the vpc')
     @click.option('--vpc-cidr-block', default='172.23.0.0/16',
                   help='CIDR block for the vpc')
@@ -164,10 +164,10 @@ def init():
                                       'name'],
                   help="Options YAML file. ")
     @click.pass_context
-    def init_vpc(ctx, region, vpc_cidr_block,
+    def configure_vpc(ctx, region, vpc_cidr_block,
                  secgroup_name, secgroup_desc,
                  name, manifest):
-        """Initialize Treadmill VPC"""
+        """Configure Treadmill VPC"""
         domain = ctx.obj['DOMAIN']
 
         if region:
@@ -186,7 +186,7 @@ def init():
             pprint(_vpc.show())
         )
 
-    @init.command(name='ldap')
+    @configure.command(name='ldap')
     @click.option('--vpc-name', 'vpc_id',
                   required=True,
                   callback=_convert_to_vpc_id,
@@ -227,11 +227,11 @@ def init():
                                       'ldap_cidr_block'],
                   help="Options YAML file. ")
     @click.pass_context
-    def init_ldap(ctx, vpc_id, region, key, image,
+    def configure_ldap(ctx, vpc_id, region, key, image,
                   instance_type, tm_release, app_root,
                   ldap_cidr_block, ldap_subnet_id, cell_subnet_id,
                   ipa_admin_password, manifest):
-        """Initialize Treadmill LDAP"""
+        """Configure Treadmill LDAP"""
         domain = ctx.obj['DOMAIN']
         if region:
             connection.Connection.context.region_name = region
@@ -260,7 +260,7 @@ def init():
             pprint(_ldap.subnet.show())
         )
 
-    @init.command(name='cell')
+    @configure.command(name='cell')
     @click.option('--vpc-name', 'vpc_id',
                   required=True,
                   callback=_convert_to_vpc_id,
@@ -312,11 +312,11 @@ def init():
                                       'ldap_cidr_block'],
                   help="Options YAML file. ")
     @click.pass_context
-    def init_cell(ctx, vpc_id, region, name, key, count, image,
+    def configure_cell(ctx, vpc_id, region, name, key, count, image,
                   instance_type, tm_release, app_root,
                   cell_cidr_block, ldap_cidr_block, subnet_id, ldap_subnet_id,
                   without_ldap, ipa_admin_password, manifest):
-        """Initialize Treadmill Cell"""
+        """Configure Treadmill Cell"""
         domain = ctx.obj['DOMAIN']
 
         if region:
@@ -379,7 +379,7 @@ def init():
             pprint(result)
         )
 
-    @init.command(name='domain')
+    @configure.command(name='domain')
     @click.option('--name', default='TreadmillIPA',
                   help='Name of the instance')
     @click.option('--region', help='Region for the vpc')
@@ -417,10 +417,10 @@ def init():
                                       'ipa_admin_password'],
                   help="Options YAML file. ")
     @click.pass_context
-    def init_domain(ctx, name, region, vpc_id, subnet_cidr_block, subnet_id,
+    def configure_domain(ctx, name, region, vpc_id, subnet_cidr_block, subnet_id,
                     count, ipa_admin_password, tm_release, key,
                     instance_type, image, manifest):
-        """Initialize Treadmill Domain (IPA)"""
+        """Configure Treadmill Domain (IPA)"""
 
         domain = ctx.obj['DOMAIN']
 
@@ -454,7 +454,7 @@ def init():
             pprint(_ipa.show())
         )
 
-    @init.command(name='node')
+    @configure.command(name='node')
     @click.option('--vpc-name', 'vpc_id',
                   callback=_convert_to_vpc_id,
                   required=True, help='VPC Name')
@@ -493,10 +493,10 @@ def init():
                                       'with_api'],
                   help="Options YAML file. ")
     @click.pass_context
-    def init_node(ctx, vpc_id, region, name, key, image,
+    def configure_node(ctx, vpc_id, region, name, key, image,
                   instance_type, tm_release, app_root,
                   subnet_id, ipa_admin_password, with_api, manifest):
-        """Initialize new Node in Cell"""
+        """Configure new Node in Cell"""
 
         domain = ctx.obj['DOMAIN']
 
