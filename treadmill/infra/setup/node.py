@@ -8,7 +8,6 @@ class Node(base_provision.BaseProvision):
     def setup(
             self,
             image,
-            count,
             key,
             tm_release,
             instance_type,
@@ -17,8 +16,6 @@ class Node(base_provision.BaseProvision):
             with_api,
             ipa_admin_password
     ):
-        # TODO: remove count as parameter
-        count = 1
         self.name = self.name + '-' + str(time.time())
         self.hostname = self.name + '.' + connection.Connection.context.domain
         ldap_hostname = instances.Instances.get_hostnames_by_roles(
@@ -42,7 +39,7 @@ class Node(base_provision.BaseProvision):
         self.subnet_name = constants.TREADMILL_CELL_SUBNET_NAME
         super().setup(
             image=image,
-            count=count,
+            count=1,
             subnet_id=subnet_id,
             key=key,
             instance_type=instance_type

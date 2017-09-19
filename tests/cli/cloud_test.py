@@ -213,7 +213,6 @@ class CloudTest(unittest.TestCase):
                 '--image=img-123',
                 '--vpc-name=' + self.vpc_name,
                 '--subnet-id=sub-123',
-                '--count=2',
                 '--ipa-admin-password=Tre@admill1',
             ],
             obj={}
@@ -224,7 +223,6 @@ class CloudTest(unittest.TestCase):
         vpc_mock.get_id_from_name.assert_called_once_with(self.vpc_name)
         node_mock.setup.assert_called_once_with(
             app_root='/var/tmp/treadmill-node',
-            count=2,
             image='img-123',
             instance_type=constants.INSTANCE_TYPES['EC2']['large'],
             key='key',

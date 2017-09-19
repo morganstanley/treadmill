@@ -462,8 +462,6 @@ def init():
     @click.option('--name', default='TreadmillNode',
                   help='Node name')
     @click.option('--key', required=True, help='SSH Key Name')
-    @click.option('--count', default='1', type=int,
-                  help='Number of Treadmill nodes to spin up')
     @click.option('--image', required=True,
                   help='Image to use for new node instance e.g. RHEL-7.4')
     @click.option('--instance-type',
@@ -486,7 +484,6 @@ def init():
                                       'vpc_name',
                                       'name',
                                       'key',
-                                      'count',
                                       'image',
                                       'instance_type',
                                       'tm_release',
@@ -496,7 +493,7 @@ def init():
                                       'with_api'],
                   help="Options YAML file. ")
     @click.pass_context
-    def init_node(ctx, vpc_id, region, name, key, count, image,
+    def init_node(ctx, vpc_id, region, name, key, image,
                   instance_type, tm_release, app_root,
                   subnet_id, ipa_admin_password, with_api, manifest):
         """Initialize new Node in Cell"""
@@ -516,7 +513,6 @@ def init():
         _node = node.Node(name, vpc_id)
         _node.setup(
             key=key,
-            count=count,
             image=image,
             instance_type=instance_type,
             tm_release=tm_release,
