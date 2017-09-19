@@ -129,6 +129,16 @@ def init(api, cors, impl):
         'server', cell_req_model
     )
 
+    cell_del_req_model = {
+        'vpc_name': fields.String(description='VPC Name'),
+        'domain': fields.String(description='Domain'),
+        'subnet_id': fields.String(description='Subnet(Cell) ID'),
+    }
+
+    cell_del_model = api.model(
+        'server', cell_del_req_model
+    )
+
     host_req_model = {
         'hostname': fields.String(description='Hostname'),
     }
@@ -255,4 +265,13 @@ def init(api, cors, impl):
         )
         def post(self):
             """Configure Treadmill CELL"""
+            return impl.configure(flask.request.json)
+
+        @webutils.delete_api(
+            api,
+            cors,
+            req_model=cell_del_model
+        )
+        def delete(self):
+            """Delete Treadmill CELL"""
             return impl.configure(flask.request.json)

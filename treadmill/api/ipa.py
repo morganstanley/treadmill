@@ -242,6 +242,12 @@ class API(object):
                     '--name',
                     _params['name']
                 ]
+            elif role == 'cell':
+                _mandatory_params += ['subnet_id']
+                default_command += [
+                    '--subnet-id',
+                    _params['subnet_id']
+                ]
 
             if _validate_mandatory_params(_mandatory_params):
                 subprocess.check_output(default_command)
