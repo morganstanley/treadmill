@@ -8,8 +8,7 @@ class API(object):
 
     def __init__(self):
 
-        def add_host(args):
-            hostname = args.get('hostname')
+        def add_host(hostname):
             result = subprocess.check_output([
                 'ipa',
                 'host-add',
@@ -20,8 +19,7 @@ class API(object):
             password_string = result.decode('utf-8').split('\n')[4]
             return password_string.split('password:')[-1].strip()
 
-        def delete_host(args):
-            hostname = args.get('hostname')
+        def delete_host(hostname):
             result = subprocess.check_output([
                 'ipa',
                 'host-del',
