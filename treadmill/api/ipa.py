@@ -154,6 +154,7 @@ class API(object):
 
                     subprocess.check_output([
                         'treadmill',
+                        'admin',
                         'cloud',
                         '--domain',
                         domain,
