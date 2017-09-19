@@ -28,17 +28,16 @@ class API(object):
 
             assert 'Deleted host "' + hostname + '"' in result
 
-        def service_add(args):
+        def service_add(service, args):
             domain = args.get('domain')
             hostname = args.get('hostname')
-            _service = args.get('service')
-            _service_with_domain = _service + '@' + domain.upper()
+            _service_with_domain = service + '@' + domain.upper()
 
             subprocess.check_output([
                 'ipa',
                 'service-add',
                 '--force',
-                _service
+                service
             ])
 
             result = subprocess.check_output([

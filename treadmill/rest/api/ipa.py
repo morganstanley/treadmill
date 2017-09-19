@@ -30,7 +30,6 @@ def init(api, cors, impl):
     )
 
     service_req_model = {
-        'service': fields.String(description='Service Name'),
         'hostname': fields.String(description='Hostname'),
         'domain': fields.String(description='Domain')
     }
@@ -83,7 +82,8 @@ def init(api, cors, impl):
             """Deletes User from IPA."""
             return impl.delete_user(username)
 
-    @namespace.route('/service')
+    @namespace.route('/service/<service>')
+    @api.doc(params={'service': 'Service'})
     class _Service(restplus.Resource):
         """Treadmill IPA Service"""
         @webutils.post_api(
@@ -91,6 +91,6 @@ def init(api, cors, impl):
             cors,
             req_model=service_model
         )
-        def post(self):
+        def post(self, service):
             """Add Service to IPA"""
-            return impl.service_add(flask.request.json)
+            return impl.service_add(service, flask.request.json)
