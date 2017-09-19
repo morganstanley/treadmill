@@ -3,6 +3,7 @@ import subprocess
 import re
 import yaml
 import os
+import json
 
 
 class API(object):
@@ -257,6 +258,48 @@ class API(object):
                     ' are mandatory arguments for ' + role + ' role.'
                 )
 
+        def cells(domain, vpc_name, cell_id):
+            _default_command = [
+                'treadmill',
+                'admin',
+                'cloud',
+                '--domain',
+                domain,
+                'list',
+                'cell',
+            ]
+
+            if cell_id:
+                _default_command += [
+                    '--subnet-id',
+                    cell_id
+                ]
+            if vpc_name:
+                _default_command += [
+                    '--vpc-name',
+                    vpc_name,
+                ]
+            result = subprocess.check_output(_default_command)
+            return json.loads(result.decode('utf-8').replace("'", '"'))
+
+        def vpcs(domain, vpc_name):
+            _default_command = [
+                'treadmill',
+                'admin',
+                'cloud',
+                '--domain',
+                domain,
+                'list',
+                'vpc',
+            ]
+            if vpc_name:
+                _default_command += [
+                    '--vpc-name',
+                    vpc_name,
+                ]
+            result = subprocess.check_output(_default_command)
+            return json.loads(result.decode('utf-8').replace("'", '"'))
+
         self.add_host = add_host
         self.delete_host = delete_host
         self.service_add = service_add
@@ -264,6 +307,8 @@ class API(object):
         self.delete_user = delete_user
         self.configure = configure
         self.delete_servers = delete_servers
+        self.cells = cells
+        self.vpcs = vpcs
 
 
 def init(authorizer):

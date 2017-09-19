@@ -255,9 +255,48 @@ def init(api, cors, impl):
             """Delete LDAP Server"""
             return impl.delete_servers(flask.request.json)
 
+    vpc_req_parser = api.parser()
+    vpc_req_parser.add_argument('vpc_name', help='VPC Name',
+                                location='args', required=False)
+    vpc_req_parser.add_argument('domain', help='Domain',
+                                location='args', required=True)
+
+    @namespace.route('/vpc')
+    class _Vpc(restplus.Resource):
+        """VPC"""
+        @webutils.get_api(
+            api,
+            cors,
+            parser=vpc_req_parser
+        )
+        def get(self):
+            args = vpc_req_parser.parse_args()
+            return impl.vpcs(args.get('domain', ''),
+                             args.get('vpc_name', ''))
+
+    cell_req_parser = api.parser()
+    cell_req_parser.add_argument('cell_id', help='Cell Id',
+                                 location='args', required=False)
+    cell_req_parser.add_argument('domain', help='Domain',
+                                 location='args', required=True)
+    cell_req_parser.add_argument('vpc_name', help='VPC Name',
+                                 location='args', required=False)
+
     @namespace.route('/cell')
     class _Cell(restplus.Resource):
         """Treadmill CELL"""
+
+        @webutils.get_api(
+            api,
+            cors,
+            parser=cell_req_parser
+        )
+        def get(self):
+            args = cell_req_parser.parse_args()
+            return impl.cells(args.get('domain', ''),
+                              args.get('vpc_name', ''),
+                              args.get('cell_id', ''))
+
         @webutils.post_api(
             api,
             cors,
