@@ -623,12 +623,11 @@ def init():
         connection.Connection.context.domain = domain
         if vpc_id:
             result = pprint(vpc.VPC(id=vpc_id).show())
+            click.echo(result)
         else:
             _vpcs = vpc.VPC.all()
-            result = map(lambda v: v.id + "\t:\t" + v.name, _vpcs)
-            result = "\n".join(result)
-
-        click.echo(result)
+            result = list(map(lambda v: {'id': v.id, 'name': v.name}, _vpcs))
+            click.echo({'Vpcs': result})
 
     @_list.command(name='cell')
     @click.option('--vpc-name', 'vpc_id',
