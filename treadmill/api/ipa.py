@@ -185,12 +185,56 @@ class API(object):
 
             _instantiate(_mandatory_params)
 
+        def delete_servers(args):
+            role = args.pop('role').lower()
+            default_mandatory_params = [
+                'role',
+                'vpc_name',
+                'domain',
+            ]
+
+            _params = dict(filter(
+                lambda item: item[1] is not None, args.items()
+            ))
+
+            def _validate_mandatory_params(_args):
+                _mandatory_args = dict(
+                    filter(
+                        lambda item: item[0] in _args,
+                        args.items()
+                    )
+                )
+                return None not in _mandatory_args.values()
+
+            def _node_params_exists():
+                _keys = _params.keys()
+                return ('instance_id' in _keys) or ('name' in _keys)
+
+            if _validate_mandatory_params(default_mandatory_params):
+                if role == 'node' and _node_params_exists():
+                    subprocess.check_output([
+                        'treadmill',
+                        'admin',
+                        'cloud',
+                        '--domain',
+                        _params['domain'],
+                        'delete',
+                        'node',
+                        '--vpc-name',
+                        _params['vpc_name'],
+                        '--instance-id',
+                        _params['instance_id'],
+                        '--name',
+                        _params['name']
+                    ])
+
         self.add_host = add_host
         self.delete_host = delete_host
         self.service_add = service_add
         self.add_user = add_user
         self.delete_user = delete_user
         self.configure = configure
+        self.delete_servers = delete_servers
 
 
 def init(authorizer):

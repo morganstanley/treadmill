@@ -61,6 +61,18 @@ def init(api, cors, impl):
         'server', server_req_model
     )
 
+    server_del_req_model = {
+        'vpc_name': fields.String(description='VPC Name'),
+        'domain': fields.String(description='Domain'),
+        'role': fields.String(description='Role'),
+        'name': fields.String(description='Node Instance Name'),
+        'instance_id': fields.String(description='Node Instance ID'),
+    }
+
+    server_del_model = api.model(
+        'server', server_del_req_model
+    )
+
     ldap_req_model = {
         'vpc_name': fields.String(description='VPC Name'),
         'domain': fields.String(description='Domain'),
@@ -190,6 +202,15 @@ def init(api, cors, impl):
         def post(self):
             "Configure Worker Node"""
             return impl.configure(flask.request.json)
+
+        @webutils.delete_api(
+            api,
+            cors,
+            req_model=server_del_model
+        )
+        def delete(self):
+            "Delete Worker Node"""
+            return impl.delete_servers(flask.request.json)
 
     @namespace.route('/ldap')
     class _LDAP(restplus.Resource):
