@@ -275,7 +275,6 @@ def init():
     @click.option('--instance-type',
                   default=constants.INSTANCE_TYPES['EC2']['micro'],
                   help='AWS ec2 instance type')
-    # TODO: Pick the current Treadmill release by default.
     @click.option('--tm-release',
                   callback=_current_release_version,
                   help='Treadmill release to use')
