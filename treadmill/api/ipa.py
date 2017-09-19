@@ -158,7 +158,7 @@ class API(object):
                         'cloud',
                         '--domain',
                         domain,
-                        'init',
+                        'configure',
                         role,
                         '-m',
                         _file_path
