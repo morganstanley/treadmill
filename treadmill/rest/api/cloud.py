@@ -30,12 +30,9 @@ def init(api, cors, impl):
     )
 
     server_req_model = {
-        'vpc_name': fields.String(description='VPC Name'),
-        'domain': fields.String(description='Domain'),
         'role': fields.String(description='Role'),
         'key': fields.String(description='Key'),
         'image': fields.String(description='Image'),
-        'name': fields.String(description='Instance Name'),
         'ipa_admin_password': fields.String(description='IPA Admin Password'),
         'subnet_id': fields.String(description='Cell ID'),
         'region': fields.String(description='Region'),
@@ -49,18 +46,6 @@ def init(api, cors, impl):
 
     server_model = api.model(
         'server', server_req_model
-    )
-
-    server_del_req_model = {
-        'vpc_name': fields.String(description='VPC Name'),
-        'domain': fields.String(description='Domain'),
-        'role': fields.String(description='Role'),
-        'name': fields.String(description='Node Instance Name'),
-        'instance_id': fields.String(description='Node Instance ID'),
-    }
-
-    server_del_model = api.model(
-        'server_del', server_del_req_model
     )
 
     ldap_req_model = {
@@ -86,18 +71,6 @@ def init(api, cors, impl):
         'ldap', ldap_req_model
     )
 
-    ldap_del_req_model = {
-        'vpc_name': fields.String(description='VPC Name'),
-        'domain': fields.String(description='Domain'),
-        'role': fields.String(description='Role'),
-        'name': fields.String(description='LDAP Instance Name [OPTIONAL]'),
-        'subnet_id': fields.String(description='Subnet ID'),
-    }
-
-    ldap_del_model = api.model(
-        'ldap_del', ldap_del_req_model
-    )
-
     cell_req_model = {
         'vpc_name': fields.String(description='VPC Name'),
         'domain': fields.String(description='Domain'),
@@ -119,17 +92,14 @@ def init(api, cors, impl):
         'cell', cell_req_model
     )
 
-    cell_del_req_model = {
-        'vpc_name': fields.String(description='VPC Name'),
-        'domain': fields.String(description='Domain'),
-        'subnet_id': fields.String(description='Subnet(Cell) ID'),
-    }
-
-    cell_del_model = api.model(
-        'cell_del', cell_del_req_model
+    @namespace.route(
+        '/server/vpc/<vpc_name>/domain/<domain>/name/<name>'
     )
-
-    @namespace.route('/server')
+    @api.doc(params={
+        'vpc_name': 'VPC Name',
+        'domain': 'Domain',
+        'name': 'Node Instance Name Tag'
+    })
     class _Server(restplus.Resource):
         """Treadmill Node Server"""
         @webutils.post_api(
@@ -137,20 +107,30 @@ def init(api, cors, impl):
             cors,
             req_model=server_model
         )
-        def post(self):
+        def post(self, vpc_name, domain, name):
             "Configure Worker Node"""
-            return impl.configure(flask.request.json)
+            return impl.configure(
+                vpc_name, domain, name, flask.request.json
+            )
 
         @webutils.delete_api(
             api,
             cors,
-            req_model=server_del_model
         )
-        def delete(self):
+        def delete(self, vpc_name, domain, name):
             "Delete Worker Node"""
-            return impl.delete_servers(flask.request.json)
+            return impl.delete_server(
+                vpc_name, domain, name
+            )
 
-    @namespace.route('/ldap')
+    @namespace.route(
+        '/ldap/vpc/<vpc_name>/domain/<domain>/name/<name>'
+    )
+    @api.doc(params={
+        'vpc_name': 'VPC Name',
+        'domain': 'Domain',
+        'name': 'LDAP Instance Name Tag'
+    })
     class _LDAP(restplus.Resource):
         """Treadmill LDAP Server"""
         @webutils.post_api(
@@ -158,18 +138,81 @@ def init(api, cors, impl):
             cors,
             req_model=ldap_model
         )
-        def post(self):
+        def post(self, vpc_name, domain, name):
             """Configure LDAP Server"""
-            return impl.configure(flask.request.json)
+            return impl.configure(
+                vpc_name, domain, name, flask.request.json
+            )
 
         @webutils.delete_api(
             api,
             cors,
-            req_model=ldap_del_model
         )
-        def delete(self):
+        def delete(self, vpc_name, domain, name):
             """Delete LDAP Server"""
-            return impl.delete_servers(flask.request.json)
+            return impl.delete_ldap(
+                vpc_name, domain, name
+            )
+
+    cell_req_parser = api.parser()
+    cell_req_parser.add_argument('cell_id', help='CELL(Subnet) ID',
+                                 location='args', required=False)
+
+    @namespace.route(
+        '/cell/vpc_name/<vpc_name>/domain/<domain>'
+    )
+    @api.doc(params={
+        'vpc_name': 'VPC Name',
+        'domain': 'Domain'
+    })
+    class _CellConfigure(restplus.Resource):
+        """Treadmill CELL Configure"""
+        @webutils.get_api(
+            api,
+            cors,
+            parser=cell_req_parser
+        )
+        def get(self, vpc_name, domain):
+            cell_id = cell_req_parser.get('cell_id')
+            return impl.cells(domain,
+                              vpc_name,
+                              cell_id)
+
+        @webutils.post_api(
+            api,
+            cors,
+            req_model=cell_model
+        )
+        def post(self, vpc_name, domain):
+            """Configure Treadmill CELL"""
+            return impl.configure(
+                vpc_name,
+                domain,
+                None,
+                flask.request.json
+            )
+
+    @namespace.route(
+        '/cell/vpc_name/<vpc_name>/domain/<domain>/cell_id/<cell_id>'
+    )
+    @api.doc(params={
+        'vpc_name': 'VPC Name',
+        'domain': 'Domain',
+        'cell_id': 'Cell(Subnet) ID'
+    })
+    class _CellCleaner(restplus.Resource):
+        """Treadmill CELL Delete"""
+        @webutils.delete_api(
+            api,
+            cors,
+        )
+        def delete(self, vpc_name, domain, cell_id):
+            """Delete Treadmill CELL"""
+            return impl.delete_cell(
+                vpc_name,
+                domain,
+                cell_id
+            )
 
     vpc_req_parser = api.parser()
     vpc_req_parser.add_argument('vpc_name', help='VPC Name',
@@ -189,44 +232,3 @@ def init(api, cors, impl):
             args = vpc_req_parser.parse_args()
             return impl.vpcs(args.get('domain', ''),
                              args.get('vpc_name', ''))
-
-    cell_req_parser = api.parser()
-    cell_req_parser.add_argument('cell_id', help='Cell Id',
-                                 location='args', required=False)
-    cell_req_parser.add_argument('domain', help='Domain',
-                                 location='args', required=True)
-    cell_req_parser.add_argument('vpc_name', help='VPC Name',
-                                 location='args', required=False)
-
-    @namespace.route('/cell')
-    class _Cell(restplus.Resource):
-        """Treadmill CELL"""
-
-        @webutils.get_api(
-            api,
-            cors,
-            parser=cell_req_parser
-        )
-        def get(self):
-            args = cell_req_parser.parse_args()
-            return impl.cells(args.get('domain', ''),
-                              args.get('vpc_name', ''),
-                              args.get('cell_id', ''))
-
-        @webutils.post_api(
-            api,
-            cors,
-            req_model=cell_model
-        )
-        def post(self):
-            """Configure Treadmill CELL"""
-            return impl.configure(flask.request.json)
-
-        @webutils.delete_api(
-            api,
-            cors,
-            req_model=cell_del_model
-        )
-        def delete(self):
-            """Delete Treadmill CELL"""
-            return impl.configure(flask.request.json)

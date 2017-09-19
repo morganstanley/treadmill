@@ -10,16 +10,17 @@ class API(object):
 
     def __init__(self):
 
-        def configure(args):
+        def configure(
+                vpc_name,
+                domain,
+                name,
+                args
+        ):
             role = args.pop('role').lower()
-            domain = args.pop('domain')
             default_mandatory_params = [
                 'role',
-                'vpc_name',
-                'domain',
                 'key',
                 'image',
-                'name',
                 'ipa_admin_password',
             ]
 
@@ -39,6 +40,8 @@ class API(object):
                 ):
                     _content = {}
                     _content[role] = _params
+                    _content[role]['vpc_name'] = vpc_name
+                    _content[role]['name'] = _content[role]['name'] or name
 
                     _manifest_file = role + '.yml'
                     _file_path = os.path.join('/tmp/', _manifest_file)
@@ -78,77 +81,62 @@ class API(object):
 
             _instantiate(_mandatory_params)
 
-        def delete_servers(args):
-            role = args.pop('role').lower()
-            default_mandatory_params = [
-                'role',
-                'vpc_name',
-                'domain',
-            ]
-
-            _params = dict(filter(
-                lambda item: item[1] is not None, args.items()
-            ))
-
-            def _validate_mandatory_params(_args):
-                _mandatory_args = dict(
-                    filter(
-                        lambda item: item[0] in _args,
-                        args.items()
-                    )
-                )
-                return None not in _mandatory_args.values()
-
-            def _node_params_exists():
-                _keys = _params.keys()
-                return ('instance_id' in _keys) or ('name' in _keys)
-
-            _mandatory_params = default_mandatory_params
-            default_command = [
+        def delete_server(
+                vpc_name,
+                domain,
+                name
+        ):
+            return subprocess.check_output([
                 'treadmill',
                 'admin',
                 'cloud',
                 '--domain',
-                _params['domain'],
+                domain,
                 'delete',
-                role,
+                'node',
                 '--vpc-name',
-                _params['vpc_name'],
-            ]
-            if role == 'node':
-                if _node_params_exists():
-                    default_command += [
-                        '--instance-id',
-                        _params['instance_id'],
-                        '--name',
-                        _params['name']
-                    ]
-                else:
-                    raise ValueError(
-                        'Either instance_id or name is required.'
-                    )
-            elif role == 'ldap':
-                _mandatory_params += ['subnet_id']
-                default_command += [
-                    '--subnet-id',
-                    _params['subnet_id'],
-                    '--name',
-                    _params['name']
-                ]
-            elif role == 'cell':
-                _mandatory_params += ['subnet_id']
-                default_command += [
-                    '--subnet-id',
-                    _params['subnet_id']
-                ]
+                vpc_name,
+                '--name',
+                name
+            ])
 
-            if _validate_mandatory_params(_mandatory_params):
-                subprocess.check_output(default_command)
-            else:
-                raise ValueError(
-                    ', '.join(_mandatory_params) +
-                    ' are mandatory arguments for ' + role + ' role.'
-                )
+        def delete_ldap(
+                vpc_name,
+                domain,
+                name
+        ):
+            return subprocess.check_output([
+                'treadmill',
+                'admin',
+                'cloud',
+                '--domain',
+                domain,
+                'delete',
+                'ldap',
+                '--vpc-name',
+                vpc_name,
+                '--name',
+                name
+            ])
+
+        def delete_cell(
+                vpc_name,
+                domain,
+                cell_id
+        ):
+            return subprocess.check_output([
+                'treadmill',
+                'admin',
+                'cloud',
+                '--domain',
+                domain,
+                'delete',
+                'cell',
+                '--vpc-name',
+                vpc_name,
+                '--subnet-id',
+                cell_id
+            ])
 
         def cells(domain, vpc_name, cell_id):
             _default_command = [
@@ -193,7 +181,9 @@ class API(object):
             return json.loads(result.decode('utf-8').replace("'", '"'))
 
         self.configure = configure
-        self.delete_servers = delete_servers
+        self.delete_server = delete_server
+        self.delete_ldap = delete_ldap
+        self.delete_cell = delete_cell
         self.cells = cells
         self.vpcs = vpcs
 
