@@ -27,15 +27,15 @@ class CloudTest(unittest.TestCase):
         self.patched.stop()
 
     @mock.patch('treadmill.cli.admin.cloud.vpc.VPC')
-    def test_init_vpc(self, vpc_mock):
+    def test_configure_vpc(self, vpc_mock):
         """
-        Test cloud init vpc
+        Test cloud configure vpc
         """
         vpc_mock.get_id_from_name = mock.Mock(return_value=None)
         result = self.runner.invoke(
             self.configure_cli, [
                 '--domain=test.treadmill',
-                'init',
+                'configure',
                 'vpc',
                 '--vpc-cidr-block=172.24.0.0/16',
                 '--secgroup_name=sg_common',
@@ -54,16 +54,16 @@ class CloudTest(unittest.TestCase):
         )
 
     @mock.patch('treadmill.cli.admin.cloud.vpc.VPC')
-    def test_init_vpc_with_duplicate_vpc_name(self, vpc_mock):
+    def test_configure_vpc_with_duplicate_vpc_name(self, vpc_mock):
         """
-        Test cloud init vpc
+        Test cloud configure vpc
         """
         vpc_mock.get_id_from_name = mock.Mock(return_value='some-vpc-id')
 
         result = self.runner.invoke(
             self.configure_cli, [
                 '--domain=test.treadmill',
-                'init',
+                'configure',
                 'vpc',
                 '--vpc-cidr-block=172.24.0.0/16',
                 '--secgroup_name=sg_common',
@@ -79,9 +79,9 @@ class CloudTest(unittest.TestCase):
     @mock.patch('treadmill.cli.admin.cloud.vpc.VPC')
     @mock.patch('treadmill.cli.admin.cloud.ldap.LDAP')
     @mock.patch('treadmill.cli.admin.cloud.cell.Cell')
-    def test_init_cell(self, cell_mock, ldap_mock, vpc_mock):
+    def test_configure_cell(self, cell_mock, ldap_mock, vpc_mock):
         """
-        Test cloud init cell
+        Test cloud configure cell
         """
         vpc_mock.get_id_from_name = mock.Mock(return_value=self.vpc_id_mock)
         cell = cell_mock()
@@ -90,7 +90,7 @@ class CloudTest(unittest.TestCase):
         result = self.runner.invoke(
             self.configure_cli, [
                 '--domain=treadmill.org',
-                'init',
+                'configure',
                 'cell',
                 '--key=key',
                 '--image=img-123',
@@ -147,9 +147,9 @@ class CloudTest(unittest.TestCase):
     @mock.patch('treadmill.cli.admin.cloud.vpc.VPC')
     @mock.patch('treadmill.cli.admin.cloud.ldap.LDAP')
     @mock.patch('treadmill.cli.admin.cloud.cell.Cell')
-    def test_init_cell_without_ldap(self, cell_mock, ldap_mock, vpc_mock):
+    def test_configure_cell_without_ldap(self, cell_mock, ldap_mock, vpc_mock):
         """
-        Test cloud init cell without ldap
+        Test cloud configure cell without ldap
         """
         vpc_mock.get_id_from_name = mock.Mock(return_value=self.vpc_id_mock)
         cell = cell_mock()
@@ -158,7 +158,7 @@ class CloudTest(unittest.TestCase):
         result = self.runner.invoke(
             self.configure_cli, [
                 '--domain=treadmill.org',
-                'init',
+                'configure',
                 'cell',
                 '--key=key',
                 '--image=img-123',
@@ -207,7 +207,7 @@ class CloudTest(unittest.TestCase):
         result = self.runner.invoke(
             self.configure_cli, [
                 '--domain=treadmill.org',
-                'init',
+                'configure',
                 'node',
                 '--key=key',
                 '--image=img-123',
@@ -234,16 +234,16 @@ class CloudTest(unittest.TestCase):
 
     @mock.patch('treadmill.cli.admin.cloud.vpc.VPC')
     @mock.patch('treadmill.cli.admin.cloud.ipa.IPA')
-    def test_init_domain(self, ipa_mock, vpc_mock):
+    def test_configure_domain(self, ipa_mock, vpc_mock):
         """
-        Test cloud init domain
+        Test cloud configure domain
         """
         vpc_mock.get_id_from_name = mock.Mock(return_value=self.vpc_id_mock)
         ipa = ipa_mock()
         result = self.runner.invoke(
             self.configure_cli, [
                 '--domain=test.treadmill',
-                'init',
+                'configure',
                 'domain',
                 '--ipa-admin-password=Tre@dmil1',
                 '--key=key',
