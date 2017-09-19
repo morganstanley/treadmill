@@ -166,7 +166,7 @@ class API(object):
                 else:
                     raise ValueError(
                         ', '.join(default_mandatory_params) +
-                        ' are mandatory arguments.'
+                        ' are mandatory arguments for ' + role + ' role .'
                     )
 
             _mandatory_params = []
@@ -210,23 +210,46 @@ class API(object):
                 _keys = _params.keys()
                 return ('instance_id' in _keys) or ('name' in _keys)
 
-            if _validate_mandatory_params(default_mandatory_params):
-                if role == 'node' and _node_params_exists():
-                    subprocess.check_output([
-                        'treadmill',
-                        'admin',
-                        'cloud',
-                        '--domain',
-                        _params['domain'],
-                        'delete',
-                        'node',
-                        '--vpc-name',
-                        _params['vpc_name'],
+            _mandatory_params = default_mandatory_params
+            default_command = [
+                'treadmill',
+                'admin',
+                'cloud',
+                '--domain',
+                _params['domain'],
+                'delete',
+                role,
+                '--vpc-name',
+                _params['vpc_name'],
+            ]
+            if role == 'node':
+                if _node_params_exists():
+                    default_command += [
                         '--instance-id',
                         _params['instance_id'],
                         '--name',
                         _params['name']
-                    ])
+                    ]
+                else:
+                    raise ValueError(
+                        'Either instance_id or name is required.'
+                    )
+            elif role == 'ldap':
+                _mandatory_params += ['subnet_id']
+                default_command += [
+                    '--subnet-id',
+                    _params['subnet_id'],
+                    '--name',
+                    _params['name']
+                ]
+
+            if _validate_mandatory_params(_mandatory_params):
+                subprocess.check_output(default_command)
+            else:
+                raise ValueError(
+                    ', '.join(_mandatory_params) +
+                    ' are mandatory arguments for ' + role + ' role.'
+                )
 
         self.add_host = add_host
         self.delete_host = delete_host

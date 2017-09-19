@@ -96,6 +96,18 @@ def init(api, cors, impl):
         'server', ldap_req_model
     )
 
+    ldap_del_req_model = {
+        'vpc_name': fields.String(description='VPC Name'),
+        'domain': fields.String(description='Domain'),
+        'role': fields.String(description='Role'),
+        'name': fields.String(description='LDAP Instance Name [OPTIONAL]'),
+        'subnet_id': fields.String(description='Subnet ID'),
+    }
+
+    ldap_del_model = api.model(
+        'server', ldap_del_req_model
+    )
+
     cell_req_model = {
         'vpc_name': fields.String(description='VPC Name'),
         'domain': fields.String(description='Domain'),
@@ -223,6 +235,15 @@ def init(api, cors, impl):
         def post(self):
             """Configure LDAP Server"""
             return impl.configure(flask.request.json)
+
+        @webutils.delete_api(
+            api,
+            cors,
+            req_model=ldap_del_model
+        )
+        def delete(self):
+            """Delete LDAP Server"""
+            return impl.delete_servers(flask.request.json)
 
     @namespace.route('/cell')
     class _Cell(restplus.Resource):
