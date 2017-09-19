@@ -267,8 +267,8 @@ class InstancesTest(unittest.TestCase):
                 {'Name': 'tag-value', 'Values': ['IPA']}
             ]
         )
-        self.assertIsInstance(result[0], Instance)
-        self.assertEquals(result[0].metadata, sample_instances[0])
+        self.assertIsInstance(result, Instances)
+        self.assertEquals(result.instances[0].metadata, sample_instances[0])
 
     @mock.patch('treadmill.infra.instances.connection.Connection')
     def test_get_by_roles_no_instance(self, ConnectionMock):
@@ -288,7 +288,9 @@ class InstancesTest(unittest.TestCase):
                 {'Name': 'tag-value', 'Values': ['IPA']}
             ]
         )
-        self.assertIsNone(result)
+
+        self.assertIsInstance(result, Instances)
+        self.assertEqual(result.instances, [])
 
     @mock.patch('treadmill.infra.instances.connection.Connection')
     def test_hostnames_by_roles(self, ConnectionMock):

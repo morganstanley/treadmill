@@ -24,6 +24,11 @@ class Instance(ec2object.EC2Object):
     def hostname(self):
         return self.name.lower() + '.' + connection.Connection.context.domain
 
+    @property
+    def subnet_id(self):
+        if self.metadata:
+            return self.metadata.get('SubnetId', None)
+
     def _get_private_ip(self):
         return self.metadata.get(
             'PrivateIpAddress',
@@ -111,16 +116,15 @@ class Instances:
                     'Values': roles
                 }
             ]
-        ).instances
-        if _instances:
-            return _instances
+        )
+        return _instances
 
     @classmethod
     def get_hostnames_by_roles(cls, vpc_id, roles):
         _instances = cls.get_by_roles(
             vpc_id=vpc_id,
             roles=roles
-        )
+        ).instances
         _hostnames = {}
         for _i in _instances:
             _hostnames[_i.role] = _i.hostname
