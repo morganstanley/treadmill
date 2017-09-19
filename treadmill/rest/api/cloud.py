@@ -49,12 +49,9 @@ def init(api, cors, impl):
     )
 
     ldap_req_model = {
-        'vpc_name': fields.String(description='VPC Name'),
-        'domain': fields.String(description='Domain'),
         'role': fields.String(description='Role'),
         'key': fields.String(description='Key'),
         'image': fields.String(description='Image'),
-        'name': fields.String(description='Instance Name'),
         'ipa_admin_password': fields.String(description='IPA Admin Password'),
         'cell_subnet_id': fields.String(description='Cell ID'),
         'region': fields.String(description='Region'),
@@ -72,8 +69,6 @@ def init(api, cors, impl):
     )
 
     cell_req_model = {
-        'vpc_name': fields.String(description='VPC Name'),
-        'domain': fields.String(description='Domain'),
         'role': fields.String(description='Role'),
         'key': fields.String(description='Key'),
         'image': fields.String(description='Image'),
@@ -173,7 +168,8 @@ def init(api, cors, impl):
             parser=cell_req_parser
         )
         def get(self, vpc_name, domain):
-            cell_id = cell_req_parser.get('cell_id')
+            args = cell_req_parser.parse_args()
+            cell_id = args.get('cell_id')
             return impl.cells(domain,
                               vpc_name,
                               cell_id)

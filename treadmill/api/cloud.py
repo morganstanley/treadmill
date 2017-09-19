@@ -41,7 +41,9 @@ class API(object):
                     _content = {}
                     _content[role] = _params
                     _content[role]['vpc_name'] = vpc_name
-                    _content[role]['name'] = _content[role]['name'] or name
+                    _content[role]['name'] = _content[role].get(
+                        'name', None
+                    ) or name
 
                     _manifest_file = role + '.yml'
                     _file_path = os.path.join('/tmp/', _manifest_file)

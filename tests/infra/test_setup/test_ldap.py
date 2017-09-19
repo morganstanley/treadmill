@@ -55,9 +55,9 @@ class LDAPTest(unittest.TestCase):
         )
 
         self.assertEqual(ldap.subnet.instances, instances_mock)
-        _ipa_api_mock.add_host.assert_called_with({
-            'hostname': 'ldap-1000.domain'
-        })
+        _ipa_api_mock.add_host.assert_called_with(
+            hostname='ldap-1000.domain'
+        )
         InstancesMock.get_hostnames_by_roles.assert_called_with(
             vpc_id=mock.ANY,
             roles=['IPA']

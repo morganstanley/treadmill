@@ -192,6 +192,7 @@ def init():
                   help='VPC name')
     @click.option('--region', help='Region for the vpc')
     @click.option('--key', required=True, help='SSH Key Name')
+    @click.option('--name', required=True, help='LDAP Instance Name')
     @click.option('--image', required=True,
                   help='Image to use for instances e.g. RHEL-7.4')
     @click.option('--instance-type',
@@ -215,6 +216,7 @@ def init():
                   mutually_exclusive=['region',
                                       'vpc_name',
                                       'key',
+                                      'name',
                                       'image',
                                       'instance_type',
                                       'tm_release',
@@ -225,7 +227,7 @@ def init():
                                       'ldap_cidr_block'],
                   help="Options YAML file. ")
     @click.pass_context
-    def configure_ldap(ctx, vpc_id, region, key, image,
+    def configure_ldap(ctx, vpc_id, region, key, name, image,
                        instance_type, tm_release, app_root,
                        ldap_cidr_block, ldap_subnet_id, cell_subnet_id,
                        ipa_admin_password, manifest):
@@ -237,7 +239,7 @@ def init():
         connection.Connection.context.domain = domain
 
         _ldap = ldap.LDAP(
-            name='TreadmillLDAP',
+            name=name,
             vpc_id=vpc_id,
         )
 
