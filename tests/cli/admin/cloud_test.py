@@ -11,7 +11,7 @@ class CloudTest(unittest.TestCase):
 
     def setUp(self):
         self.patched = mock.patch(
-            'treadmill.cli.cloud.pkg_resources.resource_string',
+            'treadmill.cli.admin.cloud.pkg_resources.resource_string',
             mock.Mock(return_value=b'0.1.0')
         )
         self.patched.start()
@@ -21,12 +21,12 @@ class CloudTest(unittest.TestCase):
         self.vpc_name = 'vpc-name'
         self.runner = click.testing.CliRunner()
         self.configure_cli = importlib.import_module(
-            'treadmill.cli.cloud').init()
+            'treadmill.cli.admin.cloud').init()
 
     def tearDown(self):
         self.patched.stop()
 
-    @mock.patch('treadmill.cli.cloud.vpc.VPC')
+    @mock.patch('treadmill.cli.admin.cloud.vpc.VPC')
     def test_init_vpc(self, vpc_mock):
         """
         Test cloud init vpc
@@ -53,7 +53,7 @@ class CloudTest(unittest.TestCase):
             secgroup_desc='Test',
         )
 
-    @mock.patch('treadmill.cli.cloud.vpc.VPC')
+    @mock.patch('treadmill.cli.admin.cloud.vpc.VPC')
     def test_init_vpc_with_duplicate_vpc_name(self, vpc_mock):
         """
         Test cloud init vpc
@@ -76,9 +76,9 @@ class CloudTest(unittest.TestCase):
         vpc_mock.get_id_from_name.assert_called_once_with(self.vpc_name)
         vpc_mock.setup.assert_not_called()
 
-    @mock.patch('treadmill.cli.cloud.vpc.VPC')
-    @mock.patch('treadmill.cli.cloud.ldap.LDAP')
-    @mock.patch('treadmill.cli.cloud.cell.Cell')
+    @mock.patch('treadmill.cli.admin.cloud.vpc.VPC')
+    @mock.patch('treadmill.cli.admin.cloud.ldap.LDAP')
+    @mock.patch('treadmill.cli.admin.cloud.cell.Cell')
     def test_init_cell(self, cell_mock, ldap_mock, vpc_mock):
         """
         Test cloud init cell
@@ -144,9 +144,9 @@ class CloudTest(unittest.TestCase):
             ipa_admin_password='ipa_pass',
         )
 
-    @mock.patch('treadmill.cli.cloud.vpc.VPC')
-    @mock.patch('treadmill.cli.cloud.ldap.LDAP')
-    @mock.patch('treadmill.cli.cloud.cell.Cell')
+    @mock.patch('treadmill.cli.admin.cloud.vpc.VPC')
+    @mock.patch('treadmill.cli.admin.cloud.ldap.LDAP')
+    @mock.patch('treadmill.cli.admin.cloud.cell.Cell')
     def test_init_cell_without_ldap(self, cell_mock, ldap_mock, vpc_mock):
         """
         Test cloud init cell without ldap
@@ -196,8 +196,8 @@ class CloudTest(unittest.TestCase):
 
         _ldap_mock.setup.assert_not_called()
 
-    @mock.patch('treadmill.cli.cloud.vpc.VPC')
-    @mock.patch('treadmill.cli.cloud.node.Node')
+    @mock.patch('treadmill.cli.admin.cloud.vpc.VPC')
+    @mock.patch('treadmill.cli.admin.cloud.node.Node')
     def test_add_node(self, NodeMock, vpc_mock):
         """
         Test add node
@@ -232,8 +232,8 @@ class CloudTest(unittest.TestCase):
             with_api=False,
         )
 
-    @mock.patch('treadmill.cli.cloud.vpc.VPC')
-    @mock.patch('treadmill.cli.cloud.ipa.IPA')
+    @mock.patch('treadmill.cli.admin.cloud.vpc.VPC')
+    @mock.patch('treadmill.cli.admin.cloud.ipa.IPA')
     def test_init_domain(self, ipa_mock, vpc_mock):
         """
         Test cloud init domain
@@ -265,8 +265,8 @@ class CloudTest(unittest.TestCase):
             subnet_id=None
         )
 
-    @mock.patch('treadmill.cli.cloud.vpc.VPC')
-    @mock.patch('treadmill.cli.cloud.ipa.IPA')
+    @mock.patch('treadmill.cli.admin.cloud.vpc.VPC')
+    @mock.patch('treadmill.cli.admin.cloud.ipa.IPA')
     def test_delete_domain(self, ipa_mock, vpc_mock):
         """
         Test cloud delete domain
@@ -289,8 +289,8 @@ class CloudTest(unittest.TestCase):
             subnet_id='sub-123'
         )
 
-    @mock.patch('treadmill.cli.cloud.vpc.VPC')
-    @mock.patch('treadmill.cli.cloud.node.Node')
+    @mock.patch('treadmill.cli.admin.cloud.vpc.VPC')
+    @mock.patch('treadmill.cli.admin.cloud.node.Node')
     def test_delete_node_by_instance_id(self, node_mock, vpc_mock):
         """
         Test cloud delete node
@@ -313,7 +313,7 @@ class CloudTest(unittest.TestCase):
             instance_id='instance-123'
         )
 
-    @mock.patch('treadmill.cli.cloud.vpc.VPC')
+    @mock.patch('treadmill.cli.admin.cloud.vpc.VPC')
     def test_list_all_vpc(self, vpc_mock):
         """
         Test cloud list all vpc
@@ -329,7 +329,7 @@ class CloudTest(unittest.TestCase):
         self.assertEqual(result.exit_code, 0)
         vpc_mock.all.assert_called_once()
 
-    @mock.patch('treadmill.cli.cloud.vpc.VPC')
+    @mock.patch('treadmill.cli.admin.cloud.vpc.VPC')
     def test_list_vpc(self, vpc_mock):
         """
         Test cloud list vpc
@@ -351,8 +351,8 @@ class CloudTest(unittest.TestCase):
                           mock.mock.call(id=self.vpc_id_mock))
         _vpc_mock.show.assert_called_once()
 
-    @mock.patch('treadmill.cli.cloud.vpc.VPC')
-    @mock.patch('treadmill.cli.cloud.subnet.Subnet')
+    @mock.patch('treadmill.cli.admin.cloud.vpc.VPC')
+    @mock.patch('treadmill.cli.admin.cloud.subnet.Subnet')
     def test_list_cell(self, subnet_mock, vpc_mock):
         """
         Test cloud list cell
@@ -397,8 +397,8 @@ class CloudTest(unittest.TestCase):
         self.assertEquals(result.exit_code, 0)
         self.assertEquals(_vpc_mock.list_cells.call_count, 3)
 
-        @mock.patch('treadmill.cli.cloud.vpc.VPC')
-        @mock.patch('treadmill.cli.cloud.subnet.Subnet')
+        @mock.patch('treadmill.cli.admin.cloud.vpc.VPC')
+        @mock.patch('treadmill.cli.admin.cloud.subnet.Subnet')
         def test_delete_cell(self, subnet_mock, vpc_mock):
             _vpc_mock = vpc_mock()
             _subnet_mock = subnet_mock()
