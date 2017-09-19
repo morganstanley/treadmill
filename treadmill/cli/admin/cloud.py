@@ -5,7 +5,7 @@ import logging
 import re
 import pkg_resources
 
-from .. import cli
+from treadmill import cli
 from treadmill import restclient
 from treadmill.infra import constants, connection, vpc, subnet
 from treadmill.infra.setup import ipa, ldap, node, cell
