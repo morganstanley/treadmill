@@ -576,7 +576,7 @@ def init():
     @click.option('--vpc-name', 'vpc_id',
                   callback=_convert_to_vpc_id,
                   required=True, help='VPC Name')
-    @click.option('--subnet-id', required=True, help='Subnet ID of LDAP')
+    @click.option('--subnet-id', help='Subnet ID of LDAP')
     @click.option('--name', help='Name of Instance',
                   default="TreadmillLDAP")
     @click.pass_context
