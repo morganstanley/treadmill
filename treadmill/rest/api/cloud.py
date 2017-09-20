@@ -168,6 +168,7 @@ def init(api, cors, impl):
             parser=cell_req_parser
         )
         def get(self, vpc_name, domain):
+            """CELL Info"""
             args = cell_req_parser.parse_args()
             cell_id = args.get('cell_id')
             return impl.cells(domain,
@@ -225,6 +226,7 @@ def init(api, cors, impl):
             parser=vpc_req_parser
         )
         def get(self):
+            """VPC Info"""
             args = vpc_req_parser.parse_args()
             return impl.vpcs(args.get('domain', ''),
                              args.get('vpc_name', ''))
