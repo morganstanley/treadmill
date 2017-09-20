@@ -8,15 +8,10 @@ import pkg_resources
 from treadmill.infra import constants, connection, vpc, subnet
 from treadmill.infra.setup import ipa, ldap, node, cell
 from treadmill.infra.utils import security_group, hosted_zones
-
-
-import yaml
-from click import Option, UsageError
+from treadmill.infra.utils import mutually_exclusive_option
 
 _LOGGER = logging.getLogger(__name__)
-
 _OPTIONS_FILE = 'manifest'
-
 _IPA_PASSWORD_RE = re.compile('.{8,}')
 
 
@@ -80,48 +75,6 @@ def init():
         else:
             raise click.BadParameter('No version specified in VERSION.txt')
 
-    class MutuallyExclusiveOption(Option):
-        def __init__(self, *args, **kwargs):
-            self.mutually_exclusive = set(kwargs.pop('mutually_exclusive', []))
-            help = kwargs.get('help', '')
-            if self.mutually_exclusive:
-                ex_str = ', '.join(self.mutually_exclusive)
-                kwargs['help'] = help + (
-                    ' NOTE: This argument is mutually exclusive with'
-                    ' arguments: [' + ex_str + '].'
-                )
-            super().__init__(*args, **kwargs)
-
-        def handle_parse_result(self, ctx, opts, args):
-            if self.mutually_exclusive.intersection(opts) and \
-               self.name in opts:
-                raise UsageError(
-                    "Illegal usage: `{}` is mutually exclusive with "
-                    "arguments `{}`.".format(
-                        self.name,
-                        ', '.join(self.mutually_exclusive)
-                    )
-                )
-            if self.name == _OPTIONS_FILE and self.name in opts:
-                _file = opts.pop(_OPTIONS_FILE)
-                for _param in ctx.command.params:
-                    opts[_param.name] = _param.default or \
-                        _param.value_from_envvar(ctx) or ''
-                with open(_file, 'r') as stream:
-                    data = yaml.load(stream)
-
-                _command_name = ctx.command.name
-                if data.get(_command_name, None):
-                    opts.update(data[_command_name])
-                else:
-                    raise click.BadParameter(
-                        'Manifest file should have %s scope' % _command_name
-                    )
-                opts['vpc_id'] = opts.pop('vpc_name')
-                ctx.params = opts
-
-            return super().handle_parse_result(ctx, opts, args)
-
     @click.group()
     @click.option('--domain', required=True,
                   envvar='TREADMILL_DNS_DOMAIN',
@@ -155,7 +108,7 @@ def init():
         callback=_validate_vpc_name
     )
     @click.option('-m', '--' + _OPTIONS_FILE,
-                  cls=MutuallyExclusiveOption,
+                  cls=mutually_exclusive_option.MutuallyExclusiveOption,
                   mutually_exclusive=['region',
                                       'vpc_cidr_block',
                                       'secgroup_desc',
@@ -212,7 +165,7 @@ def init():
                   envvar='TREADMILL_IPA_ADMIN_PASSWORD',
                   help='Password for IPA admin')
     @click.option('-m', '--' + _OPTIONS_FILE,
-                  cls=MutuallyExclusiveOption,
+                  cls=mutually_exclusive_option.MutuallyExclusiveOption,
                   mutually_exclusive=['region',
                                       'vpc_name',
                                       'key',
@@ -293,7 +246,7 @@ def init():
                   envvar='TREADMILL_IPA_ADMIN_PASSWORD',
                   help='Password for IPA admin')
     @click.option('-m', '--' + _OPTIONS_FILE,
-                  cls=MutuallyExclusiveOption,
+                  cls=mutually_exclusive_option.MutuallyExclusiveOption,
                   mutually_exclusive=['region',
                                       'vpc_name',
                                       'name',
@@ -403,7 +356,7 @@ def init():
     @click.option('--image', required=True,
                   help='Image to use for new master instance e.g. RHEL-7.4')
     @click.option('-m', '--' + _OPTIONS_FILE,
-                  cls=MutuallyExclusiveOption,
+                  cls=mutually_exclusive_option.MutuallyExclusiveOption,
                   mutually_exclusive=['region',
                                       'vpc_id',
                                       'name',
@@ -480,7 +433,7 @@ def init():
     @click.option('--with-api', required=False, is_flag=True,
                   default=False, help='Provision node with Treadmill APIs')
     @click.option('-m', '--' + _OPTIONS_FILE,
-                  cls=MutuallyExclusiveOption,
+                  cls=mutually_exclusive_option.MutuallyExclusiveOption,
                   mutually_exclusive=['region',
                                       'vpc_name',
                                       'name',
