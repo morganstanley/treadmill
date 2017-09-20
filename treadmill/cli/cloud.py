@@ -176,8 +176,8 @@ def init():
                        ipa_admin_password, manifest):
         """Configure Treadmill LDAP"""
         domain = ctx.obj['DOMAIN']
-        _url = '/cloud/ldap/vpc/' + vpc_name + '/domain/' + domain \
-               + '/name/' + name
+        _url = '/cloud/vpc/' + vpc_name + '/domain/' + domain \
+               + '/ldap/' + name
         cli.out(
             restclient.post(
                 api=ctx.obj.get('API'),
@@ -248,7 +248,7 @@ def init():
                        ipa_admin_password, manifest):
         """Configure Treadmill Cell"""
         domain = ctx.obj['DOMAIN']
-        _url = '/cloud/cell/vpc/' + vpc_name + '/domain/' + domain
+        _url = '/cloud/vpc/' + vpc_name + '/domain/' + domain + '/cell'
         cli.out(
             restclient.post(
                 api=ctx.obj.get('API'),
@@ -315,8 +315,8 @@ def init():
         """Configure new Node in Cell"""
 
         domain = ctx.obj['DOMAIN']
-        _url = '/cloud/server/vpc/' + vpc_name + '/domain/' + domain \
-               + '/name/' + name
+        _url = '/cloud/vpc/' + vpc_name + '/domain/' + domain \
+               + '/server/' + name
         cli.out(
             restclient.post(
                 api=ctx.obj.get('API'),
@@ -353,8 +353,8 @@ def init():
         """Delete LDAP"""
         domain = ctx.obj['DOMAIN']
 
-        _url = '/cloud/ldap/vpc/' + vpc_name + '/domain/' + domain \
-               + '/name/' + name
+        _url = '/cloud/vpc/' + vpc_name + '/domain/' + domain \
+               + '/ldap/' + name
         cli.out(
             restclient.post(
                 api=ctx.obj.get('API'),
@@ -372,8 +372,8 @@ def init():
         """Delete Cell"""
         domain = ctx.obj['DOMAIN']
 
-        _url = '/cloud/cell/vpc/' + vpc_name + '/domain/' + domain \
-               + '/cell_id/' + subnet_id
+        _url = '/cloud/vpc/' + vpc_name + '/domain/' + domain \
+               + '/cell/' + subnet_id
         cli.out(
             restclient.post(
                 api=ctx.obj.get('API'),
@@ -391,8 +391,8 @@ def init():
         """Delete Node"""
         domain = ctx.obj['DOMAIN']
 
-        _url = '/cloud/server/vpc/' + vpc_name + '/domain/' + domain \
-               + '/name/' + name
+        _url = '/cloud/vpc/' + vpc_name + '/domain/' + domain \
+               + '/server/' + name
         cli.out(
             restclient.post(
                 api=ctx.obj.get('API'),

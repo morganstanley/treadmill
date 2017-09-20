@@ -88,7 +88,7 @@ def init(api, cors, impl):
     )
 
     @namespace.route(
-        '/server/vpc/<vpc_name>/domain/<domain>/name/<name>'
+        '/vpc/<vpc_name>/domain/<domain>/server/<name>'
     )
     @api.doc(params={
         'vpc_name': 'VPC Name',
@@ -119,7 +119,7 @@ def init(api, cors, impl):
             )
 
     @namespace.route(
-        '/ldap/vpc/<vpc_name>/domain/<domain>/name/<name>'
+        '/vpc/<vpc_name>/domain/<domain>/ldap/<name>'
     )
     @api.doc(params={
         'vpc_name': 'VPC Name',
@@ -154,7 +154,7 @@ def init(api, cors, impl):
                                  location='args', required=False)
 
     @namespace.route(
-        '/cell/vpc_name/<vpc_name>/domain/<domain>'
+        '/vpc/<vpc_name>/domain/<domain>/cell'
     )
     @api.doc(params={
         'vpc_name': 'VPC Name',
@@ -190,7 +190,7 @@ def init(api, cors, impl):
             )
 
     @namespace.route(
-        '/cell/vpc_name/<vpc_name>/domain/<domain>/cell_id/<cell_id>'
+        '/vpc/<vpc_name>/domain/<domain>/cell/<cell_id>'
     )
     @api.doc(params={
         'vpc_name': 'VPC Name',
