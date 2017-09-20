@@ -1,11 +1,7 @@
 import click
-import os
-from pprint import pprint
 import logging
 
-from treadmill.infra import constants, connection, vpc, subnet
-from treadmill.infra.setup import ipa, ldap, node, cell
-from treadmill.infra.utils import security_group, hosted_zones
+from treadmill.infra import constants
 from treadmill.infra.utils import mutually_exclusive_option, cli_callbacks
 from treadmill import cli, restclient
 
@@ -339,6 +335,69 @@ def init():
                 },
                 headers={'Content-Type': 'application/json'}
             ).content
+        )
+
+    @cloud.group()
+    def delete():
+        """Delete Treadmill EC2 Objects"""
+        pass
+
+    @delete.command(name='ldap')
+    @click.option('--vpc-name',
+                  required=True, help='VPC Name')
+    @click.option('--name', help='LDAP Name',
+                  required=True,
+                  default="TreadmillLDAP")
+    @click.pass_context
+    def delete_ldap(ctx, vpc_name, name):
+        """Delete LDAP"""
+        domain = ctx.obj['DOMAIN']
+
+        _url = '/cloud/ldap/vpc/' + vpc_name + '/domain/' + domain \
+               + '/name/' + name
+        cli.out(
+            restclient.post(
+                api=ctx.obj.get('API'),
+                url=_url,
+            )
+        )
+
+    @delete.command(name='cell')
+    @click.option('--vpc-name',
+                  required=True, help='VPC Name')
+    @click.option('--subnet-id', help='Cell(Subnet) ID',
+                  required=True)
+    @click.pass_context
+    def delete_cell(ctx, vpc_name, subnet_id):
+        """Delete Cell"""
+        domain = ctx.obj['DOMAIN']
+
+        _url = '/cloud/cell/vpc/' + vpc_name + '/domain/' + domain \
+               + '/cell_id/' + subnet_id
+        cli.out(
+            restclient.post(
+                api=ctx.obj.get('API'),
+                url=_url,
+            )
+        )
+
+    @delete.command(name='node')
+    @click.option('--vpc-name',
+                  required=True, help='VPC Name')
+    @click.option('--name', help='Node Name',
+                  required=True)
+    @click.pass_context
+    def delete_node(ctx, vpc_name, name):
+        """Delete Node"""
+        domain = ctx.obj['DOMAIN']
+
+        _url = '/cloud/server/vpc/' + vpc_name + '/domain/' + domain \
+               + '/name/' + name
+        cli.out(
+            restclient.post(
+                api=ctx.obj.get('API'),
+                url=_url,
+            )
         )
 
     return cloud
