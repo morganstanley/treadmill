@@ -2,83 +2,23 @@ import os
 import click
 from pprint import pprint
 import logging
-import re
-import pkg_resources
 
 from treadmill.infra import constants, connection, vpc, subnet
 from treadmill.infra.setup import ipa, ldap, node, cell
 from treadmill.infra.utils import security_group, hosted_zones
-from treadmill.infra.utils import mutually_exclusive_option
+from treadmill.infra.utils import mutually_exclusive_option, cli_callbacks
 
 _LOGGER = logging.getLogger(__name__)
 _OPTIONS_FILE = 'manifest'
-_IPA_PASSWORD_RE = re.compile('.{8,}')
 
 
 def init():
     """Cloud CLI module"""
 
-    def _convert_to_vpc_id(ctx, param, value):
-        """Returns VPC ID from Name"""
-        if not value:
-            return value
-
-        return vpc.VPC.get_id_from_name(value)
-
-    def _validate_vpc_name(ctx, param, value):
-        _vpc_id = vpc.VPC.get_id_from_name(value)
-        if _vpc_id:
-            raise click.BadParameter(
-                'VPC %s already exists with name: %s' %
-                (_vpc_id, value)
-            )
-        else:
-            return value
-
-    def _validate_ipa_password(ctx, param, value):
-        """IPA admin password valdiation"""
-        value = value or click.prompt(
-            'IPA admin password ', hide_input=True, confirmation_prompt=True
-        )
-        if not _IPA_PASSWORD_RE.match(value):
-            raise click.BadParameter(
-                'Password must be greater than 8 characters.'
-            )
-        return value
-
-    def _validate_domain(ctx, param, value):
-        """Cloud domain validation"""
-
-        if value.count(".") != 1:
-            raise click.BadParameter('Valid domain like example.com')
-
-        return value
-
-    def _ipa_password_prompt(ctx, param, value):
-        """IPA admin password prompt"""
-        return value or click.prompt('IPA admin password ', hide_input=True)
-
-    def _current_release_version(ctx, param, value):
-        """Treadmill current release version"""
-        version = None
-
-        try:
-            version = pkg_resources.resource_string(
-                'treadmill',
-                'VERSION.txt'
-            )
-        except Exception:
-            pass
-
-        if version:
-            return version.decode('utf-8').strip()
-        else:
-            raise click.BadParameter('No version specified in VERSION.txt')
-
     @click.group()
     @click.option('--domain', required=True,
                   envvar='TREADMILL_DNS_DOMAIN',
-                  callback=_validate_domain,
+                  callback=cli_callbacks.validate_domain,
                   help='Domain for hosted zone')
     @click.pass_context
     def cloud(ctx, domain):
@@ -105,7 +45,7 @@ def init():
         '--name',
         required=True,
         help='VPC name',
-        callback=_validate_vpc_name
+        callback=cli_callbacks.validate_vpc_name
     )
     @click.option('-m', '--' + _OPTIONS_FILE,
                   cls=mutually_exclusive_option.MutuallyExclusiveOption,
@@ -141,7 +81,7 @@ def init():
     @configure.command(name='ldap')
     @click.option('--vpc-name', 'vpc_id',
                   required=True,
-                  callback=_convert_to_vpc_id,
+                  callback=cli_callbacks.convert_to_vpc_id,
                   help='VPC name')
     @click.option('--region', help='Region for the vpc')
     @click.option('--key', required=True, help='SSH Key Name')
@@ -152,7 +92,7 @@ def init():
                   default=constants.INSTANCE_TYPES['EC2']['micro'],
                   help='AWS ec2 instance type')
     @click.option('--tm-release',
-                  callback=_current_release_version,
+                  callback=cli_callbacks.current_release_version,
                   help='Treadmill release to use')
     @click.option('--app-root', default='/var/tmp',
                   help='Treadmill app root')
@@ -161,7 +101,8 @@ def init():
     @click.option('--ldap-subnet-id', help='Subnet ID for LDAP')
     @click.option('--cell-subnet-id', help='Subnet ID of Cell',
                   required=True)
-    @click.option('--ipa-admin-password', callback=_ipa_password_prompt,
+    @click.option('--ipa-admin-password',
+                  callback=cli_callbacks.ipa_password_prompt,
                   envvar='TREADMILL_IPA_ADMIN_PASSWORD',
                   help='Password for IPA admin')
     @click.option('-m', '--' + _OPTIONS_FILE,
@@ -216,7 +157,7 @@ def init():
     @configure.command(name='cell')
     @click.option('--vpc-name', 'vpc_id',
                   required=True,
-                  callback=_convert_to_vpc_id,
+                  callback=cli_callbacks.convert_to_vpc_id,
                   help='VPC Name')
     @click.option('--region', help='Region for the vpc')
     @click.option('--name', default='TreadmillMaster',
@@ -230,7 +171,7 @@ def init():
                   default=constants.INSTANCE_TYPES['EC2']['micro'],
                   help='AWS ec2 instance type')
     @click.option('--tm-release',
-                  callback=_current_release_version,
+                  callback=cli_callbacks.current_release_version,
                   help='Treadmill release to use')
     @click.option('--app-root', default='/var/tmp', help='Treadmill app root')
     @click.option('--cell-cidr-block', default='172.23.0.0/24',
@@ -242,7 +183,8 @@ def init():
                   help='Subnet ID for LDAP')
     @click.option('--without-ldap', required=False, is_flag=True,
                   default=False, help='Flag for LDAP Server')
-    @click.option('--ipa-admin-password', callback=_ipa_password_prompt,
+    @click.option('--ipa-admin-password',
+                  callback=cli_callbacks.ipa_password_prompt,
                   envvar='TREADMILL_IPA_ADMIN_PASSWORD',
                   help='Password for IPA admin')
     @click.option('-m', '--' + _OPTIONS_FILE,
@@ -337,17 +279,18 @@ def init():
                   help='Name of the instance')
     @click.option('--region', help='Region for the vpc')
     @click.option('--vpc-name', 'vpc_id',
-                  callback=_convert_to_vpc_id,
+                  callback=cli_callbacks.convert_to_vpc_id,
                   required=True, help='VPC Name')
     @click.option('--subnet-cidr-block', help='Cidr block of subnet for IPA',
                   default='172.23.2.0/24')
     @click.option('--subnet-id', help='Subnet ID')
     @click.option('--count', help='Count of the instances', default=1)
-    @click.option('--ipa-admin-password', callback=_validate_ipa_password,
+    @click.option('--ipa-admin-password',
+                  callback=cli_callbacks.validate_ipa_password,
                   envvar='TREADMILL_IPA_ADMIN_PASSWORD',
                   help='Password for IPA admin')
     @click.option('--tm-release',
-                  callback=_current_release_version,
+                  callback=cli_callbacks.current_release_version,
                   help='Treadmill Release')
     @click.option('--key', required=True, help='SSH key name')
     @click.option('--instance-type',
@@ -410,7 +353,7 @@ def init():
 
     @configure.command(name='node')
     @click.option('--vpc-name', 'vpc_id',
-                  callback=_convert_to_vpc_id,
+                  callback=cli_callbacks.convert_to_vpc_id,
                   required=True, help='VPC Name')
     @click.option('--region', help='Region for the vpc')
     @click.option('--name', default='TreadmillNode',
@@ -422,12 +365,13 @@ def init():
                   default=constants.INSTANCE_TYPES['EC2']['large'],
                   help='AWS ec2 instance type')
     @click.option('--tm-release',
-                  callback=_current_release_version,
+                  callback=cli_callbacks.current_release_version,
                   help='Treadmill release to use')
     @click.option('--app-root', default='/var/tmp/treadmill-node',
                   help='Treadmill app root')
     @click.option('--subnet-id', required=True, help='Subnet ID')
-    @click.option('--ipa-admin-password', callback=_ipa_password_prompt,
+    @click.option('--ipa-admin-password',
+                  callback=cli_callbacks.ipa_password_prompt,
                   envvar='TREADMILL_IPA_ADMIN_PASSWORD',
                   help='Password for IPA admin')
     @click.option('--with-api', required=False, is_flag=True,
@@ -486,7 +430,7 @@ def init():
 
     @delete.command(name='vpc')
     @click.option('--vpc-name', 'vpc_id',
-                  callback=_convert_to_vpc_id,
+                  callback=cli_callbacks.convert_to_vpc_id,
                   required=True, help='VPC Name')
     @click.pass_context
     def delete_vpc(ctx, vpc_id):
@@ -499,7 +443,7 @@ def init():
 
     @delete.command(name='cell')
     @click.option('--vpc-name', 'vpc_id',
-                  callback=_convert_to_vpc_id,
+                  callback=cli_callbacks.convert_to_vpc_id,
                   required=True, help='VPC Name')
     @click.option('--subnet-id', required=True, help='Subnet ID of cell')
     @click.pass_context
@@ -511,7 +455,7 @@ def init():
 
     @delete.command(name='domain')
     @click.option('--vpc-name', 'vpc_id',
-                  callback=_convert_to_vpc_id,
+                  callback=cli_callbacks.convert_to_vpc_id,
                   required=True, help='VPC Name')
     @click.option('--subnet-id', required=True, help='Subnet ID of IPA')
     @click.option('--name', help='Name of Instance',
@@ -527,7 +471,7 @@ def init():
 
     @delete.command(name='ldap')
     @click.option('--vpc-name', 'vpc_id',
-                  callback=_convert_to_vpc_id,
+                  callback=cli_callbacks.convert_to_vpc_id,
                   required=True, help='VPC Name')
     @click.option('--subnet-id', help='Subnet ID of LDAP')
     @click.option('--name', help='Name of Instance',
@@ -543,7 +487,7 @@ def init():
 
     @delete.command(name='node')
     @click.option('--vpc-name', 'vpc_id',
-                  callback=_convert_to_vpc_id,
+                  callback=cli_callbacks.convert_to_vpc_id,
                   required=True, help='VPC Name')
     @click.option('--name', help='Instance Name', required=False)
     @click.option('--instance-id', help='Instance ID', required=False)
@@ -567,7 +511,7 @@ def init():
 
     @_list.command(name='vpc')
     @click.option('--vpc-name', 'vpc_id',
-                  callback=_convert_to_vpc_id,
+                  callback=cli_callbacks.convert_to_vpc_id,
                   help='VPC Name')
     @click.pass_context
     def vpc_resources(ctx, vpc_id):
@@ -584,7 +528,7 @@ def init():
 
     @_list.command(name='cell')
     @click.option('--vpc-name', 'vpc_id',
-                  callback=_convert_to_vpc_id,
+                  callback=cli_callbacks.convert_to_vpc_id,
                   help='VPC Name')
     @click.option('--subnet-id', help='Subnet ID of cell')
     @click.pass_context
