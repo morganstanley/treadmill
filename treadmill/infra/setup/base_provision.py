@@ -70,9 +70,32 @@ class BaseProvision:
             role=self.role
         )
 
-    def destroy(self, subnet_id):
-        self.subnet = subnet.Subnet(id=subnet_id)
-        self.subnet.destroy(role=self.role)
+    def destroy(self, subnet_id=None):
+        if subnet_id:
+            self.subnet = subnet.Subnet(id=subnet_id)
+            self.subnet.destroy(role=self.role)
+        else:
+            _instances = instances.Instances.get_by_roles(
+                vpc_id=self.id,
+                roles=[self.role]
+            )
+
+            _instances.terminate()
+
+            lambda _i: subnet.Subnet(
+                id=_i.subnet_id, role=self.role
+            ).destroy(), _instances.instances
 
     def show(self):
         return self.subnet.show()
+
+    def _hostname_cluster(self, count):
+        _hostnames = {}
+
+        for _idx in range(0, count):
+            _idx_s = str(_idx + 1)
+            _hostnames[
+                self.name + _idx_s + '.' + connection.Connection.context.domain
+            ] = _idx_s
+
+        return _hostnames

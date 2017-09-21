@@ -6,17 +6,20 @@ import unittest
 import mock
 
 from treadmill.infra.setup.ipa import IPA
+from treadmill.infra import constants
 
 
 class IPATest(unittest.TestCase):
     """Tests EC2 ipa setup."""
 
+    @mock.patch('treadmill.infra.get_iam_role')
     @mock.patch('treadmill.infra.configuration.IPA')
     @mock.patch('treadmill.infra.connection.Connection')
     @mock.patch('treadmill.infra.vpc.VPC')
     @mock.patch('treadmill.infra.instances.Instances')
     def test_setup_ipa(self, InstancesMock,
-                       VPCMock, ConnectionMock, IPAConfigurationMock):
+                       VPCMock, ConnectionMock, IPAConfigurationMock,
+                       get_iam_role_mock):
         ConnectionMock.context.domain = 'foo.bar'
         instance_mock = mock.Mock(private_ip='1.1.1.1')
         instance_mock.name = 'ipa'
@@ -64,6 +67,11 @@ class IPATest(unittest.TestCase):
             tm_release='release',
             ipa_admin_password='ipa-admin-password',
             instance_type='small'
+        )
+
+        get_iam_role_mock.assert_called_once_with(
+            name=constants.EC2_IAM_ROLE,
+            create=True
         )
 
         _vpc_mock.associate_dhcp_options.assert_called_once_with([{

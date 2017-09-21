@@ -1,34 +1,45 @@
 from treadmill.infra.setup import base_provision
-from treadmill.infra import configuration, constants, instances
+from treadmill.infra import configuration, constants, instances, connection
+import time
+from treadmill.api import ipa
 
 
 class Node(base_provision.BaseProvision):
     def setup(
             self,
             image,
-            count,
             key,
             tm_release,
             instance_type,
             app_root,
-            ldap_hostname,
             subnet_id,
-            ipa_admin_password,
             with_api,
+            ipa_admin_password
     ):
+        self.name = self.name + '-' + str(time.time())
+        self.hostname = self.name + '.' + connection.Connection.context.domain
+        ldap_hostname = instances.Instances.get_hostnames_by_roles(
+            vpc_id=self.vpc.id,
+            roles=[
+                constants.ROLES['LDAP'],
+            ]
+        )[constants.ROLES['LDAP']]
+
+        otp = ipa.API().add_host(hostname=self.hostname)
         self.configuration = configuration.Node(
-            name=self.name,
             tm_release=tm_release,
             app_root=app_root,
             subnet_id=subnet_id,
             ldap_hostname=ldap_hostname,
-            ipa_admin_password=ipa_admin_password,
+            otp=otp,
             with_api=with_api,
+            hostname=self.hostname,
+            ipa_admin_password=ipa_admin_password
         )
         self.subnet_name = constants.TREADMILL_CELL_SUBNET_NAME
         super().setup(
             image=image,
-            count=count,
+            count=1,
             subnet_id=subnet_id,
             key=key,
             instance_type=instance_type
