@@ -149,6 +149,7 @@ class InstancesTest(unittest.TestCase):
                 'DeviceIndex': 0
             }],
             UserData='',
+            IamInstanceProfile={}
         )
         conn_mock.describe_instances.assert_called_with(
             InstanceIds=[1, 2]

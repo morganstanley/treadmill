@@ -157,7 +157,10 @@ class Instances:
                 'SubnetId': subnet_id,
                 'Groups': secgroup_ids,
                 'AssociatePublicIpAddress': True
-            }]
+            }],
+            IamInstanceProfile={
+                'Name': constants.EC2_IAM_ROLE
+            } if role == 'IPA' else {}
         )
 
         _ids = [i['InstanceId'] for i in _instances['Instances']]

@@ -1,3 +1,4 @@
+import treadmill
 from treadmill.infra.setup import base_provision
 from treadmill.infra import configuration, constants
 import polling
@@ -20,6 +21,10 @@ class IPA(base_provision.BaseProvision):
             instance_type,
             subnet_id=None
     ):
+        treadmill.infra.get_iam_role(
+            name=constants.EC2_IAM_ROLE,
+            create=True
+        )
 
         self.configuration = configuration.IPA(
             name=self.name,
