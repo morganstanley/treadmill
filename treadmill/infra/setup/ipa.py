@@ -22,7 +22,7 @@ class IPA(base_provision.BaseProvision):
             subnet_id=None
     ):
         treadmill.infra.get_iam_role(
-            name=constants.EC2_IAM_ROLE,
+            name=constants.IPA_EC2_IAM_ROLE,
             create=True
         )
 

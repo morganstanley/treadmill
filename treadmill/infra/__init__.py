@@ -21,6 +21,10 @@ def create_iam_role(name, description=''):
         AssumeRolePolicyDocument=assume_role_policy_document,
         Description=description
     )
+    iam_conn.attach_role_policy(
+        RoleName=name,
+        PolicyArn='arn:aws:iam::aws:policy/AmazonEC2FullAccess'
+    )
     iam_conn.create_instance_profile(
         InstanceProfileName=name
     )
