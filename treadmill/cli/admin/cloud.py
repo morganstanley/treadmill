@@ -567,22 +567,33 @@ def init():
         pass
 
     @port.command(name='enable')
+    @click.option(
+        '-a', '--anywhere', is_flag=True,
+        default=True,
+        help='From Anywhere?'
+    )
     @click.option('--protocol', help='Protocol', default='tcp')
     @click.option('-p', '--port', required=True, help='Port')
     @click.option('-s', '--security-group-id', required=True,
                   help='Security Group ID')
-    def enable_port(security_group_id, port, protocol):
+    def enable_port(security_group_id, port, protocol, anywhere):
         """Enable Port from my ip"""
-        security_group.enable(port, security_group_id, protocol)
+        security_group.enable(port, security_group_id, protocol, anywhere)
 
     @port.command(name='disable')
+    @click.option(
+        '-a', '--anywhere',
+        is_flag=True,
+        default=True,
+        help='From Anywhere?'
+    )
     @click.option('--protocol', help='Protocol', default='tcp')
     @click.option('-p', '--port', required=True, help='Port')
     @click.option('-s', '--security-group-id', required=True,
                   help='Security Group ID')
-    def disable_port(security_group_id, port, protocol):
+    def disable_port(security_group_id, port, protocol, anywhere):
         """Disable Port from my ip"""
-        security_group.disable(port, security_group_id, protocol)
+        security_group.disable(port, security_group_id, protocol, anywhere)
 
     @cloud.command(name='delete-hosted-zone')
     @click.option('--zones-to-retain', required=True,

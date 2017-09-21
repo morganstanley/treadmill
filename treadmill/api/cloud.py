@@ -72,7 +72,6 @@ class API(object):
             if role == 'node':
                 _mandatory_params = [
                     'subnet_id',
-                    'ldap_hostname'
                 ]
             elif role == 'ldap':
                 _mandatory_params = [

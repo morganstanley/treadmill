@@ -30,11 +30,12 @@ def init(api, cors, impl):
     )
 
     server_req_model = {
-        'role': fields.String(description='Role'),
-        'key': fields.String(description='Key'),
-        'image': fields.String(description='Image'),
-        'ipa_admin_password': fields.String(description='IPA Admin Password'),
-        'subnet_id': fields.String(description='Cell ID'),
+        'role': fields.String(description='Role', required=True),
+        'key': fields.String(description='Key', required=True),
+        'image': fields.String(description='Image', required=True),
+        'ipa_admin_password': fields.String(description='IPA Admin Password',
+                                            required=True),
+        'subnet_id': fields.String(description='Cell ID', required=True),
         'region': fields.String(description='Region'),
         'with_api': fields.String(description='With API Flag'),
         'instance_type': fields.String(description='Instance Type'),
@@ -49,11 +50,12 @@ def init(api, cors, impl):
     )
 
     ldap_req_model = {
-        'role': fields.String(description='Role'),
-        'key': fields.String(description='Key'),
-        'image': fields.String(description='Image'),
-        'ipa_admin_password': fields.String(description='IPA Admin Password'),
-        'cell_subnet_id': fields.String(description='Cell ID'),
+        'role': fields.String(description='Role', required=True),
+        'key': fields.String(description='Key', required=True),
+        'image': fields.String(description='Image', required=True),
+        'ipa_admin_password': fields.String(description='IPA Admin Password',
+                                            required=True),
+        'cell_subnet_id': fields.String(description='Cell ID', required=True),
         'region': fields.String(description='Region'),
         'ldap_subnet_id': fields.String(description='LDAP Subnet ID'),
         'ldap_cidr_block': fields.String(description='LDAP CIDR Block'),
@@ -69,11 +71,12 @@ def init(api, cors, impl):
     )
 
     cell_req_model = {
-        'role': fields.String(description='Role'),
-        'key': fields.String(description='Key'),
-        'image': fields.String(description='Image'),
+        'role': fields.String(description='Role', required=True),
+        'key': fields.String(description='Key', required=True),
+        'image': fields.String(description='Image', required=True),
+        'ipa_admin_password': fields.String(description='IPA Admin Password',
+                                            required=True),
         'region': fields.String(description='Region'),
-        'ipa_admin_password': fields.String(description='IPA Admin Password'),
         'instance_type': fields.String(description='Instance Type'),
         'tm_release': fields.String(
             description='Treadmill Release URL/Version'
