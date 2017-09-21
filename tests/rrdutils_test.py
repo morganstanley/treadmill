@@ -1,5 +1,4 @@
-"""
-Unit test for Treadmill rrdutils module.
+"""Unit test for Treadmill rrdutils module.
 """
 
 import getopt
@@ -51,7 +50,7 @@ class RrdUtilsTest(unittest.TestCase):
         shutil.rmtree(self.outdir, ignore_errors=True)
 
     @mock.patch('treadmill.subproc.check_output')
-    @mock.patch('subprocess.check_output')
+    @mock.patch('treadmill.rrdutils.subprocess.check_output')
     def test_first(self, subprocess_mock, subproc_mock):
         """Test the function that returns the first ts in the designated RRA.
         """

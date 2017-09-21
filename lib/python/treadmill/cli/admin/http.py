@@ -1,5 +1,10 @@
 """Implementation of treadmill-admin CLI plugin."""
 from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
+import io
 
 import click
 
@@ -43,8 +48,8 @@ def init():
     @cli.handle_exceptions(restclient.CLI_REST_EXCEPTIONS)
     def post(path, payload):
         """REST POST request."""
-        with open(payload, 'rb') as fd:
-            request = yaml.load(fd.read())
+        with io.open(payload, 'rb') as fd:
+            request = yaml.load(stream=fd)
         response = restclient.post(ctx['api'], path, payload=request)
 
         formatter = cli.make_formatter(None)
@@ -56,8 +61,8 @@ def init():
     @cli.handle_exceptions(restclient.CLI_REST_EXCEPTIONS)
     def put(path, payload):
         """REST PUT request."""
-        with open(payload, 'rb') as fd:
-            request = yaml.load(fd.read())
+        with io.open(payload, 'rb') as fd:
+            request = yaml.load(stream=fd)
         response = restclient.put(ctx['api'], path, payload=request)
 
         formatter = cli.make_formatter(None)

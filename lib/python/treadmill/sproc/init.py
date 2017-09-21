@@ -6,7 +6,11 @@ responsible for publishing the node's capacity to the scheduler.
 This service is also responsible for shutting down the node, when necessary or
 requested, by disabling all traffic from and to the containers.
 """
+
 from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import logging
 import os
@@ -17,8 +21,8 @@ import kazoo
 
 from treadmill import appenv
 from treadmill import context
-from treadmill import exc
 from treadmill import netdev
+from treadmill import postmortem
 from treadmill import supervisor
 from treadmill import sysinfo
 from treadmill import utils
@@ -40,9 +44,10 @@ def init():
     @click.option('--zkid', help='Zookeeper session ID file.')
     @click.option('--approot', type=click.Path(exists=True),
                   envvar='TREADMILL_APPROOT', required=True)
-    def top(exit_on_fail, zkid, approot):
+    @click.option('--runtime', envvar='TREADMILL_RUNTIME', required=True)
+    def top(exit_on_fail, zkid, approot, runtime):
         """Run treadmill init process."""
-        _LOGGER.info('Initializing Treadmill: %s', approot)
+        _LOGGER.info('Initializing Treadmill: %s (%s)', approot, runtime)
 
         tm_env = appenv.AppEnvironment(approot)
         zkclient = zkutils.connect(context.GLOBAL.zk.url,
@@ -52,7 +57,7 @@ def init():
         utils.report_ready()
 
         while not zkclient.exists(z.SERVER_PRESENCE):
-            _LOGGER.warn('namespace not ready.')
+            _LOGGER.warning('namespace not ready.')
             time.sleep(30)
 
         hostname = sysinfo.hostname()
@@ -62,7 +67,7 @@ def init():
         zk_server_path = z.path.server(hostname)
 
         while not zkclient.exists(zk_server_path):
-            _LOGGER.warn('server %s not defined in the cell.', hostname)
+            _LOGGER.warning('server %s not defined in the cell.', hostname)
             time.sleep(30)
 
         _LOGGER.info('Checking blackout list.')
@@ -70,7 +75,7 @@ def init():
 
         if not blacklisted:
             # Node startup.
-            _node_start(tm_env, zkclient, hostname,
+            _node_start(tm_env, runtime, zkclient, hostname,
                         zk_server_path, zk_presence_path)
 
             # Cleanup the watchdog directory
@@ -84,7 +89,6 @@ def init():
 
             if down_reason is not None:
                 _LOGGER.warning('Shutting down: %s', down_reason)
-
                 # Blackout the server.
                 zkutils.ensure_exists(
                     zkclient,
@@ -92,6 +96,13 @@ def init():
                     acl=[zkutils.make_host_acl(hostname, 'rwcda')],
                     data=down_reason
                 )
+                trigger_postmortem = True
+            else:
+                # Blacked out manually
+                trigger_postmortem = bool(zkclient.exists(zk_blackout_path))
+
+            if trigger_postmortem:
+                postmortem.run(approot)
 
         else:
             # Node was already blacked out.
@@ -126,20 +137,26 @@ def _blackout_terminate(tm_env):
     if os.name == 'posix':
         # XXX: This should be replaced with a supervisor module call hidding
         #      away all s6 related stuff
+        monitor_dir = os.path.join(tm_env.init_dir, 'monitor')
         supervisor_dir = os.path.join(tm_env.init_dir, 'supervisor')
         cleanupd_dir = os.path.join(tm_env.init_dir, 'cleanup')
 
-        # we first shutdown cleanup so link in /var/tmp/treadmill/cleanup
+        # We first shutdown the monitoring service.
+        _LOGGER.info('Shutting down monitor service')
+        supervisor.control_service(monitor_dir,
+                                   supervisor.ServiceControlAction.down,
+                                   wait=supervisor.ServiceWaitAction.down)
+        # Then we shutdown cleanup so link in /var/tmp/treadmill/cleanup
         # will not be recycled before blackout clear
-        _LOGGER.info('try to shutdown cleanup service')
+        _LOGGER.info('Shutting down cleanup service')
         supervisor.control_service(cleanupd_dir,
                                    supervisor.ServiceControlAction.down,
                                    wait=supervisor.ServiceWaitAction.down)
-
         # shutdown all the applications by shutting down supervisor
-        _LOGGER.info('try to shutdown supervisor')
+        _LOGGER.info('Shutting down supervisor')
         supervisor.control_service(supervisor_dir,
                                    supervisor.ServiceControlAction.down)
+
     else:
         # TODO: Implement terminating containers on windows
         pass
@@ -165,7 +182,7 @@ def _cleanup_network():
     netdev.dev_conf_forwarding_set('tm0', False)
 
 
-def _node_start(tm_env, zkclient, hostname,
+def _node_start(tm_env, runtime, zkclient, hostname,
                 zk_server_path, zk_presence_path):
     """Node startup. Try to re-establish old session or start fresh.
     """
@@ -183,17 +200,17 @@ def _node_start(tm_env, zkclient, hostname,
         _LOGGER.info('%s does not exist.', zk_presence_path)
 
     if not old_session_ok:
-        _node_initialize(tm_env,
+        _node_initialize(tm_env, runtime,
                          zkclient, hostname,
                          zk_server_path, zk_presence_path)
 
 
-def _node_initialize(tm_env, zkclient, hostname,
+def _node_initialize(tm_env, runtime, zkclient, hostname,
                      zk_server_path, zk_presence_path):
     """Node initialization. Should only be done on a cold start.
     """
     try:
-        new_node_info = sysinfo.node_info(tm_env)
+        new_node_info = sysinfo.node_info(tm_env, runtime)
 
         # Merging scheduler data with node_info data
         node_info = zkutils.get(zkclient, zk_server_path)
@@ -236,7 +253,7 @@ def _main_loop(tm_env, zkclient, zk_presence_path):
     node_deleted_event.clear()
 
     @zkclient.DataWatch(zk_presence_path)
-    @exc.exit_on_unhandled
+    @utils.exit_on_unhandled
     def _exit_on_delete(data, _stat, event):
         """Force exit if server node is deleted."""
         if (data is None or

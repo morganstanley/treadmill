@@ -1,19 +1,24 @@
-"""Watch for application state transitions."""
+"""Watch for application state transitions.
+"""
 
 from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import collections
 import fnmatch
+import io
 import logging
-import tempfile
 import os
 import sqlite3
-import zlib
+import tempfile
 import time
+import zlib
 
 import kazoo
 
-from treadmill import exc
+from treadmill import utils
 from treadmill import zknamespace as z
 from treadmill import zkutils
 
@@ -47,7 +52,7 @@ class AppTrace(object):
 
         # Setup the instance ID's scheduled status watch
         @self.zk.DataWatch(scheduled_node)
-        @exc.exit_on_unhandled
+        @utils.exit_on_unhandled
         def _watch_scheduled(data, stat, event):
             """Called when app scheduled node is modified.
             """
@@ -71,13 +76,14 @@ class AppTrace(object):
 
         try:
             @self.zk.ChildrenWatch(trace_node)
-            @exc.exit_on_unhandled
+            @utils.exit_on_unhandled
             def _watch_trace_events(event_nodes):
-                """Process new children events."""
+                """Process new children events.
+                """
                 self._process_events(event_nodes, ctx)
                 return not snapshot
         except kazoo.client.NoNodeError:
-            _LOGGER.warn('Trace does not exist: %s', self.instanceid)
+            _LOGGER.warning('Trace does not exist: %s', self.instanceid)
             self._is_done.set()
             return
 
@@ -89,7 +95,8 @@ class AppTrace(object):
         return self._is_done.wait(timeout=timeout)
 
     def _process_db_events(self, ctx):
-        """Process events from trace db snapshots."""
+        """Process events from trace db snapshots.
+        """
         for node in self.zk.get_children(z.TRACE_HISTORY):
             node_path = z.path.trace_history(node)
             _LOGGER.debug('Checking trace db snapshot: %s', node_path)
@@ -112,7 +119,8 @@ class AppTrace(object):
             os.unlink(f.name)
 
     def _process_events(self, events, ctx):
-        """Parse, sort, filter, deduplicate and process events."""
+        """Parse, sort, filter, deduplicate and process events.
+        """
         events = sorted(tuple(event.split(',')) for event in events)
 
         for event in events:
@@ -134,7 +142,8 @@ class AppTrace(object):
 
     def _process_event(self, instanceid, timestamp, source, event_type,
                        event_data, ctx):
-        """Process event of given type."""
+        """Process event of given type.
+        """
         # Master events.
         event = traceevents.AppTraceEvent.from_data(
             timestamp=timestamp,
@@ -148,7 +157,8 @@ class AppTrace(object):
 
 
 def list_traces(zkclient, app_pattern):
-    """List all available traces for given app name."""
+    """List all available traces for given app name.
+    """
     if '#' not in app_pattern:
         app_pattern += '#*'
 
@@ -185,7 +195,8 @@ def list_traces(zkclient, app_pattern):
 
 
 def _upload_batch(zkclient, db_node_path, table, batch):
-    """Generate snapshot DB and upload to zk."""
+    """Generate snapshot DB and upload to zk.
+    """
     with tempfile.NamedTemporaryFile(delete=False) as f:
         pass
 
@@ -214,7 +225,7 @@ def _upload_batch(zkclient, db_node_path, table, batch):
         )
     conn.close()
 
-    with open(f.name, 'rb') as f:
+    with io.open(f.name, 'rb') as f:
         db_node = zkutils.create(
             zkclient, db_node_path, zlib.compress(f.read()),
             sequence=True
@@ -232,7 +243,8 @@ def _upload_batch(zkclient, db_node_path, table, batch):
 
 
 def prune_trace(zkclient, max_count):
-    """Prune trace. Cleanup service (running/exited) events."""
+    """Prune trace. Cleanup service (running/exited) events.
+    """
     shards = zkclient.get_children(z.TRACE)
     for shard in shards:
         service_events = collections.Counter()
@@ -262,7 +274,8 @@ def prune_trace(zkclient, max_count):
 
 
 def cleanup_trace(zkclient, batch_size, expires_after):
-    """Move expired traces into history folder, compressed as sqlite db."""
+    """Move expired traces into history folder, compressed as sqlite db.
+    """
     scheduled = zkclient.get_children(z.SCHEDULED)
     shards = zkclient.get_children(z.TRACE)
     traces = []
@@ -278,7 +291,7 @@ def cleanup_trace(zkclient, batch_size, expires_after):
     # Sort traces from older to latest.
     traces.sort()
 
-    for idx in xrange(0, len(traces), batch_size):
+    for idx in range(0, len(traces), batch_size):
         # Take a slice of batch_size
         batch = traces[idx:idx + batch_size]
         if len(batch) < batch_size:
@@ -301,7 +314,8 @@ def cleanup_trace(zkclient, batch_size, expires_after):
 
 
 def cleanup_finished(zkclient, batch_size, expires_after):
-    """Move expired finished events into finished history."""
+    """Move expired finished events into finished history.
+    """
 
     expired = []
     for finished in zkclient.get_children(z.FINISHED):
@@ -311,7 +325,7 @@ def cleanup_finished(zkclient, batch_size, expires_after):
             expired.append((node_path, metadata.last_modified, data,
                             z.FINISHED, finished))
 
-    for idx in xrange(0, len(expired), batch_size):
+    for idx in range(0, len(expired), batch_size):
         batch = expired[idx:idx + batch_size]
         if len(batch) < batch_size:
             _LOGGER.info('Finished: batch = %s, total = %s, exiting.',
@@ -327,7 +341,8 @@ def cleanup_finished(zkclient, batch_size, expires_after):
 
 
 def _cleanup(zkclient, path, max_count):
-    """Cleanup old nodes given path."""
+    """Cleanup old nodes given path.
+    """
     nodes = sorted(zkclient.get_children(path))
     extra = len(nodes) - max_count
     if extra > 0:
@@ -337,10 +352,12 @@ def _cleanup(zkclient, path, max_count):
 
 
 def cleanup_trace_history(zkclient, max_count):
-    """Cleanup trace history."""
+    """Cleanup trace history.
+    """
     _cleanup(zkclient, z.TRACE_HISTORY, max_count)
 
 
 def cleanup_finished_history(zkclient, max_count):
-    """Cleanup trace history."""
+    """Cleanup trace history.
+    """
     _cleanup(zkclient, z.FINISHED_HISTORY, max_count)

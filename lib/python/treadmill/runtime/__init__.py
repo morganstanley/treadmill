@@ -11,6 +11,7 @@ import tempfile
 import json
 
 from treadmill import exc
+from treadmill import fs
 from treadmill import utils
 from treadmill import plugin_manager
 
@@ -63,7 +64,7 @@ def load_app(container_dir, app_json=STATE_JSON):
         if err.errno != errno.ENOENT:
             raise
 
-        _LOGGER.critical('Manifest file does not exit: %r', manifest_file)
+        _LOGGER.critical('Manifest file does not exist: %r', manifest_file)
         return None
 
 
@@ -71,15 +72,16 @@ def save_app(manifest, container_dir, app_json=STATE_JSON):
     """Saves app manifest and freezes to object."""
     # Save the manifest with allocated vip and ports in the state
     state_file = os.path.join(container_dir, app_json)
-    with tempfile.NamedTemporaryFile(dir=container_dir,
-                                     delete=False) as temp_file:
-        json.dump(manifest, temp_file)
-        # chmod for the file to be world readable.
-        os.fchmod(
-            temp_file.fileno(),
+    fs.write_safe(
+        state_file,
+        lambda f: json.dump(manifest, f)
+    )
+    # chmod for the file to be world readable.
+    if os.name == 'posix':
+        os.chmod(
+            state_file,
             stat.S_IWUSR | stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH
         )
-    os.rename(temp_file.name, state_file)
 
     # Freeze the app data into a namedtuple object
     return utils.to_obj(manifest)

@@ -1,8 +1,12 @@
 """Implementation of treadmill admin master CLI plugin.
 """
 
+from __future__ import division
 from __future__ import absolute_import
+from __future__ import unicode_literals
 from __future__ import print_function
+
+import io
 
 import click
 
@@ -115,8 +119,8 @@ def app_group(parent):
     @cli.admin.ON_EXCEPTIONS
     def schedule(app, manifest, count, env, proid):
         """Schedule app(s) on the cell master"""
-        with open(manifest, 'rb') as fd:
-            data = yaml.load(fd.read())
+        with io.open(manifest, 'rb') as fd:
+            data = yaml.load(stream=fd)
         # TODO: should we delete all potential attributes starting
         #                with _ ?
         if '_id' in data:

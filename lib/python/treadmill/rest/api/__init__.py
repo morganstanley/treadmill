@@ -1,5 +1,8 @@
 """Treadmill REST APIs"""
 from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import os
 import logging
@@ -25,8 +28,8 @@ __path__ = pkgutil.extend_path(__path__, __name__)
 _LOGGER = logging.getLogger(__name__)
 
 
-def init(apis, title=None, cors_origin=None, authz_arg=None):
-    """Module initialization."""
+def base_api(title=None, cors_origin=None):
+    """Create base_api object"""
 
     blueprint = flask.Blueprint('v1', __name__)
 
@@ -77,6 +80,12 @@ def init(apis, title=None, cors_origin=None, authz_arg=None):
         response = options_cors(_noop_options)()
         return response
 
+    return (api, cors)
+
+
+def get_authorizer(authz_arg=None):
+    """Get authozrizer by argujents"""
+
     def user_clbk():
         """Get current user from the request."""
         return flask.g.get('user')
@@ -85,6 +94,12 @@ def init(apis, title=None, cors_origin=None, authz_arg=None):
         authorizer = authz.NullAuthorizer()
     else:
         authorizer = authz.ClientAuthorizer(user_clbk, authz_arg)
+    return authorizer
+
+
+def init(apis, title=None, cors_origin=None, authz_arg=None):
+    """Module initialization."""
+    (api, cors) = base_api(title, cors_origin)
 
     endpoints = []
     for apiname in apis:
@@ -92,7 +107,7 @@ def init(apis, title=None, cors_origin=None, authz_arg=None):
             _LOGGER.info('Loading api: %s', apiname)
 
             api_impl = plugin_manager.load(
-                'treadmill.api', apiname).init(authorizer)
+                'treadmill.api', apiname).init(get_authorizer(authz_arg))
             endpoint = plugin_manager.load(
                 'treadmill.rest.api', apiname).init(api, cors, api_impl)
 
@@ -104,6 +119,6 @@ def init(apis, title=None, cors_origin=None, authz_arg=None):
             endpoints.append(endpoint)
 
         except ImportError as err:
-            _LOGGER.warn('Unable to load %s api: %s', apiname, err)
+            _LOGGER.warning('Unable to load %s api: %s', apiname, err)
 
     return endpoints

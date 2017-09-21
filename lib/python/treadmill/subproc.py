@@ -1,12 +1,21 @@
-"""Safely invoke external binaries."""
+"""Safely invoke external binaries.
+"""
+
 from __future__ import absolute_import
 
 import logging
 import os
-import subprocess
+
+import six
+
+if six.PY2 and os.name == 'posix':
+    import subprocess32 as subprocess
+else:
+    import subprocess  # pylint: disable=wrong-import-order
 
 import treadmill
 from treadmill import plugin_manager
+from treadmill import utils
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -128,7 +137,7 @@ def check_call(cmdline, environ=(), runas=None, **kwargs):
         _LOGGER.debug('Finished, rc: %d', rc)
         return rc
     except subprocess.CalledProcessError as exc:
-        _LOGGER.warn(exc.output)
+        _LOGGER.warning('Error, rc: %d, %s', exc.returncode, exc.output)
         raise
 
 
@@ -159,7 +168,7 @@ def check_output(cmdline, environ=(), **kwargs):
 
         _LOGGER.debug('Finished.')
     except subprocess.CalledProcessError as exc:
-        _LOGGER.warn(exc.output)
+        _LOGGER.warning(exc.output)
         raise
 
     return res
@@ -291,8 +300,10 @@ def invoke_return(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
         raise
 
 
-def exec_pid1(cmd, ipc=True, mount=True, proc=True):
-    """Exec command line under pid1."""
+def exec_pid1(cmd, ipc=True, mount=True, proc=True,
+              close_fds=True, restore_signals=True):
+    """Exec command line under pid1.
+    """
     pid1 = resolve('pid1')
     safe_cmd = _alias_command(cmd)
     args = [pid1]
@@ -304,12 +315,14 @@ def exec_pid1(cmd, ipc=True, mount=True, proc=True):
         args.append('-p')
     args.extend(safe_cmd)
     _LOGGER.debug('exec_pid1: %r', args)
-    os.execvp(args[0], args)
+    utils.sane_execvp(args[0], args,
+                      close_fds=close_fds,
+                      restore_signals=restore_signals)
 
 
 def safe_exec(cmd):
     """Exec command line using os.execvp."""
     safe_cmd = _alias_command(cmd)
-    _LOGGER.debug('safe_cmd: %r', safe_cmd)
+    _LOGGER.debug('safe_exec: %r', safe_cmd)
 
-    os.execvp(safe_cmd[0], safe_cmd)
+    utils.sane_execvp(safe_cmd[0], safe_cmd)

@@ -2,6 +2,8 @@
 """
 
 from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import abc
 import errno
@@ -71,8 +73,6 @@ class _AtomicService(_service_base.Service):
         '_timeout_down',
         '_env',
     )
-
-    __metaclass__ = abc.ABCMeta
 
     def __init__(self, directory, name,
                  timeout_up=None, timeout_down=None,
@@ -342,7 +342,7 @@ class LongrunService(_AtomicService):
         """Service finish script timeout.
         """
         if timeout_finish is not None:
-            if isinstance(timeout_finish, (int, long)):
+            if isinstance(timeout_finish, six.integer_types):
                 self._timeout_finish = timeout_finish
             else:
                 self._timeout_finish = int(timeout_finish, 10)
@@ -411,20 +411,20 @@ class LongrunService(_AtomicService):
         elif self._run_script is not None:
             _utils.script_write(self._run_file, self._run_script)
             # Handle the case where the run script is a generator
-            if not isinstance(self._run_script, basestring):
+            if not isinstance(self._run_script, six.string_types):
                 self._run_script = None
         # Optional settings
         if self._finish_script is not None:
             _utils.script_write(self._finish_file, self._finish_script)
             # Handle the case where the finish script is a generator
-            if not isinstance(self._finish_script, basestring):
+            if not isinstance(self._finish_script, six.string_types):
                 self._finish_script = None
         if self._log_run_script is not None:
             # Create the log dir on the spot
             fs.mkdir_safe(os.path.dirname(self._log_run_file))
             _utils.script_write(self._log_run_file, self._log_run_script)
             # Handle the case where the run script is a generator
-            if not isinstance(self._log_run_script, basestring):
+            if not isinstance(self._log_run_script, six.string_types):
                 self._log_run_script = None
         if self._default_down:
             _utils.data_write(
@@ -523,12 +523,12 @@ class OneshotService(_AtomicService):
             raise ValueError('Invalid Oneshot service: not up script')
         elif self._up is not None:
             _utils.script_write(self._up_file, self._up)
-            if not isinstance(self._up_file, basestring):
+            if not isinstance(self._up_file, six.string_types):
                 self._up_file = None
         # Optional settings
         if self._down is not None:
             _utils.script_write(self._down_file, self._down)
-            if not isinstance(self._down_file, basestring):
+            if not isinstance(self._down_file, six.string_types):
                 self._down_file = None
 
 

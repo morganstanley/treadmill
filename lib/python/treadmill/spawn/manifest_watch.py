@@ -1,12 +1,18 @@
+"""Watches a directory for manifest changes and creates spawn instances.
 """
-Watches a directory for manifest changes and creates treadmill spawn instances.
-"""
+
 from __future__ import absolute_import
 
 import json
 import logging
 import os
-import subprocess
+
+import six
+
+if six.PY2 and os.name == 'posix':
+    import subprocess32 as subprocess
+else:
+    import subprocess  # pylint: disable=wrong-import-order
 
 from treadmill import spawn
 from treadmill import fs

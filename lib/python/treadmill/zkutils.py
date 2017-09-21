@@ -1,16 +1,18 @@
-"""Treadmill ZooKeeper helper functions."""
+"""Treadmill ZooKeeper helper functions.
+"""
 
 from __future__ import absolute_import
-
-import sys
-
-import os
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import fnmatch
 import importlib
+import io
 import logging
+import os
 import pickle
-import threading
+import sys
 import types
 
 import kazoo
@@ -18,8 +20,8 @@ import kazoo.client
 import kazoo.exceptions
 import kazoo.security
 from kazoo.protocol import states
+import six
 
-from treadmill import userutil
 from treadmill import utils
 from treadmill import sysinfo
 from treadmill import yamlwrapper as yaml
@@ -93,10 +95,10 @@ def make_self_acl(perm):
     If the user is root, use host principal.
     """
     assert _is_valid_perm(perm)
-    if userutil.is_root():
+    if utils.is_root():
         return make_host_acl(sysinfo.hostname(), perm)
 
-    user = userutil.get_current_username()
+    user = utils.get_current_username()
     return make_user_acl(user, perm)
 
 
@@ -191,7 +193,8 @@ def disconnect(zkclient):
 
 
 def connect(zkurl, idpath=None, listener=None, max_tries=30,
-            timeout=ZK_MAX_CONNECTION_START_TIMEOUT, chroot=None):
+            timeout=ZK_MAX_CONNECTION_START_TIMEOUT, chroot=None,
+            **connargs):
     """Establish connection with Zk and return KazooClient.
 
     Methods that create/modify nodes are wrapped so that default acls are
@@ -211,16 +214,17 @@ def connect(zkurl, idpath=None, listener=None, max_tries=30,
     client_id = None
     if idpath:
         if os.path.exists(idpath):
-            with open(idpath, 'r') as idfile:
+            with io.open(idpath, 'r') as idfile:
                 client_id = pickle.load(idfile)
 
     zkclient = connect_native(zkurl, client_id=client_id, listener=listener,
                               timeout=timeout, max_tries=max_tries,
-                              chroot=chroot)
+                              chroot=chroot,
+                              **connargs)
 
     if idpath:
         client_id = zkclient.client_id
-        with open(idpath, 'w+') as idfile:
+        with io.open(idpath, 'wb') as idfile:
             pickle.dump(client_id, idfile)
 
     zkclient.create = types.MethodType(make_safe_create(zkclient), zkclient)
@@ -232,7 +236,8 @@ def connect(zkurl, idpath=None, listener=None, max_tries=30,
 
 
 def connect_native(zkurl, client_id=None, listener=None, max_tries=30,
-                   timeout=ZK_MAX_CONNECTION_START_TIMEOUT, chroot=None):
+                   timeout=ZK_MAX_CONNECTION_START_TIMEOUT, chroot=None,
+                   **connargs):
     """Establish connection with Zk and return KazooClient."""
     _LOGGER.debug('Connecting to %s', zkurl)
 
@@ -251,12 +256,12 @@ def connect_native(zkurl, client_id=None, listener=None, max_tries=30,
         'max_tries': max_tries,
         'ignore_expire': False,
     }
-    connargs = {
+    connargs.update({
         'client_id': client_id,
         'auth_data': [],
         'connection_retry': zk_retry,
         'command_retry': zk_retry,
-    }
+    })
     if _ZK_PLUGIN_MOD:
         zkclient = _ZK_PLUGIN_MOD.connect(zkurl, connargs)
     else:
@@ -367,14 +372,17 @@ def watch_sequence(zkclient, path, func, delim='-', pattern=None,
             watcher.invoke_callback(path, node)
 
 
-def _payload(data=None):
-    """Converts payload to yaml."""
-    payload = ''
+def _payload(data):
+    """Converts payload to serialized bytes.
+    """
+    payload = b''
     if data is not None:
-        if isinstance(data, str) or isinstance(data, unicode):
+        if isinstance(data, bytes):
             payload = data
+        elif isinstance(data, six.string_types) and hasattr(data, 'encode'):
+            payload = data.encode()
         else:
-            payload = yaml.dump(data)
+            payload = yaml.dump(data).encode()
     return payload
 
 
@@ -445,7 +453,14 @@ def update(zkclient, path, data, check_content=False):
     return path
 
 
-def get(zkclient, path, watcher=None, strict=True, need_metadata=False):
+def get(zkclient, path, watcher=None, strict=True):
+    """Read content of Zookeeper node and return YAML parsed object."""
+    data, _metadata = get_with_metadata(zkclient, path, watcher=watcher,
+                                        strict=strict)
+    return data
+
+
+def get_with_metadata(zkclient, path, watcher=None, strict=True):
     """Read content of Zookeeper node and return YAML parsed object."""
     data, metadata = zkclient.get(path, watch=watcher)
 
@@ -459,24 +474,16 @@ def get(zkclient, path, watcher=None, strict=True, need_metadata=False):
             else:
                 result = data
 
-    if need_metadata:
-        return result, metadata
-    else:
-        return result
+    return result, metadata
 
 
-def get_default(zkclient, path, watcher=None, strict=True, need_metadata=False,
-                default=None):
+def get_default(zkclient, path, watcher=None, strict=True, default=None):
     """Read content of Zookeeper node, return default value if does not exist.
     """
     try:
-        return get(zkclient, path,
-                   watcher=watcher, strict=strict, need_metadata=need_metadata)
+        return get(zkclient, path, watcher=watcher, strict=strict)
     except kazoo.client.NoNodeError:
-        if need_metadata:
-            return default, None
-        else:
-            return default
+        return default
 
 
 def get_children_count(zkclient, path, exc_safe=True):
@@ -530,7 +537,7 @@ def ensure_deleted(zkclient, path, recursive=True):
 
 def exists(zk_client, zk_path, timeout=60):
     """wrapping the zk exists function with timeout"""
-    node_created_event = threading.Event()
+    node_created_event = zk_client.handler.event_object()
 
     def node_watch(event):
         """watch for node creation"""
@@ -551,7 +558,7 @@ def list_match(zkclient, path, pattern, watcher=None):
 
 def wait(zk_client, zk_path, wait_exists, timeout=None):
     """Wait for node to be in a given state."""
-    node_created_event = threading.Event()
+    node_created_event = zk_client.handler.event_object()
 
     def node_watch(event):
         """watch for node events."""

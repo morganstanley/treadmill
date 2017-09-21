@@ -2,6 +2,9 @@
 Saves the scheduler state to permanent storage.
 """
 from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import bz2
 from datetime import datetime
@@ -71,7 +74,7 @@ def init():
         """Export scheduler reports from ZooKeeper to disk."""
         zkclient = context.GLOBAL.zk.conn
         out_dir = out_dir or '.'
-        fs.mkdir_safe(out_dir, mode=0755)
+        fs.mkdir_safe(out_dir, mode=0o755)
 
         if interval:
             if no_lock:

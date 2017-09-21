@@ -764,15 +764,14 @@ class ResourceService(object):
 
         _LOGGER.debug('created %r', req_id)
 
-        with tempfile.NamedTemporaryFile(dir=filepath,
-                                         delete=False) as f:
-            os.fchmod(f.fileno(), 0o644)
-            yaml.dump(res,
-                      explicit_start=True, explicit_end=True,
-                      default_flow_style=False,
-                      stream=f)
-
-        os.rename(f.name, rep_file)
+        fs.write_safe(
+            rep_file,
+            lambda f: yaml.dump(
+                res, explicit_start=True, explicit_end=True,
+                default_flow_style=False, stream=f
+            ),
+            permission=0o644
+        )
         # Return True if there were no error
         return not bool(res.get('_error', False))
 

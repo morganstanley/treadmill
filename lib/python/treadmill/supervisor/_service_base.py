@@ -78,10 +78,13 @@ class Service(object):
         _utils.data_write(os.path.join(self._dir, 'type'), self.type.value)
 
     @classmethod
-    def read_dir(cls, directory, create_service=None, **kwargs):
+    def read_dir(cls, directory):
         """Reads the type of service from the given directory.
+
+        :returns ``(type, basedir, name) | None``:
+            The type, base directory, and name of the service. Or None if not
+            found.
         """
-        svc_type = None
         svc_basedir = os.path.dirname(directory)
         svc_name = os.path.basename(directory)
 
@@ -90,21 +93,14 @@ class Service(object):
         except IOError as err:
             if err.errno is not errno.ENOENT:
                 raise
+            return None
 
         try:
             svc_type = ServiceType(svc_type)
         except ValueError:
-            svc_type = None
+            return None
 
-        if create_service is None:
-            return svc_type, svc_basedir, svc_name
-
-        return create_service(
-            svc_basedir=svc_basedir,
-            svc_name=svc_name,
-            svc_type=svc_type,
-            **kwargs
-        )
+        return svc_type, svc_basedir, svc_name
 
 
 __all__ = (

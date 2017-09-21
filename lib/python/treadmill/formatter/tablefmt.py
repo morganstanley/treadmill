@@ -1,6 +1,12 @@
 """Table CLI formatter."""
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import prettytable
+
+import six
 
 from treadmill import yamlwrapper as yaml
 
@@ -52,15 +58,14 @@ def _cell(item, column, key, fmt):
     if key is None:
         key = column
 
-    if isinstance(key, str):
+    if isinstance(key, (six.string_types, six.text_type)):
         keys = [key]
     else:
         keys = key
 
     raw_value = None
-    while keys:
-        key = keys.pop(0)
-        if key in item:
+    for key in keys:
+        if key in item and item[key] is not None:
             raw_value = item[key]
             break
 
@@ -77,7 +82,7 @@ def _cell(item, column, key, fmt):
             value = '-'
         else:
             if isinstance(raw_value, list):
-                value = ','.join(map(str, raw_value))
+                value = ','.join(six.moves.map(str, raw_value))
             else:
                 value = raw_value
     return value
@@ -447,10 +452,12 @@ class TenantPrettyFormatter(object):
         schema = [
             ('tenant', ['_id', 'tenant'], None),
             ('system', 'systems', None),
-            ('allocations', 'allocations', AllocationPrettyFormatter.format),
         ]
 
-        format_item = make_dict_to_table(schema)
+        format_item = make_dict_to_table(
+            schema +
+            [('allocations', 'allocations', AllocationPrettyFormatter.format)]
+        )
         format_list = make_list_to_table(schema)
 
         if isinstance(item, list):
@@ -484,7 +491,6 @@ class AllocationPrettyFormatter(object):
         ])
 
         schema = [
-            ('name', '_id', None),
             ('environment', None, None),
             ('reservations', None, cell_tbl),
         ]
@@ -565,6 +571,25 @@ class PartitionPrettyFormatter(object):
             return format_list(item)
         else:
             return format_item(item)
+
+
+class HAProxyPrettyFormatter(object):
+    """Pretty table formatter for HAProxy."""
+
+    @staticmethod
+    def format(item):
+        """Return pretty-formatted item."""
+        schema = [
+            ('server', '_id', None),
+            ('cell', 'cell', None),
+        ]
+
+        format_item = make_dict_to_table(schema)
+        format_list = make_list_to_table(schema)
+
+        if isinstance(item, list):
+            return format_list(item)
+        return format_item(item)
 
 
 class CronPrettyFormatter(object):

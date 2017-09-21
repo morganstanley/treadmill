@@ -1,8 +1,12 @@
 """Treadmill cell checkout."""
 from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import collections
 import datetime
+import io
 import logging
 import multiprocessing
 import os
@@ -56,7 +60,7 @@ def _start_webserver(outdir, port):
         complete_path = os.path.join(outdir, path)
         mimetype = 'text/html'
         try:
-            with open(complete_path) as f:
+            with io.open(complete_path) as f:
                 return flask.Response(f.read(), mimetype=mimetype)
         except IOError as err:
             return flask.Response(str(err), mimetype=mimetype)
@@ -158,7 +162,7 @@ def init():
                     for test in testcases:
                         suite.addTests(loader.loadTestsFromTestCase(test))
 
-                with open(report_file, 'w+') as stream:
+                with io.open(report_file, 'w+') as stream:
                     runner = HTMLTestRunner.HTMLTestRunner(
                         stream=stream,
                         title='Treadmill cell checkout',
@@ -170,7 +174,7 @@ def init():
                 _LOGGER.exception('Unhandled exception during checkout')
 
                 result = None
-                with open(report_file, 'w+') as stream:
+                with io.open(report_file, 'w+') as stream:
                     stream.write(str(err))
                     traceback.print_exc(file=stream)
 

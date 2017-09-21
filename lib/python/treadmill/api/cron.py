@@ -1,5 +1,8 @@
 """Implementation of cron API."""
 from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import fnmatch
 import logging
@@ -24,19 +27,22 @@ class API(object):
             zkclient = context.GLOBAL.zk.conn
             return cron.get_scheduler(zkclient)
 
-        def _list(match=None):
+        def _list(match=None, resource=None):
             """List configured cron jobs."""
-            if match is None:
-                match = '*'
-
             jobs = _scheduler().get_jobs()
             _LOGGER.debug('jobs: %r', jobs)
 
-            filtered = [
-                cron.job_to_dict(job)
-                for job in jobs
-                if fnmatch.fnmatch(job.id, match)
-            ]
+            filtered = []
+            for job_obj in jobs:
+                job = cron.job_to_dict(job_obj)
+                if not match and not resource:
+                    filtered.append(job)
+                    continue
+                if match and fnmatch.fnmatch(job['_id'], match):
+                    filtered.append(job)
+                if resource and fnmatch.fnmatch(job['resource'], resource):
+                    filtered.append(job)
+
             return sorted(filtered)
 
         @schema.schema({'$ref': 'cron.json#/resource_id'})
@@ -70,11 +76,21 @@ class API(object):
 
         @schema.schema(
             {'$ref': 'cron.json#/resource_id'},
-            {'allOf': [{'$ref': 'cron.json#/verbs/update'}]}
+            {'allOf': [{'$ref': 'cron.json#/verbs/update'}]},
+            pause={'$ref': 'cron.json#/pause'},
+            resume={'$ref': 'cron.json#/resume'},
         )
-        def update(rsrc_id, rsrc):
+        def update(rsrc_id, rsrc, pause=False, resume=False):
             """Update cron job configuration."""
             _LOGGER.info('update: %s %r', rsrc_id, rsrc)
+
+            if pause:
+                job = _scheduler().pause_job(rsrc_id)
+                return cron.job_to_dict(job)
+
+            if resume:
+                job = _scheduler().resume_job(rsrc_id)
+                return cron.job_to_dict(job)
 
             event = rsrc.get('event')
             resource = rsrc.get('resource')

@@ -1,0 +1,1 @@
+"""treadmill.cli.admin tests"""

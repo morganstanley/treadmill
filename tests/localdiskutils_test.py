@@ -1,12 +1,19 @@
-"""Unit tests for local disk utils"""
+"""Unit tests for local disk utils.
+"""
 
-import subprocess
+import os
 import unittest
 
 # Disable W0611: Unused import
 import tests.treadmill_test_deps  # pylint: disable=W0611
 
 import mock
+import six
+
+if six.PY2 and os.name == 'posix':
+    import subprocess32 as subprocess
+else:
+    import subprocess  # pylint: disable=wrong-import-order
 
 import treadmill
 from treadmill import localdiskutils

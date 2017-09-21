@@ -63,8 +63,8 @@ class WebUtilsTest(unittest.TestCase):
         app = flask.Flask(__name__)
         app.testing = True
 
-        with app.test_request_context(headers=[('Accept', 'application/json; '
-                                                          'text/plain')]):
+        with app.test_request_context(headers=[('Accept', 'application/json, '
+                                                'text/plain')]):
             self.assertTrue(webutils.wants_json_resp(flask.request))
 
         with app.test_request_context(headers=[('Accept', 'text/html; q=1.0, '

@@ -1,6 +1,10 @@
 """Interpolate template files."""
 from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
+import io
 import os
 
 import click
@@ -26,8 +30,8 @@ def init():
 
         data = {}
         for param in params:
-            with open(param, 'rb') as fd:
-                data.update(yaml.load(fd.read()))
+            with io.open(param, 'rb') as fd:
+                data.update(yaml.load(stream=fd))
 
         cli.out(env.get_template(os.path.basename(inputfile)).render(data))
 

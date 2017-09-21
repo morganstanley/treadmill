@@ -1,4 +1,10 @@
-"""The base implementation for apphook plugins."""
+"""The base implementation for apphook plugins.
+"""
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import abc
 import logging
@@ -21,8 +27,9 @@ class AppHookPluginBase(object):
     :type tm_env:
         `appenv.AppEnvironment`
     """
+
     __slots__ = (
-        'tm_env'
+        'tm_env',
     )
 
     def __init__(self, tm_env):
@@ -30,36 +37,42 @@ class AppHookPluginBase(object):
 
     @abc.abstractmethod
     def init(self):
-        """Initializes the plugin."""
+        """Initializes the plugin.
+        """
         pass
 
     @abc.abstractmethod
     def configure(self, app, container_dir):
-        """Configures the hook in plugin."""
+        """Configures the hook in plugin.
+        """
         pass
 
     @abc.abstractmethod
     def cleanup(self, app, container_dir):
-        """cleanup the hook in plugin."""
+        """cleanup the hook in plugin.
+        """
         pass
 
 
 def init(tm_env):
-    """Inits all plugins."""
+    """Inits all plugins.
+    """
     for hook in plugin_manager.load_all(_PLUGINS_NS):
         _LOGGER.info('Initializing plugin %r.', hook)
         hook(tm_env).init()
 
 
 def configure(tm_env, app, container_dir):
-    """Configures all plugins."""
+    """Configures all plugins.
+    """
     for hook in plugin_manager.load_all(_PLUGINS_NS):
         _LOGGER.info('Configuring plugin %r.', hook)
         hook(tm_env).configure(app, container_dir)
 
 
 def cleanup(tm_env, app, container_dir):
-    """Cleanup all plugins."""
+    """Cleanup all plugins.
+    """
     for hook in plugin_manager.load_all(_PLUGINS_NS):
         _LOGGER.info('Initializing plugin %r.', hook)
         hook(tm_env).cleanup(app, container_dir)

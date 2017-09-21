@@ -1,5 +1,8 @@
 """List Treadmill cells."""
 from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import logging
 
@@ -40,7 +43,7 @@ def init():
     @cell_grp.command()
     @click.argument('name')
     @cli.handle_exceptions(restclient.CLI_REST_EXCEPTIONS)
-    def get(name):
+    def configure(name):
         """Display the details of a cell."""
         restapi = context.GLOBAL.admin_api(ctx.get('api'))
 
@@ -48,6 +51,6 @@ def init():
                                               '/cell/%s' % name).json()))
 
     del _list
-    del get
+    del configure
 
     return cell_grp

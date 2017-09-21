@@ -1,4 +1,10 @@
-"""Wrapper for sigsetops(3)."""
+"""Wrapper for sigsetops(3).
+"""
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import logging
 import os
@@ -12,7 +18,6 @@ from ctypes import (
 )
 
 from ctypes.util import find_library
-
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -43,7 +48,7 @@ if any([getattr(_LIBC, op, None) is None
 class SigSet(ctypes.Structure):
     """type sigset_t;
     """
-    _SIGSET_NWORDS = 1024 / (8 * ctypes.sizeof(ctypes.c_ulong))
+    _SIGSET_NWORDS = 1024 // (8 * ctypes.sizeof(ctypes.c_ulong))
 
     _fields_ = [
         ('sigset', c_ulong * _SIGSET_NWORDS)

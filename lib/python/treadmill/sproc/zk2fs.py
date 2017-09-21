@@ -1,5 +1,8 @@
 """Syncronize Zookeeper with file system."""
 from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import logging
 import os
@@ -11,11 +14,12 @@ import tempfile
 import click
 
 from treadmill import apptrace
-from treadmill import zksync
 from treadmill import fs
 from treadmill import context
 from treadmill import zknamespace as z
 from treadmill import utils
+from treadmill.zksync import zk2fs
+from treadmill.zksync import utils as zksync_utils
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -47,6 +51,19 @@ def _on_del_endpoint_proid(zk2fs_sync, zkpath):
     shutil.rmtree(fpath)
 
 
+def _on_add_placement_server(zk2fs_sync, zkpath):
+    """Invoked when new server is added to placement."""
+    _LOGGER.info('Added server: %s', zkpath)
+    zk2fs_sync.sync_children(zkpath, watch_data=False)
+
+
+def _on_del_placement_server(zk2fs_sync, zkpath):
+    """Invoked when server is removed from placement."""
+    fpath = zk2fs_sync.fpath(zkpath)
+    _LOGGER.info('Removed server: %s', os.path.basename(fpath))
+    shutil.rmtree(fpath)
+
+
 def _on_add_trace_shard(zk2fs_sync, zkpath):
     """Invoked when new shard is added to trace."""
     _LOGGER.info('Added trace shard: %s', zkpath)
@@ -72,7 +89,7 @@ def _on_add_trace_event(zk2fs_sync, zkpath):
     _name, timestamp, _rest = os.path.basename(fpath).split(',', 2)
     utime = float(timestamp)
 
-    zksync.write_data(
+    zksync_utils.write_data(
         fpath, None, utime, raise_err=False, tmp_dir=zk2fs_sync.tmp_dir
     )
 
@@ -124,6 +141,8 @@ def init():
                   is_flag=True, default=False)
     @click.option('--servers', help='Sync servers.',
                   is_flag=True, default=False)
+    @click.option('--servers-data', help='Sync servers and data.',
+                  is_flag=True, default=False)
     @click.option('--placement', help='Sync placement.',
                   is_flag=True, default=False)
     @click.option('--trace', help='Sync trace.',
@@ -131,7 +150,7 @@ def init():
     @click.option('--once', help='Sync once and exit.',
                   is_flag=True, default=False)
     def zk2fs_cmd(root, endpoints, identity_groups, appgroups, running,
-                  scheduled, servers, placement, trace, once):
+                  scheduled, servers, servers_data, placement, trace, once):
         """Starts appcfgmgr process."""
 
         fs.mkdir_safe(root)
@@ -139,10 +158,10 @@ def init():
         tmp_dir = os.path.join(root, '.tmp')
         fs.mkdir_safe(tmp_dir)
 
-        zk2fs_sync = zksync.Zk2Fs(context.GLOBAL.zk.conn, root, tmp_dir)
+        zk2fs_sync = zk2fs.Zk2Fs(context.GLOBAL.zk.conn, root, tmp_dir)
 
-        if servers:
-            zk2fs_sync.sync_children(z.path.server(), watch_data=False)
+        if servers or servers_data:
+            zk2fs_sync.sync_children(z.path.server(), watch_data=servers_data)
 
         if running:
             # Running are ephemeral, and will be added/remove automatically.
@@ -167,7 +186,10 @@ def init():
             zk2fs_sync.sync_children(z.path.appgroup(), watch_data=True)
 
         if placement:
-            zk2fs_sync.sync_children(z.path.placement(), watch_data=True)
+            zk2fs_sync.sync_children(
+                z.path.placement(),
+                on_add=lambda p: _on_add_placement_server(zk2fs_sync, p),
+                on_del=lambda p: _on_del_placement_server(zk2fs_sync, p))
 
         if trace:
             zk2fs_sync.sync_children(

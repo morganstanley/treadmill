@@ -15,19 +15,23 @@
                 "minItems": 1
             },
             "pattern": {
-                "type": "string"
+                "type": "string",
+                "pattern": "^[a-zA-Z0-9]+\\..+$"
             },
             "pending": {
-                "type": "integer"
+                "type": "integer",
+                "minimum": 30
             },
             "exit": {
-                "enum": ["non-zero", "aborted"]
+                "type": "array",
+                "items": { "enum": ["non-zero", "aborted", "oom"] },
+                "minItems": 1
             }
         }
     },
     "verbs": {
         "create": {
-            "required": ["exit", "pattern"]
+            "required": ["pattern"]
         },
         "update": {
             "required": []

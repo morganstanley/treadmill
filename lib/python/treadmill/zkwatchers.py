@@ -1,9 +1,15 @@
 """Higher level custom specialized ZK watching API's.
 
-   Based on kazoo.recipe.watchers.
+Based on kazoo.recipe.watchers.
 """
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
+import functools
 import logging
-from functools import wraps
 
 import kazoo.retry
 import kazoo.exceptions
@@ -14,7 +20,7 @@ _LOGGER = logging.getLogger(__name__)
 
 
 def _ignore_closed(func):
-    @wraps(func)
+    @functools.wraps(func)
     def wrapper(*args, **kwargs):
         """Ignore ConnectionClosedError"""
         try:

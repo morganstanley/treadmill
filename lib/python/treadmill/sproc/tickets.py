@@ -1,5 +1,10 @@
-"""Runs Treadmill App tickets service."""
+"""Runs Treadmill App tickets service.
+"""
+
 from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 # TODO: This service should be refactored into two:
 #                - node service refreshing tickets for all apps, stoing in
@@ -8,15 +13,20 @@ from __future__ import absolute_import
 #                  container, copy tickets from /tmp to /var/spool/tickets
 #                  of the container.
 
-import logging
-import socket
-import time
-import os
 import fnmatch
 import glob
-import subprocess
+import logging
+import os
+import socket
+import time
 
 import click
+import six
+
+if six.PY2 and os.name == 'posix':
+    import subprocess32 as subprocess  # pylint: disable=import-error
+else:
+    import subprocess  # pylint: disable=wrong-import-order
 
 from treadmill import tickets
 from treadmill import context
@@ -51,7 +61,7 @@ def _renew_tickets(tkt_spool_dir, match):
             _LOGGER.info('Tickets not renewable, kinit rc: %s',
                          err.returncode)
         except OSError as os_err:
-            _LOGGER.warn('Error renewing tickets: %s', os_err)
+            _LOGGER.warning('Error renewing tickets: %s', os_err)
 
         subproc.call(['klist', '-e', '-5', tkt])
 
@@ -62,7 +72,7 @@ def _reforward_ticket(ticket_file, endpoint, realm):
     subproc.call(['klist', '-e', '-5', ticket_file])
 
     subproc.call(['tkt-send', '--realm=%s' % realm,
-                  '--endpoints=%s' % endpoint],
+                  '--endpoints=%s' % endpoint, '--timeout=5'],
                  environ={'KRB5CCNAME': 'FILE:' + ticket_file})
 
     _LOGGER.info('After loopback forward: %s', ticket_file)
@@ -155,6 +165,7 @@ def init():
         zkclient = context.GLOBAL.zk.conn
 
         @zkclient.DataWatch(endpoint_path)
+        @utils.exit_on_unhandled
         def _tickets_endpoint_watch(data, _stat, event):
             """Watch to endpoint changes."""
             if data is None and event is None:
@@ -208,7 +219,7 @@ def init():
                                           realm)
                         utils.touch(last_fwd_f)
                     else:
-                        _LOGGER.warn('Ticket endpoint not initialized.')
+                        _LOGGER.warning('Ticket endpoint not initialized.')
                 else:
                     _LOGGER.info('Will not forward ticket: %s', ticket_file)
 

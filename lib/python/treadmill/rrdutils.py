@@ -1,11 +1,19 @@
-"""Useful rrd utility functions."""
+"""Useful rrd utility functions.
+"""
+
 from __future__ import absolute_import
 
 import logging
 import os
 import socket
-import subprocess
 import time
+
+import six
+
+if six.PY2 and os.name == 'posix':
+    import subprocess32 as subprocess
+else:
+    import subprocess  # pylint: disable=wrong-import-order
 
 from treadmill import fs
 from treadmill import subproc
@@ -102,10 +110,14 @@ class RRDClient(object):
             'RRA:AVERAGE:0.5:10m:3d',
         ]))
 
-    def update(self, rrdfile, data, update_str=None):
+    def update(self, rrdfile, data, metrics_time=None, update_str=None):
         """Updates rrd file with data, create if does not exist."""
-        rrd_update_str = update_str or ':'.join([str(int(time.time())),
-                                                 _METRICS_FMT.format(**data)])
+        if metrics_time is None:
+            metrics_time = int(time.time())
+
+        rrd_update_str = update_str or ':'.join(
+            [str(metrics_time), _METRICS_FMT.format(**data)]
+        )
         try:
             self.command('UPDATE %s %s' % (rrdfile, rrd_update_str))
         except RRDError:

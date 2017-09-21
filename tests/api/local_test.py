@@ -1,4 +1,8 @@
 """Local API tests."""
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import os
 import unittest
@@ -8,7 +12,10 @@ import tests.treadmill_test_deps  # pylint: disable=W0611
 
 import mock
 
+import six
+
 from treadmill.api import local
+# pylint: disable=W0622
 from treadmill.exc import (FileNotFoundError, InvalidInputError)
 
 APPS_DIR = '.../apps'
@@ -158,79 +165,90 @@ class HelperFuncTests(unittest.TestCase):
 
     def test_fragment_file(self):
         """Test the _fragment() func."""
-        self.assertEqual(list(local._fragment(iter(xrange(10)), limit=-1)),
-                         range(10))
+        self.assertEqual(list(local._fragment(iter(six.moves.range(10)),
+                                              limit=-1)),
+                         list(six.moves.range(10)))
 
         self.assertEqual(
-            list(local._fragment(iter(xrange(10)), limit=2)),
-            range(2))
+            list(local._fragment(iter(six.moves.range(10)), limit=2)),
+            list(six.moves.range(2)))
 
         self.assertEqual(
-            list(local._fragment(iter(xrange(10)), start=0, limit=3)),
-            range(3))
+            list(local._fragment(iter(six.moves.range(10)), start=0, limit=3)),
+            list(six.moves.range(3)))
 
         self.assertEqual(
-            list(local._fragment(iter(xrange(10)), start=1, limit=4)),
-            range(1, 5))
+            list(local._fragment(iter(six.moves.range(10)), start=1, limit=4)),
+            list(six.moves.range(1, 5)))
 
         self.assertEqual(
-            list(local._fragment(iter(xrange(10)), start=5, limit=-1)),
-            range(5, 10))
+            list(local._fragment(iter(six.moves.range(10)), start=5,
+                                 limit=-1)),
+            list(six.moves.range(5, 10)))
 
         self.assertEqual(
-            list(local._fragment(iter(xrange(10)), start=8, limit=8)),
+            list(local._fragment(iter(six.moves.range(10)), start=8, limit=8)),
             [8, 9])
 
         self.assertEqual(
-            list(local._fragment(iter(xrange(10)), start=8, limit=40)),
+            list(local._fragment(iter(six.moves.range(10)), start=8,
+                                 limit=40)),
             [8, 9])
 
         with self.assertRaises(InvalidInputError):
-            list(local._fragment(iter(xrange(10)), start=99, limit=-1))
+            list(local._fragment(iter(six.moves.range(10)), start=99,
+                                 limit=-1))
 
         with self.assertRaises(InvalidInputError):
-            list(local._fragment(iter(xrange(10)), 99, limit=5))
+            list(local._fragment(iter(six.moves.range(10)), 99, limit=5))
 
     def test_fragment_in_reverse(self):
         """Test the _fragment_in_reverse() func."""
         self.assertEqual(
-            list(local._fragment_in_reverse(iter(xrange(10)), limit=-1)),
-            list(reversed(xrange(10))))
+            list(local._fragment_in_reverse(iter(six.moves.range(10)),
+                                            limit=-1)),
+            list(reversed(six.moves.range(10))))
 
         self.assertEqual(
-            list(local._fragment_in_reverse(iter(xrange(10)), limit=2)),
+            list(local._fragment_in_reverse(iter(six.moves.range(10)),
+                                            limit=2)),
             [9, 8])
 
         self.assertEqual(
-            list(local._fragment_in_reverse(iter(xrange(10)), 0, limit=3)),
+            list(local._fragment_in_reverse(iter(six.moves.range(10)), 0,
+                                            limit=3)),
             [9, 8, 7])
 
         self.assertEqual(
-            list(local._fragment_in_reverse(iter(xrange(10)), 1, 4)),
-            range(8, 4, -1))
+            list(local._fragment_in_reverse(iter(six.moves.range(10)), 1, 4)),
+            list(six.moves.range(8, 4, -1)))
 
         self.assertEqual(
-            list(local._fragment_in_reverse(iter(xrange(10)), start=5,
-                                            limit=-1)),
+            list(local._fragment_in_reverse(iter(six.moves.range(10)),
+                                            start=5, limit=-1)),
             [4, 3, 2, 1, 0])
 
         self.assertEqual(
-            list(local._fragment_in_reverse(iter(xrange(10)), 8, limit=8)),
+            list(local._fragment_in_reverse(iter(six.moves.range(10)), 8,
+                                            limit=8)),
             [1, 0])
 
         self.assertEqual(
-            list(local._fragment_in_reverse(iter(xrange(10)), 8, limit=40)),
+            list(local._fragment_in_reverse(iter(six.moves.range(10)), 8,
+                                            limit=40)),
             [1, 0])
 
         self.assertEqual(
-            list(local._fragment_in_reverse(iter(xrange(10)), 8, 1)),
+            list(local._fragment_in_reverse(iter(six.moves.range(10)), 8, 1)),
             [1])
 
         with self.assertRaises(InvalidInputError):
-            list(local._fragment_in_reverse(iter(xrange(10)), start=99))
+            list(local._fragment_in_reverse(iter(six.moves.range(10)),
+                                            start=99))
 
         with self.assertRaises(InvalidInputError):
-            list(local._fragment_in_reverse(iter(xrange(10)), 99, limit=9))
+            list(local._fragment_in_reverse(iter(six.moves.range(10)), 99,
+                                            limit=9))
 
     def test_archive_path(self):
         """Test the _archive_paths() func."""

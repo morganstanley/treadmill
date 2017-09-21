@@ -2,6 +2,7 @@
 from __future__ import absolute_import
 
 import collections
+import errno
 import logging
 import os
 
@@ -81,17 +82,21 @@ class WindowsDirWatcher(dirwatch_base.DirWatcher):
     @staticmethod
     def _read_dir(info):
         """Reads the directory for changes async."""
-        win32file.ReadDirectoryChangesW(
-            info.file,
-            info.buffer,
-            False,
-            win32con.FILE_NOTIFY_CHANGE_FILE_NAME
-            | win32con.FILE_NOTIFY_CHANGE_DIR_NAME
-            | win32con.FILE_NOTIFY_CHANGE_ATTRIBUTES
-            | win32con.FILE_NOTIFY_CHANGE_SIZE
-            | win32con.FILE_NOTIFY_CHANGE_LAST_WRITE
-            | win32con.FILE_NOTIFY_CHANGE_SECURITY,
-            info.overlapped)
+        try:
+            win32file.ReadDirectoryChangesW(
+                info.file,
+                info.buffer,
+                False,
+                win32con.FILE_NOTIFY_CHANGE_FILE_NAME
+                | win32con.FILE_NOTIFY_CHANGE_DIR_NAME
+                | win32con.FILE_NOTIFY_CHANGE_ATTRIBUTES
+                | win32con.FILE_NOTIFY_CHANGE_SIZE
+                | win32con.FILE_NOTIFY_CHANGE_LAST_WRITE
+                | win32con.FILE_NOTIFY_CHANGE_SECURITY,
+                info.overlapped)
+            return True
+        except pywintypes.error:
+            return False
 
     def _add_dir(self, watch_dir):
         """Add `directory` to the list of watched directories.
@@ -100,11 +105,11 @@ class WindowsDirWatcher(dirwatch_base.DirWatcher):
         :returns: watch id
         """
         info = WindowsDirInfo(watch_dir)
-        if info.file == _INVALID_HANDLE_VALUE:
+        if info.file == _INVALID_HANDLE_VALUE or not self._read_dir(info):
             info.close()
-            return _INVALID_HANDLE_VALUE
+            raise OSError(errno.ENOENT, 'No such file or directory',
+                          watch_dir)
 
-        self._read_dir(info)
         self._dir_infos[info.id] = info
         return info.id
 
@@ -181,6 +186,10 @@ class WindowsDirWatcher(dirwatch_base.DirWatcher):
                     result.append((event, path))
 
             win32event.ResetEvent(info.overlapped.hEvent)
-            self._read_dir(info)
+            if not self._read_dir(info):
+                result.append((dirwatch_base.DirWatcherEvent.DELETED,
+                               info.path))
+                info.close()
+                del self._dir_infos[info.id]
 
         return result

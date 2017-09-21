@@ -335,12 +335,13 @@ def post_api(api, cors_handler, marshal=None, req_model=None, resp_model=None,
     )
 
 
-def put_api(api, cors_handler, req_model=None, resp_model=None):
+def put_api(api, cors_handler, req_model=None, resp_model=None, parser=None):
     """Returns default API decorator for PUT request."""
     return _common_api(
         api, cors_handler,
         req_model=req_model,
         resp_model=resp_model,
+        parser=parser,
     )
 
 

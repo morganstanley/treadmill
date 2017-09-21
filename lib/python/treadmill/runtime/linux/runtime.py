@@ -31,16 +31,8 @@ class LinuxRuntime(runtime_base.RuntimeBase):
         except ValueError:
             return False
 
-    def run_timeout(self, manifest):
-        if appcfg.AppType(manifest['type']) is appcfg.AppType.NATIVE:
-            return '60s'
+    def _run(self, manifest):
+        app_run.run(self.tm_env, self.container_dir, manifest)
 
-        # Inflated to allow time to download and extract the image.
-        return '5m'
-
-    def _run(self, manifest, watchdog, terminated):
-        app_run.run(self.tm_env, self.container_dir, manifest, watchdog,
-                    terminated)
-
-    def _finish(self, watchdog, terminated):
-        app_finish.finish(self.tm_env, self.container_dir, watchdog)
+    def _finish(self):
+        app_finish.finish(self.tm_env, self.container_dir)

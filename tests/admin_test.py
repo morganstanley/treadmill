@@ -1,6 +1,11 @@
+"""Unit test for treadmill admin.
 """
-Unit test for treadmill admin.
-"""
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 
 # Disable C0302: Too many lines in the module
 # pylint: disable=C0302

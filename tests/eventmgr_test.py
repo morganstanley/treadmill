@@ -203,7 +203,7 @@ class EventMgrTest(mockzk.MockZookeeperTestCase):
         self.assertTrue(os.path.exists(appcache))
 
         with open(appcache) as f:
-            data = yaml.load(f.read())
+            data = yaml.load(stream=f)
             self.assertEqual(data['identity'], 1)
 
 

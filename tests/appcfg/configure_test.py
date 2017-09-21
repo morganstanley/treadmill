@@ -1,7 +1,12 @@
-"""Unit test for treadmill.appcfg.configure
+"""Unit test for treadmill.appcfg.configure.
 """
 
-import __builtin__
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
+import io
 import os
 import shutil
 import tempfile
@@ -44,7 +49,7 @@ class AppCfgConfigureTest(unittest.TestCase):
         if self.root and os.path.isdir(self.root):
             shutil.rmtree(self.root)
 
-    @mock.patch('__builtin__.open', mock.MagicMock(auto_spec=True))
+    @mock.patch('io.open', mock.mock_open())
     @mock.patch('pwd.getpwnam', mock.Mock(auto_spec=True))
     @mock.patch('shutil.copyfile', mock.Mock(auto_spec=True))
     @mock.patch('treadmill.appcfg.manifest.load', auto_spec=True)
@@ -99,8 +104,10 @@ class AppCfgConfigureTest(unittest.TestCase):
             environ={},
             environment='dev'
         )
-        __builtin__.open.assert_has_call(
-            mock.call(os.path.join(app_dir, 'data', 'app.json'), 'w')
+        io.open.assert_has_calls(
+            [
+                mock.call(os.path.join(app_dir, 'data', 'app.json'), 'wb')
+            ]
         )
 
         shutil.copyfile.assert_called_with(

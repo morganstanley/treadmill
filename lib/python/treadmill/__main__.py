@@ -18,6 +18,9 @@ import click
 # pylint: disable=C0412
 from treadmill import cli
 
+# Disable click warning for importing unicode_literals in python 2
+click.disable_unicode_literals_warning = True
+
 
 # pylint complains "No value passed for parameter 'ldap' in function call".
 # This is ok, as these parameters come from click decorators.

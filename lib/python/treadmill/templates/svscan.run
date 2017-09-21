@@ -1,5 +1,0 @@
-#!/bin/sh
-
-exec 2>&1
-
-{{ s6 }}/bin/s6-svscan -c {{ max }} {{ service_dir }}

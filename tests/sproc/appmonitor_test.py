@@ -1,5 +1,9 @@
 """Unit test for treadmill.dnsutils
 """
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import time
 import unittest
@@ -53,23 +57,23 @@ class AppMonitorTest(unittest.TestCase):
             'foo.baz#3', deleted_by='monitor'
         )
 
-        self.assertEquals(101, state['monitors']['foo.bar']['last_update'])
-        self.assertEquals(101, state['monitors']['foo.baz']['last_update'])
+        self.assertEqual(101, state['monitors']['foo.bar']['last_update'])
+        self.assertEqual(101, state['monitors']['foo.baz']['last_update'])
 
         # Two missing.
         time.time.return_value = 102
         state['scheduled']['foo.bar'] = []
         appmonitor.reevaluate(instance_api, state)
-        self.assertEquals(102, state['monitors']['foo.bar']['last_update'])
-        self.assertEquals(2.0, state['monitors']['foo.bar']['available'])
+        self.assertEqual(102, state['monitors']['foo.bar']['last_update'])
+        self.assertEqual(2.0, state['monitors']['foo.bar']['available'])
 
         # Instance match count, after 1 sec with rate of 1/s, available will
         # be 3.0
         time.time.return_value = 103
         state['scheduled']['foo.bar'] = ['foo.bar#5', 'foo.bar#6']
         appmonitor.reevaluate(instance_api, state)
-        self.assertEquals(103, state['monitors']['foo.bar']['last_update'])
-        self.assertEquals(3.0, state['monitors']['foo.bar']['available'])
+        self.assertEqual(103, state['monitors']['foo.bar']['last_update'])
+        self.assertEqual(3.0, state['monitors']['foo.bar']['available'])
 
         # Need to create two instance, 3 available.
         instance_api.create.reset_mock()
@@ -79,14 +83,14 @@ class AppMonitorTest(unittest.TestCase):
         instance_api.create.assert_called_with(
             'foo.bar', {}, count=2, created_by='monitor'
         )
-        self.assertEquals(1.0, state['monitors']['foo.bar']['available'])
+        self.assertEqual(1.0, state['monitors']['foo.bar']['available'])
 
         instance_api.create.reset_mock()
         appmonitor.reevaluate(instance_api, state)
         instance_api.create.assert_called_with(
             'foo.bar', {}, count=1, created_by='monitor'
         )
-        self.assertEquals(0.0, state['monitors']['foo.bar']['available'])
+        self.assertEqual(0.0, state['monitors']['foo.bar']['available'])
 
         # No available, create not called.
         instance_api.create.reset_mock()
@@ -98,7 +102,7 @@ class AppMonitorTest(unittest.TestCase):
         instance_api.create.assert_called_with(
             'foo.bar', {}, count=1, created_by='monitor'
         )
-        self.assertEquals(0.0, state['monitors']['foo.bar']['available'])
+        self.assertEqual(0.0, state['monitors']['foo.bar']['available'])
 
 
 if __name__ == '__main__':

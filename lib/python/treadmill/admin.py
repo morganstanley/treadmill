@@ -1,9 +1,14 @@
-"""Low level admin API to manipulate global cell topology."""
+"""Low level admin API to manipulate global cell topology.
+"""
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 # Disable too many lines warning.
 #
 # pylint: disable=C0302
-
-from __future__ import absolute_import
 
 import sys
 
@@ -19,6 +24,7 @@ from distutils import util
 
 import ldap3
 import jinja2
+import six
 
 import treadmill.ldap3kerberos  # pylint: disable=E0611,F0401
 
@@ -81,7 +87,7 @@ def _entry_2_dict(entry, schema):
 
         value = entry[ldap_field]
         if isinstance(field_type, list):
-            obj[obj_field] = map(field_type[0], value)
+            obj[obj_field] = [field_type[0](v) for v in value]
         elif field_type == bool:
             obj[obj_field] = bool(util.strtobool(value[0].lower()))
         elif field_type == dict:
@@ -89,7 +95,11 @@ def _entry_2_dict(entry, schema):
         else:
             obj[obj_field] = field_type(value[0])
 
-    return {k: v for k, v in obj.iteritems() if v is not None}
+    return {
+        k: v
+        for k, v in six.iteritems(obj)
+        if v is not None
+    }
 
 
 def _dict_2_entry(obj, schema, option=None, option_value=None):
@@ -123,10 +133,12 @@ def _dict_2_entry(obj, schema, option=None, option_value=None):
                 # TODO: we need to check that all values are of specified type.
                 elem_type = field_type[0]
                 if elem_type == str:
-                    elem_type = (str, unicode)
+                    elem_type = six.string_types
                 if value:
-                    filtered = [str(v) for v in value
-                                if isinstance(v, elem_type)]
+                    filtered = [
+                        str(v) for v in value
+                        if isinstance(v, elem_type)
+                    ]
                     if len(filtered) < len(value):
                         _LOGGER.critical('Exptected %r, got %r',
                                          field_type, value)
@@ -181,7 +193,10 @@ def _abstract_2_attrtype(name, abstract):
     attr['oid'] = _TREADMILL_ATTR_OID_PREFIX + str(attr['idx'])
     attr['name'] = name
     attr['desc'] = abstract.get('desc', name)
-    type_2_syntax = {v: k for k, v in _SYNTAX_2_TYPE.iteritems()}
+    type_2_syntax = {
+        v: k
+        for k, v in six.iteritems(_SYNTAX_2_TYPE)
+    }
 
     assert abstract['type'] in type_2_syntax
     attr['syntax'] = type_2_syntax[abstract['type']]
@@ -269,19 +284,24 @@ def _grouped_to_list_of_dict(grouped, prefix, schema):
     def _to_dict(values):
         """converts to dict."""
         return _entry_2_dict({k: v for k, _, v in values}, schema)
-    filtered = {k: v for k, v in grouped.iteritems()
+    filtered = {k: v for k, v in six.iteritems(grouped)
                 if k.startswith(prefix)}
-    return sorted([_to_dict(v) for _k, v in filtered.iteritems()])
+    return sorted([_to_dict(v) for _k, v in six.iteritems(filtered)])
 
 
 def _dict_normalize(data):
     """Normalize the strings in the dictionary."""
-    if isinstance(data, basestring):
+    if isinstance(data, six.string_types):
         return str(data)
     elif isinstance(data, collections.Mapping):
-        return dict(map(_dict_normalize, data.iteritems()))
+        return dict([
+            _dict_normalize(i)
+            for i in six.iteritems(data)
+        ])
     elif isinstance(data, collections.Iterable):
-        return type(data)(map(_dict_normalize, data))
+        return type(data)([
+            _dict_normalize(i) for i in data
+        ])
     else:
         return data
 
@@ -513,7 +533,7 @@ class Admin(object):
                              attributes=['olcAttributeTypes',
                                          'olcObjectClasses'])
 
-        schema_dn, entry = result.next()
+        schema_dn, entry = next(result)
 
         attr_types = []
         for attr_type_s in entry.get('olcAttributeTypes', []):
@@ -607,8 +627,8 @@ class Admin(object):
             #                indeed not right...
             #
             # pylint: disable=R0204
-            attr_types = dict(map(_attrtype_2_abstract, attr_types))
-            obj_classes = dict(map(_objcls_2_abstract, obj_classes))
+            attr_types = dict([_attrtype_2_abstract(a) for a in attr_types])
+            obj_classes = dict([_objcls_2_abstract(o) for o in obj_classes])
 
         return {'dn': schema_dn,
                 'attributeTypes': attr_types,
@@ -676,8 +696,10 @@ class Admin(object):
         if not old_ocs:
             next_oid = 1
         else:
-            next_oid = max([item['idx']
-                            for item in old_ocs.values()]) + 1
+            next_oid = 1 + max([
+                item['idx']
+                for item in old_ocs.values()
+            ])
 
         for name in added:
             objcls = new_ocs[name]
@@ -701,14 +723,14 @@ class Admin(object):
 
         if to_del:
             values = [_attrtype_2_str(_abstract_2_attrtype(name, attr))
-                      for name, attr in to_del.iteritems()]
+                      for name, attr in six.iteritems(to_del)]
             _LOGGER.debug('del: %s - olcAttributeTypes: %r', schema_dn, values)
             changes['olcAttributeTypes'].extend(
                 [(ldap3.MODIFY_DELETE, values)])
 
         if to_add:
             values = [_attrtype_2_str(_abstract_2_attrtype(name, attr))
-                      for name, attr in to_add.iteritems()]
+                      for name, attr in six.iteritems(to_add)]
             _LOGGER.debug('add: %s - olcAttributeTypes: %r', schema_dn, values)
             changes['olcAttributeTypes'].extend([(ldap3.MODIFY_ADD, values)])
 
@@ -719,12 +741,12 @@ class Admin(object):
                                                   new_obj_classes)
         if to_del:
             values = [_objcls_2_str(name, item)
-                      for name, item in to_del.iteritems()]
+                      for name, item in six.iteritems(to_del)]
             _LOGGER.debug('del: %s - olcObjectClasses: %r', schema_dn, values)
             changes['olcObjectClasses'].extend([(ldap3.MODIFY_DELETE, values)])
         if to_add:
             values = [_objcls_2_str(name, item)
-                      for name, item in to_add.iteritems()]
+                      for name, item in six.iteritems(to_add)]
             _LOGGER.debug('add: %s - olcObjectClasses: %r', schema_dn, values)
             changes['olcObjectClasses'].extend([(ldap3.MODIFY_ADD, values)])
 
@@ -804,6 +826,16 @@ class Admin(object):
         """Removes attributes from the record."""
         to_be_removed = {k: [(ldap3.MODIFY_DELETE, [])] for k in entry.keys()}
         self.modify(dn, to_be_removed)
+
+    def get_repls(self):
+        """Get all the replication servers in config"""
+        entry = self.get(
+            'olcDatabase={1}mdb,cn=config',
+            '(objectclass=olcMdbConfig)',
+            ['olcSyncrepl']
+        )
+
+        return entry.get('olcSyncrepl')
 
 
 class LdapObject(object):
@@ -1090,15 +1122,18 @@ class Application(LdapObject):
     def schema():
         """Returns combined schema for retrieval."""
         name_only = lambda schema_rec: (schema_rec[0], None, None)
-        return sum([
-            map(name_only, Application._svc_schema),
-            map(name_only, Application._svc_restart_schema),
-            map(name_only, Application._endpoint_schema),
-            map(name_only, Application._environ_schema),
-            map(name_only, Application._affinity_schema),
-            map(name_only, Application._vring_schema),
-            map(name_only, Application._vring_rule_schema),
-        ], Application._schema)
+        return sum(
+            [
+                [name_only(e) for e in Application._svc_schema],
+                [name_only(e) for e in Application._svc_restart_schema],
+                [name_only(e) for e in Application._endpoint_schema],
+                [name_only(e) for e in Application._environ_schema],
+                [name_only(e) for e in Application._affinity_schema],
+                [name_only(e) for e in Application._vring_schema],
+                [name_only(e) for e in Application._vring_rule_schema],
+            ],
+            Application._schema
+        )
 
     def from_entry(self, entry, dn=None):
         """Converts LDAP app object to dict."""
@@ -1262,8 +1297,10 @@ class Cell(LdapObject):
     def schema():
         """Returns combined schema for retrieval."""
         name_only = lambda schema_rec: (schema_rec[0], None, None)
-        return (Cell._schema +
-                map(name_only, Cell._master_host_schema))
+        return (
+            Cell._schema +
+            [name_only(e) for e in Cell._master_host_schema]
+        )
 
     def get(self, ident):
         """Gets cell given primary key."""
@@ -1420,8 +1457,10 @@ class CellAllocation(LdapObject):
     def schema():
         """Returns combined schema for retrieval."""
         name_only = lambda schema_rec: (schema_rec[0], None, None)
-        return (CellAllocation._schema +
-                map(name_only, CellAllocation._assign_schema))
+        return (
+            CellAllocation._schema +
+            [name_only(e) for e in CellAllocation._assign_schema]
+        )
 
     def dn(self, ident=None):
         """Object dn."""
@@ -1603,3 +1642,22 @@ Partition.schema = staticmethod(lambda: Partition._schema)
 Partition.oc = staticmethod(lambda: Partition._oc)
 Partition.ou = staticmethod(lambda: Partition._ou)
 Partition.entity = staticmethod(lambda: Partition._entity)
+
+
+class HAProxy(LdapObject):
+    """HAProxy object."""
+
+    _schema = [
+        ('server', '_id', str),
+        ('cell', 'cell', str),
+    ]
+
+    _oc = 'tmHAProxy'
+    _ou = 'haproxies'
+    _entity = 'server'
+
+# pylint: disable=W0212
+HAProxy.schema = staticmethod(lambda: HAProxy._schema)
+HAProxy.oc = staticmethod(lambda: HAProxy._oc)
+HAProxy.ou = staticmethod(lambda: HAProxy._ou)
+HAProxy.entity = staticmethod(lambda: HAProxy._entity)

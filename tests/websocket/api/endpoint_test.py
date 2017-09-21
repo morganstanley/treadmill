@@ -1,6 +1,7 @@
+"""Unit test for endpoint websocket API.
 """
-Unit test for endpoint websocket API.
-"""
+
+from __future__ import absolute_import
 
 import unittest
 

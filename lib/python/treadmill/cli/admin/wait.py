@@ -1,5 +1,10 @@
-"""Waits for Treadmill application completion."""
+"""Waits for Treadmill application completion.
+"""
+
 from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import sys
 
@@ -9,7 +14,6 @@ import click
 
 from treadmill import cli
 from treadmill import context
-from treadmill import exc
 from treadmill import utils
 from treadmill import zknamespace as z
 from treadmill import yamlwrapper as yaml
@@ -143,7 +147,7 @@ def init():
 
             info = dict(instance=instance)
 
-            @exc.exit_on_unhandled
+            @utils.exit_on_unhandled
             def _watch_scheduled(data, _stat, event):
                 """Watch on scheduled node."""
 
