@@ -1,10 +1,14 @@
-"""
-Unit test for fs - configuring unshared chroot.
+"""Unit test for fs - Filesystem utilities.
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
+import io
 import os
 import shutil
-import subprocess
 import tarfile
 import tempfile
 import unittest
@@ -13,26 +17,15 @@ import unittest
 import tests.treadmill_test_deps  # pylint: disable=W0611
 
 import mock
+import six
+
+if six.PY2 and os.name == 'posix':
+    import subprocess32 as subprocess  # pylint: disable=import-error
+else:
+    import subprocess  # pylint: disable=wrong-import-order
 
 import treadmill
 from treadmill import fs
-
-
-class MockFile(object):
-    """Mock the file like object returned by the builtin open()."""
-
-    def __init__(self, file_contents):
-        self.f_contents = file_contents
-
-    def read(self):
-        """Mocks the read() method of a file like object."""
-        return self.f_contents.pop(0)
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type, exc_value, traceback):
-        pass
 
 
 # Pylint complains about long names for test functions.
@@ -98,7 +91,7 @@ class FsTest(unittest.TestCase):
 
         # test binding a file
         foo_file = os.path.join(self.root, 'foo')
-        with open(os.path.join(self.root, 'foo'), 'w'):
+        with io.open(os.path.join(self.root, 'foo'), 'w'):
             pass
         fs.mount_bind(container_dir, foo_file)
         treadmill.subproc.check_call.assert_called_with(
@@ -186,7 +179,8 @@ class FsTest(unittest.TestCase):
     def test_rm_safe(self):
         """Test safe rm/unlink."""
         test_file = os.path.join(self.root, 'rmsafe_test')
-        open(test_file, 'w+').close()
+        with io.open(test_file, 'w'):
+            pass
 
         self.assertTrue(os.path.isfile(test_file))
         fs.rm_safe(test_file)
@@ -213,7 +207,7 @@ class FsTest(unittest.TestCase):
         os.mkdir(tardir)
         os.mkdir(os.path.join(tardir, 'subdir'))
         os.mkdir(tardir2)
-        with open(os.path.join(tardir, 'file'), 'w+'):
+        with io.open(os.path.join(tardir, 'file'), 'w'):
             pass
 
         self.assertEqual(
@@ -262,7 +256,7 @@ class FsTest(unittest.TestCase):
         os.mkdir(tardir)
         os.mkdir(os.path.join(tardir, 'subdir'))
         os.mkdir(tardir2)
-        with open(os.path.join(tardir, 'file'), 'w+'):
+        with io.open(os.path.join(tardir, 'file'), 'w'):
             pass
 
         self.assertEqual(
@@ -289,9 +283,9 @@ class FsTest(unittest.TestCase):
         os.mkdir(tardir)
         os.mkdir(os.path.join(tardir, 'subdir'))
         os.mkdir(tardir2)
-        with open(os.path.join(tardir, 'file'), 'w+'):
+        with io.open(os.path.join(tardir, 'file'), 'w'):
             pass
-        with open(os.path.join(tardir2, 'file2'), 'w+'):
+        with io.open(os.path.join(tardir2, 'file2'), 'w+'):
             pass
 
         fileobj = tempfile.TemporaryFile()
@@ -338,20 +332,23 @@ Directory Hash Seed:      20c6af65-0208-4e71-99cb-d5532c02e3b8
             self.assertEqual(fs.read_filesystem_info('/dev/treadmill/<uniq>'),
                              {})
 
+    @mock.patch('io.open', mock.mock_open())
     @mock.patch('glob.glob',
                 mock.Mock(return_value=('/sys/class/block/sda2/dev',
                                         '/sys/class/block/sda3/dev')))
     def test_maj_min_to_blk(self):
         """Tests fs.maj_min_to_blk()"""
-        with mock.patch('__builtin__.open',
-                        mock.Mock(return_value=MockFile(
-                            file_contents=['8:2\n', '8:3\n']))):
-            self.assertEqual(fs.maj_min_to_blk(8, 3), '/dev/sda3')
+        io.open.return_value.read.side_effect = ['8:2\n', '8:3\n']
 
-        with mock.patch('__builtin__.open',
-                        mock.Mock(return_value=MockFile(
-                            file_contents=['8:2\n', '8:3\n']))):
-            self.assertIsNone(fs.maj_min_to_blk(-1, -2))
+        self.assertEqual(
+            fs.maj_min_to_blk(8, 3),
+            '/dev/sda3'
+        )
+
+        io.open.reset_mock()
+        io.open.return_value.read.side_effect = ['8:2\n', '8:3\n']
+
+        self.assertIsNone(fs.maj_min_to_blk(-1, -2))
 
 
 if __name__ == '__main__':

@@ -1,6 +1,10 @@
 """Treadmill /etc/hosts manager."""
 from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
+import io
 import os
 import glob
 import errno
@@ -45,7 +49,7 @@ def _resolve(path, aliases):
 def _generate(aliases, original, dest):
     """Generate target hosts file."""
     _LOGGER.info('Generating: %s', dest)
-    with open(dest, 'w+') as f:
+    with io.open(dest, 'w+') as f:
         f.write(original)
         for alias, hostname in aliases.iteritems():
             try:
@@ -57,7 +61,7 @@ def _generate(aliases, original, dest):
                     alias=alias
                 ))
             except Exception:  # pylint: disable=W0703
-                _LOGGER.warn('Invalid alias: %s, %s', alias, hostname)
+                _LOGGER.warning('Invalid alias: %s, %s', alias, hostname)
 
 
 def init():
@@ -71,7 +75,7 @@ def init():
     def hosts_aliases_cmd(aliases_dir, source, dest):
         """Manage /etc/hosts aliases."""
         aliases = {}
-        with open(source, 'rb') as fd:
+        with io.open(source, 'r') as fd:
             original = fd.read()
 
         def _on_created(path):

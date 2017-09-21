@@ -15,6 +15,7 @@ import tests.treadmill_test_deps  # pylint: disable=W0611
 import mock
 
 import treadmill
+from treadmill import fs
 from treadmill import monitor
 from treadmill import supervisor
 
@@ -140,6 +141,8 @@ class MonitorTest(unittest.TestCase):
         self.assertTrue(mock_pol_inst.check.called)
         self.assertEqual(len(mon._down_reasons), 0)
 
+    @mock.patch('treadmill.supervisor.wait_service',
+                mock.Mock(spec_set=True))
     @mock.patch('treadmill.supervisor.control_service',
                 mock.Mock(spec_set=True))
     @mock.patch('treadmill.monitor.MonitorEventHook', spec_set=True)
@@ -170,6 +173,11 @@ class MonitorTest(unittest.TestCase):
         self.assertTrue(mock_event_hook_inst.down.called)
         self.assertTrue(mock_event_hook_inst.up.called)
 
+        supervisor.wait_service.assert_called_with(
+            mock_pol_inst.service.directory,
+            supervisor.ServiceWaitAction.really_down
+        )
+
         supervisor.control_service.assert_called_with(
             mock_pol_inst.service.directory,
             supervisor.ServiceControlAction.up
@@ -177,6 +185,8 @@ class MonitorTest(unittest.TestCase):
 
     @mock.patch('treadmill.monitor.MonitorDownAction', spec_set=True)
     @mock.patch('treadmill.monitor.MonitorPolicy', spec_set=True)
+    @mock.patch('treadmill.supervisor.wait_service',
+                mock.Mock(spec_set=True))
     @mock.patch('treadmill.supervisor.control_service',
                 mock.Mock(spec_set=True))
     def test__process_success(self, mock_policy, mock_down_action):
@@ -203,6 +213,11 @@ class MonitorTest(unittest.TestCase):
 
         self.assertTrue(mock_pol_inst.check.called)
         self.assertEqual(len(mon._down_reasons), 0)
+
+        supervisor.wait_service.assert_called_with(
+            mock_pol_inst.service.directory,
+            supervisor.ServiceWaitAction.really_down
+        )
 
         treadmill.supervisor.control_service.assert_called_with(
             mock_pol_inst.service.directory,
@@ -312,6 +327,7 @@ class MonitorContainerCleanupTest(unittest.TestCase):
 
     @mock.patch('os.rename', mock.Mock())
     @mock.patch('treadmill.supervisor.control_svscan', mock.Mock())
+    @mock.patch('treadmill.appcfg.abort.flag_aborted', mock.Mock())
     def test_execute(self):
         """Test shutting down of the node.
         """
@@ -320,18 +336,72 @@ class MonitorContainerCleanupTest(unittest.TestCase):
         ])
         mock_tm_env = mock_tm_env_class(os.path.join(self.root, 'running'),
                                         os.path.join(self.root, 'cleanup'))
+
+        service_dir = os.path.join(mock_tm_env.running_dir, 'mock_service')
+        fs.mkdir_safe(service_dir)
+
+        with open(os.path.join(service_dir, 'type'), 'w') as f:
+            f.write('longrun')
+
         mock_container_cleanup_action =\
             monitor.MonitorContainerCleanup(mock_tm_env)
 
         res = mock_container_cleanup_action.execute(
             {
+                'signal': 0,
                 'service': 'mock_service',
             }
         )
 
         # This MonitorContainerCleanup stops the monitor.
         self.assertEqual(res, True)
-        self.assertTrue(os.rename.called)
+
+        treadmill.appcfg.abort.flag_aborted.assert_not_called()
+        os.rename.assert_called()
+
+        supervisor.control_svscan.assert_called_with(
+            os.path.join(self.root, 'running'), [
+                supervisor.SvscanControlAction.alarm,
+                supervisor.SvscanControlAction.nuke
+            ]
+        )
+
+    @mock.patch('os.rename', mock.Mock())
+    @mock.patch('treadmill.supervisor.control_svscan', mock.Mock())
+    @mock.patch('treadmill.appcfg.abort.flag_aborted', mock.Mock())
+    def test_execute_pid1_aborted(self):
+        """Test shutting down of the node.
+        """
+        mock_tm_env_class = namedtuple('MockTMEnv', [
+            'running_dir', 'cleanup_dir'
+        ])
+        mock_tm_env = mock_tm_env_class(os.path.join(self.root, 'running'),
+                                        os.path.join(self.root, 'cleanup'))
+
+        service_dir = os.path.join(mock_tm_env.running_dir, 'mock_service')
+        fs.mkdir_safe(service_dir)
+
+        with open(os.path.join(service_dir, 'type'), 'w') as f:
+            f.write('longrun')
+
+        mock_container_cleanup_action =\
+            monitor.MonitorContainerCleanup(mock_tm_env)
+
+        res = mock_container_cleanup_action.execute(
+            {
+                'signal': 6,
+                'service': 'mock_service',
+            }
+        )
+
+        # This MonitorContainerCleanup stops the monitor.
+        self.assertEqual(res, True)
+
+        treadmill.appcfg.abort.flag_aborted.assert_called_with(
+            os.path.join(service_dir, 'data'),
+            why=treadmill.appcfg.abort.AbortedReason.PID1
+        )
+        os.rename.assert_called()
 
         supervisor.control_svscan.assert_called_with(
             os.path.join(self.root, 'running'), [

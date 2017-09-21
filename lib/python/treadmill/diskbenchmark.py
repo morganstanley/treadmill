@@ -1,14 +1,25 @@
-"""Benchmark disk IO performance"""
+"""Benchmark disk IO performance.
+"""
 
-import ConfigParser
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
+import io
 import logging
 import os
 import shutil
-import subprocess
 import tempfile
 
-from enum import Enum
-from xlrd import open_workbook
+import enum
+import six
+from six.moves import configparser
+
+if six.PY2 and os.name == 'posix':
+    import subprocess32 as subprocess  # pylint: disable=import-error
+else:
+    import subprocess  # pylint: disable=wrong-import-order
 
 from treadmill import fs
 from treadmill import localdiskutils
@@ -19,7 +30,7 @@ from treadmill import utils
 _LOGGER = logging.getLogger(__name__)
 
 
-class Metrics(Enum):
+class Metrics(enum.Enum):
     """Benchmark metrics"""
     WRITE_BPS = 'write_bps'
     READ_BPS = 'read_bps'
@@ -28,209 +39,183 @@ class Metrics(Enum):
 
 
 # These are crucial for benchmark accuracy
-BENCHMARK_IMG_SIZE = '6G'
-BENCHMARK_VOLUME = '5G'
-WRITE_RECORD_SIZE = '4K'
-READ_RECORD_SIZE = '64K'
-
-# In case of benchmark failure, these are default metrics
-DEFAULT_BENCHMARK_RESULT = {
-    Metrics.WRITE_BPS: 314572800,
-    Metrics.READ_BPS: 314572800,
-    Metrics.WRITE_IOPS: 64000,
-    Metrics.READ_IOPS: 4000
-}
-
+BENCHMARK_VOLUME = '100M'
+BENCHMARK_RW_TYPE = 'rw'
+BENCHMARK_JOB_NUMBER = '5'
+BENCHMARK_THREAD_NUMBER = '3'
+BENCHMARK_IOPS_BLOCK_SIZE = '4K'
+BENCHMARK_BPS_BLOCK_SIZE = '128K'
+BENCHMARK_MAX_SECONDS = '10'
 
 _DEVICE = 'device'
-_BENCHMARK_RESULT_FILE = 'result.xls'
-_BENCHMARK_TMP_FILE = 'benchmark.tmp'
+_BENCHMARK_RESULT_FILE = 'benchmark.result'
+_BENCHMARK_CONFIG_FILE = 'benchmark.ini'
 
 
-class IOZoneBenchmark(object):
-    """Use iozone to do benchmark"""
+class EqualSpaceRemover(object):
+    """Remove spaces around equal sign in ini config.
+    """
 
-    _cache_setting = '/proc/sys/vm/drop_caches'
-    _cache_clear_magic = '3'
+    def __init__(self, output_file):
+        self.output_file = output_file
 
-    def __init__(self, benchmark_base_path, benchmark_size,
-                 write_record_size, read_record_size):
-        self.result_file = os.path.join(benchmark_base_path,
-                                        _BENCHMARK_RESULT_FILE)
-        self.write_record_size = write_record_size
-        self.read_record_size = read_record_size
-        self.base_cmd = ['iozone', '-+n',
-                         '-s', benchmark_size,
-                         '-f', os.path.join(benchmark_base_path,
-                                            _BENCHMARK_TMP_FILE),
-                         '-b', self.result_file]
+    def write(self, ini_line):
+        """Wrap output"""
+        self.output_file.write(ini_line.replace(' = ', '=', 1))
 
-    def run(self):
-        """
-        Run benchmark
-        :return: {metric: value, }
-        """
-        result = {}
 
-        write_bps_cmd = self.base_cmd + ['-i', '0',
-                                         '-r', self.write_record_size, '-w']
-        read_bps_cmd = self.base_cmd + ['-i', '1',
-                                        '-r', self.read_record_size]
-        write_iops_cmd = write_bps_cmd + ['-O']
-        read_iops_cmd = read_bps_cmd + ['-O']
+def benchmark(directory,
+              volume=BENCHMARK_VOLUME,
+              rw_type=BENCHMARK_RW_TYPE,
+              job_number=BENCHMARK_JOB_NUMBER,
+              thread_number=BENCHMARK_THREAD_NUMBER,
+              block_size=BENCHMARK_IOPS_BLOCK_SIZE,
+              max_seconds=BENCHMARK_MAX_SECONDS):
+    """Use fio to do benchmark.
+    """
+    result = {}
+    config_file = os.path.join(directory, _BENCHMARK_CONFIG_FILE)
+    result_file = os.path.join(directory, _BENCHMARK_RESULT_FILE)
 
-        current_cache_setting = self._read_cache_setting()
+    # prepare fio config
+    config = configparser.SafeConfigParser()
+    global_section = 'global'
+    config.add_section(global_section)
+    config.set(global_section, 'group_reporting', '1')
+    config.set(global_section, 'unlink', '1')
+    config.set(global_section, 'time_based', '1')
+    config.set(global_section, 'direct', '1')
+    config.set(global_section, 'size', volume)
+    config.set(global_section, 'rw', rw_type)
+    config.set(global_section, 'numjobs', job_number)
+    config.set(global_section, 'iodepth', thread_number)
+    config.set(global_section, 'bs', block_size)
+    config.set(global_section, 'runtime', max_seconds)
+    drive_section = 'drive'
+    config.add_section(drive_section)
+    config.set(drive_section, 'directory', directory)
+    fs.write_safe(
+        config_file,
+        lambda f: config.write(EqualSpaceRemover(f))
+    )
+
+    # start fio
+    ret = subproc.call(
+        ['fio', config_file, '--norandommap',
+         '--minimal', '--output', result_file]
+    )
+
+    # parse fio terse result
+    # http://fio.readthedocs.io/en/latest/fio_doc.html#terse-output
+    if ret == 0:
+        with io.open(result_file) as fp:
+            metric_list = fp.read().split(';')
+            result[Metrics.READ_BPS.value] = int(
+                float(metric_list[6]) * 1024
+            )
+            result[Metrics.READ_IOPS.value] = int(metric_list[7])
+            result[Metrics.WRITE_BPS.value] = int(
+                float(metric_list[47]) * 1024
+            )
+            result[Metrics.WRITE_IOPS.value] = int(metric_list[48])
+
+    return result
+
+
+def read(benchmark_result_file):
+    """
+    Read benchmark
+    :param benchmark_result_file: benchmark result file
+    :return: {device: {metric: value, }, }
+    """
+    result = {}
+    config = configparser.SafeConfigParser()
+    with io.open(benchmark_result_file) as fp:
+        config.readfp(fp)
+    for section in config.sections():
         try:
-            result[Metrics.WRITE_BPS] = self._run_single_benchmark(
-                write_bps_cmd
-            ) * 1024
-            # clear buffer cache to get reasonable read performance result
-            self._write_cache_setting(self._cache_clear_magic)
-            self._write_cache_setting(current_cache_setting)
-            result[Metrics.READ_BPS] = self._run_single_benchmark(
-                read_bps_cmd
-            ) * 1024
-            result[Metrics.WRITE_IOPS] = self._run_single_benchmark(
-                write_iops_cmd
-            )
-            # clear buffer cache to get reasonable read performance result
-            self._write_cache_setting(self._cache_clear_magic)
-            self._write_cache_setting(current_cache_setting)
-            result[Metrics.READ_IOPS] = self._run_single_benchmark(
-                read_iops_cmd
-            )
-        except Exception:  # pylint: disable=W0703
-            _LOGGER.exception('iozone benchmark process failed')
-            raise
-        finally:
-            self._write_cache_setting(current_cache_setting)
-
-        return result
-
-    def _read_cache_setting(self):
-        with open(self._cache_setting, 'r') as fd:
-            return fd.read()
-
-    def _write_cache_setting(self, setting):
-        with open(self._cache_setting, 'w') as fd:
-            return fd.write(setting)
-
-    def _run_single_benchmark(self, cmd):
-        ret = subproc.call(cmd)
-        if ret == 0:
-            res = self._extract(self.result_file, [(5, 1)])
-            return int(float(res[0][0]))
-
-    @staticmethod
-    def _extract(xls_file, coordinates):
-        """Extract cell values from excel file"""
-        result = []
-        with open_workbook(xls_file) as wb:
-            for sheet in wb.sheets():
-                sheet_result = []
-                for coordinate in coordinates:
-                    sheet_result.append(
-                        str(sheet.cell(coordinate[0], coordinate[1]).value)
-                    )
-                result.append(sheet_result)
-        return result
-
-
-class BenchmarkReader(object):
-    """Benchmark reader"""
-
-    def __init__(self, path):
-        self.path = path
-
-    def read(self):
-        """
-        Read benchmark
-        :return: {device: {metric: value, }, }
-        """
-        result = {}
-        config = ConfigParser.ConfigParser()
-        config.read(self.path)
-        for section in config.sections():
             device = config.get(section, _DEVICE)
             result[device] = {}
             for metric in Metrics:
-                result[device][metric] = config.get(section, metric.value)
-        return result
+                result[device][metric.value] = config.get(
+                    section,
+                    metric.value
+                )
+        except configparser.NoOptionError:
+            _LOGGER.error(
+                'Incorrect section in %s',
+                benchmark_result_file
+            )
+
+    return result
 
 
-class BenchmarkWriter(object):
-    """Benchmark writer"""
+def write(benchmark_result_file, result):
+    """Write benchmark result.
 
-    def __init__(self, path):
-        self.path = path
-
-    def write(self, result):
-        """
-        Write benchmark
-        :param result: {device: {metric: value, }, }
-        :return:
-        Sample output file format :
+    Sample output file format:
         [device0]
         device = 589d88bd-8098-4041-900e-7fcac18abab3
         write_bps = 314572800
         read_bps = 314572800
         write_iops = 64000
         read_iops = 4000
-        """
-        config = ConfigParser.ConfigParser()
-        device_count = 0
-        for device, metrics in result.iteritems():
-            section = _DEVICE + str(device_count)
-            device_count += 1
-            config.add_section(section)
-            config.set(section, _DEVICE, device)
-            for metric, value in metrics.iteritems():
-                config.set(section, metric.value, value)
-        write_dir = os.path.dirname(self.path)
-        if not os.path.isdir(write_dir):
-            os.makedirs(write_dir)
-        with tempfile.NamedTemporaryFile(
-            dir=write_dir,
-            delete=False
-        ) as tmpfile:
-            os.chmod(tmpfile.name, 0o644)
-            config.write(tmpfile)
-        os.rename(tmpfile.name, self.path)
 
-
-def benchmark_vg(
-        result_file,
-        vg_name,
-        underlying_device_uuid,
-        volume=BENCHMARK_VOLUME,
-        write_record_size=WRITE_RECORD_SIZE,
-        read_record_size=READ_RECORD_SIZE,
-        base_path=None,
-        sys_reserve_volume='500M',
-        benchmark_lv='benchmarklv'
-):
+    :param benchmark_result_file:
+        benchmark result file
+    :param result:
+        {device: {metric: value, }, }
     """
-    Benchmark IO performance of the specified VG
-    :param result_file:
-        publish benchmark result to this file
+    config = configparser.SafeConfigParser()
+    device_count = 0
+    for device, metrics in result.iteritems():
+        section = _DEVICE + str(device_count)
+        device_count += 1
+        config.add_section(section)
+        config.set(section, _DEVICE, device)
+        for metric, value in metrics.iteritems():
+            config.set(section, metric, str(value))
+
+    fs.write_safe(
+        benchmark_result_file,
+        config.write,
+        permission=0o644
+    )
+
+
+def benchmark_vg(vg_name,
+                 volume=BENCHMARK_VOLUME,
+                 rw_type=BENCHMARK_RW_TYPE,
+                 job_number=BENCHMARK_JOB_NUMBER,
+                 thread_number=BENCHMARK_THREAD_NUMBER,
+                 block_size=BENCHMARK_IOPS_BLOCK_SIZE,
+                 max_seconds=BENCHMARK_MAX_SECONDS,
+                 base_path=None,
+                 sys_reserve_volume='500M',
+                 benchmark_lv='benchmarklv'):
+    """Benchmark IO performance of the specified VG
+
     :param vg_name:
         vg to benchmark
-    :param underlying_device_uuid:
-        underlying device uuid of this vg
     :param volume:
         small volume leads to inaccurate benchmark,
         large volume takes too much time
-    :param write_record_size:
-        important for benchmarking write iops
-    :param read_record_size:
-        important for benchmarking read iops
+    :param rw_type:
+        fio rw option
+    :param job_number:
+        fio numjobs option
+    :param thread_number:
+        fio iodepth option
+    :param block_size:
+        fio bs option
+    :param max_seconds:
+        fio runtime option
     :param base_path:
         benchmark lv mount point
     :param sys_reserve_volume:
         reserved space for system usage like mke2fs
     :param benchmark_lv:
         benchmark lv name
-    :return:
     """
 
     device = os.path.join('/dev', vg_name, benchmark_lv)
@@ -240,7 +225,7 @@ def benchmark_vg(
     else:
         is_temp_base = False
     total_volume = '{}M'.format(
-        utils.megabytes(volume) +
+        utils.megabytes(volume) * int(job_number) +
         utils.megabytes(sys_reserve_volume)
     )
 
@@ -274,34 +259,20 @@ def benchmark_vg(
         except subprocess.CalledProcessError:
             _LOGGER.exception('lvremove error')
 
-    def benchmark_process():
-        """Do benchmark"""
-        result = IOZoneBenchmark(
-            base_path, volume, write_record_size, read_record_size
-        ).run()
-        BenchmarkWriter(
-            result_file
-        ).write({underlying_device_uuid: result})
-
     if not check_available_volume():
         _LOGGER.error('Space not enough for benchmark,'
-                      'need at least %s, fallback to default metrics',
+                      'need at least %s',
                       total_volume)
-        BenchmarkWriter(
-            result_file
-        ).write({underlying_device_uuid: DEFAULT_BENCHMARK_RESULT})
         return
 
     try:
         _LOGGER.info('Setup benchmark env')
         setup_benchmark_env()
         _LOGGER.info('Start benchmark')
-        benchmark_process()
+        return benchmark(base_path, volume, rw_type, job_number,
+                         thread_number, block_size, max_seconds)
     except Exception:  # pylint: disable=W0703
-        _LOGGER.exception('Benchmark failed, fallback to default metrics')
-        BenchmarkWriter(
-            result_file
-        ).write({underlying_device_uuid: DEFAULT_BENCHMARK_RESULT})
+        _LOGGER.exception('Benchmark failed')
         raise
     finally:
         _LOGGER.info('Cleanup benchmark env')

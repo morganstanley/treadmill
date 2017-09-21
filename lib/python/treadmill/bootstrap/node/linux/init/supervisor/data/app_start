@@ -9,4 +9,5 @@
 #
 # The root svscan will continue to run with ionice 0.
 
-exec {{ s6 }}/bin/s6-svscan {{ dir }}/running
+exec {{ treadmill }}/bin/treadmill sproc --cgroup . \
+    exec -- {{ s6 }}/bin/s6-svscan {{ dir }}/running

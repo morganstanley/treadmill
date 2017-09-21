@@ -1,4 +1,5 @@
-"""LVM based local disk management service."""
+"""LVM based local disk management service.
+"""
 
 from __future__ import absolute_import
 
@@ -6,14 +7,20 @@ import math
 import errno
 import logging
 import os
-import subprocess
 
-from .. import cgroups
-from .. import cgutils
-from .. import localdiskutils
-from .. import logcontext as lc
-from .. import lvm
-from .. import utils
+import six
+
+if six.PY2 and os.name == 'posix':
+    import subprocess32 as subprocess
+else:
+    import subprocess  # pylint: disable=wrong-import-order
+
+from treadmill import cgroups
+from treadmill import cgutils
+from treadmill import localdiskutils
+from treadmill import logcontext as lc
+from treadmill import lvm
+from treadmill import utils
 
 from ._base_service import BaseResourceServiceImpl
 
@@ -26,14 +33,16 @@ class LocalDiskResourceService(BaseResourceServiceImpl):
 
     __slots__ = (
         '_block_dev',
+        '_read_bps',
+        '_write_bps',
+        '_read_iops',
+        '_write_iops',
         '_default_read_bps',
         '_default_read_iops',
         '_default_write_bps',
         '_default_write_iops',
-        '_img_location',
-        '_img_size',
         '_pending',
-        '_status',
+        '_vg_status',
         '_volumes',
     )
 
@@ -41,28 +50,17 @@ class LocalDiskResourceService(BaseResourceServiceImpl):
         ('size', True, str),
     )
 
-    def __init__(self, block_dev=None, img_location=None, img_size='2G',
+    def __init__(self, block_dev, read_bps, write_bps, read_iops, write_iops,
                  default_read_bps='20M', default_write_bps='20M',
                  default_read_iops=100, default_write_iops=100):
         super(LocalDiskResourceService, self).__init__()
 
-        assert bool(block_dev is None) ^ bool(img_location is None)
-
-        if block_dev is not None:
-            self._block_dev = block_dev
-            self._img_size = None
-            self._img_location = None
-
-        elif img_location is not None:
-            self._img_size = img_size
-            self._img_location = os.path.realpath(img_location)
-            self._block_dev = None
-
-        else:
-            raise ValueError('Need to provide either a block device'
-                             ' or an image location.')
-
-        self._status = {}
+        self._block_dev = block_dev
+        self._read_bps = read_bps
+        self._write_bps = write_bps
+        self._read_iops = read_iops
+        self._write_iops = write_iops
+        self._vg_status = {}
         self._volumes = {}
         self._pending = []
         # TODO: temp solution - throttle read/writes to
@@ -79,14 +77,7 @@ class LocalDiskResourceService(BaseResourceServiceImpl):
         super(LocalDiskResourceService, self).initialize(service_dir)
 
         # Make sure LVM Volume Group set up
-        if self._block_dev is not None:
-            localdiskutils.setup_device_lvm(self._block_dev)
-        else:
-            localdiskutils.setup_image_lvm(
-                localdiskutils.TREADMILL_IMG,
-                self._img_location,
-                self._img_size
-            )
+        localdiskutils.setup_device_lvm(self._block_dev)
 
         # Finally retrieve the LV info
         lvs_info = lvm.lvsdisplay(group=localdiskutils.TREADMILL_VG)
@@ -103,13 +94,14 @@ class LocalDiskResourceService(BaseResourceServiceImpl):
                 for k in [
                     'name', 'block_dev',
                     'dev_major', 'dev_minor',
+                    'extent_size',
                     'stale',
                 ]
             }
             for lv in lvs_info
         }
         self._volumes = volumes
-        self._status = localdiskutils.refresh_vg_status(
+        self._vg_status = localdiskutils.refresh_vg_status(
             localdiskutils.TREADMILL_VG
         )
 
@@ -117,8 +109,8 @@ class LocalDiskResourceService(BaseResourceServiceImpl):
         """Make sure that all stale volumes are removed.
         """
         modified = False
-        for uniqueid in self._volumes.keys():
-            if not self._volumes[uniqueid].get('stale', False):
+        for uniqueid in six.viewkeys(self._volumes.copy()):
+            if not self._volumes[uniqueid].pop('stale', False):
                 continue
             modified = True
             # This is a stale volume, destroy it.
@@ -135,12 +127,17 @@ class LocalDiskResourceService(BaseResourceServiceImpl):
 
         # We just destroyed a volume, refresh cached status from LVM and notify
         # the service of the availability of the new status.
-        self._status = localdiskutils.refresh_vg_status(
+        self._vg_status = localdiskutils.refresh_vg_status(
             localdiskutils.TREADMILL_VG
         )
 
     def report_status(self):
-        return self._status
+        return dict(self._vg_status.items() + {
+            'read_bps': self._read_bps,
+            'write_bps': self._write_bps,
+            'read_iops': self._read_iops,
+            'write_iops': self._write_iops
+        }.items())
 
     def on_create_request(self, rsrc_id, rsrc_data):
         app_unique_name = rsrc_id
@@ -160,13 +157,16 @@ class LocalDiskResourceService(BaseResourceServiceImpl):
             # Create the logical volume
             existing_volume = uniqueid in self._volumes
             if not existing_volume:
-                needed = math.ceil(size_in_bytes / self._status['extent_size'])
-                if needed > self._status['extent_free']:
+                needed = math.ceil(
+                    size_in_bytes / self._vg_status['extent_size']
+                )
+                if needed > self._vg_status['extent_free']:
                     # If we do not have enough space, delay the creation until
                     # another volume is deleted.
                     log.info(
-                        'Delaying request %r until %d extents are free',
-                        rsrc_id, needed)
+                        'Delaying request %r until %d extents are free.'
+                        ' Current volumes: %r',
+                        rsrc_id, needed, self._volumes)
                     self._pending.append(rsrc_id)
                     return None
 
@@ -176,7 +176,7 @@ class LocalDiskResourceService(BaseResourceServiceImpl):
                     size_in_bytes=size_in_bytes,
                 )
                 # We just created a volume, refresh cached status from LVM
-                self._status = localdiskutils.refresh_vg_status(
+                self._vg_status = localdiskutils.refresh_vg_status(
                     localdiskutils.TREADMILL_VG
                 )
 
@@ -230,7 +230,8 @@ class LocalDiskResourceService(BaseResourceServiceImpl):
 
             volume_data = {
                 k: lv_info[k]
-                for k in ['name', 'block_dev', 'dev_major', 'dev_minor']
+                for k in ['name', 'block_dev',
+                          'dev_major', 'dev_minor', 'extent_size']
             }
 
             # Record existence of the volume.
@@ -257,7 +258,7 @@ class LocalDiskResourceService(BaseResourceServiceImpl):
 
             # We just destroyed a volume, refresh cached status from LVM and
             # notify the service of the availability of the new status.
-            self._status = localdiskutils.refresh_vg_status(
+            self._vg_status = localdiskutils.refresh_vg_status(
                 localdiskutils.TREADMILL_VG
             )
 

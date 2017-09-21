@@ -83,7 +83,9 @@ def load(tm_env, event, runtime):
     manifest['uniqueid'] = appcfg.gen_uniqueid(event)
 
     if manifest['environment'] not in ['dev', 'qa', 'uat', 'prod']:
-        _LOGGER.warn('Unrecognized environment: %s', manifest['environment'])
+        _LOGGER.warning(
+            'Unrecognized environment: %s', manifest['environment']
+        )
         raise Exception('Invalid environment: ' + manifest['environment'])
 
     if manifest['cpu'].endswith('%'):
@@ -328,7 +330,7 @@ def _add_linux_system_services(tm_env, manifest):
         'command': (
             'exec {chroot} {container_dir}/root'
             ' {pid1} -m -p -i'
-            ' {svscan} /services'
+            ' {svscan} -s /services'
         ).format(
             chroot=subproc.resolve('chroot'),
             container_dir=container_data_dir,

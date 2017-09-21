@@ -1,5 +1,8 @@
 """Treadmill trace CLI."""
 
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 from __future__ import absolute_import
 
 import logging
@@ -18,17 +21,38 @@ from treadmill.apptrace import (events, printer)
 _LOGGER = logging.getLogger(__name__)
 
 
+_RC_DEFAULT_EXIT = 100
+
+_RC_ABORTED = 101
+
+_RC_KILLED = 102
+
+
 def _trace_loop(ctx, app, snapshot):
     """Instance trace loop."""
+
     trace_printer = printer.AppTracePrinter()
+
+    rc = {'rc': _RC_DEFAULT_EXIT}
 
     def on_message(result):
         """Callback to process trace message."""
+        _LOGGER.debug('result: %r', result)
         event = events.AppTraceEvent.from_dict(result['event'])
         if event is None:
             return False
 
         trace_printer.process(event)
+
+        if isinstance(event, events.FinishedTraceEvent):
+            rc['rc'] = event.rc
+
+        if isinstance(event, events.KilledTraceEvent):
+            rc['rc'] = _RC_KILLED
+
+        if isinstance(event, events.AbortedTraceEvent):
+            rc['rc'] = _RC_ABORTED
+
         if isinstance(event, events.DeletedTraceEvent):
             return False
 
@@ -39,7 +63,7 @@ def _trace_loop(ctx, app, snapshot):
         click.echo('Error: %s' % result['_error'], err=True)
 
     try:
-        return ws_client.ws_loop(
+        ws_client.ws_loop(
             ctx['wsapi'],
             {'topic': '/trace',
              'filter': app},
@@ -47,6 +71,9 @@ def _trace_loop(ctx, app, snapshot):
             on_message,
             on_error
         )
+
+        sys.exit(rc['rc'])
+
     except ws_client.ConnectionError:
         click.echo('Could not connect to any Websocket APIs', err=True)
         sys.exit(-1)
@@ -82,6 +109,16 @@ def init():
 
         Specifying only an application name will list all the instance IDs with
         trace information available.
+
+        The trace will exit with the exit code of the container service that
+        caused container finish (reached retry count).
+
+        Special error codes if service did not exit gracefully and it is not
+        possible to capture the return code:
+
+            101 - container was aborted.
+            102 - container was killed (possible out of memory)
+            100 - everything else.
         """
         # Disable too many branches.
         #

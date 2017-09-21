@@ -108,7 +108,7 @@ def _admin_api(ctx, scope=None):
 def _zk_url(ctx):
     """Resolve Zookeeper connection string from DNS."""
     if not ctx.dns_domain:
-        _LOGGER.warn('DNS domain is not set.')
+        _LOGGER.warning('DNS domain is not set.')
         zkurl_rec = dnsutils.txt('zk.%s' % (ctx.cell), ctx.dns_server)
     else:
         zkurl_rec = dnsutils.txt(

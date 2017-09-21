@@ -9,17 +9,21 @@ import errno
 import json
 import logging
 import os
-import subprocess
-import tempfile
 
 import enum
 import six
+
+if six.PY2 and os.name == 'posix':
+    import subprocess32 as subprocess
+else:
+    import subprocess  # pylint: disable=wrong-import-order
 
 from treadmill import appevents
 from treadmill import fs
 from treadmill import dirwatch
 from treadmill import supervisor
 
+from treadmill.appcfg import abort as app_abort
 from treadmill.apptrace import events as traceevents
 
 
@@ -105,9 +109,16 @@ class Monitor(object):
 
         policy = self._policy_impl()
         new_watch = policy.register(service)
-        self._service_policies[new_watch] = policy
+
         # Add the new service directory to the policy watcher
-        self._dirwatcher.add_dir(new_watch)
+        try:
+            self._dirwatcher.add_dir(new_watch)
+
+        except OSError:
+            _LOGGER.exception('Unable to add dir to watcher %r', new_watch)
+            return
+
+        self._service_policies[new_watch] = policy
         # Immediately ensure we start within policy.
         self._process(policy)
 
@@ -159,6 +170,9 @@ class Monitor(object):
         :params ``supervisor.Service`` service:
             Service to bring up.
         """
+        _LOGGER.debug('Waiting till %r is really down', service)
+        supervisor.wait_service(service.directory,
+                                supervisor.ServiceWaitAction.really_down)
         _LOGGER.info('Bringing up service %r', service)
         supervisor.control_service(service.directory,
                                    supervisor.ServiceControlAction.up)
@@ -242,23 +256,23 @@ class MonitorNodeDown(MonitorDownAction):
         """Shut down the node by writing a watchdog with the down reason data.
         """
         _LOGGER.critical('Node down: %r', data)
-        with tempfile.NamedTemporaryFile(prefix='.tmp',
-                                         dir=self._watchdog_dir,
-                                         delete=False) as f:
-            f.write(
+        filename = os.path.join(
+            self._watchdog_dir, 'Monitor-%s' % data['service']
+        )
+        fs.write_safe(
+            filename,
+            lambda f: f.write(
                 'Node service {service!r} crashed.'
                 ' Last exit {return_code} (sig:{signal}).'.format(
                     service=data['service'],
                     return_code=data['return_code'],
                     signal=data['signal']
                 )
-            )
-            if os.name == 'posix':
-                os.fchmod(f.fileno(), 0o644)
-        os.rename(
-            f.name,
-            os.path.join(self._watchdog_dir, 'Monitor-%s' % data['service'])
+            ),
+            prefix='.tmp'
         )
+        if os.name == 'posix':
+            os.chmod(filename, 0o644)
 
         return True
 
@@ -278,9 +292,15 @@ class MonitorContainerCleanup(MonitorDownAction):
     def execute(self, data):
         """Pass a container to the cleanup service.
         """
-        _LOGGER.critical('Container cleanup: %r', data)
+        _LOGGER.critical('Monitor container cleanup: %r', data)
         running = os.path.join(self._running_dir, data['service'])
+        data_dir = supervisor.open_service(running).data_dir
         cleanup = os.path.join(self._cleanup_dir, data['service'])
+
+        # pid1 will SIGABRT(6) when there is an issue
+        if int(data['signal']) == 6:
+            app_abort.flag_aborted(data_dir, why=app_abort.AbortedReason.PID1)
+
         try:
             _LOGGER.info('Moving %r -> %r', running, cleanup)
             os.rename(running, cleanup)
@@ -296,7 +316,7 @@ class MonitorContainerCleanup(MonitorDownAction):
                 supervisor.SvscanControlAction.nuke
             ])
         except subprocess.CalledProcessError as err:
-            _LOGGER.warn('Failed to nuke svscan: %r', self._running_dir)
+            _LOGGER.warning('Failed to nuke svscan: %r', self._running_dir)
 
         return True
 
@@ -320,12 +340,12 @@ class MonitorContainerDown(MonitorDownAction):
         """
         _LOGGER.critical('Container down: %r', data)
         data_dir = self._container_svc.data_dir
-        with tempfile.NamedTemporaryFile(prefix='.tmp',
-                                         dir=data_dir,
-                                         delete=False) as f:
-            json.dump(data, f)
-            os.fchmod(f.fileno(), 0o644)
-        os.rename(f.name, os.path.join(data_dir, EXIT_INFO))
+        fs.write_safe(
+            os.path.join(data_dir, EXIT_INFO),
+            lambda f: json.dump(data, f),
+            prefix='.tmp',
+            permission=0o644
+        )
         # NOTE: This will take down the monitor service as well.
         supervisor.control_service(self._container_svc.directory,
                                    supervisor.ServiceControlAction.down)

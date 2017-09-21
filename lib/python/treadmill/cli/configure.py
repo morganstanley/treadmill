@@ -1,6 +1,10 @@
 """Manage Treadmill app manifest."""
 from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
+import io
 import logging
 
 import click
@@ -30,8 +34,8 @@ def _configure(apis, manifest, appname):
             existing = None
 
     if manifest:
-        with open(manifest, 'rb') as fd:
-            app = yaml.load(fd.read())
+        with io.open(manifest, 'rb') as fd:
+            app = yaml.load(stream=fd)
         if existing:
             restclient.put(apis, _APP_REST_PATH + appname, payload=app)
         else:

@@ -1,5 +1,10 @@
-"""Syncronizes cell Zookeeper with LDAP data."""
+"""Syncronizes cell Zookeeper with LDAP data.
+"""
+
 from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import logging
 import time
@@ -10,14 +15,18 @@ import math
 import click
 import ldap3
 
+import six
+
+from treadmill import authz
 from treadmill import context
 from treadmill import exc
-from treadmill import authz
-from treadmill import zkutils
-from treadmill import zknamespace as z
-from treadmill.api import instance
+from treadmill import utils
 from treadmill import yamlwrapper as yaml
+from treadmill import zknamespace as z
+from treadmill import zkutils
 from treadmill import zkwatchers
+
+from treadmill.api import instance
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -63,7 +72,7 @@ def reevaluate(instance_api, state):
 
         elif count > current_count:
             needed = count - current_count
-            allowed = min(needed, math.floor(available))
+            allowed = int(min(needed, math.floor(available)))
             if allowed <= 0:
                 continue
 
@@ -74,20 +83,20 @@ def reevaluate(instance_api, state):
                 conf['available'] -= allowed
 
             except exc.TreadmillError as tm_err:
-                _LOGGER.warn('Invalid manifest: %s, %s', name, str(tm_err))
+                _LOGGER.warning('Invalid manifest: %s, %s', name, str(tm_err))
 
             except ldap3.LDAPNoSuchObjectResult:
                 # TODO: may need to rationalize this and not expose low
                 #       level ldap exception from admin.py, and rather
                 #       return None for non-existing entities.
-                _LOGGER.warn('Application not configured: %s', name)
+                _LOGGER.warning('Application not configured: %s', name)
             except ldap3.LDAPMaximumRetriesError:
                 # In case of LDAP connection error, there is no reason to
                 # continue the loop, exit right away.
                 #
                 # Returning False will stop the main loop.
-                _LOGGER.warn('Unable to connect to LDAP.',
-                             exception=True)
+                _LOGGER.warning('Unable to connect to LDAP.',
+                                exception=True)
                 return False
             except Exception:  # pylint: disable=W0703
                 _LOGGER.exception('Unable to create instances: %s: %s',
@@ -120,7 +129,7 @@ def _run_sync():
     }
 
     @zkclient.ChildrenWatch(z.path.scheduled())
-    @exc.exit_on_unhandled
+    @utils.exit_on_unhandled
     def _scheduled_watch(children):
         """Watch scheduled instances."""
         scheduled = sorted(children)
@@ -140,7 +149,7 @@ def _run_sync():
 
         # Establish data watch on each monitor.
         @zkwatchers.ExistingDataWatch(zkclient, z.path.appmonitor(name))
-        @exc.exit_on_unhandled
+        @utils.exit_on_unhandled
         def _monitor_data_watch(data, stat, event):
             """Monitor individual monitor."""
             if (event is not None and event.type == 'DELETED') or stat is None:
@@ -162,18 +171,20 @@ def _run_sync():
             }
 
     @zkclient.ChildrenWatch(z.path.appmonitor())
-    @exc.exit_on_unhandled
+    @utils.exit_on_unhandled
     def _appmonitors_watch(children):
         """Watch app monitors."""
 
         monitors = set(children)
-        extra = state['monitors'].viewkeys() - monitors
+        extra = six.viewkeys(state['monitors']) - monitors
         for name in extra:
             _LOGGER.info('Removing extra monitor: %r', name)
             if state['monitors'].pop(name, None) is None:
-                _LOGGER.warn('Failed to remove non-existent monitor: %r', name)
+                _LOGGER.warning(
+                    'Failed to remove non-existent monitor: %r', name
+                )
 
-        missing = monitors - state['monitors'].viewkeys()
+        missing = monitors - six.viewkeys(state['monitors'])
 
         for name in missing:
             _LOGGER.info('Adding missing monitor: %s', name)

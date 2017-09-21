@@ -1,16 +1,22 @@
-"""Container instance events."""
+"""Container instance events.
+"""
 
 from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import abc
 import logging
 
 import enum
+import six
 
 
 _LOGGER = logging.getLogger(__name__)
 
 
+@six.add_metaclass(abc.ABCMeta)
 class AppTraceEvent(object):
     """Parent class of all trace events.
 
@@ -19,8 +25,6 @@ class AppTraceEvent(object):
 
     All event classes must derive from this class.
     """
-    __metaclass__ = abc.ABCMeta
-
     __slots__ = (
         'event_type',
         'timestamp',
@@ -75,7 +79,7 @@ class AppTraceEvent(object):
                 event_data=event_data,
                 payload=payload
             )
-        except StandardError:
+        except Exception:  # pylint: disable=broad-except
             _LOGGER.warning('Failed to parse event type %r:', event_type,
                             exc_info=True)
             event = None
@@ -110,7 +114,7 @@ class AppTraceEvent(object):
         try:
             event = eclass(**event_data)
 
-        except StandardError:
+        except Exception:  # pylint: disable=broad-except
             _LOGGER.warning('Failed to instanciate event type %r:', event_type,
                             exc_info=True)
             event = None
@@ -543,10 +547,11 @@ class AppTraceEventTypes(enum.Enum):
     service_running = ServiceRunningTraceEvent
 
 
+@six.add_metaclass(abc.ABCMeta)
 class AppTraceEventHandler(object):
-    """Base class for processing events."""
+    """Base class for processing events.
+    """
 
-    __metaclass__ = abc.ABCMeta
     __slots__ = (
         'ctx',
     )
@@ -649,51 +654,61 @@ class AppTraceEventHandler(object):
 
     @abc.abstractmethod
     def on_scheduled(self, when, instanceid, server, why):
-        """Invoked when task is scheduled."""
+        """Invoked when task is scheduled.
+        """
         pass
 
     @abc.abstractmethod
     def on_pending(self, when, instanceid, why):
-        """Invoked when task is pending."""
+        """Invoked when task is pending.
+        """
         pass
 
     @abc.abstractmethod
     def on_pending_delete(self, when, instanceid, why):
-        """Invoked when task is about to be deleted."""
+        """Invoked when task is about to be deleted.
+        """
         pass
 
     @abc.abstractmethod
     def on_configured(self, when, instanceid, server, uniqueid):
-        """Invoked when task is configured."""
+        """Invoked when task is configured.
+        """
         pass
 
     @abc.abstractmethod
     def on_deleted(self, when, instanceid):
-        """Invoked when task is deleted."""
+        """Invoked when task is deleted.
+        """
         pass
 
     @abc.abstractmethod
     def on_finished(self, when, instanceid, server, signal, exitcode):
-        """Invoked when task is finished."""
+        """Invoked when task is finished.
+        """
         pass
 
     @abc.abstractmethod
     def on_aborted(self, when, instanceid, server, why):
-        """Invoked when task is aborted."""
+        """Invoked when task is aborted.
+        """
         pass
 
     @abc.abstractmethod
     def on_killed(self, when, instanceid, server, is_oom):
-        """Default task-finished handler."""
+        """Default task-finished handler.
+        """
         pass
 
     @abc.abstractmethod
     def on_service_running(self, when, instanceid, server, uniqueid, service):
-        """Invoked when service is running."""
+        """Invoked when service is running.
+        """
         pass
 
     @abc.abstractmethod
     def on_service_exited(self, when, instanceid, server, uniqueid, service,
                           exitcode, signal):
-        """Invoked when service exits."""
+        """Invoked when service exits.
+        """
         pass

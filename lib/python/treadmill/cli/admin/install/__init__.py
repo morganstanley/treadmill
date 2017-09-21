@@ -1,6 +1,10 @@
 """Implementation of treadmill-admin-install CLI plugin."""
 from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
+import io
 import os
 import pkgutil
 import sys
@@ -54,7 +58,7 @@ def init():
             if conf == '-':
                 ctx.obj['PARAMS'].update(yaml.load(stream=sys.stdin))
             else:
-                with open(conf, 'r') as fd:
+                with io.open(conf, 'r') as fd:
                     ctx.obj['PARAMS'].update(yaml.load(stream=fd))
 
         if override:

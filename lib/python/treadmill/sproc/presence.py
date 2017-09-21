@@ -1,14 +1,25 @@
-"""Runs Treadmill application presence daemon."""
+"""Runs Treadmill application presence daemon.
+"""
 
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 from __future__ import absolute_import
 
 import logging
 import os
-import subprocess
+import signal
+import sys
 import time
 import traceback
 
 import click
+import six
+
+if six.PY2 and os.name == 'posix':
+    import subprocess32 as subprocess  # pylint: disable=import-error
+else:
+    import subprocess  # pylint: disable=wrong-import-order
 
 from treadmill import appenv
 from treadmill import appevents
@@ -18,6 +29,7 @@ from treadmill import presence
 from treadmill import supervisor
 from treadmill import tickets
 from treadmill import zkutils
+from treadmill import utils
 
 from treadmill.appcfg import abort as app_abort
 from treadmill.appcfg import manifest as app_manifest
@@ -93,6 +105,12 @@ def _refresh_tickets(manifest, container_dir):
         _LOGGER.error('Error requesting tickets.')
 
 
+def sigterm_handler(_signo, _stack_frame):
+    """Will raise SystemExit exception and allow for cleanup."""
+    _LOGGER.info('Got term signal.')
+    sys.exit(0)
+
+
 def init():
     """App main."""
 
@@ -110,36 +128,42 @@ def init():
     @click.argument('container-dir', type=click.Path(exists=True))
     def register_cmd(approot, refresh_interval, manifest, container_dir):
         """Register container presence."""
-        tm_env = appenv.AppEnvironment(approot)
-        app = app_manifest.read(manifest)
-
-        app_presence = presence.EndpointPresence(
-            context.GLOBAL.zk.conn,
-            app
-        )
-
-        # If tickets are not ok, app will be aborted.
-        #
-        # If tickets acquired successfully, services will start, and
-        # tickets will be refreshed after each interval.
-
-        refresh = False
         try:
-            app_presence.register()
-            refresh = _get_tickets(app, container_dir)
-            _start_service_sup(tm_env, app, container_dir)
-        except exc.ContainerSetupError as err:
-            app_abort.abort(
-                container_dir,
-                why=err.reason,
-                payload=traceback.format_exc()
+            _LOGGER.info('Configuring sigterm handler.')
+            signal.signal(utils.term_signal(), sigterm_handler)
+
+            tm_env = appenv.AppEnvironment(approot)
+            app = app_manifest.read(manifest)
+
+            app_presence = presence.EndpointPresence(
+                context.GLOBAL.zk.conn,
+                app
             )
 
-        while True:
-            # Need to sleep anyway even if not refreshing tickets.
-            time.sleep(refresh_interval)
-            if refresh:
-                _refresh_tickets(app, container_dir)
+            # If tickets are not ok, app will be aborted.
+            #
+            # If tickets acquired successfully, services will start, and
+            # tickets will be refreshed after each interval.
+            refresh = False
+            try:
+                app_presence.register()
+                refresh = _get_tickets(app, container_dir)
+                _start_service_sup(tm_env, app, container_dir)
+            except exc.ContainerSetupError as err:
+                app_abort.abort(
+                    container_dir,
+                    why=err.reason,
+                    payload=traceback.format_exc()
+                )
+
+            while True:
+                # Need to sleep anyway even if not refreshing tickets.
+                time.sleep(refresh_interval)
+                if refresh:
+                    _refresh_tickets(app, container_dir)
+        finally:
+            _LOGGER.info('Stopping zookeeper.')
+            context.GLOBAL.zk.conn.stop()
 
     del register_cmd
     return presence_grp

@@ -29,8 +29,8 @@ class postmortemTest(unittest.TestCase):
         os.makedirs('%s/init/server_init/log' % self.tmroot)
         os.mknod('%s/init/server_init/log/current' % self.tmroot)
 
-        os.makedirs('%s/running/foo/sys/bar/log' % self.tmroot)
-        os.mknod('%s/running/foo/sys/bar/log/current' % self.tmroot)
+        os.makedirs('%s/running/foo/data/sys/bar/data/log' % self.tmroot)
+        os.mknod('%s/running/foo/data/sys/bar/data/log/current' % self.tmroot)
 
         os.makedirs('%s/localdisk_svc' % self.tmroot)
         os.makedirs('%s/network_svc' % self.tmroot)
@@ -66,9 +66,9 @@ class postmortemTest(unittest.TestCase):
                                                    self.tmroot)
         )
         shutil.copyfile.assert_any_call(
-            '%s/running/foo/sys/bar/log/current' % self.tmroot,
-            '%s%s/running/foo/sys/bar/log/current' % (self.tmp_dir,
-                                                      self.tmroot)
+            '%s/running/foo/data/sys/bar/data/log/current' % self.tmroot,
+            '%s%s/running/foo/data/sys/bar/data/log/current' % (self.tmp_dir,
+                                                                self.tmroot)
         )
 
         subproc.check_output.assert_any_call(['sysctl', '-a'])

@@ -2,12 +2,16 @@
 """
 
 from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import io
 import errno
 import logging
 import os
 import re
+
+import six
 
 _ENV_KEY_RE = re.compile(r'^[A-Za-z][A-Za-z0-9_.]*$')
 _LOGGER = logging.getLogger(__name__)
@@ -19,9 +23,9 @@ def data_read(filename):
     :returns ``unicode``:
         File content.
     """
-    with open(filename) as f:
+    with io.open(filename) as f:
         data = f.readline()
-    return data.decode(encoding='utf8').strip()
+    return data.strip()
 
 
 def data_write(filename, data):
@@ -30,7 +34,7 @@ def data_write(filename, data):
     :param``unicode`` data:
         File content.
     """
-    with open(filename, 'w') as f:
+    with io.open(filename, 'wb') as f:
         if data is not None:
             f.write(data.encode(encoding='utf8', errors='replace') + '\n')
         if os.name == 'posix':
@@ -60,12 +64,16 @@ def environ_dir_write(env_dir, env, update=False):
             _LOGGER.warning('Ignoring invalid environ variable %r', key)
             continue
 
-        with open(os.path.join(env_dir, key), 'w+') as f:
+        with io.open(os.path.join(env_dir, key), 'wb') as f:
             if value is not None:
+                # Make sure we have utf8 strings
+                if hasattr(value, 'decode'):
+                    value = value.decode()
+                value = '{}'.format(value)
                 # The value must be properly escaped, all tailing newline
                 # should be removed and the newlines replaced with \0
                 data = (
-                    unicode(value)
+                    value
                     .encode(encoding='utf8', errors='replace')
                     .rstrip(b'\n')
                     .replace(b'\n', b'\x00')
@@ -86,7 +94,9 @@ def environ_dir_read(env_dir):
     """
     env = {}
     for key in os.listdir(env_dir):
-        with open(os.path.join(env_dir, key)) as f:
+        if key[0] == '.':
+            continue
+        with io.open(os.path.join(env_dir, key), 'rb') as f:
             data = f.readline()
         value = (
             data
@@ -108,7 +118,7 @@ def set_list_read(filename):
         Set of values read from ``filename``. Value can be unicode.
     """
     try:
-        with open(filename) as f:
+        with io.open(filename) as f:
             entries = f.read().strip().split('\n')
     except IOError as err:
         if err.errno is errno.ENOENT:
@@ -117,7 +127,7 @@ def set_list_read(filename):
             raise
 
     return {
-        entry.decode(encoding='utf8')
+        entry
         for entry in entries
         if entry
     }
@@ -132,10 +142,10 @@ def set_list_write(filename, entries):
         Set of values to write into ``filename``. Value can be unicode.
     """
     values = {
-        unicode(entry).encode(encoding='utf8', errors='replace')
+        entry.encode(encoding='utf8', errors='replace')
         for entry in entries
     }
-    with open(filename, 'w') as f:
+    with io.open(filename, 'wb') as f:
         f.writelines(values)
         if os.name == 'posix':
             os.fchmod(f.fileno(), 0o644)
@@ -152,13 +162,14 @@ def value_read(filename, default=0):
         Value read or default value.
     """
     try:
-        with open(filename) as f:
+        with io.open(filename, 'rb') as f:
             value = f.readline()
     except IOError as err:
         if err.errno is errno.ENOENT:
             value = default
         else:
             raise
+
     return int(value)
 
 
@@ -170,8 +181,8 @@ def value_write(filename, value):
     :param ``int`` value:
         Value to write in the file.
     """
-    with open(filename, 'w') as f:
-        f.write('%d\n' % value)
+    with io.open(filename, 'wb') as f:
+        f.write(b'%d\n' % value)
         if os.name == 'posix':
             os.fchmod(f.fileno(), 0o644)
 
@@ -184,9 +195,9 @@ def script_read(filename):
     :returns ``unicode``:
         Script read from the file.
     """
-    with open(filename, 'r') as f:
+    with io.open(filename, 'r') as f:
         script = f.read()
-    return script.decode(encoding='utf8')
+    return script
 
 
 def script_write(filename, script):
@@ -199,17 +210,17 @@ def script_write(filename, script):
     :param ``script:
         String or iterable returning strings. Can be unicode.
     """
-    if isinstance(script, basestring):
+    if isinstance(script, six.string_types):
         # If the script is fully provided in a string, wrap it in a StringIO
-        script = io.StringIO(unicode(script))
+        if hasattr(script, 'decode'):
+            script = io.StringIO(script.decode())
+        else:
+            script = io.StringIO(script)
 
-    with open(filename, 'w') as f:
+    with io.open(filename, 'wb') as f:
         for chunk in script:
             # The value must be properly encoded
-            data = (
-                unicode(chunk)
-                .encode(encoding='utf8', errors='replace')
-            )
+            data = chunk.encode(encoding='utf8', errors='replace')
             f.write(data)
         if os.name == 'posix':
             os.fchmod(f.fileno(), 0o755)

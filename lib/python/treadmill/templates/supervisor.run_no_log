@@ -1,7 +1,0 @@
-#!/bin/sh
-
-export KRB5CCNAME="FILE:${TREADMILL_HOST_TICKET}"
-
-exec 2>&1
-
-exec {{ cmd }}

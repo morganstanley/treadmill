@@ -1,8 +1,12 @@
 """Implementation of treadmill-admin CLI plugin."""
 from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 
 import inspect
+import io
 
 import decorator
 import click
@@ -13,7 +17,7 @@ from treadmill import authz as authz_mod
 from treadmill import cli
 from treadmill import context
 from treadmill import plugin_manager
-from treadmill import userutil
+from treadmill import utils
 from treadmill import yamlwrapper as yaml
 
 
@@ -46,8 +50,8 @@ def make_command(parent, name, func):
         """Constructs a command handler."""
         try:
             if 'rsrc' in kwargs:
-                with open(kwargs['rsrc'], 'rb') as fd:
-                    kwargs['rsrc'] = yaml.load(fd.read())
+                with io.open(kwargs['rsrc'], 'rb') as fd:
+                    kwargs['rsrc'] = yaml.load(stream=fd)
 
             formatter = cli.make_formatter(None)
             cli.out(formatter(func(*args, **kwargs)))
@@ -145,7 +149,7 @@ def init():
         """Directly invoke Treadmill API without REST."""
         if authz is not None:
             ctx.authorizer = authz_mod.ClientAuthorizer(
-                userutil.get_current_username, authz
+                utils.get_current_username, authz
             )
         else:
             ctx.authorizer = authz_mod.NullAuthorizer()

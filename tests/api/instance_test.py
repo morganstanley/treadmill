@@ -1,4 +1,8 @@
 """Instance API tests."""
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import unittest
 
@@ -7,6 +11,8 @@ import tests.treadmill_test_deps  # pylint: disable=W0611
 
 import mock
 import jsonschema
+
+import six
 
 from treadmill import admin
 from treadmill import exc
@@ -143,20 +149,20 @@ class ApiInstanceTest(unittest.TestCase):
             mock.ANY, 'proid.app', app, 2, 'foo@BAR.BAZ'
         )
 
-        with self.assertRaisesRegexp(
-            jsonschema.exceptions.ValidationError,
+        with six.assertRaisesRegex(
+            self, jsonschema.exceptions.ValidationError,
             "'invalid!' is not valid"
         ):
             self.instance.create('proid.app', {}, created_by='invalid!')
 
-        with self.assertRaisesRegexp(
-            jsonschema.exceptions.ValidationError,
+        with six.assertRaisesRegex(
+            self, jsonschema.exceptions.ValidationError,
             "0 is less than the minimum of 1"
         ):
             self.instance.create('proid.app', {}, count=0)
 
-        with self.assertRaisesRegexp(
-            jsonschema.exceptions.ValidationError,
+        with six.assertRaisesRegex(
+            self, jsonschema.exceptions.ValidationError,
             "1001 is greater than the maximum of 1000"
         ):
             self.instance.create('proid.app', {}, count=1001)
@@ -186,8 +192,8 @@ class ApiInstanceTest(unittest.TestCase):
             mock.ANY, ['proid.app#0000000003'], 'foo@BAR.BAZ'
         )
 
-        with self.assertRaisesRegexp(
-            jsonschema.exceptions.ValidationError,
+        with six.assertRaisesRegex(
+            self, jsonschema.exceptions.ValidationError,
             "'invalid!' is not valid"
         ):
             self.instance.delete('proid.app#0000000001', deleted_by='invalid!')

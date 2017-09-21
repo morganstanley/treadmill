@@ -1,9 +1,13 @@
 """
 Unit tests for treadmill.sproc.export_reports.
 """
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import unittest
-from StringIO import StringIO
+from io import StringIO
 
 # Disable W0611: Unused import
 import tests.treadmill_test_deps  # pylint: disable=W0611
@@ -32,7 +36,7 @@ class ExportReportsTest(unittest.TestCase):
         export_reports(cell_dir, zkclient)
 
         zkclient.get.assert_called_with('/reports/foo')
-        self.assertEquals(output.getvalue(), 'save this')
+        self.assertEqual(output.getvalue(), 'save this')
 
         # Ensure filenames are in UTC timezone
         bz2_mock.assert_called_with(

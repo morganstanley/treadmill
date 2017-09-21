@@ -1,11 +1,9 @@
-"""
-Unit test for localdisk_service - Treadmill local disk service
+"""Unit test for localdisk_service - Treadmill local disk service.
 """
 
 import collections
 import os
 import shutil
-import subprocess
 import tempfile
 import unittest
 
@@ -13,6 +11,12 @@ import unittest
 import tests.treadmill_test_deps  # pylint: disable=W0611
 
 import mock
+import six
+
+if six.PY2 and os.name == 'posix':
+    import subprocess32 as subprocess
+else:
+    import subprocess  # pylint: disable=wrong-import-order
 
 import treadmill
 from treadmill import localdiskutils
@@ -33,8 +37,12 @@ class LocalDiskServiceTest(unittest.TestCase):
         """Test event_handlers request.
         """
         svc = localdisk_service.LocalDiskResourceService(
-            img_location='/image_dir',
-            img_size=42,
+            block_dev='/dev/block',
+            read_bps='100M',
+            write_bps='100M',
+            read_iops=1000,
+            write_iops=1000
+
         )
 
         self.assertEqual(
@@ -46,18 +54,27 @@ class LocalDiskServiceTest(unittest.TestCase):
     def test_report_status(self):
         """Test service status reporting.
         """
-        # Access to a protected member _status
+        # Access to a protected member _vg_status
         # pylint: disable=W0212
 
         svc = localdisk_service.LocalDiskResourceService(
-            img_location='/image_dir',
-            img_size=42,
+            block_dev='/dev/block',
+            read_bps='100M',
+            write_bps='100M',
+            read_iops=1000,
+            write_iops=1000
         )
-        svc._status = {'test': 'me'}
+        svc._vg_status = {'test': 'me'}
 
         status = svc.report_status()
 
-        self.assertEqual(status, {'test': 'me'})
+        self.assertEqual(status, {
+            'test': 'me',
+            'read_bps': '100M',
+            'write_bps': '100M',
+            'read_iops': 1000,
+            'write_iops': 1000
+        })
 
     @mock.patch('treadmill.cgroups.create', mock.Mock())
     @mock.patch('treadmill.cgroups.set_value', mock.Mock())
@@ -69,14 +86,17 @@ class LocalDiskServiceTest(unittest.TestCase):
     def test_on_create_request(self):
         """Test processing of a localdisk create request.
         """
-        # Access to a protected member _status
+        # Access to a protected member _vg_status
         # pylint: disable=W0212
 
         svc = localdisk_service.LocalDiskResourceService(
-            img_location='/image_dir',
-            img_size=42,
+            block_dev='/dev/block',
+            read_bps='100M',
+            write_bps='100M',
+            read_iops=1000,
+            write_iops=1000
         )
-        svc._status = {
+        svc._vg_status = {
             'extent_size': 4*1024**3,
             'extent_free': 512,
         }
@@ -88,6 +108,7 @@ class LocalDiskServiceTest(unittest.TestCase):
             'block_dev': '/dev/test',
             'dev_major': 42,
             'dev_minor': 43,
+            'extent_size': 10,
             'name': 'ID1234',
         }
 
@@ -129,6 +150,7 @@ class LocalDiskServiceTest(unittest.TestCase):
                 'block_dev': '/dev/test',
                 'dev_major': 42,
                 'dev_minor': 43,
+                'extent_size': 10,
                 'name': 'ID1234',
             }
         )
@@ -144,14 +166,17 @@ class LocalDiskServiceTest(unittest.TestCase):
         """Test processing of a localdisk create request when volume already
         created.
         """
-        # Access to a protected member _status
+        # Access to a protected member _vg_status
         # pylint: disable=W0212
 
         svc = localdisk_service.LocalDiskResourceService(
-            img_location='/image_dir',
-            img_size=42,
+            block_dev='/dev/block',
+            read_bps='100M',
+            write_bps='100M',
+            read_iops=1000,
+            write_iops=1000
         )
-        svc._status = {
+        svc._vg_status = {
             'extent_size': 4*1024**3,
             'extent_free': 512,
         }
@@ -159,6 +184,7 @@ class LocalDiskServiceTest(unittest.TestCase):
             'block_dev': '/dev/test',
             'dev_major': 42,
             'dev_minor': 43,
+            'extent_size': 10,
             'name': 'ID1234',
         }
         request = {
@@ -177,6 +203,7 @@ class LocalDiskServiceTest(unittest.TestCase):
             'block_dev': '/dev/test',
             'dev_major': 24,
             'dev_minor': 34,
+            'extent_size': 10,
             'name': 'ID1234',
         }
         # Issue a second request
@@ -213,6 +240,7 @@ class LocalDiskServiceTest(unittest.TestCase):
                 'block_dev': '/dev/test',
                 'dev_major': 24,
                 'dev_minor': 34,
+                'extent_size': 10,
                 'name': 'ID1234',
             }
         )
@@ -228,8 +256,11 @@ class LocalDiskServiceTest(unittest.TestCase):
         # pylint: disable=W0212
 
         svc = localdisk_service.LocalDiskResourceService(
-            img_location='/image_dir',
-            img_size=42,
+            block_dev='/dev/block',
+            read_bps='100M',
+            write_bps='100M',
+            read_iops=1000,
+            write_iops=1000
         )
         request_id = 'myproid.test-0-ID1234'
 

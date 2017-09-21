@@ -15,16 +15,21 @@ _LOGGER = logging.getLogger(__name__)
 _DEFAULT_TIMEOUT = 30
 
 
+class ConnectionError(Exception):
+    """Error raised when connection attempts fail."""
+
+
+CLI_WS_EXCEPTIONS = [
+    (ConnectionError, 'Could not connect to the websocket API')
+]
+
+
 class _RetryError(Exception):
     """Error indicating that retry attempt should be made."""
 
     def __init__(self, since):
         Exception.__init__(self)
         self.since = since
-
-
-class ConnectionError(Exception):
-    """Error raised when connection attempts fail."""
 
 
 def _ws_events(ws_conn, message, snapshot, since, on_message, on_error):

@@ -2,6 +2,9 @@
 Treadmill cron CLI.
 """
 from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import logging
 import urllib
@@ -77,13 +80,21 @@ def init():
 
     @cron_group.command(name='list')
     @click.option('--match', help='Cron name pattern match')
+    @click.option('--resource', help='Pattern match on the resource name')
     @_ON_EXCEPTIONS
-    def _list(match):
+    def _list(match, resource):
         """List out all cron events"""
         restapi = context.GLOBAL.cell_api(ctx['api'])
         url = _REST_PATH
+        query = {}
         if match:
-            url = '{}?{}'.format(url, urllib.urlencode([('match', match)]))
+            query['match'] = match
+        if resource:
+            query['resource'] = resource
+
+        if query:
+            qstr = urllib.urlencode(query)
+            url = '{}?{}'.format(url, qstr)
 
         response = restclient.get(restapi, url)
         jobs = response.json()
@@ -100,8 +111,34 @@ def init():
         url = _REST_PATH + job_id
         restclient.delete(restapi, url)
 
+    @cron_group.command()
+    @click.argument('job_id')
+    @_ON_EXCEPTIONS
+    def pause(job_id):
+        """Pause a cron job"""
+        restapi = context.GLOBAL.cell_api(ctx['api'])
+        url = _REST_PATH + job_id + '?pause=true'
+        job = restclient.put(restapi, url, {}).json()
+        _LOGGER.debug('job: %r', job)
+
+        cli.out(_FORMATTER(job))
+
+    @cron_group.command()
+    @click.argument('job_id')
+    @_ON_EXCEPTIONS
+    def resume(job_id):
+        """Resume a cron job"""
+        restapi = context.GLOBAL.cell_api(ctx['api'])
+        url = _REST_PATH + job_id + '?resume=true'
+        job = restclient.put(restapi, url, {}).json()
+        _LOGGER.debug('job: %r', job)
+
+        cli.out(_FORMATTER(job))
+
     del configure
     del _list
     del delete
+    del pause
+    del resume
 
     return cron_group

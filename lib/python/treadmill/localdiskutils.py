@@ -1,10 +1,19 @@
-"""Common local disk utils"""
+"""Common local disk utils.
+"""
+
+from __future__ import absolute_import
 
 import errno
 import logging
 import os
 import re
-import subprocess
+
+import six
+
+if six.PY2 and os.name == 'posix':
+    import subprocess32 as subprocess
+else:
+    import subprocess  # pylint: disable=wrong-import-order
 
 from treadmill import exc
 from treadmill import fs

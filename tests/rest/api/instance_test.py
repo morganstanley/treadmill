@@ -1,6 +1,9 @@
 """Instance REST api tests."""
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
-import httplib
 import json
 import unittest
 
@@ -12,6 +15,8 @@ from tests.rest.api import user_set
 import flask
 import flask_restplus as restplus
 import mock
+
+from six.moves import http_client
 
 import treadmill
 from treadmill import exc
@@ -63,7 +68,7 @@ class InstanceTest(unittest.TestCase):
             ''.join(resp.response),
             '{"instances": ["proid.app#0000000001"]}'
         )
-        self.assertEqual(resp.status_code, httplib.OK)
+        self.assertEqual(resp.status_code, http_client.OK)
         self.impl.create.assert_called_once_with('proid.app', rsrc, 1, None)
 
         self.impl.reset_mock()
@@ -73,7 +78,7 @@ class InstanceTest(unittest.TestCase):
                 data=json.dumps(rsrc),
                 content_type='application/json'
             )
-            self.assertEqual(resp.status_code, httplib.OK)
+            self.assertEqual(resp.status_code, http_client.OK)
             self.impl.create.assert_called_once_with(
                 'proid.app', rsrc, 2, 'foo@BAR.BAZ'
             )
@@ -84,20 +89,20 @@ class InstanceTest(unittest.TestCase):
             data=json.dumps(rsrc),
             content_type='application/json'
         )
-        self.assertEqual(resp.status_code, httplib.BAD_REQUEST)
+        self.assertEqual(resp.status_code, http_client.BAD_REQUEST)
 
     def test_delete_instance(self):
         """Test deleting an instance."""
         self.impl.delete.return_value = None
 
         resp = self.client.delete('/instance/proid.app#0000000001')
-        self.assertEqual(resp.status_code, httplib.OK)
+        self.assertEqual(resp.status_code, http_client.OK)
         self.impl.delete.assert_called_once_with('proid.app#0000000001', None)
 
         self.impl.reset_mock()
         with user_set(self.app, 'foo@BAR.BAZ'):
             resp = self.client.delete('/instance/proid.app#0000000001')
-            self.assertEqual(resp.status_code, httplib.OK)
+            self.assertEqual(resp.status_code, http_client.OK)
             self.impl.delete.assert_called_once_with(
                 'proid.app#0000000001', 'foo@BAR.BAZ'
             )
@@ -113,7 +118,7 @@ class InstanceTest(unittest.TestCase):
             }),
             content_type='application/json'
         )
-        self.assertEqual(resp.status_code, httplib.OK)
+        self.assertEqual(resp.status_code, http_client.OK)
         self.assertEqual(self.impl.delete.call_args_list, [
             mock.call('proid.app#0000000001', None),
             mock.call('proid.app#0000000002', None)
@@ -130,7 +135,7 @@ class InstanceTest(unittest.TestCase):
                 }),
                 content_type='application/json'
             )
-            self.assertEqual(resp.status_code, httplib.OK)
+            self.assertEqual(resp.status_code, http_client.OK)
             self.assertEqual(self.impl.delete.call_args_list, [
                 mock.call('proid.app#0000000001', 'foo@BAR.BAZ'),
                 mock.call('proid.app#0000000002', 'foo@BAR.BAZ')

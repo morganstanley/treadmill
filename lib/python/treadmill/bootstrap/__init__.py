@@ -1,20 +1,28 @@
-"""Treadmill bootstrap module."""
+"""Treadmill bootstrap module.
+"""
+
 from __future__ import absolute_import
 
-import os
 import errno
 import logging
-import tempfile
+import os
 import pkgutil
 import stat
-import subprocess
 import sys
+import tempfile
 
-import pkg_resources
 import jinja2
+import pkg_resources
+import six
+
+if six.PY2 and os.name == 'posix':
+    import subprocess32 as subprocess
+else:
+    import subprocess  # pylint: disable=wrong-import-order
 
 from treadmill import fs
 from treadmill import plugin_manager
+from treadmill import utils
 
 # This is required so that symlink API (os.symlink and other link related)
 # work properly on windows.
@@ -46,7 +54,11 @@ def _update_stat(src_file, tgt_file):
 
 def _is_executable(filename):
     """Check if file is executable."""
-    if os.path.basename(filename) in ['run', 'finish', 'app_start']:
+    # XXX: This is an ugly hack until we can replace bootstrap with
+    #      a treadmill.supervisor based installation.
+    if os.path.basename(filename) in ['run', 'finish', 'app_start',
+                                      'SIGTERM', 'SIGHUP', 'SIGQUIT',
+                                      'SIGINT', 'SIGUSR1', 'SIGUSR2']:
         return True
 
     if filename.endswith('.sh'):
@@ -186,7 +198,7 @@ def _run(script):
     if os.name == 'nt':
         sys.exit(subprocess.call(script))
     else:
-        os.execvp(script, [script])
+        utils.sane_execvp(script, [script])
 
 
 def install(package, dst_dir, params, run=None, profile=None):
@@ -241,7 +253,7 @@ def install(package, dst_dir, params, run=None, profile=None):
             )
 
     if run:
-        _run(os.path.join(dst_dir, run))
+        _run(run)
 
 
 def interpolate(value, params=None):
@@ -253,6 +265,6 @@ def wipe(wipe_me, wipe_script):
     """Check if flag file is present, invoke cleanup script."""
     if os.path.exists(wipe_me):
         _LOGGER.info('Requested clean start, calling: %s', wipe_script)
-        os.system(wipe_script)
+        subprocess.check_call(wipe_script)
     else:
         _LOGGER.info('Preserving data, no clean restart.')

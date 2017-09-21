@@ -1,23 +1,23 @@
-"""Runs the Treadmill container cleanup job."""
+"""Runs the Treadmill container cleanup job.
+"""
 
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 from __future__ import absolute_import
 
-import glob
 import logging
 import os
-import subprocess
-import sys
 
 import click
 
 from treadmill import appenv
 from treadmill import dirwatch
 from treadmill import logcontext as lc
-
-import treadmill
+from treadmill import runtime as app_runtime
 
 if os.name == 'nt':
-    from treadmill.syscall import winsymlink  # pylint: disable=W0611
+    import treadmill.syscall.winsymlink  # pylint: disable=W0611
 
 _LOGGER = lc.ContainerAdapter(logging.getLogger(__name__))
 
@@ -38,7 +38,8 @@ def init():
     @click.command()
     @click.option('--approot', type=click.Path(exists=True),
                   envvar='TREADMILL_APPROOT', required=True)
-    def top(approot):
+    @click.option('--runtime', envvar='TREADMILL_RUNTIME', required=True)
+    def top(approot, runtime):
         """Start cleanup process."""
         tm_env = appenv.AppEnvironment(root=approot)
 
@@ -62,34 +63,20 @@ def init():
                 container_dir = os.readlink(fullpath)
                 log.info('Cleanup: %s => %s', path, container_dir)
                 if os.path.exists(container_dir):
-                    if os.name == 'posix':
-                        finish_script = [
-                            os.path.join(
-                                treadmill.TREADMILL,
-                                'bin',
-                                'treadmill'
-                            ),
-                            'sproc',
-                            'finish',
-                            container_dir
-                        ]
-                    else:
-                        finish_script = [
-                            sys.executable,
-                            '-m',
-                            'treadmill',
-                            'sproc',
-                            'finish',
-                            container_dir
-                        ]
-
-                    log.info('invoking treadmill finish: %r', finish_script)
-
-                    try:
-                        subprocess.check_call(finish_script)
-                    except subprocess.CalledProcessError:
-                        log.exception('Fatal error running %r.', finish_script)
-                        raise
+                    with lc.LogContext(_LOGGER,
+                                       os.path.basename(container_dir),
+                                       lc.ContainerAdapter) as log:
+                        try:
+                            app_runtime.get_runtime(runtime, tm_env,
+                                                    container_dir).finish()
+                        except Exception:  # pylint: disable=W0703
+                            if not os.path.exists(container_dir):
+                                log.info('Container dir does not exist: %s',
+                                         container_dir)
+                            else:
+                                log.exception('Fatal error running finish %r.',
+                                              container_dir)
+                                raise
 
                 else:
                     log.info('Container dir does not exist: %r', container_dir)
@@ -99,13 +86,7 @@ def init():
         watcher = dirwatch.DirWatcher(tm_env.cleanup_dir)
         watcher.on_created = _on_created
 
-        # Before starting, capture all already pending cleanups
-        leftover = glob.glob(os.path.join(tm_env.cleanup_dir, '*'))
-        # and "fake" a created event on all of them
-        for pending_cleanup in leftover:
-            _on_created(pending_cleanup)
-
-        loop_timeout = _WATCHDOG_HEARTBEAT_SEC/2
+        loop_timeout = _WATCHDOG_HEARTBEAT_SEC//2
         while True:
             if watcher.wait_for_events(timeout=loop_timeout):
                 watcher.process_events(max_events=_MAX_REQUEST_PER_CYCLE)

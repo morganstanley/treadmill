@@ -1,6 +1,8 @@
 """Reports memory utilization details for given container."""
 from __future__ import absolute_import
+from __future__ import division
 from __future__ import print_function
+from __future__ import unicode_literals
 
 import os
 
@@ -108,12 +110,12 @@ def init():
         # Actual memory usage is without the disk cache
         total_list.append({'memory-type': 'usage', 'value':
                            readable(metric['memory.usage_in_bytes'] -
-                                    metric['memory.stats']['cache'])})
+                                    metric['memory.stat']['cache'])})
         total_list.append({'memory-type': '', 'value':
                            percentage(metric['memory.usage_in_bytes'],
                                       metric['memory.limit_in_bytes'])})
         total_list.append({'memory-type': 'diskcache', 'value':
-                           readable(metric['memory.stats']['cache'])})
+                           readable(metric['memory.stat']['cache'])})
         total_list.append({'memory-type': 'softlimit', 'value':
                            readable(metric['memory.soft_limit_in_bytes'])})
         total_list.append({'memory-type': 'hardlimit', 'value':

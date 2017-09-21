@@ -68,30 +68,13 @@ def create_environ_dir(container_dir, root_dir, app):
                   bind_opt='--bind')
 
 
-def _create_logrun(directory):
-    """Creates log directory with run file to start s6 logger."""
-    fs.mkdir_safe(os.path.join(directory, 'log'))
-    utils.create_script(os.path.join(directory, 'log', 'run'),
-                        'logger.run')
-
-
-def _create_sysrun(sys_dir, name, command, down=False):
-    """Create system script."""
-    fs.mkdir_safe(os.path.join(sys_dir, name))
-    utils.create_script(os.path.join(sys_dir, name, 'run'),
-                        'supervisor.run_sys',
-                        cmd=command)
-    _create_logrun(os.path.join(sys_dir, name))
-    if down:
-        utils.touch(os.path.join(sys_dir, name, 'down'))
-
-
 def create_supervision_tree(container_dir, root_dir, app):
     """Creates s6 supervision tree."""
     sys_dir = os.path.join(container_dir, 'sys')
     sys_scandir = supervisor.create_scan_dir(
         sys_dir,
-        finish_timeout=6000
+        finish_timeout=6000,
+        monitor_service='monitor'
     )
     for svc_def in app.system_services:
         supervisor.create_service(
@@ -209,7 +192,7 @@ def make_fsroot(root_dir, proid):
         fs.mkdir_safe(newroot_norm + directory)
 
     for directory in stickydirs:
-        os.chmod(newroot_norm + directory, 0777 | stat.S_ISVTX)
+        os.chmod(newroot_norm + directory, 0o777 | stat.S_ISVTX)
 
     # Mount .../tickets .../keytabs on tempfs, so that they will be cleaned
     # up when the container exits.
@@ -240,8 +223,26 @@ def create_etc_overlay(tm_env, container_dir, root_dir, app):
     _prepare_resolv_conf(tm_env, container_dir)
     # sshd PAM configuration
     _prepare_pam_sshd(tm_env, container_dir, app)
+    # constructed keytab.
+    _prepare_krb(tm_env, container_dir)
     # bind prepared inside container
     _bind_etc_overlay(container_dir, root_dir)
+
+
+def _prepare_krb(tm_env, container_dir):
+    """Manage kerberos environment inside container.
+    """
+    etc_dir = os.path.join(container_dir, 'overlay', 'etc')
+    fs.mkdir_safe(etc_dir)
+    kt_dest = os.path.join(etc_dir, 'krb5.keytab')
+
+    kt_source = os.path.join(tm_env.root, 'spool', 'krb5.keytab')
+    if os.path.exists(kt_source):
+        _LOGGER.info('Copy keytab: %s to %s', kt_source, kt_dest)
+        shutil.copyfile(kt_source, kt_dest)
+    else:
+        # TODO: need to abort.
+        _LOGGER.error('Unable to copy host keytab: %s', kt_source)
 
 
 def _prepare_ldpreload(container_dir, app):
@@ -341,7 +342,8 @@ def _bind_etc_overlay(container_dir, root_dir):
                          'etc/host-aliases',
                          'etc/ld.so.preload',
                          'etc/pam.d/sshd',
-                         'etc/resolv.conf']:
+                         'etc/resolv.conf',
+                         'etc/krb5.keytab']:
         fs.mount_bind(root_dir, os.path.join('/', overlay_file),
                       target=os.path.join(overlay_dir, overlay_file),
                       bind_opt='--bind')

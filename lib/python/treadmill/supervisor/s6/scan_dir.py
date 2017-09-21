@@ -2,8 +2,9 @@
 """
 
 from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import unicode_literals
 
-import errno
 import logging
 import os
 
@@ -20,41 +21,71 @@ class ScanDir(_scan_dir_base.ScanDir):
 
     __slots__ = (
         '_crash',
+        '_finish',
+        '_sigterm',
+        '_sighup',
+        '_sigquit',
+        '_sigint',
+        '_sigusr1',
+        '_sigusr2',
     )
 
     _CONTROL_DIR = '.s6-svscan'
 
+    _create_service = staticmethod(services.create_service)
+
     def __init__(self, directory):
-        self._crash = None
-        super(ScanDir, self).__init__(directory, ScanDir._CONTROL_DIR,
-                                      services.create_service)
+        super(ScanDir, self).__init__(directory, ScanDir._CONTROL_DIR)
+        for attrib in self.__slots__:
+            setattr(self, attrib, None)
 
     @property
     def _crash_file(self):
         return os.path.join(self._control_dir, 'crash')
 
     @property
-    def crash(self):
-        """Get the contents of the crash file.
-        """
-        if self._crash is None:
-            try:
-                self._crash = _utils.script_read(self._crash_file)
-            except IOError as err:
-                if err.errno is not errno.ENOENT:
-                    raise
-        return self._crash
+    def _finish_file(self):
+        return os.path.join(self._control_dir, 'finish')
 
-    @crash.setter
-    def crash(self, new_script):
-        self._crash = new_script
+    @property
+    def _sigterm_file(self):
+        return os.path.join(self._control_dir, 'SIGTERM')
+
+    @property
+    def _sighup_file(self):
+        return os.path.join(self._control_dir, 'SIGHUP')
+
+    @property
+    def _sigquit_file(self):
+        return os.path.join(self._control_dir, 'SIGQUIT')
+
+    @property
+    def _sigint_file(self):
+        return os.path.join(self._control_dir, 'SIGINT')
+
+    @property
+    def _sigusr1_file(self):
+        return os.path.join(self._control_dir, 'SIGUSR1')
+
+    @property
+    def _sigusr2_file(self):
+        return os.path.join(self._control_dir, 'SIGUSR2')
 
     def write(self):
-        """Write down the service definition.
+        """write down the service definition.
         """
-        if self._crash is not None:
-            _utils.script_write(self._crash_file, self._crash)
         super(ScanDir, self).write()
+        for attrib in self.__slots__:
+            if getattr(self, attrib) is not None:
+                attrib_filename = '%s_file' % attrib
+                _utils.script_write(
+                    getattr(self, attrib_filename),
+                    getattr(self, attrib)
+                )
+
+
+# Define all the requirement properties
+ScanDir.add_ctrlfile_props()
 
 
 __all__ = (

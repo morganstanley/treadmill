@@ -34,7 +34,7 @@ def read_memory_stats(cgrp):
     """
     metric = cgrp_meminfo(cgrp)
     stats = cgutils.get_stat('memory', cgrp)
-    metric['memory.stats'] = stats
+    metric['memory.stat'] = stats
 
     return metric
 
@@ -174,6 +174,7 @@ def read_cpu_stats(cgrp):
     data['cpuacct.usage'] = cgutils.cpu_usage(cgrp)
     data['cpuacct.stat'] = read_cpuacct_stat(cgrp)
     data['cpu.stat'] = read_cpu_stat(cgrp)
+    data['cpu.shares'] = cgroups.get_cpu_shares(cgrp)
 
     return data
 

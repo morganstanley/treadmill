@@ -48,8 +48,13 @@ def create_newnet(veth, dev_ip, gateway_ip, service_ip=None):
     childpid = os.fork()
     if childpid:
         # Parent
-        unshare.unshare(unshare.CLONE_NEWNET)
-        unshared_event.set()
+        try:
+            unshare.unshare(unshare.CLONE_NEWNET)
+        except OSError:
+            raise
+        finally:
+            # prevent child from infinite waiting
+            unshared_event.set()
 
         # Wait for child to exit, and then proceed with finising the setup in
         # the container (self)

@@ -1,5 +1,8 @@
 """Handles reports over scheduler data."""
 
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 from __future__ import absolute_import
 
 import time
@@ -11,6 +14,7 @@ import fnmatch
 import numpy as np
 import pandas as pd
 
+import six
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -85,7 +89,7 @@ def iterate_allocations(path, alloc):
                 iterate_allocations(path + [name], suballoc)
             )
 
-        return reduce(_chain, alloc.sub_allocations.iteritems(), [])
+        return six.moves.reduce(_chain, alloc.sub_allocations.iteritems(), [])
 
 
 def allocations(cell):
@@ -216,6 +220,32 @@ def utilization(prev_utilization, apps_df):
         return current
     else:
         return prev_utilization.append(current)
+
+
+def reboots(cell):
+    """Prepare dataframe with server reboot info."""
+
+    # Hard-code order of columns
+    columns = [
+        'server', 'valid-until', 'days-left',
+    ]
+
+    def _reboot_row(server, now):
+        valid_until = datetime.datetime.fromtimestamp(server.valid_until)
+        return {
+            'server': server.name,
+            'valid-until': valid_until,
+            'days-left': (valid_until - now).days,
+        }
+
+    now = datetime.datetime.now()
+
+    frame = pd.DataFrame.from_dict([
+        _reboot_row(server, now)
+        for server in cell.members().values()
+    ])
+
+    return frame[columns].set_index('server').sort_index()
 
 
 class ExplainVisitor(object):

@@ -1,6 +1,9 @@
 """State REST api tests."""
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
-import httplib
 import json
 import unittest
 
@@ -11,6 +14,8 @@ import tests.treadmill_test_deps
 import flask
 import flask_restplus as restplus
 import mock
+
+from six.moves import http_client
 
 import treadmill
 from treadmill import webutils
@@ -60,24 +65,30 @@ class StateTest(unittest.TestCase):
              'expires': None, 'when': 1234567890.2, 'host': 'baz3',
              'state': 'finished', 'exitcode': None}
         ])
-        self.assertEqual(resp.status_code, httplib.OK)
-        self.impl.list.assert_called_with(None, False)
+        self.assertEqual(resp.status_code, http_client.OK)
+        self.impl.list.assert_called_with(None, False, None)
 
         resp = self.client.get('/state/?match=test*')
-        self.assertEqual(resp.status_code, httplib.OK)
-        self.impl.list.assert_called_with('test*', False)
+        self.assertEqual(resp.status_code, http_client.OK)
+        self.impl.list.assert_called_with('test*', False, None)
 
         resp = self.client.get('/state/?finished=true')
-        self.assertEqual(resp.status_code, httplib.OK)
-        self.impl.list.assert_called_with(None, True)
+        self.assertEqual(resp.status_code, http_client.OK)
+        self.impl.list.assert_called_with(None, True, None)
 
         resp = self.client.get('/state/?finished=false')
-        self.assertEqual(resp.status_code, httplib.OK)
-        self.impl.list.assert_called_with(None, False)
+        self.assertEqual(resp.status_code, http_client.OK)
+        self.impl.list.assert_called_with(None, False, None)
 
         resp = self.client.get('/state/?match=test*&finished=true')
-        self.assertEqual(resp.status_code, httplib.OK)
-        self.impl.list.assert_called_with('test*', True)
+        self.assertEqual(resp.status_code, http_client.OK)
+        self.impl.list.assert_called_with('test*', True, None)
+
+        resp = self.client.get(
+            '/state/?match=test*&finished=true&partition=part1'
+        )
+        self.assertEqual(resp.status_code, http_client.OK)
+        self.impl.list.assert_called_with('test*', True, 'part1')
 
     def test_get_state(self):
         """Test getting an instance state."""
@@ -92,12 +103,12 @@ class StateTest(unittest.TestCase):
             'expires': None, 'when': None, 'host': 'baz1',
             'state': 'running', 'exitcode': None
         })
-        self.assertEqual(resp.status_code, httplib.OK)
+        self.assertEqual(resp.status_code, http_client.OK)
         self.impl.get.assert_called_with('foo.bar#0000000001')
 
         self.impl.get.return_value = None
         resp = self.client.get('/state/foo.bar#0000000002')
-        self.assertEqual(resp.status_code, httplib.NOT_FOUND)
+        self.assertEqual(resp.status_code, http_client.NOT_FOUND)
 
 
 if __name__ == '__main__':

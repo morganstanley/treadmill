@@ -3,6 +3,8 @@
 """Master CLI plugin."""
 from __future__ import absolute_import
 from __future__ import print_function
+from __future__ import division
+from __future__ import unicode_literals
 
 import logging
 
@@ -118,10 +120,24 @@ def view_group(parent):
         output = reports.utilization(None, apps)
         _print_frame(output)
 
+    @view.command()
+    @click.option('--histogram', is_flag=True, default=False,
+                  help='Print histogram of reboot times')
+    @on_exceptions
+    def reboots(histogram):
+        """View server reboot times."""
+        cell_master = make_readonly_master(ctx['run_scheduler'])
+        reboots = reports.reboots(cell_master.cell)
+        if histogram:
+            print(reboots['valid-until'].value_counts().to_string())
+        else:
+            _print_frame(reboots)
+
     del apps
     del servers
     del allocs
     del queue
+    del reboots
 
 
 def explain_group(parent):

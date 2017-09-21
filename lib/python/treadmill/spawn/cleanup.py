@@ -1,12 +1,18 @@
+"""Watches a directory for cleanup changes and deletes spawn instances.
 """
-Watches a directory for cleanup changes and deletes treadmill spawn instances.
-"""
+
 from __future__ import absolute_import
 
 import logging
 import os
 import shutil
-import subprocess
+
+import six
+
+if six.PY2 and os.name == 'posix':
+    import subprocess32 as subprocess
+else:
+    import subprocess  # pylint: disable=wrong-import-order
 
 from treadmill import spawn
 from treadmill import fs
