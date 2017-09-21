@@ -46,34 +46,16 @@ List treadmill AWS commands
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ::
 
-  treadmill cloud --help
+  treadmill admin cloud --help
 
 ----------------------------------------------------------
 
-List VPC
-^^^^^^^^
-::
-
-  treadmill cloud --domain <domain> list vpc --vpc-name <vpc_name>
-
-This lists all the EC2 instances and subnets inside the vpc.
-
-List Cell
-^^^^^^^^^
-::
-
-  treadmill cloud --domain <domain> list cell --subnet-id <subnet_id>
-
-This lists all the EC2 instances running inside a cell.
-
------------------------------------------------------------
-
-Initialize VPC
+Configure VPC
 ^^^^^^^^^^^^^^
 
 ::
 
-  treadmill cloud --domain <domain> init vpc --name <vpc_name>
+  treadmill admin cloud --domain <domain> configure vpc --name <vpc_name>
 
 This creates a VPC, Internet Gateway, Security Group and Route53 Hosted Zone. Default values are used to create these resources. The values can be overwritten from command line.
 
@@ -81,29 +63,43 @@ List the options:
 
 ::
 
-  treadmill cloud init --help
+  treadmill cloud configure --help
 
 
-Initialize Domain
+Configure Domain
 ^^^^^^^^^^^^^^^^^
 
 ::
 
-  treadmill cloud --domain <domain> init domain --vpc-name <vpc_name> --key <key_name> --image <image_name> --ipa-admin-password <password>
+  treadmill admin cloud --domain <domain> configure domain --vpc-name <vpc_name> --key <key_name> --image <image_name> --ipa-admin-password <password>
 
 ipa-admin-password should be at least 8 characters long.
 
 Other values can be overwritten if required.
 
-This will spin up IPA Server.
+This will spin up IPA Server and will return ipa-server instance details.
 
+Now you can use REST APIs (running on <ipa-server-ip:5108>).
 
-Initialize Cell
+Setup below is based on CLIs (this calls the REST APIs).
+
+Configure LDAP
 ^^^^^^^^^^^^^^^
 
 ::
 
-  treadmill cloud --domain <domain> init cell --vpc-name <vpc_name> --key <key_name> --image <image_name>
+  treadmill cloud --domain <domain> --api <ipa-server-ip:5108> configure ldap --help
+
+This will setup 1 openldap instance.
+
+At this point all the hosts will be registered with IPA server.
+
+Configure Cell
+^^^^^^^^^^^^^^^
+
+::
+
+  treadmill cloud --domain <domain> --api <ipa-server-ip:5108> configure cell --help
 
 This will setup 1 openldap, 3 masters and 3 zookeeper instances by default.
 
@@ -115,4 +111,20 @@ SpinUp First Node
 
 ::
 
-  treadmill cloud --domain <domain> init node --vpc-name <vpc_name> --key <key_name> --image <image_name> --subnet-id <subnet-id>
+  treadmill cloud --domain <domain> --api <ipa-server-ip:5108> configure node --help
+
+List VPC
+^^^^^^^^
+::
+
+  treadmill cloud --domain <domain> --api <ipa-server-ip:5108> list vpc --vpc-name <vpc_name>
+
+This lists all the EC2 instances and subnets inside the vpc.
+
+List Cell
+^^^^^^^^^
+::
+
+  treadmill cloud --domain <domain> --api <ipa-server-ip:5108> list cell --vpc-name <vpc_name> --cell-id <cell_id>
+
+This lists all the EC2 instances running inside a cell.

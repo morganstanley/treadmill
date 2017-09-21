@@ -28,7 +28,7 @@ def init():
         ctx.obj['API'] = api
 
     @cloud.group(name='ipa')
-    def ipa_grp(ctx, api):
+    def ipa_grp():
         """Create & Delete IPA Users, Hosts and Services"""
 
     @ipa_grp.group(name='user')
