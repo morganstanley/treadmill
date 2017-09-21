@@ -400,4 +400,47 @@ def init():
             )
         )
 
+    @cloud.group('list')
+    def _list():
+        """Show Treadmill Cloud Resources"""
+        pass
+
+    @_list.command(name='vpc')
+    @click.option('--vpc-name',
+                  help='VPC Name')
+    @click.pass_context
+    def vpc_resources(ctx, vpc_name):
+        """Show VPC(s)"""
+        domain = ctx.obj['DOMAIN']
+        _url = '/cloud/vpc?domain=' + domain
+        if vpc_name:
+            _url += '&?vpc_name=' + vpc_name
+        cli.out(
+            restclient.get(
+                api=ctx.obj.get('API'),
+                url=_url,
+            )
+        )
+
+    @_list.command(name='cell')
+    @click.option('--vpc-name',
+                  required=True,
+                  help='VPC Name')
+    @click.option('--cell-id',
+                  required=False,
+                  help='Cell(Subnet) ID')
+    @click.pass_context
+    def cell_resources(ctx, vpc_name, cell_id):
+        """Show Cell(s)"""
+        domain = ctx.obj['DOMAIN']
+        _url = '/cloud/vpc/' + vpc_name + '/domain/' + domain + '/cell'
+        if cell_id:
+            _url += '?cell_id=' + cell_id
+        cli.out(
+            restclient.get(
+                api=ctx.obj.get('API'),
+                url=_url,
+            )
+        )
+
     return cloud
