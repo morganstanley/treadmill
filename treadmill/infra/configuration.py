@@ -108,6 +108,7 @@ class IPA(Configuration):
                 'vars': {
                     'DOMAIN': connection.Connection.context.domain,
                     'NAME': name,
+                    'REGION': connection.Connection.context.region_name
                 },
             }, {
                 'name': 'install-treadmill.sh',
