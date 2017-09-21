@@ -9,7 +9,7 @@ DESTINATION_CIDR_BLOCK = '0.0.0.0/0'
 IPA_HOSTNAME = 'treadmillipa'
 MASTER_INSTANCES_COUNT = 3
 TREADMILL_CELL_SUBNET_NAME = 'TreadmillCell'
-EC2_IAM_ROLE = 'ec2Admin'
+IPA_EC2_IAM_ROLE = 'IPA-EC2FullAccess'
 INSTANCE_TYPES = {
     'EC2': {
         'micro': 't2.micro',

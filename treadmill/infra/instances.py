@@ -159,7 +159,7 @@ class Instances:
                 'AssociatePublicIpAddress': True
             }],
             IamInstanceProfile={
-                'Name': constants.EC2_IAM_ROLE
+                'Name': constants.IPA_EC2_IAM_ROLE
             } if role == 'IPA' else {}
         )
 

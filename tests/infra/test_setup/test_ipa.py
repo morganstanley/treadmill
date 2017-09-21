@@ -70,7 +70,7 @@ class IPATest(unittest.TestCase):
         )
 
         get_iam_role_mock.assert_called_once_with(
-            name=constants.EC2_IAM_ROLE,
+            name=constants.IPA_EC2_IAM_ROLE,
             create=True
         )
 
