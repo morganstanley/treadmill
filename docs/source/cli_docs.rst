@@ -260,26 +260,27 @@ Module: treadmill.cli.admin.cloud
 		Options:
 		  --vpc-name TEXT            VPC Name  [required]
 		  --region TEXT              Region for the vpc
-		  --name TEXT                Treadmill master name
+		  --name TEXT                Treadmill master name  [default: TreadmillMaster]
 		  --key TEXT                 SSH Key Name  [required]
-		  --count INTEGER            Number of Treadmill masters to spin up
+		  --count INTEGER            Number of Treadmill masters to spin up  [default:
+		                             3]
 		  --image TEXT               Image to use for new instances e.g. RHEL-7.4
 		                             [required]
-		  --instance-type TEXT       AWS ec2 instance type
+		  --instance-type TEXT       AWS ec2 instance type  [default: t2.micro]
 		  --tm-release TEXT          Treadmill release to use
-		  --app-root TEXT            Treadmill app root
-		  --cell-cidr-block TEXT     CIDR block for the cell
-		  --ldap-cidr-block TEXT     CIDR block for LDAP
+		  --app-root TEXT            Treadmill app root  [default: /var/tmp]
+		  --cell-cidr-block TEXT     CIDR block for the cell  [default: 172.23.0.0/24]
+		  --ldap-cidr-block TEXT     CIDR block for LDAP  [default: 172.23.1.0/24]
 		  --subnet-id TEXT           Subnet ID
 		  --ldap-subnet-id TEXT      Subnet ID for LDAP
-		  --without-ldap             Flag for LDAP Server
+		  --without-ldap             Flag for LDAP Server  [default: False]
 		  --ipa-admin-password TEXT  Password for IPA admin
 		  -m, --manifest TEXT        Options YAML file.  NOTE: This argument is mutually
-		                             exclusive with arguments: [image, instance_type,
-		                             vpc_name, app_root, tm_release, ipa_admin_password,
-		                             without_ldap, name, count, key, region,
-		                             cell_cidr_blockldap_subnet_id, ldap_cidr_block,
-		                             subnet_id].
+		                             exclusive with arguments: [app_root, key, vpc_name,
+		                             count, ldap_cidr_block, subnet_id, name,
+		                             without_ldap, cell_cidr_blockldap_subnet_id,
+		                             ipa_admin_password, region, instance_type,
+		                             tm_release, image].
 		  --help                     Show this message and exit.
 
 		Usage: configure domain [OPTIONS]
@@ -287,23 +288,23 @@ Module: treadmill.cli.admin.cloud
 		  Configure Treadmill Domain (IPA)
 		
 		Options:
-		  --name TEXT                Name of the instance
+		  --name TEXT                Name of the instance  [default: TreadmillIPA]
 		  --region TEXT              Region for the vpc
 		  --vpc-name TEXT            VPC Name  [required]
-		  --subnet-cidr-block TEXT   Cidr block of subnet for IPA
+		  --subnet-cidr-block TEXT   Cidr block of subnet for IPA  [default:
+		                             172.23.2.0/24]
 		  --subnet-id TEXT           Subnet ID
-		  --count INTEGER            Count of the instances
+		  --count INTEGER            Count of the instances  [default: 1]
 		  --ipa-admin-password TEXT  Password for IPA admin
 		  --tm-release TEXT          Treadmill Release
 		  --key TEXT                 SSH key name  [required]
-		  --instance-type TEXT       Instance type
+		  --instance-type TEXT       Instance type  [default: t2.medium]
 		  --image TEXT               Image to use for new master instance e.g. RHEL-7.4
 		                             [required]
 		  -m, --manifest TEXT        Options YAML file.  NOTE: This argument is mutually
-		                             exclusive with arguments: [image, instance_type,
-		                             vpc_id, tm_release, ipa_admin_password,
-		                             subnet_cidr_blocksubnet_id, count, name, key,
-		                             region].
+		                             exclusive with arguments: [key, count, vpc_id,
+		                             name, ipa_admin_password, region, instance_type,
+		                             tm_release, subnet_cidr_blocksubnet_id, image].
 		  --help                     Show this message and exit.
 
 		Usage: configure ldap [OPTIONS]
@@ -317,18 +318,18 @@ Module: treadmill.cli.admin.cloud
 		  --name TEXT                LDAP Instance Name  [required]
 		  --image TEXT               Image to use for instances e.g. RHEL-7.4
 		                             [required]
-		  --instance-type TEXT       AWS ec2 instance type
+		  --instance-type TEXT       AWS ec2 instance type  [default: t2.micro]
 		  --tm-release TEXT          Treadmill release to use
-		  --app-root TEXT            Treadmill app root
-		  --ldap-cidr-block TEXT     CIDR block for LDAP
+		  --app-root TEXT            Treadmill app root  [default: /var/tmp]
+		  --ldap-cidr-block TEXT     CIDR block for LDAP  [default: 172.23.1.0/24]
 		  --ldap-subnet-id TEXT      Subnet ID for LDAP
 		  --cell-subnet-id TEXT      Subnet ID of Cell  [required]
 		  --ipa-admin-password TEXT  Password for IPA admin
 		  -m, --manifest TEXT        Options YAML file.  NOTE: This argument is mutually
-		                             exclusive with arguments: [image, instance_type,
-		                             vpc_name, app_root, tm_release, cell_subnet_id,
-		                             name, ipa_admin_passwordldap_cidr_block, key,
-		                             region, ldap_subnet_id].
+		                             exclusive with arguments: [app_root, key, vpc_name,
+		                             name, instance_type, region, tm_release,
+		                             cell_subnet_id, ipa_admin_passwordldap_cidr_block,
+		                             image, ldap_subnet_id].
 		  --help                     Show this message and exit.
 
 		Usage: configure node [OPTIONS]
@@ -338,20 +339,22 @@ Module: treadmill.cli.admin.cloud
 		Options:
 		  --vpc-name TEXT            VPC Name  [required]
 		  --region TEXT              Region for the vpc
-		  --name TEXT                Node name
+		  --name TEXT                Node name  [default: TreadmillNode]
 		  --key TEXT                 SSH Key Name  [required]
 		  --image TEXT               Image to use for new node instance e.g. RHEL-7.4
 		                             [required]
-		  --instance-type TEXT       AWS ec2 instance type
+		  --instance-type TEXT       AWS ec2 instance type  [default: t2.large]
 		  --tm-release TEXT          Treadmill release to use
-		  --app-root TEXT            Treadmill app root
+		  --app-root TEXT            Treadmill app root  [default: /var/tmp/treadmill-
+		                             node]
 		  --subnet-id TEXT           Subnet ID  [required]
 		  --ipa-admin-password TEXT  Password for IPA admin
-		  --with-api                 Provision node with Treadmill APIs
+		  --with-api                 Provision node with Treadmill APIs  [default:
+		                             False]
 		  -m, --manifest TEXT        Options YAML file.  NOTE: This argument is mutually
-		                             exclusive with arguments: [image, instance_type,
-		                             vpc_name, ipa_admin_passwordwith_api, app_root,
-		                             tm_release, name, key, region, subnet_id].
+		                             exclusive with arguments: [app_root, key, vpc_name,
+		                             subnet_id, name, instance_type, region, tm_release,
+		                             ipa_admin_passwordwith_api, image].
 		  --help                     Show this message and exit.
 
 		Usage: configure vpc [OPTIONS]
@@ -360,13 +363,14 @@ Module: treadmill.cli.admin.cloud
 		
 		Options:
 		  --region TEXT          Region for the vpc
-		  --vpc-cidr-block TEXT  CIDR block for the vpc
-		  --secgroup_name TEXT   Security group name
-		  --secgroup_desc TEXT   Description for the security group
+		  --vpc-cidr-block TEXT  CIDR block for the vpc  [default: 172.23.0.0/16]
+		  --secgroup_name TEXT   Security group name  [default: sg_common]
+		  --secgroup_desc TEXT   Description for the security group  [default: Treadmill
+		                         Security Group]
 		  --name TEXT            VPC name  [required]
 		  -m, --manifest TEXT    Options YAML file.  NOTE: This argument is mutually
-		                         exclusive with arguments: [secgroup_name, name, region,
-		                         vpc_cidr_block, secgroup_desc].
+		                         exclusive with arguments: [secgroup_desc,
+		                         secgroup_name, name, vpc_cidr_block, region].
 		  --help                 Show this message and exit.
 
 
@@ -387,7 +391,7 @@ Module: treadmill.cli.admin.cloud
 		Options:
 		  --vpc-name TEXT   VPC Name  [required]
 		  --subnet-id TEXT  Subnet ID of IPA  [required]
-		  --name TEXT       Name of Instance
+		  --name TEXT       Name of Instance  [default: TreadmillIPA]
 		  --help            Show this message and exit.
 
 		Usage: delete ldap [OPTIONS]
@@ -397,7 +401,7 @@ Module: treadmill.cli.admin.cloud
 		Options:
 		  --vpc-name TEXT   VPC Name  [required]
 		  --subnet-id TEXT  Subnet ID of LDAP
-		  --name TEXT       Name of Instance
+		  --name TEXT       Name of Instance  [default: TreadmillLDAP]
 		  --help            Show this message and exit.
 
 		Usage: delete node [OPTIONS]
@@ -444,7 +448,8 @@ Module: treadmill.cli.admin.cloud
 		  Disable Port from my ip
 		
 		Options:
-		  --protocol TEXT               Protocol
+		  -a, --anywhere                From Anywhere?  [default: True]
+		  --protocol TEXT               Protocol  [default: tcp]
 		  -p, --port TEXT               Port  [required]
 		  -s, --security-group-id TEXT  Security Group ID  [required]
 		  --help                        Show this message and exit.
@@ -454,7 +459,8 @@ Module: treadmill.cli.admin.cloud
 		  Enable Port from my ip
 		
 		Options:
-		  --protocol TEXT               Protocol
+		  -a, --anywhere                From Anywhere?  [default: True]
+		  --protocol TEXT               Protocol  [default: tcp]
 		  -p, --port TEXT               Port  [required]
 		  -s, --security-group-id TEXT  Security Group ID  [required]
 		  --help                        Show this message and exit.
@@ -2908,22 +2914,23 @@ Module: treadmill.cli.cloud
 		Options:
 		  --vpc-name TEXT            VPC Name  [required]
 		  --region TEXT              Region for the vpc
-		  --name TEXT                Treadmill master name
+		  --name TEXT                Treadmill master name  [default: TreadmillMaster]
 		  --key TEXT                 SSH Key Name  [required]
-		  --count INTEGER            Number of Treadmill masters to spin up
+		  --count INTEGER            Number of Treadmill masters to spin up  [default:
+		                             3]
 		  --image TEXT               Image to use for new instances e.g. RHEL-7.4
 		                             [required]
-		  --instance-type TEXT       AWS ec2 instance type
+		  --instance-type TEXT       AWS ec2 instance type  [default: t2.micro]
 		  --tm-release TEXT          Treadmill release to use
-		  --app-root TEXT            Treadmill app root
-		  --cell-cidr-block TEXT     CIDR block for the cell
+		  --app-root TEXT            Treadmill app root  [default: /var/tmp]
+		  --cell-cidr-block TEXT     CIDR block for the cell  [default: 172.23.0.0/24]
 		  --subnet-id TEXT           Subnet ID
 		  --ipa-admin-password TEXT  Password for IPA admin
 		  -m, --manifest TEXT        Options YAML file.  NOTE: This argument is mutually
-		                             exclusive with arguments: [image, instance_type,
-		                             vpc_name, app_root, tm_release, ipa_admin_password,
-		                             name, count, key, region,
-		                             cell_cidr_blocksubnet_id].
+		                             exclusive with arguments: [app_root, key, vpc_name,
+		                             count, cell_cidr_blocksubnet_id, name,
+		                             ipa_admin_password, region, instance_type,
+		                             tm_release, image].
 		  --help                     Show this message and exit.
 
 		Usage: configure ldap [OPTIONS]
@@ -2937,18 +2944,18 @@ Module: treadmill.cli.cloud
 		  --name TEXT                LDAP Instance Name  [required]
 		  --image TEXT               Image to use for instances e.g. RHEL-7.4
 		                             [required]
-		  --instance-type TEXT       AWS ec2 instance type
+		  --instance-type TEXT       AWS ec2 instance type  [default: t2.micro]
 		  --tm-release TEXT          Treadmill release to use
-		  --app-root TEXT            Treadmill app root
-		  --ldap-cidr-block TEXT     CIDR block for LDAP
+		  --app-root TEXT            Treadmill app root  [default: /var/tmp]
+		  --ldap-cidr-block TEXT     CIDR block for LDAP  [default: 172.23.1.0/24]
 		  --ldap-subnet-id TEXT      Subnet ID for LDAP
 		  --cell-subnet-id TEXT      Subnet ID of Cell  [required]
 		  --ipa-admin-password TEXT  Password for IPA admin
 		  -m, --manifest TEXT        Options YAML file.  NOTE: This argument is mutually
-		                             exclusive with arguments: [image, instance_type,
-		                             vpc_name, app_root, tm_release, cell_subnet_id,
-		                             name, ipa_admin_passwordldap_cidr_block, key,
-		                             region, ldap_subnet_id].
+		                             exclusive with arguments: [app_root, key, vpc_name,
+		                             name, instance_type, region, tm_release,
+		                             cell_subnet_id, ipa_admin_passwordldap_cidr_block,
+		                             image, ldap_subnet_id].
 		  --help                     Show this message and exit.
 
 		Usage: configure node [OPTIONS]
@@ -2958,20 +2965,22 @@ Module: treadmill.cli.cloud
 		Options:
 		  --vpc-name TEXT            VPC Name  [required]
 		  --region TEXT              Region for the vpc
-		  --name TEXT                Node name
+		  --name TEXT                Node name  [default: TreadmillNode]
 		  --key TEXT                 SSH Key Name  [required]
 		  --image TEXT               Image to use for new node instance e.g. RHEL-7.4
 		                             [required]
-		  --instance-type TEXT       AWS ec2 instance type
+		  --instance-type TEXT       AWS ec2 instance type  [default: t2.large]
 		  --tm-release TEXT          Treadmill release to use
-		  --app-root TEXT            Treadmill app root
+		  --app-root TEXT            Treadmill app root  [default: /var/tmp/treadmill-
+		                             node]
 		  --subnet-id TEXT           Subnet ID  [required]
 		  --ipa-admin-password TEXT  Password for IPA admin
-		  --with-api                 Provision node with Treadmill APIs
+		  --with-api                 Provision node with Treadmill APIs  [default:
+		                             False]
 		  -m, --manifest TEXT        Options YAML file.  NOTE: This argument is mutually
-		                             exclusive with arguments: [image, instance_type,
-		                             vpc_name, ipa_admin_passwordwith_api, app_root,
-		                             tm_release, name, key, region, subnet_id].
+		                             exclusive with arguments: [app_root, key, vpc_name,
+		                             subnet_id, name, instance_type, region, tm_release,
+		                             ipa_admin_passwordwith_api, image].
 		  --help                     Show this message and exit.
 
 
@@ -2991,7 +3000,7 @@ Module: treadmill.cli.cloud
 		
 		Options:
 		  --vpc-name TEXT  VPC Name  [required]
-		  --name TEXT      LDAP Name  [required]
+		  --name TEXT      LDAP Name  [default: TreadmillLDAP; required]
 		  --help           Show this message and exit.
 
 		Usage: delete node [OPTIONS]
@@ -3666,3 +3675,4 @@ Module: treadmill.cli.trace_identity
 		  --wsapi URL  WebSocket API url to use.
 		  --snapshot
 		  --help       Show this message and exit.
+

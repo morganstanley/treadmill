@@ -33,12 +33,15 @@ def init():
     @configure.command(name='vpc')
     @click.option('--region', help='Region for the vpc')
     @click.option('--vpc-cidr-block', default='172.23.0.0/16',
+                  show_default=True,
                   help='CIDR block for the vpc')
     @click.option('--secgroup_name', default='sg_common',
+                  show_default=True,
                   help='Security group name')
     @click.option(
         '--secgroup_desc',
         default='Treadmill Security Group',
+        show_default=True,
         help='Description for the security group'
     )
     @click.option(
@@ -90,13 +93,16 @@ def init():
                   help='Image to use for instances e.g. RHEL-7.4')
     @click.option('--instance-type',
                   default=constants.INSTANCE_TYPES['EC2']['micro'],
+                  show_default=True,
                   help='AWS ec2 instance type')
     @click.option('--tm-release',
                   callback=cli_callbacks.current_release_version,
                   help='Treadmill release to use')
     @click.option('--app-root', default='/var/tmp',
+                  show_default=True,
                   help='Treadmill app root')
     @click.option('--ldap-cidr-block', default='172.23.1.0/24',
+                  show_default=True,
                   help='CIDR block for LDAP')
     @click.option('--ldap-subnet-id', help='Subnet ID for LDAP')
     @click.option('--cell-subnet-id', help='Subnet ID of Cell',
@@ -161,27 +167,35 @@ def init():
                   help='VPC Name')
     @click.option('--region', help='Region for the vpc')
     @click.option('--name', default='TreadmillMaster',
+                  show_default=True,
                   help='Treadmill master name')
     @click.option('--key', required=True, help='SSH Key Name')
     @click.option('--count', default='3', type=int,
+                  show_default=True,
                   help='Number of Treadmill masters to spin up')
     @click.option('--image', required=True,
                   help='Image to use for new instances e.g. RHEL-7.4')
     @click.option('--instance-type',
                   default=constants.INSTANCE_TYPES['EC2']['micro'],
+                  show_default=True,
                   help='AWS ec2 instance type')
     @click.option('--tm-release',
                   callback=cli_callbacks.current_release_version,
                   help='Treadmill release to use')
-    @click.option('--app-root', default='/var/tmp', help='Treadmill app root')
+    @click.option('--app-root', default='/var/tmp',
+                  show_default=True,
+                  help='Treadmill app root')
     @click.option('--cell-cidr-block', default='172.23.0.0/24',
+                  show_default=True,
                   help='CIDR block for the cell')
     @click.option('--ldap-cidr-block', default='172.23.1.0/24',
+                  show_default=True,
                   help='CIDR block for LDAP')
     @click.option('--subnet-id', help='Subnet ID')
     @click.option('--ldap-subnet-id',
                   help='Subnet ID for LDAP')
     @click.option('--without-ldap', required=False, is_flag=True,
+                  show_default=True,
                   default=False, help='Flag for LDAP Server')
     @click.option('--ipa-admin-password',
                   callback=cli_callbacks.ipa_password_prompt,
@@ -276,15 +290,19 @@ def init():
 
     @configure.command(name='domain')
     @click.option('--name', default='TreadmillIPA',
+                  show_default=True,
                   help='Name of the instance')
     @click.option('--region', help='Region for the vpc')
     @click.option('--vpc-name', 'vpc_id',
                   callback=cli_callbacks.convert_to_vpc_id,
                   required=True, help='VPC Name')
     @click.option('--subnet-cidr-block', help='Cidr block of subnet for IPA',
+                  show_default=True,
                   default='172.23.2.0/24')
     @click.option('--subnet-id', help='Subnet ID')
-    @click.option('--count', help='Count of the instances', default=1)
+    @click.option('--count', help='Count of the instances',
+                  show_default=True,
+                  default=1)
     @click.option('--ipa-admin-password',
                   callback=cli_callbacks.validate_ipa_password,
                   envvar='TREADMILL_IPA_ADMIN_PASSWORD',
@@ -295,6 +313,7 @@ def init():
     @click.option('--key', required=True, help='SSH key name')
     @click.option('--instance-type',
                   default=constants.INSTANCE_TYPES['EC2']['medium'],
+                  show_default=True,
                   help='Instance type')
     @click.option('--image', required=True,
                   help='Image to use for new master instance e.g. RHEL-7.4')
@@ -357,17 +376,20 @@ def init():
                   required=True, help='VPC Name')
     @click.option('--region', help='Region for the vpc')
     @click.option('--name', default='TreadmillNode',
+                  show_default=True,
                   help='Node name')
     @click.option('--key', required=True, help='SSH Key Name')
     @click.option('--image', required=True,
                   help='Image to use for new node instance e.g. RHEL-7.4')
     @click.option('--instance-type',
                   default=constants.INSTANCE_TYPES['EC2']['large'],
+                  show_default=True,
                   help='AWS ec2 instance type')
     @click.option('--tm-release',
                   callback=cli_callbacks.current_release_version,
                   help='Treadmill release to use')
     @click.option('--app-root', default='/var/tmp/treadmill-node',
+                  show_default=True,
                   help='Treadmill app root')
     @click.option('--subnet-id', required=True, help='Subnet ID')
     @click.option('--ipa-admin-password',
@@ -375,6 +397,7 @@ def init():
                   envvar='TREADMILL_IPA_ADMIN_PASSWORD',
                   help='Password for IPA admin')
     @click.option('--with-api', required=False, is_flag=True,
+                  show_default=True,
                   default=False, help='Provision node with Treadmill APIs')
     @click.option('-m', '--' + _OPTIONS_FILE,
                   cls=mutually_exclusive_option.MutuallyExclusiveOption,
@@ -459,6 +482,7 @@ def init():
                   required=True, help='VPC Name')
     @click.option('--subnet-id', required=True, help='Subnet ID of IPA')
     @click.option('--name', help='Name of Instance',
+                  show_default=True,
                   default="TreadmillIPA")
     @click.pass_context
     def delete_domain(ctx, vpc_id, subnet_id, name):
@@ -475,6 +499,7 @@ def init():
                   required=True, help='VPC Name')
     @click.option('--subnet-id', help='Subnet ID of LDAP')
     @click.option('--name', help='Name of Instance',
+                  show_default=True,
                   default="TreadmillLDAP")
     @click.pass_context
     def delete_ldap(ctx, vpc_id, subnet_id, name):
@@ -570,9 +595,12 @@ def init():
     @click.option(
         '-a', '--anywhere', is_flag=True,
         default=True,
+        show_default=True,
         help='From Anywhere?'
     )
-    @click.option('--protocol', help='Protocol', default='tcp')
+    @click.option('--protocol', help='Protocol',
+                  show_default=True,
+                  default='tcp')
     @click.option('-p', '--port', required=True, help='Port')
     @click.option('-s', '--security-group-id', required=True,
                   help='Security Group ID')
@@ -585,9 +613,12 @@ def init():
         '-a', '--anywhere',
         is_flag=True,
         default=True,
+        show_default=True,
         help='From Anywhere?'
     )
-    @click.option('--protocol', help='Protocol', default='tcp')
+    @click.option('--protocol', help='Protocol',
+                  show_default=True,
+                  default='tcp')
     @click.option('-p', '--port', required=True, help='Port')
     @click.option('-s', '--security-group-id', required=True,
                   help='Security Group ID')
