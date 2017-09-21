@@ -47,7 +47,7 @@ class IPA(base_provision.BaseProvision):
         polling.poll(
             lambda: get_ipa_status() == 'passed',
             step=10,
-            timeout=300
+            timeout=600
         )
         self.vpc.associate_dhcp_options([
             {
