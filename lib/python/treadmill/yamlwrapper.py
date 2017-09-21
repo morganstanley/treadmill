@@ -1,4 +1,12 @@
-"""Configures proper yaml representation."""
+"""Configures proper yaml representation.
+"""
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
+import six
 
 import yaml
 try:
@@ -7,40 +15,56 @@ except ImportError:
     from yaml import Loader
 
 
+def _repr_bytes(dumper, data):
+    """Fix byte string representation.
+    """
+    # We got bytes, convert to unicode
+    unicode_data = data.decode()
+    return _repr_unicode(dumper, unicode_data)
+
+
 def _repr_unicode(dumper, data):
-    """Fix yaml str representation."""
-    ascii_data = data.encode('ascii', 'ignore')
-    if '\n' in data:
-        return dumper.represent_scalar(u'tag:yaml.org,2002:str', ascii_data,
+    """Fix unicode string representation.
+    """
+    if u'\n' in data:
+        return dumper.represent_scalar(u'tag:yaml.org,2002:str', data,
                                        style='|')
     else:
-        return dumper.represent_scalar(u'tag:yaml.org,2002:str', ascii_data)
+        return dumper.represent_scalar(u'tag:yaml.org,2002:str', data)
+
+if six.PY2:
+    # pylint: disable=unicode-builtin,undefined-variable
+    yaml.add_representer(str, _repr_bytes)
+    yaml.add_representer(unicode, _repr_unicode)
+else:
+    yaml.add_representer(str, _repr_unicode)
 
 
 def _repr_tuple(dumper, data):
-    """Fix yaml tuple representation (use list)."""
+    """Fix yaml tuple representation (use list).
+    """
     return dumper.represent_list(list(data))
+
+yaml.add_representer(tuple, _repr_tuple)
 
 
 def _repr_none(dumper, data_unused):
-    """Fix yaml None representation (use ~)."""
+    """Fix yaml None representation (use ~).
+    """
     return dumper.represent_scalar(u'tag:yaml.org,2002:null', '~')
 
-
-# This will be invoked on module import once.
-yaml.add_representer(unicode, _repr_unicode)
-yaml.add_representer(str, _repr_unicode)
-yaml.add_representer(tuple, _repr_tuple)
 yaml.add_representer(type(None), _repr_none)
 
 
 def dump(*args, **kwargs):
-    """Delegate to yaml dumps."""
+    """Delegate to yaml dumps.
+    """
     return yaml.dump(*args, **kwargs)
 
 
 def load(*args, **kwargs):
-    """Delegate to yaml load."""
+    """Delegate to yaml load.
+    """
     if kwargs is None:
         kwargs = {}
     kwargs['Loader'] = Loader
@@ -48,7 +72,8 @@ def load(*args, **kwargs):
 
 
 def load_all(*args, **kwargs):
-    """Delegate to yaml loadall."""
+    """Delegate to yaml loadall.
+    """
     if kwargs is None:
         kwargs = {}
     kwargs['Loader'] = Loader

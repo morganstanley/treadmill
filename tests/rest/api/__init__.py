@@ -1,5 +1,10 @@
 """Tests for treadmill.rest.api.*"""
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import contextlib
 
 import tests.treadmill_test_deps  # pylint: disable=W0611

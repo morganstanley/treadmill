@@ -1,5 +1,8 @@
 """Manage Treadmill app manifest."""
 from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import logging
 import urllib
@@ -36,7 +39,7 @@ def _show_state(apis, match, finished):
     cli.out(_STATE_FORMATTER(response.json()))
 
 
-def _show_list(apis, match, states, finished=False):
+def _show_list(apis, match, states, finished=False, partition=None):
     """Show list of instnces in given state."""
     url = '/state/'
     query = []
@@ -44,6 +47,8 @@ def _show_list(apis, match, states, finished=False):
         query.append(('match', match))
     if finished:
         query.append(('finished', '1'))
+    if partition is not None:
+        query.append(('partition', partition))
 
     if query:
         url += '?' + '&'.join([urllib.urlencode([param]) for param in query])
@@ -115,42 +120,56 @@ def init():
     @show.command()
     @cli.handle_exceptions(restclient.CLI_REST_EXCEPTIONS)
     @click.option('--match', help='Application name pattern match')
-    def pending(match):
+    @click.option('--partition', help='Filter apps by partition')
+    def pending(match, partition):
         """Show pending instances."""
         apis = context.GLOBAL.state_api(ctx['api'])
-        return _show_list(apis, match, ['pending'])
+        return _show_list(apis, match, ['pending'], partition=partition)
 
     @show.command()
     @cli.handle_exceptions(restclient.CLI_REST_EXCEPTIONS)
     @click.option('--match', help='Application name pattern match')
-    def running(match):
+    @click.option('--partition', help='Filter apps by partition')
+    def running(match, partition):
         """Show running instances."""
         apis = context.GLOBAL.state_api(ctx['api'])
-        return _show_list(apis, match, ['running'])
+        return _show_list(apis, match, ['running'], partition=partition)
 
     @show.command()
     @cli.handle_exceptions(restclient.CLI_REST_EXCEPTIONS)
     @click.option('--match', help='Application name pattern match')
-    def finished(match):
+    @click.option('--partition', help='Filter apps by partition')
+    def finished(match, partition):
         """Show finished instances."""
         apis = context.GLOBAL.state_api(ctx['api'])
-        return _show_list(apis, match, ['finished'], finished=True)
+        return _show_list(
+            apis, match, ['finished'], finished=True, partition=partition
+        )
 
     @show.command()
     @cli.handle_exceptions(restclient.CLI_REST_EXCEPTIONS)
     @click.option('--match', help='Application name pattern match')
-    def scheduled(match):
+    @click.option('--partition', help='Filter apps by partition')
+    def scheduled(match, partition):
         """Show scheduled instances."""
         apis = context.GLOBAL.state_api(ctx['api'])
-        return _show_list(apis, match, ['running', 'scheduled'])
+        return _show_list(
+            apis, match, ['running', 'scheduled'], partition=partition
+        )
 
     @show.command(name='all')
     @cli.handle_exceptions(restclient.CLI_REST_EXCEPTIONS)
     @click.option('--match', help='Application name pattern match')
-    def _all(match):
+    @click.option('--partition', help='Filter apps by partition')
+    def _all(match, partition):
         """Show scheduled instances."""
         apis = context.GLOBAL.state_api(ctx['api'])
-        return _show_list(apis, match, ['pending', 'running', 'scheduled'])
+        return _show_list(
+            apis,
+            match,
+            ['pending', 'running', 'scheduled'],
+            partition=partition
+        )
 
     @show.command()
     @cli.handle_exceptions(restclient.CLI_REST_EXCEPTIONS)

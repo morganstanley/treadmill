@@ -345,11 +345,11 @@ class NativeImageTest(unittest.TestCase):
             mock.call('/etc/hosts', os.path.join(etc_dir, 'hosts.original')),
         ])
 
-        treadmill.fs.mkdir_safe.assert_call_with(
+        treadmill.fs.mkdir_safe.assert_called_with(
             os.path.join(etc_dir, 'host-aliases')
         )
 
-        os.chown.assert_call_with(
+        os.chown.assert_called_with(
             os.path.join(etc_dir, 'host-aliases'),
             42, 42
         )
@@ -408,6 +408,9 @@ class NativeImageTest(unittest.TestCase):
                       bind_opt='--bind'),
             mock.call(self.root, '/etc/resolv.conf',
                       target=os.path.join(overlay_dir, 'etc/resolv.conf'),
+                      bind_opt='--bind'),
+            mock.call(self.root, '/etc/krb5.keytab',
+                      target=os.path.join(overlay_dir, 'etc/krb5.keytab'),
                       bind_opt='--bind'),
             mock.call('/', '/etc/resolv.conf',
                       target=os.path.join(overlay_dir, 'etc/resolv.conf'),

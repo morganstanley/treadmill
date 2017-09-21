@@ -1,5 +1,8 @@
 """Installs and configures Treadmill locally."""
 from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import os
 import logging
@@ -22,7 +25,6 @@ def init():
     @click.pass_context
     def node(ctx, run, benchmark):
         """Installs Treadmill node."""
-
         ctx.obj['PARAMS']['zookeeper'] = context.GLOBAL.zk.url
         ctx.obj['PARAMS']['ldap'] = context.GLOBAL.ldap.url
 
@@ -31,7 +33,10 @@ def init():
         profile = ctx.obj['PARAMS'].get('profile')
 
         if os.name == 'nt':
-            wipe_script = os.path.join(dst_dir, 'bin', 'wipe_node.cmd')
+            wipe_script = [
+                'powershell.exe', '-file',
+                os.path.join(dst_dir, 'bin', 'wipe_node.ps1')
+            ]
         else:
             wipe_script = os.path.join(dst_dir, 'bin', 'wipe_node.sh')
 
@@ -41,13 +46,15 @@ def init():
         )
 
         run_script = None
-
-        if benchmark and os.name != 'nt':
-            run_script = os.path.join(dst_dir, 'bin', 'benchmark.sh')
-
-        if run:
+        if benchmark:
+            if os.name == 'posix':
+                run_script = os.path.join(dst_dir, 'bin', 'benchmark.sh')
+        elif run:
             if os.name == 'nt':
-                run_script = os.path.join(dst_dir, 'bin', 'run.cmd')
+                run_script = [
+                    'powershell.exe', '-file',
+                    os.path.join(dst_dir, 'bin', 'run.ps1')
+                ]
             else:
                 run_script = os.path.join(dst_dir, 'bin', 'run.sh')
 

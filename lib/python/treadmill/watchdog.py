@@ -7,7 +7,6 @@ import logging
 import os
 import re
 import stat
-import tempfile
 import time
 
 from treadmill import fs
@@ -136,14 +135,13 @@ class Watchdog(object):
                 filename = os.path.basename(self.filename)
 
                 fs.mkdir_safe(dirname)
-                with tempfile.NamedTemporaryFile(dir=dirname,
-                                                 prefix='.' + filename,
-                                                 delete=False) as tmpfile:
-                    os.chmod(tmpfile.name, 0o600)
-                    tmpfile.write(self.content)
-
-                os.utime(tmpfile.name, (timeout_at, timeout_at))
-                os.rename(tmpfile.name, self.filename)
+                fs.write_safe(
+                    self.filename,
+                    lambda f: f.write(self.content),
+                    prefix='.' + filename,
+                    permission=0o600
+                )
+                os.utime(self.filename, (timeout_at, timeout_at))
 
         def heartbeat(self):
             """Renew a watchdog for one timeout."""

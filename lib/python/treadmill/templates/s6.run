@@ -15,10 +15,10 @@
 {% if environ_dir -%}
 {{ _alias.s6_envdir }} -i -- {{ environ_dir }}
 {%- endif %}
-{{ _alias.s6_envdir }} -i -- ./env
 {% if user and user != 'root' -%}
 {{ _alias.s6_setuidgid }} {{ user }}
 {%- endif %}
+{{ _alias.s6_envdir }} -i -- ./env
 
 # Change directory into the data directory and execute the app_start script
 {{ _alias.cd }} ./data

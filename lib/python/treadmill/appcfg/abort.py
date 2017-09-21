@@ -9,10 +9,17 @@ import os
 import enum
 
 from treadmill import appevents
+from treadmill import fs
 from treadmill import supervisor
 from treadmill.apptrace import events
 
 _LOGGER = logging.getLogger(__name__)
+
+
+ABORTED_UNKNOWN = {
+    'why': 'unknown',
+    'payload': None,
+}
 
 
 class AbortedReason(enum.Enum):
@@ -26,6 +33,8 @@ class AbortedReason(enum.Enum):
     SCHEDULER = 'scheduler'
     PORTS = 'ports'
     PRESENCE = 'presence'
+    IMAGE = 'image'
+    PID1 = 'pid1'
 
     def description(self):
         """Gets the description for the current aborted reason."""
@@ -34,6 +43,8 @@ class AbortedReason(enum.Enum):
             AbortedReason.TICKETS: 'tickets could not be fetched',
             AbortedReason.SCHEDULER: 'scheduler error',
             AbortedReason.PORTS: 'ports could not be assigned',
+            AbortedReason.IMAGE: 'could not use given image',
+            AbortedReason.PID1: 'pid1 failed to start',
         }.get(self, self.value)
 
 
@@ -65,11 +76,14 @@ def flag_aborted(container_dir, why=None, payload=None):
     if payload is not None:
         payload = str(payload)
 
-    with open(os.path.join(container_dir, 'aborted'), 'w+') as f:
-        json.dump({
+    fs.write_safe(
+        os.path.join(container_dir, 'aborted'),
+        lambda f: json.dump({
             'why': _why_str(why),
             'payload': payload
-        }, f)
+        }, f),
+        permission=0o644
+    )
 
 
 def report_aborted(tm_env, instance, why=None, payload=None):

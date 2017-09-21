@@ -1,7 +1,12 @@
-"""
-Unit test for S6 services
+"""Unit test for S6 services.
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
+import io
 import os
 import shutil
 import tempfile
@@ -46,29 +51,46 @@ class ServiceTest(unittest.TestCase):
         """
         mock_svc_dir = os.path.join(self.root, 'my_svc')
         os.mkdir(mock_svc_dir)
-        with open(os.path.join(mock_svc_dir, 'type'), 'a') as f:
+        with io.open(os.path.join(mock_svc_dir, 'type'), 'wb') as f:
             f.write('longrun')
-        with open(os.path.join(mock_svc_dir, 'run'), 'a') as f:
+
+        mock_svc_data = _service_base.Service.read_dir(mock_svc_dir)
+
+        self.assertEqual(
+            mock_svc_data,
+            (
+                _service_base.ServiceType.LongRun,
+                self.root,
+                'my_svc'
+            )
+        )
+
+    def test_create_service_read(self):
+        """Test parsing of LongRunning service data.
+        """
+        mock_svc_dir = os.path.join(self.root, 'my_svc')
+        os.mkdir(mock_svc_dir)
+        with io.open(os.path.join(mock_svc_dir, 'type'), 'wb') as f:
+            f.write('longrun')
+        with io.open(os.path.join(mock_svc_dir, 'run'), 'wb') as f:
             f.write('mock run script')
-        with open(os.path.join(mock_svc_dir, 'down'), 'a') as f:
+        with io.open(os.path.join(mock_svc_dir, 'down'), 'wb') as f:
             pass
-        with open(os.path.join(mock_svc_dir, 'notification-fd'), 'a') as f:
+        with io.open(os.path.join(mock_svc_dir, 'notification-fd'), 'wb') as f:
             f.write('42')
         os.mkdir(os.path.join(mock_svc_dir, 'data'))
         os.mkdir(os.path.join(mock_svc_dir, 'env'))
-        with open(os.path.join(mock_svc_dir, 'env', 'HOME'), 'a') as f:
-            f.write('/my/home\n')
-        with open(os.path.join(mock_svc_dir, 'env', 'FOO'), 'a') as f:
-            f.write('bar\n')
+        with io.open(os.path.join(mock_svc_dir, 'env', 'HOME'), 'w') as f:
+            f.write(u'/my/home\n')
+        with io.open(os.path.join(mock_svc_dir, 'env', 'FOO'), 'w') as f:
+            f.write(u'bar\n')
 
-        mock_svc = _service_base.Service.read_dir(mock_svc_dir,
-                                                  s6.create_service)
-
-        self.assertIsNotNone(mock_svc)
-        self.assertEqual(
-            mock_svc.directory,
-            os.path.join(self.root, 'my_svc')
+        mock_svc = s6.create_service(
+            self.root,
+            'my_svc',
+            _service_base.ServiceType.LongRun
         )
+
         self.assertEqual(mock_svc.type, _service_base.ServiceType.LongRun)
         self.assertEqual(mock_svc.run_script, 'mock run script')
         self.assertEqual(mock_svc.default_down, True)

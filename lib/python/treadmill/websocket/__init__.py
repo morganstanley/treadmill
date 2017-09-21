@@ -1,4 +1,5 @@
-"""Websocket API."""
+"""Websocket API.
+"""
 
 from __future__ import absolute_import
 
@@ -22,7 +23,7 @@ from enum import Enum
 import tornado.websocket
 
 from treadmill import dirwatch
-from treadmill import exc
+from treadmill import utils
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -159,19 +160,19 @@ class DirWatchPubSub(object):
         pathname = os.path.realpath(os.path.join(self.root, watch.lstrip('/')))
         return [path for path in glob.glob(pathname) if os.path.isdir(path)]
 
-    @exc.exit_on_unhandled
+    @utils.exit_on_unhandled
     def _on_created(self, path):
         """On file created callback."""
         _LOGGER.debug('created: %s', path)
         self._handle('c', path)
 
-    @exc.exit_on_unhandled
+    @utils.exit_on_unhandled
     def _on_modified(self, path):
         """On file modified callback."""
         _LOGGER.debug('modified: %s', path)
         self._handle('m', path)
 
-    @exc.exit_on_unhandled
+    @utils.exit_on_unhandled
     def _on_deleted(self, path):
         """On file deleted callback."""
         _LOGGER.debug('deleted: %s', path)
@@ -340,7 +341,7 @@ class DirWatchPubSub(object):
             else:
                 self.handlers[directory] = handlers
 
-    @exc.exit_on_unhandled
+    @utils.exit_on_unhandled
     def run(self, once=False):
         """Run event loop."""
         last_gc = time.time()
@@ -359,7 +360,7 @@ class DirWatchPubSub(object):
             if once:
                 break
 
-    @exc.exit_on_unhandled
+    @utils.exit_on_unhandled
     def run_detached(self):
         """Run event loop in separate thread."""
         event_thread = threading.Thread(target=self.run)

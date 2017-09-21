@@ -255,7 +255,7 @@ class Context(object):
                                               self._profile_name)
             self._defaults = profile_mod.PROFILE
         except KeyError:
-            _LOGGER.warn('Profile not found: %s', self._profile_name)
+            _LOGGER.warning('Profile not found: %s', self._profile_name)
 
     def _init_plugins(self):
         """Initialize plugins."""
@@ -294,8 +294,8 @@ class Context(object):
                     try:
                         self._profile[attr] = plugin.resolve(self, attr)
                     except ContextError:
-                        _LOGGER.warn('Error resolving attribute - %s: %s',
-                                     plugin, attr)
+                        _LOGGER.warning('Error resolving attribute - %s: %s',
+                                        plugin, attr)
                     except KeyError:
                         # Plugin is not responsible fot the attribute.
                         pass

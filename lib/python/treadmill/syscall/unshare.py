@@ -1,18 +1,21 @@
-"""Wrapper for unshare(2) system call."""
+"""Wrapper for unshare(2) system call.
+"""
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import logging
 import os
 
 import ctypes
-
 from ctypes import (
     c_int,
 )
-
 from ctypes.util import find_library
 
-
-_LOG = logging.getLogger(__name__)
+_LOGGER = logging.getLogger(__name__)
 
 
 ###############################################################################
@@ -65,3 +68,30 @@ CLONE_NEWUSER = 0x10000000
 CLONE_NEWPID = 0x20000000
 CLONE_NEWNET = 0x40000000
 CLONE_IO = 0x80000000
+
+###############################################################################
+__all__ = [
+    'CLONE_VM',
+    'CLONE_FS',
+    'CLONE_FILES',
+    'CLONE_SIGHAND',
+    'CLONE_PTRACE',
+    'CLONE_VFORK',
+    'CLONE_PARENT',
+    'CLONE_THREAD',
+    'CLONE_NEWNS',
+    'CLONE_SYSVSEM',
+    'CLONE_SETTLS',
+    'CLONE_PARENT_SETTID',
+    'CLONE_CHILD_CLEARTID',
+    'CLONE_DETACHED',
+    'CLONE_UNTRACED',
+    'CLONE_CHILD_SETTID',
+    'CLONE_NEWUTS',
+    'CLONE_NEWIPC',
+    'CLONE_NEWUSER',
+    'CLONE_NEWPID',
+    'CLONE_NEWNET',
+    'CLONE_IO',
+    'unshare',
+]

@@ -1,16 +1,22 @@
 """Implementation of allocation API."""
 from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import collections
 import errno
 import glob
+import io
 import logging
 import os
 import re
 import tarfile
-import thread
 
 import json
+
+import six
+from six.moves import _thread
 
 from treadmill import exc
 from treadmill import appenv
@@ -34,7 +40,7 @@ def _archive_path(tm_env, archive_type, instance, uniq):
 
 def _temp_file_name():
     """Construct a temporary file name for each thread."""
-    f_name = 'local-{}.temp'.format(thread.get_ident())
+    f_name = 'local-{}.temp'.format(_thread.get_ident())
 
     return os.path.join(os.path.sep, 'tmp', f_name)
 
@@ -63,8 +69,8 @@ def _get_file(fname=None,
     try:
         # extract the req. file from the archive and copy it to a temp file
         copy = _temp_file_name()
-        with tarfile.open(arch_fname) as archive, open(copy, 'w+b') as copy_fd:
-            member = archive.extractfile(arch_extract_fname)
+        with tarfile.open(arch_fname) as arch, io.open(copy, 'w+b') as copy_fd:
+            member = arch.extractfile(arch_extract_fname)
             copy_fd.writelines(member.readlines())
             copy_fd.close()
     except KeyError as err:
@@ -91,13 +97,13 @@ def _fragment(iterable, start=0, limit=None):
             fragment = collections.deque(maxlen=limit)
             steps_to_make = start + limit
             while steps_to_make:
-                fragment.append(iterable.next())
+                fragment.append(six.next(iterable))
                 steps_to_make = steps_to_make - 1
         except StopIteration:
             pass
 
         try:
-            for _ in xrange(min(steps_to_make, start)):
+            for _ in six.moves.range(min(steps_to_make, start)):
                 fragment.popleft()
         except IndexError:
             raise exc.InvalidInputError(
@@ -107,8 +113,8 @@ def _fragment(iterable, start=0, limit=None):
         return fragment
 
     try:
-        for _ in xrange(start):
-            iterable.next()
+        for _ in six.moves.range(start):
+            six.next(iterable)
     except StopIteration:
         raise exc.InvalidInputError(__name__,
                                     'Index start=%s is out of range.'
@@ -133,7 +139,7 @@ def _fragment_in_reverse(iterable, start=0, limit=None):
 
     fragment = collections.deque(iterable, maxlen)
     try:
-        for _ in xrange(start):
+        for _ in six.moves.range(start):
             fragment.pop()
     except IndexError:
         raise exc.InvalidInputError(__name__,
@@ -206,7 +212,7 @@ def mk_metrics_api(tm_env):
                 # find out uniq ...
                 state_json = os.path.join(tm_env().running_dir, app, 'data',
                                           'state.json')
-                with open(state_json) as f:
+                with io.open(state_json) as f:
                     uniq = json.load(f)['uniqueid']
 
             return self._app_rrd_file(app, uniq, arch_extract)
@@ -265,7 +271,7 @@ def mk_logapi(tm_env):
                             )
                         )
 
-                    with open(log_f) as log:
+                    with io.open(log_f) as log:
                         if order == 'desc':
                             return _fragment_in_reverse(log, start, limit)
 
@@ -445,7 +451,7 @@ class API(object):
                     _app_path(tm_env(), instance, uniq), 'data', 'state.json')
 
             try:
-                with open(fname) as f:
+                with io.open(fname) as f:
                     return json.load(f)
             except EnvironmentError as err:
                 if uniq == 'running' or err.errno != errno.ENOENT:

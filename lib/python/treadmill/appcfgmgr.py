@@ -23,6 +23,7 @@ Upon change, appcfgmgr will do the following:
  - trigger svscanctl -an, which will stop all apps that are no longer scheduled
    to run and will start all the new apps.
 """
+
 from __future__ import absolute_import
 
 import errno
@@ -40,14 +41,13 @@ from treadmill import dirwatch
 from treadmill import logcontext as lc
 from treadmill import supervisor
 
-if os.name == 'nt':
-    from .syscall import winsymlink  # pylint: disable=W0611
-
 from treadmill.appcfg import configure as app_cfg
 from treadmill.appcfg import abort as app_abort
 
-_LOGGER = lc.Adapter(logging.getLogger(__name__))
+if os.name == 'nt':
+    import treadmill.syscall.winsymlink  # pylint: disable=W0611
 
+_LOGGER = lc.Adapter(logging.getLogger(__name__))
 
 _HEARTBEAT_SEC = 30
 _WATCHDOG_TIMEOUT_SEC = _HEARTBEAT_SEC * 4

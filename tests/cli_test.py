@@ -1,5 +1,9 @@
 """Unit test for treadmill.cli.
 """
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import sys
 import unittest
@@ -10,13 +14,15 @@ import tests.treadmill_test_deps  # pylint: disable=W0611
 import click
 import mock
 
+import six
+
 from treadmill import cli
 from treadmill.formatter import tablefmt
 
 
 def _lines(tbl):
     """Convert table to list of lines."""
-    return map(str.strip, str(tbl).splitlines())
+    return list(six.moves.map(str.strip, str(tbl).splitlines()))
 
 
 class CliTest(unittest.TestCase):

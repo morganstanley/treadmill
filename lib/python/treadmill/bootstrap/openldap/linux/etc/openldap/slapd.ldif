@@ -12,7 +12,6 @@ olcAttributeOptions: {{ attribute_option }}
 {%- endfor %}
 olcArgsFile: {{ dir }}/run/slapd.args
 olcPidFile: {{ dir }}/run/slapd.pid
-olcLogFile: {{ dir }}/run/slapd.log
 {%- if uri in masters %}
 {%- for master in masters %}
 {%- set serverid = serverid + 1 %}
@@ -20,10 +19,6 @@ olcServerID: {{ serverid }} {{ master }}
 {%- endfor %}
 {%- endif %}
 olcIdleTimeout: {{ idletimout | default(0) }}
-#olcLogLevel: intentionally commented out, see "psg slapd" -d arguments for log/debug levels
-{%- for log_level in log_levels %}
-#olcLogLevel: {{ log_level }}
-{%- endfor %}
 
 #
 # schema
@@ -42,7 +37,10 @@ include: {{ schema_file}}
 #
 dn: olcDatabase={{ backend.name }},cn=config
 objectClass: olcDatabaseConfig
-{%- if backend.objectclass is defined %}
+{%- if backend.maxsize %}
+olcDbMaxSize: {{ backend.maxsize }}
+{%- endif %}
+{%- if backend.objectclass %}
 objectClass: {{ backend.objectclass }}
 {%- endif %}
 olcDatabase: {{ backend.name }}
@@ -56,18 +54,18 @@ olcRootPW: {{ rootpw }}
 {%- endif %}
 {%- if gssapi %}
 olcAccess: to *
-{%- if backend.owner is defined %}
+{%- if backend.owner %}
     by dn.base=uid={{backend.owner}},cn=gssapi,cn=auth write
 {%- endif %}
     by users read
     by * none
 {%- endif %}
-{%- if backend.requires is defined %}
+{%- if backend.requires %}
 {%- for r in backend.requires %}
 olcRequires: {{ r }}
 {%- endfor %}
 {%- endif %}
-{%- if masters is defined %}
+{%- if masters %}
 olcLimits: dn.exact="{{ backend.rootdn }}" time.soft=unlimited time.hard=unlimited size.soft=unlimited size.hard=unlimited
 olcLimits: dn.base=uid={{ backend.owner }},cn=gssapi,cn=auth time.soft=unlimited time.hard=unlimited size.soft=unlimited size.hard=unlimited
 {%- endif %}
@@ -77,7 +75,7 @@ olcSyncRepl: rid={{ rid|length }} provider={{ master }} bindmethod=sasl
 {%- if rid.append('1') %}
 {%- endif %}
 {%- endfor %}
-{%- if masters is defined %}
+{%- if masters %}
 {%- if uri in masters %}
 # master has mirroring enabled
 olcMirrorMode: TRUE

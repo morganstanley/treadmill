@@ -1,5 +1,4 @@
-"""
-Unit test for Treadmill linux runtime presence module.
+"""Unit test for Treadmill linux runtime presence module.
 """
 
 import os
@@ -44,10 +43,6 @@ class PresenceTest(mockzk.MockZookeeperTestCase):
         """Verifies presence registration."""
         treadmill.sysinfo.hostname.return_value = 'myhostname'
         manifest = {
-            'vip': {
-                'ip0': '192.168.0.1',
-                'ip1': '192.168.0.2'
-            },
             'task': 't-0001',
             'name': 'foo.test1',
             'uniqueid': 'AAAAAA',

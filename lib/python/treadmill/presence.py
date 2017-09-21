@@ -36,12 +36,10 @@ def _create_ephemeral_with_retry(zkclient, path, data):
             return zkutils.create(zkclient, path, data, acl=[_SERVERS_ACL],
                                   ephemeral=True)
         except kazoo.client.NodeExistsError:
-            prev_data, metadata = zkutils.get_default(
-                zkclient, path, need_metadata=True
-            )
-            _LOGGER.warn(
-                'Node exists, will retry: %s, data: %r, metadata: %r',
-                path, prev_data, metadata
+            prev_data = zkutils.get_default(zkclient, path)
+            _LOGGER.warning(
+                'Node exists, will retry: %s, data: %r',
+                path, prev_data
             )
             time.sleep(_EPHEMERAL_RETRY_INTERVAL)
 

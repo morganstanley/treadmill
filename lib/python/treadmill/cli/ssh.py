@@ -1,15 +1,25 @@
-"""Trace treadmill application events."""
+"""Trace treadmill application events.
+"""
+
 from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import logging
 import os
-import subprocess
 import sys
 import urllib
 
 import click
 import gevent
 from gevent import queue as g_queue
+import six
+
+if six.PY2 and os.name == 'posix':
+    import subprocess32 as subprocess  # pylint: disable=E0401
+else:
+    import subprocess  # pylint: disable=wrong-import-order
 
 from treadmill import checkout
 from treadmill import context
@@ -54,7 +64,7 @@ def run_unix(host, port, ssh, command):
            '-p', port, host] + command
 
     _LOGGER.debug('Starting ssh: %s', ssh)
-    os.execvp(ssh[0], ssh)
+    utils.sane_execvp(ssh[0], ssh)
 
 
 def run_putty(host, port, sshcmd, command):
@@ -102,7 +112,7 @@ def run_putty(host, port, sshcmd, command):
     _LOGGER.debug('Starting ssh: %s', ssh)
     try:
         if os.path.basename(sshcmd).lower() == 'putty.exe':
-            os.execvp(ssh[0], ssh)
+            utils.sane_execvp(ssh[0], ssh)
         else:
             # Call plink. Redirect to devnull if std streams are empty/invalid.
             subprocess.call(
@@ -125,7 +135,7 @@ def _wait_for_ssh(queue, ssh, command, timeout=1, attempts=40):
     except g_queue.Empty:
         cli.bad_exit("No SSH endpoint found.")
 
-    for _ in xrange(attempts):
+    for _ in six.moves.range(attempts):
         _LOGGER.debug('Checking SSH endpoint %s:%s', host, port)
         if checkout.connect(host, port):
             run_ssh(host, port, ssh, list(command))

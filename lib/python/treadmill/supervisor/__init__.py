@@ -48,10 +48,16 @@ from __future__ import absolute_import
 import json
 import os
 import logging
-import subprocess
-
+import time
 import enum
+
 import jinja2
+import six
+
+if six.PY2 and os.name == 'posix':
+    import subprocess32 as subprocess  # pylint: disable=import-error
+else:
+    import subprocess  # pylint: disable=wrong-import-order
 
 from treadmill import fs
 from treadmill import utils
@@ -95,14 +101,19 @@ def open_service(service_dir, existing=True):
         Instance of a service
     """
     if not isinstance(service_dir, _service_base.Service):
-        svc_type, svc_basedir, svc_name = _service_base.Service.read_dir(
-            service_dir)
-
-        if svc_type is None:
+        svc_data = _service_base.Service.read_dir(
+            service_dir
+        )
+        if svc_data is None:
             if existing:
                 raise ValueError('Invalid Service directory: %r' % service_dir)
             else:
                 svc_type = _service_base.ServiceType.LongRun
+                svc_basedir = os.path.dirname(service_dir)
+                svc_name = os.path.basename(service_dir)
+
+        else:
+            svc_type, svc_basedir, svc_name = svc_data
 
         return sup_impl.create_service(
             svc_basedir=svc_basedir,
@@ -113,7 +124,55 @@ def open_service(service_dir, existing=True):
     return service_dir
 
 
-def create_scan_dir(scan_dir, finish_timeout):
+def _create_scan_dir_s6(scan_dir, finish_timeout, monitor_service=None):
+    """Create a scan directory.
+
+    :param ``str`` scan_dir:
+        Location of the scan directory.
+    :param ``int`` finish_timeout:
+        The finish script timeout.
+    :param ``str`` monitor_service:
+        Service monitoring other services in this scan directory.
+    :returns ``_service_dir_base.ServiceDirBase``:
+        Instance of a service dir
+    """
+    if not isinstance(scan_dir, sup_impl.ScanDir):
+        scan_dir = sup_impl.ScanDir(scan_dir)
+
+    svscan_finish_script = utils.generate_template(
+        's6.svscan.finish',
+        timeout=finish_timeout,
+        _alias=subproc.get_aliases()
+    )
+    scan_dir.finish = svscan_finish_script
+    svscan_sigterm_script = utils.generate_template(
+        's6.svscan.sigterm',
+        monitor_service=monitor_service,
+        _alias=subproc.get_aliases()
+    )
+    scan_dir.sigterm = svscan_sigterm_script
+    svscan_sighup_script = utils.generate_template(
+        's6.svscan.sighup',
+        monitor_service=monitor_service,
+        _alias=subproc.get_aliases()
+    )
+    scan_dir.sighup = svscan_sighup_script
+    svscan_sigint_script = utils.generate_template(
+        's6.svscan.sigint',
+        monitor_service=monitor_service,
+        _alias=subproc.get_aliases()
+    )
+    scan_dir.sigint = svscan_sigint_script
+    svscan_sigquit_script = utils.generate_template(
+        's6.svscan.sigquit',
+        monitor_service=monitor_service,
+        _alias=subproc.get_aliases()
+    )
+    scan_dir.sigquit = svscan_sigquit_script
+    return scan_dir
+
+
+def _create_scan_dir_winss(scan_dir, finish_timeout):
     """Create a scan directory.
 
     :param ``str`` scan_dir:
@@ -127,13 +186,21 @@ def create_scan_dir(scan_dir, finish_timeout):
         scan_dir = sup_impl.ScanDir(scan_dir)
 
     svscan_finish_script = utils.generate_template(
-        _PREFIX + '.svscan.finish',
+        'winss.svscan.finish',
         timeout=finish_timeout,
         scan_dir=scan_dir.directory,
         _alias=subproc.get_aliases()
     )
     scan_dir.finish = svscan_finish_script
     return scan_dir
+
+
+# Disable C0103: Invalid constant name "create_service"
+# pylint: disable=C0103
+if _PREFIX == 'winss':
+    create_scan_dir = _create_scan_dir_winss
+else:
+    create_scan_dir = _create_scan_dir_s6
 
 
 def create_environ_dir(env_dir, env, update=False):
@@ -147,9 +214,9 @@ def create_environ_dir(env_dir, env, update=False):
     )
 
 
-# Disable W0613: Unused argument 'kwargs' (for s6/winss compatability)
+# Disable W0613: Unused argument 'kwargs' (for s6/winss compatibility)
 # pylint: disable=W0613
-def _create_service_s6(scan_dir,
+def _create_service_s6(base_dir,
                        name,
                        app_run_script,
                        userid='root',
@@ -179,10 +246,11 @@ def _create_service_s6(scan_dir,
                           userid)
         raise
 
-    if not isinstance(scan_dir, sup_impl.ScanDir):
-        scan_dir = sup_impl.ScanDir(scan_dir)
-
-    svc = scan_dir.add_service(name, _service_base.ServiceType.LongRun)
+    if isinstance(base_dir, sup_impl.ScanDir):
+        # We are given a scandir as base, use it.
+        svc = base_dir.add_service(name, _service_base.ServiceType.LongRun)
+    else:
+        svc = LongrunService(base_dir, name)
 
     # Setup the environ
     if environ is None:
@@ -253,9 +321,9 @@ def _create_service_s6(scan_dir,
     return svc
 
 
-# Disable W0613: Unused argument 'kwargs' (for s6/winss compatability)
+# Disable W0613: Unused argument 'kwargs' (for s6/winss compatibility)
 # pylint: disable=W0613
-def _create_service_winss(scan_dir,
+def _create_service_winss(base_dir,
                           name,
                           app_run_script,
                           downed=False,
@@ -271,10 +339,11 @@ def _create_service_winss(scan_dir,
     Creates run, finish scripts as well as log directory with appropriate
     run script.
     """
-    if not isinstance(scan_dir, sup_impl.ScanDir):
-        scan_dir = sup_impl.ScanDir(scan_dir)
-
-    svc = scan_dir.add_service(name, _service_base.ServiceType.LongRun)
+    if isinstance(base_dir, sup_impl.ScanDir):
+        # We are given a scandir as base, use it.
+        svc = base_dir.add_service(name, _service_base.ServiceType.LongRun)
+    else:
+        svc = LongrunService(base_dir, name)
 
     # Setup the environ
     if environ is None:
@@ -396,7 +465,7 @@ def control_service(service_dir, actions, wait=None, timeout=0):
     if wait:
         cmd.append('-w' + _get_wait_action(wait).value)
         if timeout > 0:
-            cmd.extend(['-T', str(timeout)])
+            cmd.extend(['-T{}'.format(timeout)])
 
     action_str = '-'
     for action in utils.get_iterable(actions):
@@ -430,7 +499,7 @@ def wait_service(service_dirs, action, all_services=True, timeout=0):
     cmd = [_get_cmd('svwait')]
 
     if timeout > 0:
-        cmd.extend(['-t', str(timeout)])
+        cmd.extend(['-t{}'.format(timeout)])
 
     if not all_services:
         cmd.append('-o')
@@ -447,6 +516,40 @@ def wait_service(service_dirs, action, all_services=True, timeout=0):
             return False
         else:
             raise
+
+
+def ensure_not_supervised(service_dir):
+    """Waits for the service and log service to not be supervised."""
+    service_dirs = []
+    if is_supervised(service_dir):
+        service_dirs.append(service_dir)
+
+    log_dir = os.path.join(service_dir, 'log')
+    if os.path.exists(log_dir) and is_supervised(log_dir):
+        service_dirs.append(log_dir)
+
+    for service in service_dirs:
+        try:
+            # Kill and close supervised process as it should have already
+            # been told to go down
+            control_service(service, (ServiceControlAction.kill,
+                                      ServiceControlAction.exit),
+                            ServiceWaitAction.really_down,
+                            timeout=1000)
+        except subprocess.CalledProcessError:
+            # Ignore this as supervisor may be down
+            pass
+
+        count = 0
+        while is_supervised(service):
+            count += 1
+            if count == 50:
+                raise Exception(
+                    'Service dir {0} failed to stop in a reasonable time.'
+                    .format(service)
+                )
+            time.sleep(0.1)
+
 
 ScanDir = sup_impl.ScanDir
 LongrunService = sup_impl.LongrunService

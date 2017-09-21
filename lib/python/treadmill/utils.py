@@ -1,46 +1,53 @@
-"""Useful utility functions."""
+"""Useful utility functions.
+"""
+
 from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
-import signal
-
+import collections
 import datetime
+import errno
+import functools
 import hashlib
+import io
 import locale
 import logging
 import os
 import pkgutil
+import signal
 import stat
 import sys
 import tempfile
 import time
 import urllib
 
-import collections
-from collections import namedtuple
-
 # Pylint warning re string being deprecated
 #
 # pylint: disable=W0402
 import string
 
-# see:
-# http://stackoverflow.com/questions/13193278/understand-python-threading-bug
-import threading
-
 if os.name != 'nt':
     import fcntl
     import pwd
-
+else:
+    # Pylint warning unable to import because it is on Windows only
+    import win32api  # pylint: disable=E0401
+    import win32security  # pylint: disable=E0401
 
 import jinja2
 import six
 
-import treadmill
+if six.PY2 and os.name == 'posix':
+    import subprocess32 as subprocess  # pylint: disable=import-error
+else:
+    import subprocess  # pylint: disable=wrong-import-order
 
+
+from treadmill import exc
 from treadmill import osnoop
 
-
-threading._DummyThread._Thread__stop = lambda x: 0  # pylint: disable=W0212
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -89,8 +96,9 @@ def create_script(filename, templatename, mode=EXEC_MODE, **kwargs):
     with tempfile.NamedTemporaryFile(dir=filepath, delete=False) as f:
         for data in generate_template(templatename, **kwargs):
             f.write(data)
-        # cast to int required in order for default EXEC_MODE to work
-        os.fchmod(f.fileno(), int(mode))
+        if os.name == 'posix':
+            # cast to int required in order for default EXEC_MODE to work
+            os.fchmod(f.fileno(), int(mode))
     os.rename(f.name, filename)
 
 
@@ -121,7 +129,7 @@ def to_obj(value, name='struct'):
     if isinstance(value, list):
         return [to_obj(item) for item in value]
     elif isinstance(value, dict):
-        return namedtuple(name, value.keys())(
+        return collections.namedtuple(name, value.keys())(
             *[to_obj(v, k) for k, v in value.iteritems()])
     else:
         return value
@@ -152,11 +160,11 @@ def hashcmp(file1, file2):
     sha1 = hashlib.sha1()
     sha2 = hashlib.sha1()
 
-    with open(file1, 'rb') as f:
+    with io.open(file1, 'rb') as f:
         data = f.read()
         sha1.update(data)
 
-    with open(file2, 'rb') as f:
+    with io.open(file2, 'rb') as f:
         data = f.read()
         sha2.update(data)
 
@@ -179,18 +187,22 @@ def distro():
 
 
 def touch(filename):
-    """'Touch' a filename."""
+    """'Touch' a filename.
+    """
     try:
         os.utime(filename, None)
-    except OSError:
-        open(filename, 'a').close()
+    except OSError as err:
+        if err.errno == errno.ENOENT:
+            io.open(filename, 'wb').close()
+        else:
+            raise
 
 
 class FileLock(object):
     """Utility file based lock."""
 
     def __init__(self, filename):
-        self.fd = open(filename + '.lock', 'w')
+        self.fd = io.open(filename + '.lock', 'w')
 
     def __enter__(self):
         fcntl.flock(self.fd, fcntl.LOCK_EX)
@@ -240,8 +252,8 @@ def size_to_bytes(size):
     >>> size_to_bytes("1K")
     1024
     """
-    if isinstance(size, basestring):
-        size = str(size).upper().strip()
+    if isinstance(size, six.string_types):
+        size = size.upper().strip()
         unit = 1024
         if size[-1] == 'B':
             unit = 1000
@@ -273,12 +285,12 @@ def kilobytes(value):
         _LOGGER.error('Invalid (unitless) value: %s', value)
         raise Exception('Invalid (unitless) value: ' + str(value))
 
-    return size_to_bytes(value) / 1024
+    return size_to_bytes(value) // 1024
 
 
 def megabytes(value):
     """Converts values with M/K/G suffix info numeric in Mbytes"""
-    return kilobytes(value) / 1024
+    return kilobytes(value) // 1024
 
 
 def validate(struct, schema):
@@ -290,18 +302,18 @@ def validate(struct, schema):
     with the type constructor.
     """
     if not isinstance(struct, dict):
-        raise treadmill.exc.InvalidInputError(struct, 'Expected dict.')
+        raise exc.InvalidInputError(struct, 'Expected dict.')
 
     for field, required, ftype in schema:
         if field not in struct:
             if required:
-                raise treadmill.exc.InvalidInputError(
+                raise exc.InvalidInputError(
                     struct, 'Required field: %s' % field)
             else:
                 continue
 
         if not isinstance(struct[field], ftype):
-            raise treadmill.exc.InvalidInputError(
+            raise exc.InvalidInputError(
                 struct, 'Invalid type for %s, expected: %s, got: %s' %
                 (field, str(ftype), type(struct[field])))
 
@@ -337,13 +349,13 @@ def bytes_to_readable(num, power='M'):
 
 def cpu_to_readable(num):
     """Converts CPU % into readable number."""
-    locale.setlocale(locale.LC_ALL, 'en_US')
+    locale.setlocale(locale.LC_ALL, ('en_US', sys.getdefaultencoding()))
     return locale.format("%d", num, grouping=True)
 
 
 def cpu_to_cores_readable(num):
     """Converts CPU % into number of abstract cores."""
-    locale.setlocale(locale.LC_ALL, 'en_US')
+    locale.setlocale(locale.LC_ALL, ('en_US', sys.getdefaultencoding()))
     return locale.format("%.2f", num / 100.0, grouping=True)
 
 
@@ -366,7 +378,8 @@ def find_in_path(prog):
 
 
 def tail_stream(stream, nlines=10):
-    """Returns last N lines from the io object (file or io.string)."""
+    """Returns last N lines from the io object (file or io.string).
+    """
     # Seek to eof, backtrack 1024 or to the beginning, return last
     # N lines.
     stream.seek(0, 2)
@@ -379,10 +392,10 @@ def tail_stream(stream, nlines=10):
 def tail(filename, nlines=10):
     """Retuns last N lines from the file."""
     try:
-        with open(filename) as f:
+        with io.open(filename) as f:
             return tail_stream(f, nlines=nlines)
-    except StandardError:
-        _LOGGER.error('Cannot open %s for reading.', filename)
+    except Exception:  # pylint: disable=W0703
+        _LOGGER.exception('Cannot open %r for reading.', filename)
         return []
 
 
@@ -466,7 +479,7 @@ def report_ready():
             except OSError:
                 _LOGGER.exception('Cannot read notification-fd')
     except IOError:
-        _LOGGER.warn('notification-fd does not exist.')
+        _LOGGER.warning('notification-fd does not exist.')
 
 
 @osnoop.windows
@@ -493,8 +506,22 @@ def drop_privileges(uid_name='nobody'):
     os.environ['KRB5CCNAME'] = 'FILE:/no_such_krbcc'
 
 
-_SIG2NAME = {getattr(signal, attr): attr for attr in dir(signal)
-             if attr.startswith('SIG') and '_' not in attr}
+def _setup_sigs():
+    sigs = {}
+    for signame, sigval in vars(signal).items():
+        # We want all signal.SIG* but not signal.SIG_*
+        if (not signame.startswith('SIG')) or signame.startswith('SIG_'):
+            continue
+
+        sigs.setdefault(sigval, [str(sigval)]).append(signame)
+
+    return {
+        sigval: '/'.join(signames)
+        for sigval, signames in sigs.items()
+    }
+
+_SIG2NAME = _setup_sigs()
+del _setup_sigs
 
 
 def signal2name(num):
@@ -526,8 +553,9 @@ def make_signal_flag(*signals):
 
 
 def compose(*funcs):
-    """Compose functions."""
-    return lambda x: reduce(lambda v, f: f(v), reversed(funcs), x)
+    """Compose functions.
+    """
+    return lambda x: six.moves.reduce(lambda v, f: f(v), reversed(funcs), x)
 
 
 def modules_in_pkg(pkg):
@@ -621,3 +649,64 @@ def which(cmd, mode=os.F_OK | os.X_OK, path=None):
                 if _access_check(name, mode):
                     return name
     return None
+
+
+def is_root():
+    """Gets whether the current user is root"""
+    if os.name == 'nt':
+        sid = win32security.CreateWellKnownSid(win32security.WinLocalSystemSid,
+                                               None)
+        return win32security.CheckTokenMembership(None, sid)
+    else:
+        return os.geteuid() == 0
+
+
+def get_current_username():
+    """Returns the current user name"""
+    if os.name == 'nt':
+        return win32api.GetUserName()
+    else:
+        return pwd.getpwuid(os.getuid()).pw_name
+
+# List of signals that can be manipulated
+if sys.platform == 'win32':
+    _SIGNALS = {signal.SIGABRT, signal.SIGFPE, signal.SIGILL, signal.SIGINT,
+                signal.SIGSEGV, signal.SIGTERM, signal.SIGBREAK}
+else:
+    _SIGNALS = (set(range(1, signal.NSIG))
+                - {signal.SIGKILL, signal.SIGSTOP, 32, 33})
+
+
+def sane_execvp(filename, args, close_fds=True, restore_signals=True):
+    """Execute a new program with sanitized environment.
+    """
+    def _restore_signals():
+        """Reset the default behavior to all signals.
+        """
+        for i in _SIGNALS:
+            signal.signal(i, signal.SIG_DFL)
+
+    def _close_fds():
+        """Close all file descriptors except 0, 1, 2.
+        """
+        os.closerange(3, subprocess.MAXFD)
+
+    if close_fds:
+        _close_fds()
+    if restore_signals:
+        _restore_signals()
+    os.execvp(filename, args)
+
+
+def exit_on_unhandled(func):
+    """Decorator to exit thread on unhandled exception."""
+    @functools.wraps(func)
+    def _wrap(*args, **kwargs):
+        """Wraps function to exit on unhandled exception."""
+        try:
+            return func(*args, **kwargs)
+        except Exception:  # pylint: disable=W0703
+            _LOGGER.exception('Unhandled exception - exiting.')
+            sys_exit(-1)
+
+    return _wrap

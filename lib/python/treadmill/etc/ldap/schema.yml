@@ -366,4 +366,10 @@ objectClasses:
     - fqdn
     - ttl
     - nameservers
+  tmHAProxy:
+    desc: Treadmill HAProxy Server
+    must:
+    - server
+    may:
+    - cell
 ...

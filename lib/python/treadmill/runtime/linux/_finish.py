@@ -1,4 +1,5 @@
-"""Provides functions that are used when apps are finished."""
+"""Provides functions that are used when apps are finished.
+"""
 
 from __future__ import absolute_import
 
@@ -10,8 +11,14 @@ import os
 import shutil
 import signal
 import socket
-import subprocess
 import tarfile
+
+import six
+
+if six.PY2 and os.name == 'posix':
+    import subprocess32 as subprocess
+else:
+    import subprocess  # pylint: disable=wrong-import-order
 
 from treadmill import appevents
 from treadmill import appcfg
@@ -36,7 +43,7 @@ _LOGGER = lc.ContainerAdapter(logging.getLogger(__name__))
 _ARCHIVE_LIMIT = utils.size_to_bytes('1G')
 
 
-def finish(tm_env, container_dir, watchdog):
+def finish(tm_env, container_dir):
     """Frees allocated resources and mark then as available.
     """
     with lc.LogContext(_LOGGER, os.path.basename(container_dir),
@@ -77,19 +84,13 @@ def finish(tm_env, container_dir, watchdog):
                 _post_exit_event(tm_env, app, exitinfo)
 
             else:
-                app_abort.report_aborted(tm_env, app.name,
-                                         why=app_abort.AbortedReason.UNKNOWN)
+                # No need to post event as evicted notification is handled by
+                # master.
+                _LOGGER.info('Evicted: %s', app.name)
 
         # cleanup monitor with container information
         if app:
             apphook.cleanup(tm_env, app, container_dir)
-
-        # Delete the app directory (this includes the tarball, if any)
-        shutil.rmtree(container_dir)
-
-        # cleanup was succesful, remove the watchdog
-        watchdog.remove()
-        _LOGGER.info('Finished cleanup: %s', container_dir)
 
 
 def _collect_exit_info(container_dir):
@@ -113,7 +114,11 @@ def _collect_exit_info(container_dir):
     aborted_file = os.path.join(container_dir, 'aborted')
     try:
         with open(aborted_file) as f:
-            aborted = json.load(f)
+            try:
+                aborted = json.load(f)
+            except ValueError:
+                _LOGGER.warn('Invalid json in aborted file: %s', aborted_file)
+                aborted = app_abort.ABORTED_UNKNOWN
 
     except IOError:
         _LOGGER.debug('aborted file does not exist: %r', aborted_file)
@@ -121,7 +126,7 @@ def _collect_exit_info(container_dir):
     oom_file = os.path.join(container_dir, 'oom')
     oom = os.path.exists(oom_file)
     if not oom:
-        _LOGGER.debug('oom file does not exist: %r', exitinfo_file)
+        _LOGGER.debug('oom file does not exist: %r', oom_file)
 
     return exitinfo, aborted, oom
 

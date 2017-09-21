@@ -2,11 +2,7 @@
 
 from __future__ import absolute_import
 
-import functools
 import logging
-
-from treadmill import utils
-
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -57,17 +53,3 @@ class NotFoundError(TreadmillError):
 class FoundError(TreadmillError):
     """Thrown in REST API when a resource is found"""
     pass
-
-
-def exit_on_unhandled(func):
-    """Decorator to exit thread on unhandled exception."""
-    @functools.wraps(func)
-    def _wrap(*args, **kwargs):
-        """Wraps function to exit on unhandled exception."""
-        try:
-            return func(*args, **kwargs)
-        except Exception:  # pylint: disable=W0703
-            _LOGGER.exception('Unhandled exception - exiting.')
-            utils.sys_exit(-1)
-
-    return _wrap

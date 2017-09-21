@@ -1,6 +1,10 @@
+"""Unit test for Treadmill ZK apptrace module.
 """
-Unit test for Treadmill ZK apptrace module.
-"""
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import unittest
 import time
@@ -18,7 +22,8 @@ from treadmill.apptrace import zk
 
 
 class AppTraceZKTest(mockzk.MockZookeeperTestCase):
-    """Mock test for treadmill.apptrace."""
+    """Mock test for treadmill.apptrace.
+    """
 
     def setUp(self):
         super(AppTraceZKTest, self).setUp()
@@ -32,7 +37,8 @@ class AppTraceZKTest(mockzk.MockZookeeperTestCase):
     @mock.patch('kazoo.client.KazooClient.get', mock.Mock())
     @mock.patch('kazoo.client.KazooClient.get_children', mock.Mock())
     def test_trace_pruning(self):
-        """"Tests trace pruning."""
+        """Tests trace pruning.
+        """
         zk_content = {
             'trace': {
                 '0001': {
@@ -89,7 +95,8 @@ class AppTraceZKTest(mockzk.MockZookeeperTestCase):
     @mock.patch('time.time', mock.Mock(return_value=1000))
     @mock.patch('sqlite3.connect', mock.Mock())
     def test_trace_cleanup(self):
-        """"Tests tasks cleanup."""
+        """Tests tasks cleanup.
+        """
         zk_content = {
             'scheduled': {
                 'app1#0003': {},
@@ -243,7 +250,8 @@ class AppTraceZKTest(mockzk.MockZookeeperTestCase):
     @mock.patch('time.time', mock.Mock(return_value=1000))
     @mock.patch('sqlite3.connect', mock.Mock())
     def test_finished_cleanup(self):
-        """"Tests tasks cleanup."""
+        """Tests tasks cleanup.
+        """
         zk_content = {
             'trace': {
                 '0001': {

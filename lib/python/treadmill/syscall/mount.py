@@ -1,21 +1,24 @@
-"""Linux mount(2) API wrapper module
+"""Linux mount(2) API wrapper module.
 """
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import logging
 import os
-import ctypes
 
+import ctypes
 from ctypes import (
     c_int,
     c_char_p,
     c_ulong,
     c_void_p,
 )
-
 from ctypes.util import find_library
 
-
-_LOG = logging.getLogger(__name__)
+_LOGGER = logging.getLogger(__name__)
 
 ###############################################################################
 # Map the C interface
@@ -79,8 +82,9 @@ _UMOUNT2_DECL = ctypes.CFUNCTYPE(
 _UMOUNT2 = _UMOUNT2_DECL(('umount2', _LIBC))
 
 
-def unmount(target, flags=None):
-    """Unmount ``target``."""
+def umount(target, flags=None):
+    """Umount ``target``.
+    """
     res = 0
     if flags is None:
         res = _UMOUNT(target)
@@ -104,7 +108,7 @@ def unmount(target, flags=None):
 
 
 ###############################################################################
-# NOTE(boysson): below values taken from mount kernel interface sys/mount.h
+# NOTE: below values taken from mount kernel interface sys/mount.h
 
 # Mount flags
 
@@ -171,3 +175,30 @@ MNT_DETACH = 2
 
 #: Mark for expiry
 MNT_EXPIRE = 4
+
+
+###############################################################################
+__all__ = [
+    'MS_RDONLY',
+    'MS_NOSUID',
+    'MS_NODEV',
+    'MS_NOEXEC',
+    'MS_SYNCHRONOUS',
+    'MS_REMOUNT',
+    'MS_MANDLOCK',
+    'MS_DIRSYNC',
+    'MS_NOATIME',
+    'MS_NODIRATIME',
+    'MS_BIND',
+    'MS_MOVE',
+    'MS_REC',
+    'MS_UNBINDABLE',
+    'MS_PRIVATE',
+    'MS_SLAVE',
+    'MS_SHARED',
+    'MNT_FORCE',
+    'MNT_DETACH',
+    'MNT_EXPIRE',
+    'mount',
+    'umount',
+]

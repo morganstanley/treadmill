@@ -1,13 +1,18 @@
-"""Treadmill commaand line helpers."""
+"""Treadmill commaand line helpers.
+"""
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 # Disable too many lines in module warning.
 #
 # pylint: disable=C0302
 
-from __future__ import absolute_import
-
 import copy
 import importlib
+import io
 import os
 import functools
 import pkgutil
@@ -17,8 +22,10 @@ import tempfile
 import traceback
 import logging
 
-import pkg_resources
 import click
+import pkg_resources
+
+import six
 from six.moves import configparser
 
 import treadmill
@@ -109,7 +116,7 @@ def make_commands(section, **click_args):
 def _read_password(value):
     """Heuristic to either read the password from file or return the value."""
     if os.path.exists(value):
-        with open(value) as f:
+        with io.open(value) as f:
             return f.read().strip()
     else:
         return value
@@ -180,6 +187,41 @@ class _CommaSepList(click.ParamType):
 
 
 LIST = _CommaSepList()
+
+
+class Enums(click.ParamType):
+    """Custom input type for comma separated enums."""
+    name = 'enumlist'
+
+    def __init__(self, choices):
+        self.choices = choices
+
+    def get_metavar(self, param):
+        return '[%s]' % '|'.join(self.choices)
+
+    def get_missing_message(self, param):
+        return 'Choose from %s.' % ', '.join(self.choices)
+
+    def convert(self, value, param, ctx):
+        """Convert command line argument to list."""
+        if value is None:
+            return []
+
+        choices = []
+        try:
+            for val in value.split(','):
+                if val in self.choices:
+                    choices.append(val)
+                else:
+                    self.fail(
+                        'invalid choice: %s. (choose from %s)' %
+                        (val, ', '.join(self.choices)),
+                        param, ctx
+                    )
+            return choices
+
+        except AttributeError:
+            self.fail('%s is not a comma separated list' % value, param, ctx)
 
 
 class _KeyValuePairs(click.ParamType):
@@ -271,7 +313,7 @@ def handle_exceptions(exclist):
                 try:
                     wrapped_f(*args, **kwargs)
                 except exc as err:
-                    if isinstance(handler, str):
+                    if isinstance(handler, (six.text_type, six.string_types)):
                         click.echo(handler, err=True)
                     elif handler is None:
                         click.echo(str(err), err=True)
@@ -285,6 +327,11 @@ def handle_exceptions(exclist):
             """Default exception handler."""
             try:
                 return wrapped_f(*args, **kwargs)
+
+            except click.UsageError as usage_err:
+                click.echo('Usage error: %s' % str(usage_err), err=True)
+                sys.exit(EXIT_CODE_DEFAULT)
+
             except Exception as unhandled:  # pylint: disable=W0703
 
                 with tempfile.NamedTemporaryFile(delete=False) as f:

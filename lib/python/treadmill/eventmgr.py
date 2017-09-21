@@ -17,19 +17,18 @@ import time
 
 import glob
 import logging
-import tempfile
 
 import kazoo
 import kazoo.client
 
 from treadmill import appenv
 from treadmill import context
-from treadmill import exc
 from treadmill import fs
 from treadmill import sysinfo
-from treadmill import zkutils
-from treadmill import zknamespace as z
+from treadmill import utils
 from treadmill import yamlwrapper as yaml
+from treadmill import zknamespace as z
+from treadmill import zkutils
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -80,7 +79,7 @@ class EventMgr(object):
 
         # Wait for presence node to appear. Once up, syncronize the placement.
         @zkclient.DataWatch(z.path.server_presence(self._hostname))
-        @exc.exit_on_unhandled
+        @utils.exit_on_unhandled
         def _server_presence_update(data, _stat, event):
             """Watch server presence."""
             if data is None and event is None:
@@ -97,7 +96,7 @@ class EventMgr(object):
             return True
 
         @zkclient.ChildrenWatch(z.path.placement(self._hostname))
-        @exc.exit_on_unhandled
+        @utils.exit_on_unhandled
         def _app_watch(apps):
             """Watch application placement."""
             self._synchronize(zkclient, apps)
@@ -159,11 +158,11 @@ class EventMgr(object):
                 manifest.update(placement_info)
 
             manifest_file = os.path.join(self.tm_env.cache_dir, app)
-            with tempfile.NamedTemporaryFile(dir=self.tm_env.cache_dir,
-                                             prefix='.%s-' % app,
-                                             delete=False) as temp_manifest:
-                yaml.dump(manifest, stream=temp_manifest)
-            os.rename(temp_manifest.name, manifest_file)
+            fs.write_safe(
+                manifest_file,
+                lambda f: yaml.dump(manifest, stream=f),
+                prefix='.%s-' % app
+            )
             _LOGGER.info('Created cache manifest: %s', manifest_file)
 
         except kazoo.exceptions.NoNodeError:

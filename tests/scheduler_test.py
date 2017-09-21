@@ -1,5 +1,10 @@
-"""Unit test for treadmill.scheduler
+"""Unit test for treadmill.scheduler.
 """
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import time
 import unittest
@@ -14,6 +19,7 @@ import tests.treadmill_test_deps  # pylint: disable=W0611
 
 import mock
 import numpy as np
+import six
 
 from treadmill import scheduler
 
@@ -29,7 +35,7 @@ def _trait2int(trait):
 
 
 def _traits2int(traits):
-    return reduce(
+    return six.moves.reduce(
         lambda acc, t: acc | _trait2int(t),
         traits,
         0
@@ -40,7 +46,7 @@ def app_list(count, name, *args, **kwargs):
     """Return list of apps."""
     return [scheduler.Application(name + '-' + str(idx),
                                   *args, affinity=name, **kwargs)
-            for idx in xrange(0, count)]
+            for idx in range(0, count)]
 
 
 class AllocationTest(unittest.TestCase):
@@ -262,7 +268,7 @@ class AllocationTest(unittest.TestCase):
         result = []
         list(alloc.utilization_queue([20., 20.],
                                      visitor=lambda _, x: result.append(x)))
-        self.assertEquals(6, len(result))
+        self.assertEqual(6, len(result))
 
 
 class TraitSetTest(unittest.TestCase):
@@ -452,7 +458,7 @@ class NodeTest(unittest.TestCase):
 
         # Without predicting exact placement, apps will be placed on one of
         # the servers in A bucket but not the other, as they use pack strateg.
-        self.assertNotEquals(len(a1_srv.apps), len(a2_srv.apps))
+        self.assertNotEqual(len(a1_srv.apps), len(a2_srv.apps))
 
     def test_valid_times(self):
         """Tests node valid_until calculation."""
@@ -1003,20 +1009,20 @@ class CellTest(unittest.TestCase):
 
         cell.schedule()
         self.assertEqual(sticky_apps[0].server, first_srv)
-        self.assertNotEquals(unsticky_app.server, first_srv)
+        self.assertNotEqual(unsticky_app.server, first_srv)
         self.assertEqual(cell.next_event_at, 130)
 
         time.time.return_value = 110
 
         cell.schedule()
         self.assertEqual(sticky_apps[0].server, first_srv)
-        self.assertNotEquals(unsticky_app.server, first_srv)
+        self.assertNotEqual(unsticky_app.server, first_srv)
         self.assertEqual(cell.next_event_at, 130)
 
         time.time.return_value = 130
         cell.schedule()
-        self.assertNotEquals(sticky_apps[0].server, first_srv)
-        self.assertNotEquals(unsticky_app.server, first_srv)
+        self.assertNotEqual(sticky_apps[0].server, first_srv)
+        self.assertNotEqual(unsticky_app.server, first_srv)
         self.assertEqual(cell.next_event_at, np.inf)
 
         second_srv = sticky_apps[0].server
@@ -1027,7 +1033,7 @@ class CellTest(unittest.TestCase):
 
         cell.schedule()
         self.assertEqual(sticky_apps[0].server, second_srv)
-        self.assertNotEquals(unsticky_app.server, second_srv)
+        self.assertNotEqual(unsticky_app.server, second_srv)
         self.assertEqual(cell.next_event_at, 160)
 
         # Schedule one more sticky app. As it has rack affinity limit 1, it
@@ -1098,7 +1104,7 @@ class CellTest(unittest.TestCase):
     def test_identity(self):
         """Tests scheduling apps with identity."""
         cell = scheduler.Cell('top')
-        for idx in xrange(0, 10):
+        for idx in range(0, 10):
             server = scheduler.Server(str(idx), [10, 10], traits=0,
                                       valid_until=time.time() + 1000)
             cell.add_node(server)
@@ -1117,7 +1123,7 @@ class CellTest(unittest.TestCase):
         self.assertEqual(apps[0].identity, 0)
         self.assertEqual(apps[1].identity, 1)
         self.assertEqual(apps[2].identity, 2)
-        for idx in xrange(3, 10):
+        for idx in range(3, 10):
             self.assertIsNone(apps[idx].identity, None)
 
         # Removing app will release the identity, and it will be aquired by
@@ -1144,7 +1150,7 @@ class CellTest(unittest.TestCase):
     def test_schedule_once(self):
         """Tests schedule once trait on server down."""
         cell = scheduler.Cell('top')
-        for idx in xrange(0, 10):
+        for idx in range(0, 10):
             server = scheduler.Server(str(idx), [10, 10], traits=0,
                                       valid_until=time.time() + 1000)
             cell.add_node(server)
@@ -1155,7 +1161,7 @@ class CellTest(unittest.TestCase):
 
         cell.schedule()
 
-        self.assertNotEquals(apps[0].server, apps[1].server)
+        self.assertNotEqual(apps[0].server, apps[1].server)
         self.assertFalse(apps[0].evicted)
         self.assertFalse(apps[0].evicted)
 
@@ -1171,7 +1177,7 @@ class CellTest(unittest.TestCase):
     def test_schedule_once_eviction(self):
         """Tests schedule once trait with eviction."""
         cell = scheduler.Cell('top')
-        for idx in xrange(0, 10):
+        for idx in range(0, 10):
             server = scheduler.Server(str(idx), [10, 10], traits=0,
                                       valid_until=time.time() + 1000)
             cell.add_node(server)

@@ -1,12 +1,14 @@
-"""Treadmill Websocket APIs"""
-from __future__ import absolute_import
+"""Treadmill Websocket APIs.
+"""
 
-import os
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import logging
 import pkgutil
 
-from treadmill import authz
-from treadmill import utils
 from treadmill import plugin_manager
 
 
@@ -25,6 +27,6 @@ def init(apis):
             handlers.extend(wsapi_mod.init())
 
         except ImportError as err:
-            _LOGGER.warn('Unable to load %s api: %s', apiname, err)
+            _LOGGER.warning('Unable to load %s api: %s', apiname, err)
 
     return handlers
