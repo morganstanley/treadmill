@@ -19,6 +19,7 @@ Module: treadmill.cli.admin
 		Commands:
 		  blackout    Manage server and app blackouts.
 		  checkout    Run interactive checkout.
+		  cloud       Manage Treadmill on cloud
 		  cron        Manage Treadmill cron jobs
 		  diag        Local node and container diagnostics.
 		  discovery   Discover container endpoints.
@@ -169,6 +170,294 @@ Module: treadmill.cli.admin.checkout.zk
 		
 		Options:
 		  --help  Show this message and exit.
+
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Module: treadmill.cli.admin.cloud
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+::
+
+		Usage: cloud [OPTIONS] COMMAND [ARGS]...
+		
+		  Manage Treadmill on cloud
+		
+		Options:
+		  --domain TEXT  Domain for hosted zone  [required]
+		  --help         Show this message and exit.
+		
+		Commands:
+		  configure           Configure Treadmill EC2 Objects
+		  delete              Delete Treadmill EC2 Objects
+		  delete-hosted-zone  Delete Hosted Zones
+		  list                Show Treadmill Cloud Resources
+		  port                enable/disable EC2 instance port
+
+
+
+		Usage: cloud configure [OPTIONS] COMMAND [ARGS]...
+		
+		  Configure Treadmill EC2 Objects
+		
+		Options:
+		  --help  Show this message and exit.
+		
+		Commands:
+		  cell    Configure Treadmill Cell
+		  domain  Configure Treadmill Domain (IPA)
+		  ldap    Configure Treadmill LDAP
+		  node    Configure new Node in Cell
+		  vpc     Configure Treadmill VPC
+
+		Usage: cloud delete [OPTIONS] COMMAND [ARGS]...
+		
+		  Delete Treadmill EC2 Objects
+		
+		Options:
+		  --help  Show this message and exit.
+		
+		Commands:
+		  cell    Delete Cell (Subnet)
+		  domain  Delete IPA
+		  ldap    Delete LDAP
+		  node    Delete Node
+		  vpc     Delete VPC
+
+		Usage: cloud delete-hosted-zone [OPTIONS]
+		
+		  Delete Hosted Zones
+		
+		Options:
+		  --zones-to-retain TEXT  Hosted Zone IDs to retain  [required]
+		  --help                  Show this message and exit.
+
+		Usage: cloud list [OPTIONS] COMMAND [ARGS]...
+		
+		  Show Treadmill Cloud Resources
+		
+		Options:
+		  --help  Show this message and exit.
+		
+		Commands:
+		  cell  Show Cell
+		  vpc   Show VPC(s)
+
+		Usage: cloud port [OPTIONS] COMMAND [ARGS]...
+		
+		  enable/disable EC2 instance port
+		
+		Options:
+		  --help  Show this message and exit.
+		
+		Commands:
+		  disable  Disable Port from my ip
+		  enable   Enable Port from my ip
+
+
+
+		Usage: configure cell [OPTIONS]
+		
+		  Configure Treadmill Cell
+		
+		Options:
+		  --vpc-name TEXT            VPC Name  [required]
+		  --region TEXT              Region for the vpc
+		  --name TEXT                Treadmill master name
+		  --key TEXT                 SSH Key Name  [required]
+		  --count INTEGER            Number of Treadmill masters to spin up
+		  --image TEXT               Image to use for new instances e.g. RHEL-7.4
+		                             [required]
+		  --instance-type TEXT       AWS ec2 instance type
+		  --tm-release TEXT          Treadmill release to use
+		  --app-root TEXT            Treadmill app root
+		  --cell-cidr-block TEXT     CIDR block for the cell
+		  --ldap-cidr-block TEXT     CIDR block for LDAP
+		  --subnet-id TEXT           Subnet ID
+		  --ldap-subnet-id TEXT      Subnet ID for LDAP
+		  --without-ldap             Flag for LDAP Server
+		  --ipa-admin-password TEXT  Password for IPA admin
+		  -m, --manifest TEXT        Options YAML file.  NOTE: This argument is mutually
+		                             exclusive with arguments: [image, instance_type,
+		                             vpc_name, app_root, tm_release, ipa_admin_password,
+		                             without_ldap, name, count, key, region,
+		                             cell_cidr_blockldap_subnet_id, ldap_cidr_block,
+		                             subnet_id].
+		  --help                     Show this message and exit.
+
+		Usage: configure domain [OPTIONS]
+		
+		  Configure Treadmill Domain (IPA)
+		
+		Options:
+		  --name TEXT                Name of the instance
+		  --region TEXT              Region for the vpc
+		  --vpc-name TEXT            VPC Name  [required]
+		  --subnet-cidr-block TEXT   Cidr block of subnet for IPA
+		  --subnet-id TEXT           Subnet ID
+		  --count INTEGER            Count of the instances
+		  --ipa-admin-password TEXT  Password for IPA admin
+		  --tm-release TEXT          Treadmill Release
+		  --key TEXT                 SSH key name  [required]
+		  --instance-type TEXT       Instance type
+		  --image TEXT               Image to use for new master instance e.g. RHEL-7.4
+		                             [required]
+		  -m, --manifest TEXT        Options YAML file.  NOTE: This argument is mutually
+		                             exclusive with arguments: [image, instance_type,
+		                             vpc_id, tm_release, ipa_admin_password,
+		                             subnet_cidr_blocksubnet_id, count, name, key,
+		                             region].
+		  --help                     Show this message and exit.
+
+		Usage: configure ldap [OPTIONS]
+		
+		  Configure Treadmill LDAP
+		
+		Options:
+		  --vpc-name TEXT            VPC name  [required]
+		  --region TEXT              Region for the vpc
+		  --key TEXT                 SSH Key Name  [required]
+		  --name TEXT                LDAP Instance Name  [required]
+		  --image TEXT               Image to use for instances e.g. RHEL-7.4
+		                             [required]
+		  --instance-type TEXT       AWS ec2 instance type
+		  --tm-release TEXT          Treadmill release to use
+		  --app-root TEXT            Treadmill app root
+		  --ldap-cidr-block TEXT     CIDR block for LDAP
+		  --ldap-subnet-id TEXT      Subnet ID for LDAP
+		  --cell-subnet-id TEXT      Subnet ID of Cell  [required]
+		  --ipa-admin-password TEXT  Password for IPA admin
+		  -m, --manifest TEXT        Options YAML file.  NOTE: This argument is mutually
+		                             exclusive with arguments: [image, instance_type,
+		                             vpc_name, app_root, tm_release, cell_subnet_id,
+		                             name, ipa_admin_passwordldap_cidr_block, key,
+		                             region, ldap_subnet_id].
+		  --help                     Show this message and exit.
+
+		Usage: configure node [OPTIONS]
+		
+		  Configure new Node in Cell
+		
+		Options:
+		  --vpc-name TEXT            VPC Name  [required]
+		  --region TEXT              Region for the vpc
+		  --name TEXT                Node name
+		  --key TEXT                 SSH Key Name  [required]
+		  --image TEXT               Image to use for new node instance e.g. RHEL-7.4
+		                             [required]
+		  --instance-type TEXT       AWS ec2 instance type
+		  --tm-release TEXT          Treadmill release to use
+		  --app-root TEXT            Treadmill app root
+		  --subnet-id TEXT           Subnet ID  [required]
+		  --ipa-admin-password TEXT  Password for IPA admin
+		  --with-api                 Provision node with Treadmill APIs
+		  -m, --manifest TEXT        Options YAML file.  NOTE: This argument is mutually
+		                             exclusive with arguments: [image, instance_type,
+		                             vpc_name, ipa_admin_passwordwith_api, app_root,
+		                             tm_release, name, key, region, subnet_id].
+		  --help                     Show this message and exit.
+
+		Usage: configure vpc [OPTIONS]
+		
+		  Configure Treadmill VPC
+		
+		Options:
+		  --region TEXT          Region for the vpc
+		  --vpc-cidr-block TEXT  CIDR block for the vpc
+		  --secgroup_name TEXT   Security group name
+		  --secgroup_desc TEXT   Description for the security group
+		  --name TEXT            VPC name  [required]
+		  -m, --manifest TEXT    Options YAML file.  NOTE: This argument is mutually
+		                         exclusive with arguments: [secgroup_name, name, region,
+		                         vpc_cidr_block, secgroup_desc].
+		  --help                 Show this message and exit.
+
+
+
+		Usage: delete cell [OPTIONS]
+		
+		  Delete Cell (Subnet)
+		
+		Options:
+		  --vpc-name TEXT   VPC Name  [required]
+		  --subnet-id TEXT  Subnet ID of cell  [required]
+		  --help            Show this message and exit.
+
+		Usage: delete domain [OPTIONS]
+		
+		  Delete IPA
+		
+		Options:
+		  --vpc-name TEXT   VPC Name  [required]
+		  --subnet-id TEXT  Subnet ID of IPA  [required]
+		  --name TEXT       Name of Instance
+		  --help            Show this message and exit.
+
+		Usage: delete ldap [OPTIONS]
+		
+		  Delete LDAP
+		
+		Options:
+		  --vpc-name TEXT   VPC Name  [required]
+		  --subnet-id TEXT  Subnet ID of LDAP
+		  --name TEXT       Name of Instance
+		  --help            Show this message and exit.
+
+		Usage: delete node [OPTIONS]
+		
+		  Delete Node
+		
+		Options:
+		  --vpc-name TEXT     VPC Name  [required]
+		  --name TEXT         Instance Name
+		  --instance-id TEXT  Instance ID
+		  --help              Show this message and exit.
+
+		Usage: delete vpc [OPTIONS]
+		
+		  Delete VPC
+		
+		Options:
+		  --vpc-name TEXT  VPC Name  [required]
+		  --help           Show this message and exit.
+
+
+
+		Usage: list cell [OPTIONS]
+		
+		  Show Cell
+		
+		Options:
+		  --vpc-name TEXT   VPC Name
+		  --subnet-id TEXT  Subnet ID of cell
+		  --help            Show this message and exit.
+
+		Usage: list vpc [OPTIONS]
+		
+		  Show VPC(s)
+		
+		Options:
+		  --vpc-name TEXT  VPC Name
+		  --help           Show this message and exit.
+
+
+
+		Usage: port disable [OPTIONS]
+		
+		  Disable Port from my ip
+		
+		Options:
+		  --protocol TEXT               Protocol
+		  -p, --port TEXT               Port  [required]
+		  -s, --security-group-id TEXT  Security Group ID  [required]
+		  --help                        Show this message and exit.
+
+		Usage: port enable [OPTIONS]
+		
+		  Enable Port from my ip
+		
+		Options:
+		  --protocol TEXT               Protocol
+		  -p, --port TEXT               Port  [required]
+		  -s, --security-group-id TEXT  Security Group ID  [required]
+		  --help                        Show this message and exit.
 
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Module: treadmill.cli.admin.cron
@@ -418,11 +707,12 @@ Module: treadmill.cli.admin.invoke
 		  app_group       Treadmill AppGroup REST api.
 		  app_monitor     Treadmill AppMonitor REST api.
 		  cell            Treadmill Cell REST api.
-		  cloud_host      Treadmill Cloud Host REST API.
+		  cloud           Treadmill Cloud REST API.
 		  cron            Treadmill Cron REST api.
 		  dns             Treadmill DNS REST api.
 		  identity_group  Treadmill Identity Group REST api.
 		  instance        Treadmill Instance REST api.
+		  ipa             Treadmill IPA REST API.
 		  local           Treadmill Local REST api.
 		  nodeinfo        Treadmill Local REST api.
 		  server          Treadmill Server REST api.
@@ -517,16 +807,20 @@ Module: treadmill.cli.admin.invoke
 		  list    List cells.
 		  update  Update cell.
 
-		Usage: invoke cloud_host [OPTIONS] COMMAND [ARGS]...
+		Usage: invoke cloud [OPTIONS] COMMAND [ARGS]...
 		
-		  Treadmill Cloud Host REST API.
+		  Treadmill Cloud REST API.
 		
 		Options:
 		  --help  Show this message and exit.
 		
 		Commands:
-		  create  Constructs a command handler.
-		  delete  Constructs a command handler.
+		  cells          Constructs a command handler.
+		  configure      Constructs a command handler.
+		  delete_cell    Constructs a command handler.
+		  delete_ldap    Constructs a command handler.
+		  delete_server  Constructs a command handler.
+		  vpcs           Constructs a command handler.
 
 		Usage: invoke cron [OPTIONS] COMMAND [ARGS]...
 		
@@ -581,6 +875,20 @@ Module: treadmill.cli.admin.invoke
 		  get     Get instance configuration.
 		  list    List configured instances.
 		  update  Update instance configuration.
+
+		Usage: invoke ipa [OPTIONS] COMMAND [ARGS]...
+		
+		  Treadmill IPA REST API.
+		
+		Options:
+		  --help  Show this message and exit.
+		
+		Commands:
+		  add_host     Constructs a command handler.
+		  add_user     Constructs a command handler.
+		  delete_host  Constructs a command handler.
+		  delete_user  Constructs a command handler.
+		  service_add  Constructs a command handler.
 
 		Usage: invoke local [OPTIONS] COMMAND [ARGS]...
 		
@@ -1035,14 +1343,42 @@ Module: treadmill.cli.admin.invoke
 
 
 
-		Usage: cloud_host create [OPTIONS] HOSTNAME
+		Usage: cloud cells [OPTIONS] DOMAIN VPC_NAME CELL_ID
 		
 		  Constructs a command handler.
 		
 		Options:
 		  --help  Show this message and exit.
 
-		Usage: cloud_host delete [OPTIONS] HOSTNAME
+		Usage: cloud configure [OPTIONS] VPC_NAME DOMAIN NAME ARGS
+		
+		  Constructs a command handler.
+		
+		Options:
+		  --help  Show this message and exit.
+
+		Usage: cloud delete_cell [OPTIONS] VPC_NAME DOMAIN CELL_ID
+		
+		  Constructs a command handler.
+		
+		Options:
+		  --help  Show this message and exit.
+
+		Usage: cloud delete_ldap [OPTIONS] VPC_NAME DOMAIN NAME
+		
+		  Constructs a command handler.
+		
+		Options:
+		  --help  Show this message and exit.
+
+		Usage: cloud delete_server [OPTIONS] VPC_NAME DOMAIN NAME
+		
+		  Constructs a command handler.
+		
+		Options:
+		  --help  Show this message and exit.
+
+		Usage: cloud vpcs [OPTIONS] DOMAIN VPC_NAME
 		
 		  Constructs a command handler.
 		
@@ -1183,6 +1519,43 @@ Module: treadmill.cli.admin.invoke
 		Usage: instance update [OPTIONS] RSRC_ID RSRC
 		
 		  Update instance configuration.
+		
+		Options:
+		  --help  Show this message and exit.
+
+
+
+		Usage: ipa add_host [OPTIONS] HOSTNAME
+		
+		  Constructs a command handler.
+		
+		Options:
+		  --help  Show this message and exit.
+
+		Usage: ipa add_user [OPTIONS] USERNAME
+		
+		  Constructs a command handler.
+		
+		Options:
+		  --help  Show this message and exit.
+
+		Usage: ipa delete_host [OPTIONS] HOSTNAME
+		
+		  Constructs a command handler.
+		
+		Options:
+		  --help  Show this message and exit.
+
+		Usage: ipa delete_user [OPTIONS] USERNAME
+		
+		  Constructs a command handler.
+		
+		Options:
+		  --help  Show this message and exit.
+
+		Usage: ipa service_add [OPTIONS] SERVICE ARGS
+		
+		  Constructs a command handler.
 		
 		Options:
 		  --help  Show this message and exit.
@@ -2468,71 +2841,69 @@ Module: treadmill.cli.cloud
 		
 		Options:
 		  --domain TEXT  Domain for hosted zone  [required]
+		  --api TEXT     API URL  [required]
 		  --help         Show this message and exit.
 		
 		Commands:
-		  delete              Delete Treadmill EC2 Objects
-		  delete-hosted-zone  Delete Hosted Zones
-		  init                Initialize Treadmill EC2 Objects
-		  list                Show Treadmill Cloud Resources
-		  port                enable/disable EC2 instance port
+		  configure  Configure Treadmill EC2 Objects
+		  delete     Delete Treadmill EC2 Objects
+		  ipa        Create & Delete IPA Users, Hosts and Services
+		  list       Show Treadmill Cloud Resources
 
 
 
-
-
-		Usage: delete cell [OPTIONS]
+		Usage: cloud configure [OPTIONS] COMMAND [ARGS]...
 		
-		  Delete Cell (Subnet)
+		  Configure Treadmill EC2 Objects
 		
 		Options:
-		  --vpc-name TEXT   VPC Name  [required]
-		  --subnet-id TEXT  Subnet ID of cell  [required]
-		  --help            Show this message and exit.
-
-		Usage: delete domain [OPTIONS]
+		  --help  Show this message and exit.
 		
-		  Delete IPA
+		Commands:
+		  cell  Configure Treadmill Cell
+		  ldap  Configure Treadmill LDAP
+		  node  Configure new Node in Cell
+
+		Usage: cloud delete [OPTIONS] COMMAND [ARGS]...
+		
+		  Delete Treadmill EC2 Objects
 		
 		Options:
-		  --vpc-name TEXT   VPC Name  [required]
-		  --subnet-id TEXT  Subnet ID of IPA  [required]
-		  --name TEXT       Name of Instance
-		  --help            Show this message and exit.
-
-		Usage: delete ldap [OPTIONS]
+		  --help  Show this message and exit.
 		
-		  Delete LDAP
+		Commands:
+		  cell  Delete Cell
+		  ldap  Delete LDAP
+		  node  Delete Node
+
+		Usage: cloud ipa [OPTIONS] COMMAND [ARGS]...
+		
+		  Create & Delete IPA Users, Hosts and Services
 		
 		Options:
-		  --vpc-name TEXT   VPC Name  [required]
-		  --subnet-id TEXT  Subnet ID of LDAP  [required]
-		  --name TEXT       Name of Instance
-		  --help            Show this message and exit.
+		  --help  Show this message and exit.
+		
+		Commands:
+		  host     Create and Delete IPA Hosts
+		  service  Add and Delete IPA Service
+		  user     Create and Delete IPA Users
 
-		Usage: delete node [OPTIONS]
+		Usage: cloud list [OPTIONS] COMMAND [ARGS]...
 		
-		  Delete Node
-		
-		Options:
-		  --vpc-name TEXT     VPC Name  [required]
-		  --name TEXT         Instance Name
-		  --instance-id TEXT  Instance ID
-		  --help              Show this message and exit.
-
-		Usage: delete vpc [OPTIONS]
-		
-		  Delete VPC
+		  Show Treadmill Cloud Resources
 		
 		Options:
-		  --vpc-name TEXT  VPC Name  [required]
-		  --help           Show this message and exit.
-
-
-
-		Usage: init cell [OPTIONS]
+		  --help  Show this message and exit.
 		
-		  Initialize Treadmill Cell
+		Commands:
+		  cell  Show Cell(s)
+		  vpc   Show VPC(s)
+
+
+
+		Usage: configure cell [OPTIONS]
+		
+		  Configure Treadmill Cell
 		
 		Options:
 		  --vpc-name TEXT            VPC Name  [required]
@@ -2544,122 +2915,179 @@ Module: treadmill.cli.cloud
 		                             [required]
 		  --instance-type TEXT       AWS ec2 instance type
 		  --tm-release TEXT          Treadmill release to use
-		  --ldap-hostname TEXT       LDAP hostname
 		  --app-root TEXT            Treadmill app root
 		  --cell-cidr-block TEXT     CIDR block for the cell
-		  --ldap-cidr-block TEXT     CIDR block for LDAP
 		  --subnet-id TEXT           Subnet ID
-		  --ldap-subnet-id TEXT      Subnet ID for LDAP
-		  --without-ldap             Flag for LDAP Server
 		  --ipa-admin-password TEXT  Password for IPA admin
 		  -m, --manifest TEXT        Options YAML file.  NOTE: This argument is mutually
-		                             exclusive with arguments: [count, app_root,
-		                             tm_release, key, vpc_id, ldap_cidr_block,
-		                             cell_cidr_blockldap_subnet_id, ldap_hostname,
-		                             image, instance_type, subnet_id, name,
-		                             without_ldap, region, ipa_admin_password].
+		                             exclusive with arguments: [image, instance_type,
+		                             vpc_name, app_root, tm_release, ipa_admin_password,
+		                             name, count, key, region,
+		                             cell_cidr_blocksubnet_id].
 		  --help                     Show this message and exit.
 
-		Usage: init domain [OPTIONS]
+		Usage: configure ldap [OPTIONS]
 		
-		  Initialize Treadmill Domain (IPA)
-		
-		Options:
-		  --name TEXT                Name of the instance
-		  --region TEXT              Region for the vpc
-		  --vpc-name TEXT            VPC Name  [required]
-		  --subnet-cidr-block TEXT   Cidr block of subnet for IPA
-		  --subnet-id TEXT           Subnet ID
-		  --count INTEGER            Count of the instances
-		  --ipa-admin-password TEXT  Password for IPA admin
-		  --tm-release TEXT          Treadmill Release
-		  --key TEXT                 SSH key name  [required]
-		  --instance-type TEXT       Instance type
-		  --image TEXT               Image to use for new master instance e.g. RHEL-7.4
-		                             [required]
-		  -m, --manifest TEXT        Options YAML file.  NOTE: This argument is mutually
-		                             exclusive with arguments: [count, tm_release, key,
-		                             vpc_id, subnet_cidr_blocksubnet_id, image,
-		                             instance_type, name, region, ipa_admin_password].
-		  --help                     Show this message and exit.
-
-		Usage: init ldap [OPTIONS]
-		
-		  Initialize Treadmill LDAP
+		  Configure Treadmill LDAP
 		
 		Options:
 		  --vpc-name TEXT            VPC name  [required]
 		  --region TEXT              Region for the vpc
 		  --key TEXT                 SSH Key Name  [required]
-		  --count INTEGER            Number of Treadmill ldap instances to spin up
+		  --name TEXT                LDAP Instance Name  [required]
 		  --image TEXT               Image to use for instances e.g. RHEL-7.4
 		                             [required]
 		  --instance-type TEXT       AWS ec2 instance type
 		  --tm-release TEXT          Treadmill release to use
-		  --ldap-hostname TEXT       LDAP hostname
 		  --app-root TEXT            Treadmill app root
 		  --ldap-cidr-block TEXT     CIDR block for LDAP
 		  --ldap-subnet-id TEXT      Subnet ID for LDAP
-		  --cell-subnet-id TEXT      Subnet ID of Cell
+		  --cell-subnet-id TEXT      Subnet ID of Cell  [required]
 		  --ipa-admin-password TEXT  Password for IPA admin
 		  -m, --manifest TEXT        Options YAML file.  NOTE: This argument is mutually
-		                             exclusive with arguments: [vpc_name, count,
-		                             app_root, tm_release, key, ldap_hostname,
-		                             ipa_admin_passwordldap_cidr_block, cell_subnet_id,
-		                             instance_type, image, ldap_subnet_id, region].
+		                             exclusive with arguments: [image, instance_type,
+		                             vpc_name, app_root, tm_release, cell_subnet_id,
+		                             name, ipa_admin_passwordldap_cidr_block, key,
+		                             region, ldap_subnet_id].
 		  --help                     Show this message and exit.
 
-		Usage: init node [OPTIONS]
+		Usage: configure node [OPTIONS]
 		
-		  Initialize new Node in Cell
+		  Configure new Node in Cell
 		
 		Options:
 		  --vpc-name TEXT            VPC Name  [required]
 		  --region TEXT              Region for the vpc
 		  --name TEXT                Node name
 		  --key TEXT                 SSH Key Name  [required]
-		  --count INTEGER            Number of Treadmill nodes to spin up
 		  --image TEXT               Image to use for new node instance e.g. RHEL-7.4
 		                             [required]
 		  --instance-type TEXT       AWS ec2 instance type
 		  --tm-release TEXT          Treadmill release to use
-		  --ldap-hostname TEXT       LDAP hostname
 		  --app-root TEXT            Treadmill app root
 		  --subnet-id TEXT           Subnet ID  [required]
 		  --ipa-admin-password TEXT  Password for IPA admin
 		  --with-api                 Provision node with Treadmill APIs
 		  -m, --manifest TEXT        Options YAML file.  NOTE: This argument is mutually
-		                             exclusive with arguments: [count, app_root,
-		                             tm_release, key, vpc_id, ldap_hostname, image,
-		                             instance_type, ipa_admin_passwordwith_api,
-		                             subnet_id, name, region].
+		                             exclusive with arguments: [image, instance_type,
+		                             vpc_name, ipa_admin_passwordwith_api, app_root,
+		                             tm_release, name, key, region, subnet_id].
 		  --help                     Show this message and exit.
 
-		Usage: init vpc [OPTIONS]
+
+
+		Usage: delete cell [OPTIONS]
 		
-		  Initialize Treadmill VPC
+		  Delete Cell
 		
 		Options:
-		  --region TEXT          Region for the vpc
-		  --vpc-cidr-block TEXT  CIDR block for the vpc
-		  --secgroup_name TEXT   Security group name
-		  --secgroup_desc TEXT   Description for the security group
-		  --name TEXT            VPC name  [required]
-		  -m, --manifest TEXT    Options YAML file.  NOTE: This argument is mutually
-		                         exclusive with arguments: [secgroup_name, name,
-		                         vpc_cidr_block, secgroup_desc, region].
-		  --help                 Show this message and exit.
+		  --vpc-name TEXT   VPC Name  [required]
+		  --subnet-id TEXT  Cell(Subnet) ID  [required]
+		  --help            Show this message and exit.
+
+		Usage: delete ldap [OPTIONS]
+		
+		  Delete LDAP
+		
+		Options:
+		  --vpc-name TEXT  VPC Name  [required]
+		  --name TEXT      LDAP Name  [required]
+		  --help           Show this message and exit.
+
+		Usage: delete node [OPTIONS]
+		
+		  Delete Node
+		
+		Options:
+		  --vpc-name TEXT  VPC Name  [required]
+		  --name TEXT      Node Name  [required]
+		  --help           Show this message and exit.
+
+
+
+		Usage: ipa host [OPTIONS] COMMAND [ARGS]...
+		
+		  Create and Delete IPA Hosts
+		
+		Options:
+		  --help  Show this message and exit.
+		
+		Commands:
+		  create  Creates an IPA Host
+		  delete  Deletes an IPA Host
+
+		Usage: ipa service [OPTIONS] COMMAND [ARGS]...
+		
+		  Add and Delete IPA Service
+		
+		Options:
+		  --help  Show this message and exit.
+		
+		Commands:
+		  add  Adds an IPA Service
+
+		Usage: ipa user [OPTIONS] COMMAND [ARGS]...
+		
+		  Create and Delete IPA Users
+		
+		Options:
+		  --help  Show this message and exit.
+		
+		Commands:
+		  create  Creates an IPA User
+		  delete  Deletes an IPA User
+
+
+
+		Usage: host create [OPTIONS] HOSTNAME
+		
+		  Creates an IPA Host
+		
+		Options:
+		  --help  Show this message and exit.
+
+		Usage: host delete [OPTIONS] HOSTNAME
+		
+		  Deletes an IPA Host
+		
+		Options:
+		  --help  Show this message and exit.
+
+
+
+		Usage: service add [OPTIONS] HOSTNAME SERVICE
+		
+		  Adds an IPA Service
+		
+		Options:
+		  --help  Show this message and exit.
+
+
+
+		Usage: user create [OPTIONS] USERNAME
+		
+		  Creates an IPA User
+		
+		Options:
+		  --help  Show this message and exit.
+
+		Usage: user delete [OPTIONS] USERNAME
+		
+		  Deletes an IPA User
+		
+		Options:
+		  --help  Show this message and exit.
 
 
 
 		Usage: list cell [OPTIONS]
 		
-		  Show Cell
+		  Show Cell(s)
 		
 		Options:
-		  --vpc-name TEXT   VPC Name
-		  --subnet-id TEXT  Subnet ID of cell
-		  --help            Show this message and exit.
+		  --vpc-name TEXT  VPC Name  [required]
+		  --cell-id TEXT   Cell(Subnet) ID
+		  --help           Show this message and exit.
 
 		Usage: list vpc [OPTIONS]
 		
@@ -2668,28 +3096,6 @@ Module: treadmill.cli.cloud
 		Options:
 		  --vpc-name TEXT  VPC Name
 		  --help           Show this message and exit.
-
-
-
-		Usage: port disable [OPTIONS]
-		
-		  Disable Port from my ip
-		
-		Options:
-		  --protocol TEXT               Protocol
-		  -p, --port TEXT               Port  [required]
-		  -s, --security-group-id TEXT  Security Group ID  [required]
-		  --help                        Show this message and exit.
-
-		Usage: port enable [OPTIONS]
-		
-		  Enable Port from my ip
-		
-		Options:
-		  --protocol TEXT               Protocol
-		  -p, --port TEXT               Port  [required]
-		  -s, --security-group-id TEXT  Security Group ID  [required]
-		  --help                        Show this message and exit.
 
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Module: treadmill.cli.configure
@@ -3260,4 +3666,3 @@ Module: treadmill.cli.trace_identity
 		  --wsapi URL  WebSocket API url to use.
 		  --snapshot
 		  --help       Show this message and exit.
-
