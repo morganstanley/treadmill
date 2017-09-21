@@ -359,7 +359,7 @@ def init():
             restclient.post(
                 api=ctx.obj.get('API'),
                 url=_url,
-            )
+            ).content
         )
 
     @delete.command(name='cell')
@@ -378,7 +378,7 @@ def init():
             restclient.post(
                 api=ctx.obj.get('API'),
                 url=_url,
-            )
+            ).content
         )
 
     @delete.command(name='node')
@@ -397,7 +397,7 @@ def init():
             restclient.post(
                 api=ctx.obj.get('API'),
                 url=_url,
-            )
+            ).content
         )
 
     @cloud.group('list')
@@ -414,12 +414,12 @@ def init():
         domain = ctx.obj['DOMAIN']
         _url = '/cloud/vpc?domain=' + domain
         if vpc_name:
-            _url += '&?vpc_name=' + vpc_name
+            _url += '&vpc_name=' + vpc_name
         cli.out(
             restclient.get(
                 api=ctx.obj.get('API'),
                 url=_url,
-            )
+            ).content
         )
 
     @_list.command(name='cell')
@@ -440,7 +440,7 @@ def init():
             restclient.get(
                 api=ctx.obj.get('API'),
                 url=_url,
-            )
+            ).content
         )
 
     return cloud
