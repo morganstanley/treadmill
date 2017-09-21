@@ -9,6 +9,6 @@ services:
       limit: 5
 endpoints:
   - name: http
-    port: 8000
+    port: 5108
     type: infra
 

@@ -10,6 +10,15 @@ from flask_restplus import fields
 from treadmill import webutils  # pylint: disable=E0611
 
 
+def handle_api_error(func):
+    def wrapper(*args):
+        try:
+            return func(*args)
+        except Exception as e:
+            return flask.abort(400, {'message': e.message})
+    return wrapper
+
+
 # Old style classes, no init method.
 #
 # pylint: disable=W0232
@@ -21,7 +30,6 @@ def init(api, cors, impl):
     )
 
     service_req_model = {
-        'service': fields.String(description='Service Name'),
         'hostname': fields.String(description='Hostname'),
         'domain': fields.String(description='Domain')
     }
@@ -30,67 +38,52 @@ def init(api, cors, impl):
         'service', service_req_model
     )
 
-    host_req_model = {
-        'hostname': fields.String(description='Hostname'),
-    }
-
-    host_model = api.model(
-        'host', host_req_model
-    )
-
-    user_req_model = {
-        'username': fields.String(description='Username'),
-    }
-
-    user_model = api.model(
-        'user', user_req_model
-    )
-
-    @namespace.route('/host')
+    @namespace.route('/host/<hostname>')
+    @api.doc(params={'hostname': 'Hostname'})
     class _Host(restplus.Resource):
         """Treadmill IPA Host"""
 
         @webutils.post_api(
             api,
             cors,
-            req_model=host_model
         )
-        def post(self):
+        def post(self, hostname):
             """Adds host to IPA."""
-            return impl.add_host(flask.request.json)
+            return impl.add_host(hostname)
 
         @webutils.delete_api(
             api,
             cors,
-            req_model=host_model
         )
-        def delete(self):
+        def delete(self, hostname):
             """Deletes host from IPA."""
-            return impl.delete_host(flask.request.json)
+            return impl.delete_host(hostname)
 
-    @namespace.route('/user')
+    @namespace.route('/user/<username>')
+    @api.doc(params={'username': 'Username'})
     class _User(restplus.Resource):
         """Treadmill IPA User"""
 
         @webutils.post_api(
             api,
             cors,
-            req_model=user_model
         )
-        def post(self):
+        @handle_api_error
+        def post(self, username):
             """Adds User to IPA."""
-            return impl.add_user(flask.request.json)
+            impl.add_user(username)
 
         @webutils.delete_api(
             api,
             cors,
-            req_model=user_model
         )
-        def delete(self):
+        @handle_api_error
+        def delete(self, username):
             """Deletes User from IPA."""
-            return impl.delete_user(flask.request.json)
+            return impl.delete_user(username)
 
-    @namespace.route('/service')
+    @namespace.route('/service/<service>')
+    @api.doc(params={'service': 'Service'})
     class _Service(restplus.Resource):
         """Treadmill IPA Service"""
         @webutils.post_api(
@@ -98,6 +91,6 @@ def init(api, cors, impl):
             cors,
             req_model=service_model
         )
-        def post(self):
+        def post(self, service):
             """Add Service to IPA"""
-            return impl.service_add(flask.request.json)
+            return impl.service_add(service, flask.request.json)

@@ -3,7 +3,7 @@ cpu: 20%
 disk: 1G
 services:
 - command: |
-    exec treadmill sproc restapi -p 8000 \
+    exec treadmill sproc restapi -p 5108 \
       --title 'Treadmill_Global_Config_API' \
       -m app,app-group,app-dns,tenant,lbendpoint,allocation,cell \
       --cors-origin='.*'
@@ -13,7 +13,7 @@ services:
     interval: 60
 endpoints:
 - name: http
-  port: 8000
+  port: 5108
   type: infra
 environ:
 - name: KRB5CCNAME

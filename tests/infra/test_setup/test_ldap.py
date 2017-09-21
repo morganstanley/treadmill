@@ -11,14 +11,20 @@ from treadmill.infra.setup.ldap import LDAP
 class LDAPTest(unittest.TestCase):
     """Tests EC2 LDAP"""
 
+    @mock.patch('time.time', mock.Mock(return_value=1000))
+    @mock.patch('treadmill.api.ipa.API')
     @mock.patch('treadmill.infra.configuration.LDAP')
     @mock.patch('treadmill.infra.connection.Connection')
     @mock.patch('treadmill.infra.vpc.VPC')
     @mock.patch('treadmill.infra.instances.Instances')
     def test_setup_ldap(self, InstancesMock, VPCMock,
-                        ConnectionMock, LDAPConfigurationMock):
-        ipa_instance_mock = mock.Mock(hostname='ipa-server-hostname')
-        InstancesMock.get_ipa = mock.Mock(return_value=ipa_instance_mock)
+                        ConnectionMock, LDAPConfigurationMock, IpaAPIMock):
+        ConnectionMock.context.domain = 'domain'
+        _ipa_api_mock = IpaAPIMock()
+        _ipa_api_mock.add_host = mock.Mock(return_value='otp')
+        InstancesMock.get_hostnames_by_roles = mock.Mock(return_value={
+            'IPA': 'ipa-hostname'
+        })
         instance_mock = mock.Mock(private_ip='1.1.1.1')
         instances_mock = mock.Mock(instances=[instance_mock])
         InstancesMock.create = mock.Mock(return_value=instances_mock)
@@ -44,16 +50,21 @@ class LDAPTest(unittest.TestCase):
             instance_type='small',
             tm_release='release',
             app_root='app-root',
-            ldap_hostname='hostname',
             cell_subnet_id='sub-123',
             ipa_admin_password='ipa_pass',
         )
 
         self.assertEqual(ldap.subnet.instances, instances_mock)
-        InstancesMock.get_ipa.assert_called()
+        _ipa_api_mock.add_host.assert_called_with(
+            hostname='ldap-1000.domain'
+        )
+        InstancesMock.get_hostnames_by_roles.assert_called_with(
+            vpc_id=mock.ANY,
+            roles=['IPA']
+        )
         InstancesMock.create.assert_called_once_with(
             image='foo-123',
-            name='ldap',
+            name='ldap-1000',
             count=1,
             subnet_id='subnet-id',
             instance_type='small',
@@ -72,13 +83,13 @@ class LDAPTest(unittest.TestCase):
         self.assertEqual(
             LDAPConfigurationMock.mock_calls[1],
             mock.mock.call(
-                ldap_hostname='hostname',
+                hostname='ldap-1000.domain',
+                otp='otp',
                 tm_release='release',
                 cell_subnet_id='sub-123',
-                name='ldap',
                 app_root='app-root',
                 ipa_admin_password='ipa_pass',
-                ipa_server_hostname='ipa-server-hostname'
+                ipa_server_hostname='ipa-hostname'
             )
         )
         _ldap_configuration_mock.get_userdata.assert_called_once()

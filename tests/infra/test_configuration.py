@@ -45,15 +45,17 @@ class MasterTest(unittest.TestCase):
 
     @mock.patch('builtins.open', create=True)
     def test_master_configuration_script_data(self, open_mock):
-        config = configuration.Master('', '', '', '', '', '')
+        config = configuration.Master('', '', '', '', '', '', '', '')
         expected_script_data = {
             'provision-base.sh': [
-                'DOMAIN', 'NAME', 'SUBNET_ID', 'LDAP_HOSTNAME', 'APP_ROOT',
+                'DOMAIN', 'HOSTNAME', 'SUBNET_ID', 'LDAP_HOSTNAME', 'APP_ROOT',
             ],
-            'install-ipa-client.sh': [],
+            'install-ipa-client-with-otp.sh': [
+                'OTP'
+            ],
             'install-treadmill.sh': ['TREADMILL_RELEASE'],
             'configure-master.sh': [
-                'SUBNET_ID', 'APP_ROOT', 'IPA_ADMIN_PASSWORD'
+                'SUBNET_ID', 'APP_ROOT', 'IPA_ADMIN_PASSWORD', 'IDX'
             ],
         }
 
@@ -79,9 +81,11 @@ class LDAPTest(unittest.TestCase):
         config = configuration.LDAP('', '', '', '', '', '', '')
         expected_script_data = {
             'provision-base.sh': [
-                'DOMAIN', 'NAME', 'SUBNET_ID', 'LDAP_HOSTNAME', 'APP_ROOT',
+                'DOMAIN', 'HOSTNAME', 'SUBNET_ID', 'LDAP_HOSTNAME', 'APP_ROOT',
             ],
-            'install-ipa-client.sh': [],
+            'install-ipa-client-with-otp.sh': [
+                'OTP'
+            ],
             'install-treadmill.sh': ['TREADMILL_RELEASE'],
             'configure-ldap.sh': [
                 'SUBNET_ID', 'APP_ROOT', 'IPA_ADMIN_PASSWORD', 'DOMAIN',
@@ -116,7 +120,7 @@ class IPATest(unittest.TestCase):
             vpc=mock.Mock(),
         )
         expected_script_data = {
-            'provision-base.sh': ['DOMAIN', 'NAME'],
+            'provision-base.sh': ['DOMAIN', 'NAME', 'REGION'],
             'install-treadmill.sh': ['TREADMILL_RELEASE'],
             'install-ipa-server.sh': [
                 'DOMAIN', 'IPA_ADMIN_PASSWORD', 'CELL', 'REVERSE_ZONE',
@@ -143,14 +147,18 @@ class ZookeeperTest(unittest.TestCase):
     @mock.patch('builtins.open', create=True)
     def test_zookeeper_configuration_script_data(self, open_mock):
         config = configuration.Zookeeper(
-            name='zookeeper',
+            hostname='zookeeper',
             ldap_hostname='ldap_host',
-            ipa_server_hostname='ipa_server_hostname'
+            ipa_server_hostname='ipa_server_hostname',
+            otp='otp',
+            idx='idx'
         )
         expected_script_data = {
-            'provision-base.sh': ['DOMAIN', 'NAME', 'LDAP_HOSTNAME'],
-            'install-ipa-client.sh': [],
-            'provision-zookeeper.sh': ['DOMAIN', 'IPA_SERVER_HOSTNAME'],
+            'provision-base.sh': [
+                'DOMAIN', 'HOSTNAME', 'LDAP_HOSTNAME'
+            ],
+            'install-ipa-client-with-otp.sh': ['OTP'],
+            'provision-zookeeper.sh': ['DOMAIN', 'IPA_SERVER_HOSTNAME', 'IDX'],
         }
 
         self.assertCountEqual(
@@ -173,18 +181,19 @@ class NodeTest(unittest.TestCase):
     @mock.patch('builtins.open', create=True)
     def test_node_configuration_script_data(self, open_mock):
         config = configuration.Node(
-            name='node',
+            hostname='node',
             tm_release='tm_release',
             app_root='/var/tmp',
             subnet_id='sub-123',
             ldap_hostname='ldap_host',
             ipa_admin_password='Tre@admill1',
             with_api=False,
+            otp='otp'
         )
         expected_script_data = {
-            'provision-base.sh': ['DOMAIN', 'NAME', 'APP_ROOT', 'SUBNET_ID',
-                                  'LDAP_HOSTNAME', 'ROLE'],
-            'install-ipa-client.sh': [],
+            'provision-base.sh': ['DOMAIN', 'HOSTNAME', 'APP_ROOT',
+                                  'SUBNET_ID', 'LDAP_HOSTNAME'],
+            'install-ipa-client-with-otp.sh': ['OTP'],
             'install-treadmill.sh': ['TREADMILL_RELEASE'],
             'configure-node.sh': [
                 'APP_ROOT', 'SUBNET_ID', 'IPA_ADMIN_PASSWORD'
