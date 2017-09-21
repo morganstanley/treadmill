@@ -2,15 +2,21 @@ from urllib import request
 from treadmill.infra import connection
 
 
-def enable(port, group_id, protocol='tcp'):
-    my_ip = request.urlopen(
-        'http://ip.42.pl/raw'
-    ).read().decode('utf-8') + '/32'
+def _get_ip(anywhere):
+    if anywhere:
+        _ip = '0.0.0.0/0'
+    else:
+        _ip = request.urlopen(
+            'http://ip.42.pl/raw'
+        ).read().decode('utf-8') + '/32'
+    return _ip
 
+
+def enable(port, group_id, protocol='tcp', anywhere=True):
     port = int(port)
     conn = connection.Connection()
     conn.authorize_security_group_ingress(
-        CidrIp=my_ip,
+        CidrIp=_get_ip(anywhere),
         FromPort=port,
         ToPort=port,
         GroupId=group_id,
@@ -18,15 +24,11 @@ def enable(port, group_id, protocol='tcp'):
     )
 
 
-def disable(port, group_id, protocol='tcp'):
-    my_ip = request.urlopen(
-        'http://ip.42.pl/raw'
-    ).read().decode('utf-8') + '/32'
-
+def disable(port, group_id, protocol='tcp', anywhere=True):
     port = int(port)
     conn = connection.Connection()
     conn.revoke_security_group_ingress(
-        CidrIp=my_ip,
+        CidrIp=_get_ip(anywhere),
         FromPort=port,
         ToPort=port,
         GroupId=group_id,
