@@ -183,7 +183,7 @@ def _wait_for_app(wsapi, ssh, app, command, queue=None):
 
         queue.join()
 
-    except ws_client.ConnectionError:
+    except ws_client.WSConnectionError:
         cli.bad_exit('Could not connect to any Websocket APIs')
 
 

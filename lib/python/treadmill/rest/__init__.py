@@ -104,13 +104,29 @@ class TcpRestServer(RestServer):
 class UdsRestServer(RestServer):
     """UNIX domain socket based REST Server."""
 
-    def __init__(self, socket):
+    def __init__(self, socket, auth_type=None):
         """Init method."""
         self.socket = socket
+        self.auth_type = auth_type
 
     def _setup_auth(self):
         """Setup the http authentication."""
-        _LOGGER.info('Starting REST (noauth) server on %s', self.socket)
+        if self.auth_type is not None:
+            _LOGGER.info('Starting REST server: %s, auth: %s',
+                         self.socket, self.auth_type)
+            try:
+                auth = plugin_manager.load('treadmill.rest.authentication',
+                                           self.auth_type)
+                FLASK_APP.wsgi_app = auth.wrap(FLASK_APP.wsgi_app)
+            except KeyError:
+                _LOGGER.error('Unsupported auth type: %s', self.auth_type)
+                raise
+            except:
+                _LOGGER.exception('Unable to load auth plugin.')
+                raise
+
+        else:
+            _LOGGER.info('Starting REST (noauth) server on %s', self.socket)
 
     def _setup_endpoint(self, http_server):
         """Setup the http server endpoint."""

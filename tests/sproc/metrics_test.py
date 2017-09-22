@@ -1,14 +1,17 @@
-"""Unit test for treadmill.sproc.metrics"""
+"""Unit test for treadmill.sproc.metrics.
+"""
+
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
-from collections import namedtuple
 import os
 import shutil
 import tempfile
 import unittest
+
+from collections import namedtuple
 
 # Disable W0611: Unused import
 # pylint: disable=W0611

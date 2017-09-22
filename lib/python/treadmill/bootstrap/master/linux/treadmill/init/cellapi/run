@@ -1,0 +1,16 @@
+#!/bin/sh
+#
+# Starts Treadmill cellapi.
+
+exec 2>&1
+
+RM={{ rm }}
+
+export KRB5CCNAME=FILE:/var/spool/tickets/{{ treadmillid }}
+
+$RM -f /var/spool/cellapi.sock
+
+exec {{ s6 }}/bin/s6-setuidgid {{ treadmillid }} \
+    {{ treadmill }}/bin/treadmill sproc restapi -s /tmp/cellapi.sock \
+    --title 'Treadmill_Cell_API' -m instance,app-monitor --cors-origin='.*' \
+    -a trusted

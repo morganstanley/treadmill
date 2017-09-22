@@ -1,17 +1,16 @@
-"""Treadmill vring manager."""
+"""Treadmill vring manager.
+"""
 
+from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
-from __future__ import absolute_import
 
 import io
+import json
+import logging
 import signal
 import sys
-
-import logging
-import json
-import six
 
 import click
 
@@ -57,7 +56,7 @@ def init():
 
             rules = ring['rules']
             for rule in rules:
-                utils.validate(rule, [('pattern', True, six.string_types),
+                utils.validate(rule, [('pattern', True, str),
                                       ('endpoints', True, list)])
 
             # Create translation for endpoint name to expected port #.

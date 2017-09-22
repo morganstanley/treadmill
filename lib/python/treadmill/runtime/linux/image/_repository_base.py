@@ -1,4 +1,10 @@
-"""The base implementation for a collection of images."""
+"""The base implementation for a collection of images.
+"""
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import abc
 
@@ -8,8 +14,9 @@ import six
 @six.add_metaclass(abc.ABCMeta)
 class ImageRepository(object):
     """A repository for images."""
+
     __slots__ = (
-        'tm_env'
+        'tm_env',
     )
 
     def __init__(self, tm_env):

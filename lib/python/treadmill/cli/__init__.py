@@ -38,6 +38,9 @@ __path__ = pkgutil.extend_path(__path__, __name__)
 
 EXIT_CODE_DEFAULT = 1
 
+# Disable unicode_literals click warning.
+click.disable_unicode_literals_warning = True
+
 
 def init_logger(name):
     """Initialize logger."""

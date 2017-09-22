@@ -1,8 +1,14 @@
-"""Unit test for Zookeeper to FS module
+"""Unit test for Zookeeper to FS module.
 """
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import collections
 import glob
+import io
 import os
 import shutil
 import tempfile
@@ -40,7 +46,7 @@ class ZkSyncTest(mockzk.MockZookeeperTestCase):
         self.assertTrue(os.path.exists(os.path.join(self.root, fpath)))
 
         if content is not None:
-            with open(os.path.join(self.root, fpath)) as f:
+            with io.open(os.path.join(self.root, fpath)) as f:
                 self.assertTrue(content == f.read())
 
     @mock.patch('kazoo.client.KazooClient.get', mock.Mock())

@@ -1,6 +1,12 @@
 """Unit test for rulefile - rule manager.
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
+import io
 import os
 import shutil
 import tempfile
@@ -37,7 +43,7 @@ class RulefileTest(unittest.TestCase):
             self.tcpdnatrule
         )
         self.tcpdnatuid = '1234'
-        with open(os.path.join(self.apps_dir, self.tcpdnatuid), 'w'):
+        with io.open(os.path.join(self.apps_dir, self.tcpdnatuid), 'w'):
             pass
 
         self.udpdnatrule = firewall.DNATRule(
@@ -50,7 +56,7 @@ class RulefileTest(unittest.TestCase):
             self.udpdnatrule
         )
         self.udpdnatuid = '2345'
-        with open(os.path.join(self.apps_dir, self.udpdnatuid), 'w'):
+        with io.open(os.path.join(self.apps_dir, self.udpdnatuid), 'w'):
             pass
 
         self.udpsnatrule = firewall.SNATRule(
@@ -63,7 +69,7 @@ class RulefileTest(unittest.TestCase):
             self.udpsnatrule
         )
         self.udpsnatuid = '3456'
-        with open(os.path.join(self.apps_dir, self.udpsnatuid), 'w'):
+        with io.open(os.path.join(self.apps_dir, self.udpsnatuid), 'w'):
             pass
 
         self.passthroughrule = firewall.PassThroughRule('3.3.3.3', '4.4.4.4')
@@ -72,7 +78,7 @@ class RulefileTest(unittest.TestCase):
             self.passthroughrule,
         )
         self.passthroughuid = '4321'
-        with open(os.path.join(self.apps_dir, self.passthroughuid), 'w'):
+        with io.open(os.path.join(self.apps_dir, self.passthroughuid), 'w'):
             pass
 
     def tearDown(self):
@@ -245,7 +251,7 @@ class RulefileTest(unittest.TestCase):
                          self.udpsnatfile,
                          self.passthroughfile,
                          'not_a_rule']:
-            with open(os.path.join(self.rules_dir, filename), 'w+'):
+            with io.open(os.path.join(self.rules_dir, filename), 'w'):
                 pass
 
         rules = self.rules.get_rules()

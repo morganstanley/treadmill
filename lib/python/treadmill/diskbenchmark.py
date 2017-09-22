@@ -131,7 +131,7 @@ def read(benchmark_result_file):
     result = {}
     config = configparser.SafeConfigParser()
     with io.open(benchmark_result_file) as fp:
-        config.readfp(fp)
+        config.readfp(fp)  # pylint: disable=deprecated-method
     for section in config.sections():
         try:
             device = config.get(section, _DEVICE)

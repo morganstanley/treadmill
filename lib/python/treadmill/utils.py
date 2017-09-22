@@ -136,9 +136,10 @@ def to_obj(value, name='struct'):
 
 
 def get_iterable(obj):
-    """Gets an iterable from either a list or a single value."""
-    if isinstance(obj, collections.Iterable) and not isinstance(
-            obj, six.string_types):
+    """Gets an iterable from either a list or a single value.
+    """
+    if (isinstance(obj, collections.Iterable)
+            and not isinstance(obj, six.string_types)):
         return obj
     else:
         return (obj,)
@@ -312,6 +313,10 @@ def validate(struct, schema):
             else:
                 continue
 
+        # Make str type validation work across Py2 and Py3
+        if ftype is str:
+            ftype = six.string_types
+
         if not isinstance(struct[field], ftype):
             raise exc.InvalidInputError(
                 struct, 'Invalid type for %s, expected: %s, got: %s' %
@@ -471,7 +476,7 @@ def from_base_n(base_num, base=None, alphabet=None):
 def report_ready():
     """Reports the service as ready for s6-svwait -U."""
     try:
-        with open('notification-fd') as f:
+        with io.open('notification-fd') as f:
             try:
                 fd = int(f.readline())
                 os.write(fd, 'ready\n')

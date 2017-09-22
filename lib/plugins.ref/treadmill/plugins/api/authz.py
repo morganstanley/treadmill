@@ -1,4 +1,10 @@
-"""Authorization plugin."""
+"""Authorization plugin.
+"""
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 # Disable E0611: No 'name' in module
 from treadmill import authz  # pylint: disable=E0611

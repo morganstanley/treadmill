@@ -1,11 +1,15 @@
-"""Supervises services.
+"""Monitor services.
 """
 
 from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import abc
 import collections
 import errno
+import io
 import json
 import logging
 import os
@@ -14,7 +18,7 @@ import enum
 import six
 
 if six.PY2 and os.name == 'posix':
-    import subprocess32 as subprocess
+    import subprocess32 as subprocess  # pylint: disable=import-error
 else:
     import subprocess  # pylint: disable=wrong-import-order
 
@@ -396,7 +400,7 @@ class PresenceMonitorEventHook(MonitorEventHook):
         if not os.path.exists(trace_file):
             return None
 
-        with open(trace_file) as f:
+        with io.open(trace_file) as f:
             return json.load(f)
 
     def down(self, service, data):
@@ -515,8 +519,8 @@ class MonitorRestartPolicy(MonitorPolicy):
     def register(self, service):
         self._service = service
         try:
-            with open(os.path.join(service.data_dir,
-                                   supervisor.POLICY_JSON)) as f:
+            with io.open(os.path.join(service.data_dir,
+                                      supervisor.POLICY_JSON)) as f:
                 policy_conf = json.load(f)
             self._policy_limit = policy_conf['limit']
             self._policy_interval = policy_conf['interval']

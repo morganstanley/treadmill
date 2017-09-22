@@ -1,7 +1,13 @@
 """Unit test for watchdog - Simple Watchdog System.
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import errno
+import io
 import os
 import shutil
 import tempfile
@@ -27,7 +33,7 @@ class WatchdogTest(unittest.TestCase):
                           ('bar_30s', 15),
                           ('baz#lala', 40)]:
             fname = os.path.join(self.root, name)
-            with open(fname, 'w') as f:
+            with io.open(fname, 'w') as f:
                 f.write(name)
             os.utime(fname, (age, age))
         os.mkdir(os.path.join(self.root, 'food'))
@@ -98,7 +104,7 @@ class WatchdogTest(unittest.TestCase):
             os.path.join(self.root, 'test1'),
             l1.filename
         )
-        with open(os.path.join(self.root, 'test1'), 'r') as f:
+        with io.open(os.path.join(self.root, 'test1'), 'r') as f:
             self.assertEqual(f.read(), '')
         self.assertEqual(
             os.lstat(l1.filename).st_mtime,
@@ -111,7 +117,7 @@ class WatchdogTest(unittest.TestCase):
             os.path.join(self.root, 'test2'),
             l2.filename
         )
-        with open(os.path.join(self.root, 'test2'), 'r') as f:
+        with io.open(os.path.join(self.root, 'test2'), 'r') as f:
             self.assertEqual(f.read(), 'test message')
         self.assertEqual(
             os.lstat(l2.filename).st_mtime,

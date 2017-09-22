@@ -2,6 +2,9 @@
 """
 
 from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import errno
 import logging
@@ -11,14 +14,14 @@ import netifaces
 import six
 
 if six.PY2 and os.name == 'posix':
-    import subprocess32 as subprocess
+    import subprocess32 as subprocess  # pylint: disable=import-error
 else:
     import subprocess  # pylint: disable=wrong-import-order
 
-from .. import logcontext as lc
-from .. import netdev
-from .. import vipfile
-from .. import iptables
+from treadmill import logcontext as lc
+from treadmill import netdev
+from treadmill import vipfile
+from treadmill import iptables
 
 from ._base_service import BaseResourceServiceImpl
 

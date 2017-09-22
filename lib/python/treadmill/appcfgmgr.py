@@ -25,6 +25,9 @@ Upon change, appcfgmgr will do the following:
 """
 
 from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import errno
 import glob
@@ -331,6 +334,11 @@ class AppCfgMgr(object):
                 _LOGGER.info('Configuring')
                 container_dir = app_cfg.configure(self.tm_env, event_file,
                                                   self._runtime)
+                if container_dir is None:
+                    # configure step failed, skip.
+                    fs.rm_safe(event_file)
+                    return False
+
                 app_cfg.schedule(
                     container_dir,
                     os.path.join(self.tm_env.running_dir, instance_name)

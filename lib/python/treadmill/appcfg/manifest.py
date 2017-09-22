@@ -1,12 +1,15 @@
-"""Generation of Treadmill manifests from cell events."""
+"""Generation of Treadmill manifests from cell events.
+"""
 
 from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
+import io
+import json
 import logging
 import os
-
-import json
-import six
 
 import treadmill
 from treadmill import appcfg
@@ -25,11 +28,11 @@ _LOGGER = logging.getLogger(__name__)
 def read(filename, file_format='json'):
     """Standard way of reading a manifest.
     """
-    with open(filename) as f:
+    with io.open(filename) as f:
         if file_format == 'json':
-            manifest = json.load(f)
+            manifest = json.load(fp=f)
         else:
-            manifest = yaml.load(f)
+            manifest = yaml.load(stream=f)
 
     return manifest
 
@@ -59,7 +62,7 @@ def load(tm_env, event, runtime):
     name = os.path.basename(event)
     manifest = read(event, 'yaml')
 
-    utils.validate(manifest, [('image', False, six.string_types)])
+    utils.validate(manifest, [('image', False, str)])
     app_type = appcfg.AppType.get_app_type(manifest.get('image'))
 
     schema = [

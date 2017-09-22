@@ -2,6 +2,9 @@
 """
 
 from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import logging
 import os
@@ -10,7 +13,7 @@ import shutil
 import six
 
 if six.PY2 and os.name == 'posix':
-    import subprocess32 as subprocess
+    import subprocess32 as subprocess  # pylint: disable=import-error
 else:
     import subprocess  # pylint: disable=wrong-import-order
 

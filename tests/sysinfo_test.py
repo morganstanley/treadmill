@@ -15,6 +15,7 @@ import unittest
 import tests.treadmill_test_deps  # pylint: disable=W0611
 
 import mock
+import six
 
 import treadmill
 import treadmill.appenv
@@ -200,7 +201,7 @@ power management: [8]
         self.assertEqual(80, du.free)
 
     @mock.patch('treadmill.cgroups.get_cpuset_cores',
-                mock.Mock(return_value=range(0, 4)))
+                mock.Mock(return_value=six.moves.range(0, 4)))
     @mock.patch('io.open', mock.mock_open(read_data=CPUINFO.strip()))
     def test_bogomips(self):
         """Mock test for mem info."""
