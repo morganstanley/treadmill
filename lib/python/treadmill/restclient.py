@@ -2,10 +2,12 @@
 
 This is meant to replace treadmill.http, as this uses outdated urlib.
 """
-from __future__ import absolute_import
-from __future__ import print_function
 
-import httplib
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import logging
 import re
 import time
@@ -14,6 +16,8 @@ import requests
 import requests_unixsocket
 import requests_kerberos
 import simplejson.scanner
+
+from six.moves import http_client
 
 # to support unixscoket for URL
 requests_unixsocket.monkeypatch()
@@ -108,11 +112,15 @@ class MaxRequestRetriesError(Exception):
 def _handle_error(url, response):
     """Handle response status codes."""
     handlers = {
-        httplib.NOT_FOUND: NotFoundError('Resource not found: %s' % url),
-        httplib.FOUND: AlreadyExistsError('Resource already exists: %s' % url),
-        httplib.FAILED_DEPENDENCY: ValidationError(response),
-        httplib.UNAUTHORIZED: NotAuthorizedError(response),
-        httplib.BAD_REQUEST: BadRequestError(response),
+        http_client.NOT_FOUND: NotFoundError(
+            'Resource not found: {}'.format(url)
+        ),
+        http_client.FOUND: AlreadyExistsError(
+            'Resource already exists: {}'.format(url)
+        ),
+        http_client.FAILED_DEPENDENCY: ValidationError(response),
+        http_client.UNAUTHORIZED: NotAuthorizedError(response),
+        http_client.BAD_REQUEST: BadRequestError(response),
     }
 
     if response.status_code in handlers:
@@ -136,10 +144,10 @@ def _call(url, method, payload=None, headers=None, auth=_KERBEROS_AUTH,
         return False, None, _CONNECTION_ERROR_STATUS_CODE
     except requests.exceptions.Timeout:
         _LOGGER.debug('Request timeout: %r', timeout)
-        return False, None, httplib.REQUEST_TIMEOUT
+        return False, None, http_client.REQUEST_TIMEOUT
 
-    if response.status_code == httplib.OK:
-        return True, response, httplib.OK
+    if response.status_code == http_client.OK:
+        return True, response, http_client.OK
 
     # Raise an appropirate exception for certain status codes (and never retry)
     _handle_error(url, response)

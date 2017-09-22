@@ -1,6 +1,11 @@
 """A dispatcher for directory watcher events
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import fnmatch
 import os
 
@@ -39,8 +44,7 @@ class DirWatcherDispatcher(object):
             'path': path,
             'events': events
         })
-
-        self._configs.sort(lambda x, y: cmp(len(y['path']), len(x['path'])))
+        self._configs.sort(key=lambda x: x['path'], reverse=True)
 
     def _trigger_handler(self, path, event):
         """Triggers a handler for the given path and event.

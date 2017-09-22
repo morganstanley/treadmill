@@ -1,12 +1,17 @@
-"""List Treadmill endpoints matching a given pattern."""
+"""List Treadmill endpoints matching a given pattern.
+"""
 
 from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
-import Queue
 import fnmatch
 import logging
 
 import kazoo.exceptions
+
+from six.moves import queue
 
 from treadmill import zknamespace as z
 
@@ -19,7 +24,7 @@ class Discovery(object):
     def __init__(self, zkclient, pattern, endpoint):
         _LOGGER.debug('Treadmill discovery: %s:%s', pattern, endpoint)
 
-        self.queue = Queue.Queue()
+        self.queue = queue.Queue()
         # Pattern is assumed to be in the form of <proid>.<pattern>
         self.prefix, self.pattern = pattern.split('.', 1)
         if '#' not in self.pattern:
@@ -37,7 +42,7 @@ class Discovery(object):
                 if (endpoint, hostport) == (None, None):
                     break
                 yield (endpoint, hostport)
-            except Queue.Empty:
+            except queue.Empty:
                 break
 
     def apps_watcher(self, event):

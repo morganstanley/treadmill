@@ -1,9 +1,15 @@
-"""Handles keytab forwarding from keytab locker to the node."""
+"""Handles keytab forwarding from keytab locker to the node.
+"""
+
 from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import base64
-import hashlib
 import glob
+import hashlib
+import io
 import logging
 import os
 import random
@@ -84,7 +90,7 @@ class KeytabLocker(object):
                 if kt_file.startswith('.tmp'):
                     continue
 
-                with open(kt_file) as f:
+                with io.open(kt_file) as f:
                     keytabs[os.path.basename(kt_file)] = f.read()
         except EnvironmentError:
             _LOGGER.exception('Unhandled exception reading: %s',

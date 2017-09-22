@@ -2,6 +2,9 @@
 """
 
 from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import logging
 import os
@@ -11,7 +14,7 @@ import time
 import six
 
 if six.PY2 and os.name == 'posix':
-    import subprocess32 as subprocess
+    import subprocess32 as subprocess  # pylint: disable=import-error
 else:
     import subprocess  # pylint: disable=wrong-import-order
 
@@ -78,7 +81,7 @@ class RRDClient(object):
         if status < 0:
             raise RRDError(reply)
 
-        for _ in xrange(0, status):
+        for _ in six.moves.range(0, status):
             reply = self.rrd.readline()
             _LOGGER.info('rrd reply: %s', reply)
 

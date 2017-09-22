@@ -1,10 +1,15 @@
-"""Network device management."""
+"""Network device management.
+"""
 
 from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import errno
-import os
+import io
 import logging
+import os
 
 import enum
 
@@ -408,7 +413,7 @@ def _get_dev_attr(devname, attr, dirattr=False):
     if dirattr:
         attr = os.listdir(path)
     else:
-        with open(path) as f:
+        with io.open(path) as f:
             attr = f.read().strip()
 
     return attr
@@ -487,5 +492,5 @@ def _proc_sys_write(path, value):
     assert path.startswith('/proc/sys/')
 
     _LOGGER.debug('Setting %r to %r', path, value)
-    with open(path, 'w') as f:
+    with io.open(path, 'w') as f:
         f.write(str(value))

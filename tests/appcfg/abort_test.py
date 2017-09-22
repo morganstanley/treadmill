@@ -1,7 +1,12 @@
-"""
-Unit test for treadmill.appcfg.abort
+"""Unit test for treadmill.appcfg.abort
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
+import io
 import json
 import os
 import shutil
@@ -67,7 +72,7 @@ class AppCfgAbortTest(unittest.TestCase):
                                payload='test')
 
         aborted_file = os.path.join(container_dir, 'aborted')
-        with open(aborted_file) as f:
+        with io.open(aborted_file) as f:
             aborted = json.load(f)
 
         self.assertEqual('invalid_type', aborted.get('why'))

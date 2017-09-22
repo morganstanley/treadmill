@@ -1,5 +1,10 @@
-"""Application environment."""
+"""Application environment.
+"""
+
 from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import abc
 import logging
@@ -25,20 +30,20 @@ class AppEnvironment(object):
     """
 
     __slots__ = (
-        'app_types',
         'apps_dir',
+        'app_events_dir',
+        'app_types',
         'archives_dir',
         'cache_dir',
         'cleanup_dir',
         'configs_dir',
+        'images_dir',
         'init_dir',
         'metrics_dir',
         'root',
         'running_dir',
-        'app_events_dir',
         'watchdogs',
         'watchdog_dir',
-        'images_dir'
     )
 
     APPS_DIR = 'apps'

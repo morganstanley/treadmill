@@ -1,4 +1,10 @@
-"""Test for treadmill.metrics."""
+"""Test for treadmill.metrics.
+"""
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import unittest
 
@@ -121,7 +127,7 @@ class MetricsTest(unittest.TestCase):
              'cpuacct.usage_percpu': [50, 50]}
         )
 
-    @mock.patch('__builtin__.open',
+    @mock.patch('io.open',
                 mock.mock_open(read_data='1.0 2.0 2.5 12/123 12345\n'))
     @mock.patch('time.time', mock.Mock(return_value=10))
     def test_read_load(self):

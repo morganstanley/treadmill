@@ -2,7 +2,10 @@
 
 from __future__ import absolute_import
 from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
+import io
 import json
 import logging
 import multiprocessing
@@ -95,7 +98,7 @@ def _check_aborted(container_dir):
 
     aborted_file = os.path.join(container_dir, 'aborted')
     try:
-        with open(aborted_file) as f:
+        with io.open(aborted_file) as f:
             aborted = json.load(f)
 
     except IOError:

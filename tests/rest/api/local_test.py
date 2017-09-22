@@ -1,4 +1,6 @@
-"""Local node REST api tests."""
+"""Local node REST api tests.
+"""
+
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
@@ -25,7 +27,7 @@ from six.moves import http_client
 
 import treadmill
 from treadmill import webutils
-from treadmill.exc import FileNotFoundError  # pylint: disable=W0622
+from treadmill.exc import LocalFileNotFoundError
 from treadmill.rest import error_handlers
 from treadmill.rest.api import local
 from treadmill import yamlwrapper as yaml
@@ -53,15 +55,15 @@ def get_log_success(*args, **kwargs):
 # pylint: disable=W0613,W0101
 def get_log_failure(*args, **kwargs):
     """Generator w/ exception."""
-    raise FileNotFoundError('Something went wrong')
+    raise LocalFileNotFoundError('Something went wrong')
     for line in LOG_CONTENT:
         return line
         # yield line
 
 
 def err(*args, **kwargs):
-    """Raise FileNotFoundError."""
-    raise FileNotFoundError('File not found')
+    """Raise LocalFileNotFoundError."""
+    raise LocalFileNotFoundError('File not found')
 
 
 class LocalTest(unittest.TestCase):

@@ -47,7 +47,7 @@ def rm_safe(path):
             raise
 
 
-def write_safe(filename, func, mode='w+b', prefix='tmp', permission=None):
+def write_safe(filename, func, mode='wb', prefix='tmp', permission=None):
     """Safely write file
 
     :param filename:
@@ -67,12 +67,10 @@ def write_safe(filename, func, mode='w+b', prefix='tmp', permission=None):
     except OSError as err:
         if err.errno != errno.EEXIST:
             raise
-    with tempfile.NamedTemporaryFile(
-        dir=dirname,
-        delete=False,
-        prefix=prefix,
-        mode=mode
-    ) as tmpfile:
+    with tempfile.NamedTemporaryFile(dir=dirname,
+                                     delete=False,
+                                     prefix=prefix,
+                                     mode=mode) as tmpfile:
         if permission is not None and os.name == 'posix':
             os.fchmod(tmpfile.fileno(), permission)
         func(tmpfile)

@@ -2,6 +2,9 @@
 """
 
 from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import errno
 import logging
@@ -11,7 +14,7 @@ import re
 import six
 
 if six.PY2 and os.name == 'posix':
-    import subprocess32 as subprocess
+    import subprocess32 as subprocess  # pylint: disable=import-error
 else:
     import subprocess  # pylint: disable=wrong-import-order
 
@@ -95,7 +98,7 @@ def init_vg(group, block_dev):
 
 def init_loopback_devices(loopdevice_numbers):
     """Create and initialize loopback devices."""
-    for i in xrange(0, loopdevice_numbers):
+    for i in six.moves.range(0, loopdevice_numbers):
         if not os.path.exists('/dev/loop%s' % i):
             subproc.check_call(['mknod', '-m660', '/dev/loop%s' % i, 'b',
                                 '7', str(i)])

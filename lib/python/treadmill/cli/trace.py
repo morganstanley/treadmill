@@ -1,4 +1,5 @@
-"""Treadmill trace CLI."""
+"""Treadmill trace CLI.
+"""
 
 from __future__ import division
 from __future__ import print_function
@@ -74,7 +75,7 @@ def _trace_loop(ctx, app, snapshot):
 
         sys.exit(rc['rc'])
 
-    except ws_client.ConnectionError:
+    except ws_client.WSConnectionError:
         click.echo('Could not connect to any Websocket APIs', err=True)
         sys.exit(-1)
 

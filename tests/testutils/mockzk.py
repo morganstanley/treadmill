@@ -24,8 +24,12 @@ Usage::
 
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import copy
-import Queue
 import threading
 import time
 import unittest
@@ -34,6 +38,7 @@ from collections import namedtuple
 
 import kazoo
 from kazoo.protocol import states
+from six.moves import queue
 
 from treadmill import yamlwrapper as yaml
 
@@ -215,7 +220,7 @@ class MockZookeeperTestCase(unittest.TestCase):
                 return []
 
         if events:
-            self.watch_events = Queue.Queue()
+            self.watch_events = queue.Queue()
 
             def run_events():
                 """Invoke watcher callback for each event."""

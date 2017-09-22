@@ -49,7 +49,7 @@ class WSEndpointAPITest(unittest.TestCase):
                            'endpoint': 'http'})
         )
 
-        with self.assertRaisesRegexp(
+        with self.assertRaisesRegexp(  # pylint: disable=deprecated-method
             jsonschema.exceptions.ValidationError,
             "'foo!' does not match"
         ):
@@ -58,7 +58,7 @@ class WSEndpointAPITest(unittest.TestCase):
                            'proto': 'tcp',
                            'endpoint': 'http'})
 
-        with self.assertRaisesRegexp(
+        with self.assertRaisesRegexp(  # pylint: disable=deprecated-method
             jsonschema.exceptions.ValidationError,
             "'endpoint_name' was unexpected"
         ):
@@ -67,7 +67,7 @@ class WSEndpointAPITest(unittest.TestCase):
                            'proto': 'tcp',
                            'endpoint_name': 'http'})
 
-        with self.assertRaisesRegexp(
+        with self.assertRaisesRegexp(  # pylint: disable=deprecated-method
             jsonschema.exceptions.ValidationError,
             "None is not of type u'string'"
         ):

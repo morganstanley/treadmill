@@ -1,24 +1,24 @@
-"""Flask method decorators and other web utilities."""
+"""Flask method decorators and other web utilities.
+"""
+
 from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import datetime
 import functools
-import logging
 import json
+import logging
 import re
+
 import flask
+import six
+import tornado
+import tornado.httpserver
+import tornado.wsgi
 
-try:
-    # pylint: disable=F0401
-    import tornado
-    import tornado.httpserver
-    from tornado import wsgi
-except ImportError:
-    # Ignore import errors on RHEL5, as tornado is available only for RHEL6
-    pass
-
-# Disable E0611: No 'name' in module
-from . import utils  # pylint: disable=E0611
+from treadmill import utils
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -114,9 +114,9 @@ def cors(origin=None, methods=None, headers=None, max_age=21600,
     """
     if methods is not None:
         methods = ', '.join(sorted(mthd.upper() for mthd in methods))
-    if headers is not None and not isinstance(headers, basestring):
+    if headers is not None and not isinstance(headers, six.string_types):
         headers = ', '.join(hdr.upper() for hdr in headers)
-    if not isinstance(origin, basestring):
+    if not isinstance(origin, six.string_types):
         origin = ', '.join(origin)
     if isinstance(max_age, datetime.timedelta):
         max_age = max_age.total_seconds()
@@ -150,7 +150,7 @@ def cors(origin=None, methods=None, headers=None, max_age=21600,
                                         content_type=content_type,
                                         methods=get_methods(),
                                         headers=headers)
-            for key, val in add_hdr.iteritems():
+            for key, val in six.iteritems(add_hdr):
                 hdr[key] = val
 
             return resp
@@ -209,7 +209,7 @@ def no_cache(func):
 def run_wsgi(wsgi_app, port):
     """Runs wsgi (Flask) app using tornado web server."""
 
-    container = wsgi.WSGIContainer(wsgi_app)
+    container = tornado.wsgi.WSGIContainer(wsgi_app)
     app = tornado.web.Application([
         (r".*", tornado.web.FallbackHandler, dict(fallback=container)),
     ])
@@ -222,7 +222,7 @@ def run_wsgi(wsgi_app, port):
 def run_wsgi_unix(wsgi_app, socket):
     """Runs wsgi (Flask) app using tornado unixsocket web server."""
 
-    container = wsgi.WSGIContainer(wsgi_app)
+    container = tornado.wsgi.WSGIContainer(wsgi_app)
     app = tornado.web.Application([
         (r".*", tornado.web.FallbackHandler, dict(fallback=container)),
     ])

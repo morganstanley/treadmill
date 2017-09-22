@@ -1,6 +1,10 @@
-"""Checkout utilities."""
+"""Checkout utilities.
+"""
 
+from __future__ import absolute_import
+from __future__ import division
 from __future__ import print_function
+from __future__ import unicode_literals
 
 import unittest
 import socket
@@ -12,6 +16,7 @@ import hashlib
 
 import decorator
 import websocket as ws_client
+import six
 
 from treadmill import restclient
 
@@ -109,7 +114,7 @@ class T(object):  # pylint: disable=C0103
         test_func = lambda me: partial(me)  # pylint: disable=W0108
         test_func.__doc__ = func.__doc__.format(**self.kwargs)
         hash_md5 = hashlib.md5()
-        for name, value in self.kwargs.iteritems():
+        for name, value in six.moves.iteritems(self.kwargs):
             hash_md5.update(name)
             hash_md5.update(str(value))
         setattr(

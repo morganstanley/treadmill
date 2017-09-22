@@ -6,6 +6,7 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
+import io
 import os
 import shutil
 import signal
@@ -65,7 +66,7 @@ class UtilsTest(unittest.TestCase):
         )
 
         # Read the output from the mock filesystem
-        with open(script_file) as script:
+        with io.open(script_file) as script:
             data = script.read()
 
         # Validate that data is what it should be
@@ -190,8 +191,8 @@ class UtilsTest(unittest.TestCase):
     def test_validate(self):
         """Tests dictionary validation."""
         schema = [
-            ('required', True, six.string_types),
-            ('optional', False, six.string_types),
+            ('required', True, str),
+            ('optional', False, str),
         ]
 
         struct = {'required': 'foo'}
@@ -234,7 +235,7 @@ class UtilsTest(unittest.TestCase):
 
         os.environ['PATH'] = os.environ['PATH'] + ':' + temp_dir
 
-        open(os.path.join(temp_dir, 'xxxx'), 'w+').close()
+        io.open(os.path.join(temp_dir, 'xxxx'), 'w').close()
         # xxxx is in path, but not executable.
         self.assertEqual('xxxx', utils.find_in_path('xxxx'))
 
@@ -262,19 +263,19 @@ class UtilsTest(unittest.TestCase):
         """Tests utils.tail."""
         filed, filepath = tempfile.mkstemp()
         with os.fdopen(filed, 'w') as f:
-            for i in xrange(0, 5):
+            for i in six.moves.range(0, 5):
                 f.write('%d\n' % i)
 
-        with open(filepath) as f:
+        with io.open(filepath) as f:
             lines = utils.tail_stream(f)
             self.assertEqual(['0\n', '1\n', '2\n', '3\n', '4\n'], lines)
         os.unlink(filepath)
 
         filed, filepath = tempfile.mkstemp()
         with os.fdopen(filed, 'w') as f:
-            for i in xrange(0, 10000):
+            for i in six.moves.range(0, 10000):
                 f.write('%d\n' % i)
-        with open(filepath) as f:
+        with io.open(filepath) as f:
             lines = utils.tail_stream(f, 5)
             self.assertEqual(
                 ['9995\n', '9996\n', '9997\n', '9998\n', '9999\n'],
@@ -304,7 +305,7 @@ class UtilsTest(unittest.TestCase):
         self.assertFalse(os.write.called)
         self.assertFalse(os.close.called)
 
-        with open('notification-fd', 'w+') as f:
+        with io.open('notification-fd', 'w') as f:
             f.write('300')
         utils.report_ready()
         os.write.assert_called_with(300, mock.ANY)
@@ -312,7 +313,7 @@ class UtilsTest(unittest.TestCase):
 
         os.write.reset()
         os.close.reset()
-        with open('notification-fd', 'w+') as f:
+        with io.open('notification-fd', 'w') as f:
             f.write('300\n')
         utils.report_ready()
         os.write.assert_called_with(300, mock.ANY)

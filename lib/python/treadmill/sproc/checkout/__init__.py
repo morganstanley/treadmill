@@ -1,4 +1,6 @@
 """Treadmill cell checkout."""
+
+
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
@@ -162,7 +164,7 @@ def init():
                     for test in testcases:
                         suite.addTests(loader.loadTestsFromTestCase(test))
 
-                with io.open(report_file, 'w+') as stream:
+                with io.open(report_file, 'w') as stream:
                     runner = HTMLTestRunner.HTMLTestRunner(
                         stream=stream,
                         title='Treadmill cell checkout',
@@ -174,7 +176,7 @@ def init():
                 _LOGGER.exception('Unhandled exception during checkout')
 
                 result = None
-                with io.open(report_file, 'w+') as stream:
+                with io.open(report_file, 'w') as stream:
                     stream.write(str(err))
                     traceback.print_exc(file=stream)
 

@@ -1,17 +1,18 @@
-"""Unit test for treadmill.dnsutils
+"""Unit test for treadmill.sproc.api_discover.
 """
+
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
 import unittest
+import json
 
 # Disable W0611: Unused import
 import tests.treadmill_test_deps  # pylint: disable=W0611
 
 import mock
-import simplejson as json
 
 from treadmill import rest
 from treadmill.sproc import api_discover

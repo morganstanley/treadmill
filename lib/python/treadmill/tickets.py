@@ -2,9 +2,13 @@
 """
 
 from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import base64
 import hashlib
+import io
 import logging
 import os
 import pwd
@@ -22,7 +26,7 @@ from twisted.internet import protocol
 import six
 
 if six.PY2 and os.name == 'posix':
-    import subprocess32 as subprocess
+    import subprocess32 as subprocess  # pylint: disable=import-error
 else:
     import subprocess  # pylint: disable=wrong-import-order
 
@@ -33,7 +37,6 @@ from treadmill import sysinfo
 from treadmill import utils
 from treadmill import zknamespace as z
 from treadmill import zkutils
-
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -101,7 +104,7 @@ class Ticket(object):
 
         dst_dir = os.path.dirname(dst)
         try:
-            with open(src, 'rb') as tkt_src_file:
+            with io.open(src, 'rb') as tkt_src_file:
                 with tempfile.NamedTemporaryFile(dir=dst_dir,
                                                  prefix='.tmp' + self.princ,
                                                  delete=False) as tkt_dst_file:
@@ -215,7 +218,7 @@ class TicketLocker(object):
             for ticket in tickets:
                 tkt_file = os.path.join(self.tkt_spool_dir, ticket)
                 if os.path.exists(tkt_file):
-                    with open(tkt_file) as f:
+                    with io.open(tkt_file, 'rb') as f:
                         encoded = base64.urlsafe_b64encode(f.read())
                         tkt_dict[ticket] = encoded
                 else:
@@ -299,7 +302,7 @@ def request_tickets(zkclient, appname):
                         _LOGGER.debug('Got empty response.')
                         break
 
-                    princ, encoded = line.split(':')
+                    princ, encoded = line.split(b':')
                     if encoded:
                         _LOGGER.info('got ticket %s:%s',
                                      princ,

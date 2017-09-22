@@ -1,9 +1,15 @@
 """Verifies cell API.
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import unittest
 import logging
-from urlparse import urlparse
+
+from six.moves import urllib_parse
 
 from treadmill import cli
 from treadmill import context
@@ -19,7 +25,7 @@ _API_LOOKUP_BASE = 'http://{MASTER}:5800/api-lookup'
 
 def _to_hostport(url):
     """Convert *://host:port into (host, port) tuple."""
-    return tuple(urlparse(url).netloc.split(':'))
+    return tuple(urllib_parse.urlparse(url).netloc.split(':'))
 
 
 def _thiscell(url):

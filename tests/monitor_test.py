@@ -1,13 +1,18 @@
-"""Unit test for monitor
+"""Unit test for monitor.
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
+import io
 import json
 import os
 import shutil
 import tempfile
 import unittest
-
-from collections import (deque, namedtuple)
+import collections
 
 # Disable W0611: Unused import
 import tests.treadmill_test_deps  # pylint: disable=W0611
@@ -202,7 +207,9 @@ class MonitorTest(unittest.TestCase):
             policy_impl=mock_policy,
             down_action=mock_down_action()
         )
-        mock_service_class = namedtuple('MockSvc', ['name', 'directory'])
+        mock_service_class = collections.namedtuple(
+            'MockSvc', ['name', 'directory']
+        )
         mock_pol_inst = mock_policy.return_value
         mock_pol_inst.check.return_value = \
             monitor.MonitorRestartPolicyResult.RESTART
@@ -276,7 +283,7 @@ class MonitorTest(unittest.TestCase):
         mock_dirwatch_inst = mock_dirwatch.return_value
 
         def _mock_policy_down():
-            mon._down_reasons = deque(
+            mon._down_reasons = collections.deque(
                 [
                     {'mock': 'data'},
                     {'more': 'data'},
@@ -331,16 +338,16 @@ class MonitorContainerCleanupTest(unittest.TestCase):
     def test_execute(self):
         """Test shutting down of the node.
         """
-        mock_tm_env_class = namedtuple('MockTMEnv', [
-            'running_dir', 'cleanup_dir'
-        ])
+        mock_tm_env_class = collections.namedtuple(
+            'MockTMEnv', ['running_dir', 'cleanup_dir']
+        )
         mock_tm_env = mock_tm_env_class(os.path.join(self.root, 'running'),
                                         os.path.join(self.root, 'cleanup'))
 
         service_dir = os.path.join(mock_tm_env.running_dir, 'mock_service')
         fs.mkdir_safe(service_dir)
 
-        with open(os.path.join(service_dir, 'type'), 'w') as f:
+        with io.open(os.path.join(service_dir, 'type'), 'w') as f:
             f.write('longrun')
 
         mock_container_cleanup_action =\
@@ -372,16 +379,16 @@ class MonitorContainerCleanupTest(unittest.TestCase):
     def test_execute_pid1_aborted(self):
         """Test shutting down of the node.
         """
-        mock_tm_env_class = namedtuple('MockTMEnv', [
-            'running_dir', 'cleanup_dir'
-        ])
+        mock_tm_env_class = collections.namedtuple(
+            'MockTMEnv', ['running_dir', 'cleanup_dir']
+        )
         mock_tm_env = mock_tm_env_class(os.path.join(self.root, 'running'),
                                         os.path.join(self.root, 'cleanup'))
 
         service_dir = os.path.join(mock_tm_env.running_dir, 'mock_service')
         fs.mkdir_safe(service_dir)
 
-        with open(os.path.join(service_dir, 'type'), 'w') as f:
+        with io.open(os.path.join(service_dir, 'type'), 'w') as f:
             f.write('longrun')
 
         mock_container_cleanup_action =\
@@ -429,7 +436,9 @@ class MonitorContainerDownTest(unittest.TestCase):
     def test_execute(self):
         """Test shutting down of the container services.
         """
-        mock_service_class = namedtuple('MockSvc', ['data_dir', 'directory'])
+        mock_service_class = collections.namedtuple(
+            'MockSvc', ['data_dir', 'directory']
+        )
         treadmill.supervisor.open_service.return_value = \
             mock_service_class(self.root, self.root)
 
@@ -460,7 +469,9 @@ class MonitorNodeDownTest(unittest.TestCase):
     def test_execute(self):
         """Test shutting down of the node.
         """
-        mock_tm_env_class = namedtuple('MockTMEnv', ['watchdog_dir'])
+        mock_tm_env_class = collections.namedtuple(
+            'MockTMEnv', ['watchdog_dir']
+        )
         mock_tm_env = mock_tm_env_class(self.root)
         mock_down_action = monitor.MonitorNodeDown(mock_tm_env)
 
@@ -513,7 +524,7 @@ class MonitorRestartPolicyTest(unittest.TestCase):
         """
         # Disable W0212(protected-access)
         # pylint: disable=W0212
-        mock_service_class = namedtuple('MockSvc', ['name'])
+        mock_service_class = collections.namedtuple('MockSvc', ['name'])
         mock_policy = monitor.MonitorRestartPolicy()
         mock_policy._service_exits_log = self.root
         mock_policy._service = mock_service_class('mock_service')
@@ -523,7 +534,7 @@ class MonitorRestartPolicyTest(unittest.TestCase):
         failure_ts = [1, 2, 3, 75.431, 100.403, 115.871, 130.35]
         for ts in failure_ts:
             exit_file = '%014.3f,001,000' % ts
-            with open(os.path.join(self.root, exit_file), 'a'):
+            with io.open(os.path.join(self.root, exit_file), 'a'):
                 pass
 
         res = mock_policy.check()
@@ -545,7 +556,7 @@ class MonitorRestartPolicyTest(unittest.TestCase):
         """
         # Disable W0212(protected-access)
         # pylint: disable=W0212
-        mock_service_class = namedtuple('MockSvc', ['name'])
+        mock_service_class = collections.namedtuple('MockSvc', ['name'])
         mock_policy = monitor.MonitorRestartPolicy()
         mock_policy._service_exits_log = self.root
         mock_policy._service = mock_service_class('mock_service')
@@ -558,7 +569,7 @@ class MonitorRestartPolicyTest(unittest.TestCase):
         ]
         for ts in failure_ts:
             exit_file = '%014.3f,001,000' % ts
-            with open(os.path.join(self.root, exit_file), 'a'):
+            with io.open(os.path.join(self.root, exit_file), 'a'):
                 pass
 
         res = mock_policy.check()
@@ -575,7 +586,7 @@ class MonitorRestartPolicyTest(unittest.TestCase):
         """
         # Disable W0212(protected-access)
         # pylint: disable=W0212
-        mock_service_class = namedtuple('MockSvc', ['name'])
+        mock_service_class = collections.namedtuple('MockSvc', ['name'])
         mock_policy = monitor.MonitorRestartPolicy()
         mock_policy._service_exits_log = self.root
         mock_policy._service = mock_service_class('mock_service')
@@ -585,7 +596,7 @@ class MonitorRestartPolicyTest(unittest.TestCase):
         failure_ts = [100.403, 115.871, 124, 130.35]
         for ts in failure_ts:
             exit_file = '%014.3f,001,000' % ts
-            with open(os.path.join(self.root, exit_file), 'a'):
+            with io.open(os.path.join(self.root, exit_file), 'a'):
                 pass
 
         res = mock_policy.check()
@@ -603,7 +614,7 @@ class MonitorRestartPolicyTest(unittest.TestCase):
         """
         # Disable W0212(protected-access)
         # pylint: disable=W0212
-        mock_service_class = namedtuple('MockSvc', ['name'])
+        mock_service_class = collections.namedtuple('MockSvc', ['name'])
         mock_policy = monitor.MonitorRestartPolicy()
         mock_policy._service_exits_log = self.root
         mock_policy._service = mock_service_class('mock_service')
@@ -613,7 +624,7 @@ class MonitorRestartPolicyTest(unittest.TestCase):
         failure_ts = [1.111]
         for ts in failure_ts:
             exit_file = '%014.3f,001,000' % ts
-            with open(os.path.join(self.root, exit_file), 'a'):
+            with io.open(os.path.join(self.root, exit_file), 'a'):
                 pass
 
         res = mock_policy.check()
@@ -631,7 +642,7 @@ class MonitorRestartPolicyTest(unittest.TestCase):
         """
         # Disable W0212(protected-access)
         # pylint: disable=W0212
-        mock_service_class = namedtuple('MockSvc', ['name'])
+        mock_service_class = collections.namedtuple('MockSvc', ['name'])
         mock_policy = monitor.MonitorRestartPolicy()
         mock_policy._service_exits_log = self.root
         mock_policy._service = mock_service_class('mock_service')
@@ -642,14 +653,15 @@ class MonitorRestartPolicyTest(unittest.TestCase):
 
         self.assertEqual(res, monitor.MonitorRestartPolicyResult.NOOP)
 
-    @mock.patch('__builtin__.open', autospec=True)
+    @mock.patch('io.open', mock.mock_open())
     @mock.patch('treadmill.fs.mkdir_safe', mock.Mock(spec_set=True))
     @mock.patch('json.load', mock.Mock(spec_set=True))
-    def test_register(self, mock_open):
+    def test_register(self):
         """Test policy / service registration.
         """
-        mock_service_class = namedtuple('MockSvc', ['name', 'data_dir'])
-        (os.path.join(self.root))
+        mock_service_class = collections.namedtuple(
+            'MockSvc', ['name', 'data_dir']
+        )
         mock_policy = monitor.MonitorRestartPolicy()
         mock_service = mock_service_class(
             name='mock_service',
@@ -663,7 +675,7 @@ class MonitorRestartPolicyTest(unittest.TestCase):
         res = mock_policy.register(mock_service)
 
         # Check policy.json was read
-        mock_open.assert_called_with(os.path.join(self.root, 'policy.json'))
+        io.open.assert_called_with(os.path.join(self.root, 'policy.json'))
         treadmill.fs.mkdir_safe.assert_called_with(
             os.path.join(self.root, 'exits')
         )
@@ -678,7 +690,7 @@ class MonitorRestartPolicyTest(unittest.TestCase):
         """
         # Disable W0212(protected-access)
         # pylint: disable=W0212
-        mock_service_class = namedtuple('MockSvc', ['name'])
+        mock_service_class = collections.namedtuple('MockSvc', ['name'])
         mock_policy = monitor.MonitorRestartPolicy()
         mock_policy._service = mock_service_class('mock_service')
         mock_policy._last_timestamp = 42.123

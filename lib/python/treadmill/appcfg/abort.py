@@ -1,5 +1,10 @@
 """Manages Treadmill applications lifecycle."""
 
+
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 from __future__ import absolute_import
 
 import json
@@ -78,10 +83,13 @@ def flag_aborted(container_dir, why=None, payload=None):
 
     fs.write_safe(
         os.path.join(container_dir, 'aborted'),
-        lambda f: json.dump({
-            'why': _why_str(why),
-            'payload': payload
-        }, f),
+        lambda f: json.dump(
+            {
+                'why': _why_str(why),
+                'payload': payload
+            },
+            fp=f
+        ),
         permission=0o644
     )
 

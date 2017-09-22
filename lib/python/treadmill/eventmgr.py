@@ -10,13 +10,17 @@ server.
 Applications that are scheduled to run on the server are mirrored in the
 'cache' directory.
 """
-from __future__ import absolute_import
 
-import os
-import time
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import glob
+import io
 import logging
+import os
+import time
 
 import kazoo
 import kazoo.client
@@ -181,7 +185,7 @@ class EventMgr(object):
         _LOGGER.debug("cache notify (seen: %r)", is_seen)
         if is_seen:
             # Mark the cache folder as ready.
-            with open(os.path.join(self.tm_env.cache_dir, _SEEN_FILE), 'w+'):
+            with io.open(os.path.join(self.tm_env.cache_dir, _SEEN_FILE), 'w'):
                 pass
         else:
             # Mark the cache folder as outdated.

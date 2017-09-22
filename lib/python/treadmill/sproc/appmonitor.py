@@ -6,28 +6,23 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
-import logging
-import time
-import itertools
 import collections
+import itertools
+import logging
 import math
+import time
 
 import click
-import ldap3
 
 import six
 
-from treadmill import authz
 from treadmill import context
-from treadmill import exc
+from treadmill import restclient
 from treadmill import utils
 from treadmill import yamlwrapper as yaml
 from treadmill import zknamespace as z
 from treadmill import zkutils
 from treadmill import zkwatchers
-
-from treadmill.api import instance
-
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -35,7 +30,7 @@ _LOGGER = logging.getLogger(__name__)
 _INTERVAL = float(60 * 60)
 
 
-def reevaluate(instance_api, state):
+def reevaluate(api_url, state):
     """Evaluate state and adjust app count based on monitor"""
     # Disable too many branches warning.
     #
@@ -77,50 +72,39 @@ def reevaluate(instance_api, state):
                 continue
 
             try:
-                _scheduled = instance_api.create(
-                    name, {}, count=allowed, created_by='monitor'
+                # TODO: 'created_by': monitor is lost, need to add option
+                #       to pass it to rest api.
+                _scheduled = restclient.post(
+                    [api_url],
+                    '/instance/{}?count={}'.format(name, allowed),
+                    payload={},
+                    headers={'X-Treadmill-Trusted-Agent': 'monitor'}
                 )
                 conf['available'] -= allowed
 
-            except exc.TreadmillError as tm_err:
-                _LOGGER.warning('Invalid manifest: %s, %s', name, str(tm_err))
-
-            except ldap3.LDAPNoSuchObjectResult:
-                # TODO: may need to rationalize this and not expose low
-                #       level ldap exception from admin.py, and rather
-                #       return None for non-existing entities.
-                _LOGGER.warning('Application not configured: %s', name)
-            except ldap3.LDAPMaximumRetriesError:
-                # In case of LDAP connection error, there is no reason to
-                # continue the loop, exit right away.
-                #
-                # Returning False will stop the main loop.
-                _LOGGER.warning('Unable to connect to LDAP.',
-                                exception=True)
-                return False
             except Exception:  # pylint: disable=W0703
                 _LOGGER.exception('Unable to create instances: %s: %s',
                                   name, needed)
-                # In case this is the error with the app manifest, we allow
-                # for the loop to continue.
-                #
-                # After the loop is evaluated, app monitor will exit.
-                success = False
 
         elif count < current_count:
-            for extra in grouped[name][:current_count - count]:
-                try:
-                    instance_api.delete(extra, deleted_by='monitor')
-                except Exception:  # pylint: disable=W0703
-                    _LOGGER.exception('Unable to delete instance: %r', extra)
+            extra = grouped[name][:current_count - count]
+            try:
+                # TODO: deleted_by: monitor is lost.
+                response = restclient.post(
+                    [api_url], '/instance/_bulk/delete',
+                    payload=dict(instances=list(extra)),
+                    headers={'X-Treadmill-Trusted-Agent': 'monitor'}
+                )
+                _LOGGER.info('deleted: %r - %s', extra, response)
+            except Exception:  # pylint: disable=W0703
+                _LOGGER.exception('Unable to delete instances: %r', extra)
 
     return success
 
 
-def _run_sync():
+def _run_sync(api_url):
     """Sync app monitor count with instance count."""
 
-    instance_api = instance.init(authz.NullAuthorizer())
     zkclient = context.GLOBAL.zk.conn
 
     state = {
@@ -194,7 +178,7 @@ def _run_sync():
 
     while True:
         time.sleep(1)
-        if not reevaluate(instance_api, state):
+        if not reevaluate(api_url, state):
             _LOGGER.error('Unhandled exception while evaluating state.')
             break
 
@@ -205,16 +189,17 @@ def init():
     @click.command()
     @click.option('--no-lock', is_flag=True, default=False,
                   help='Run without lock.')
-    def top(no_lock):
+    @click.option('--api', required=True, help='Cell API url.')
+    def top(no_lock, api):
         """Sync LDAP data with Zookeeper data."""
         if not no_lock:
             lock = zkutils.make_lock(context.GLOBAL.zk.conn,
                                      z.path.election(__name__))
             _LOGGER.info('Waiting for leader lock.')
             with lock:
-                _run_sync()
+                _run_sync(api)
         else:
             _LOGGER.info('Running without lock.')
-            _run_sync()
+            _run_sync(api)
 
     return top

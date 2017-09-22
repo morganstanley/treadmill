@@ -1,4 +1,6 @@
-"""Local API tests."""
+"""Local API tests.
+"""
+
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
@@ -16,7 +18,7 @@ import six
 
 from treadmill.api import local
 # pylint: disable=W0622
-from treadmill.exc import (FileNotFoundError, InvalidInputError)
+from treadmill.exc import (LocalFileNotFoundError, InvalidInputError)
 
 APPS_DIR = '.../apps'
 ARCHIVES_DIR = '.../archives'
@@ -87,10 +89,12 @@ class LogAPITest(unittest.TestCase):
 
     # Don't complain about unused parameters
     # pylint: disable=W0613
-    @mock.patch('__builtin__.open', return_value=mock.MagicMock())
-    @mock.patch('treadmill.api.local._fragment', return_value='invoked')
-    @mock.patch('treadmill.api.local._get_file')
-    def test_get(self, mopen, _, _dont_care):
+    @mock.patch('io.open', mock.mock_open())
+    @mock.patch('treadmill.api.local._fragment',
+                mock.Mock(spec_set=True, return_value='invoked'))
+    @mock.patch('treadmill.api.local._get_file',
+                mock.Mock(spec_set=True))
+    def test_get(self):
         """Test the _LogAPI.get() method."""
         with self.assertRaises(InvalidInputError):
             self.log.get('no/such/log/exists', start=-1)
@@ -155,10 +159,10 @@ class HelperFuncTests(unittest.TestCase):
         """Test the _get_file() func."""
         self.assertEqual(local._get_file(__file__), __file__)
 
-        with self.assertRaises(FileNotFoundError):
+        with self.assertRaises(LocalFileNotFoundError):
             local._get_file('no_such_file', arch_extract=False)
 
-        with self.assertRaises(FileNotFoundError):
+        with self.assertRaises(LocalFileNotFoundError):
             local._get_file(fname='no_such_file',
                             arch_fname='no_such_archive',
                             arch_extract=True)
@@ -270,7 +274,7 @@ class APITest(unittest.TestCase):
 
     def test_archive(self):
         """Test ArvhiveApi's get() method."""
-        with self.assertRaises(FileNotFoundError):
+        with self.assertRaises(LocalFileNotFoundError):
             self.api.archive.get('no/such/archive')
 
     # W0613: unused argument 'dont_care'

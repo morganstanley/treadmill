@@ -12,12 +12,11 @@ import time
 
 import click
 
-from treadmill import context
 from treadmill import admin
+from treadmill import context
 from treadmill import master
-from treadmill import zkutils
 from treadmill import zknamespace as z
-
+from treadmill import zkutils
 
 _LOGGER = logging.getLogger(__name__)
 

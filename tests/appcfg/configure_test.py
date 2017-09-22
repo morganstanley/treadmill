@@ -6,7 +6,6 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
-import io
 import os
 import shutil
 import tempfile
@@ -49,11 +48,11 @@ class AppCfgConfigureTest(unittest.TestCase):
         if self.root and os.path.isdir(self.root):
             shutil.rmtree(self.root)
 
-    @mock.patch('io.open', mock.mock_open())
     @mock.patch('pwd.getpwnam', mock.Mock(auto_spec=True))
     @mock.patch('shutil.copyfile', mock.Mock(auto_spec=True))
     @mock.patch('treadmill.appcfg.manifest.load', auto_spec=True)
     @mock.patch('treadmill.appevents.post', mock.Mock(auto_spec=True))
+    @mock.patch('treadmill.fs.write_safe', mock.mock_open())
     @mock.patch('treadmill.subproc.get_aliases', mock.Mock(return_value={}))
     @mock.patch('treadmill.supervisor.create_service', auto_spec=True)
     @mock.patch('treadmill.utils.rootdir',
@@ -104,10 +103,10 @@ class AppCfgConfigureTest(unittest.TestCase):
             environ={},
             environment='dev'
         )
-        io.open.assert_has_calls(
-            [
-                mock.call(os.path.join(app_dir, 'data', 'app.json'), 'wb')
-            ]
+        treadmill.fs.write_safe.assert_called_with(
+            os.path.join(app_dir, 'data', 'app.json'),
+            mock.ANY,
+            permission=0o644
         )
 
         shutil.copyfile.assert_called_with(

@@ -2,25 +2,31 @@
 """
 
 from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import collections
+import contextlib
 import datetime
 import errno
-import glob
 import fnmatch
-import logging
-import threading
-import urlparse
-import os
-import time
-import sqlite3
-import contextlib
-import operator
+import glob
 import heapq
-
+import io
 import json
-from enum import Enum
+import logging
+import operator
+import os
+import sqlite3
+import threading
+import time
+
+import enum
+
 import tornado.websocket
+
+from six.moves import urllib_parse
 
 from treadmill import dirwatch
 from treadmill import utils
@@ -79,7 +85,7 @@ def make_handler(pubsub):
 
             This method returns true all the time.
             """
-            parsed_origin = urlparse.urlparse(origin)
+            parsed_origin = urllib_parse.urlparse(origin)
             _LOGGER.debug('parsed_origin: %r', parsed_origin)
             return True
 
@@ -200,7 +206,7 @@ class DirWatchPubSub(object):
         else:
             try:
                 when = os.stat(path).st_mtime
-                with open(path) as f:
+                with io.open(path) as f:
                     content = f.read()
             except (IOError, OSError) as err:
                 if err.errno == errno.ENOENT:
@@ -224,7 +230,7 @@ class DirWatchPubSub(object):
                                   path, operation, pattern)
                     payload['when'] = when
                     handler.write_message(payload)
-            except StandardError as err:
+            except Exception as err:  # pylint: disable=broad-except
                 _LOGGER.exception('Error handling event')
                 handler.send_error_msg(
                     '{cls}: {err}'.format(
@@ -282,7 +288,8 @@ class DirWatchPubSub(object):
                         db, sow_table, watch, pattern, since
                     )
                     records.append(db_cursor)
-                    db_connections.append(conn)
+                    # FIXME: Figure out pylint use before assign
+                    db_connections.append(conn)  # pylint: disable=E0601
 
             records.append(fs_records)
             # Merge db and fs records, removing duplicates.
@@ -310,7 +317,7 @@ class DirWatchPubSub(object):
         for filename in files:
             try:
                 stat = os.stat(filename)
-                with open(filename) as f:
+                with io.open(filename) as f:
                     content = f.read()
                 if stat.st_mtime >= since:
                     path, when = filename[root_len:], stat.st_mtime

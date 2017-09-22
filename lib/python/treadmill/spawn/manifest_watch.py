@@ -2,7 +2,11 @@
 """
 
 from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
+import io
 import json
 import logging
 import os
@@ -10,7 +14,7 @@ import os
 import six
 
 if six.PY2 and os.name == 'posix':
-    import subprocess32 as subprocess
+    import subprocess32 as subprocess  # pylint: disable=import-error
 else:
     import subprocess  # pylint: disable=wrong-import-order
 
@@ -96,10 +100,10 @@ class ManifestWatch(object):
             **subproc.get_aliases()
         )
 
-        with open(os.path.join(data_dir, 'manifest'), 'w') as f:
+        with io.open(os.path.join(data_dir, 'manifest'), 'w') as f:
             json.dump(inst.manifest, f)
 
-        with open(os.path.join(job, 'timeout-finish'), 'w') as f:
+        with io.open(os.path.join(job, 'timeout-finish'), 'w') as f:
             f.write(str(spawn.JOB_FINISH_TIMEOUT))
 
         fs.symlink_safe(running, job)

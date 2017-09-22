@@ -42,6 +42,15 @@ def _app_node(app_id, existing=True):
     return path
 
 
+def _alloc_key(name):
+    """Constructs allocation key based on app name/pattern."""
+    if '@' in name:
+        key = name[name.find('@') + 1:name.find('.')]
+    else:
+        key = name[0:name.find('.')]
+    return key
+
+
 def resources(data):
     """Convert resource demand/capacity spec into resource vector."""
     parsers = {
@@ -116,7 +125,7 @@ class Master(object):
         self.buckets = dict()
         self.servers = dict()
         self.allocations = dict()
-        self.assignments = collections.defaultdict(dict)
+        self.assignments = collections.defaultdict(list)
         self.partitions = dict()
 
         self.queue = collections.deque()
@@ -414,6 +423,7 @@ class Master(object):
         if not data:
             return
 
+        self.assignments = collections.defaultdict(list)
         for obj in data:
             partition = obj.get('partition')
             name = obj['name']
@@ -429,28 +439,27 @@ class Master(object):
             alloc.update(capacity, obj['rank'], obj.get('rank_adjustment'),
                          obj.get('max_utilization'))
 
-            assignments = collections.defaultdict(dict)
             for assignment in obj.get('assignments', []):
                 pattern = assignment['pattern'] + '[#]' + ('[0-9]' * 10)
-                proid = pattern[0:pattern.find('.')]
+                pattern_re = fnmatch.translate(pattern)
+                key = _alloc_key(pattern)
                 priority = assignment['priority']
-                _LOGGER.info('Assignment: %s - %s', pattern, priority)
-                assignments[proid][pattern] = (priority, alloc)
 
-            for proid in assignments:
-                self.assignments[proid] = reversed(
-                    sorted(six.iteritems(assignments[proid]))
+                _LOGGER.info('Assignment: %s - %s', pattern, priority)
+                self.assignments[key].append(
+                    (re.compile(pattern_re), priority, alloc)
                 )
 
     def find_assignment(self, name):
         """Find allocation by matching app assignment."""
         _LOGGER.debug('Find assignment: %s', name)
-        proid = name[0:name.find('.')]
+        key = _alloc_key(name)
 
-        for pattern, assignment in self.assignments[proid]:
-            if fnmatch.fnmatch(name, pattern):
-                _LOGGER.info('Found: %s, assignment: %s', pattern, assignment)
-                return assignment
+        if key in self.assignments:
+            for assignment in self.assignments[key]:
+                pattern_re, priority, alloc = assignment
+                if pattern_re.match(name):
+                    return (priority, alloc)
 
         _LOGGER.info('Default assignment.')
         return self.find_default_assignment(name)
@@ -994,12 +1003,12 @@ class Master(object):
         # any new ones. This ensures that in the event of loop interruption
         # for anyreason (like Zookeeper connection lost or master restart)
         # there are no duplicate placements.
-        for app, before, exp_before, after, exp_after in changed_placement:
+        for app, before, _exp_before, after, _exp_after in changed_placement:
             if before and before != after:
                 _LOGGER.info('Unscheduling: %s - %s', before, app)
                 self._zk_delete(z.path.placement(before, app))
 
-        for app, before, exp_before, after, exp_after in changed_placement:
+        for app, before, _exp_before, after, exp_after in changed_placement:
             placement_data = self._placement_data(app)
 
             why = ''
