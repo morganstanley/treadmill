@@ -1,19 +1,25 @@
-"""Manage Treadmill app manifest."""
+"""Manage Treadmill app manifest.
+"""
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
+import io
 import logging
 
 import click
-import yaml
 
 from .. import cli
 from treadmill import restclient
 from treadmill import context
+from treadmill import yamlwrapper as yaml
 
 
 _LOGGER = logging.getLogger(__name__)
 
-_FORMATTER = cli.make_formatter(cli.AppPrettyFormatter)
+_FORMATTER = cli.make_formatter('app')
 
 _APP_REST_PATH = '/app/'
 
@@ -30,8 +36,8 @@ def _configure(apis, manifest, appname):
             existing = None
 
     if manifest:
-        with open(manifest, 'rb') as fd:
-            app = yaml.load(fd.read())
+        with io.open(manifest, 'rb') as fd:
+            app = yaml.load(stream=fd)
         if existing:
             restclient.put(apis, _APP_REST_PATH + appname, payload=app)
         else:
@@ -66,7 +72,7 @@ def init():
     @click.option('--delete', help='Delete the app.',
                   is_flag=True, default=False)
     @click.argument('appname', required=False)
-    @cli.ON_REST_EXCEPTIONS
+    @cli.handle_exceptions(restclient.CLI_REST_EXCEPTIONS)
     def configure(api, manifest, delete, appname):
         """Configure a Treadmill app"""
         restapi = context.GLOBAL.admin_api(api)

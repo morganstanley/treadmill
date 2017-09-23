@@ -10,6 +10,8 @@ from treadmill import cgroups
 from treadmill import cgutils
 from treadmill import fs
 from treadmill import psmem
+from treadmill import yamlwrapper as yaml
+
 
 NANOSECS_PER_10MILLI = 10000000
 
@@ -32,7 +34,7 @@ def read_memory_stats(cgrp):
     """
     metric = cgrp_meminfo(cgrp)
     stats = cgutils.get_stat('memory', cgrp)
-    metric['memory.stats'] = stats
+    metric['memory.stat'] = stats
 
     return metric
 
@@ -172,6 +174,7 @@ def read_cpu_stats(cgrp):
     data['cpuacct.usage'] = cgutils.cpu_usage(cgrp)
     data['cpuacct.stat'] = read_cpuacct_stat(cgrp)
     data['cpu.stat'] = read_cpu_stat(cgrp)
+    data['cpu.shares'] = cgroups.get_cpu_shares(cgrp)
 
     return data
 
@@ -191,6 +194,9 @@ def calc_fs_usage(fs_info):
     Reserved blocks are treated as used blocks because the primary goal of this
     usage metric is to indicate whether the container has to be resized.
     """
+    if not fs_info:
+        return 0
+
     blk_cnt = int(fs_info['block count'])
     free_blk_cnt = int(fs_info['free blocks'])
     blk_size = int(fs_info['block size'])

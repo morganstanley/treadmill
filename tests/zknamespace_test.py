@@ -1,23 +1,26 @@
 """Unit test for zknamespace.
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import unittest
 
 from treadmill import zknamespace as z
 
 
-class ZknamespaceTest(unittest.TestCase):
-    """Mock test for treadmill.zknamespace."""
+class ZkNamespaceTest(unittest.TestCase):
+    """Tests for teadmill.zknamespace."""
 
-    def test_join_zookeeper_path(self):
-        """Checks zookeeper path construction."""
-
-        path = z.join_zookeeper_path('/root', 'node')
-        self.assertEqual('/root/node', path)
-
-        path = z.join_zookeeper_path('/root', 'node1', 'node2')
-        self.assertEqual('/root/node1/node2', path)
+    def test_path(self):
+        """Tests zknamespace functions.
+        """
+        self.assertEqual('/servers/aaa', z.path.server('aaa'))
+        self.assertEqual('/scheduled/aaa', z.path.scheduled('aaa'))
+        self.assertEqual('/trace/00D2', z.path.trace('ddd.rrr#1234567890'))
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     unittest.main()

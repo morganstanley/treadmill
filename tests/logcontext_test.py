@@ -1,4 +1,10 @@
-"""This contains the unit tests for treadmill.logcontext."""
+"""This contains the unit tests for treadmill.logcontext.
+"""
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import logging
 import unittest

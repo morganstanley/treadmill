@@ -1,7 +1,13 @@
-"""Implementation of allocation API."""
+"""Implementation of allocation API.
+"""
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 from collections import defaultdict
+import logging
 import ldap3
 
 from treadmill import admin
@@ -10,6 +16,11 @@ from treadmill import context
 from treadmill import exc
 from treadmill import schema
 from treadmill import utils
+from treadmill import plugin_manager
+
+_LOGGER = logging.getLogger(__name__)
+
+_DEFAULT_RANK = 100
 
 
 def _set_auth_resource(cls, resource):
@@ -89,6 +100,18 @@ def _check_capacity(cell, allocation, rsrc):
             __name__, 'Not enough disk capacity in partition.')
 
 
+def _api_plugins(initialized):
+    """Return api  plugins."""
+    if initialized is not None:
+        return initialized
+
+    plugins_ns = 'treadmill.api.allocation.plugins'
+    return [
+        plugin_manager.load(plugins_ns, name)
+        for name in context.GLOBAL.get('api.allocation.plugins', [])
+    ]
+
+
 class API(object):
     """Treadmill Allocation REST api."""
 
@@ -146,11 +169,21 @@ class API(object):
 
             def __init__(self):
 
+                self.plugins = None
+
                 @schema.schema({'$ref': 'reservation.json#/resource_id'})
                 def get(rsrc_id):
                     """Get reservation configuration."""
                     allocation, cell = rsrc_id.rsplit('/', 1)
-                    return _admin_cell_alloc().get([cell, allocation])
+                    inst = _admin_cell_alloc().get([cell, allocation])
+                    if inst is None:
+                        return inst
+
+                    self.plugins = _api_plugins(self.plugins)
+                    for plugin in self.plugins:
+                        inst = plugin.remove_attributes(inst)
+
+                    return inst
 
                 @schema.schema(
                     {'$ref': 'reservation.json#/resource_id'},
@@ -161,6 +194,13 @@ class API(object):
                     """Create reservation."""
                     allocation, cell = rsrc_id.rsplit('/', 1)
                     _check_capacity(cell, allocation, rsrc)
+                    if 'rank' not in rsrc:
+                        rsrc['rank'] = _DEFAULT_RANK
+
+                    self.plugins = _api_plugins(self.plugins)
+                    for plugin in self.plugins:
+                        rsrc = plugin.add_attributes(rsrc_id, rsrc)
+
                     _admin_cell_alloc().create([cell, allocation], rsrc)
                     return _admin_cell_alloc().get([cell, allocation])
 

@@ -1,5 +1,4 @@
-"""
-Unit test for base_service - Basic Treadmill service capabilities
+"""Unit test for base_service - Basic Treadmill service capabilities
 """
 
 import os

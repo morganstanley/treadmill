@@ -1,12 +1,18 @@
 """Installs and configures Treadmill locally.
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import logging
 import os
 
 import click
 
 from treadmill import bootstrap
+from treadmill import context
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -25,8 +31,11 @@ def init():
     def master(ctx, run, master_id, ldap_pwd):
         """Installs Treadmill master."""
 
+        ctx.obj['PARAMS']['zookeeper'] = context.GLOBAL.zk.url
+        ctx.obj['PARAMS']['ldap'] = context.GLOBAL.ldap.url
         ctx.obj['PARAMS']['master_id'] = master_id
         dst_dir = ctx.obj['PARAMS']['dir']
+        profile = ctx.obj['PARAMS'].get('profile')
 
         if ldap_pwd:
             ctx.obj['PARAMS']['ldap_pwd'] = ldap_pwd
@@ -43,7 +52,8 @@ def init():
             'master',
             dst_dir,
             ctx.obj['PARAMS'],
-            run=run_sh
+            run=run_sh,
+            profile=profile,
         )
 
     return master

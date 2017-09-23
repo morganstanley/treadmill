@@ -3,6 +3,10 @@
 Create, delete and manage identity groups.
 """
 
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+from __future__ import absolute_import
 
 import logging
 
@@ -16,7 +20,7 @@ from treadmill import restclient
 _LOGGER = logging.getLogger(__name__)
 
 _EXCEPTIONS = []
-_EXCEPTIONS.extend(cli.REST_EXCEPTIONS)
+_EXCEPTIONS.extend(restclient.CLI_REST_EXCEPTIONS)
 
 _ON_EXCEPTIONS = cli.handle_exceptions(_EXCEPTIONS)
 
@@ -25,7 +29,7 @@ _REST_PATH = '/identity-group/'
 
 def init():  # pylint: disable=R0912
     """Configures identity group."""
-    formatter = cli.make_formatter(cli.IdentityGroupPrettyFormatter)
+    formatter = cli.make_formatter('identity-group')
     ctx = {}
 
     @click.group()

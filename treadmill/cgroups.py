@@ -1,10 +1,17 @@
-"""Common cgroups management routines."""
+"""Common cgroups management routines.
+"""
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import errno
+import io
+import logging
 import os
 
-import logging
+import six
 
 from . import subproc
 
@@ -78,15 +85,19 @@ def extractpath(path, subsystem, pseudofile=None):
 def set_value(subsystem, group, pseudofile, value):
     """Set value in cgroup pseudofile"""
     fullpath = makepath(subsystem, group, pseudofile)
+    # Make sure we have utf8 strings
+    if hasattr(value, 'decode'):
+        value = value.decode()
+    value = '{}'.format(value)
     _LOGGER.debug('setting %s => %s', fullpath, value)
-    with open(fullpath, 'w+') as f:
-        f.write(str(value))
+    with io.open(fullpath, 'w') as f:
+        f.write(value)
 
 
 def get_data(subsystem, group, pseudofile):
     """Reads the data of cgroup parameter."""
     fullpath = makepath(subsystem, group, pseudofile)
-    with open(fullpath) as f:
+    with io.open(fullpath, 'r') as f:
         return f.read().strip()
 
 
@@ -133,7 +144,12 @@ def get_cpuset_cores(cgrp):
         if len(cpus) == 1:
             cores.append(int(cpus[0]))
         elif len(cpus) == 2:
-            cores.extend(range(int(cpus[0]), int(cpus[1]) + 1))
+            cores.extend(
+                six.moves.range(
+                    int(cpus[0]),
+                    int(cpus[1]) + 1
+                )
+            )
 
     return cores
 
@@ -168,7 +184,7 @@ def available_subsystems():
     """Get set of available cgroup subsystems"""
     subsystems = list()
 
-    with open(PROCCGROUPS) as cgroups:
+    with io.open(PROCCGROUPS, 'r') as cgroups:
         for cgroup in cgroups:
             try:
                 (subsys_name, _hierarchy,
@@ -191,7 +207,7 @@ def mounted_subsystems():
         return _SUBSYSTEMS2MOUNTS
 
     _SUBSYSTEMS2MOUNTS = {}
-    with open(PROCMOUNTS) as mounts:
+    with io.open(PROCMOUNTS, 'r') as mounts:
         subsystems = available_subsystems()
         for mountline in mounts:
             try:

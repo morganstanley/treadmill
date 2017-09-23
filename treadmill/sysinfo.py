@@ -1,23 +1,30 @@
-"""Helper module to get system related information.
-"""
+"""Helper module to get system related information."""
 
-import multiprocessing
-import os
-import socket
-import time
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 from collections import namedtuple
 
-from treadmill import exc
-from treadmill import subproc
+import io
+import multiprocessing
+import os
+import platform
+import socket
 
-if os.name == 'nt':
-    import platform
-    import psutil
-    from .syscall import winapi
-else:
+import psutil
+
+from . import exc
+from . import subproc
+
+if os.name == 'posix':
     from . import cgroups
-    from .syscall import sysinfo as syscall_sysinfo
+else:
+    # Pylint warning unable to import because it is on Windows only
+    import win32api  # pylint: disable=E0401
+    import win32con  # pylint: disable=E0401
+    import win32security  # pylint: disable=E0401
 
 
 # Equate "virtual" CPU to 5000 bogomips.
@@ -36,9 +43,9 @@ def _disk_usage_linux(path):
 
 def _disk_usage_windows(path):
     """Return disk usage associated with path."""
-    total, free = winapi.GetDiskFreeSpaceExW(path)
+    du = psutil.disk_usage(path)
 
-    return namedtuple('usage', 'total free')(total, free)
+    return namedtuple('usage', 'total free')(du.total, du.free)
 
 
 _MEMINFO = None
@@ -48,7 +55,7 @@ def _mem_info_linux():
     """Return total/swap memory info from /proc/meminfo."""
     global _MEMINFO  # pylint: disable=W0603
     if not _MEMINFO:
-        with open('/proc/meminfo') as meminfo:
+        with io.open('/proc/meminfo') as meminfo:
             total = None
             swap = None
             for line in meminfo.read().splitlines():
@@ -66,9 +73,8 @@ def _mem_info_windows():
     """Return total/swap memory info"""
     global _MEMINFO  # pylint: disable=W0603
     if not _MEMINFO:
-        memory = winapi.GlobalMemoryStatusEx()
-        total = memory.ullTotalPhys / 1024
-        swap = memory.ullTotalPageFile / 1024
+        total = psutil.virtual_memory().total // 1024
+        swap = psutil.swap_memory().total // 1024
         _MEMINFO = namedtuple('memory', 'total swap')(total, swap)
 
     return _MEMINFO
@@ -82,7 +88,7 @@ def _proc_info_linux(pid):
     if pid is None:
         raise exc.InvalidInputError('/proc', 'pid is undefined.')
 
-    with open('/proc/%s/stat' % pid, 'r') as stat:
+    with io.open('/proc/%s/stat' % pid, 'r') as stat:
         for line in stat.read().splitlines():
             fields = line.split()
             # Filename is given in (), remove the brackets.
@@ -111,16 +117,16 @@ def cpu_count():
     return multiprocessing.cpu_count()
 
 
-def available_cpu_count():
+def _available_cpu_count_linux():
     """Return number of CPUs available for treadmill."""
     cores = cgroups.get_cpuset_cores('treadmill')
     return len(cores)
 
 
-def bogomips_linux(cores):
+def _bogomips_linux(cores):
     """Return sum of bogomips value for cores."""
     total = 0
-    with open('/proc/cpuinfo') as cpuinfo:
+    with io.open('/proc/cpuinfo') as cpuinfo:
         for cpu in cpuinfo.read().split('\n\n'):
             for line in cpu.splitlines():
                 if line.startswith('processor'):
@@ -135,13 +141,7 @@ def bogomips_linux(cores):
 def _total_bogomips_linux():
     """Return sum of bogomips value for all CPUs."""
     cores = cgroups.get_cpuset_cores('treadmill')
-    return bogomips_linux(cores)
-
-
-def _total_bogomips_windows():
-    """Return sum of bogomips value for all CPUs."""
-    # TODO(karoly) implement this
-    return 5000
+    return _bogomips_linux(cores)
 
 
 def hostname():
@@ -165,7 +165,7 @@ def hostname():
 
 def _port_range_linux():
     """Returns local port range."""
-    with open('/proc/sys/net/ipv4/ip_local_port_range', 'r') as pr:
+    with io.open('/proc/sys/net/ipv4/ip_local_port_range', 'r') as pr:
         low, high = [int(i) for i in pr.read().split()]
     return low, high
 
@@ -173,16 +173,16 @@ def _port_range_linux():
 def _port_range_windows():
     """Returns local port range."""
     cmd = 'netsh.exe int ipv4 show dynamicport tcp'
-    output = subproc.check_output(cmd).split('\r\n')
+    output = subproc.check_output([cmd]).split('\r\n')
 
     low = 0
     ports = 0
 
     for line in output:
         if line.lower().startswith('start port'):
-            low = int((line).split(':')[1])
+            low = int(line.split(':')[1])
         elif line.lower().startswith('number of ports'):
-            ports = int((line).split(':')[1])
+            ports = int(line.split(':')[1])
 
     high = ports - low + 1
 
@@ -191,7 +191,7 @@ def _port_range_windows():
 
 def _kernel_ver_linux():
     """Returns kernel version as major, minor, patch tuple."""
-    with open('/proc/sys/kernel/osrelease') as f:
+    with io.open('/proc/sys/kernel/osrelease') as f:
         kver = f.readline().split('.')[:3]
         last = len(kver)
         if last == 2:
@@ -204,7 +204,7 @@ def _kernel_ver_linux():
         except ValueError:
             kver[last] = 0
 
-        return (int(kver[0]), int(kver[1]), int(kver[2]))
+        return int(kver[0]), int(kver[1]), int(kver[2])
 
 
 def _kernel_ver_windows():
@@ -213,97 +213,122 @@ def _kernel_ver_windows():
 
     kver = version.split('.')
 
-    return (int(kver[0]), int(kver[1]), int(kver[2]))
+    return int(kver[0]), int(kver[1]), int(kver[2])
 
 
-def _node_info_linux(tm_env):
+def _get_docker_node_info(info):
+    """Gets the node info specific to docker.
+    """
+    cpucapacity = int(cpu_count() * 100)
+    memcapacity = (psutil.virtual_memory().total * 0.9) // _BYTES_IN_MB
+
+    # TODO: manage disk space a little better
+    if os.name == 'nt':
+        path = 'C:\\ProgramData\\docker'
+    else:
+        path = '/var/lib/docker'
+
+    diskfree = disk_usage(path).free // _BYTES_IN_MB
+
+    info.update({
+        'memory': '%dM' % memcapacity,
+        'disk':  '%dM' % diskfree,
+        'cpu': '%d%%' % cpucapacity,
+        'up_since': up_since(),
+    })
+
+    return info
+
+
+def _node_info_linux(tm_env, runtime):
     """Generate a node information report for the scheduler.
 
     :param tm_env:
         Treadmill application environment
     :type tm_env:
         `appenv.AppEnvironment`
+    :param runtime:
+        Treadmill runtime in use
+    :type tm_env:
+        `str`
     """
-    # Request status information from services (this may wait for the services
-    # to be up).
-    localdisk_status = tm_env.svc_localdisk.status(timeout=30)
-    _cgroup_status = tm_env.svc_cgroup.status(timeout=30)  # noqa: F841
-    network_status = tm_env.svc_network.status(timeout=30)
-
-    # FIXME(boysson): Memory and CPU available to containers should come from
-    #                 the cgroup service.
-    # We normalize bogomips into logical "cores", each core == 5000 bmips.
-    #
-    # Each virtual "core" is then equated to 100 units.
-    #
-    # The formula is bmips / BMIPS_PER_CPU * 100
-    app_bogomips = cgroups.get_cpu_shares('treadmill/apps')
-    cpucapacity = int(
-        (app_bogomips * 100 / BMIPS_PER_CPU)
-    )
-    memcapacity = cgroups.get_value(
-        'memory',
-        'treadmill/apps',
-        'memory.limit_in_bytes'
-    )
-
-    # Append units to all capacity info.
     info = {
-        'memory': '%dM' % (memcapacity / _BYTES_IN_MB),
-        'disk': '%dM' % (localdisk_status['size'] / _BYTES_IN_MB),
-        'cpu': '%d%%' % cpucapacity,
         'up_since': up_since(),
-        'network': network_status,
-        'localdisk': localdisk_status,
     }
+
+    if runtime == 'linux':
+        # Request status information from services (this may wait for the
+        # services to be up).
+        localdisk_status = tm_env.svc_localdisk.status(timeout=30)
+        # FIXME: Memory and CPU available to containers should come from the
+        #        cgroup service.
+        _cgroup_status = tm_env.svc_cgroup.status(timeout=30)
+        network_status = tm_env.svc_network.status(timeout=30)
+
+        # We normalize bogomips into logical "cores", each core == 5000 bmips.
+        # Each virtual "core" is then equated to 100 units.
+        # The formula is bmips / BMIPS_PER_CPU * 100
+        app_bogomips = cgroups.get_cpu_shares('treadmill/apps')
+        cpucapacity = (app_bogomips * 100) // BMIPS_PER_CPU
+        memcapacity = cgroups.get_value(
+            'memory',
+            'treadmill/apps',
+            'memory.limit_in_bytes'
+        ) // _BYTES_IN_MB
+        diskfree = localdisk_status['size'] // _BYTES_IN_MB
+
+        info.update({
+            'memory': '%dM' % memcapacity,
+            'disk':  '%dM' % diskfree,
+            'cpu': '%d%%' % cpucapacity,
+            'network': network_status,
+            'localdisk': localdisk_status,
+        })
+    elif runtime == 'docker':
+        info = _get_docker_node_info(info)
+    else:
+        raise NotImplementedError('Runtime {0} is not supported on Linux',
+                                  runtime)
 
     return info
 
 
-def _node_info_windows(tm_env):
+def _node_info_windows(_tm_env, runtime):
     """Generate a node information report for the scheduler.
 
-    :param tm_env:
+    :param _tm_env:
         Treadmill application environment
-    :type tm_env:
+    :type _tm_env:
         `appenv.AppEnvironment`
+    :param runtime:
+        Treadmill runtime in use
+    :type runtime:
+        `str`
     """
-    # We normalize bogomips into logical "cores", each core == 5000 bmips.
-    #
-    # Each virtual "core" is then equated to 100 units.
-    #
-    # The formula is bmips / BMIPS_PER_CPU * 100
-    cpucapacity = int(
-        (total_bogomips() * 100 / BMIPS_PER_CPU)
-    )
-    memoryinfo = winapi.GlobalMemoryStatusEx()
-    diskinfo = disk_usage(tm_env.apps_dir)
+    if runtime != 'docker':
+        # Raising an exception will ensure windows is started with docker
+        # runtime enabled
+        raise NotImplementedError('Runtime {0} is not supported on Windows',
+                                  runtime)
 
-    # Append units to all capacity info.
-    info = {
-        'memory': '%dM' % (memoryinfo.ullAvailPhys / _BYTES_IN_MB),
-        'disk': '%dM' % (diskinfo.free / _BYTES_IN_MB),
-        'cpu': '%d%%' % cpucapacity,
+    info = _get_docker_node_info({
         'up_since': up_since(),
-    }
+    })
+
+    dc_name = win32security.DsGetDcName()
+
+    info.update({
+        'nt.dc': dc_name['DomainControllerName'].replace('\\\\', '').lower(),
+        'nt.domain': dc_name['DomainName'].lower(),
+        'nt.dn': win32api.GetComputerObjectName(win32con.NameFullyQualifiedDN)
+    })
 
     return info
-
-
-def _uptime_linux():
-    """Returns system uptime."""
-    sysinfo = syscall_sysinfo.sysinfo()
-    return sysinfo.uptime
-
-
-def _uptime_windows():
-    """Returns system uptime."""
-    return winapi.GetTickCount64() / 1000
 
 
 def up_since():
     """Returns time of last reboot."""
-    return time.time() - uptime()
+    return psutil.boot_time()
 
 
 # pylint: disable=C0103
@@ -311,17 +336,16 @@ if os.name == 'nt':
     disk_usage = _disk_usage_windows
     mem_info = _mem_info_windows
     proc_info = _proc_info_windows
-    total_bogomips = _total_bogomips_windows
     port_range = _port_range_windows
     kernel_ver = _kernel_ver_windows
     node_info = _node_info_windows
-    uptime = _uptime_windows
 else:
     disk_usage = _disk_usage_linux
     mem_info = _mem_info_linux
     proc_info = _proc_info_linux
+    bogomips = _bogomips_linux
     total_bogomips = _total_bogomips_linux
     port_range = _port_range_linux
     kernel_ver = _kernel_ver_linux
     node_info = _node_info_linux
-    uptime = _uptime_linux
+    available_cpu_count = _available_cpu_count_linux

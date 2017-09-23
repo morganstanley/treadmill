@@ -1,17 +1,22 @@
-"""
-Unit test for localdisk_service - Treadmill local disk service
+"""Unit test for localdisk_service - Treadmill local disk service.
 """
 
 import collections
 import os
 import shutil
-import subprocess
 import tempfile
 import unittest
 
 import mock
+import six
+
+if six.PY2 and os.name == 'posix':
+    import subprocess32 as subprocess
+else:
+    import subprocess  # pylint: disable=wrong-import-order
 
 import treadmill
+from treadmill import localdiskutils
 from treadmill.services import localdisk_service
 
 
@@ -25,137 +30,16 @@ class LocalDiskServiceTest(unittest.TestCase):
         if self.root and os.path.isdir(self.root):
             shutil.rmtree(self.root)
 
-    @mock.patch('treadmill.lvm.vgactivate', mock.Mock())
-    @mock.patch('treadmill.lvm.lvsdisplay', mock.Mock())
-    @mock.patch('treadmill.services.localdisk_service._init_block_dev',
-                mock.Mock())
-    @mock.patch('treadmill.services.localdisk_service._init_vg', mock.Mock())
-    @mock.patch('treadmill.services.localdisk_service._refresh_vg_status',
-                mock.Mock())
-    def test_initialize_quick(self):
-        """Test service initialization (quick restart).
-        """
-        # Access to a protected member _init_vg of a client class
-        # pylint: disable=W0212
-
-        svc = localdisk_service.LocalDiskResourceService(
-            img_location='/image_dir',
-            img_size=42,
-        )
-        treadmill.lvm.vgactivate.return_value = True
-
-        treadmill.lvm.lvsdisplay.return_value = [
-            {
-                'block_dev': '/dev/treadmill/ESE0g3hyf7nxv',
-                'dev_major': 253,
-                'dev_minor': 1,
-                'extent_alloc': -1,
-                'extent_size': 256,
-                'group': 'treadmill',
-                'name': 'ESE0g3hyf7nxv',
-                'open_count': 1,
-            },
-            {
-                'block_dev': '/dev/treadmill/oRHxZN5QldMdz',
-                'dev_major': 253,
-                'dev_minor': 0,
-                'extent_alloc': -1,
-                'extent_size': 1280,
-                'group': 'treadmill',
-                'name': 'oRHxZN5QldMdz',
-                'open_count': 1,
-            },
-        ]
-        svc.initialize(self.root)
-
-        treadmill.lvm.vgactivate.assert_called_with(group='treadmill')
-
-        # If present, we should *not* try to re-init the volume group
-        self.assertFalse(
-            treadmill.services.localdisk_service._init_block_dev.called
-        )
-        self.assertFalse(treadmill.services.localdisk_service._init_vg.called)
-        self.assertTrue(
-            treadmill.services.localdisk_service._refresh_vg_status.called
-        )
-
-    @mock.patch('treadmill.lvm.vgactivate', mock.Mock())
-    @mock.patch('treadmill.lvm.lvsdisplay', mock.Mock())
-    @mock.patch('treadmill.services.localdisk_service._init_block_dev',
-                mock.Mock())
-    @mock.patch('treadmill.services.localdisk_service._init_vg', mock.Mock())
-    @mock.patch('treadmill.services.localdisk_service._refresh_vg_status',
-                mock.Mock())
-    def test_initialize_img(self):
-        """Test service initialization (image).
-        """
-        # Access to a protected member _init_vg of a client class
-        # pylint: disable=W0212
-
-        svc = localdisk_service.LocalDiskResourceService(
-            img_location='/image_dir',
-            img_size=42,
-        )
-        treadmill.lvm.vgactivate.side_effect = \
-            subprocess.CalledProcessError(returncode=5, cmd='lvm')
-        mock_init_blkdev = treadmill.services.localdisk_service._init_block_dev
-        mock_init_blkdev.return_value = '/dev/test'
-        treadmill.lvm.lvsdisplay.return_value = []
-
-        svc.initialize(self.root)
-
-        treadmill.lvm.vgactivate.assert_called_with(group='treadmill')
-        mock_init_blkdev.assert_called_with('/image_dir', 42)
-        treadmill.services.localdisk_service._init_vg.assert_called_with(
-            'treadmill',
-            '/dev/test',
-        )
-        treadmill.lvm.lvsdisplay.assert_called_with(group='treadmill')
-        self.assertTrue(
-            treadmill.services.localdisk_service._refresh_vg_status.called
-        )
-
-    @mock.patch('treadmill.lvm.vgactivate', mock.Mock())
-    @mock.patch('treadmill.lvm.lvsdisplay', mock.Mock())
-    @mock.patch('treadmill.services.localdisk_service._init_block_dev',
-                mock.Mock())
-    @mock.patch('treadmill.services.localdisk_service._init_vg', mock.Mock())
-    @mock.patch('treadmill.services.localdisk_service._refresh_vg_status',
-                mock.Mock())
-    def test_initialize_blk(self):
-        """Test service initialization (block device).
-        """
-        # Access to a protected member _init_vg of a client class
-        # pylint: disable=W0212
-
-        svc = localdisk_service.LocalDiskResourceService(
-            block_dev='/dev/test',
-        )
-        treadmill.lvm.vgactivate.side_effect = \
-            subprocess.CalledProcessError(returncode=5, cmd='lvm')
-        treadmill.lvm.lvsdisplay.return_value = []
-
-        svc.initialize(self.root)
-
-        treadmill.lvm.vgactivate.assert_called_with(group='treadmill')
-        # If provided, we should try to create the block device
-        self.assertFalse(
-            treadmill.services.localdisk_service._init_block_dev.called
-        )
-        treadmill.services.localdisk_service._init_vg.assert_called_with(
-            'treadmill',
-            '/dev/test',
-        )
-        self.assertTrue(
-            treadmill.services.localdisk_service._refresh_vg_status.called
-        )
-
     def test_event_handlers(self):
         """Test event_handlers request.
         """
         svc = localdisk_service.LocalDiskResourceService(
-            img_location='/image_dir',
-            img_size=42,
+            block_dev='/dev/block',
+            read_bps='100M',
+            write_bps='100M',
+            read_iops=1000,
+            write_iops=1000
+
         )
 
         self.assertEqual(
@@ -167,38 +51,50 @@ class LocalDiskServiceTest(unittest.TestCase):
     def test_report_status(self):
         """Test service status reporting.
         """
-        # Access to a protected member _status
+        # Access to a protected member _vg_status
         # pylint: disable=W0212
 
         svc = localdisk_service.LocalDiskResourceService(
-            img_location='/image_dir',
-            img_size=42,
+            block_dev='/dev/block',
+            read_bps='100M',
+            write_bps='100M',
+            read_iops=1000,
+            write_iops=1000
         )
-        svc._status = {'test': 'me'}
+        svc._vg_status = {'test': 'me'}
 
         status = svc.report_status()
 
-        self.assertEqual(status, {'test': 'me'})
+        self.assertEqual(status, {
+            'test': 'me',
+            'read_bps': '100M',
+            'write_bps': '100M',
+            'read_iops': 1000,
+            'write_iops': 1000
+        })
 
     @mock.patch('treadmill.cgroups.create', mock.Mock())
     @mock.patch('treadmill.cgroups.set_value', mock.Mock())
     @mock.patch('treadmill.fs.create_filesystem', mock.Mock())
     @mock.patch('treadmill.lvm.lvcreate', mock.Mock())
     @mock.patch('treadmill.lvm.lvdisplay', mock.Mock())
-    @mock.patch('treadmill.services.localdisk_service._refresh_vg_status',
+    @mock.patch('treadmill.localdiskutils.refresh_vg_status',
                 mock.Mock())
     def test_on_create_request(self):
         """Test processing of a localdisk create request.
         """
-        # Access to a protected member _status
+        # Access to a protected member _vg_status
         # pylint: disable=W0212
 
         svc = localdisk_service.LocalDiskResourceService(
-            img_location='/image_dir',
-            img_size=42,
+            block_dev='/dev/block',
+            read_bps='100M',
+            write_bps='100M',
+            read_iops=1000,
+            write_iops=1000
         )
-        svc._status = {
-            'extent_size': 4 * 1024 ** 3,
+        svc._vg_status = {
+            'extent_size': 4*1024**3,
             'extent_free': 512,
         }
         request = {
@@ -209,6 +105,7 @@ class LocalDiskServiceTest(unittest.TestCase):
             'block_dev': '/dev/test',
             'dev_major': 42,
             'dev_minor': 43,
+            'extent_size': 10,
             'name': 'ID1234',
         }
 
@@ -220,7 +117,7 @@ class LocalDiskServiceTest(unittest.TestCase):
             size_in_bytes=100 * 1024 * 1024,
         )
         self.assertTrue(
-            treadmill.services.localdisk_service._refresh_vg_status.called
+            treadmill.localdiskutils.refresh_vg_status.called
         )
         cgrp = os.path.join('treadmill/apps', request_id)
         treadmill.cgroups.create.assert_called_with(
@@ -250,6 +147,7 @@ class LocalDiskServiceTest(unittest.TestCase):
                 'block_dev': '/dev/test',
                 'dev_major': 42,
                 'dev_minor': 43,
+                'extent_size': 10,
                 'name': 'ID1234',
             }
         )
@@ -259,27 +157,31 @@ class LocalDiskServiceTest(unittest.TestCase):
     @mock.patch('treadmill.fs.create_filesystem', mock.Mock())
     @mock.patch('treadmill.lvm.lvcreate', mock.Mock())
     @mock.patch('treadmill.lvm.lvdisplay', mock.Mock())
-    @mock.patch('treadmill.services.localdisk_service._refresh_vg_status',
+    @mock.patch('treadmill.localdiskutils.refresh_vg_status',
                 mock.Mock())
     def test_on_create_request_existing(self):
         """Test processing of a localdisk create request when volume already
         created.
         """
-        # Access to a protected member _status
+        # Access to a protected member _vg_status
         # pylint: disable=W0212
 
         svc = localdisk_service.LocalDiskResourceService(
-            img_location='/image_dir',
-            img_size=42,
+            block_dev='/dev/block',
+            read_bps='100M',
+            write_bps='100M',
+            read_iops=1000,
+            write_iops=1000
         )
-        svc._status = {
-            'extent_size': 4 * 1024 ** 3,
+        svc._vg_status = {
+            'extent_size': 4*1024**3,
             'extent_free': 512,
         }
         treadmill.lvm.lvdisplay.return_value = {
             'block_dev': '/dev/test',
             'dev_major': 42,
             'dev_minor': 43,
+            'extent_size': 10,
             'name': 'ID1234',
         }
         request = {
@@ -293,11 +195,12 @@ class LocalDiskServiceTest(unittest.TestCase):
         treadmill.fs.create_filesystem.reset_mock()
         treadmill.lvm.lvcreate.reset_mock()
         treadmill.lvm.lvdisplay.reset_mock()
-        treadmill.services.localdisk_service._refresh_vg_status.reset_mock()
+        treadmill.localdiskutils.refresh_vg_status.reset_mock()
         treadmill.lvm.lvdisplay.return_value = {
             'block_dev': '/dev/test',
             'dev_major': 24,
             'dev_minor': 34,
+            'extent_size': 10,
             'name': 'ID1234',
         }
         # Issue a second request
@@ -305,7 +208,7 @@ class LocalDiskServiceTest(unittest.TestCase):
 
         self.assertFalse(treadmill.lvm.lvcreate.called)
         self.assertFalse(
-            treadmill.services.localdisk_service._refresh_vg_status.called
+            treadmill.localdiskutils.refresh_vg_status.called
         )
         cgrp = os.path.join('treadmill/apps', request_id)
         treadmill.cgroups.create.assert_called_with(
@@ -334,13 +237,14 @@ class LocalDiskServiceTest(unittest.TestCase):
                 'block_dev': '/dev/test',
                 'dev_major': 24,
                 'dev_minor': 34,
+                'extent_size': 10,
                 'name': 'ID1234',
             }
         )
 
     @mock.patch('treadmill.lvm.lvdisplay', mock.Mock())
     @mock.patch('treadmill.lvm.lvremove', mock.Mock())
-    @mock.patch('treadmill.services.localdisk_service._refresh_vg_status',
+    @mock.patch('treadmill.localdiskutils.refresh_vg_status',
                 mock.Mock())
     def test_on_delete_request(self):
         """Test processing of a localdisk delete request.
@@ -349,8 +253,11 @@ class LocalDiskServiceTest(unittest.TestCase):
         # pylint: disable=W0212
 
         svc = localdisk_service.LocalDiskResourceService(
-            img_location='/image_dir',
-            img_size=42,
+            block_dev='/dev/block',
+            read_bps='100M',
+            write_bps='100M',
+            read_iops=1000,
+            write_iops=1000
         )
         request_id = 'myproid.test-0-ID1234'
 
@@ -358,7 +265,7 @@ class LocalDiskServiceTest(unittest.TestCase):
 
         treadmill.lvm.lvremove.assert_called_with('ID1234', group='treadmill')
         self.assertTrue(
-            treadmill.services.localdisk_service._refresh_vg_status.called
+            treadmill.localdiskutils.refresh_vg_status.called
         )
 
     @mock.patch('treadmill.lvm.vgdisplay', mock.Mock())
@@ -388,7 +295,7 @@ class LocalDiskServiceTest(unittest.TestCase):
             'uuid': 'Vsj4xA-45Ad-v4Rp-VOOf-XzEf-Gxwr-erL7Zu',
         }
 
-        status = localdisk_service._refresh_vg_status('FOO')
+        status = localdiskutils.refresh_vg_status('FOO')
 
         treadmill.lvm.vgdisplay.assert_called_with(group='FOO')
         self.assertEqual(
@@ -408,7 +315,6 @@ class LocalDiskServiceTest(unittest.TestCase):
     def test__init_vg(self):
         """Test LVM volume group initialization.
         """
-        # Access to a protected member _init_vg
         # pylint: disable=W0212
 
         treadmill.lvm.vgactivate.side_effect = [
@@ -416,7 +322,7 @@ class LocalDiskServiceTest(unittest.TestCase):
             0,
         ]
 
-        localdisk_service._init_vg('test-group', '/dev/test')
+        localdiskutils.init_vg('test-group', '/dev/test')
 
         treadmill.lvm.pvcreate.assert_called_with(device='/dev/test')
         treadmill.lvm.vgcreate.assert_called_with(
@@ -426,27 +332,27 @@ class LocalDiskServiceTest(unittest.TestCase):
         treadmill.lvm.vgactivate.assert_called_with('test-group')
 
     @mock.patch('treadmill.subproc.check_call', mock.Mock())
-    @mock.patch('treadmill.services.localdisk_service._loop_dev_for',
+    @mock.patch('treadmill.localdiskutils.loop_dev_for',
                 mock.Mock())
-    @mock.patch('treadmill.services.localdisk_service._init_loopback_devices',
+    @mock.patch('treadmill.localdiskutils.init_loopback_devices',
                 mock.Mock())
-    @mock.patch('treadmill.services.localdisk_service._create_image',
+    @mock.patch('treadmill.localdiskutils.create_image',
                 mock.Mock())
     def test__init_block_dev(self):
         """Create a backing block device for LVM's Treadmill volume group.
         """
-        # Access to a protected member _init_block_dev
         # pylint: disable=W0212
 
-        localdisk_service._loop_dev_for.side_effect = [
-            None, '/dev/test'
+        localdiskutils.loop_dev_for.side_effect = [
+            subprocess.CalledProcessError(returncode=1, cmd='losetup'),
+            '/dev/test'
         ]
 
-        res = localdisk_service._init_block_dev('/bar', '2G')
+        res = localdiskutils.init_block_dev('treadmill.img', '/bar', '2G')
 
-        self.assertTrue(localdisk_service._init_loopback_devices.called)
-        localdisk_service._create_image.assert_called_with(
-            localdisk_service.TREADMILL_IMG,
+        self.assertTrue(localdiskutils.init_loopback_devices.called)
+        localdiskutils.create_image.assert_called_with(
+            localdiskutils.TREADMILL_IMG,
             '/bar',
             '2G'
         )
@@ -462,10 +368,9 @@ class LocalDiskServiceTest(unittest.TestCase):
     def test__create_image(self):
         """Test image file creation.
         """
-        # Access to a protected member _create_image
         # pylint: disable=W0212
 
-        localdisk_service._create_image('foo', '/bar', '-2G')
+        localdiskutils.create_image('foo', '/bar', '-2G')
 
         treadmill.fs.mkdir_safe.assert_called_with('/bar')
         os.stat.assert_called_with('/bar/foo')

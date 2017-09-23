@@ -1,1 +1,1 @@
-{{ s6 }}\winss-log.exe
+{{ _alias.winss_log }} T n20 s1000000 .

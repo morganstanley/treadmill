@@ -1,6 +1,10 @@
+"""DNS resolution methods.
 """
-DNS resolution methods
-"""
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import collections
 import logging
@@ -114,7 +118,7 @@ def a(label, dns_server=None):
 
     :return: list of IPs
     """
-    return map(str, query(label, dns.rdatatype.A, dns_server))
+    return [str(rec) for rec in query(label, dns.rdatatype.A, dns_server)]
 
 
 def cname(label, dns_server=None):
@@ -128,7 +132,7 @@ def cname(label, dns_server=None):
 
     :return: a list of cnames
     """
-    return map(str, query(label, dns.rdatatype.CNAME, dns_server))
+    return [str(rec) for rec in query(label, dns.rdatatype.CNAME, dns_server)]
 
 
 def srv(label, dns_server=None):
@@ -175,12 +179,14 @@ def soa(label, dns_server=None):
 
 
 def ns(fqdn, dns_server=None):
-    """Resolve DNS zone."""
-    return map(str, query(fqdn, dns.rdatatype.NS, dns_server))
+    """Resolve DNS zone.
+    """
+    return [str(rec) for rec in query(fqdn, dns.rdatatype.NS, dns_server)]
 
 
 def srv_target_to_dict(srv_rec):
-    """Convert SRV record tuple to dict"""
+    """Convert SRV record tuple to dict.
+    """
     host, port, prio, weight = srv_rec
     return {'host': host,
             'port': port,
@@ -189,7 +195,8 @@ def srv_target_to_dict(srv_rec):
 
 
 def srv_rec_to_url(srv_rec, srv_name=None, protocol=None):
-    """Convert SRV record to URL"""
+    """Convert SRV record to URL.
+    """
     if not protocol:
         if srv_name:
             protocol, _rest = srv_name.split('.', 1)

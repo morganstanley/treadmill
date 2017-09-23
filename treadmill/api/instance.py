@@ -1,8 +1,12 @@
 """Implementation of instance API.
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import fnmatch
-import importlib
 import logging
 
 from treadmill import admin
@@ -12,6 +16,7 @@ from treadmill import exc
 from treadmill import master
 from treadmill import schema
 from treadmill import utils
+from treadmill import plugin_manager
 
 from treadmill.api import app
 
@@ -36,17 +41,44 @@ def _validate(rsrc):
             'disk size should be larger than or equal to 100M')
 
 
+def _check_required_attributes(configured):
+    """Check that all required attributes are populated."""
+    if 'proid' not in configured:
+        raise exc.TreadmillError(
+            'Missing required attribute: proid')
+
+    if 'environment' not in configured:
+        raise exc.TreadmillError(
+            'Missing required attribute: environment')
+
+
+def _set_defaults(configured, rsrc_id):
+    """Set defaults."""
+    if 'identity_group' not in configured:
+        configured['identity_group'] = None
+
+    if 'affinity' not in configured:
+        configured['affinity'] = '{0}.{1}'.format(*rsrc_id.split('.'))
+
+
+def _api_plugins(initialized):
+    """Return instance plugins."""
+    if initialized is not None:
+        return initialized
+
+    plugins_ns = 'treadmill.api.instance.plugins'
+    return [
+        plugin_manager.load(plugins_ns, name)
+        for name in context.GLOBAL.get('api.instance.plugins', [])
+    ]
+
+
 class API(object):
     """Treadmill Instance REST api."""
 
     def __init__(self):
 
-        instance_plugin = None
-        try:
-            instance_plugin = importlib.import_module(
-                'treadmill.plugins.api.instance')
-        except ImportError as err:
-            _LOGGER.info('Unable to load auth plugin: %s', err)
+        self.plugins = None
 
         def _list(match=None):
             """List configured instances."""
@@ -70,20 +102,25 @@ class API(object):
                 return inst
 
             inst['_id'] = rsrc_id
-            if instance_plugin:
-                return instance_plugin.remove_attributes(inst)
-            else:
-                return inst
+            self.plugins = _api_plugins(self.plugins)
+            for plugin in self.plugins:
+                inst = plugin.remove_attributes(inst)
+            return inst
 
         @schema.schema(
             {'$ref': 'app.json#/resource_id'},
             {'allOf': [{'$ref': 'instance.json#/resource'},
                        {'$ref': 'instance.json#/verbs/create'}]},
-            count={'type': 'integer', 'minimum': 1, 'maximum': 1000}
+            count={'type': 'integer', 'minimum': 1, 'maximum': 1000},
+            created_by={'anyOf': [
+                {'type': 'null'},
+                {'$ref': 'common.json#/user'},
+            ]}
         )
-        def create(rsrc_id, rsrc, count=1):
+        def create(rsrc_id, rsrc, count=1, created_by=None):
             """Create (configure) instance."""
-            _LOGGER.info('create: count = %s, %s %r', count, rsrc_id, rsrc)
+            _LOGGER.info('create: count = %s, %s %r, created_by = %s',
+                         count, rsrc_id, rsrc, created_by)
 
             admin_app = admin.Application(context.GLOBAL.ldap.conn)
             if not rsrc:
@@ -99,25 +136,16 @@ class API(object):
 
             _validate(configured)
 
-            if instance_plugin:
-                configured = instance_plugin.add_attributes(rsrc_id,
-                                                            configured)
+            self.plugins = _api_plugins(self.plugins)
+            for plugin in self.plugins:
+                configured = plugin.add_attributes(rsrc_id, configured)
 
-            if 'proid' not in configured:
-                raise exc.TreadmillError(
-                    'Missing required attribute: proid')
-            if 'environment' not in configured:
-                raise exc.TreadmillError(
-                    'Missing required attribute: environment')
+            _check_required_attributes(configured)
+            _set_defaults(configured, rsrc_id)
 
-            if 'identity_group' not in configured:
-                configured['identity_group'] = None
-
-            if 'affinity' not in configured:
-                configured['affinity'] = '{0}.{1}'.format(*rsrc_id.split('.'))
-
-            scheduled = master.create_apps(context.GLOBAL.zk.conn,
-                                           rsrc_id, configured, count)
+            scheduled = master.create_apps(
+                context.GLOBAL.zk.conn, rsrc_id, configured, count, created_by
+            )
             return scheduled
 
         @schema.schema(
@@ -133,12 +161,18 @@ class API(object):
             master.update_app_priorities(context.GLOBAL.zk.conn, delta)
             return master.get_app(context.GLOBAL.zk.conn, rsrc_id)
 
-        @schema.schema({'$ref': 'instance.json#/resource_id'})
-        def delete(rsrc_id):
+        @schema.schema(
+            {'$ref': 'instance.json#/resource_id'},
+            deleted_by={'anyOf': [
+                {'type': 'null'},
+                {'$ref': 'common.json#/user'},
+            ]}
+        )
+        def delete(rsrc_id, deleted_by=None):
             """Delete configured instance."""
-            _LOGGER.info('delete: %s', rsrc_id)
+            _LOGGER.info('delete: %s, deleted_by = %s', rsrc_id, deleted_by)
 
-            master.delete_apps(context.GLOBAL.zk.conn, [rsrc_id])
+            master.delete_apps(context.GLOBAL.zk.conn, [rsrc_id], deleted_by)
 
         self.list = _list
         self.get = get

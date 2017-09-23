@@ -1,0 +1,25 @@
+#!{{ _alias.execlineb }} -P
+
+{{ _alias.redirfd }} -r 0 /dev/null
+{{ _alias.fdmove }} -c 2 1
+
+{% if monitored -%}
+# Set to single execution so that we can enforce restart policies
+{{ _alias.if }} {
+    {{ _alias.s6_svc }} -O .
+}
+{%- endif %}
+{% if ionice_prio is defined -%}
+{{ _alias.ionice  }} -c 2 -n {{ ionice_prio }}
+{%- endif %}
+{% if environ_dir -%}
+{{ _alias.s6_envdir }} -i -- {{ environ_dir }}
+{%- endif %}
+{% if user and user != 'root' -%}
+{{ _alias.s6_setuidgid }} {{ user }}
+{%- endif %}
+{{ _alias.s6_envdir }} -i -- ./env
+
+# Change directory into the data directory and execute the app_start script
+{{ _alias.cd }} ./data
+{{ shell }} -l ./app_start

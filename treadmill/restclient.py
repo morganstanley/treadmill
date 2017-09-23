@@ -2,9 +2,12 @@
 
 This is meant to replace treadmill.http, as this uses outdated urlib.
 """
+from __future__ import absolute_import
+from __future__ import print_function
 
 import http.client
 import logging
+import re
 import time
 
 import requests
@@ -247,3 +250,20 @@ def configure(api, url, payload, headers=None, auth=_KERBEROS_AUTH,
     except NotFoundError:
         return post(api, url, payload, headers, auth, proxies, retries,
                     timeout)
+
+
+def handle_not_authorized(err):
+    """Handle REST NotAuthorizedExceptions"""
+    msg = str(err)
+    msgs = [re.sub(r'failure: ', '    ', line) for line in msg.split(r'\n')]
+    print('Not authorized: ', '\n'.join(msgs))
+
+
+CLI_REST_EXCEPTIONS = [
+    (NotFoundError, 'Resource not found'),
+    (AlreadyExistsError, 'Resource already exists'),
+    (ValidationError, None),
+    (NotAuthorizedError, handle_not_authorized),
+    (BadRequestError, None),
+    (MaxRequestRetriesError, None)
+]

@@ -12,11 +12,11 @@ from tests.testutils import mockzk
 
 import kazoo
 import mock
-import yaml
 
 import treadmill
 from treadmill import context
 from treadmill import eventmgr
+from treadmill import yamlwrapper as yaml
 
 
 class MockEvent(object):
@@ -201,7 +201,7 @@ class EventMgrTest(mockzk.MockZookeeperTestCase):
         self.assertTrue(os.path.exists(appcache))
 
         with open(appcache) as f:
-            data = yaml.load(f.read())
+            data = yaml.load(stream=f)
             self.assertEqual(data['identity'], 1)
 
 

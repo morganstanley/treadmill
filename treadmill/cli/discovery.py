@@ -1,6 +1,11 @@
 """Treadmill discovery CLI.
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import logging
 import socket
 import sys
@@ -68,7 +73,7 @@ def init():
             else:
                 output = instance
 
-            print(output)
+            cli.out(output)
             return True
 
         def on_error(result):

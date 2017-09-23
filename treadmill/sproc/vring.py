@@ -1,10 +1,18 @@
-"""Treadmill vring manager."""
+"""Treadmill vring manager.
+"""
 
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+from __future__ import absolute_import
+
+import io
 import signal
 import sys
 
 import logging
 import json
+import six
 
 import click
 
@@ -32,7 +40,7 @@ def init():
         """Run vring manager."""
         context.GLOBAL.zk.conn.add_listener(zkutils.exit_on_disconnect)
         tm_env = appenv.AppEnvironment(approot)
-        with open(manifest, 'rb') as fd:
+        with io.open(manifest, 'r') as fd:
             app = json.load(fd)
 
         with lc.LogContext(_LOGGER, app['name'], lc.ContainerAdapter) as log:
@@ -50,7 +58,7 @@ def init():
 
             rules = ring['rules']
             for rule in rules:
-                utils.validate(rule, [('pattern', True, str),
+                utils.validate(rule, [('pattern', True, six.string_types),
                                       ('endpoints', True, list)])
 
             # Create translation for endpoint name to expected port #.

@@ -1,8 +1,12 @@
-"""Treadmill REST APIs"""
+"""Treadmill REST APIs.
+"""
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import logging
-import importlib
 import pkgutil
 
 import flask
@@ -13,10 +17,11 @@ import flask
 import flask_restplus as restplus
 
 from treadmill import authz
-from treadmill.rest import error_handlers
 from treadmill import rest
 from treadmill import utils  # noqa: F401
+from treadmill import plugin_manager
 from treadmill import webutils
+from treadmill.rest import error_handlers
 
 
 __path__ = pkgutil.extend_path(__path__, __name__)
@@ -24,8 +29,8 @@ __path__ = pkgutil.extend_path(__path__, __name__)
 _LOGGER = logging.getLogger(__name__)
 
 
-def init(apis, title=None, cors_origin=None, authz_arg=None):
-    """Module initialization."""
+def base_api(title=None, cors_origin=None):
+    """Create base_api object"""
 
     blueprint = flask.Blueprint('v1', __name__)
 
@@ -36,12 +41,8 @@ def init(apis, title=None, cors_origin=None, authz_arg=None):
     error_handlers.register(api)
 
     # load up any external error_handlers
-    try:
-        err_handlers_plugin = importlib.import_module(
-            'treadmill.plugins.rest.error_handlers')
-        err_handlers_plugin.init(api)
-    except ImportError as err:
-        _LOGGER.warn('Unable to load error_handlers plugin: %s', err)
+    for module in plugin_manager.load_all('treadmill.rest.error_handlers'):
+        module.init(api)
 
     @blueprint.route('/docs/', endpoint='docs')
     def _swagger_ui():
@@ -54,6 +55,12 @@ def init(apis, title=None, cors_origin=None, authz_arg=None):
     cors = webutils.cors(origin=cors_origin,
                          content_type='application/json',
                          credentials=True)
+
+    @rest.FLASK_APP.before_request
+    def _before_request_user_handler():
+        user = flask.request.environ.get('REMOTE_USER')
+        if user:
+            flask.g.user = user
 
     @rest.FLASK_APP.after_request
     def _after_request_cors_handler(response):
@@ -74,30 +81,37 @@ def init(apis, title=None, cors_origin=None, authz_arg=None):
         response = options_cors(_noop_options)()
         return response
 
+    return (api, cors)
+
+
+def get_authorizer(authz_arg=None):
+    """Get authozrizer by argujents"""
+
     def user_clbk():
         """Get current user from the request."""
-        return flask.request.environ.get('REMOTE_USER')
+        return flask.g.get('user')
 
     if authz_arg is None:
         authorizer = authz.NullAuthorizer()
     else:
         authorizer = authz.ClientAuthorizer(user_clbk, authz_arg)
+    return authorizer
+
+
+def init(apis, title=None, cors_origin=None, authz_arg=None):
+    """Module initialization."""
+    (api, cors) = base_api(title, cors_origin)
 
     endpoints = []
     for apiname in apis:
         try:
-            apimod = apiname.replace('-', '_')
-            _LOGGER.info('Loading api: %s', apimod)
+            _LOGGER.info('Loading api: %s', apiname)
 
-            api_restmod = importlib.import_module(
-                '.'.join(['treadmill', 'rest', 'api', apimod])
-            )
-            api_implmod = importlib.import_module(
-                '.'.join(['treadmill', 'api', apimod])
-            )
+            api_impl = plugin_manager.load(
+                'treadmill.api', apiname).init(get_authorizer(authz_arg))
+            endpoint = plugin_manager.load(
+                'treadmill.rest.api', apiname).init(api, cors, api_impl)
 
-            api_impl = api_implmod.init(authorizer)
-            endpoint = api_restmod.init(api, cors, api_impl)
             if endpoint is None:
                 endpoint = apiname.replace('_', '-').replace('.', '/')
             if not endpoint.startswith('/'):
@@ -106,6 +120,6 @@ def init(apis, title=None, cors_origin=None, authz_arg=None):
             endpoints.append(endpoint)
 
         except ImportError as err:
-            _LOGGER.warn('Unable to load %s api: %s', apimod, err)
+            _LOGGER.warning('Unable to load %s api: %s', apiname, err)
 
     return endpoints

@@ -1,5 +1,4 @@
-"""
-Unit test for endpoint websocket API.
+"""Unit test for endpoint websocket API.
 """
 
 import unittest

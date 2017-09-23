@@ -10,13 +10,17 @@ class Feature(object):
     """A manifest feature."""
 
     @abc.abstractmethod
-    def applies(self, manifest):
+    def applies(self, manifest, runtime):
         """Configures the manifest with the feature.
 
         :param manifest:
             The Treadmill application manifest
         :type manifest:
             ``dict``
+        :param runtime:
+            The Treadmill runtime in effect
+        :type runtime:
+            ``str``
         :return:
             ``True`` if the given manifest applies
         """

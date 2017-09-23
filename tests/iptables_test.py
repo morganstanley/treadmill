@@ -1,12 +1,16 @@
-"""
-Unit test for iptables - manipulating iptables rules.
+"""Unit test for iptables - manipulating iptables rules.
 """
 
 import os
-import subprocess
 import unittest
 
 import mock
+import six
+
+if six.PY2 and os.name == 'posix':
+    import subprocess32 as subprocess
+else:
+    import subprocess  # pylint: disable=wrong-import-order
 
 import treadmill
 from treadmill import firewall
@@ -78,8 +82,8 @@ class IptablesTest(unittest.TestCase):
     @mock.patch('treadmill.iptables._iptables_restore', mock.Mock())
     def test_initialize(self):
         """Test iptables initialization"""
-        # Disable W0212: Test access protected members of admin module.
-        # pylint: disable=W0212
+        # Disable protected-access: Test access protected members .
+        # pylint: disable=protected-access
         treadmill.iptables._iptables_restore.side_effect = [
             None,
             subprocess.CalledProcessError(2, 'failed'),
@@ -103,8 +107,8 @@ class IptablesTest(unittest.TestCase):
     @mock.patch('treadmill.subproc.invoke', mock.Mock(return_value=(0, '')))
     def test_iptables_restore(self):
         """Test iptables-restore util"""
-        # Disable W0212: Test access protected members of admin module.
-        # pylint: disable=W0212
+        # Disable protected-access: Test access protected members .
+        # pylint: disable=protected-access
         iptables._iptables_restore('firewall_state', noflush=True)
 
         treadmill.subproc.invoke.assert_called_with(
@@ -259,8 +263,8 @@ class IptablesTest(unittest.TestCase):
                 mock.Mock(return_value=False))
     def test_add_mark_rule(self):
         """Test mark rule addition"""
-        # Disable W0212: Test access protected members of admin module.
-        # pylint: disable=W0212
+        # Disable protected-access: Test access protected members .
+        # pylint: disable=protected-access
         # Called with the NONPROD interface
         iptables.add_mark_rule('2.2.2.2', 'dev')
 
@@ -297,8 +301,8 @@ class IptablesTest(unittest.TestCase):
     @mock.patch('treadmill.iptables.rm_ip_set', mock.Mock())
     def test_delete_mark_rule(self):
         """Test mark rule deletion."""
-        # Disable W0212: Test access protected members of admin module.
-        # pylint: disable=W0212
+        # Disable protected-access: Test access protected members .
+        # pylint: disable=protected-access
 
         # Called with the NONPROD interface
         iptables.delete_mark_rule('2.2.2.2', 'dev')
@@ -321,8 +325,8 @@ class IptablesTest(unittest.TestCase):
     def test_dnat_up_to_date(self):
         """Tests DNAT setup when configuration is up to date.
         """
-        # Disable W0212: Test access protected members.
-        # pylint: disable=W0212
+        # Disable protected-access: Test access protected members.
+        # pylint: disable=protected-access
         treadmill.iptables._get_current_dnat_rules.return_value = \
             self.dnat_rules
 
@@ -340,8 +344,8 @@ class IptablesTest(unittest.TestCase):
     def test_dnat_missing_rule(self):
         """Tests DNAT setup when new rule needs to be created.
         """
-        # Disable W0212: Test access protected members.
-        # pylint: disable=W0212
+        # Disable protected-access: Test access protected members.
+        # pylint: disable=protected-access
         treadmill.iptables._get_current_dnat_rules.return_value = \
             self.dnat_rules
         desired_rules = (
@@ -371,8 +375,8 @@ class IptablesTest(unittest.TestCase):
     @mock.patch('treadmill.iptables._get_current_dnat_rules', mock.Mock())
     def test_dnat_extra_rule(self):
         """Tests DNAT setup when rule needs to be removed."""
-        # Disable W0212: Test access protected members.
-        # pylint: disable=W0212
+        # Disable protected-access: Test access protected members.
+        # pylint: disable=protected-access
         treadmill.iptables._get_current_dnat_rules.return_value = (
             self.dnat_rules |
             set([
@@ -401,8 +405,8 @@ class IptablesTest(unittest.TestCase):
     @mock.patch('treadmill.subproc.check_output', mock.Mock())
     def test__get_current_dnat_rules(self):
         """Test query DNAT/SNAT rules."""
-        # Disable W0212: Test access protected members.
-        # pylint: disable=W0212
+        # Disable protected-access: Test access protected members.
+        # pylint: disable=protected-access
         treadmill.subproc.check_output.return_value = \
             open(self.NAT_TABLE_SAVE).read()
 
@@ -420,8 +424,8 @@ class IptablesTest(unittest.TestCase):
     def test_snat_up_to_date(self):
         """Tests SNAT setup when configuration is up to date.
         """
-        # Disable W0212: Test access protected members.
-        # pylint: disable=W0212
+        # Disable protected-access: Test access protected members.
+        # pylint: disable=protected-access
         treadmill.iptables._get_current_snat_rules.return_value = \
             self.snat_rules
 
@@ -439,8 +443,8 @@ class IptablesTest(unittest.TestCase):
     def test_snat_missing_rule(self):
         """Tests DNAT setup when new rule needs to be created.
         """
-        # Disable W0212: Test access protected members.
-        # pylint: disable=W0212
+        # Disable protected-access: Test access protected members.
+        # pylint: disable=protected-access
         treadmill.iptables._get_current_snat_rules.return_value = \
             self.snat_rules
         desired_rules = (
@@ -471,8 +475,8 @@ class IptablesTest(unittest.TestCase):
     def test_snat_extra_rule(self):
         """Tests SNAT setup when rule needs to be removed.
         """
-        # Disable W0212: Test access protected members.
-        # pylint: disable=W0212
+        # Disable protected-access: Test access protected members.
+        # pylint: disable=protected-access
         treadmill.iptables._get_current_snat_rules.return_value = (
             self.snat_rules |
             set([
@@ -501,8 +505,8 @@ class IptablesTest(unittest.TestCase):
     @mock.patch('treadmill.subproc.check_output', mock.Mock())
     def test__get_current_snat_rules(self):
         """Test query DNAT/SNAT rules."""
-        # Disable W0212: Test access protected members.
-        # pylint: disable=W0212
+        # Disable protected-access: Test access protected members.
+        # pylint: disable=protected-access
         treadmill.subproc.check_output.return_value = \
             open(self.NAT_TABLE_SAVE).read()
 
@@ -561,8 +565,8 @@ class IptablesTest(unittest.TestCase):
                 mock.Mock())
     def test_passthrough_up_to_date(self):
         """Tests PassThrough setup when configuration is up to date."""
-        # Disable W0212: Test access protected members.
-        # pylint: disable=W0212
+        # Disable protected-access: Test access protected members.
+        # pylint: disable=protected-access
         treadmill.iptables._get_current_passthrough_rules.return_value = \
             self.passthrough_rules
         passthroughs = self.passthrough_rules
@@ -585,8 +589,8 @@ class IptablesTest(unittest.TestCase):
                 mock.Mock())
     def test_passthrough_missing_rule(self):
         """Tests PassThrough setup when new rule needs to be created."""
-        # Disable W0212: Test access protected members.
-        # pylint: disable=W0212
+        # Disable protected-access: Test access protected members.
+        # pylint: disable=protected-access
         treadmill.iptables._get_current_passthrough_rules.return_value = \
             self.passthrough_rules
         missing_rule = firewall.PassThroughRule(src_ip='10.197.19.20',
@@ -612,8 +616,8 @@ class IptablesTest(unittest.TestCase):
                 mock.Mock())
     def test_passthrough_extra_rule(self):
         """Tests PassThrough setup when rule needs to be removed."""
-        # Disable W0212: Test access protected members.
-        # pylint: disable=W0212
+        # Disable protected-access: Test access protected members.
+        # pylint: disable=protected-access
         treadmill.iptables._get_current_passthrough_rules.return_value = \
             self.passthrough_rules
         extra_rule = firewall.PassThroughRule(src_ip='10.197.19.19',
@@ -660,8 +664,8 @@ class IptablesTest(unittest.TestCase):
     @mock.patch('treadmill.subproc.check_output', mock.Mock())
     def test__get_current_pt_rules(self):
         """Test query passthrough rules."""
-        # Disable W0212: Test access protected members.
-        # pylint: disable=W0212
+        # Disable protected-access: Test access protected members.
+        # pylint: disable=protected-access
         treadmill.subproc.check_output.return_value = \
             open(self.NAT_TABLE_SAVE).read()
 
@@ -738,33 +742,77 @@ class IptablesTest(unittest.TestCase):
     @mock.patch('treadmill.subproc.invoke', mock.Mock(return_value=(0, '')))
     def test_ipset(self):
         """Test ipset tool invocation"""
-        # Disable W0212: Test access protected members of admin module.
-        # pylint: disable=W0212
-        iptables._ipset('foo', 'bar', cmd_input='test')
+        # Disable protected-access: Test access protected members .
+        # pylint: disable=protected-access
+
+        treadmill.subproc.invoke.return_value = (123, "test data")
+
+        res = iptables._ipset('foo', 'bar', cmd_input='test')
 
         treadmill.subproc.invoke.assert_called_with(
-            ['ipset', '-exist', 'foo', 'bar'],
+            ['ipset', 'foo', 'bar'],
+
             cmd_input='test',
-            use_except=True)
+            use_except=True
+        )
+        self.assertEqual(
+            res,
+            (123, "test data")
+        )
+
+    @mock.patch('treadmill.iptables._ipset', mock.Mock())
+    def test_list_set(self):
+        """Test listing set membership.
+        """
+        # Disable protected-access: Test access protected members .
+        # pylint: disable=protected-access
+        iptables._ipset.return_value = (
+            42,
+            """
+<ipset name="tm:prod-containers">
+  <type>hash:ip</type>
+  <header>
+    <family>inet</family>
+    <hashsize>1024</hashsize>
+    <maxelem>65536</maxelem>
+    <memsize>16520</memsize>
+    <references>3</references>
+  </header>
+  <members>
+    <member>192.168.0.2</member>
+    <member>192.168.0.7</member>
+  </members>
+</ipset>
+            """
+        )
+
+        res = iptables.list_set('tm:prod-containers')
+        iptables._ipset.assert_called_with(
+            'list', '-o', 'xml', 'tm:prod-containers'
+        )
+        self.assertAlmostEqual(
+            res,
+            ['192.168.0.2', '192.168.0.7']
+        )
 
     @mock.patch('treadmill.iptables._ipset', mock.Mock())
     def test_init_set(self):
         """Test set initialization"""
-        # Disable W0212: Test access protected members of admin module.
-        # pylint: disable=W0212
+        # Disable protected-access: Test access protected members .
+        # pylint: disable=protected-access
         iptables.init_set('foo')
 
         treadmill.iptables._ipset.assert_has_calls([
-            mock.call('create', 'foo', 'hash:ip'),
+            mock.call('-exist', 'create', 'foo', 'hash:ip'),
             mock.call('flush', 'foo'),
         ])
 
     @mock.patch('treadmill.iptables._ipset', mock.Mock())
     def test_test_ip_set(self):
         """Test testing of IP in a given set"""
-        # Disable W0212: Test access protected members of admin module.
-        # pylint: disable=W0212
-        iptables._ipset.return_value = 42
+        # Disable protected-access: Test access protected members .
+        # pylint: disable=protected-access
+        iptables._ipset.return_value = (42, "foo")
 
         res = iptables.test_ip_set('foo', '1.2.3.4')
 
@@ -774,7 +822,7 @@ class IptablesTest(unittest.TestCase):
         self.assertFalse(res)
         # Try with success now
         iptables._ipset.reset_mock()
-        iptables._ipset.return_value = 0
+        iptables._ipset.return_value = (0, "bar")
 
         res = iptables.test_ip_set('foo', '1.2.3.4')
         self.assertTrue(res)
@@ -782,34 +830,34 @@ class IptablesTest(unittest.TestCase):
     @mock.patch('treadmill.iptables._ipset', mock.Mock())
     def test_add_ip_set(self):
         """Test addition of IP to a given set"""
-        # Disable W0212: Test access protected members of admin module.
-        # pylint: disable=W0212
+        # Disable protected-access: Test access protected members .
+        # pylint: disable=protected-access
         iptables.add_ip_set('foo', '1.2.3.4')
 
         treadmill.iptables._ipset.assert_called_with(
-            'add', 'foo', '1.2.3.4'
+            '-exist', 'add', 'foo', '1.2.3.4'
         )
 
     @mock.patch('treadmill.iptables._ipset', mock.Mock())
     def test_rm_ip_set(self):
         """Test removal of IP from a given set"""
-        # Disable W0212: Test access protected members of admin module.
-        # pylint: disable=W0212
+        # Disable protected-access: Test access protected members .
+        # pylint: disable=protected-access
         iptables.rm_ip_set('foo', '1.2.3.4')
 
         treadmill.iptables._ipset.assert_called_with(
-            'del', 'foo', '1.2.3.4'
+            '-exist', 'del', 'foo', '1.2.3.4'
         )
 
     @mock.patch('treadmill.iptables._ipset', mock.Mock())
     def test_ipset_restore(self):
         """Test the state restore functionality of IPSet"""
-        # Disable W0212: Test access protected members of admin module.
-        # pylint: disable=W0212
+        # Disable protected-access: Test access protected members .
+        # pylint: disable=protected-access
         iptables.ipset_restore('Initial IPSet state')
 
         treadmill.iptables._ipset.assert_called_with(
-            'restore', cmd_input='Initial IPSet state'
+            '-exist', 'restore', cmd_input='Initial IPSet state'
         )
 
 

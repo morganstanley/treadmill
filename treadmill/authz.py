@@ -1,5 +1,5 @@
-"""Authorization for Treadmill API."""
-
+"""Authorization for Treadmill API.
+"""
 
 import logging
 

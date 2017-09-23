@@ -1,6 +1,11 @@
 """Syncronizes cell Zookeeper with LDAP data.
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import collections
 import itertools
 import logging
@@ -9,13 +14,18 @@ import time
 
 import click
 import ldap3
-import yaml
 
+import six
+
+from treadmill import authz
 from treadmill import context
 from treadmill import exc
-from treadmill import authz
-from treadmill import zkutils
+from treadmill import utils
+from treadmill import yamlwrapper as yaml
 from treadmill import zknamespace as z
+from treadmill import zkutils
+from treadmill import zkwatchers
+
 from treadmill.api import instance
 
 
@@ -27,6 +37,9 @@ _INTERVAL = float(60 * 60)
 
 def reevaluate(instance_api, state):
     """Evaluate state and adjust app count based on monitor"""
+    # Disable too many branches warning.
+    #
+    # pylint: disable=R0912
 
     grouped = dict(state['scheduled'])
     monitors = dict(state['monitors'])
@@ -59,26 +72,31 @@ def reevaluate(instance_api, state):
 
         elif count > current_count:
             needed = count - current_count
-            allowed = min(needed, math.floor(available))
+            allowed = int(min(needed, math.floor(available)))
             if allowed <= 0:
                 continue
 
             try:
-                instance_api.create(name, {}, count=allowed)
+                _scheduled = instance_api.create(
+                    name, {}, count=allowed, created_by='monitor'
+                )
                 conf['available'] -= allowed
+
+            except exc.TreadmillError as tm_err:
+                _LOGGER.warning('Invalid manifest: %s, %s', name, str(tm_err))
 
             except ldap3.LDAPNoSuchObjectResult:
                 # TODO: may need to rationalize this and not expose low
                 #       level ldap exception from admin.py, and rather
                 #       return None for non-existing entities.
-                _LOGGER.warn('Application not configured: %s', name)
+                _LOGGER.warning('Application not configured: %s', name)
             except ldap3.LDAPMaximumRetriesError:
                 # In case of LDAP connection error, there is no reason to
                 # continue the loop, exit right away.
                 #
                 # Returning False will stop the main loop.
-                _LOGGER.warn('Unable to connect to LDAP.',
-                             exception=True)
+                _LOGGER.warning('Unable to connect to LDAP.',
+                                exception=True)
                 return False
             except Exception:  # pylint: disable=W0703
                 _LOGGER.exception('Unable to create instances: %s: %s',
@@ -92,7 +110,7 @@ def reevaluate(instance_api, state):
         elif count < current_count:
             for extra in grouped[name][:current_count - count]:
                 try:
-                    instance_api.delete(extra)
+                    instance_api.delete(extra, deleted_by='monitor')
                 except Exception:  # pylint: disable=W0703
                     _LOGGER.exception('Unable to delete instance: %r', extra)
 
@@ -111,7 +129,7 @@ def _run_sync():
     }
 
     @zkclient.ChildrenWatch(z.path.scheduled())
-    @exc.exit_on_unhandled
+    @utils.exit_on_unhandled
     def _scheduled_watch(children):
         """Watch scheduled instances."""
         scheduled = sorted(children)
@@ -132,19 +150,19 @@ def _run_sync():
         """Watch monitor."""
 
         # Establish data watch on each monitor.
-        @zkclient.DataWatch(z.path.appmonitor(name))
-        @exc.exit_on_unhandled
-        def _monitor_data_watch(data, _stat, event):
+        @zkwatchers.ExistingDataWatch(zkclient, z.path.appmonitor(name))
+        @utils.exit_on_unhandled
+        def _monitor_data_watch(data, stat, event):
             """Monitor individual monitor."""
-            if (event and event.type == 'DELETED') or (data is None):
-                _LOGGER.info('Removing watch on deleted monitor: %r', name)
-                return False
+            if (event is not None and event.type == 'DELETED') or stat is None:
+                _LOGGER.info('Removing watch on deleted monitor: %s', name)
+                return
 
             try:
                 count = yaml.load(data)['count']
             except Exception:  # pylint: disable=W0703
-                _LOGGER.exception('Invalid monitor: %r', name)
-                return False
+                _LOGGER.exception('Invalid monitor: %s', name)
+                return
 
             _LOGGER.info('Reconfigure monitor: %s, count: %s', name, count)
             state['monitors'][name] = {
@@ -153,21 +171,22 @@ def _run_sync():
                 'last_update': time.time(),
                 'rate': (2.0 * count / _INTERVAL)
             }
-            return True
 
     @zkclient.ChildrenWatch(z.path.appmonitor())
-    @exc.exit_on_unhandled
+    @utils.exit_on_unhandled
     def _appmonitors_watch(children):
         """Watch app monitors."""
 
         monitors = set(children)
-        extra = state['monitors'].keys() - monitors
+        extra = six.viewkeys(state['monitors']) - monitors
         for name in extra:
             _LOGGER.info('Removing extra monitor: %r', name)
             if state['monitors'].pop(name, None) is None:
-                _LOGGER.warn('Failed to remove non-existent monitor: %r', name)
+                _LOGGER.warning(
+                    'Failed to remove non-existent monitor: %r', name
+                )
 
-        missing = monitors - state['monitors'].keys()
+        missing = monitors - six.viewkeys(state['monitors'])
 
         for name in missing:
             _LOGGER.info('Adding missing monitor: %s', name)

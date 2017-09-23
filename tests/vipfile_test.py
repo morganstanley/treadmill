@@ -1,11 +1,19 @@
-"""Unit test for vipfile - rule manager.
+"""Unit test for vipfile.
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
+import io
 import os
 import shutil
 import tempfile
 import threading
 import unittest
+
+import six
 
 from treadmill import vipfile
 
@@ -18,8 +26,8 @@ class VipFileTest(unittest.TestCase):
         self.vips_dir = os.path.join(self.root, 'vips')
         owner_dirs = os.path.join(self.root, 'owners')
         os.mkdir(owner_dirs)
-        for owner in range(0, 15):
-            with open(os.path.join(owner_dirs, str(owner)), 'w'):
+        for owner in six.moves.range(0, 15):
+            with io.open(os.path.join(owner_dirs, str(owner)), 'w'):
                 pass
         self.vips = vipfile.VipMgr(self.vips_dir, owner_dirs)
 

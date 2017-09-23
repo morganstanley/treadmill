@@ -8,10 +8,14 @@ connect to PROD containers. It is refreshed every 12 hours from a TAI data
 warehouse dump.
 
 The SET_TM_NODES is the list of know Treadmill node IPs (across cells in the
-same environment). It is refresh everytime the `/global/servers` list is
+same environment). It is refresh everytime the `/globals/servers` list is
 updated in Zookeeper.
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import functools
 import logging
@@ -20,20 +24,19 @@ import socket
 import time
 
 import click
-import yaml
 
 # TODO: now that modules are split in two directories, pylint
 #                complaines about core module not found.
 # pylint: disable=E0611
-from .. import context
-from .. import exc
-from .. import firewall as fw
-from .. import dirwatch
-from .. import iptables
-from .. import rulefile
-from .. import utils
-from .. import watchdog
-
+from treadmill import context
+from treadmill import firewall as fw
+from treadmill import dirwatch
+from treadmill import iptables
+from treadmill import rulefile
+from treadmill import utils
+from treadmill import watchdog
+from treadmill import yamlwrapper as yaml
+from treadmill import zknamespace as z
 
 # R0915: Need to refactor long function into smaller pieces.
 #
@@ -47,9 +50,8 @@ _DEFAULT_WATCHDOR_DIR = 'watchdogs'
 _FW_WATCHER_HEARTBEAT = 60
 
 
-@exc.exit_on_unhandled
 def _update_nodes_change(data):
-    """Update local Treadmill Nodes IP IPSet when the global server list gets
+    """Update local Treadmill Nodes IP IPSet when the globals server list gets
     updated."""
     servers = yaml.load(data)
 
@@ -83,6 +85,18 @@ def _update_nodes_change(data):
     finally:
         # Destroy the temporary IPSet set
         iptables.destroy_set(new_set)
+
+
+def _init_rules():
+    """Initialization of all chains and sets used by the fw service.
+    """
+    for chain in (iptables.PREROUTING_DNAT, iptables.POSTROUTING_SNAT,
+                  iptables.PREROUTING_PASSTHROUGH,
+                  iptables.VRING_DNAT, iptables.VRING_SNAT):
+        iptables.create_chain('nat', chain)
+
+    iptables.init_set(iptables.SET_PASSTHROUGHS,
+                      family='inet', hashsize=1024, maxelem=65536)
 
 
 def _configure_rules(target):
@@ -124,9 +138,6 @@ def _configure_rules(target):
                 chain=iptables.VRING_SNAT
             ),
     }
-    for chain in chain_configure_callbacks:
-        iptables.create_chain('nat', chain)
-
     chain_rules = {}
     for chain, rule in target:
         chain_rules.setdefault(chain, set()).add(rule)
@@ -205,16 +216,19 @@ def _watcher(root_dir, rules_dir, containers_dir, watchdogs_dir):
         else:
             _LOGGER.warning('Ignoring unparseable file %r', rule_file)
 
-    _LOGGER.info('Monitoring dnat changes in %r', rulemgr.path)
+    _LOGGER.info('Monitoring fw rules changes in %r', rulemgr.path)
     watch = dirwatch.DirWatcher(rulemgr.path)
     watch.on_created = on_created
     watch.on_deleted = on_deleted
 
+    # Minimal initialization of the all chains and sets
+    _init_rules()
+
     # now that we are watching, prime the rules
     current_rules = rulemgr.get_rules()
+
     # Bulk apply rules
     _configure_rules(current_rules)
-
     for _chain, rule in current_rules:
         if isinstance(rule, fw.PassThroughRule):
             passthrough[rule.src_ip] = (
@@ -261,9 +275,10 @@ def init():
         list is updated in Zookeeper.
         """
 
-        @context.GLOBAL.zk.conn.DataWatch('/global/servers')
+        @context.GLOBAL.zk.conn.DataWatch(z.path.globals('servers'))
+        @utils.exit_on_unhandled
         def _update_global_servers(data, _stat, event):
-            """Handle '/global/servers' data node updates."""
+            """Handle globals servers data node updates."""
             if (data is None or
                     (event is not None and event.type == 'DELETED')):
                 # Node doesn't exists / removed

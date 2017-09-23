@@ -1,6 +1,11 @@
 """Treadmill cron REST api.
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import flask
 import flask_restplus as restplus
 
@@ -37,15 +42,34 @@ def init(api, cors, impl):
         action=fields.String(description='Action'),
         next_run_time=fields.DateTime(description='Next run time'),
         timezone=fields.String(description='Timezone'),
+        event=fields.String(description='Event type', enum=[
+            'app', 'monitor'
+        ]),
     )
 
     resp_model = api.model(
         'CronResponse', cron_resp_model,
     )
 
-    match_parser = api.parser()
-    match_parser.add_argument('match', help='A glob match on an cron name',
-                              location='args', required=False,)
+    match_resource_parser = api.parser()
+    match_resource_parser.add_argument(
+        'match', help='A glob match on a job ID',
+        location='args', required=False, default=None
+    )
+    match_resource_parser.add_argument(
+        'resource', help='A glob match on a cron resource name',
+        location='args', required=False, default=None
+    )
+
+    resume_pause_parser = api.parser()
+    resume_pause_parser.add_argument(
+        'resume', help='Resume a job ID',
+        location='args', required=False, type=bool, default=False,
+    )
+    resume_pause_parser.add_argument(
+        'pause', help='Pause a job ID',
+        location='args', required=False, type=bool, default=False,
+    )
 
     @namespace.route(
         '/',
@@ -56,11 +80,11 @@ def init(api, cors, impl):
         @webutils.get_api(api, cors,
                           marshal=api.marshal_list_with,
                           resp_model=resp_model,
-                          parser=match_parser)
+                          parser=match_resource_parser)
         def get(self):
             """Returns list of configured cron."""
-            args = match_parser.parse_args()
-            return impl.list(args.get('match'))
+            args = match_resource_parser.parse_args()
+            return impl.list(**args)
 
     @namespace.route('/<job_id>')
     @api.doc(params={'job_id': 'Cron ID/Name'})
@@ -83,10 +107,12 @@ def init(api, cors, impl):
 
         @webutils.put_api(api, cors,
                           req_model=req_model,
-                          resp_model=resp_model)
+                          resp_model=resp_model,
+                          parser=resume_pause_parser)
         def put(self, job_id):
             """Updates Treadmill cron configuration."""
-            return impl.update(job_id, flask.request.json)
+            args = resume_pause_parser.parse_args()
+            return impl.update(job_id, flask.request.json, **args)
 
         @webutils.delete_api(api, cors)
         def delete(self, job_id):

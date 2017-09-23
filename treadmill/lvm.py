@@ -31,6 +31,20 @@ def pvcreate(device):
 
 
 ###############################################################################
+def pvremove(device):
+    """Remove LVM physical volume.
+    """
+    return subproc.check_call(
+        [
+            'lvm',
+            'pvremove',
+            '--force',
+            device,
+        ]
+    )
+
+
+###############################################################################
 def pvdisplay():
     """Gather LVM physical volume information.
     """

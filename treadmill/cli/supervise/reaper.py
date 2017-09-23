@@ -1,10 +1,14 @@
-"""Runs healthcheck and reaps instances that are unhealthy."""
+"""Runs healthcheck and reaps instances that are unhealthy.
+"""
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import collections
 import logging
 import os
-import subprocess
 import time
 import urllib.request
 import urllib.parse
@@ -12,6 +16,12 @@ import urllib.error
 
 
 import click
+import six
+
+if six.PY2 and os.name == 'posix':
+    import subprocess32 as subprocess  # pylint: disable=E0401
+else:
+    import subprocess  # pylint: disable=wrong-import-order
 
 from treadmill import cli
 from treadmill import context
@@ -55,8 +65,8 @@ def _health_check(pattern, proto, endpoint, command):
                 _LOGGER.info('not ok: %s', instance)
                 bad.append(instance)
         else:
-            _LOGGER.warn('Health check ignored. %r, rc: %s.',
-                         command, retcode)
+            _LOGGER.warning('Health check ignored. %r, rc: %s.',
+                            command, retcode)
     except Exception:  # pylint: disable=W0703
         _LOGGER.exception('Error invoking: %r', command)
 

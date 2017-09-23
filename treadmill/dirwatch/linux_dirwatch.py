@@ -1,4 +1,5 @@
-"""Implements directory watcher using inofify."""
+"""Implements directory watcher using inofify.
+"""
 
 import errno
 import logging

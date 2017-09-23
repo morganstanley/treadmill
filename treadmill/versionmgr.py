@@ -1,5 +1,5 @@
-"""Helper tools to manage Treadmill versions."""
-
+"""Helper tools to manage Treadmill versions.
+"""
 
 import hashlib
 import logging

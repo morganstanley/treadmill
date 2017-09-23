@@ -1,7 +1,12 @@
 """Master CLI plugin.
 """
 
-# pylint: disable=C0103
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
+from __future__ import unicode_literals
+
+import logging
 
 import click
 import kazoo
@@ -15,6 +20,26 @@ from treadmill import scheduler as treadmill_sched
 from treadmill import reports
 
 
+_LOGGER = logging.getLogger(__name__)
+
+
+def make_readonly_master(run_scheduler=False):
+    """Prepare a readonly master."""
+    treadmill_sched.DIMENSION_COUNT = 3
+
+    cell_master = master.Master(
+        context.GLOBAL.zk.conn,
+        context.GLOBAL.cell,
+        readonly=True
+    )
+    cell_master.load_model()
+
+    if run_scheduler:
+        cell_master.cell.schedule()
+
+    return cell_master
+
+
 def view_group(parent):
     """Scheduler CLI group."""
     # Disable too many branches warning.
@@ -26,10 +51,12 @@ def view_group(parent):
         (context.ContextError, None),
     ])
 
-    do_reschedule = set()
+    ctx = {
+        'run_scheduler': False
+    }
 
     def _print_frame(output):
-        """Prints dataframe."""
+        """Print dataframe."""
         pd.set_option('display.max_rows', None)
         if output is not None and len(output):
             if cli.OUTPUT_FORMAT == 'csv':
@@ -38,40 +65,21 @@ def view_group(parent):
                 pd.set_option('expand_frame_repr', False)
                 print(output)
 
-    def _load():
-        """Load cell information."""
-        treadmill_sched.DIMENSION_COUNT = 3
-        cell_master = master.Master(context.GLOBAL.zk.conn,
-                                    context.GLOBAL.cell)
-        cell_master.load_buckets()
-        cell_master.load_cell()
-        cell_master.load_servers(readonly=True)
-        cell_master.load_allocations()
-        cell_master.load_strategies()
-        cell_master.load_apps()
-        cell_master.load_identity_groups()
-        cell_master.load_placement_data()
-
-        if do_reschedule:
-            cell_master.cell.schedule()
-
-        return cell_master
-
     @parent.group()
     @click.option('--reschedule', is_flag=True, default=False)
     @on_exceptions
     def view(reschedule):
         """Examine scheduler state."""
-        if reschedule:
-            do_reschedule.add(1)
+        ctx['run_scheduler'] = reschedule
 
     @view.command()
     @click.option('--features/--no-features', is_flag=True, default=False)
     @on_exceptions
     def servers(features):
         """View servers report"""
-        cell_master = _load()
+        cell_master = make_readonly_master(ctx['run_scheduler'])
         output = reports.servers(cell_master.cell)
+        output['valid_until'] = pd.to_datetime(output['valid_until'], unit='s')
         if features:
             feature_report = reports.node_features(cell_master.cell)
             _print_frame(pd.concat([output, feature_report], axis=1))
@@ -82,15 +90,24 @@ def view_group(parent):
     @on_exceptions
     def apps():
         """View apps report"""
-        cell_master = _load()
+        cell_master = make_readonly_master(ctx['run_scheduler'])
         output = reports.apps(cell_master.cell)
-        _print_frame(output)
+        # Replace integer N/As
+        for col in ['identity', 'expires', 'lease', 'data_retention']:
+            output.loc[output[col] == -1, col] = ''
+        # Convert to datetimes
+        for col in ['expires']:
+            output[col] = pd.to_datetime(output[col], unit='s')
+        # Convert to timedeltas
+        for col in ['lease', 'data_retention']:
+            output[col] = pd.to_timedelta(output[col], unit='s')
+        _print_frame(output.fillna(''))
 
     @view.command()
     @on_exceptions
     def allocs():
         """View allocation report"""
-        cell_master = _load()
+        cell_master = make_readonly_master(ctx['run_scheduler'])
         allocs = reports.allocations(cell_master.cell)
         _print_frame(allocs)
 
@@ -98,15 +115,80 @@ def view_group(parent):
     @on_exceptions
     def queue():
         """View utilization queue"""
-        cell_master = _load()
+        cell_master = make_readonly_master(ctx['run_scheduler'])
         apps = reports.apps(cell_master.cell)
         output = reports.utilization(None, apps)
         _print_frame(output)
+
+    @view.command()
+    @click.option('--histogram', is_flag=True, default=False,
+                  help='Print histogram of reboot times')
+    @on_exceptions
+    def reboots(histogram):
+        """View server reboot times."""
+        cell_master = make_readonly_master(ctx['run_scheduler'])
+        reboots = reports.reboots(cell_master.cell)
+        if histogram:
+            print(reboots['valid-until'].value_counts().to_string())
+        else:
+            _print_frame(reboots)
 
     del apps
     del servers
     del allocs
     del queue
+    del reboots
+
+
+def explain_group(parent):
+    """Scheduler explain CLI group."""
+
+    def _print_frame(df):
+        """Prints dataframe."""
+        if not df.empty:
+            pd.set_option('display.max_rows', None)
+            pd.set_option('float_format', lambda f: '%f' % f)
+            pd.set_option('expand_frame_repr', False)
+            print(df.to_string(index=False))
+
+    @parent.group()
+    def explain():
+        """Explain scheduler internals"""
+        pass
+
+    @explain.command()
+    @click.option('--instance', help='Application instance')
+    @click.option('--partition', help='Cell partition', default='_default')
+    @cli.admin.ON_EXCEPTIONS
+    def queue(instance, partition):
+        """Explain the application queue"""
+        cell_master = make_readonly_master()
+        frame = reports.explain_queue(cell_master.cell,
+                                      partition,
+                                      pattern=instance)
+        _print_frame(frame)
+
+    @explain.command()
+    @click.argument('instance')
+    @click.option('--mode', help='Tree traversal method',
+                  type=click.Choice(reports.WALKS.keys()), default='default')
+    @cli.admin.ON_EXCEPTIONS
+    def placement(instance, mode):
+        """Explain application placement"""
+        cell_master = make_readonly_master()
+
+        if instance not in cell_master.cell.apps:
+            cli.bad_exit('Instance not found.')
+
+        app = cell_master.cell.apps[instance]
+        if app.server:
+            cli.bad_exit('Instace already placed on %s' % app.server)
+
+        frame = reports.explain_placement(cell_master.cell, app, mode)
+        _print_frame(frame)
+
+    del queue
+    del placement
 
 
 def init():
@@ -126,4 +208,5 @@ def init():
         pass
 
     view_group(top)
+    explain_group(top)
     return top

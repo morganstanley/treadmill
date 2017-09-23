@@ -206,7 +206,7 @@ class GSSAPILineClient(object):
         try:
             return self.stream.readline().strip()
         except Exception:  # pylint: disable=W0703
-            _LOGGER.warn('Exception reading line from socket.')
+            _LOGGER.warning('Exception reading line from socket.')
             return None
 
     def connect(self):

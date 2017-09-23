@@ -1,12 +1,16 @@
-"""Implementation of treadmill admin master CLI plugin"""
+"""Implementation of treadmill admin master CLI plugin.
+"""
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import logging
 import time
 import urllib.request
 import urllib.parse
 import urllib.error
-
 
 import click
 

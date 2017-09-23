@@ -1,14 +1,19 @@
-"""Implementation of endpoint API."""
+"""Implementation of endpoint API.
+"""
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import logging
 
 import fnmatch
 import kazoo
 
-from .. import context
-from .. import exc
-from .. import zknamespace as z
+from treadmill import context
+from treadmill import utils
+from treadmill import zknamespace as z
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -18,8 +23,8 @@ def make_endpoint_watcher(zkclient, state, proid):
     """Make endpoint watcher function."""
     proid_instances = z.join_zookeeper_path(z.ENDPOINTS, proid)
 
-    @exc.exit_on_unhandled
     @zkclient.ChildrenWatch(proid_instances)
+    @utils.exit_on_unhandled
     def _watch_instances(children):
         """Watch for proid instances."""
 
@@ -45,7 +50,7 @@ def make_endpoint_watcher(zkclient, state, proid):
 
 
 class API(object):
-    """Treadmill endpoint REST api."""
+    """Treadmill Endpoint REST api."""
 
     def __init__(self):
 
@@ -54,8 +59,8 @@ class API(object):
         if context.GLOBAL.cell is not None:
             zkclient = context.GLOBAL.zk.conn
 
-            @exc.exit_on_unhandled
             @zkclient.ChildrenWatch(z.ENDPOINTS)
+            @utils.exit_on_unhandled
             def _watch_endpoints(proids):
                 """Watch /endpoints nodes."""
 

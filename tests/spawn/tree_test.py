@@ -21,6 +21,7 @@ class TreeTest(unittest.TestCase):
     @mock.patch('treadmill.fs.mkdir_safe', mock.Mock())
     @mock.patch('treadmill.utils.create_script', mock.Mock())
     @mock.patch('treadmill.supervisor.create_environ_dir', mock.Mock())
+    @mock.patch('treadmill.subproc.get_aliases', mock.Mock(return_value={}))
     def test_create(self):
         """Tests creating tree."""
         os.listdir.side_effect = [

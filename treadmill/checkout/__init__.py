@@ -8,6 +8,9 @@ import telnetlib
 import functools
 import hashlib
 
+import decorator
+import websocket as ws_client
+
 from treadmill import restclient
 
 
@@ -66,13 +69,22 @@ def _http_check(url):
         return False
 
 
+def _ws_check(url):
+    """Check ws url availability"""
+    try:
+        ws_connection = ws_client.create_connection(url, timeout=5)
+        ws_connection.close()
+        return True
+    except:  # pylint: disable=W0702
+        return False
+
+
 def url_check(url):
     """Check url."""
     if url.startswith('http://'):
         return _http_check(url)
     elif url.startswith('ws://'):
-        # TBD
-        return True
+        return _ws_check(url)
 
 
 def add_test(cls, func, message, *args, **kwargs):

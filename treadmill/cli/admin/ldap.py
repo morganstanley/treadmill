@@ -1,24 +1,55 @@
-"""Implementation of treadmill admin ldap CLI plugin."""
+"""Implementation of treadmill admin ldap CLI plugin.
+"""
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
+# Disable too many lines in module warning.
+#
+# pylint: disable=C0302
+
+import json
+import io
 import logging
 
 import click
 import ldap3
-import yaml
 import pkg_resources
+
+import six
 
 from treadmill import admin
 from treadmill import cli
 from treadmill import context
+from treadmill import yamlwrapper as yaml
 
 
 _LOGGER = logging.getLogger(__name__)
 
+_MINIMUM_THRESHOLD = 5
+
+
+def _resolve_partition_threshold(cell, partition, value):
+    """Resolve threshold % to an integer."""
+    admin_srv = admin.Server(context.GLOBAL.ldap.conn)
+    servers = admin_srv.list({'cell': cell})
+
+    total = 0
+    for srv in servers:
+        if srv['partition'] == partition:
+            total = total + 1
+
+    limit = int((value / 100.0) * total)
+
+    _LOGGER.debug('Total/limit: %s/%s', total, limit)
+    return max(limit, _MINIMUM_THRESHOLD)
+
 
 def server_group(parent):
     """Configures server CLI group"""
-    formatter = cli.make_formatter(cli.ServerPrettyFormatter)
+    formatter = cli.make_formatter('server')
 
     @parent.group()
     def server():
@@ -30,8 +61,8 @@ def server_group(parent):
     @click.option('-t', '--traits', help='List of server traits',
                   multiple=True, default=[])
     @click.option('-p', '--partition', help='Server partition')
-    @click.option('-d', '--data', help='Server specific data as key=value '
-                  'comma separated list', type=cli.LIST)
+    @click.option('-d', '--data', help='Server specific data in JSON',
+                  type=click.Path(exists=True, readable=True))
     @click.argument('server')
     @cli.admin.ON_EXCEPTIONS
     def configure(cell, traits, server, partition, data):
@@ -48,9 +79,8 @@ def server_group(parent):
                 partition = None
             attrs['partition'] = partition
         if data:
-            if data == ['-']:
-                data = None
-            attrs['data'] = data
+            with io.open(data, 'rb') as fd:
+                attrs['data'] = json.loads(fd.read())
 
         if attrs:
             try:
@@ -61,7 +91,7 @@ def server_group(parent):
         try:
             cli.out(formatter(admin_srv.get(server)))
         except ldap3.LDAPNoSuchObjectResult:
-            click.echo('Server does not exist: %s' % server, err=True)
+            cli.bad_exit('Server does not exist: %s', server)
 
     @server.command(name='list')
     @click.option('-c', '--cell', help='Treadmll cell.')
@@ -93,7 +123,7 @@ def server_group(parent):
 
 def dns_group(parent):  # pylint: disable=R0912
     """Configures Critical DNS CLI group"""
-    formatter = cli.make_formatter(cli.DNSPrettyFormatter)
+    formatter = cli.make_formatter('dns')
 
     _default_nameservers = ['localhost']
 
@@ -107,34 +137,39 @@ def dns_group(parent):  # pylint: disable=R0912
     @click.option('--server', help='Server name',
                   required=False, type=cli.LIST)
     @click.option('-m', '--manifest', help='Load DNS from manifest file',
-                  type=click.Path(exists=True, readable=True), required=True)
+                  type=click.Path(exists=True, readable=True))
     @cli.admin.ON_EXCEPTIONS
     def configure(name, server, manifest):
         """Create, get or modify Critical DNS quorum"""
         admin_dns = admin.DNS(context.GLOBAL.ldap.conn)
 
-        with open(manifest, 'rb') as fd:
-            data = yaml.load(fd.read())
+        data = {}
+        if manifest:
+            with io.open(manifest, 'rb') as fd:
+                data = yaml.load(stream=fd)
 
         if server is not None:
             data['server'] = server
-        if 'nameservers' not in data:
+        if data and 'nameservers' not in data:
             data['nameservers'] = _default_nameservers
 
-        if not isinstance(data['server'], list):
+        if 'server' in data and not isinstance(data['server'], list):
             data['server'] = data['server'].split(',')
-        if not isinstance(data['rest-server'], list):
+        if 'rest-server' in data and (
+                not isinstance(data['rest-server'], list)):
             data['rest-server'] = data['rest-server'].split(',')
 
-        try:
-            admin_dns.create(name, data)
-        except ldap3.LDAPEntryAlreadyExistsResult:
-            admin_dns.update(name, data)
+        if data:
+            _LOGGER.debug('data: %r', data)
+            try:
+                admin_dns.create(name, data)
+            except ldap3.LDAPEntryAlreadyExistsResult:
+                admin_dns.update(name, data)
 
         try:
             cli.out(formatter(admin_dns.get(name)))
         except ldap3.LDAPNoSuchObjectResult:
-            click.echo('Server does not exist: %s' % name, err=True)
+            click.echo('DNS entry does not exist: %s' % name, err=True)
 
     @dns.command(name='list')
     @click.argument('name', nargs=1, required=False)
@@ -168,7 +203,7 @@ def dns_group(parent):  # pylint: disable=R0912
 
 def app_groups_group(parent):  # pylint: disable=R0912
     """Configures App Groups"""
-    formatter = cli.make_formatter(cli.AppGroupPrettyFormatter)
+    formatter = cli.make_formatter('appgroup')
 
     @parent.group(name='app-group')
     def app_group():  # pylint: disable=W0621
@@ -274,7 +309,7 @@ def app_group(parent):
     # Disable too many branches.
     #
     # pylint: disable=R0912
-    formatter = cli.make_formatter(cli.AppPrettyFormatter)
+    formatter = cli.make_formatter('app')
 
     @parent.group()
     def app():
@@ -290,8 +325,8 @@ def app_group(parent):
         """Create, get or modify an app configuration"""
         admin_app = admin.Application(context.GLOBAL.ldap.conn)
         if manifest:
-            with open(manifest, 'rb') as fd:
-                data = yaml.load(fd.read())
+            with io.open(manifest, 'rb') as fd:
+                data = yaml.load(stream=fd)
             try:
                 admin_app.create(app, data)
             except ldap3.LDAPEntryAlreadyExistsResult:
@@ -328,7 +363,7 @@ def app_group(parent):
 def schema_group(parent):
     """Schema CLI group"""
 
-    formatter = cli.make_formatter(cli.LdapSchemaPrettyFormatter)
+    formatter = cli.make_formatter('ldap-schema')
 
     @parent.command()
     @click.option('-u', '--update', help='Refresh LDAP schema.', is_flag=True,
@@ -342,7 +377,7 @@ def schema_group(parent):
             schema_rsrc = pkg_resources.resource_stream(
                 'treadmill', '/etc/ldap/schema.yml')
 
-            schema = yaml.load(schema_rsrc.read())
+            schema = yaml.load(stream=schema_rsrc)
             context.GLOBAL.ldap.conn.update_schema(schema)
 
         schema_obj = context.GLOBAL.ldap.conn.schema()
@@ -435,7 +470,7 @@ def cell_group(parent):
     # Disable too many branches warning.
     #
     # pylint: disable=R0912
-    formatter = cli.make_formatter(cli.CellPrettyFormatter)
+    formatter = cli.make_formatter('cell')
 
     @parent.group()
     @cli.admin.ON_EXCEPTIONS
@@ -453,18 +488,19 @@ def cell_group(parent):
     @click.option('--ssq-namespace', help='SSQ namespace.')
     @click.option('-d', '--data', help='Cell specific data in YAML',
                   type=click.Path(exists=True, readable=True))
+    @click.option('--status', help='Cell status')
     @click.option('-m', '--manifest', help='Load cell from manifest file.',
                   type=click.Path(exists=True, readable=True))
     @click.argument('cell')
     @cli.admin.ON_EXCEPTIONS
     def configure(cell, version, root, location, username, archive_server,
-                  archive_username, ssq_namespace, data, manifest):
+                  archive_username, ssq_namespace, data, status, manifest):
         """Create, get or modify cell configuration"""
         admin_cell = admin.Cell(context.GLOBAL.ldap.conn)
         attrs = {}
         if manifest:
-            with open(manifest, 'rb') as fd:
-                attrs = yaml.load(fd.read())
+            with io.open(manifest, 'rb') as fd:
+                attrs = yaml.load(stream=fd)
 
         if version:
             attrs['version'] = version
@@ -482,9 +518,11 @@ def cell_group(parent):
             attrs['archive-username'] = archive_username
         if ssq_namespace:
             attrs['ssq-namespace'] = ssq_namespace
+        if status:
+            attrs['status'] = status
         if data:
-            with open(data, 'rb') as fd:
-                attrs['data'] = yaml.load(fd.read())
+            with io.open(data, 'rb') as fd:
+                attrs['data'] = yaml.load(stream=fd)
 
         if attrs:
             try:
@@ -605,7 +643,7 @@ def cell_group(parent):
 
 def ldap_tenant_group(parent):
     """Configures tenant CLI group"""
-    formatter = cli.make_formatter(cli.TenantPrettyFormatter)
+    formatter = cli.make_formatter('tenant')
 
     @parent.group()
     def tenant():
@@ -666,7 +704,7 @@ def ldap_allocations_group(parent):
     # "too many branches" pylint warning.
     #
     # pylint: disable=R0912
-    formatter = cli.make_formatter(cli.AllocationPrettyFormatter)
+    formatter = cli.make_formatter('allocation')
 
     @parent.group()
     def allocation():
@@ -705,6 +743,7 @@ def ldap_allocations_group(parent):
     @click.option('-d', '--disk', help='Disk.',
                   callback=cli.validate_disk)
     @click.option('-r', '--rank', help='Rank.', type=int, default=100)
+    @click.option('-a', '--rank-adjustment', help='Rank adjustment.', type=int)
     @click.option('-u', '--max-utilization',
                   help='Max utilization.', type=float)
     @click.option('-t', '--traits', help='Allocation traits', type=cli.LIST)
@@ -712,8 +751,8 @@ def ldap_allocations_group(parent):
     @click.option('--cell', help='Cell.', required=True)
     @click.argument('allocation')
     @cli.admin.ON_EXCEPTIONS
-    def reserve(allocation, cell, memory, cpu, disk, rank, max_utilization,
-                traits, partition):
+    def reserve(allocation, cell, memory, cpu, disk, rank, rank_adjustment,
+                max_utilization, traits, partition):
         """Reserve capacity on a given cell"""
         admin_cell_alloc = admin.CellAllocation(context.GLOBAL.ldap.conn)
         data = {}
@@ -725,6 +764,8 @@ def ldap_allocations_group(parent):
             data['disk'] = disk
         if rank is not None:
             data['rank'] = rank
+        if rank_adjustment is not None:
+            data['rank_adjustment'] = rank_adjustment
         if max_utilization is not None:
             data['max_utilization'] = max_utilization
         if traits:
@@ -804,7 +845,7 @@ def ldap_allocations_group(parent):
 
 def partition_group(parent):
     """Configures Partition CLI group"""
-    formatter = cli.make_formatter(cli.PartitionPrettyFormatter)
+    formatter = cli.make_formatter('partition')
 
     @parent.group()
     @click.option('--cell', required=True,
@@ -822,10 +863,11 @@ def partition_group(parent):
                   callback=cli.validate_cpu)
     @click.option('-d', '--disk', help='Disk.',
                   callback=cli.validate_disk)
+    @click.option('-s', '--systems', help='System eon id list', type=cli.LIST)
     @click.option('-t', '--down-threshold', help='Down threshold.')
-    @click.argument('label')
+    @click.argument('partition')
     @cli.admin.ON_EXCEPTIONS
-    def configure(memory, cpu, disk, down_threshold, label):
+    def configure(memory, cpu, disk, systems, down_threshold, partition):
         """Create, get or modify partition configuration"""
         cell = context.GLOBAL.cell
         admin_part = admin.Partition(context.GLOBAL.ldap.conn)
@@ -837,19 +879,29 @@ def partition_group(parent):
             attrs['cpu'] = cpu
         if disk:
             attrs['disk'] = disk
+        if systems:
+            if systems == ['-']:
+                attrs['systems'] = None
+            else:
+                attrs['systems'] = six.moves.map(int, systems)
         if down_threshold:
-            attrs['down-threshold'] = down_threshold
+            if down_threshold.endswith('%'):
+                attrs['down-threshold'] = _resolve_partition_threshold(
+                    cell, partition, int(down_threshold[:-1])
+                )
+            else:
+                attrs['down-threshold'] = int(down_threshold)
 
         if attrs:
             try:
-                admin_part.create([label, cell], attrs)
+                admin_part.create([partition, cell], attrs)
             except ldap3.LDAPEntryAlreadyExistsResult:
-                admin_part.update([label, cell], attrs)
+                admin_part.update([partition, cell], attrs)
 
         try:
-            cli.out(formatter(admin_part.get([label, cell])))
+            cli.out(formatter(admin_part.get([partition, cell])))
         except ldap3.LDAPNoSuchObjectResult:
-            click.echo('Partition does not exist: %s' % label, err=True)
+            click.echo('Partition does not exist: %s' % partition, err=True)
 
     @partition.command(name='list')
     @cli.admin.ON_EXCEPTIONS
@@ -879,6 +931,64 @@ def partition_group(parent):
     del delete
 
 
+def haproxy_group(parent):
+    """Configures HAProxy servers"""
+    formatter = cli.make_formatter('haproxy')
+
+    @parent.group()
+    def haproxy():
+        """Manage HAProxies"""
+        pass
+
+    @haproxy.command()
+    @click.option('-c', '--cell', help='Treadmll cell')
+    @click.argument('haproxy')
+    @cli.admin.ON_EXCEPTIONS
+    def configure(cell, haproxy):
+        """Create, get or modify HAProxy servers"""
+        admin_haproxy = admin.HAProxy(context.GLOBAL.ldap.conn)
+
+        attrs = {}
+        if cell:
+            attrs['cell'] = cell
+
+        if attrs:
+            try:
+                admin_haproxy.create(haproxy, attrs)
+            except ldap3.LDAPEntryAlreadyExistsResult:
+                admin_haproxy.update(haproxy, attrs)
+
+        try:
+            cli.out(formatter(admin_haproxy.get(haproxy)))
+        except ldap3.LDAPNoSuchObjectResult:
+            click.echo('HAProxy does not exist: {}'.format(haproxy), err=True)
+
+    @haproxy.command(name='list')
+    @cli.admin.ON_EXCEPTIONS
+    def _list():
+        """List partitions"""
+        admin_haproxy = admin.HAProxy(context.GLOBAL.ldap.conn)
+        haproxies = admin_haproxy.list({})
+
+        cli.out(formatter(haproxies))
+
+    @haproxy.command()
+    @click.argument('haproxy')
+    @cli.admin.ON_EXCEPTIONS
+    def delete(haproxy):
+        """Delete a partition"""
+        admin_haproxy = admin.HAProxy(context.GLOBAL.ldap.conn)
+
+        try:
+            admin_haproxy.delete(haproxy)
+        except ldap3.LDAPNoSuchObjectResult:
+            click.echo('HAProxy does not exist: {}'.format(haproxy), err=True)
+
+    del configure
+    del _list
+    del delete
+
+
 def init():
     """Return top level command handler"""
 
@@ -895,6 +1005,7 @@ def init():
     ldap_tenant_group(ldap_group)
     ldap_allocations_group(ldap_group)
     partition_group(ldap_group)
+    haproxy_group(ldap_group)
 
     # Low level ldap access.
     direct_group(ldap_group)

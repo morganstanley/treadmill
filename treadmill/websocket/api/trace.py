@@ -1,36 +1,46 @@
 """A WebSocket handler for Treadmill trace.
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import logging
 
 from treadmill import apptrace
 from treadmill import schema
-from treadmill.websocket import utils
+from treadmill.websocket import _utils
 from treadmill.apptrace import events as traceevents
-
 
 _LOGGER = logging.getLogger(__name__)
 
 
 class TraceAPI(object):
-    """Handler for /trace topic."""
+    """Handler for /trace topic.
+    """
 
     def __init__(self, sow=None):
-        """init"""
         self.sow = sow
-        self.sow_table = 'trace'
+        self.sow_table = apptrace.TRACE_SOW_TABLE
 
         @schema.schema({'$ref': 'websocket/trace.json#/message'})
         def subscribe(message):
-            """Return filter based on message payload."""
-            parsed_filter = utils.parse_message_filter(message['filter'])
+            """Return filter based on message payload.
+            """
+            parsed_filter = _utils.parse_message_filter(message['filter'])
             subscription = [('/trace/*', '%s,*' % parsed_filter.filter)]
             _LOGGER.info('Adding trace subscription: %s', subscription)
             return subscription
 
-        def on_event(filename, _operation, content):
-            """Event handler."""
+        def on_event(filename, operation, content):
+            """Event handler.
+            """
             if not filename.startswith('/trace/'):
+                return
+
+            # Ignore deletes for trace files, as they are not real events.
+            if operation == 'd':
                 return
 
             _shard, event = filename[len('/trace/'):].split('/')
@@ -61,5 +71,6 @@ class TraceAPI(object):
 
 
 def init():
-    """API module init."""
+    """API module init.
+    """
     return [('/trace', TraceAPI(sow=apptrace.TRACE_SOW_DIR), ['/trace/*'])]

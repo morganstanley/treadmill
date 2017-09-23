@@ -1,4 +1,10 @@
-"""Treadmill cell checkout."""
+"""Treadmill cell checkout.
+"""
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import collections
 import pkgutil
@@ -17,9 +23,9 @@ __path__ = pkgutil.extend_path(__path__, __name__)
 def init():
     """Top level command handler."""
 
-    @click.group(cls=cli.make_multi_command(__name__,
-                                            chain=True,
-                                            invoke_without_command=True))
+    @click.group(cls=cli.make_commands(__name__,
+                                       chain=True,
+                                       invoke_without_command=True))
     @click.option('--cell', required=True,
                   envvar='TREADMILL_CELL',
                   callback=cli.handle_context_opt,
@@ -59,8 +65,6 @@ def init():
             runner = unittest.TextTestRunner(verbosity=verbosity)
 
         runner.run(suite)
-
-    # commands.init(run)
 
     del run_tests
 

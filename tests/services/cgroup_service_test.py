@@ -1,5 +1,4 @@
-"""
-Unit test for cgroup_service - Treadmill cgroup service
+"""Unit test for cgroup_service - Treadmill cgroup service
 """
 
 import os

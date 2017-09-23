@@ -1,10 +1,14 @@
 """Helper tools for jsonschema.
 """
 
-import decorator
+from __future__ import absolute_import
+
 import json
+
+import decorator
 import jsonschema
 import pkg_resources
+
 
 _TEST_MODE = False
 

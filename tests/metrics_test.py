@@ -14,6 +14,8 @@ _CPU_STATINFO = """nr_periods 0
 nr_throttled 0
 throttled_time 0"""
 
+_CPU_SHARE = '1024'
+
 _MEM_STATINFO = """cache 0
 rss 0
 mapped_file 0
@@ -57,7 +59,7 @@ class MetricsTest(unittest.TestCase):
                 mock.Mock(return_value=_MEM_STATINFO))
     def test_read_memory_stats(self):
         """Tests updating memory stats from cgroups."""
-        self.assertEquals(
+        self.assertEqual(
             metrics.read_memory_stats('treadmill/apps/appname'),
             {
                 'memory.failcnt': 2,
@@ -65,7 +67,7 @@ class MetricsTest(unittest.TestCase):
                 'memory.max_usage_in_bytes': 2,
                 'memory.memsw.failcnt': 2,
                 'memory.memsw.limit_in_bytes': 2,
-                'memory.stats': {
+                'memory.stat': {
                     'active_anon': 0,
                     'active_file': 0,
                     'cache': 0,
@@ -99,18 +101,21 @@ class MetricsTest(unittest.TestCase):
     @mock.patch('treadmill.cgutils.per_cpu_usage',
                 mock.Mock(return_value=[50, 50]))
     @mock.patch('treadmill.cgroups.get_data',
-                mock.Mock(side_effect=[_CPUACCT_STATINFO, _CPU_STATINFO]))
+                mock.Mock(side_effect=[
+                    _CPUACCT_STATINFO, _CPU_STATINFO, _CPU_SHARE
+                ]))
     def test_read_cpu_metrics(self):
         """Tests updating cpu stats from cgroups."""
         cpumetrics = metrics.read_cpu_stats('treadmill/apps/appname')
 
-        self.assertEquals(
+        self.assertEqual(
             cpumetrics,
             {'cpu.stat': {'nr_periods': 0, 'nr_throttled': 0,
                           'throttled_time': 0},
              'cpuacct.stat': {'system': 309900720000000,
                               'user': 183352600000000},
              'cpuacct.usage': 100,
+             'cpu.shares': 1024,
              'cpuacct.usage_percpu': [50, 50]}
         )
 
@@ -149,6 +154,10 @@ class MetricsTest(unittest.TestCase):
             {'fs.used_bytes': 1024000})
 
         self.assertEqual(metrics.get_fs_usage(None), {})
+
+    def test_calc_fs_usage(self):
+        """Test the fs usage compute logic."""
+        self.assertEqual(metrics.calc_fs_usage({}), 0)
 
 
 if __name__ == '__main__':

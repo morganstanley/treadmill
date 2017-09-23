@@ -1,6 +1,11 @@
 """Manage Treadmill app manifest.
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import logging
 import urllib.request
 import urllib.parse
@@ -15,11 +20,11 @@ from treadmill import context
 
 _LOGGER = logging.getLogger(__name__)
 
-_STATE_FORMATTER = cli.make_formatter(cli.InstanceStatePrettyFormatter)
+_STATE_FORMATTER = cli.make_formatter('instance-state')
 
-_ENDPOINT_FORMATTER = cli.make_formatter(cli.EndpointPrettyFormatter)
+_ENDPOINT_FORMATTER = cli.make_formatter('endpoint')
 
-_APP_FORMATTER = cli.make_formatter(cli.AppPrettyFormatter)
+_APP_FORMATTER = cli.make_formatter('app')
 
 
 def _show_state(apis, match, finished):
@@ -40,7 +45,7 @@ def _show_state(apis, match, finished):
     cli.out(_STATE_FORMATTER(response.json()))
 
 
-def _show_list(apis, match, states, finished=False):
+def _show_list(apis, match, states, finished=False, partition=None):
     """Show list of instnces in given state."""
     url = '/state/'
     query = []
@@ -48,6 +53,8 @@ def _show_list(apis, match, states, finished=False):
         query.append(('match', match))
     if finished:
         query.append(('finished', '1'))
+    if partition is not None:
+        query.append(('partition', partition))
 
     if query:
         url += '?' + '&'.join(
@@ -58,7 +65,7 @@ def _show_list(apis, match, states, finished=False):
     names = [item['name']
              for item in response.json() if item['state'] in states]
     for name in names:
-        print(name)
+        cli.out(name)
 
 
 def _show_endpoints(apis, pattern, endpoint, proto):
@@ -109,7 +116,7 @@ def init():
         ctx['api'] = api
 
     @show.command()
-    @cli.ON_REST_EXCEPTIONS
+    @cli.handle_exceptions(restclient.CLI_REST_EXCEPTIONS)
     @click.option('--match', help='Application name pattern match')
     @click.option('--finished', is_flag=True, default=False,
                   help='Show finished instances.')
@@ -119,47 +126,61 @@ def init():
         return _show_state(apis, match, finished)
 
     @show.command()
-    @cli.ON_REST_EXCEPTIONS
+    @cli.handle_exceptions(restclient.CLI_REST_EXCEPTIONS)
     @click.option('--match', help='Application name pattern match')
-    def pending(match):
+    @click.option('--partition', help='Filter apps by partition')
+    def pending(match, partition):
         """Show pending instances."""
         apis = context.GLOBAL.state_api(ctx['api'])
-        return _show_list(apis, match, ['pending'])
+        return _show_list(apis, match, ['pending'], partition=partition)
 
     @show.command()
-    @cli.ON_REST_EXCEPTIONS
+    @cli.handle_exceptions(restclient.CLI_REST_EXCEPTIONS)
     @click.option('--match', help='Application name pattern match')
-    def running(match):
+    @click.option('--partition', help='Filter apps by partition')
+    def running(match, partition):
         """Show running instances."""
         apis = context.GLOBAL.state_api(ctx['api'])
-        return _show_list(apis, match, ['running'])
+        return _show_list(apis, match, ['running'], partition=partition)
 
     @show.command()
-    @cli.ON_REST_EXCEPTIONS
+    @cli.handle_exceptions(restclient.CLI_REST_EXCEPTIONS)
     @click.option('--match', help='Application name pattern match')
-    def finished(match):
+    @click.option('--partition', help='Filter apps by partition')
+    def finished(match, partition):
         """Show finished instances."""
         apis = context.GLOBAL.state_api(ctx['api'])
-        return _show_list(apis, match, ['finished'], finished=True)
+        return _show_list(
+            apis, match, ['finished'], finished=True, partition=partition
+        )
 
     @show.command()
-    @cli.ON_REST_EXCEPTIONS
+    @cli.handle_exceptions(restclient.CLI_REST_EXCEPTIONS)
     @click.option('--match', help='Application name pattern match')
-    def scheduled(match):
+    @click.option('--partition', help='Filter apps by partition')
+    def scheduled(match, partition):
         """Show scheduled instances."""
         apis = context.GLOBAL.state_api(ctx['api'])
-        return _show_list(apis, match, ['running', 'scheduled'])
+        return _show_list(
+            apis, match, ['running', 'scheduled'], partition=partition
+        )
 
     @show.command(name='all')
-    @cli.ON_REST_EXCEPTIONS
+    @cli.handle_exceptions(restclient.CLI_REST_EXCEPTIONS)
     @click.option('--match', help='Application name pattern match')
-    def _all(match):
+    @click.option('--partition', help='Filter apps by partition')
+    def _all(match, partition):
         """Show scheduled instances."""
         apis = context.GLOBAL.state_api(ctx['api'])
-        return _show_list(apis, match, ['pending', 'running', 'scheduled'])
+        return _show_list(
+            apis,
+            match,
+            ['pending', 'running', 'scheduled'],
+            partition=partition
+        )
 
     @show.command()
-    @cli.ON_REST_EXCEPTIONS
+    @cli.handle_exceptions(restclient.CLI_REST_EXCEPTIONS)
     @click.argument('pattern')
     @click.argument('endpoint', required=False)
     @click.argument('proto', required=False)
@@ -169,7 +190,7 @@ def init():
         return _show_endpoints(apis, pattern, endpoint, proto)
 
     @show.command()
-    @cli.ON_REST_EXCEPTIONS
+    @cli.handle_exceptions(restclient.CLI_REST_EXCEPTIONS)
     @click.argument('instance_id')
     def instance(instance_id):
         """Show scheduled instance manifest."""

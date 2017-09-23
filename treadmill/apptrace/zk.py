@@ -1,17 +1,24 @@
 """Watch for application state transitions.
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
+import collections
 import fnmatch
+import io
 import logging
-import tempfile
 import os
 import sqlite3
-import zlib
+import tempfile
 import time
+import zlib
 
 import kazoo
 
-from treadmill import exc
+from treadmill import utils
 from treadmill import zknamespace as z
 from treadmill import zkutils
 
@@ -31,7 +38,7 @@ class AppTrace(object):
     def __init__(self, zkclient, instanceid, callback=None):
         self.zk = zkclient
         self.instanceid = instanceid
-        self._last_event = 0
+        self._last_event = None
         self._is_done = zkclient.handler.event_object()
         self._callback = callback
 
@@ -41,9 +48,11 @@ class AppTrace(object):
         if snapshot:
             self._is_done.set()
 
+        scheduled_node = z.path.scheduled(self.instanceid)
+
         # Setup the instance ID's scheduled status watch
-        @self.zk.DataWatch(z.path.scheduled(self.instanceid))
-        @exc.exit_on_unhandled
+        @self.zk.DataWatch(scheduled_node)
+        @utils.exit_on_unhandled
         def _watch_scheduled(data, stat, event):
             """Called when app scheduled node is modified.
             """
@@ -60,41 +69,23 @@ class AppTrace(object):
             else:
                 return not snapshot
 
+        if not self.zk.exists(scheduled_node):
+            self._process_db_events(ctx)
+
         trace_node = z.path.trace(self.instanceid)
 
         try:
             @self.zk.ChildrenWatch(trace_node)
-            @exc.exit_on_unhandled
+            @utils.exit_on_unhandled
             def _watch_trace_events(event_nodes):
-                """Process new children events."""
+                """Process new children events.
+                """
                 self._process_events(event_nodes, ctx)
                 return not snapshot
         except kazoo.client.NoNodeError:
-            _LOGGER.warn('Trace does not exist: %s', self.instanceid)
+            _LOGGER.warning('Trace does not exist: %s', self.instanceid)
             self._is_done.set()
             return
-
-        finished_node = z.path.finished(self.instanceid)
-
-        @self.zk.DataWatch(finished_node)
-        @exc.exit_on_unhandled
-        def _watch_finished(data, stat, event):
-            """Watch for finished to appear and then process events.
-            """
-            if data is None and stat is None:
-                # Node doesn't exist yet.
-                _LOGGER.info('finished znode not exist %r', finished_node)
-                return True
-
-            elif event and event.type == 'DELETED':
-                # If finished node is deleted, this is fatal, and we should
-                # exit.
-                _LOGGER.warning('finished znode deleted %r', finished_node)
-                self._is_done.set()
-                return False
-
-            else:
-                return not snapshot
 
     def wait(self, timeout=None):
         """Wait for app lifecycle to finish.
@@ -103,31 +94,56 @@ class AppTrace(object):
         """
         return self._is_done.wait(timeout=timeout)
 
-    def _process_events(self, event_nodes, ctx):
-        """Process finished event nodes.
+    def _process_db_events(self, ctx):
+        """Process events from trace db snapshots.
         """
-        all_events = sorted([tuple(event_node.split(','))
-                             for event_node in event_nodes])
+        for node in self.zk.get_children(z.TRACE_HISTORY):
+            node_path = z.path.trace_history(node)
+            _LOGGER.debug('Checking trace db snapshot: %s', node_path)
 
-        for (instanceid,
-             timestamp,
-             source,
-             event_type,
-             event_data) in all_events:
+            data, _metadata = self.zk.get(node_path)
+            with tempfile.NamedTemporaryFile(delete=False, mode='wb') as f:
+                f.write(zlib.decompress(data))
 
-            if float(timestamp) <= float(self._last_event):
-                continue
+            conn = sqlite3.connect(f.name)
+            # Before Python 3.7 parametrized GLOB pattern won't use index.
+            select_stmt = """
+                SELECT name FROM trace WHERE name GLOB '{instanceid},*'
+            """.format(instanceid=self.instanceid)
+            events = []
+            for row in conn.execute(select_stmt):
+                events.append(row[0])
+            self._process_events(events, ctx)
+            conn.close()
+
+            os.unlink(f.name)
+
+    def _process_events(self, events, ctx):
+        """Parse, sort, filter, deduplicate and process events.
+        """
+        events = sorted(tuple(event.split(',')) for event in events)
+
+        for event in events:
+            instanceid, timestamp, source, event_type, event_data = event
 
             if instanceid != self.instanceid:
                 continue
 
-            self._process_event(instanceid, timestamp, source, event_type,
-                                event_data, ctx)
-            self._last_event = timestamp
+            # Skip event if it's older than the last one or it's the same event
+            if ((self._last_event and
+                 (event[1] < self._last_event[1] or
+                  event == self._last_event))):
+                continue
+
+            self._process_event(
+                instanceid, timestamp, source, event_type, event_data, ctx
+            )
+            self._last_event = event
 
     def _process_event(self, instanceid, timestamp, source, event_type,
                        event_data, ctx):
-        """Process event of given type."""
+        """Process event of given type.
+        """
         # Master events.
         event = traceevents.AppTraceEvent.from_data(
             timestamp=timestamp,
@@ -141,75 +157,135 @@ class AppTrace(object):
 
 
 def list_traces(zkclient, app_pattern):
-    """List all available traces for given app name."""
+    """List all available traces for given app name.
+    """
     if '#' not in app_pattern:
         app_pattern += '#*'
 
-    apps = []
+    apps = set()
+
     for app in zkclient.get_children(z.SCHEDULED):
         if fnmatch.fnmatch(app, app_pattern):
-            apps.append(app)
+            apps.add(app)
 
     for app in zkclient.get_children(z.FINISHED):
         if fnmatch.fnmatch(app, app_pattern):
-            apps.append(app)
+            apps.add(app)
 
-    # TODO: support finished history
-    return apps
+    for node in zkclient.get_children(z.FINISHED_HISTORY):
+        node_path = z.path.finished_history(node)
+        _LOGGER.debug('Checking finished db snapshot: %s', node_path)
+
+        data, _metadata = zkclient.get(node_path)
+        with tempfile.NamedTemporaryFile(delete=False, mode='wb') as f:
+            f.write(zlib.decompress(data))
+
+        conn = sqlite3.connect(f.name)
+        # Before Python 3.7 parametrized GLOB pattern won't use index.
+        select_stmt = """
+            SELECT name FROM finished WHERE name GLOB '{app_pattern}'
+        """.format(app_pattern=app_pattern)
+        for row in conn.execute(select_stmt):
+            apps.add(row[0])
+        conn.close()
+
+        os.unlink(f.name)
+
+    return sorted(apps)
 
 
-def _upload_batch(zkclient, db_node_path, dbname, batch):
-    """Generate snapshot DB and upload to zk."""
+def _upload_batch(zkclient, db_node_path, table, batch):
+    """Generate snapshot DB and upload to zk.
+    """
     with tempfile.NamedTemporaryFile(delete=False) as f:
         pass
 
-    with sqlite3.connect(f.name) as conn:
+    conn = sqlite3.connect(f.name)
+    with conn:
         conn.execute(
-            'create table %s (path text, timestamp integer, data text)' % (
-                dbname
+            """
+            CREATE TABLE {table} (
+                path text, timestamp real, data text,
+                directory text, name text
             )
+            """.format(table=table)
         )
         conn.executemany(
-            'insert into %s (path, timestamp, data) values(?, ?, ?)' % (
-                dbname
-            ),
-            batch
+            """
+            INSERT INTO {table} (
+                path, timestamp, data, directory, name
+            ) VALUES(?, ?, ?, ?, ?)
+            """.format(table=table), batch
         )
         conn.executescript(
             """
-            CREATE INDEX path_timestamp_idx on %s (path, timestamp);
-
-            PRAGMA query_only = TRUE;
-            """ % dbname
+            CREATE INDEX name_idx ON {table} (name);
+            CREATE INDEX path_idx ON {table} (path);
+            """.format(table=table)
         )
     conn.close()
 
-    with open(f.name, 'rb') as f:
+    with io.open(f.name, 'rb') as f:
         db_node = zkutils.create(
             zkclient, db_node_path, zlib.compress(f.read()),
             sequence=True
         )
         _LOGGER.info(
-            'Uploaded compressed trace_db snapshot: %s to: %s',
+            'Uploaded compressed snapshot DB: %s to: %s',
             f.name, db_node
         )
 
     os.unlink(f.name)
 
     # Delete uploaded nodes from zk.
-    for path, _ts, _data in batch:
+    for path, _timestamp, _data, _directory, _name in batch:
         zkutils.with_retry(zkutils.ensure_deleted, zkclient, path)
 
 
+def prune_trace(zkclient, max_count):
+    """Prune trace. Cleanup service (running/exited) events.
+    """
+    shards = zkclient.get_children(z.TRACE)
+    for shard in shards:
+        service_events = collections.Counter()
+        events = zkclient.get_children(z.path.trace_shard(shard))
+        for event in sorted(events, reverse=True):
+            instanceid, ts, src, event_type, event_data = event.split(',')
+
+            if event_type not in ('service_running', 'service_exited'):
+                continue
+
+            service_event = traceevents.AppTraceEvent.from_data(
+                timestamp=ts,
+                source=src,
+                instanceid=instanceid,
+                event_type=event_type,
+                event_data=event_data,
+            )
+            if not service_event:
+                continue
+
+            uniqueid, service = service_event.uniqueid, service_event.service
+            service_events[(instanceid, uniqueid, service)] += 1
+            if service_events[(instanceid, uniqueid, service)] > max_count:
+                path = z.join_zookeeper_path(z.TRACE, shard, event)
+                _LOGGER.info('Pruning trace: %s', path)
+                zkutils.with_retry(zkutils.ensure_deleted, zkclient, path)
+
+
 def cleanup_trace(zkclient, batch_size, expires_after):
-    """Move expired traces into history folder, compressed as sqlite db."""
+    """Move expired traces into history folder, compressed as sqlite db.
+    """
+    scheduled = zkclient.get_children(z.SCHEDULED)
     shards = zkclient.get_children(z.TRACE)
     traces = []
     for shard in shards:
         events = zkclient.get_children(z.path.trace_shard(shard))
         for event in events:
-            timestamp = float(event.split(',')[1])
-            if timestamp < time.time() - expires_after:
+            instanceid, timestamp, _ = event.split(',', 2)
+            timestamp = float(timestamp)
+            if ((instanceid not in scheduled and
+                 timestamp < time.time() - expires_after)):
                 traces.append((timestamp, shard, event))
 
     # Sort traces from older to latest.
@@ -224,7 +300,8 @@ def cleanup_trace(zkclient, batch_size, expires_after):
             break
 
         db_rows = [
-            (z.join_zookeeper_path(z.TRACE, shard, event), timestamp, None)
+            (z.join_zookeeper_path(z.TRACE, shard, event), timestamp, None,
+             z.join_zookeeper_path(z.TRACE, shard), event)
             for timestamp, shard, event in batch
         ]
 
@@ -237,14 +314,16 @@ def cleanup_trace(zkclient, batch_size, expires_after):
 
 
 def cleanup_finished(zkclient, batch_size, expires_after):
-    """Move expired finished events into finished history."""
+    """Move expired finished events into finished history.
+    """
 
     expired = []
     for finished in zkclient.get_children(z.FINISHED):
         node_path = z.path.finished(finished)
         data, metadata = zkclient.get(node_path)
         if metadata.last_modified < time.time() - expires_after:
-            expired.append((node_path, metadata.last_modified, data))
+            expired.append((node_path, metadata.last_modified, data,
+                            z.FINISHED, finished))
 
     for idx in range(0, len(expired), batch_size):
         batch = expired[idx:idx + batch_size]
@@ -262,7 +341,8 @@ def cleanup_finished(zkclient, batch_size, expires_after):
 
 
 def _cleanup(zkclient, path, max_count):
-    """Cleanup old nodes given path."""
+    """Cleanup old nodes given path.
+    """
     nodes = sorted(zkclient.get_children(path))
     extra = len(nodes) - max_count
     if extra > 0:
@@ -272,10 +352,12 @@ def _cleanup(zkclient, path, max_count):
 
 
 def cleanup_trace_history(zkclient, max_count):
-    """Cleanup trace history."""
+    """Cleanup trace history.
+    """
     _cleanup(zkclient, z.TRACE_HISTORY, max_count)
 
 
 def cleanup_finished_history(zkclient, max_count):
-    """Cleanup trace history."""
+    """Cleanup trace history.
+    """
     _cleanup(zkclient, z.FINISHED_HISTORY, max_count)

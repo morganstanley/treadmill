@@ -1,9 +1,12 @@
-"""
-Local node redirect REST api.
+"""Local node redirect REST api.
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
-import http.client
+from six.moves import http_client
 
 # pylint: disable=E0611,F0401
 import flask
@@ -29,8 +32,8 @@ def init(api, _cors, impl):
             """Returns list of local instances."""
             hostport = impl.get(hostname)
             if not hostport:
-                return 'Host not found.', http.client.NOT_FOUND
+                return 'Host not found.', http_client.NOT_FOUND
 
             url = utils.encode_uri_parts(path)
             return flask.redirect('http://%s/%s' % (hostport, url),
-                                  code=http.client.FOUND)
+                                  code=http_client.FOUND)

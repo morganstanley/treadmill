@@ -15,6 +15,9 @@ __pycache__
 #lint configs should be included
 !.pylintrc
 
+# Keep s6 files from templaces
+!.s6-svscan
+
 # Ignore generated files
 Treadmill.egg-info
 lint.log

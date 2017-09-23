@@ -1,16 +1,14 @@
 """Simple watchdog system.
 """
 
-
 import errno
 import logging
 import os
 import re
 import stat
-import tempfile
 import time
 
-from . import fs
+from treadmill import fs
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -136,18 +134,13 @@ class Watchdog(object):
                 filename = os.path.basename(self.filename)
 
                 fs.mkdir_safe(dirname)
-                with tempfile.NamedTemporaryFile(dir=dirname,
-                                                 prefix='.' + filename,
-                                                 delete=False,
-                                                 mode='w') as tmpfile:
-                    os.chmod(tmpfile.name, 0o600)
-                    tmpfile.write(self.content)
-                    # We have to flush now to make sure utime is the last
-                    # operation we do on the file.
-                    tmpfile.flush()
-                    os.utime(tmpfile.name, (timeout_at, timeout_at))
-
-                os.rename(tmpfile.name, self.filename)
+                fs.write_safe(
+                    self.filename,
+                    lambda f: f.write(self.content),
+                    prefix='.' + filename,
+                    permission=0o600
+                )
+                os.utime(self.filename, (timeout_at, timeout_at))
 
         def heartbeat(self):
             """Renew a watchdog for one timeout."""
@@ -189,7 +182,7 @@ class Watchdog(object):
         :returns `list`:
             List of (`name`, `filename`) of defined watchdog.
         """
-        # Remove all dotfiles and all non-file
+        # Remove all dot files and all non-file
         for watchdog in os.listdir(watchdog_path):
             if watchdog[0] == '.':
                 continue

@@ -1,18 +1,28 @@
-"""Trace treadmill application events."""
+"""Trace treadmill application events.
+"""
 
-
-import sys
-import signal
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import logging
 import os
-import subprocess
+import signal
+import sys
 
 import click
+import six
 
+if six.PY2 and os.name == 'posix':
+    import subprocess32 as subprocess  # pylint: disable=E0401
+else:
+    import subprocess  # pylint: disable=wrong-import-order
+
+from treadmill import cli
 from treadmill import context
 from treadmill import discovery
-from treadmill import cli
+from treadmill import utils
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -42,7 +52,7 @@ def run_unix(host, port, ssh, command):
            '-p', port, host] + command
 
     _LOGGER.debug('Starting ssh: %s', ssh)
-    os.execvp(ssh[0], ssh)
+    utils.sane_execvp(ssh[0], ssh)
 
 
 def run_putty(host, port, sshcmd, command):
@@ -75,7 +85,7 @@ def run_putty(host, port, sshcmd, command):
     _LOGGER.debug('Starting ssh: %s', ssh)
     try:
         if os.path.basename(sshcmd).tolower() == 'putty.exe':
-            os.execvp(ssh[0], ssh)
+            utils.sane_execvp(ssh[0], ssh)
         else:
             subprocess.call(ssh)
     except KeyboardInterrupt:

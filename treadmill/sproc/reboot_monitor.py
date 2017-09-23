@@ -11,18 +11,21 @@ Actual reboot procedure is specified in command line. Prior to invoking
 the plugin, perform graceful shutdown.
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import logging
-import os
 import time
 
 import click
 
-from .. import context
-from .. import exc
-from .. import sysinfo
-from .. import zkutils
-from .. import zknamespace as z
+from treadmill import context
+from treadmill import sysinfo
+from treadmill import utils
+from treadmill import zknamespace as z
+from treadmill import zkutils
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -45,8 +48,8 @@ def init():
         zkclient.add_listener(zkutils.exit_on_lost)
 
         while not zkclient.exists(z.REBOOTS):
-            _LOGGER.warn('%r node not created yet. Cell masters running?',
-                         z.REBOOTS)
+            _LOGGER.warning('%r node not created yet. Cell masters running?',
+                            z.REBOOTS)
             time.sleep(30)
 
         hostname = sysinfo.hostname()
@@ -55,51 +58,58 @@ def init():
         _LOGGER.info('Server: %s, up since: %s', hostname, up_since)
         reboot_path = z.path.reboot(hostname)
 
+        reboot_trigger = zkclient.handler.event_object()
+        reboot_trigger.clear()
+
         @zkclient.DataWatch(reboot_path)
-        @exc.exit_on_unhandled
-        def _watch_version(_data, stat, event):
+        @utils.exit_on_unhandled
+        def _watch_reboot(data, stat, event):
             """Watch reboot node."""
 
-            # If the node is deleted, we exit to pick up new version code.
-            if event is not None and event.type == 'DELETED':
-                _LOGGER.info('Node deleted, ignore.')
+            if data is None and event is None:
+                _LOGGER.info('Reboot node does not exist, ignore.')
                 return True
 
-            if not stat:
-                _LOGGER.info('Node does not exist, ignore.')
+            elif event is not None and event.type == 'DELETED':
+                _LOGGER.info('Reboot Node deleted, ignore.')
                 return True
 
+            # We have a reboot request node
             if stat.created > up_since:
                 _LOGGER.info('Reboot requested at: %s, up since: %s',
                              time.ctime(stat.created),
                              time.ctime(up_since))
 
-                # Strictly speaking this is not enough for graceful shutdown.
-                #
-                # We need a proper shutdown procedure developed.
-                presence_path = z.path.server_presence(hostname)
-                _LOGGER.info('Deleting server presence: %s', presence_path)
-                zkutils.ensure_deleted(zkclient, presence_path)
-
-                _LOGGER.info('Checking blackout list.')
-                zk_blackout_path = z.path.blackedout_server(hostname)
-                while zkclient.exists(zk_blackout_path):
-                    _LOGGER.info('Node blacked out - will wait.')
-                    time.sleep(60)
-
-                _LOGGER.info('exec: %r', reboot_cmd)
-                os.execvp(reboot_cmd[0], reboot_cmd)
+                reboot_trigger.set()
             else:
                 _LOGGER.info('Reboot success, requested at %s, up since: %s',
-                             stat.created, up_since)
-                zkutils.ensure_deleted(zkclient, reboot_path)
-                _LOGGER.info('Deleting zknode: %r', reboot_path)
+                             time.ctime(stat.created),
+                             time.ctime(up_since))
 
+                _LOGGER.info('Deleting zknode: %r', reboot_path)
+                zkutils.ensure_deleted(zkclient, reboot_path)
             return True
 
-        while True:
-            time.sleep(100000)
+        # We now wait for the reboot trigger
+        reboot_trigger.wait()
+
+        # Actual reboot procedure below
 
         _LOGGER.info('service shutdown.')
+        # Strictly speaking this is not enough for graceful shutdown.
+        #
+        # We need a proper shutdown procedure developed.
+        presence_path = z.path.server_presence(hostname)
+        _LOGGER.info('Deleting server presence: %s', presence_path)
+        zkutils.ensure_deleted(zkclient, presence_path)
+
+        _LOGGER.info('Checking blackout list.')
+        zk_blackout_path = z.path.blackedout_server(hostname)
+        while zkclient.exists(zk_blackout_path):
+            _LOGGER.info('Node blacked out - will wait.')
+            time.sleep(60)
+
+        _LOGGER.info('exec: %r', reboot_cmd)
+        utils.sane_execvp(reboot_cmd[0], reboot_cmd)
 
     return reboot_monitor

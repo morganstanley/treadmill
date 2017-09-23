@@ -101,7 +101,9 @@ def dev_speed(devname):
         return int(_get_dev_attr(devname, 'speed'))
     except IOError as err:
         if err.errno == errno.EINVAL:
-            _LOGGER.warn('Unable to read speed information from %s', devname)
+            _LOGGER.warning(
+                'Unable to read speed information from %s', devname
+            )
             return 0
 
 

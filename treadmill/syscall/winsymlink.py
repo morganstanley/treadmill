@@ -1,4 +1,10 @@
-"""Module for handlinkg symlinks on windows"""
+"""Module for symlinks on windows.
+"""
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import ctypes.wintypes
 import errno
@@ -12,10 +18,12 @@ OPEN_EXISTING = 3
 INVALID_HANDLE_VALUE = ctypes.wintypes.HANDLE(-1).value
 INVALID_FILE_ATTRIBUTES = 0xFFFFFFFF
 FILE_FLAG_REPARSE_BACKUP = 0x2200000
+ERROR_NOT_A_REPARSE_POINT = 0x1126
 
 
 def _errcheck_link(value, func, args):  # pylint: disable=W0613
-    """Checks CreateSymbolicLinkW and CreateHardLinkW result"""
+    """Checks CreateSymbolicLinkW and CreateHardLinkW result.
+    """
     # The windows api returns nonzero if the call was successful
     if value != 0:
         return
@@ -70,12 +78,14 @@ CreateHardLinkW.errcheck = _errcheck_link
 
 
 def _islink(path):
-    """Gets whether the specified path is symlink"""
+    """Gets whether the specified path is symlink.
+    """
     if not os.path.isdir(path):
         return False
 
-    if not isinstance(path, str):
-        path = str(path)
+    if not hasattr(path, 'encode'):
+        # Path is bytes
+        path = path.decode()
 
     attributes = ctypes.windll.kernel32.GetFileAttributesW(path)
     if attributes == INVALID_FILE_ATTRIBUTES:
@@ -85,8 +95,9 @@ def _islink(path):
 
 
 def device_io_control(hDevice, ioControlCode, input_buffer, output_buffer):
-    """Sends a control code directly to a specified device driver,
-    causing the corresponding device to perform the corresponding operation"""
+    """Sends a control code directly to a specified device driver, causing the
+    corresponding device to perform the corresponding operation.
+    """
     if input_buffer:
         input_size = len(input_buffer)
     else:
@@ -109,14 +120,12 @@ def device_io_control(hDevice, ioControlCode, input_buffer, output_buffer):
 
 
 def _readlink(path):
-    """ Windows readlink implementation. """
-    is_unicode = isinstance(path, str)
+    """Windows readlink implementation.
+    """
+    is_unicode = hasattr(path, 'encode')
 
     if not is_unicode:
-        path = str(path)
-
-    if not _islink(path):
-        raise OSError(errno.EINVAL, "Invalid argument", path)
+        path = path.decode()
 
     # Open the file correctly depending on the string type.
     hfile = ctypes.windll.kernel32.CreateFileW(path, GENERIC_READ, 0, None,
@@ -133,6 +142,9 @@ def _readlink(path):
 
     # Minimum possible length (assuming length of the target is bigger than 0)
     if not data_buffer or len(data_buffer) < 9:
+        if ctypes.GetLastError() == ERROR_NOT_A_REPARSE_POINT:
+            raise OSError(errno.EINVAL, "Invalid argument", path)
+
         raise OSError(errno.ENOENT, "No such file or directory", path)
 
     # typedef struct _REPARSE_DATA_BUFFER {
@@ -183,20 +195,20 @@ def _readlink(path):
         actualPath = actualPath[4:]
 
     if not is_unicode:
-        return str(actualPath)
+        actualPath = actualPath.encode()
 
     return actualPath
 
 
 def _link(filename, existing_filename):
-    """symlink(source, link_name)
-        Creates a symbolic link pointing to source named link_name"""
+    """Creates a hard link pointing to source named link_name.
+    """
     CreateHardLinkW(filename, existing_filename, 0)
 
 
 def _symlink(source, link_name):
-    """symlink(source, link_name)
-        Creates a symbolic link pointing to source named link_name"""
+    """Creates a symbolic link pointing to source named link_name.
+    """
     flags = 0
 
     if source is not None and os.path.isdir(source):
@@ -206,7 +218,8 @@ def _symlink(source, link_name):
 
 
 def _unlink(path):
-    """Remove (delete) the file path."""
+    """Remove (delete) the file path.
+    """
     if os.path.isdir(path):
         os.rmdir(path)
     else:

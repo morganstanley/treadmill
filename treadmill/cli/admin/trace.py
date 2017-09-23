@@ -1,6 +1,11 @@
 """Trace treadmill application events.
 """
 
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+from __future__ import absolute_import
+
 import click
 
 from treadmill import context
@@ -37,12 +42,12 @@ def init():
                 return
 
             elif not last:
-                for instance_id in sorted(traces):
-                    print(instance_id)
+                for instance_id in traces:
+                    cli.out(instance_id)
                 return
 
             else:
-                instance_id = sorted(traces)[-1]
+                instance_id = traces[-1]
 
         else:
             instance_id = app

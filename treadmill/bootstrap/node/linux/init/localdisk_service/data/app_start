@@ -16,6 +16,21 @@ exec {{ treadmill_bin }} \
 {%-if localdisk_block_dev %}
     --block-dev {{ localdisk_block_dev }} \
 {%- endif %}
+{%- if block_dev_configuration %}
+    --block-dev-configuration {{ block_dev_configuration }} \
+{%- endif %}
+{%- if block_dev_read_bps %}
+    --block-dev-read-bps {{ block_dev_read_bps }} \
+{%- endif %}
+{%- if block_dev_write_bps %}
+    --block-dev-write-bps {{ block_dev_write_bps }} \
+{%- endif %}
+{%- if block_dev_read_iops %}
+    --block-dev-read-iops {{ block_dev_read_iops }} \
+{%- endif %}
+{%- if block_dev_write_iops %}
+    --block-dev-write-iops {{ block_dev_write_iops }} \
+{%- endif %}
 {%- if localdisk_default_read_bps %}
     --default-read-bps {{ localdisk_default_read_bps }} \
 {%- endif %}

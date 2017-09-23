@@ -1,13 +1,17 @@
 """Treadmill HAProxy system process
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import logging
-import os
-import time
 
 import click
 
 from treadmill import subproc
+from treadmill.zksync import utils as zksync_utils
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -24,10 +28,8 @@ def init():
                   required=True, )
     def haproxy(fs_root, config):
         """Run Treadmill HAProxy"""
-        modified = os.path.join(fs_root, '.modified')
-        while not os.path.exists(modified):
-            _LOGGER.info('zk2fs mirror does not exist, waiting.')
-            time.sleep(1)
+        # keep sleeping until zksync ready
+        zksync_utils.wait_for_ready(fs_root)
 
         # TODO: implment config creation by iterating over fs-root/app-groups.
         # We would get all app-groups, then add a frontend and backend for

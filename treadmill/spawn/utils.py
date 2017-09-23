@@ -1,4 +1,5 @@
-"""Treadmill spawn utilities."""
+"""Treadmill spawn utilities.
+"""
 
 import logging
 import os
@@ -13,7 +14,7 @@ def get_user_safe(path):
     try:
         return pwd.getpwuid(os.stat(path).st_uid).pw_name
     except (OSError, KeyError):
-        _LOGGER.warn('Could not get user of path %r', path)
+        _LOGGER.warning('Could not get user of path %r', path)
         return None
 
 

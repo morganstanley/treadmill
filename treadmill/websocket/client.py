@@ -15,16 +15,21 @@ _LOGGER = logging.getLogger(__name__)
 _DEFAULT_TIMEOUT = 30
 
 
+class ConnectionError(Exception):
+    """Error raised when connection attempts fail."""
+
+
+CLI_WS_EXCEPTIONS = [
+    (ConnectionError, 'Could not connect to the websocket API')
+]
+
+
 class _RetryError(Exception):
     """Error indicating that retry attempt should be made."""
 
     def __init__(self, since):
         Exception.__init__(self)
-        self.since = int(since)
-
-
-class ConnectionError(Exception):
-    """Error raised when connection attempts fail."""
+        self.since = since
 
 
 def _ws_events(ws_conn, message, snapshot, since, on_message, on_error):
@@ -32,7 +37,7 @@ def _ws_events(ws_conn, message, snapshot, since, on_message, on_error):
     # Pylint complains too many nested blocks.
     #
     # pylint: disable=R0101
-    last_timestamp = 0
+    last_timestamp = since
     subscription_msg = {'since': since,
                         'snapshot': snapshot}
     subscription_msg.update(message)
@@ -51,7 +56,7 @@ def _ws_events(ws_conn, message, snapshot, since, on_message, on_error):
                         on_error(result)
                     break
 
-                last_timestamp = result.get('when', int(time.time()))
+                last_timestamp = result.get('when', time.time())
                 if on_message:
                     if not on_message(result):
                         break

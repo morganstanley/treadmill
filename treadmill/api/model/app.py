@@ -1,6 +1,10 @@
 """
 Application API data models
 """
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 from flask_restplus import fields
 
@@ -17,7 +21,7 @@ def models(api):
         'restart': fields.Nested(restart),
         'root': fields.Boolean(description='Run as root'),
     })
-    endpoint = api.model('Endpoint', {
+    endpoint = api.model('AppEndpoint', {
         'name': fields.String(description='Endpoint Name', required=True),
         'port': fields.Integer(description='Port', required=True),
         'type': fields.String(description='Type'),
@@ -38,6 +42,11 @@ def models(api):
     vring = api.model('VRing', {
         'cells': fields.List(fields.String(description='Cell')),
         'rules': fields.List(fields.Nested(vring_rule)),
+    })
+    affinity_limits = api.model('AffinityLimit', {
+        'pod': fields.Integer(description='Pod'),
+        'rack': fields.Integer(description='Rack'),
+        'server': fields.Integer(description='Server'),
     })
 
     application = {
@@ -63,6 +72,8 @@ def models(api):
         'vring': fields.Nested(vring),
         'data_retention_timeout': fields.String(
             description='Data retention timeout'),
+        'lease': fields.String(description='Application lease interval.'),
+        'affinity_limits': fields.Nested(affinity_limits),
     }
 
     app_model = api.model(

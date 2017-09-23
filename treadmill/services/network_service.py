@@ -4,9 +4,14 @@
 import errno
 import logging
 import os
-import subprocess
 
 import netifaces
+import six
+
+if six.PY2 and os.name == 'posix':
+    import subprocess32 as subprocess
+else:
+    import subprocess  # pylint: disable=wrong-import-order
 
 from .. import logcontext as lc
 from .. import netdev
@@ -127,7 +132,7 @@ class NetworkResourceService(BaseResourceServiceImpl):
 
     def synchronize(self):
         modified = False
-        for app_unique_name in list(self._devices):
+        for app_unique_name in six.viewkeys(self._devices.copy()):
             if not self._devices[app_unique_name].get('stale', False):
                 continue
 

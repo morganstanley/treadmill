@@ -1,7 +1,10 @@
-"""
-Treadmill Cell REST api.
+"""Treadmill Cell REST api.
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import flask
 import flask_restplus as restplus
@@ -45,6 +48,7 @@ def init(api, cors, impl):
         'ssq-namespace': fields.String(description='SSQ Namespace'),
         'location': fields.String(description='Location'),
         'version': fields.String(description='Version'),
+        'status': fields.String(description='Status'),
         'masters': fields.List(fields.Nested(master)),
         'partitions': fields.List(fields.Nested(partition)),
     }

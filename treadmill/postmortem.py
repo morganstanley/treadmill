@@ -2,15 +2,17 @@
 """
 
 
-import os
-
 import glob
+import importlib
 import logging
+import os
 import shutil
+import socket
 import tempfile
 
 from treadmill import fs
 from treadmill import subproc
+from treadmill import utils
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -18,6 +20,35 @@ _IFCONFIG = 'ifconfig'
 _SYSCTL = 'sysctl'
 _DMESG = 'dmesg'
 _TAIL = 'tail'
+_LVM = 'lvm'
+_VGDISPLAY = 'vgdisplay'
+_LVDISPLAY = 'lvdisplay'
+
+try:
+    _UPLOADER = importlib.import_module(
+        'treadmill.plugins.postmortem_uploader'
+    )
+except ImportError:
+    _UPLOADER = None
+
+
+def run(treadmill_root, upload_url=None):
+    """Run postmortem"""
+    filetime = utils.datetime_utcnow().strftime('%Y%m%d_%H%M%SUTC')
+    hostname = socket.gethostname()
+    postmortem_file_base = os.path.join(
+        '/tmp', '{0}-{1}.tar'.format(hostname, filetime)
+    )
+
+    postmortem_file = collect(
+        treadmill_root,
+        postmortem_file_base
+    )
+    os.chmod(postmortem_file, 0o644)
+    _LOGGER.info('generated postmortem file: %r', postmortem_file)
+
+    if _UPLOADER is not None:
+        _UPLOADER.upload(postmortem_file, upload_url)
 
 
 def _safe_copy(src, dest):
@@ -31,7 +62,7 @@ def _safe_copy(src, dest):
         shutil.copyfile(src, dest)
         _LOGGER.debug('file copied %s => %s', src, dest)
     except OSError:
-        _LOGGER.exception('unable to copy %s => %s', src, dest)
+        _LOGGER.warning('skip %s => %s', src, dest)
 
 
 def collect(approot, archive_filename):
@@ -89,7 +120,7 @@ def collect_running_app(approot, destroot):
         target = '%s%s' % (destroot, run_log)
         _safe_copy(run_log, target)
 
-    pattern = '%s/running/*/sys/*/log/current' % approot
+    pattern = '%s/running/*/data/sys/*/data/log/current' % approot
 
     for current in glob.glob(pattern):
         target = '%s%s' % (destroot, current)
@@ -111,7 +142,7 @@ def collect_cgroup(approot, destroot):
     try:
         shutil.copytree(src, dest)
     except (shutil.Error, OSError):
-        _LOGGER.exception('fail to copy %s => %s', src, dest)
+        _LOGGER.warning('skip %s => %s', src, dest)
 
     pattern = '/cgroup/*/treadmill/core'
     for cgrp_core in glob.glob(pattern):
@@ -120,7 +151,7 @@ def collect_cgroup(approot, destroot):
         try:
             shutil.copytree(cgrp_core, core_dest)
         except (shutil.Error, OSError):
-            _LOGGER.exception('fail to copy %s => %s', src, dest)
+            _LOGGER.warning('skip %s => %s', src, dest)
 
 
 def collect_localdisk(approot, destroot):
@@ -131,9 +162,12 @@ def collect_localdisk(approot, destroot):
     try:
         shutil.copytree(src, dest)
     except (shutil.Error, OSError):
-        _LOGGER.exception('fail to copy %s => %s', src, dest)
+        _LOGGER.warning('skip %s => %s', src, dest)
 
-    # FIXME vgdisplay requires root
+    vg_info = subproc.check_output([_LVM, _VGDISPLAY, 'treadmill'])
+    lv_info = subproc.check_output([_LVM, _LVDISPLAY, 'treadmill'])
+    with open('%s/lvm' % destroot, 'w+') as f:
+        f.write('%s\n%s' % (vg_info, lv_info))
 
 
 def collect_network(approot, destroot):
@@ -144,7 +178,7 @@ def collect_network(approot, destroot):
     try:
         shutil.copytree(src, dest)
     except (shutil.Error, OSError):
-        _LOGGER.exception('fail to copy %s => %s', src, dest)
+        _LOGGER.warning('skip %s => %s', src, dest)
 
     ifconfig = subproc.check_output([_IFCONFIG])
     with open('%s/ifconfig' % destroot, 'w') as f:

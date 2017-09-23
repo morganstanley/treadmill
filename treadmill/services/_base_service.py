@@ -17,16 +17,17 @@ import struct
 import tempfile
 import time
 
-import yaml
+import six
 
-from .. import exc
-from .. import fs
-from .. import logcontext as lc
-from .. import dirwatch
-from .. import utils
-from .. import watchdog
+from treadmill import exc
+from treadmill import fs
+from treadmill import logcontext as lc
+from treadmill import dirwatch
+from treadmill import utils
+from treadmill import watchdog
 
-from ..syscall import eventfd
+from treadmill.syscall import eventfd
+from treadmill import yamlwrapper as yaml
 
 
 _LOGGER = lc.ContainerAdapter(logging.getLogger(__name__))
@@ -130,42 +131,7 @@ class ResourceServiceClient(object):
             (New) Parameters for the requested resource.
         """
         req_dir = self._req_dirname(rsrc_id)
-
-        if fs.mkdir_safe(req_dir):
-            self._create(rsrc_id, rsrc_data, req_dir)
-        else:
-            self._update(rsrc_id, rsrc_data, req_dir)
-
-    def _create(self, rsrc_id, rsrc_data, req_dir):
-        """Request creation of a resource.
-        """
-        with open(os.path.join(req_dir, _REQ_FILE), 'w') as f:
-            os.fchmod(f.fileno(), 0o644)
-            yaml.dump(rsrc_data,
-                      explicit_start=True, explicit_end=True,
-                      default_flow_style=False,
-                      stream=f)
-
-        with lc.LogContext(_LOGGER, rsrc_id):
-            try:
-                svc_req_uuid = self._serviceinst.clt_new_request(rsrc_id,
-                                                                 req_dir)
-
-            except OSError as _err:
-                # Error registration failed, delete the request.
-                _LOGGER.exception('Unable to submit request')
-                shutil.rmtree(req_dir)
-
-            with open(os.path.join(req_dir, self._REQ_UID_FILE), 'w') as f:
-                os.fchmod(f.fileno(), 0o644)
-                f.write(svc_req_uuid)
-
-    def _update(self, rsrc_id, rsrc_data, req_dir):
-        """Update an existing resource.
-        """
-        with open(os.path.join(req_dir, self._REQ_UID_FILE)) as f:
-            os.fchmod(f.fileno(), 0o644)
-            svc_req_uuid = f.read().strip()
+        fs.mkdir_safe(req_dir)
 
         with open(os.path.join(req_dir, _REQ_FILE), 'w') as f:
             os.fchmod(f.fileno(), 0o644)
@@ -174,8 +140,34 @@ class ResourceServiceClient(object):
                       default_flow_style=False,
                       stream=f)
 
+        req_uuid_file = os.path.join(req_dir, self._REQ_UID_FILE)
+        try:
+            with open(req_uuid_file) as f:
+                svc_req_uuid = f.read().strip()
+        except IOError as err:
+            if err.errno == errno.ENOENT:
+                svc_req_uuid = None
+            else:
+                raise
+
         with lc.LogContext(_LOGGER, rsrc_id):
-            self._serviceinst.clt_update_request(svc_req_uuid)
+            if svc_req_uuid is None:
+                try:
+                    # New request
+                    svc_req_uuid = self._serviceinst.clt_new_request(rsrc_id,
+                                                                     req_dir)
+                    # Write down the UUID
+                    with open(req_uuid_file, 'w') as f:
+                        f.write(svc_req_uuid)
+                        os.fchmod(f.fileno(), 0o644)
+
+                except OSError:
+                    # Error registration failed, delete the request.
+                    _LOGGER.exception('Unable to submit request')
+                    shutil.rmtree(req_dir)
+
+            else:
+                self._serviceinst.clt_update_request(svc_req_uuid)
 
     def delete(self, rsrc_id):
         """Delete an existing resource.
@@ -770,16 +762,16 @@ class ResourceService(object):
             # Request was not actioned
             return False
 
-        with tempfile.NamedTemporaryFile(dir=filepath,
-                                         delete=False,
-                                         mode='w') as f:
-            os.fchmod(f.fileno(), 0o644)
-            yaml.dump(res,
-                      explicit_start=True, explicit_end=True,
-                      default_flow_style=False,
-                      stream=f)
+        _LOGGER.debug('created %r', req_id)
 
-        os.rename(f.name, rep_file)
+        fs.write_safe(
+            rep_file,
+            lambda f: yaml.dump(
+                res, explicit_start=True, explicit_end=True,
+                default_flow_style=False, stream=f
+            ),
+            permission=0o644
+        )
         # Return True if there were no error
         return not bool(res.get('_error', False))
 
@@ -800,9 +792,11 @@ class ResourceService(object):
         return res
 
 
-class BaseResourceServiceImpl(object, metaclass=abc.ABCMeta):
+@six.add_metaclass(abc.ABCMeta)
+class BaseResourceServiceImpl(object):
     """Base interface of Resource Service implementations.
     """
+
     __slots__ = (
         '_service_dir',
         '_service_rsrc_dir',

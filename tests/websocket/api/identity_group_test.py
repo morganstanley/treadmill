@@ -1,5 +1,4 @@
-"""
-Unit test for identity_group websocket API.
+"""Unit test for identity_group websocket API.
 """
 
 import unittest

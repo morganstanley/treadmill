@@ -1,6 +1,11 @@
 """This contains the unit tests for treadmill.utils.
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import os
 import shutil
 import signal
@@ -14,9 +19,16 @@ import unittest
 import string
 
 import mock
-import yaml
+import six
 
+if six.PY2 and os.name == 'posix':
+    import subprocess32 as subprocess  # pylint: disable=import-error
+else:
+    import subprocess  # pylint: disable=wrong-import-order
+
+from treadmill import exc
 from treadmill import utils
+from treadmill import yamlwrapper as yaml
 
 
 class UtilsTest(unittest.TestCase):
@@ -38,14 +50,16 @@ class UtilsTest(unittest.TestCase):
         """
         script_file = os.path.join(self.root, 'script')
         # Function we are testing
-        utils.create_script(script_file,
-                            'supervisor.run',
-                            service='testservice',
-                            user='testproid',
-                            home='home',
-                            shell='shell',
-                            cmd='run',
-                            as_root=True)
+        utils.create_script(
+            script_file,
+            's6.run',
+            user='testproid',
+            home='home',
+            shell='shell',
+            _alias={
+                's6_setuidgid': '/test/s6-setuidgid',
+            }
+        )
 
         # Read the output from the mock filesystem
         with open(script_file) as script:
@@ -53,7 +67,7 @@ class UtilsTest(unittest.TestCase):
 
         # Validate that data is what it should be
         self.assertTrue(data.index(
-            '${TREADMILL_S6}/bin/s6-setuidgid testproid') > 0)
+            '/test/s6-setuidgid testproid') > 0)
 
         # Validate that the file is +x
         self.assertEqual(utils.os.stat(script_file).st_mode, 33261)
@@ -68,12 +82,17 @@ class UtilsTest(unittest.TestCase):
                 stat.S_IRGRP |
                 stat.S_IROTH)
 
-        utils.create_script(script_file,
-                            'supervisor.run',
-                            mode,
-                            service='testservice',
-                            user='testproid',
-                            cmd='run')
+        utils.create_script(
+            script_file,
+            's6.run',
+            mode=mode,
+            user='testproid',
+            home='home',
+            shell='shell',
+            _alias={
+                's6_setuidgid': '/test/s6-setuidgid',
+            }
+        )
 
         self.assertEqual(utils.os.stat(script_file).st_mode, 33060)
 
@@ -168,13 +187,13 @@ class UtilsTest(unittest.TestCase):
     def test_validate(self):
         """Tests dictionary validation."""
         schema = [
-            ('required', True, str),
-            ('optional', False, str),
+            ('required', True, six.string_types),
+            ('optional', False, six.string_types),
         ]
 
         struct = {'required': 'foo'}
         utils.validate(struct, schema)
-        self.assertIn('optional', struct)
+        self.assertNotIn('optional', struct)
 
         struct = {'required': 'foo', 'optional': 'xxx'}
         utils.validate(struct, schema)
@@ -314,12 +333,55 @@ class UtilsTest(unittest.TestCase):
 
     def test_to_yaml(self):
         """Tests conversion of dict to yaml representation."""
-
         obj = {
-            'xxx': chr(40960) + 'abcd' + chr(1972)
+            'xxx': u'abcd'
         }
 
-        self.assertEqual(yaml.dump(obj), '{xxx: abcd}\n')
+        self.assertEqual(yaml.dump(obj), u'{xxx: abcd}\n')
+
+    @mock.patch('signal.signal', mock.Mock(spec_set=True))
+    @mock.patch('os.closerange', mock.Mock(spec_set=True))
+    @mock.patch('os.execvp', mock.Mock(spec_set=True))
+    def test_sane_execvp(self):
+        """Tests sane execvp wrapper.
+        """
+        # do not complain about accessing protected member _SIGNALS
+        # pylint: disable=W0212
+
+        utils.sane_execvp('/bin/sleep', ['sleep', '30'])
+
+        os.closerange.assert_called_with(3, subprocess.MAXFD)
+        signal.signal.assert_has_calls(
+            [
+                mock.call(i, signal.SIG_DFL)
+                for i in utils._SIGNALS
+            ]
+        )
+        os.execvp.assert_called_with('/bin/sleep', ['sleep', '30'])
+
+    @mock.patch('treadmill.utils.sys_exit', mock.Mock())
+    def test_decorator_tm_exc(self):
+        """Test the `exit_on_unhandled` decorator on `TreadmillError`."""
+        @utils.exit_on_unhandled
+        def test_fun():
+            """raise exc.TreadmillError('test')."""
+            raise exc.TreadmillError('test')
+
+        test_fun()
+
+        utils.sys_exit.assert_called_with(-1)
+
+    @mock.patch('treadmill.utils.sys_exit', mock.Mock())
+    def test_decorator_py_exc(self):
+        """Test the `exit_on_unhandled` decorator on Python `Exception`."""
+        @utils.exit_on_unhandled
+        def test_fun():
+            """raise Exception('test')."""
+            raise Exception('test')
+
+        test_fun()
+
+        utils.sys_exit.assert_called_with(-1)
 
 
 if __name__ == '__main__':

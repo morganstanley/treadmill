@@ -1,5 +1,5 @@
-"""Basic listing module that treadmill_list and REST API can use"""
-
+"""Basic listing module that treadmill_list and REST API can use.
+"""
 
 import fnmatch
 import logging

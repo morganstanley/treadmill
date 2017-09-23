@@ -1,19 +1,28 @@
-"""Treadmill bootstrap module."""
+"""Treadmill bootstrap module.
+"""
+
 from __future__ import absolute_import
 
-import os
 import errno
 import logging
-import tempfile
-import importlib
+import os
 import pkgutil
 import stat
+import sys
+import tempfile
+
+import jinja2
+import pkg_resources
 import six
 
-import pkg_resources
-import jinja2
+if six.PY2 and os.name == 'posix':
+    import subprocess32 as subprocess
+else:
+    import subprocess  # pylint: disable=wrong-import-order
 
 from treadmill import fs
+from treadmill import plugin_manager
+from treadmill import utils
 
 # This is required so that symlink API (os.symlink and other link related)
 # work properly on windows.
@@ -46,7 +55,11 @@ def _update_stat(src_file, tgt_file):
 
 def _is_executable(filename):
     """Check if file is executable."""
-    if os.path.basename(filename) in ['run', 'finish', 'app_start']:
+    # XXX: This is an ugly hack until we can replace bootstrap with
+    #      a treadmill.supervisor based installation.
+    if os.path.basename(filename) in ['run', 'finish', 'app_start',
+                                      'SIGTERM', 'SIGHUP', 'SIGQUIT',
+                                      'SIGINT', 'SIGUSR1', 'SIGUSR2']:
         return True
 
     if filename.endswith('.sh'):
@@ -101,8 +114,8 @@ def _render(value, params):
 
 def _install(package, src_dir, dst_dir, params, prefix_len=None, rec=None):
     """Interpolate source directory into target directory with params."""
-
-    contents = pkg_resources.resource_listdir(package, src_dir)
+    package_name = package.__name__
+    contents = pkg_resources.resource_listdir(package_name, src_dir)
 
     if prefix_len is None:
         prefix_len = len(src_dir) + 1
@@ -110,7 +123,8 @@ def _install(package, src_dir, dst_dir, params, prefix_len=None, rec=None):
     for item in contents:
         resource_path = '/'.join([src_dir, item])
         dst_path = os.path.join(dst_dir, resource_path[prefix_len:])
-        if pkg_resources.resource_isdir(package, '/'.join([src_dir, item])):
+        if pkg_resources.resource_isdir(package_name,
+                                        '/'.join([src_dir, item])):
             fs.mkdir_safe(dst_path)
             if rec:
                 rec.write('%s/\n' % dst_path)
@@ -125,7 +139,7 @@ def _install(package, src_dir, dst_dir, params, prefix_len=None, rec=None):
                 continue
 
             _LOGGER.info('Render: %s => %s', resource_path, dst_path)
-            resource_str = pkg_resources.resource_string(package,
+            resource_str = pkg_resources.resource_string(package_name,
                                                          resource_path)
             if rec:
                 rec.write('%s\n' % dst_path)
@@ -182,28 +196,39 @@ def _interpolate(value, params=None):
 
 def _run(script):
     """Runs the services."""
-    os.execvp(script, [script])
+    if os.name == 'nt':
+        sys.exit(subprocess.call(script))
+    else:
+        utils.sane_execvp(script, [script])
 
 
-def install(package, dst_dir, params, run=None):
+def install(package, dst_dir, params, run=None, profile=None):
     """Installs the services."""
-    fullname = '.'.join([__name__, package])
+    _LOGGER.info('install: %s - %s, profile: %s', package, dst_dir, profile)
 
-    module = importlib.import_module(fullname)
+    aliases_path = [package]
+
+    module = plugin_manager.load('treadmill.bootstrap', package)
+    if profile:
+        extension_name = '{}.{}'.format(package, profile)
+        aliases_path.append(extension_name)
+
+        try:
+            extension_module = plugin_manager.load('treadmill.bootstrap',
+                                                   extension_name)
+        except KeyError:
+            _LOGGER.info('Extension not defined: %s, profile: %s',
+                         package, profile)
+
     defaults = {}
     defaults.update(getattr(module, 'DEFAULTS', {}))
 
     aliases = {}
     aliases.update(getattr(module, 'ALIASES', {}))
 
-    aliases_path = [fullname]
-
-    for _loader, name, _ in pkgutil.iter_modules(module.__path__):
-        extension = '.'.join([fullname, name])
-        extension_module = importlib.import_module(extension)
+    if extension_module:
         defaults.update(getattr(extension_module, 'DEFAULTS', {}))
         aliases.update(getattr(extension_module, 'ALIASES', {}))
-        aliases_path.append(extension)
 
     # TODO: this is ugly, error prone and should go away.
     #       aliases should be in default scope, everything else in _args.
@@ -218,19 +243,17 @@ def install(package, dst_dir, params, run=None):
     fs.mkdir_safe(dst_dir)
     with open(os.path.join(dst_dir, '.install'), 'w+') as rec:
 
-        _install(fullname, PLATFORM, dst_dir, interpolated, rec=rec)
+        _install(module, PLATFORM, dst_dir, interpolated, rec=rec)
 
-        for _loader, name, _ in pkgutil.iter_modules(module.__path__):
-            extension = '.'.join([fullname, name])
-            extension_module = importlib.import_module(extension)
+        if extension_module:
             _install(
-                extension,
-                '.'.join([name, PLATFORM]), dst_dir, interpolated,
+                extension_module,
+                '.'.join([profile, PLATFORM]), dst_dir, interpolated,
                 rec=rec
             )
 
     if run:
-        _run(os.path.join(dst_dir, run))
+        _run(run)
 
 
 def interpolate(value, params=None):
@@ -242,6 +265,6 @@ def wipe(wipe_me, wipe_script):
     """Check if flag file is present, invoke cleanup script."""
     if os.path.exists(wipe_me):
         _LOGGER.info('Requested clean start, calling: %s', wipe_script)
-        os.system(wipe_script)
+        subprocess.check_call(wipe_script)
     else:
         _LOGGER.info('Preserving data, no clean restart.')

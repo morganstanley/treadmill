@@ -34,7 +34,8 @@ from collections import namedtuple
 
 import kazoo
 from kazoo.protocol import states
-import yaml
+
+from treadmill import yamlwrapper as yaml
 
 
 class MockZookeeperMetadata(namedtuple('MockZookeeperMetadata',

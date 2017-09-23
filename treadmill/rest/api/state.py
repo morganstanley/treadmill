@@ -1,6 +1,11 @@
 """Treadmill State REST api.
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import flask_restplus as restplus
 from flask_restplus import fields, inputs
 
@@ -36,12 +41,20 @@ def init(api, cors, impl):
         'State', model
     )
 
-    match_parser = api.parser()
-    match_parser.add_argument('match', help='A glob match on an app name',
-                              location='args', required=False,)
-    match_parser.add_argument('finished', help='Flag to include finished apps',
-                              location='args', required=False,
-                              type=inputs.boolean, default=False)
+    query_param_parser = api.parser()
+    query_param_parser.add_argument(
+        'match', help='A glob match on an app name',
+        location='args', required=False
+    )
+    query_param_parser.add_argument(
+        'finished', help='Flag to include finished apps',
+        location='args', required=False,
+        type=inputs.boolean, default=False
+    )
+    query_param_parser.add_argument(
+        'partition', help='Filter apps by partition',
+        location='args', required=False
+    )
 
     inst_parser = api.parser()
     inst_parser.add_argument('instances', type=list,
@@ -55,14 +68,20 @@ def init(api, cors, impl):
     class _StateList(restplus.Resource):
         """Treadmill State resource"""
 
-        @webutils.get_api(api, cors,
-                          marshal=api.marshal_list_with,
-                          resp_model=state_model,
-                          parser=match_parser)
+        @webutils.get_api(
+            api, cors,
+            marshal=api.marshal_list_with,
+            resp_model=state_model,
+            parser=query_param_parser
+        )
         def get(self):
             """Return all state."""
-            args = match_parser.parse_args()
-            return impl.list(args.get('match'), args.get('finished'))
+            args = query_param_parser.parse_args()
+            return impl.list(
+                args.get('match'),
+                args.get('finished'),
+                args.get('partition')
+            )
 
         @webutils.post_api(api, cors,
                            marshal=api.marshal_list_with,

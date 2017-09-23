@@ -1,4 +1,7 @@
-"""Creates a supervision tree which splits the jobs into buckets."""
+"""Creates a supervision tree which splits the jobs into buckets.
+"""
+
+from __future__ import absolute_import
 
 import logging
 import os
@@ -63,20 +66,24 @@ class Tree(object):
 
             utils.create_script(
                 os.path.join(app, 'run'),
-                'svscan.run',
+                's6.svscan.run',
                 max=self.max_per_bucket,
-                service_dir=running
+                service_dir=running,
+                _alias=subproc.get_aliases()
             )
 
             utils.create_script(
                 os.path.join(log, 'run'),
-                'logger.run'
+                's6.logger.run',
+                logdir='.',
+                _alias=subproc.get_aliases()
             )
 
             utils.create_script(
                 os.path.join(svscan, 'finish'),
-                'svscan.finish',
-                timeout=4800
+                's6.svscan.finish',
+                timeout=4800,
+                _alias=subproc.get_aliases()
             )
 
         for app_dir in os.listdir(self.paths.svscan_tree_dir):
@@ -96,7 +103,7 @@ class Tree(object):
     def run(self):
         """Exec into the tree."""
         s6_envdir = subproc.resolve('s6_envdir')
-        os.execvp(s6_envdir, [
+        utils.sane_execvp(s6_envdir, [
             s6_envdir,
             self.paths.env_dir,
             subproc.resolve('s6_svscan'),
