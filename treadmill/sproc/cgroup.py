@@ -25,7 +25,6 @@ from treadmill import subproc
 from treadmill import sysinfo
 from treadmill import utils
 
-
 _LOGGER = logging.getLogger(__name__)
 
 

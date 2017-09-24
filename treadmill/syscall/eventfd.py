@@ -88,6 +88,7 @@ class EFDFlags(enum.IntEnum):
 
         return masks
 
+
 #: Provice semaphore-like semantics for reads from the new file descriptor.
 #: (since Linux 2.6.30)
 EFD_SEMAPHORE = EFDFlags.SEMAPHORE

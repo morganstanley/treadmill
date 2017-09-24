@@ -32,6 +32,7 @@ def _repr_unicode(dumper, data):
     else:
         return dumper.represent_scalar(u'tag:yaml.org,2002:str', data)
 
+
 if six.PY2:
     # pylint: disable=unicode-builtin,undefined-variable
     yaml.add_representer(str, _repr_bytes)
@@ -45,6 +46,7 @@ def _repr_tuple(dumper, data):
     """
     return dumper.represent_list(list(data))
 
+
 yaml.add_representer(tuple, _repr_tuple)
 
 
@@ -52,6 +54,7 @@ def _repr_none(dumper, data_unused):
     """Fix yaml None representation (use ~).
     """
     return dumper.represent_scalar(u'tag:yaml.org,2002:null', '~')
+
 
 yaml.add_representer(type(None), _repr_none)
 

@@ -15,7 +15,6 @@ import mock
 
 from six.moves import http_client
 
-import treadmill
 from treadmill import webutils
 from treadmill.rest import error_handlers
 from treadmill.rest.api import state

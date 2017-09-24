@@ -1,10 +1,10 @@
 """Runs the Treadmill container cleanup job.
 """
 
+from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
-from __future__ import absolute_import
 
 import logging
 import os
@@ -86,7 +86,7 @@ def init():
         watcher = dirwatch.DirWatcher(tm_env.cleanup_dir)
         watcher.on_created = _on_created
 
-        loop_timeout = _WATCHDOG_HEARTBEAT_SEC//2
+        loop_timeout = _WATCHDOG_HEARTBEAT_SEC // 2
         while True:
             if watcher.wait_for_events(timeout=loop_timeout):
                 watcher.process_events(max_events=_MAX_REQUEST_PER_CYCLE)

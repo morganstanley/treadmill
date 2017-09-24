@@ -1,26 +1,27 @@
+"""Saves the scheduler state to permanent storage.
 """
-Saves the scheduler state to permanent storage.
-"""
+
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
 import bz2
-from datetime import datetime
 import logging
 import os.path
 import time
 
+from datetime import datetime
+
 import click
 import kazoo.exceptions
+
 from twisted.internet import reactor, task
 
 from treadmill import context
 from treadmill import fs
 from treadmill import zknamespace as z
 from treadmill import zkutils
-
 
 _LOGGER = logging.getLogger(__name__)
 

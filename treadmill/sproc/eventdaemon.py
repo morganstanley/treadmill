@@ -8,7 +8,7 @@ from __future__ import unicode_literals
 
 import click
 
-from .. import eventmgr
+from treadmill import eventmgr
 
 
 def init():

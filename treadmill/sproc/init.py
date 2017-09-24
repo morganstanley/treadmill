@@ -21,7 +21,6 @@ import kazoo
 
 from treadmill import appenv
 from treadmill import context
-from treadmill import netdev
 from treadmill import postmortem
 from treadmill import supervisor
 from treadmill import sysinfo
@@ -31,7 +30,6 @@ from treadmill import zkutils
 
 if os.name == 'posix':
     from .. import netdev
-    from .. import subproc
 
 _LOGGER = logging.getLogger(__name__)
 

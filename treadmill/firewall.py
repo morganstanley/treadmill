@@ -1,5 +1,12 @@
 """Firewall rule representation"""
 
+
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
+from __future__ import absolute_import
+
 ANY_IP = '0.0.0.0/0'
 ANY_PORT = 0
 

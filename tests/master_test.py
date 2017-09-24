@@ -212,7 +212,7 @@ class MasterTest(mockzk.MockZookeeperTestCase):
   assignments:
   - pattern: treadmlx.*
     priority: 10
-  - pattern: treadmlp.test
+  - pattern: "*@treadmill-users.test"
     priority: 42
   rank: 100
   cpu: 100%
@@ -231,11 +231,13 @@ class MasterTest(mockzk.MockZookeeperTestCase):
         self.assertEqual(1024, leaf_alloc.reserved[2])
 
         assignments = self.master.assignments
-        expected_pattern = (
-            'treadmlx.*[#][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]')
         self.assertEqual(
-            [(expected_pattern, (10, leaf_alloc))],
-            list(assignments['treadmlx'])
+            [(mock.ANY, 10, leaf_alloc)],
+            assignments['treadmlx']
+        )
+        self.assertEqual(
+            [(mock.ANY, 42, leaf_alloc)],
+            assignments['treadmill-users']
         )
 
     @mock.patch('kazoo.client.KazooClient.get', mock.Mock())
@@ -1164,6 +1166,7 @@ class MasterTest(mockzk.MockZookeeperTestCase):
         self.assertFalse(treadmill.zkutils.ensure_deleted.called)
         self.assertFalse(treadmill.zkutils.ensure_exists.called)
         self.assertFalse(treadmill.zkutils.put.called)
+
 
 if __name__ == '__main__':
     unittest.main()

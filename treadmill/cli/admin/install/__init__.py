@@ -11,7 +11,6 @@ import os
 import pkgutil
 import sys
 
-import yaml
 import click
 
 import treadmill

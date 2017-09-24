@@ -77,7 +77,7 @@ def _trace_loop(ctx, app, snapshot):
 
         sys.exit(rc['rc'])
 
-    except ws_client.ConnectionError:
+    except ws_client.WSConnectionError:
         click.echo('Could not connect to any Websocket APIs', err=True)
         sys.exit(-1)
 

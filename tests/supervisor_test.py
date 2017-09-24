@@ -23,6 +23,7 @@ else:
 
 import treadmill
 from treadmill import supervisor
+from treadmill import subproc
 
 # Disable: C0103 because names are too long
 # pylint: disable=C0103

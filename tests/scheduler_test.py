@@ -19,8 +19,6 @@ import numpy as np
 import six
 
 from treadmill import scheduler
-from functools import reduce
-
 
 _TRAITS = dict()
 

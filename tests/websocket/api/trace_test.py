@@ -1,6 +1,10 @@
+"""Unit test for trace websocket API.
 """
-Unit test for trace websocket API.
-"""
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import unittest
 
@@ -43,7 +47,7 @@ class WSRunningAPITest(unittest.TestCase):
             [('/trace/*', 'foo.*#*,*')]
         )
 
-        with self.assertRaisesRegexp(
+        with self.assertRaisesRegexp(  # pylint: disable=deprecated-method
             jsonschema.exceptions.ValidationError,
             "'*' does not match"
         ):

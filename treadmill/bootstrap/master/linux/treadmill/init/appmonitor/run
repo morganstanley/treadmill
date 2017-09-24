@@ -6,9 +6,6 @@
 exec 2>&1
 
 export KRB5CCNAME=FILE:/var/spool/tickets/{{ treadmillid }}
-export PEX_ROOT=/tmp/.pex_{{ treadmillid }}
-
-exec                                                                        \
-    {{ s6 }}/bin/s6-setuidgid {{ treadmillid }}                             \
-    {{ treadmill_bin }} sproc                                               \
-        appmonitor
+exec {{ s6 }}/bin/s6-setuidgid {{ treadmillid }} \
+    {{ treadmill }}/bin/treadmill sproc appmonitor \
+        --api http+unix://%2Ftmp%2Fcellapi.sock

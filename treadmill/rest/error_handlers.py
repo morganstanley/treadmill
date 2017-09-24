@@ -11,12 +11,12 @@ from __future__ import unicode_literals
 
 import logging
 
-from six.moves import http_client
-
-import ldap3
 import jsonschema
-import kazoo.exceptions
 import kazoo
+import kazoo.exceptions
+import ldap3
+
+from six.moves import http_client
 
 from treadmill import authz
 from treadmill import exc
@@ -85,7 +85,7 @@ def register(api):
                 'status': http_client.NOT_FOUND}
         return resp, http_client.NOT_FOUND, _cors_headers()
 
-    @api.errorhandler(exc.FileNotFoundError)
+    @api.errorhandler(exc.LocalFileNotFoundError)
     def _file_not_found_exc(err):
         """Nodeinfo/local module exception handler."""
         _LOGGER.exception('File not found error: %r', err)

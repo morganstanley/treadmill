@@ -1,6 +1,11 @@
 """Unit test for localdisk_service - Treadmill local disk service.
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import collections
 import os
 import shutil
@@ -11,7 +16,7 @@ import mock
 import six
 
 if six.PY2 and os.name == 'posix':
-    import subprocess32 as subprocess
+    import subprocess32 as subprocess  # pylint: disable=import-error
 else:
     import subprocess  # pylint: disable=wrong-import-order
 
@@ -94,7 +99,7 @@ class LocalDiskServiceTest(unittest.TestCase):
             write_iops=1000
         )
         svc._vg_status = {
-            'extent_size': 4*1024**3,
+            'extent_size': 4 * 1024**3,
             'extent_free': 512,
         }
         request = {
@@ -174,7 +179,7 @@ class LocalDiskServiceTest(unittest.TestCase):
             write_iops=1000
         )
         svc._vg_status = {
-            'extent_size': 4*1024**3,
+            'extent_size': 4 * 1024**3,
             'extent_free': 512,
         }
         treadmill.lvm.lvdisplay.return_value = {
@@ -363,7 +368,7 @@ class LocalDiskServiceTest(unittest.TestCase):
     @mock.patch('treadmill.fs.create_excl', mock.Mock())
     @mock.patch('treadmill.fs.mkdir_safe', mock.Mock())
     @mock.patch('treadmill.sysinfo.disk_usage', mock.Mock(
-        return_value=collections.namedtuple('struct', 'free')(10 * 1024 ** 3)
+        return_value=collections.namedtuple('struct', 'free')(10 * 1024**3)
     ))
     def test__create_image(self):
         """Test image file creation.
@@ -377,7 +382,7 @@ class LocalDiskServiceTest(unittest.TestCase):
         os.unlink.assert_called_with('/bar/foo')
         treadmill.fs.create_excl.assert_called_with(
             '/bar/foo',
-            (10 * 1024 ** 3) - (2 * 1024 ** 3),  # 10G free - 2G reserve
+            (10 * 1024**3) - (2 * 1024**3),  # 10G free - 2G reserve
         )
 
 

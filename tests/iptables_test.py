@@ -1,6 +1,12 @@
 """Unit test for iptables - manipulating iptables rules.
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
+import io
 import os
 import unittest
 
@@ -8,7 +14,7 @@ import mock
 import six
 
 if six.PY2 and os.name == 'posix':
-    import subprocess32 as subprocess
+    import subprocess32 as subprocess  # pylint: disable=import-error
 else:
     import subprocess  # pylint: disable=wrong-import-order
 
@@ -94,13 +100,14 @@ class IptablesTest(unittest.TestCase):
         iptables.initialize('1.2.3.4')
 
         treadmill.iptables.ipset_restore.assert_called_with(
-            open(self.IPSET_STATE).read(),
+            io.open(self.IPSET_STATE).read(),
         )
 
         treadmill.iptables._iptables_restore.assert_has_calls([
-            mock.call(open(self.IPTABLES_STATE).read()),
-            mock.call(open(self.IPTABLES_FILTER_STATE).read(), noflush=True),
-            mock.call(open(self.IPTABLES_FILTER_DROP_STATE).read(),
+            mock.call(io.open(self.IPTABLES_STATE).read()),
+            mock.call(io.open(self.IPTABLES_FILTER_STATE).read(),
+                      noflush=True),
+            mock.call(io.open(self.IPTABLES_FILTER_DROP_STATE).read(),
                       noflush=True),
         ])
 
@@ -124,7 +131,7 @@ class IptablesTest(unittest.TestCase):
 
         treadmill.subproc.invoke.assert_called_with(
             ['iptables_restore'],
-            cmd_input=open(self.IPTABLES_EMPTY_STATE).read(),
+            cmd_input=io.open(self.IPTABLES_EMPTY_STATE).read(),
             use_except=True,
         )
 
@@ -408,7 +415,7 @@ class IptablesTest(unittest.TestCase):
         # Disable protected-access: Test access protected members.
         # pylint: disable=protected-access
         treadmill.subproc.check_output.return_value = \
-            open(self.NAT_TABLE_SAVE).read()
+            io.open(self.NAT_TABLE_SAVE).read()
 
         rules = iptables._get_current_dnat_rules(iptables.PREROUTING_DNAT)
 
@@ -508,7 +515,7 @@ class IptablesTest(unittest.TestCase):
         # Disable protected-access: Test access protected members.
         # pylint: disable=protected-access
         treadmill.subproc.check_output.return_value = \
-            open(self.NAT_TABLE_SAVE).read()
+            io.open(self.NAT_TABLE_SAVE).read()
 
         rules = iptables._get_current_snat_rules(iptables.POSTROUTING_SNAT)
 
@@ -667,7 +674,7 @@ class IptablesTest(unittest.TestCase):
         # Disable protected-access: Test access protected members.
         # pylint: disable=protected-access
         treadmill.subproc.check_output.return_value = \
-            open(self.NAT_TABLE_SAVE).read()
+            io.open(self.NAT_TABLE_SAVE).read()
 
         rules = iptables._get_current_passthrough_rules(
             iptables.PREROUTING_PASSTHROUGH

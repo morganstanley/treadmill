@@ -1,15 +1,20 @@
 """Treadmill runtime framework.
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import errno
+import json
 import logging
 import os
 import random
 import socket
 import stat
-import tempfile
 
-import json
+import six
 
 from treadmill import exc
 from treadmill import fs
@@ -93,9 +98,9 @@ def _allocate_sockets(environment, host_ip, sock_type, count):
     """
     # TODO: this should probably be abstracted away
     if environment == 'prod':
-        port_pool = range(PROD_PORT_LOW, PROD_PORT_HIGH + 1)
+        port_pool = six.moves.range(PROD_PORT_LOW, PROD_PORT_HIGH + 1)
     else:
-        port_pool = range(NONPROD_PORT_LOW, NONPROD_PORT_HIGH + 1)
+        port_pool = six.moves.range(NONPROD_PORT_LOW, NONPROD_PORT_HIGH + 1)
 
     port_pool = random.sample(port_pool, PORT_SPAN)
 

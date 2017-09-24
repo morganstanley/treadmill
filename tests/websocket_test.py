@@ -1,6 +1,12 @@
 """Unit test for websocket.
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
+import io
 import json
 import os
 import shutil
@@ -55,8 +61,8 @@ class PubSubTest(unittest.TestCase):
         handler1 = DummyHandler()
         handler2 = DummyHandler()
 
-        open(os.path.join(self.root, 'xxx'), 'w+').close()
-        open(os.path.join(self.root, 'aaa'), 'w+').close()
+        io.open(os.path.join(self.root, 'xxx'), 'w').close()
+        io.open(os.path.join(self.root, 'aaa'), 'w').close()
 
         ws1 = mock.Mock()
         ws2 = mock.Mock()
@@ -76,9 +82,9 @@ class PubSubTest(unittest.TestCase):
             handler2.events
         )
 
-        with open(os.path.join(self.root, 'abc'), 'w+') as f:
+        with io.open(os.path.join(self.root, 'abc'), 'w') as f:
             f.write('x')
-        with open(os.path.join(self.root, '.abc'), 'w+') as f:
+        with io.open(os.path.join(self.root, '.abc'), 'w') as f:
             f.write('x')
 
         pubsub.run(once=True)
@@ -109,7 +115,7 @@ class PubSubTest(unittest.TestCase):
             {'echo': 1},
             {'echo': 2},
         ]
-        open(os.path.join(self.root, 'xxx'), 'w+').close()
+        io.open(os.path.join(self.root, 'xxx'), 'w').close()
         modified = os.stat(os.path.join(self.root, 'xxx')).st_mtime
 
         pubsub._sow('/', '*', 0, handler, impl)
@@ -178,7 +184,7 @@ class PubSubTest(unittest.TestCase):
             {'echo': 4},
         ]
 
-        open(os.path.join(self.root, 'xxx'), 'w+').close()
+        io.open(os.path.join(self.root, 'xxx'), 'w').close()
         modified = os.stat(os.path.join(self.root, 'xxx')).st_mtime
 
         pubsub._sow('/', '*', 0, handler, impl)
@@ -281,7 +287,7 @@ class WebSocketTest(AsyncHTTPTestCase):
     @gen_test
     def test_echo(self):
         """Test return of the same value sent, i.e. echo server"""
-        open(os.path.join(self.root, 'xxx'), 'w+').close()
+        io.open(os.path.join(self.root, 'xxx'), 'w').close()
 
         echo_impl = mock.Mock()
         echo_impl.sow = None
@@ -300,7 +306,7 @@ class WebSocketTest(AsyncHTTPTestCase):
     @gen_test
     def test_snapshot(self):
         """Test return of the same value sent, i.e. echo server"""
-        open(os.path.join(self.root, 'xxx'), 'w+').close()
+        io.open(os.path.join(self.root, 'xxx'), 'w').close()
 
         echo_impl = mock.Mock()
         echo_impl.sow = None

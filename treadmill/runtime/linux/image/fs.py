@@ -1,5 +1,10 @@
 """The base implementation for fs plugins."""
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import abc
 import logging
 
@@ -24,7 +29,7 @@ class FilesystemPluginBase(object):
         `appenv.AppEnvironment`
     """
     __slots__ = (
-        'tm_env'
+        'tm_env',
     )
 
     def __init__(self, tm_env):

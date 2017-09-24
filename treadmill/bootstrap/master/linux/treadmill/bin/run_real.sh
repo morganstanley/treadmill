@@ -3,6 +3,7 @@
 # This script is not in chroot yet, so need to resolve local directory.
 
 CHROOT={{ chroot }}
+CHMOD={{ chmod }}
 ECHO={{ echo }}
 GREP={{ grep }}
 LS={{ ls }}
@@ -29,7 +30,12 @@ for DIR in $(ls -a /); do
     # Ignore . and .. directories
     if [[ "${DIR}" != "." && "${DIR}" != ".." && -d /${DIR} ]]; then
         $MKDIR -p {{ dir }}/${DIR}
-        $MOUNT -n --rbind /${DIR} {{ dir }}/${DIR}
+        if [ $DIR == "tmp" ]; then
+            # Make /tmp in chroot rw for all with sticky bit.
+            $CHMOD 1777 {{ dir }}/$DIR
+        else
+            $MOUNT -n --rbind /${DIR} {{ dir }}/${DIR}
+        fi
     fi
 done
 

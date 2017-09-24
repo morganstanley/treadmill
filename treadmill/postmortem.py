@@ -1,9 +1,14 @@
 """Collect Treadmill node information after a crash.
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import glob
 import importlib
+import io
 import logging
 import os
 import shutil
@@ -130,7 +135,7 @@ def collect_running_app(approot, destroot):
 def collect_sysctl(destroot):
     """Get host sysctl (related to kernel)."""
     sysctl = subproc.check_output([_SYSCTL, '-a'])
-    with open('%s/sysctl' % destroot, 'w+') as f:
+    with io.open('%s/sysctl' % destroot, 'w') as f:
         f.write(sysctl)
 
 
@@ -166,7 +171,7 @@ def collect_localdisk(approot, destroot):
 
     vg_info = subproc.check_output([_LVM, _VGDISPLAY, 'treadmill'])
     lv_info = subproc.check_output([_LVM, _LVDISPLAY, 'treadmill'])
-    with open('%s/lvm' % destroot, 'w+') as f:
+    with io.open('%s/lvm' % destroot, 'w') as f:
         f.write('%s\n%s' % (vg_info, lv_info))
 
 
@@ -181,14 +186,14 @@ def collect_network(approot, destroot):
         _LOGGER.warning('skip %s => %s', src, dest)
 
     ifconfig = subproc.check_output([_IFCONFIG])
-    with open('%s/ifconfig' % destroot, 'w') as f:
+    with io.open('%s/ifconfig' % destroot, 'w') as f:
         f.write(ifconfig)
 
 
 def collect_message(destroot):
     """Get messages on the host."""
     dmesg = subproc.check_output([_DMESG])
-    with open('%s/dmesg' % destroot, 'w') as f:
+    with io.open('%s/dmesg' % destroot, 'w') as f:
         f.write(dmesg)
 
     messages = subproc.check_output(
@@ -198,5 +203,5 @@ def collect_message(destroot):
     dest_messages = '%s/var/log/messages' % destroot
     if not os.path.exists(os.path.dirname(dest_messages)):
         os.makedirs(os.path.dirname(dest_messages))
-    with open(dest_messages, 'w') as f:
+    with io.open(dest_messages, 'w') as f:
         f.write(messages)

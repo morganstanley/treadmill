@@ -1,8 +1,13 @@
-"""
-Unit test for netdev - Linux network device interface
+"""Unit test for netdev - Linux network device interface
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import errno
+import io
 import os
 import shutil
 import tempfile
@@ -24,82 +29,76 @@ class NetDevTest(unittest.TestCase):
         if self.root and os.path.isdir(self.root):
             shutil.rmtree(self.root)
 
-    @mock.patch('builtins.open', autospec=True)
-    def test_dev_mtu(self, mock_open):
+    @mock.patch('io.open', mock.mock_open())
+    def test_dev_mtu(self):
         """Test device MTU read.
         """
-        mock_file = mock_open.return_value
-        mock_filectx = mock_file.__enter__.return_value
-        mock_filectx.read.return_value = '1234\n'
+        mock_handle = io.open.return_value
+        mock_handle.read.return_value = '1234\n'
 
         res = netdev.dev_mtu('foo')
 
-        mock_open.assert_called_with('/sys/class/net/foo/mtu')
+        io.open.assert_called_with('/sys/class/net/foo/mtu')
         self.assertEqual(res, 1234)
 
-    @mock.patch('builtins.open', autospec=True)
-    def test_dev_mac(self, mock_open):
+    @mock.patch('io.open', mock.mock_open())
+    def test_dev_mac(self):
         """Test device MAC address read.
         """
-        mock_file = mock_open.return_value
-        mock_filectx = mock_file.__enter__.return_value
-        mock_filectx.read.return_value = '11:22:33:44:55\n'
+        mock_handle = io.open.return_value
+        mock_handle.read.return_value = '11:22:33:44:55\n'
 
         res = netdev.dev_mac('foo')
 
-        mock_open.assert_called_with('/sys/class/net/foo/address')
+        io.open.assert_called_with('/sys/class/net/foo/address')
         self.assertEqual(res, '11:22:33:44:55')
 
-    @mock.patch('builtins.open', autospec=True)
-    def test_dev_alias(self, mock_open):
+    @mock.patch('io.open', mock.mock_open())
+    def test_dev_alias(self):
         """Test device alias read.
         """
-        mock_file = mock_open.return_value
-        mock_filectx = mock_file.__enter__.return_value
-        mock_filectx.read.return_value = 'foo alias\n'
+        mock_handle = io.open.return_value
+        mock_handle.read.return_value = 'foo alias\n'
 
         res = netdev.dev_alias('foo')
 
-        mock_open.assert_called_with('/sys/class/net/foo/ifalias')
+        io.open.assert_called_with('/sys/class/net/foo/ifalias')
         self.assertEqual(res, 'foo alias')
 
-    @mock.patch('builtins.open', autospec=True)
-    def test_dev_state(self, mock_open):
+    @mock.patch('io.open', mock.mock_open())
+    def test_dev_state(self):
         """Test device state read.
         """
-        mock_file = mock_open.return_value
-        mock_filectx = mock_file.__enter__.return_value
-        mock_filectx.read.return_value = 'up\n'
+        mock_handle = io.open.return_value
+        mock_handle.read.return_value = 'up\n'
 
         res = netdev.dev_state('foo')
 
-        mock_open.assert_called_with('/sys/class/net/foo/operstate')
+        io.open.assert_called_with('/sys/class/net/foo/operstate')
         self.assertEqual(res, netdev.DevState.UP)
 
-    @mock.patch('builtins.open', autospec=True)
-    def test_dev_speed(self, mock_open):
+    @mock.patch('io.open', mock.mock_open())
+    def test_dev_speed(self):
         """Test device link speed read.
         """
-        mock_file = mock_open.return_value
-        mock_filectx = mock_file.__enter__.return_value
-        mock_filectx.read.return_value = '10000\n'
+        mock_handle = io.open.return_value
+        mock_handle.read.return_value = '10000\n'
 
         res = netdev.dev_speed('foo')
 
-        mock_open.assert_called_with('/sys/class/net/foo/speed')
+        io.open.assert_called_with('/sys/class/net/foo/speed')
         self.assertEqual(res, 10000)
 
-    @mock.patch('builtins.open', autospec=True)
-    def test_dev_speed_inval(self, mock_open):
+    @mock.patch('io.open', mock.mock_open())
+    def test_dev_speed_inval(self):
         """Test device link speed read when the device does not support it.
         """
-        mock_file = mock_open.return_value
-        mock_filectx = mock_file.__enter__.return_value
-        mock_filectx.read.side_effect = IOError(errno.EINVAL, 'Invalid device')
+        mock_handle = io.open.return_value
+        mock_handle.read.side_effect = IOError(errno.EINVAL, 'Invalid device')
 
         res = netdev.dev_speed('foo')
 
-        mock_open.assert_called_with('/sys/class/net/foo/speed')
+        io.open.assert_called_with('/sys/class/net/foo/speed')
         self.assertEqual(res, 0)
 
     @mock.patch('treadmill.subproc.check_call', mock.Mock())
@@ -348,17 +347,16 @@ class NetDevTest(unittest.TestCase):
             ],
         )
 
-    @mock.patch('builtins.open', autospec=True)
-    def test_bridge_forward_delay(self, mock_open):
+    @mock.patch('io.open', mock.mock_open())
+    def test_bridge_forward_delay(self):
         """Test reading of bridge forward-delay setting.
         """
-        mock_file = mock_open.return_value
-        mock_filectx = mock_file.__enter__.return_value
-        mock_filectx.read.return_value = '42\n'
+        mock_handle = io.open.return_value
+        mock_handle.read.return_value = '42\n'
 
         res = netdev.bridge_forward_delay('foo')
 
-        mock_open.assert_called_with('/sys/class/net/foo/bridge/forward_delay')
+        io.open.assert_called_with('/sys/class/net/foo/bridge/forward_delay')
         self.assertEqual(res, 42)
 
     @mock.patch('os.listdir', mock.Mock(return_value=['a', 'b', 'c']))
@@ -375,61 +373,57 @@ class NetDevTest(unittest.TestCase):
             ['a', 'b', 'c']
         )
 
-    @mock.patch('builtins.open', autospec=True)
-    def test_dev_conf_route_lnet_set(self, mock_open):
+    @mock.patch('io.open', mock.mock_open())
+    def test_dev_conf_route_lnet_set(self):
         """Test enabling to local network routing on interface.
         """
-        mock_file = mock_open.return_value
-        mock_filectx = mock_file.__enter__.return_value
+        mock_handle = io.open.return_value
 
         netdev.dev_conf_route_localnet_set('foo', True)
 
-        mock_open.assert_called_with(
+        io.open.assert_called_with(
             '/proc/sys/net/ipv4/conf/foo/route_localnet', 'w'
         )
-        mock_filectx.write.assert_called_with('1')
+        mock_handle.write.assert_called_with('1')
 
-    @mock.patch('builtins.open', autospec=True)
-    def test_dev_conf_proxy_arp_set(self, mock_open):
+    @mock.patch('io.open', mock.mock_open())
+    def test_dev_conf_proxy_arp_set(self):
         """Test enabling of proxy ARP on interface.
         """
-        mock_file = mock_open.return_value
-        mock_filectx = mock_file.__enter__.return_value
+        mock_handle = io.open.return_value
 
         netdev.dev_conf_proxy_arp_set('foo', True)
 
-        mock_open.assert_called_with(
+        io.open.assert_called_with(
             '/proc/sys/net/ipv4/conf/foo/proxy_arp', 'w'
         )
-        mock_filectx.write.assert_called_with('1')
+        mock_handle.write.assert_called_with('1')
 
-    @mock.patch('builtins.open', autospec=True)
-    def test_dev_conf_arp_ignore_set(self, mock_open):
+    @mock.patch('io.open', mock.mock_open())
+    def test_dev_conf_arp_ignore_set(self):
         """Test enabling of proxy ARP on interface.
         """
-        mock_file = mock_open.return_value
-        mock_filectx = mock_file.__enter__.return_value
+        mock_handle = io.open.return_value
 
         netdev.dev_conf_arp_ignore_set('foo', 2)
 
-        mock_open.assert_called_with(
+        io.open.assert_called_with(
             '/proc/sys/net/ipv4/conf/foo/arp_ignore', 'w'
         )
-        mock_filectx.write.assert_called_with('2')
+        mock_handle.write.assert_called_with('2')
 
-    @mock.patch('builtins.open', autospec=True)
-    def test_dev_conf_forwarding_set(self, mock_open):
+    @mock.patch('io.open', mock.mock_open())
+    def test_dev_conf_forwarding_set(self):
         """Test enabling of proxy ARP on interface.
         """
-        mock_file = mock_open.return_value
-        mock_filectx = mock_file.__enter__.return_value
+        mock_handle = io.open.return_value
 
         netdev.dev_conf_forwarding_set('foo', True)
 
-        mock_open.assert_called_with(
+        io.open.assert_called_with(
             '/proc/sys/net/ipv4/conf/foo/forwarding', 'w'
         )
-        mock_filectx.write.assert_called_with('1')
+        mock_handle.write.assert_called_with('1')
 
 
 if __name__ == '__main__':

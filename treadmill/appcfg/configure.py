@@ -6,8 +6,6 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
-
-import io
 import logging
 import os
 import shutil
@@ -19,14 +17,12 @@ import json
 import treadmill
 from treadmill import appcfg
 from treadmill import appevents
+from treadmill import fs
 from treadmill import supervisor
 from treadmill import utils
 
 from treadmill.appcfg import manifest as app_manifest
 from treadmill.apptrace import events
-
-if os.name == 'posix':
-    import pwd
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -104,9 +100,14 @@ def configure(tm_env, event, runtime):
     )
 
     # Store the app.json in the container directory
-    app_json = os.path.join(data_dir, appcfg.APP_JSON)
-    with io.open(app_json, 'wb') as f:
-        json.dump(manifest_data, f)
+    fs.write_safe(
+        os.path.join(data_dir, appcfg.APP_JSON),
+        lambda f: json.dump(
+            manifest_data,
+            fp=f
+        ),
+        permission=0o644
+    )
 
     appevents.post(
         tm_env.app_events_dir,

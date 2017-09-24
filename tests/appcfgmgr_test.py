@@ -1,6 +1,12 @@
 """Unit test for appcfgmgr - configuring node apps
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
+import io
 import os
 import shutil
 import tempfile
@@ -15,7 +21,8 @@ from treadmill import fs
 
 
 class AppCfgMgrTest(unittest.TestCase):
-    """Mock test for treadmill.appcfgmgr.AppCfgMgr."""
+    """Mock test for treadmill.appcfgmgr.AppCfgMgr.
+    """
 
     @mock.patch('treadmill.appenv.AppEnvironment', mock.Mock(autospec=True))
     @mock.patch('treadmill.watchdog.Watchdog', mock.Mock(autospec=True))
@@ -45,7 +52,8 @@ class AppCfgMgrTest(unittest.TestCase):
                 mock.Mock(return_value='/test/foo'))
     @mock.patch('treadmill.appcfg.configure.schedule', mock.Mock())
     def test__configure(self):
-        """Tests application configuration event."""
+        """Tests application configuration event.
+        """
         # Access to a protected member _configure of a client class
         # pylint: disable=W0212
 
@@ -65,8 +73,9 @@ class AppCfgMgrTest(unittest.TestCase):
     @mock.patch('treadmill.appcfg.abort.report_aborted', mock.Mock())
     @mock.patch('treadmill.appcfg.configure.configure', mock.Mock())
     @mock.patch('treadmill.fs.rm_safe', mock.Mock())
-    def test__configure_failure(self):
-        """Tests application configuration failure event."""
+    def test__configure_exception(self):
+        """Tests application configuration exception event.
+        """
         # Access to a protected member _configure of a client class
         # pylint: disable=W0212
 
@@ -80,6 +89,25 @@ class AppCfgMgrTest(unittest.TestCase):
             why=treadmill.appcfg.abort.AbortedReason.UNKNOWN,
             payload=mock.ANY,
         )
+        treadmill.fs.rm_safe.assert_called_with(
+            os.path.join(self.cache, 'foo#1')
+        )
+        self.assertFalse(res)
+
+    @mock.patch('treadmill.appcfg.abort.report_aborted', mock.Mock())
+    @mock.patch('treadmill.appcfg.configure.configure', mock.Mock())
+    @mock.patch('treadmill.fs.rm_safe', mock.Mock())
+    def test__configure_failure(self):
+        """Tests application configuration failure event.
+        """
+        # Access to a protected member _configure of a client class
+        # pylint: disable=W0212
+
+        treadmill.appcfg.configure.configure.return_value = None
+
+        res = self.appcfgmgr._configure('foo#1')
+
+        treadmill.appcfg.abort.report_aborted.assert_not_called()
         treadmill.fs.rm_safe.assert_called_with(
             os.path.join(self.cache, 'foo#1')
         )
@@ -130,7 +158,7 @@ class AppCfgMgrTest(unittest.TestCase):
         treadmill.appcfg.eventfile_unique_name.side_effect = _fake_unique_name
         for app in ('proid.app#0', 'proid.app#1', 'proid.app#2'):
             # Create cache/ entry
-            with open(os.path.join(self.cache, app), 'w'):
+            with io.open(os.path.join(self.cache, app), 'w'):
                 pass
             # Create app/ dir
             uniquename = _fake_unique_name(app)
@@ -176,7 +204,7 @@ class AppCfgMgrTest(unittest.TestCase):
         treadmill.appcfg.eventfile_unique_name.side_effect = _fake_unique_name
         for app in ('proid.app#0', 'proid.app#1', 'proid.app#2'):
             # Create cache/ entry
-            with open(os.path.join(self.cache, app), 'w'):
+            with io.open(os.path.join(self.cache, app), 'w'):
                 pass
             uniquename = _fake_unique_name(app)
             os.mkdir(os.path.join(self.apps, uniquename))
@@ -249,7 +277,7 @@ class AppCfgMgrTest(unittest.TestCase):
         # Access to a protected member _synchronize of a client class
         # pylint: disable=W0212
 
-        with open(os.path.join(self.running, 'xxx'), 'w'):
+        with io.open(os.path.join(self.running, 'xxx'), 'w'):
             pass
 
         self.appcfgmgr._synchronize()
@@ -282,7 +310,7 @@ class AppCfgMgrTest(unittest.TestCase):
             return uniquename
         treadmill.appcfg.eventfile_unique_name.side_effect = _fake_unique_name
         # Create cache/ entry
-        with open(os.path.join(self.cache, 'foo#1'), 'w'):
+        with io.open(os.path.join(self.cache, 'foo#1'), 'w'):
             pass
         # Create a broken running/ symlink
         os.symlink(os.path.join(self.apps, 'foo-1_1234'),

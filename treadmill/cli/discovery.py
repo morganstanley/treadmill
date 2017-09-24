@@ -91,7 +91,7 @@ def init():
                 on_message,
                 on_error
             )
-        except ws_client.ConnectionError:
+        except ws_client.WSConnectionError:
             click.echo('Could not connect to any Websocket APIs', err=True)
             sys.exit(-1)
 

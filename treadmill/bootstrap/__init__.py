@@ -2,8 +2,12 @@
 """
 
 from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import errno
+import io
 import logging
 import os
 import pkgutil
@@ -16,7 +20,7 @@ import pkg_resources
 import six
 
 if six.PY2 and os.name == 'posix':
-    import subprocess32 as subprocess
+    import subprocess32 as subprocess  # pylint: disable=import-error
 else:
     import subprocess  # pylint: disable=wrong-import-order
 
@@ -87,7 +91,7 @@ def _update(filename, content):
     """Updates file with content if different."""
     _LOGGER.debug('Updating %s', filename)
     try:
-        with open(filename) as f:
+        with io.open(filename) as f:
             current = f.read()
             if current == content:
                 return
@@ -95,7 +99,8 @@ def _update(filename, content):
     except OSError as os_err:
         if os_err.errno != errno.ENOENT:
             raise
-    except IOError as io_err:
+
+    except IOError as io_err:  # pylint: disable=duplicate-except
         if io_err.errno != errno.ENOENT:
             raise
 
@@ -241,7 +246,7 @@ def install(package, dst_dir, params, run=None, profile=None):
     interpolated = _interpolate(defaults, defaults)
 
     fs.mkdir_safe(dst_dir)
-    with open(os.path.join(dst_dir, '.install'), 'w+') as rec:
+    with io.open(os.path.join(dst_dir, '.install'), 'w') as rec:
 
         _install(module, PLATFORM, dst_dir, interpolated, rec=rec)
 

@@ -24,8 +24,12 @@ Usage::
 
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import copy
-import queue
 import threading
 import time
 import unittest
@@ -34,6 +38,7 @@ from collections import namedtuple
 
 import kazoo
 from kazoo.protocol import states
+from six.moves import queue
 
 from treadmill import yamlwrapper as yaml
 

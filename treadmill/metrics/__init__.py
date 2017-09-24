@@ -1,16 +1,23 @@
 """Collects and reports container and host metrics.
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import errno
+import io
 import logging
 import os
 import time
+
+import six
 
 from treadmill import cgroups
 from treadmill import cgutils
 from treadmill import fs
 from treadmill import psmem
-from treadmill import yamlwrapper as yaml
 
 
 NANOSECS_PER_10MILLI = 10000000
@@ -129,7 +136,7 @@ def read_blkio_value_stats(cgrp, *pseudofiles):
 
 def read_load():
     """Reads server load stats."""
-    with open('/proc/loadavg') as f:
+    with io.open('/proc/loadavg') as f:
         # /proc/loadavg file format:
         # 1min_avg 5min_avg 15min_avg ...
         line = f.read()
@@ -144,7 +151,7 @@ def read_cpuacct_stat(cgrp):
     """
     divided_usage = cgutils.get_stat('cpuacct', cgrp)
     # usage in other file in nanseconds, in cpuaaac.stat is 10 miliseconds
-    for name, value in divided_usage.items():
+    for name, value in six.iteritems(divided_usage):
         divided_usage[name] = value * NANOSECS_PER_10MILLI
 
     return divided_usage
@@ -229,11 +236,11 @@ def app_metrics(cgrp, block_dev):
         fs_usage = get_fs_usage(block_dev)
         result.update(fs_usage)
 
-    except IOError as err:
+    except OSError as err:
         if err.errno != errno.ENOENT:
             raise err
 
-    except OSError as err:
+    except IOError as err:  # pylint: disable=duplicate-except
         if err.errno != errno.ENOENT:
             raise err
 

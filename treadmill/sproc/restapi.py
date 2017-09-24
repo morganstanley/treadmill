@@ -28,7 +28,7 @@ def init():
     @click.command()
     @click.option('-p', '--port', help='Port for TCP server')
     @click.option('-s', '--socket', help='Socket for UDS server')
-    @click.option('-a', '--auth', type=click.Choice(['spnego']))
+    @click.option('-a', '--auth', type=click.Choice(['spnego', 'trusted']))
     @click.option('-t', '--title', help='API Doc Title',
                   default='Treadmill REST API')
     @click.option('-m', '--modules', help='API modules to load.',
@@ -52,7 +52,7 @@ def init():
                                              workers=workers)
         # TODO: need to rename that - conflicts with import socket.
         elif socket:
-            rest_server = rest.UdsRestServer(socket)
+            rest_server = rest.UdsRestServer(socket, auth_type=auth)
         else:
             click.echo('port or socket must be specified')
             sys.exit(1)

@@ -1,4 +1,6 @@
-"""Start Treadmill cgroups server."""
+"""Start Treadmill cgroups server.
+"""
+
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
@@ -59,7 +61,6 @@ def init():
             rest_server.run()
         except sock.error as sock_err:
             print(sock_err)
-
             if sock_err.errno == errno.EADDRINUSE:
                 # TODO: hack, but please keep it for now, otherwise on the
                 #       setup several master processes run on same server

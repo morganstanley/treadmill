@@ -4,33 +4,39 @@ The code is based on:
 https://raw.githubusercontent.com/pixelb/ps_mem/master/ps_mem.py
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
-import sys
 import errno
-
+import fnmatch
+import io
 import logging
 import os
-import fnmatch
+import sys
 
 from treadmill import sysinfo
 
 _LOGGER = logging.getLogger(__name__)
 
 # Pagesize in K.
-_PAGESIZE = os.sysconf('SC_PAGE_SIZE') / 1024
+_PAGESIZE = os.sysconf(b'SC_PAGE_SIZE') / 1024
 
 _KERNEL_VER = sysinfo.kernel_ver()
 
 
 def proc_path(*args):
-    """Helper function to construct /proc path."""
+    """Helper function to construct /proc path.
+    """
     return os.path.join('/proc', *(str(a) for a in args))
 
 
 def proc_open(*args):
-    """Helper function to open /proc path."""
+    """Helper function to open /proc path.
+    """
     try:
-        return open(proc_path(*args))
+        return io.open(proc_path(*args))
     except (IOError, OSError):
         val = sys.exc_info()[1]
         # kernel thread or process gone
@@ -40,30 +46,35 @@ def proc_open(*args):
 
 
 def proc_readlines(*args):
-    """Read lines from /proc file."""
+    """Read lines from /proc file.
+    """
     with proc_open(*args) as f:
         return f.readlines()
 
 
 def proc_readline(*args):
-    """Read line from /proc file."""
+    """Read line from /proc file.
+    """
     with proc_open(*args) as f:
         return f.readline()
 
 
 def proc_read(*args):
-    """Read content of /proc file."""
+    """Read content of /proc file.
+    """
     with proc_open(*args) as f:
         return f.read()
 
 
 def get_thread_id(pid):
-    """Read thread group id designated in /proc/<pid>/status"""
+    """Read thread group id designated in /proc/<pid>/status.
+    """
     return proc_readlines(pid, 'status')[2][6:-1]
 
 
 def get_threads(pid):
-    """Read number of threads designated in /proc/<pid>/status"""
+    """Read number of threads designated in /proc/<pid>/status.
+    """
     return int(proc_readlines(pid, 'status')[26][8:-1].strip())
 
 

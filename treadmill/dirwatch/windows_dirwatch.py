@@ -1,6 +1,11 @@
 """Implements directory watcher using ReadDirectoryChangesW.
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import collections
 import errno
 import logging
@@ -87,12 +92,14 @@ class WindowsDirWatcher(dirwatch_base.DirWatcher):
                 info.file,
                 info.buffer,
                 False,
-                win32con.FILE_NOTIFY_CHANGE_FILE_NAME
-                | win32con.FILE_NOTIFY_CHANGE_DIR_NAME
-                | win32con.FILE_NOTIFY_CHANGE_ATTRIBUTES
-                | win32con.FILE_NOTIFY_CHANGE_SIZE
-                | win32con.FILE_NOTIFY_CHANGE_LAST_WRITE
-                | win32con.FILE_NOTIFY_CHANGE_SECURITY,
+                (
+                    win32con.FILE_NOTIFY_CHANGE_FILE_NAME |
+                    win32con.FILE_NOTIFY_CHANGE_DIR_NAME |
+                    win32con.FILE_NOTIFY_CHANGE_ATTRIBUTES |
+                    win32con.FILE_NOTIFY_CHANGE_SIZE |
+                    win32con.FILE_NOTIFY_CHANGE_LAST_WRITE |
+                    win32con.FILE_NOTIFY_CHANGE_SECURITY
+                ),
                 info.overlapped)
             return True
         except pywintypes.error:

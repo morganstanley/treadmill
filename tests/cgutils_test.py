@@ -102,7 +102,7 @@ class CGutilsTest(unittest.TestCase):
     def test_get_blkio_bps_info(self):
         """Test reading of blkio throttle bps information."""
 
-        with open(self._BLKIO_THROTTLE_BPS) as f:
+        with io.open(self._BLKIO_THROTTLE_BPS) as f:
             data = f.read()
             treadmill.cgroups.get_data.side_effect = [data]
 
@@ -127,7 +127,7 @@ class CGutilsTest(unittest.TestCase):
     def test_get_blkio_info_empty(self):
         """Test reading of blkio information with empty file"""
 
-        with open(self._BLKIO_BPS_EMPTY) as f:
+        with io.open(self._BLKIO_BPS_EMPTY) as f:
             data = f.read()
             treadmill.cgroups.get_data.side_effect = [data]
 
@@ -145,7 +145,7 @@ class CGutilsTest(unittest.TestCase):
     def test_get_blkio_value_empty(self):
         """Test reading of blkio information with empty file"""
 
-        with open(self._BLKIO_SECTORS_EMPTY) as f:
+        with io.open(self._BLKIO_SECTORS_EMPTY) as f:
             data = f.read()
             treadmill.cgroups.get_data.side_effect = [data]
 
@@ -163,7 +163,7 @@ class CGutilsTest(unittest.TestCase):
     def test_get_blkio_iops_info(self):
         """Test reading of blkio throttle iops information."""
 
-        with open(self._BLKIO_THROTTLE_IOPS) as f:
+        with io.open(self._BLKIO_THROTTLE_IOPS) as f:
             data = f.read()
             treadmill.cgroups.get_data.side_effect = [data]
 

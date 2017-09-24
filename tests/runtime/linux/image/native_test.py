@@ -1,6 +1,12 @@
 """Tests for treadmill.runtime.linux.image.native.
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
+import io
 import os
 import shutil
 import stat
@@ -323,8 +329,9 @@ class NativeImageTest(unittest.TestCase):
 
         native._prepare_ldpreload(self.container_dir, self.app)
 
-        newfile = open(os.path.join(self.container_dir, 'overlay', 'etc',
-                                    'ld.so.preload')).readlines()
+        newfile = io.open(os.path.join(
+            self.container_dir, 'overlay', 'etc', 'ld.so.preload'
+        )).readlines()
         self.assertEqual('/foo/1.so\n', newfile[-1])
 
     @mock.patch('pwd.getpwnam', mock.Mock(

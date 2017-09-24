@@ -16,8 +16,8 @@ import six
 from treadmill import admin
 from treadmill import exc
 from treadmill import master
-from treadmill.api import instance
 from treadmill import yamlwrapper as yaml
+from treadmill.api import instance
 
 
 def _create_apps(_zkclient, _app_id, app, _count, _created_by):

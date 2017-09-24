@@ -3,7 +3,10 @@
 
 from __future__ import absolute_import
 from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
+import io
 import os
 import shutil
 import tempfile
@@ -144,7 +147,7 @@ class DockerRuntimeTest(unittest.TestCase):
 
         self.assertIsNone(aborted)
 
-        with open(os.path.join(self.data_dir, 'aborted'), 'w') as aborted:
+        with io.open(os.path.join(self.data_dir, 'aborted'), 'w') as aborted:
             aborted.write('{"why": "reason", "payload": "test"}')
 
         aborted = runtime._check_aborted(self.data_dir)
@@ -304,7 +307,7 @@ class DockerRuntimeTest(unittest.TestCase):
         container = mock.MagicMock()
         client.containers.get.return_value = container
 
-        with open(os.path.join(self.data_dir, 'aborted'), 'w') as aborted:
+        with io.open(os.path.join(self.data_dir, 'aborted'), 'w') as aborted:
             aborted.write('{"why": "reason", "payload": "test"}')
 
         docker_runtime = runtime.DockerRuntime(self.tm_env, self.container_dir)

@@ -1,7 +1,13 @@
 """Simple watchdog system.
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import errno
+import io
 import logging
 import os
 import re
@@ -57,7 +63,7 @@ class Watchdog(object):
             failures = []
             for filename, name, failed_at in failed_watchdogs:
                 try:
-                    with open(filename, 'r') as f:
+                    with io.open(filename, 'r') as f:
                         data = f.read()
                 except OSError:
                     _LOGGER.exception('Reading watchdog data')

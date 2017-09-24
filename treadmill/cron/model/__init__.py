@@ -1,11 +1,13 @@
+"""Model of cron job.
 """
-Model of cron job.
-"""
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import logging
-import re
 
-from treadmill import exc
 from treadmill import plugin_manager
 
 _LOGGER = logging.getLogger(__name__)

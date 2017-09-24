@@ -1,14 +1,17 @@
-"""Unit test for treadmill.sproc.metrics"""
+"""Unit test for treadmill.sproc.metrics.
+"""
+
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
-from collections import namedtuple
 import os
 import shutil
 import tempfile
 import unittest
+
+from collections import namedtuple
 
 import mock
 
@@ -127,6 +130,7 @@ class MetricsTest(unittest.TestCase):
                 metrics_time=3
             )
         ])
+
 
 if __name__ == '__main__':
     unittest.main()

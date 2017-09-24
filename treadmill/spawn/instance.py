@@ -1,5 +1,12 @@
-"""An individual treadmill spawn instance."""
+"""An individual treadmill spawn instance.
+"""
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
+import io
 import logging
 import os
 
@@ -42,7 +49,7 @@ class Instance(object):
         docs = []
 
         try:
-            stream = open(self.manifest_path, "r")
+            stream = io.open(self.manifest_path, "r")
             manifest_contents = stream.read()
             generator = yaml.load_all(manifest_contents)
 

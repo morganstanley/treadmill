@@ -1,8 +1,14 @@
 """A collection of native images.
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import errno
 import glob
+import io
 import logging
 import os
 import pwd
@@ -166,7 +172,9 @@ def make_fsroot(root_dir, proid):
         '/var/lib/sss',
         '/var/tmp/treadmill/env',
         '/var/tmp/treadmill/spool',
-    ] + glob.glob('/opt/*')
+    ]
+    # Add everything under /opt
+    mounts += glob.glob('/opt/*')
 
     emptydirs = [
         '/tmp',
@@ -189,6 +197,10 @@ def make_fsroot(root_dir, proid):
         '/var/tmp',
         '/var/tmp/cores/',
     ]
+
+    for mount in mounts:
+        if os.path.exists(mount):
+            fs.mount_bind(newroot_norm, mount)
 
     for directory in emptydirs:
         _LOGGER.debug('Creating empty dir: %s', directory)
@@ -263,7 +275,7 @@ def _prepare_ldpreload(container_dir, app):
         return
 
     _LOGGER.info('Configuring /etc/ld.so.preload: %r', ldpreloads)
-    with open(new_ldpreload, 'a') as f:
+    with io.open(new_ldpreload, 'a') as f:
         f.write('\n'.join(ldpreloads) + '\n')
 
 

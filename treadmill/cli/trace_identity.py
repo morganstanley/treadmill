@@ -1,4 +1,5 @@
-"""Treadmill identity trace CLI."""
+"""Treadmill identity trace CLI.
+"""
 
 from __future__ import division
 from __future__ import print_function
@@ -88,7 +89,7 @@ def init():
                 on_message,
                 on_error
             )
-        except ws_client.ConnectionError:
+        except ws_client.WSConnectionError:
             click.echo('Could not connect to any Websocket APIs', err=True)
             sys.exit(-1)
 

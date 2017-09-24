@@ -1,4 +1,4 @@
-"""Implementation of allocation API.
+"""Implementation of local API.
 """
 
 from __future__ import absolute_import
@@ -10,12 +10,11 @@ import collections
 import errno
 import glob
 import io
+import json
 import logging
 import os
 import re
 import tarfile
-
-import json
 
 import six
 from six.moves import _thread
@@ -61,23 +60,27 @@ def _get_file(fname=None,
         return fname
 
     if not arch_extract:
-        raise exc.FileNotFoundError('{} cannot be found.'.format(fname))
+        raise exc.LocalFileNotFoundError(
+            '{} cannot be found.'.format(fname)
+        )
 
     _LOGGER.info('Extract %s from archive %s', arch_extract_fname, arch_fname)
 
     if not os.path.exists(arch_fname):
-        raise exc.FileNotFoundError('{} cannot be found.'.format(arch_fname))
+        raise exc.LocalFileNotFoundError(
+            '{} cannot be found.'.format(arch_fname)
+        )
 
     try:
         # extract the req. file from the archive and copy it to a temp file
         copy = _temp_file_name()
-        with tarfile.open(arch_fname) as arch, io.open(copy, 'w+b') as copy_fd:
+        with tarfile.open(arch_fname) as arch, io.open(copy, 'wb') as copy_fd:
             member = arch.extractfile(arch_extract_fname)
             copy_fd.writelines(member.readlines())
             copy_fd.close()
     except KeyError as err:
         _LOGGER.error(err)
-        raise exc.FileNotFoundError(
+        raise exc.LocalFileNotFoundError(
             'The file {} cannot be found in {}'.format(arch_extract_fname,
                                                        arch_fname))
 
@@ -288,7 +291,7 @@ def mk_logapi(tm_env):
             try:
                 return self._get_logfile_new(instance, uniq, logtype,
                                              component)
-            except exc.FileNotFoundError:
+            except exc.LocalFileNotFoundError:
                 return self._get_logfile_old(instance, uniq, logtype,
                                              component)
 
@@ -475,7 +478,7 @@ class API(object):
                     arch_path = _archive_path(tm_env(), arch_type, instance,
                                               uniq)
                     if not os.path.exists(arch_path):
-                        raise exc.FileNotFoundError(
+                        raise exc.LocalFileNotFoundError(
                             '{} cannot be found.'.format(arch_path))
 
                     return arch_path

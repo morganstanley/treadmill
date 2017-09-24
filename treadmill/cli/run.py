@@ -8,6 +8,8 @@ from __future__ import unicode_literals
 
 import io
 import logging
+import os
+import shlex
 
 import click
 
@@ -55,7 +57,7 @@ def _run(apis,
         if not service:
             # Take the basename of the command, always assume / on all
             # platforms.
-            service = command[0].split()[0].split('/')[-1]
+            service = os.path.basename(shlex.split(command[0])[0])
 
     services_dict = {svc['name']: svc for svc in app.get('services', [])}
     if service:

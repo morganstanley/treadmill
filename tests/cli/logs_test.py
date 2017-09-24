@@ -1,4 +1,6 @@
-"""Unit test for treadmill.cli.logs."""
+"""Unit test for treadmill.cli.logs.
+"""
+
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
@@ -44,14 +46,14 @@ class LogsTest(unittest.TestCase):
         self.assertEqual(str(result.exception).find('foobar'), -1)
 
     @mock.patch('treadmill.websocketutils.find_uniq_instance',
-                side_effect=wsclient.ConnectionError('foo'))
+                side_effect=wsclient.WSConnectionError('foo'))
     def test_ws_connection_error(self, _):
-        """Test that the websocket.client.ConnectionError is handled."""
+        """Test that the websocket.client.WSConnectionError is handled."""
         result = self.runner.invoke(self.log_cli,
                                     ['--cell', 'foo',
                                      'proid.app#123/5FiY/service/zk2fs'])
 
-        # let's check that ConnectionError is handled ie. it cannot be found
+        # let's check that WSConnectionError is handled ie. it cannot be found
         # in the result
         self.assertEqual(str(result.exception).find('foo'), -1)
         self.assertEqual(result.exit_code, 1)

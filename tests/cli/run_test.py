@@ -1,6 +1,6 @@
+"""Unit test for treadmill.cli.configure
 """
-Unit test for treadmill.cli.configure
-"""
+
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
@@ -38,6 +38,34 @@ class RunTest(unittest.TestCase):
             ['http://xxx:1234'],
             '/instance/proid.app?count=1',
             payload={}
+        )
+
+    @mock.patch('treadmill.restclient.post',
+                mock.Mock(return_value=mock.MagicMock()))
+    @mock.patch('treadmill.context.Context.cell_api',
+                mock.Mock(return_value=['http://xxx:1234']))
+    def test_run_normalparam(self):
+        """Test cli.run service with normal parameters."""
+        result = self.runner.invoke(
+            self.cli,
+            ['--cell', 'xx', 'proid.app', '--', '/dir/test.sh 1 2 3']
+        )
+        self.assertEqual(result.exit_code, 0)
+        treadmill.restclient.post.assert_called_with(
+            ['http://xxx:1234'],
+            '/instance/proid.app?count=1',
+            payload={
+                'services': [
+                    {
+                        'command': '/dir/test.sh 1 2 3',
+                        'name': 'test.sh',
+                        'restart': {'interval': 60, 'limit': 0}
+                    }
+                ],
+                'disk': '100M',
+                'cpu': '10%',
+                'memory': '100M'
+            }
         )
 
     @mock.patch('treadmill.restclient.post',

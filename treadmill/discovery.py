@@ -1,10 +1,17 @@
-"""List Treadmill endpoints matching a given pattern."""
+"""List Treadmill endpoints matching a given pattern.
+"""
 
-import queue
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import fnmatch
 import logging
 
 import kazoo.exceptions
+
+from six.moves import queue
 
 from treadmill import zknamespace as z
 

@@ -1,19 +1,26 @@
-"""A collection of TAR images."""
+"""A collection of TAR images.
+"""
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import hashlib
+import io
 import logging
 import os
 import shutil
 import tarfile
 import tempfile
-import urllib.parse
 
 import requests
 import requests_kerberos
 
+from six.moves import urllib_parse
+
 from . import _image_base
 from . import _repository_base
-
 from . import native
 
 from treadmill import fs
@@ -39,7 +46,7 @@ def _download(url, temp):
 def _copy(path, temp):
     """Copies the image."""
     _LOGGER.debug('Copying tar file from %r to %r.', path, temp)
-    with open(path, 'r+b') as f:
+    with io.open(path, 'rb') as f:
         shutil.copyfileobj(f, temp)
 
 
@@ -47,7 +54,7 @@ def _sha256sum(path):
     """Calculates the SHA256 hash of the file."""
     sha256 = hashlib.sha256()
 
-    with open(path, 'rb') as f:
+    with io.open(path, 'rb') as f:
         for block in iter(lambda: f.read(sha256.block_size), b''):
             sha256.update(block)
 
@@ -87,8 +94,8 @@ class TarImageRepository(_repository_base.ImageRepository):
         images_dir = os.path.join(self.tm_env.images_dir, TAR_DIR)
         fs.mkdir_safe(images_dir)
 
-        image = urllib.parse.urlparse(url)
-        sha256 = urllib.parse.parse_qs(image.query).get('sha256', None)
+        image = urllib_parse.urlparse(url)
+        sha256 = urllib_parse.parse_qs(image.query).get('sha256', None)
 
         with tempfile.NamedTemporaryFile(dir=images_dir, delete=False,
                                          prefix='.tmp') as temp:

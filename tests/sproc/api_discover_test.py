@@ -1,14 +1,15 @@
-"""Unit test for treadmill.dnsutils
+"""Unit test for treadmill.sproc.api_discover.
 """
+
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
 import unittest
+import json
 
 import mock
-import simplejson as json
 
 from treadmill import rest
 from treadmill.sproc import api_discover
@@ -140,6 +141,7 @@ class ApiDiscoverGetTest(unittest.TestCase):
         self.assertEqual('http://treadmill-ny-foobar.foo.com:9876'
                          '/foo/bar%2312340230492304',
                          payload['target'])
+
 
 if __name__ == '__main__':
     unittest.main()

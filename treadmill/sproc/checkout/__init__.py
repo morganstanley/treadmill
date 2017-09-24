@@ -164,8 +164,8 @@ def init():
                     for test in testcases:
                         suite.addTests(loader.loadTestsFromTestCase(test))
 
-                with io.open(report_file, 'w+') as stream:
-                    runner = HTMLTestRunner.HTMLTestRunner(
+                with io.open(report_file, 'w') as stream:
+                    runner = HtmlTestRunner.HTMLTestRunner(
                         stream=stream,
                         title='Treadmill cell checkout',
                         description='Treamdill cell checkout tests'
@@ -176,7 +176,7 @@ def init():
                 _LOGGER.exception('Unhandled exception during checkout')
 
                 result = None
-                with io.open(report_file, 'w+') as stream:
+                with io.open(report_file, 'w') as stream:
                     stream.write(str(err))
                     traceback.print_exc(file=stream)
 

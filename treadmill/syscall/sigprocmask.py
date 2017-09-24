@@ -97,6 +97,7 @@ class SigProcMaskHow(enum.IntEnum):
     SIG_UNBLOCK = 1
     SIG_SETMASK = 2
 
+
 #: Block signals.
 SIG_BLOCK = SigProcMaskHow.SIG_BLOCK
 #: Unblock signals.

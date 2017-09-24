@@ -5,12 +5,17 @@ that expect to find their peers on a "well-defined" constant port to be
 deployed inside the container.
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import logging
 import socket
 
-from . import firewall
-from . import iptables
-from . import sysinfo
+from treadmill import firewall
+from treadmill import iptables
+from treadmill import sysinfo
 
 _LOGGER = logging.getLogger(__name__)
 

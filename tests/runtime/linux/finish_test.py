@@ -1,12 +1,18 @@
 """Unit test for treadmill.runtime.linux._finish.
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import datetime
+import io
 import json
 import os
 import shutil
-import tempfile
 import tarfile
+import tempfile
 import time
 import unittest
 
@@ -152,7 +158,7 @@ class LinuxRuntimeFinishTest(unittest.TestCase):
         fs.mkdir_safe(os.path.join(data_dir, 'root', 'xxx'))
         fs.mkdir_safe(os.path.join(data_dir, 'services'))
         # Simulate daemontools finish script, marking the app is done.
-        with open(os.path.join(data_dir, 'exitinfo'), 'w') as f:
+        with io.open(os.path.join(data_dir, 'exitinfo'), 'wb') as f:
             json.dump(
                 {'service': 'web_server', 'return_code': 0, 'signal': 0},
                 f
@@ -363,10 +369,10 @@ class LinuxRuntimeFinishTest(unittest.TestCase):
         fs.mkdir_safe(os.path.join(data_dir, 'root', 'xxx'))
         fs.mkdir_safe(os.path.join(data_dir, 'services'))
         # Simulate daemontools finish script, marking the app is done.
-        with open(os.path.join(data_dir, 'exitinfo'), 'w') as f:
+        with io.open(os.path.join(data_dir, 'exitinfo'), 'wb') as f:
             json.dump(
                 {'service': 'web_server', 'return_code': 1, 'signal': 3},
-                f
+                fp=f
             )
         app_finish.finish(self.tm_env, app_dir)
 
@@ -474,7 +480,7 @@ class LinuxRuntimeFinishTest(unittest.TestCase):
         fs.mkdir_safe(os.path.join(data_dir, 'root', 'xxx'))
         fs.mkdir_safe(os.path.join(data_dir, 'services'))
         # Simulate daemontools finish script, marking the app is done.
-        with open(os.path.join(data_dir, 'aborted'), 'w') as aborted:
+        with io.open(os.path.join(data_dir, 'aborted'), 'wb') as aborted:
             aborted.write('{"why": "reason", "payload": "test"}')
 
         app_finish.finish(self.tm_env, app_dir)
@@ -499,7 +505,7 @@ class LinuxRuntimeFinishTest(unittest.TestCase):
 
         treadmill.appevents.post.reset()
 
-        with open(os.path.join(data_dir, 'aborted'), 'w') as aborted:
+        with io.open(os.path.join(data_dir, 'aborted'), 'w') as aborted:
             aborted.write('')
 
         app_finish.finish(self.tm_env, app_dir)
@@ -605,7 +611,7 @@ class LinuxRuntimeFinishTest(unittest.TestCase):
         fs.mkdir_safe(os.path.join(data_dir, 'root', 'xxx'))
         fs.mkdir_safe(os.path.join(data_dir, 'services'))
         # Simulate daemontools finish script, marking the app is done.
-        with open(os.path.join(data_dir, 'exitinfo'), 'w') as f:
+        with io.open(os.path.join(data_dir, 'exitinfo'), 'wb') as f:
             json.dump(
                 {'service': 'web_server', 'return_code': 0, 'signal': 0},
                 f
@@ -667,7 +673,7 @@ class LinuxRuntimeFinishTest(unittest.TestCase):
         """
         # Access protected module _copy_metrics
         # pylint: disable=W0212
-        with open(os.path.join(self.root, 'in.rrd'), 'w+'):
+        with io.open(os.path.join(self.root, 'in.rrd'), 'w'):
             pass
 
         app_finish._copy_metrics(os.path.join(self.root, 'in.rrd'),
@@ -704,7 +710,7 @@ class LinuxRuntimeFinishTest(unittest.TestCase):
             """Touch file, appending path to container_dir."""
             fpath = os.path.join(data_dir, path)
             fs.mkdir_safe(os.path.dirname(fpath))
-            open(fpath, 'w+').close()
+            io.open(fpath, 'w').close()
 
         _touch_file('sys/foo/data/log/current')
         _touch_file('sys/bla/data/log/current')
@@ -746,7 +752,7 @@ class LinuxRuntimeFinishTest(unittest.TestCase):
         # oldest file if threshold is exceeded.
         app_finish._ARCHIVE_LIMIT = 20
         file1 = os.path.join(self.tm_env.archives_dir, '1')
-        with open(file1, 'w+') as f:
+        with io.open(file1, 'w') as f:
             f.write('x' * 10)
 
         app_finish._cleanup_archive_dir(self.tm_env)
@@ -754,13 +760,13 @@ class LinuxRuntimeFinishTest(unittest.TestCase):
 
         os.utime(file1, (time.time() - 1, time.time() - 1))
         file2 = os.path.join(self.tm_env.archives_dir, '2')
-        with open(file2, 'w+') as f:
+        with io.open(file2, 'w') as f:
             f.write('x' * 10)
 
         app_finish._cleanup_archive_dir(self.tm_env)
         self.assertTrue(os.path.exists(file1))
 
-        with open(os.path.join(self.tm_env.archives_dir, '2'), 'w+') as f:
+        with io.open(os.path.join(self.tm_env.archives_dir, '2'), 'w') as f:
             f.write('x' * 15)
         app_finish._cleanup_archive_dir(self.tm_env)
         self.assertFalse(os.path.exists(file1))

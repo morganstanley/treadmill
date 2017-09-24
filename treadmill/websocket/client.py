@@ -1,4 +1,10 @@
-"""Websocket client implementation."""
+"""Websocket client implementation.
+"""
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import json
 import logging
@@ -15,12 +21,12 @@ _LOGGER = logging.getLogger(__name__)
 _DEFAULT_TIMEOUT = 30
 
 
-class ConnectionError(Exception):
+class WSConnectionError(Exception):
     """Error raised when connection attempts fail."""
 
 
 CLI_WS_EXCEPTIONS = [
-    (ConnectionError, 'Could not connect to the websocket API')
+    (WSConnectionError, 'Could not connect to the websocket API')
 ]
 
 
@@ -101,4 +107,4 @@ def ws_loop(wsapi, message, snapshot, on_message, on_error=None,
                 since = retry_err.since
 
         if not ws_conn:
-            raise ConnectionError()
+            raise WSConnectionError()

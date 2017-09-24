@@ -12,11 +12,11 @@ from __future__ import unicode_literals
 
 import codecs
 import copy
+import functools
 import importlib
 import io
 import os
 import pkgutil
-import pkg_resources
 import re
 import sys
 import tempfile
@@ -37,6 +37,9 @@ __path__ = pkgutil.extend_path(__path__, __name__)
 
 EXIT_CODE_DEFAULT = 1
 IPA_PASSWORD_RE = re.compile('.{8,}')
+
+# Disable unicode_literals click warning.
+click.disable_unicode_literals_warning = True
 
 
 def init_logger(name):

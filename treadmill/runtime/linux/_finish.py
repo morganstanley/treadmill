@@ -2,9 +2,13 @@
 """
 
 from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import errno
 import glob
+import io
 import json
 import logging
 import os
@@ -16,7 +20,7 @@ import tarfile
 import six
 
 if six.PY2 and os.name == 'posix':
-    import subprocess32 as subprocess
+    import subprocess32 as subprocess  # pylint: disable=import-error
 else:
     import subprocess  # pylint: disable=wrong-import-order
 
@@ -105,7 +109,7 @@ def _collect_exit_info(container_dir):
 
     exitinfo_file = os.path.join(container_dir, 'exitinfo')
     try:
-        with open(exitinfo_file) as f:
+        with io.open(exitinfo_file) as f:
             exitinfo = json.load(f)
 
     except IOError:
@@ -113,7 +117,7 @@ def _collect_exit_info(container_dir):
 
     aborted_file = os.path.join(container_dir, 'aborted')
     try:
-        with open(aborted_file) as f:
+        with io.open(aborted_file) as f:
             try:
                 aborted = json.load(f)
             except ValueError:

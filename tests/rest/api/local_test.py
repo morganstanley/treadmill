@@ -6,12 +6,7 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
-import getopt
 import json
-import logging
-import logging.config
-import os
-import sys
 import unittest
 
 import flask
@@ -21,12 +16,10 @@ import mock
 import six
 from six.moves import http_client
 
-import treadmill
 from treadmill import webutils
-from treadmill.exc import FileNotFoundError  # pylint: disable=W0622
+from treadmill.exc import LocalFileNotFoundError
 from treadmill.rest import error_handlers
 from treadmill.rest.api import local
-from treadmill import yamlwrapper as yaml
 
 LOG_CONTENT = list(six.moves.range(1, 10))
 
@@ -51,15 +44,15 @@ def get_log_success(*args, **kwargs):
 # pylint: disable=W0613,W0101
 def get_log_failure(*args, **kwargs):
     """Generator w/ exception."""
-    raise FileNotFoundError('Something went wrong')
+    raise LocalFileNotFoundError('Something went wrong')
     for line in LOG_CONTENT:
         return line
         # yield line
 
 
 def err(*args, **kwargs):
-    """Raise FileNotFoundError."""
-    raise FileNotFoundError('File not found')
+    """Raise LocalFileNotFoundError."""
+    raise LocalFileNotFoundError('File not found')
 
 
 class LocalTest(unittest.TestCase):
@@ -150,15 +143,6 @@ class LocalTest(unittest.TestCase):
         resp = self.client.get('/archive/<app>/<uniq>/sys')
         self.assertEqual(resp.status_code, http_client.NOT_FOUND)
 
-# C0103: don't complain because of the 'invalid constant' names below
-# pylint: disable=C0103
+
 if __name__ == '__main__':
-    opts, _ = getopt.getopt(sys.argv[1:], 'l')
-
-    if opts and '-l' in opts[0]:
-        sys.argv[1:] = []
-        log_conf_file = os.path.join(treadmill.TREADMILL, 'lib', 'python',
-                                     'treadmill', 'logging', 'daemon.conf')
-        logging.config.fileConfig(log_conf_file)
-
     unittest.main()

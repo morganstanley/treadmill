@@ -1,6 +1,11 @@
 """
 Cron model for a monitor.
 
+
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 This module is responsible for creating the job (or model) in the scheduler.
 """
 from __future__ import absolute_import
