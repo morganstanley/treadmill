@@ -135,8 +135,8 @@ def collect_running_app(approot, destroot):
 def collect_sysctl(destroot):
     """Get host sysctl (related to kernel)."""
     sysctl = subproc.check_output([_SYSCTL, '-a'])
-    with io.open('%s/sysctl' % destroot, 'w') as f:
-        f.write(sysctl)
+    with io.open('%s/sysctl' % destroot, 'wb') as f:
+        f.write(sysctl.encode(encoding='utf8', errors='replace'))
 
 
 def collect_cgroup(approot, destroot):
@@ -186,15 +186,15 @@ def collect_network(approot, destroot):
         _LOGGER.warning('skip %s => %s', src, dest)
 
     ifconfig = subproc.check_output([_IFCONFIG])
-    with io.open('%s/ifconfig' % destroot, 'w') as f:
-        f.write(ifconfig)
+    with io.open('%s/ifconfig' % destroot, 'wb') as f:
+        f.write(ifconfig.encode(encoding='utf8', errors='replace'))
 
 
 def collect_message(destroot):
     """Get messages on the host."""
     dmesg = subproc.check_output([_DMESG])
-    with io.open('%s/dmesg' % destroot, 'w') as f:
-        f.write(dmesg)
+    with io.open('%s/dmesg' % destroot, 'wb') as f:
+        f.write(dmesg.encode(encoding='utf8', errors='replace'))
 
     messages = subproc.check_output(
         [_TAIL, '-n', '100', '/var/log/messages']
@@ -203,5 +203,5 @@ def collect_message(destroot):
     dest_messages = '%s/var/log/messages' % destroot
     if not os.path.exists(os.path.dirname(dest_messages)):
         os.makedirs(os.path.dirname(dest_messages))
-    with io.open(dest_messages, 'w') as f:
-        f.write(messages)
+    with io.open(dest_messages, 'wb') as f:
+        f.write(messages.encode(encoding='utf8', errors='replace'))

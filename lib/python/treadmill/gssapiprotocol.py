@@ -136,7 +136,7 @@ class GSSServer(GSSBase):
 class GSSAPILineServer(basic.LineReceiver):
     """Line based GSSAPI server."""
 
-    delimiter = '\n'
+    delimiter = b'\n'
 
     def __init__(self):
         self.gss_server = GSSServer()
@@ -174,7 +174,7 @@ class GSSAPILineServer(basic.LineReceiver):
     def write(self, line):
         """Write line back to the client, encrytped and encoded base64."""
         wrapped = self.gss_server.wrap(line)
-        self.sendLine(wrapped)
+        self.sendLine(bytes(wrapped))
 
     def got_line(self, line):
         """Invoked after authentication is done, with decrypted line as arg."""

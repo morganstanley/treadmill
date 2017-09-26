@@ -175,7 +175,8 @@ def _interpolate_list(value, params):
 
 def _interpolate_scalar(value, params):
     """Interpolate string value by rendering the template."""
-    if isinstance(value, str):
+    _LOGGER.debug('value: %r', value)
+    if isinstance(value, (six.string_types, six.text_type)):
         return _render(value, params)
     else:
         # Do not interpolate numbers.
