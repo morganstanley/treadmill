@@ -138,13 +138,16 @@ def init():
                   help='Image to use for instances e.g. RHEL-7.4')
     @click.option('--instance-type',
                   default=constants.INSTANCE_TYPES['EC2']['micro'],
+                  show_default=True,
                   help='AWS ec2 instance type')
     @click.option('--tm-release',
                   callback=cli_callbacks.current_release_version,
                   help='Treadmill release to use')
     @click.option('--app-root', default='/var/tmp',
+                  show_default=True,
                   help='Treadmill app root')
     @click.option('--ldap-cidr-block', default='172.23.1.0/24',
+                  show_default=True,
                   help='CIDR block for LDAP')
     @click.option('--ldap-subnet-id', help='Subnet ID for LDAP')
     @click.option('--cell-subnet-id', help='Subnet ID of Cell',
@@ -205,20 +208,26 @@ def init():
                   help='VPC Name')
     @click.option('--region', help='Region for the vpc')
     @click.option('--name', default='TreadmillMaster',
+                  show_default=True,
                   help='Treadmill master name')
     @click.option('--key', required=True, help='SSH Key Name')
     @click.option('--count', default='3', type=int,
+                  show_default=True,
                   help='Number of Treadmill masters to spin up')
     @click.option('--image', required=True,
                   help='Image to use for new instances e.g. RHEL-7.4')
     @click.option('--instance-type',
                   default=constants.INSTANCE_TYPES['EC2']['micro'],
+                  show_default=True,
                   help='AWS ec2 instance type')
     @click.option('--tm-release',
                   callback=cli_callbacks.current_release_version,
                   help='Treadmill release to use')
-    @click.option('--app-root', default='/var/tmp', help='Treadmill app root')
+    @click.option('--app-root', default='/var/tmp',
+                  show_default=True,
+                  help='Treadmill app root')
     @click.option('--cell-cidr-block', default='172.23.0.0/24',
+                  show_default=True,
                   help='CIDR block for the cell')
     @click.option('--subnet-id', help='Subnet ID')
     @click.option('--ipa-admin-password',
@@ -274,17 +283,20 @@ def init():
                   required=True, help='VPC Name')
     @click.option('--region', help='Region for the vpc')
     @click.option('--name', default='TreadmillNode',
+                  show_default=True,
                   help='Node name')
     @click.option('--key', required=True, help='SSH Key Name')
     @click.option('--image', required=True,
                   help='Image to use for new node instance e.g. RHEL-7.4')
     @click.option('--instance-type',
                   default=constants.INSTANCE_TYPES['EC2']['large'],
+                  show_default=True,
                   help='AWS ec2 instance type')
     @click.option('--tm-release',
                   callback=cli_callbacks.current_release_version,
                   help='Treadmill release to use')
     @click.option('--app-root', default='/var/tmp/treadmill-node',
+                  show_default=True,
                   help='Treadmill app root')
     @click.option('--subnet-id', required=True, help='Subnet ID')
     @click.option('--ipa-admin-password',
@@ -292,6 +304,7 @@ def init():
                   envvar='TREADMILL_IPA_ADMIN_PASSWORD',
                   help='Password for IPA admin')
     @click.option('--with-api', required=False, is_flag=True,
+                  show_default=True,
                   default=False, help='Provision node with Treadmill APIs')
     @click.option('-m', '--' + _OPTIONS_FILE,
                   cls=mutually_exclusive_option.MutuallyExclusiveOption,
@@ -347,6 +360,7 @@ def init():
                   required=True, help='VPC Name')
     @click.option('--name', help='LDAP Name',
                   required=True,
+                  show_default=True,
                   default="TreadmillLDAP")
     @click.pass_context
     def delete_ldap(ctx, vpc_name, name):
