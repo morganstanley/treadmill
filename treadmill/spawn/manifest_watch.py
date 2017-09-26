@@ -1,16 +1,28 @@
-"""Watches a directory for manifest changes and creates treadmill spawn
-instances.
+"""Watches a directory for manifest changes and creates spawn instances.
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
+import io
 import json
 import logging
 import os
-import subprocess
+
+import six
+
+if six.PY2 and os.name == 'posix':
+    import subprocess32 as subprocess  # pylint: disable=import-error
+else:
+    import subprocess  # pylint: disable=wrong-import-order
 
 from treadmill import spawn
 from treadmill import fs
 from treadmill import dirwatch
 from treadmill import subproc
+from treadmill import supervisor
 from treadmill import utils
 from treadmill.spawn import utils as spawn_utils
 from treadmill.spawn import instance
@@ -48,7 +60,8 @@ class ManifestWatch(object):
         """Tells the svscan instance to rescan the given scan dir."""
         _LOGGER.debug('Scanning directory %r', scan_dir)
         try:
-            subproc.check_call(['s6_svscanctl', '-a', scan_dir])
+            supervisor.control_svscan(scan_dir,
+                                      supervisor.SvscanControlAction.alarm)
         except subprocess.CalledProcessError as ex:
             _LOGGER.warning(ex)
 
@@ -72,20 +85,25 @@ class ManifestWatch(object):
             os.path.join(job, 'run'),
             'spawn.run',
             id=inst.id,
-            name=inst.name)
+            name=inst.name,
+            service_exit=inst.settings.get('service_exit', False),
+            **subproc.get_aliases()
+        )
 
         utils.create_script(
             os.path.join(job, 'finish'),
             'spawn.finish',
             id=inst.id,
-            stop=inst.settings['stop'],
-            reconnect=inst.settings['reconnect'],
-            reconnect_timeout=inst.settings['reconnect_timeout'])
+            stop=inst.settings.get('stop', False),
+            reconnect=inst.settings.get('reconnect', False),
+            reconnect_timeout=inst.settings.get('reconnect_timeout', 0),
+            **subproc.get_aliases()
+        )
 
-        with open(os.path.join(data_dir, 'manifest'), 'w') as f:
+        with io.open(os.path.join(data_dir, 'manifest'), 'w') as f:
             json.dump(inst.manifest, f)
 
-        with open(os.path.join(job, 'timeout-finish'), 'w') as f:
+        with io.open(os.path.join(job, 'timeout-finish'), 'w') as f:
             f.write(str(spawn.JOB_FINISH_TIMEOUT))
 
         fs.symlink_safe(running, job)

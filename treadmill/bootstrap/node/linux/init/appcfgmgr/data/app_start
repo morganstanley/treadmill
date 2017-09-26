@@ -4,5 +4,4 @@
 # Runs as root with host principal creds.
 #
 
-exec {{ treadmill_bin }} \
-    sproc --cgroup . appcfgmgr
+exec {{ treadmill }}/bin/treadmill sproc --cgroup . appcfgmgr

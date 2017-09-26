@@ -1,26 +1,29 @@
-"""Basic listing module that treadmill_list and REST API can use"""
+"""Basic listing module that treadmill_list and REST API can use.
+"""
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import fnmatch
 import logging
 
 try:
-    import pickle as pickle
+    import cPickle as pickle  # pylint: disable=wrong-import-order
 except ImportError:
-    import pickle
+    import pickle  # pylint: disable=wrong-import-order
 
-from enum import Enum
+import enum  # pylint: disable=wrong-import-order
 
-from . import zknamespace as z
+from treadmill import zknamespace as z
 
 
 _LOGGER = logging.getLogger(__name__)
 
 
-class StateEnum(Enum):
-    # pylint: disable=W0232
-    """
-    Enum for the different state names
+class StateEnum(enum.Enum):
+    """Enum for the different state names
     """
     SCHEDULED = 'scheduled'
     RUNNING = 'running'

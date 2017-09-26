@@ -1,6 +1,11 @@
 """Unit test for fs - configuring unshared chroot.
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import unittest
 
 import ldap3
@@ -32,21 +37,26 @@ class ContextTest(unittest.TestCase):
 
         # Missing ldap url
         ctx1 = context.Context()
-        ctx1.ldap.ldap_suffix = 'dc=test'
+        ctx1.ldap_suffix = 'dc=test'
         # TODO: renable this test once we can firgure out why ctx0.ldap.conn is
         # mocked when running with nosetest and Train
         # self.assertRaises(context.ContextError, ctx1.resolve, 'somecell')
 
         # Cell not defined in LDAP.
         ctx2 = context.Context()
-        ctx2.ldap.ldap_suffix = 'dc=test'
+        ctx2.cell = 'somecell'
+        ctx2.ldap_suffix = 'dc=test'
         ctx2.ldap.url = 'ldap://foo:1234'
         treadmill.admin.Cell.get.side_effect = ldap3.LDAPNoSuchObjectResult
-        self.assertRaises(context.ContextError, ctx2.resolve, 'somecell')
+
+        self.assertIsNone(ctx2.get('zk_url'))
+
+        self.assertRaises(context.ContextError, lambda: ctx2.zk.conn)
 
         # Cell defined in LDAP
         ctx3 = context.Context()
-        ctx3.ldap.ldap_suffix = 'dc=test'
+        ctx2.cell = 'somecell'
+        ctx3.ldap_suffix = 'dc=test'
         ctx3.ldap.url = 'ldap://foo:1234'
 
         treadmill.admin.Cell.get.side_effect = None
@@ -57,7 +67,8 @@ class ContextTest(unittest.TestCase):
                 {'hostname': 'yyy', 'zk-client-port': 345},
             ]
         }
-        ctx3.resolve('somecell')
+        ctx3.cell = 'somecell'
+        ctx3.get('zk_url')
         self.assertEqual(
             'zookeeper://tmtest@xxx:123,yyy:345/treadmill/somecell',
             ctx3.zk.url
@@ -76,28 +87,32 @@ class ContextTest(unittest.TestCase):
         # self.assertRaises(context.ContextError, ctx0.resolve, 'somecell')
 
         ctx1 = context.Context()
-        ctx1.ldap.ldap_suffix = 'dc=test'
+        ctx1.ldap_suffix = 'dc=test'
+        ctx1.dns_domain = 'x'
+        ctx1.cell = 'somecell'
 
         treadmill.dnsutils.txt.return_value = [
             'zookeeper://tmtest@xxx:123,yyy:345/treadmill/somecell',
         ]
         treadmill.dnsutils.srv.return_value = [
-            ('ldaphost', 1234, 10, 10)
+            ('ldaphost1', 1234, 10, 10),
+            ('ldaphost2', 2345, 10, 10)
         ]
-        ctx1.resolve('somecell')
+        ctx1.get('zk_url')
         self.assertEqual(
             'zookeeper://tmtest@xxx:123,yyy:345/treadmill/somecell',
             ctx1.zk.url
         )
         self.assertEqual(
-            'ldap://ldaphost:1234',
+            'ldap://ldaphost1:1234,ldap://ldaphost2:2345',
             ctx1.ldap.url
         )
 
         # Test automatic resolve invocation
         ctx2 = context.Context()
-        ctx2.ldap.ldap_suffix = 'dc=test'
+        ctx2.ldap_suffix = 'dc=test'
         ctx2.cell = 'somecell'
+        ctx2.dns_domain = 'x'
         # Disable E1102: not callable
         ctx2.zk.conn()  # pylint: disable=E1102
         self.assertEqual(
@@ -113,7 +128,7 @@ class ContextTest(unittest.TestCase):
 
         ctx = context.Context()
         ctx.dns_domain = 'a'
-        ctx.admin_api_scope = ['ny.campus', 'na.region']
+        ctx.profile['api_scope'] = ['ny.campus', 'na.region']
         ctx.cell = 'b'
         self.assertEqual(
             set(['http://xxx:123', 'http://yyy:234']),

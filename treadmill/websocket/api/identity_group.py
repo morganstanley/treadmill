@@ -1,31 +1,37 @@
 """A WebSocket handler for Treadmill state.
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import os
 import logging
-import yaml
 
 from treadmill import schema
+from treadmill import yamlwrapper as yaml
 
 
 _LOGGER = logging.getLogger(__name__)
 
 
 class IdentityGroupAPI(object):
-    """Handler for /identity-groups topic."""
+    """Handler for /identity-groups topic.
+    """
 
     def __init__(self):
-        """init"""
-
         @schema.schema({'$ref': 'websocket/identity_group.json#/message'})
         def subscribe(message):
-            """Return filter based on message payload."""
+            """Return filter based on message payload.
+            """
             identity_group = message.get('identity-group', '*')
 
             return [(os.path.join('/identity-groups', identity_group), '*')]
 
         def on_event(filename, operation, content):
-            """Event handler."""
+            """Event handler.
+            """
             if not filename.startswith('/identity-groups/'):
                 return
 
@@ -51,5 +57,6 @@ class IdentityGroupAPI(object):
 
 
 def init():
-    """API module init."""
+    """API module init.
+    """
     return [('/identity-groups', IdentityGroupAPI(), [])]

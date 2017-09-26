@@ -1,17 +1,24 @@
-"""Treadmill console entry point.
+"""Treadmill module.
 """
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import logging
 import logging.config
 
 import click
-import requests
 
 # pylint complains about imports from treadmill not grouped, but import
 # dependencies need to come first.
 #
 # pylint: disable=C0412
 from treadmill import cli
+
+# Disable click warning for importing unicode_literals in python 2
+click.disable_unicode_literals_warning = True
 
 
 # pylint complains "No value passed for parameter 'ldap' in function call".
@@ -20,7 +27,7 @@ from treadmill import cli
 # pylint: disable=E1120
 #
 # TODO: add options to configure logging.
-@click.group(cls=cli.make_multi_command('treadmill.cli'))
+@click.group(cls=cli.make_commands('treadmill.cli'))
 @click.option('--dns-domain', required=False,
               envvar='TREADMILL_DNS_DOMAIN',
               callback=cli.handle_context_opt,
@@ -47,20 +54,20 @@ from treadmill import cli
               callback=cli.handle_context_opt,
               is_eager=True,
               expose_value=False)
+@click.option('--profile', required=False,
+              envvar='TREADMILL_PROFILE',
+              callback=cli.handle_context_opt,
+              is_eager=True,
+              expose_value=False)
 @click.option('--outfmt', type=click.Choice(['json', 'yaml']))
 @click.option('--debug/--no-debug',
               help='Sets logging level to debug',
               is_flag=True, default=False)
-@click.option('--with-proxy', required=False, is_flag=True,
-              help='Enable proxy environment variables.',
-              default=False)
 @click.pass_context
-def run(ctx, with_proxy, outfmt, debug):
+def run(ctx, outfmt, debug):
     """Treadmill CLI."""
     ctx.obj = {}
     ctx.obj['logging.debug'] = False
-
-    requests.Session().trust_env = with_proxy
 
     if outfmt:
         cli.OUTPUT_FORMAT = outfmt

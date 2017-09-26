@@ -1,15 +1,58 @@
-"""Reports memory utilization details for given container.
-"""
+"""Reports memory utilization details for given container."""
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import os
 
 import click
-import prettytable
 
 from treadmill import psmem
 from treadmill import cgutils
 from treadmill import metrics
 from treadmill import utils
+from treadmill import cli
+
+
+class PsmemProcPrettyFormatter(object):
+    """Pretty table formatter for psmem processes."""
+
+    @staticmethod
+    def format(item):
+        """Return pretty-formatted item."""
+        schema = [
+            ('name', None, None),
+            ('tgid', None, None),
+            ('threads', None, None),
+            ('private', None, None),
+            ('shared', None, None),
+            ('total', None, None),
+        ]
+
+        format_item = cli.make_dict_to_table(schema)
+        format_list = cli.make_list_to_table(schema)
+
+        if isinstance(item, list):
+            return format_list(item)
+        else:
+            return format_item(item)
+
+
+class PsmemTotalPrettyFormatter(object):
+    """Pretty table formatter for psmem processes."""
+
+    @staticmethod
+    def format(item):
+        """Return pretty-formatted item."""
+        schema = [
+            ('memory-type', None, None),
+            ('value', None, None),
+        ]
+
+        format_list = cli.make_list_to_table(schema, False)
+
+        return format_list(item)
 
 
 def init():
@@ -44,59 +87,44 @@ def init():
         use_pss = not fast
         memusage = psmem.get_memory_usage(pids, verbose, use_pss=use_pss)
 
-        proc_columns = (['ppid', 'name', 'threads', 'private', 'shared',
-                         'total'])
-        proc_table = prettytable.PrettyTable(proc_columns)
-        proc_table.align = 'l'
-
-        proc_table.set_style(prettytable.PLAIN_COLUMNS)
-        proc_table.left_padding_width = 0
-        proc_table.right_padding_width = 2
-
-        total = sum([info['total'] for info in memusage.values()])
+        total = sum([info['total'] for info in memusage])
 
         readable = lambda value: utils.bytes_to_readable(value, power='B')
         percentage = lambda value, total: "{:.1%}".format(value / total)
-        cols = proc_columns[3:]
-        for proc, info in sorted(memusage.items()):
-            row_base = [proc, info['name'], info['threads']]
-            row_values = None
-            if percent:
-                row_values = [percentage(info[col], total) for col in cols]
-            else:
-                row_values = [readable(info[col]) for col in cols]
-            proc_table.add_row(row_base + row_values)
 
-        proc_table.add_row(['', '', '', '', '', ''])
-        proc_table.add_row(['Total:', '', '', '', '', readable(total)])
-        print(proc_table)
+        to_format = ['private', 'shared', 'total']
+        for info in memusage:
+            for key, val in info.items():
+                if key in to_format:
+                    if percent:
+                        info[key] = percentage(val, total)
+                    else:
+                        info[key] = readable(val)
+
+        proc_table = PsmemProcPrettyFormatter()
+        print(proc_table.format(memusage))
 
         metric = metrics.read_memory_stats(cgroup)
 
-        total_table = prettytable.PrettyTable(['memory', 'value'])
-        total_table.align['memory'] = 'l'
-        total_table.align['value'] = 'r'
-
-        total_table.set_style(prettytable.PLAIN_COLUMNS)
-        total_table.header = False
-
+        total_list = []
         # Actual memory usage is without the disk cache
-        memory_usage = readable(metric['memory.usage_in_bytes'] -
-                                metric['memory.stats']['cache'])
+        total_list.append({'memory-type': 'usage', 'value':
+                           readable(metric['memory.usage_in_bytes'] -
+                                    metric['memory.stat']['cache'])})
+        total_list.append({'memory-type': '', 'value':
+                           percentage(metric['memory.usage_in_bytes'],
+                                      metric['memory.limit_in_bytes'])})
+        total_list.append({'memory-type': 'diskcache', 'value':
+                           readable(metric['memory.stat']['cache'])})
+        total_list.append({'memory-type': 'softlimit', 'value':
+                           readable(metric['memory.soft_limit_in_bytes'])})
+        total_list.append({'memory-type': 'hardlimit', 'value':
+                           readable(metric['memory.limit_in_bytes'])})
 
-        total_table.add_row(['usage', memory_usage])
-        total_table.add_row(['', percentage(metric['memory.usage_in_bytes'],
-                                            metric['memory.limit_in_bytes'])])
-        total_table.add_row(['diskcache',
-                             readable(metric['memory.stats']['cache'])])
-
-        total_table.add_row(['softlimit',
-                             readable(metric['memory.soft_limit_in_bytes'])])
-        total_table.add_row(['hardlimit',
-                             readable(metric['memory.limit_in_bytes'])])
+        total_table = PsmemTotalPrettyFormatter()
 
         print('')
-        print(total_table)
+        print(total_table.format(total_list))
 
     del psmem_cmd
     return diag

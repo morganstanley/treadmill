@@ -9,16 +9,25 @@ The content of the node contain real path of the Treadmill code and timestamp
 when the reset happened.
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import logging
 import os
-import subprocess
 import time
 
 import click
+import six
+
+if six.PY2 and os.name == 'posix':
+    import subprocess32 as subprocess  # pylint: disable=import-error
+else:
+    import subprocess  # pylint: disable=wrong-import-order
 
 from treadmill import appenv
 from treadmill import context
-from treadmill import exc
 from treadmill import subproc
 from treadmill import sysinfo
 from treadmill import utils
@@ -55,8 +64,8 @@ def init():
         context.GLOBAL.zk.conn.add_listener(zkutils.exit_on_lost)
 
         while not context.GLOBAL.zk.conn.exists(z.VERSION):
-            _LOGGER.warn('%r node not created yet. Cell masters running?',
-                         z.VERSION)
+            _LOGGER.warning('%r node not created yet. Cell masters running?',
+                            z.VERSION)
             time.sleep(30)
 
         hostname = sysinfo.hostname()
@@ -75,7 +84,7 @@ def init():
         zkutils.put(context.GLOBAL.zk.conn, version_path, info)
 
         @context.GLOBAL.zk.conn.DataWatch(version_path)
-        @exc.exit_on_unhandled
+        @utils.exit_on_unhandled
         def _watch_version(_data, _stat, event):
             """Force exit if server node is deleted."""
 

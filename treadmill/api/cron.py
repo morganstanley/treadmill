@@ -1,6 +1,11 @@
 """Implementation of cron API.
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import fnmatch
 import logging
 
@@ -14,40 +19,38 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class API(object):
-    """Treadmill Cron REST api."""
+    """Treadmill CRON REST api."""
 
     def __init__(self):
-        self.scheduler = None
 
-        def scheduler():
+        def _scheduler():
             """Lazily get scheduler"""
-            if self.scheduler:
-                return self.scheduler
 
             zkclient = context.GLOBAL.zk.conn
-            self.scheduler = cron.get_scheduler(zkclient)
+            return cron.get_scheduler(zkclient)
 
-            return self.scheduler
-
-        def _list(match=None):
-            """List configured instances."""
-            if match is None:
-                match = '*'
-
-            jobs = scheduler().get_jobs()
+        def _list(match=None, resource=None):
+            """List configured cron jobs."""
+            jobs = _scheduler().get_jobs()
             _LOGGER.debug('jobs: %r', jobs)
 
-            filtered = [
-                cron.job_to_dict(job)
-                for job in jobs
-                if fnmatch.fnmatch(job.id, match)
-            ]
+            filtered = []
+            for job_obj in jobs:
+                job = cron.job_to_dict(job_obj)
+                if not match and not resource:
+                    filtered.append(job)
+                    continue
+                if match and fnmatch.fnmatch(job['_id'], match):
+                    filtered.append(job)
+                if resource and fnmatch.fnmatch(job['resource'], resource):
+                    filtered.append(job)
+
             return sorted(filtered)
 
         @schema.schema({'$ref': 'cron.json#/resource_id'})
         def get(rsrc_id):
-            """Get instance configuration."""
-            job = cron.get_job(scheduler(), rsrc_id)
+            """Get cron job configuration."""
+            job = cron.get_job(_scheduler(), rsrc_id)
             _LOGGER.debug('job: %r', job)
 
             return cron.job_to_dict(job)
@@ -58,7 +61,7 @@ class API(object):
                        {'$ref': 'cron.json#/verbs/create'}]},
         )
         def create(rsrc_id, rsrc):
-            """Create (configure) instance."""
+            """Create cron job."""
             _LOGGER.info('create: %s %r', rsrc_id, rsrc)
 
             event = rsrc.get('event')
@@ -67,7 +70,7 @@ class API(object):
             count = rsrc.get('count')
 
             job = cron_model.create(
-                scheduler(), rsrc_id, event, resource, expression, count
+                _scheduler(), rsrc_id, event, resource, expression, count
             )
             _LOGGER.debug('job: %r', job)
 
@@ -75,11 +78,21 @@ class API(object):
 
         @schema.schema(
             {'$ref': 'cron.json#/resource_id'},
-            {'allOf': [{'$ref': 'cron.json#/verbs/update'}]}
+            {'allOf': [{'$ref': 'cron.json#/verbs/update'}]},
+            pause={'$ref': 'cron.json#/pause'},
+            resume={'$ref': 'cron.json#/resume'},
         )
-        def update(rsrc_id, rsrc):
-            """Update instance configuration."""
+        def update(rsrc_id, rsrc, pause=False, resume=False):
+            """Update cron job configuration."""
             _LOGGER.info('update: %s %r', rsrc_id, rsrc)
+
+            if pause:
+                job = _scheduler().pause_job(rsrc_id)
+                return cron.job_to_dict(job)
+
+            if resume:
+                job = _scheduler().resume_job(rsrc_id)
+                return cron.job_to_dict(job)
 
             event = rsrc.get('event')
             resource = rsrc.get('resource')
@@ -87,7 +100,7 @@ class API(object):
             count = rsrc.get('count')
 
             job = cron_model.update(
-                scheduler(), rsrc_id, event, resource, expression, count
+                _scheduler(), rsrc_id, event, resource, expression, count
             )
             _LOGGER.debug('job: %r', job)
 
@@ -95,10 +108,10 @@ class API(object):
 
         @schema.schema({'$ref': 'cron.json#/resource_id'})
         def delete(rsrc_id):
-            """Delete configured instance."""
+            """Delete configured cron job."""
             _LOGGER.info('delete: %s', rsrc_id)
 
-            job = cron.get_job(scheduler(), rsrc_id)
+            job = cron.get_job(_scheduler(), rsrc_id)
             _LOGGER.debug('job: %r', job)
 
             if job:
@@ -110,7 +123,6 @@ class API(object):
         self.create = create
         self.update = update
         self.delete = delete
-        self.scheduler = scheduler
 
 
 def init(authorizer):

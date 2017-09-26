@@ -1,6 +1,11 @@
 """Unit test for webutils.
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import unittest
 
 import flask
@@ -35,7 +40,7 @@ class WebUtilsTest(unittest.TestCase):
         app.testing = True
 
         with app.test_request_context(headers=[('Accept', 'application/json, '
-                                                          'text/plain')]):
+                                                'text/plain')]):
             self.assertTrue(webutils.wants_json_resp(flask.request))
 
         with app.test_request_context(headers=[('Accept', 'text/html; q=1.0, '

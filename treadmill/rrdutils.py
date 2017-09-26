@@ -1,13 +1,22 @@
 """Useful rrd utility functions.
 """
 
-import errno
-import importlib
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import logging
 import os
 import socket
-import subprocess
 import time
+
+import six
+
+if six.PY2 and os.name == 'posix':
+    import subprocess32 as subprocess  # pylint: disable=import-error
+else:
+    import subprocess  # pylint: disable=wrong-import-order
 
 from treadmill import fs
 from treadmill import subproc
@@ -42,10 +51,6 @@ class RRDError(Exception):
     """RRD protocol error."""
 
 
-class RRDToolNotFoundError(Exception):
-    """RRDtool not in the path error."""
-
-
 class RRDClient(object):
     """RRD socket client."""
 
@@ -75,7 +80,7 @@ class RRDClient(object):
         if status < 0:
             raise RRDError(reply)
 
-        for _ in range(0, status):
+        for _ in six.moves.range(0, status):
             reply = self.rrd.readline()
             _LOGGER.info('rrd reply: %s', reply)
 
@@ -107,10 +112,14 @@ class RRDClient(object):
             'RRA:AVERAGE:0.5:10m:3d',
         ]))
 
-    def update(self, rrdfile, data):
+    def update(self, rrdfile, data, metrics_time=None, update_str=None):
         """Updates rrd file with data, create if does not exist."""
-        rrd_update_str = ':'.join([str(int(time.time())),
-                                   _METRICS_FMT.format(**data)])
+        if metrics_time is None:
+            metrics_time = int(time.time())
+
+        rrd_update_str = update_str or ':'.join(
+            [str(metrics_time), _METRICS_FMT.format(**data)]
+        )
         try:
             self.command('UPDATE %s %s' % (rrdfile, rrd_update_str))
         except RRDError:
@@ -164,154 +173,6 @@ def forget_noexc(rrdfile, rrd_socket=SOCKET):
                           rrd_socket)
     finally:
         rrdclient.rrd.close()
-
-
-def gen_graph(rrdfile, timeframe, rrdtool, outdir=None, reserved_rsrc=None):
-    """Generate SVG images given rrd file."""
-    if not outdir:
-        outdir = rrdfile.rsplit('.', 1)[0]
-    fs.mkdir_safe(outdir)
-
-    # stdout, stderr -> subproc.PIPE: don't output the result of the execution
-    # because it's just noise anyway
-    try:
-        subprocess.check_call([rrdtool, '--help'],
-                              stderr=subprocess.PIPE,
-                              stdout=subprocess.PIPE)
-    except OSError as err:
-        _LOGGER.error('%s', err)
-        if err.errno == errno.ENOENT:
-            raise RRDToolNotFoundError()
-        raise
-
-    first_ts = first(rrdfile, timeframe, exec_on_node=False)
-    last_ts = last(rrdfile, exec_on_node=False)
-    from_ = time.strftime("%b/%d %R", time.gmtime(int(first_ts)))
-    to = time.strftime("%b/%d %R%z", time.gmtime(int(last_ts)))
-
-    memory_args = [
-        os.path.join(outdir, 'memory.svg'),
-        "--title=Memory Usage [%s - %s]" % (from_, to),
-        '--imgformat=SVG',
-        '--start=%s' % first_ts,
-        '--end=%s' % last_ts,
-        '--vertical-label=Bytes',
-        'DEF:memory_usage=%s:memory_usage:MAX' % rrdfile,
-        'LINE1:memory_usage#0000FF:memory usage',
-        'DEF:memory_hardlimit=%s:memory_hardlimit:MAX' % rrdfile,
-        'LINE1:memory_hardlimit#CC0000:memory limit'
-    ]
-
-    cpu_usage_args = [
-        os.path.join(outdir, 'cpu_usage.svg'),
-        '--title=CPU Usage [%s - %s]' % (from_, to),
-        '--imgformat=SVG',
-        '--start=%s' % first_ts,
-        '--end=%s' % last_ts,
-        '--vertical-label=%',
-        'DEF:cpu_usage=%s:cpu_usage:AVERAGE' % rrdfile,
-        'LINE1:cpu_usage#0000FF:cpu usage',
-        'HRULE:%s#CC0000:reservation of compute '
-        '(%s)' % (reserved_rsrc['cpu'][:-1], reserved_rsrc['cpu']),
-    ]
-    cpu_ratio_args = [
-        os.path.join(outdir, 'cpu_ratio.svg'),
-        '--title=CPU Ratio [%s - %s]' % (from_, to),
-        '--imgformat=SVG',
-        '--start=%s' % first_ts,
-        '--end=%s' % last_ts,
-        'DEF:cpu_ratio=%s:cpu_ratio:AVERAGE' % rrdfile,
-        'LINE1:cpu_ratio#0000FF:cpu ratio',
-    ]
-    blk_iops = [
-        os.path.join(outdir, 'blk_iops.svg'),
-        '--title=Block I/O [%s - %s]' % (from_, to),
-        '--imgformat=SVG',
-        '--start=%s' % first_ts,
-        '--end=%s' % last_ts,
-        '--vertical-label=operations/second',
-        'DEF:blk_read_iops=%s:blk_read_iops:MAX' % rrdfile,
-        'LINE1:blk_read_iops#0000FF:read iops',
-        'DEF:blk_write_iops=%s:blk_write_iops:MAX' % rrdfile,
-        'LINE1:blk_write_iops#CC0000:write iops'
-    ]
-    blk_bps = [
-        os.path.join(outdir, 'blk_bps.svg'),
-        '--title=Block I/O [%s - %s]' % (from_, to),
-        '--imgformat=SVG',
-        '--start=%s' % first_ts,
-        '--end=%s' % last_ts,
-        '--vertical-label=bytes/second',
-        'DEF:blk_read_bps=%s:blk_read_bps:MAX' % rrdfile,
-        'LINE1:blk_read_bps#0000FF:read bps',
-        'DEF:blk_write_bps=%s:blk_write_bps:MAX' % rrdfile,
-        'LINE1:blk_write_bps#CC0000:write bps'
-    ]
-
-    fs_usg = [
-        os.path.join(outdir, 'fs_usg.svg'),
-        '--title=Filesystem Usage [%s - %s]' % (from_, to),
-        '--imgformat=SVG',
-        '--start=%s' % first_ts,
-        '--end=%s' % last_ts,
-        '--vertical-label=bytes/second',
-        'DEF:fs_used_bytes=%s:fs_used_bytes:MAX' % rrdfile,
-        'LINE:fs_used_bytes#0000FF:used bytes',
-        'HRULE:%s#CC0000:fs size limit' % reserved_rsrc['disk'],
-    ]
-
-    for arg in (memory_args, cpu_usage_args, cpu_ratio_args, blk_iops, blk_bps,
-                fs_usg):
-        subprocess.check_call([rrdtool, 'graph'] + arg,
-                              stdout=subprocess.PIPE)
-
-    try:
-        ms_rrd = importlib.import_module('treadmill.plugins.rrdutils')
-        html_header = ms_rrd.html_header()
-    except ImportError as err:
-        html_header = """
-<head>
-<script type="text/javascript"
-src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
-</head>
-"""
-
-    with open(os.path.join(outdir, 'index.html'), 'w+') as f:
-        f.write(r"""<!DOCTYPE html><html>""" +
-                html_header +
-                r"""<body>
-<table>
-<tr><td><img src="memory.svg" /></td>
-    <td>Please note that SI metric prefixes may be used on the Y axis eg.:
-        $$G (giga) \Leftrightarrow 10^{9}$$
-        $$M (mega) \Leftrightarrow 10^{6}$$
-        $$k (kilo) \Leftrightarrow 10^{3}$$
-        $$m (milli) \Leftrightarrow 10^{-3}$$
-        $$u (micro) \Leftrightarrow 10^{-6}$$
-        $$n (nano) \Leftrightarrow 10^{-9}$$</td>
-</tr>
-<tr>
-<td><img src="cpu_usage.svg" /></td>
-<td>$$\textrm{CPU Usage} = \frac{\textrm{used cpu  time since last measurement}
-* \textrm{host's total bogomips}}{\Delta t
-* \textrm{bogomips of a "virtual CPU"} * \textrm{number of cpus on the host}}
-\ast 100$$<br/>
-Please note: 100% is considered 1 virtual CPU
-    </td>
-</tr>
-<tr>
-<td><img src="cpu_ratio.svg" /></td>
-<td>$$\textrm{CPU Ratio} = \frac{\textrm{used cpu  time since last measurement}
-* \textrm{host's total bogomips}}{\Delta t * \textrm{cpu shares}
-* \textrm{number of cpus on the host}}$$</td>
-</tr>
-<tr><td><img src="blk_iops.svg" /></td></tr>
-<tr><td><img src="blk_bps.svg" /></td></tr>
-<tr><td><img src="fs_usg.svg" /></td></tr>
-</table>
-</body>
-</html>
-""")
 
 
 def first(rrdfile, timeframe, rrdtool=RRDTOOL, rrd_socket=SOCKET,

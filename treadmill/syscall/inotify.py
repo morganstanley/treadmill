@@ -1,6 +1,10 @@
-"""Linux inotify(7) API wrapper module
+"""Linux inotify(7) API wrapper module.
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import collections
 import logging
@@ -17,7 +21,7 @@ from ctypes import (
 from ctypes.util import find_library
 
 import enum
-from functools import reduce
+import six
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -62,20 +66,22 @@ def inotify_init(flags=0):
 # See man inotify(7) for more details.
 #
 class INInitFlags(enum.IntEnum):
-    """Flags supported by inotify_init(2)."""
+    """Flags supported by inotify_init(2).
+    """
 
-    #: Set the O_NONBLOCK file status flag on the new open file description.
-    #: Using this flag saves extra calls to fcntl(2) to achieve the same
-    #: result.
     NONBLOCK = 0o4000
-
-    #: Set the close-on-exec (FD_CLOEXEC) flag on the new file descriptor.  See
-    #: the description of the O_CLOEXEC flag in open(2) for reasons why this
-    #: may be useful.
     CLOEXEC = 0o2000000
 
 
+#: Set the O_NONBLOCK file status flag on the new open file description.  Using
+#: this flag saves extra calls to fcntl(2) to achieve the same result.
+#: (since Linux 2.6.27)
 IN_NONBLOCK = INInitFlags.NONBLOCK
+
+#: Set the close-on-exec (FD_CLOEXEC) flag on the new file descriptor.  See the
+#: description of the O_CLOEXEC flag in open(2) for reasons why this may be
+#: useful.
+#: (since Linux 2.6.27)
 IN_CLOEXEC = INInitFlags.CLOEXEC
 
 
@@ -114,9 +120,19 @@ class INAddWatchFlags(enum.IntEnum):
     ONLYDIR = 0x01000000
 
 
+#: Don't dereference pathname if it is a symbolic link.
+#: (since Linux 2.6.15)
 IN_DONT_FOLLOW = INAddWatchFlags.DONT_FOLLOW
+
+#: Add (OR) events to watch mask for this pathname if it already exists
+#: (instead of replacing mask).
 IN_MASK_ADD = INAddWatchFlags.MASK_ADD
+
+#: Monitor pathname for one event, then remove from watch list.
 IN_ONESHOT = INAddWatchFlags.ONESHOT
+
+#: Only watch pathname if it's a directory.
+#: (since Linux 2.6.15)
 IN_ONLYDIR = INAddWatchFlags.ONLYDIR
 
 
@@ -184,58 +200,61 @@ class INEvent(enum.IntEnum):
     """
     # Events triggered by user-space
 
-    #: File was accessed.
     ACCESS = 0x00000001
-    #: Meta-data changed.
     ATTRIB = 0x00000004
-    #: Unwritable file closed.
-    CLOSE_NOWRITE = 0x00000010
-    #: Writable file was closed.
     CLOSE_WRITE = 0x00000008
-    #: Subfile was created.
+    CLOSE_NOWRITE = 0x00000010
     CREATE = 0x00000100
-    #: Subfile was deleted.
     DELETE = 0x00000200
-    #: Self was deleted.
     DELETE_SELF = 0x00000400
-    #: File was modified.
     MODIFY = 0x00000002
-    #: File was moved from X.
-    MOVED_FROM = 0x00000040
-    #: File was moved to Y.
-    MOVED_TO = 0x00000080
-    #: Self was moved.
     MOVE_SELF = 0x00000800
-    #: File was opened.
+    MOVED_FROM = 0x00000040
+    MOVED_TO = 0x00000080
     OPEN = 0x00000020
 
     # Events sent by the kernel
 
-    #: File was ignored.
     IGNORED = 0x00008000
-    #: Event occurred against directory.
     ISDIR = 0x40000000
-    #: Event queued overflowed.
     Q_OVERFLOW = 0x00004000
-    #: Backing file system was unmounted.
     UNMOUNT = 0x00002000
 
 
+#: File was accessed (read).
 IN_ACCESS = INEvent.ACCESS
+#: Metadata changed, e.g. permissions, timestamps, extended attributes, link
+#: count (since Linux 2.6.25), UID, GID, etc.
 IN_ATTRIB = INEvent.ATTRIB
-IN_CLOSE_NOWRITE = INEvent.CLOSE_NOWRITE
+#: File opened for writing was closed.
 IN_CLOSE_WRITE = INEvent.CLOSE_WRITE
+#: File not opened for writing was closed.
+IN_CLOSE_NOWRITE = INEvent.CLOSE_NOWRITE
+#: File/directory created in watched directory.
 IN_CREATE = INEvent.CREATE
+#: File/directory deleted from watched directory.
 IN_DELETE = INEvent.DELETE
+#: Watched file/directory was itself deleted.
 IN_DELETE_SELF = INEvent.DELETE_SELF
+#: File was modified.
 IN_MODIFY = INEvent.MODIFY
-IN_MOVED_FROM = INEvent.MOVED_FROM
-IN_MOVED_TO = INEvent.MOVED_TO
+#: Watched file/directory was itself moved.
 IN_MOVE_SELF = INEvent.MOVE_SELF
+#: File moved out of watched directory.
+IN_MOVED_FROM = INEvent.MOVED_FROM
+#: File moved into watched directory.
+IN_MOVED_TO = INEvent.MOVED_TO
+#: File was opened.
 IN_OPEN = INEvent.OPEN
+
+#: Watch was removed explicitly (inotify_rm_watch(2)) or automatically (file
+#: was deleted, or file system was unmounted).
 IN_IGNORED = INEvent.IGNORED
+#: Subject of this event is a directory.
 IN_ISDIR = INEvent.ISDIR
+#: Event queue overflowed (wd is -1 for this event).
 IN_Q_OVERFLOW = INEvent.Q_OVERFLOW
+#: File system containing watched object was unmounted.
 IN_UNMOUNT = INEvent.UNMOUNT
 
 # Helper values for user-space events
@@ -243,7 +262,7 @@ IN_CLOSE = IN_CLOSE_WRITE | IN_CLOSE_NOWRITE
 IN_MOVE = IN_MOVED_FROM | IN_MOVED_TO
 
 # All user-space events.
-IN_ALL_EVENTS = reduce(operator.or_, [
+IN_ALL_EVENTS = six.moves.reduce(operator.or_, [
     IN_ACCESS,
     IN_ATTRIB,
     IN_CLOSE_NOWRITE,
@@ -376,7 +395,6 @@ class InotifyEvent(collections.namedtuple('InotifyEvent',
 
 DEFAULT_NUM_EVENTS = 2048
 DEFAULT_EVENT_BUFFER_SIZE = DEFAULT_NUM_EVENTS * INOTIFY_EVENT_HDRSIZE
-DEFAULT_EVENTS = IN_ALL_EVENTS
 
 
 class Inotify(object):
@@ -401,7 +419,7 @@ class Inotify(object):
         """
         os.close(self._inotify_fd)
 
-    def add_watch(self, path, event_mask=DEFAULT_EVENTS):
+    def add_watch(self, path, event_mask=IN_ALL_EVENTS):
         """
         Adds a watch for the given path to monitor events specified by the
         mask.
@@ -471,3 +489,38 @@ class Inotify(object):
             event_list.append(inotify_event)
 
         return event_list
+
+
+###############################################################################
+__all__ = [
+    'IN_NONBLOCK',
+    'IN_NONBLOCK',
+    'IN_DONT_FOLLOW',
+    'IN_MASK_ADD',
+    'IN_ONESHOT',
+    'IN_ONLYDIR',
+    'IN_ACCESS',
+    'IN_ATTRIB',
+    'IN_CLOSE_WRITE',
+    'IN_CLOSE_NOWRITE',
+    'IN_CREATE',
+    'IN_DELETE',
+    'IN_DELETE_SELF',
+    'IN_MODIFY',
+    'IN_MOVE_SELF',
+    'IN_MOVED_FROM',
+    'IN_MOVED_TO',
+    'IN_OPEN',
+    'IN_IGNORED',
+    'IN_ISDIR',
+    'IN_Q_OVERFLOW',
+    'IN_UNMOUNT',
+    'IN_CLOSE',
+    'IN_MOVE',
+    'IN_ALL_EVENTS',
+    'inotify_init',
+    'inotify_add_watch',
+    'inotify_rm_watch',
+    'Inotify',
+    'InotifyEvent',
+]

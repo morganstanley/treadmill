@@ -1,25 +1,10 @@
 #!/bin/sh
 #
-# Starts Treadmill cgroup management service
+# Starts Treadmill node service monitor
 # Runs as root.
 #
 
-exec {{ treadmill_bin }} \
-    sproc \
-    --cell {{ cell }} \
+exec {{ treadmill }}/bin/treadmill sproc --cgroup . \
     monitor node_services \
     --approot {{ dir }} \
-    -s {{ dir }}/init/appcfgmgr \
-    -s {{ dir }}/init/appevents \
-    -s {{ dir }}/init/cgroup_service \
-    -s {{ dir }}/init/cleanup \
-    -s {{ dir }}/init/eventd \
-    -s {{ dir }}/init/fw \
-    -s {{ dir }}/init/fw_nodes_sync \
-    -s {{ dir }}/init/localdisk_service \
-    -s {{ dir }}/init/network_service \
-    -s {{ dir }}/init/nodeinfo \
-    -s {{ dir }}/init/reboot_monitor \
-    -s {{ dir }}/init/server_init \
-    -s {{ dir }}/init/supervisor \
-    -s {{ dir }}/init/version_monitor
+    -S {{ dir }}/init

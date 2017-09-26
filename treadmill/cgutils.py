@@ -1,25 +1,29 @@
 """Misc cgroup utility functions.
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import errno
+import glob
+import io
+import logging
 import os
 import signal
 
-import glob
-import logging
-
-from . import cgroups
-from . import sysinfo
-
-from .exc import TreadmillError
-from .syscall import eventfd
+from treadmill import cgroups
+from treadmill import exc
+from treadmill import sysinfo
+from treadmill.syscall import eventfd
 
 
 _LOGGER = logging.getLogger(__name__)
 NANOSECS_PER_SEC = 10**9
 
 
-class TreadmillCgroupError(TreadmillError):
+class TreadmillCgroupError(exc.TreadmillError):
     """Treadmill Cgroup operation error."""
     pass
 
@@ -106,7 +110,7 @@ def create_treadmill_cgroups(system_cpu_shares,
 
     cores_max = sysinfo.cpu_count() - 1
     if treadmill_cpu_cores > cores_max:
-        raise TreadmillError('Not enough cpu cores.')
+        raise exc.TreadmillError('Not enough cpu cores.')
 
     if treadmill_cpu_cores > 0:
         cgroups.set_value('cpuset', 'treadmill', 'cpuset.cpus',
@@ -197,8 +201,11 @@ def memory_force_empty(cgrp, value=1):
 def pids_in_cgroup(subsystem, cgrp):
     """Returns the list of pids in the cgroup."""
     path = cgroups.makepath(subsystem, cgrp, 'tasks')
-    with open(path) as tasks:
-        return [int(line.strip()) for line in tasks.readlines() if line]
+    with io.open(path) as tasks:
+        return [
+            int(line.strip()) for line
+            in tasks.readlines() if line
+        ]
 
 
 def kill_apps_in_cgroup(subsystem, cgrp, delete_cgrp=False):
@@ -208,7 +215,7 @@ def kill_apps_in_cgroup(subsystem, cgrp, delete_cgrp=False):
     for tasks_file in tasks_files:
         cgrp_path = os.path.dirname(tasks_file)
         try:
-            with open(tasks_file) as tasks:
+            with io.open(tasks_file) as tasks:
                 for pid in tasks:
                     _LOGGER.info('killing process from %r: %s',
                                  tasks_file, pid)
@@ -241,7 +248,7 @@ def total_soft_memory_limits():
     mem_files = glob.glob(path)
     for mem_file in mem_files:
         try:
-            with open(mem_file) as mem:
+            with io.open(mem_file) as mem:
                 total_mem += int(mem.read().strip())
         except IOError as err:
             # it is ok to fail if the memfile is already gone
@@ -267,7 +274,7 @@ def get_memory_oom_eventfd(cgrp):
     efd = eventfd.eventfd(0, eventfd.EFD_CLOEXEC)
     # 2/ open memory.oom_control
     oom_control_file = cgroups.makepath('memory', cgrp, 'memory.oom_control')
-    with open(oom_control_file) as oom_control:
+    with io.open(oom_control_file) as oom_control:
         # 3/ write '<eventfd_fd> <oom_control_fd> to cgroup.event_control
         cgroups.set_value(
             'memory', cgrp, 'cgroup.event_control',
@@ -368,7 +375,7 @@ def cpu_usage(cgrp):
 
 def reset_cpu_usage(cgrp):
     """Set the cpu usage to 0"""
-    with open(cgroups.makepath('cpuacct', cgrp, 'cpuacct.usage'), 'w+') as f:
+    with io.open(cgroups.makepath('cpuacct', cgrp, 'cpuacct.usage'), 'w') as f:
         f.write('0')
 
 
@@ -376,12 +383,6 @@ def stat(subsystem, cgrp, pseudofile):
     """Calls stat the cgrp file"""
     path = cgroups.makepath(subsystem, cgrp, pseudofile)
     return os.stat(path)
-
-
-def get_cpu_ratio(cgrp):
-    """Get the shares cpu ratio"""
-    shares = cgroups.get_cpu_shares(cgrp)
-    return float(shares) / sysinfo.BMIPS_PER_CPU
 
 
 def apps():

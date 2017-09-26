@@ -1,5 +1,4 @@
-"""
-Treadmill Cloud REST api.
+"""Treadmill Cloud REST api.
 """
 
 import flask

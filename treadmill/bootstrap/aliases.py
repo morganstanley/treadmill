@@ -1,5 +1,10 @@
 """Default aliases."""
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import os
 
 
@@ -7,8 +12,10 @@ _LINUX_ALIASES = {
     'awk': '/usr/bin/awk',
     'backtick': None,
     'basename': '/bin/basename',
+    'blkid': '/sbin/blkid',
     'brctl': '/usr/sbin/brctl',
     'cat': '/bin/cat',
+    'cd': None,
     'chmod': '/bin/chmod',
     'chown': '/bin/chown',
     'chroot': '/usr/sbin/chroot',
@@ -25,8 +32,10 @@ _LINUX_ALIASES = {
     'execlineb': None,
     'fdmove': None,
     'find': '/usr/bin/find',
+    'fio': None,
     'grep': '/bin/grep',
     'gzip': '/usr/bin/gzip',
+    'hostname': '/bin/hostname',
     'haproxy': None,
     'if': None,
     'ifconfig': '/sbin/ifconfig',
@@ -40,10 +49,14 @@ _LINUX_ALIASES = {
     'java_home': None,
     'kafka_run_class': None,
     'kafka_server_start': None,
+    'kill': '/usr/bin/kill',
     'kinit': None,
     'klist': None,
+    'kt-add': None,
+    'kt-split': None,
     'last': '/usr/bin/last',
     'ln': '/bin/ln',
+    'logrotate': '/usr/sbin/logrotate',
     'logstash-forwarder': None,
     'losetup': '/sbin/losetup',
     'ls': '/bin/ls',
@@ -53,6 +66,7 @@ _LINUX_ALIASES = {
     'mke2fs': '/sbin/mke2fs',
     'mkfifo': '/usr/bin/mkfifo',
     'mknod': '/bin/mknod',
+    'modulecmd': None,
     'mount': '/bin/mount',
     'mv': '/bin/mv',
     'named': '/usr/sbin/named',
@@ -101,6 +115,15 @@ _LINUX_ALIASES = {
 }
 
 _WINDOWS_ALIASES = {
+    'winss': None,
+    'winss_log': None,
+    'winss_svc': None,
+    'winss_svok': None,
+    'winss_svscan': None,
+    'winss_svscanctl': None,
+    'winss_svwait': None,
+    'powershell': 'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\'
+                  'powershell.exe',
 }
 
 if os.name == 'nt':

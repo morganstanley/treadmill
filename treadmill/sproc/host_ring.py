@@ -1,9 +1,15 @@
-"""Treadmill identity trace CLI."""
+"""Treadmill host-ring service.
+"""
 
-import logging
-import sys
-import os
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import glob
+import logging
+import os
+import sys
 import tempfile
 
 import click
@@ -99,7 +105,7 @@ def init():
                 on_message,
                 on_error
             )
-        except ws_client.ConnectionError:
+        except ws_client.WSConnectionError:
             click.echo('Could not connect to any Websocket APIs', err=True)
             sys.exit(-1)
 

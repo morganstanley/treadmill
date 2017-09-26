@@ -1,11 +1,17 @@
-"""Unit test for treadmill.scheduler
+"""Unit test for treadmill.scheduler.
 """
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import datetime
 import time
 import unittest
 
 import mock
+import numpy as np
 import pandas as pd
 
 from treadmill import scheduler
@@ -15,6 +21,7 @@ from treadmill import reports
 def _construct_cell():
     """Constructs a test cell."""
     cell = scheduler.Cell('top')
+
     rack1 = scheduler.Bucket('rack:rack1', traits=0, level='rack')
     rack2 = scheduler.Bucket('rack:rack2', traits=0, level='rack')
 
@@ -22,30 +29,29 @@ def _construct_cell():
     cell.add_node(rack2)
 
     srv1 = scheduler.Server('srv1', [10, 20, 30], traits=3,
-                            valid_until=1000)
+                            valid_until=1000, label='part')
     srv2 = scheduler.Server('srv2', [10, 20, 30], traits=7,
-                            valid_until=2000)
+                            valid_until=2000, label='part')
     srv3 = scheduler.Server('srv3', [10, 20, 30], traits=0,
-                            valid_until=3000)
+                            valid_until=3000, label='_default')
     srv4 = scheduler.Server('srv4', [10, 20, 30], traits=0,
-                            valid_until=4000)
-
+                            valid_until=4000, label='_default')
     rack1.add_node(srv1)
     rack1.add_node(srv2)
     rack2.add_node(srv3)
     rack2.add_node(srv4)
 
     tenant1 = scheduler.Allocation()
-    tenant2 = scheduler.Allocation()
-    tenant3 = scheduler.Allocation()
+    cell.partitions['_default'].allocation.add_sub_alloc('t1', tenant1)
+    tenant11 = scheduler.Allocation()
+    tenant1.add_sub_alloc('t11', tenant11)
     alloc1 = scheduler.Allocation([10, 10, 10], rank=100, traits=0)
-    alloc2 = scheduler.Allocation([10, 10, 10], rank=100, traits=3)
+    tenant11.add_sub_alloc('a1', alloc1)
 
-    cell.partitions[None].allocation.add_sub_alloc('t1', tenant1)
-    cell.partitions[None].allocation.add_sub_alloc('t2', tenant2)
-    tenant1.add_sub_alloc('t3', tenant3)
-    tenant2.add_sub_alloc('a1', alloc1)
-    tenant3.add_sub_alloc('a2', alloc2)
+    tenant2 = scheduler.Allocation()
+    cell.partitions['part'].allocation.add_sub_alloc('t2', tenant2)
+    alloc2 = scheduler.Allocation([10, 10, 10], rank=100, traits=3)
+    tenant2.add_sub_alloc('a2', alloc2)
 
     return cell
 
@@ -61,27 +67,31 @@ class ReportsTest(unittest.TestCase):
 
     def test_servers(self):
         """Tests servers report."""
-        df = reports.servers(self.cell)
-        # Sample data frame to see that the values are correct.
-        self.assertEqual(df.ix['srv1']['memory'], 10)
-        self.assertEqual(df.ix['srv2']['rack'], 'rack:rack1')
-
-        # check valid until
-        # XXX(boysson): There is a timezone bug here.
-        # XXX(boysson): self.assertEqual(str(df.ix['srv1']['valid_until']),
-        # XXX(boysson):                   '1969-12-31 19:16:40')
-        # XXX(boysson): self.assertEqual(str(df.ix['srv4']['valid_until']),
-        # XXX(boysson):                   '1969-12-31 20:06:40')
+        report = reports.servers(self.cell)
+        pd.util.testing.assert_frame_equal(report, pd.DataFrame([
+            ['srv1', 'top/rack:rack1', 'part', 3, 'up', 1000,
+             10, 20, 30, 10, 20, 30],
+            ['srv2', 'top/rack:rack1', 'part', 7, 'up', 2000,
+             10, 20, 30, 10, 20, 30],
+            ['srv3', 'top/rack:rack2', '_default', 0, 'up', 3000,
+             10, 20, 30, 10, 20, 30],
+            ['srv4', 'top/rack:rack2', '_default', 0, 'up', 4000,
+             10, 20, 30, 10, 20, 30],
+        ], columns=[
+            'name', 'location', 'partition', 'traits', 'state', 'valid_until',
+            'mem', 'cpu', 'disk', 'mem_free', 'cpu_free', 'disk_free'
+        ]).set_index('name'))
 
     def test_allocations(self):
         """Tests allocations report."""
-        df = reports.allocations(self.cell)
-        #           cpu  disk  max_utilization  memory  rank
-        # name
-        # t2/a1      10    10              inf      10   100
-        # t1/t3/a2   10    10              inf      10   100
-        self.assertEqual(df.ix['-', 't2/a1']['cpu'], 10)
-        self.assertEqual(df.ix['-', 't1/t3/a2']['cpu'], 10)
+        report = reports.allocations(self.cell)
+        pd.util.testing.assert_frame_equal(report, pd.DataFrame([
+            ['_default', 't1/t11/a1', 10, 10, 10, 100, 0, 0, np.inf],
+            ['part', 't2/a2', 10, 10, 10, 100, 0, 3, np.inf]
+        ], columns=[
+            'partition', 'name', 'mem', 'cpu', 'disk',
+            'rank', 'rank_adj', 'traits', 'max_util'
+        ]).set_index(['partition', 'name']))
 
         # TODO: not implemented.
         # df_traits = reports.allocation_traits(self.cell)
@@ -92,41 +102,54 @@ class ReportsTest(unittest.TestCase):
         app1 = scheduler.Application('foo.xxx#1', 100,
                                      demand=[1, 1, 1],
                                      affinity='foo.xxx')
+        app1.global_order = 1
         app2 = scheduler.Application('foo.xxx#2', 100,
                                      demand=[1, 1, 1],
                                      affinity='foo.xxx')
+        app2.global_order = 2
         app3 = scheduler.Application('bla.xxx#3', 50,
                                      demand=[1, 1, 1],
                                      affinity='bla.xxx')
+        app3.global_order = 3
 
-        (self.cell.partitions[None].allocation
+        (self.cell.partitions['_default'].allocation
          .get_sub_alloc('t1')
          .get_sub_alloc('t3')
          .get_sub_alloc('a2').add(app1))
 
-        (self.cell.partitions[None].allocation
+        (self.cell.partitions['_default'].allocation
          .get_sub_alloc('t1')
          .get_sub_alloc('t3')
          .get_sub_alloc('a2').add(app2))
 
-        (self.cell.partitions[None].allocation
+        (self.cell.partitions['part'].allocation
          .get_sub_alloc('t2')
          .get_sub_alloc('a1').add(app3))
 
         self.cell.schedule()
 
         apps_df = reports.apps(self.cell)
-#           affinity allocation  cpu  data_retention_timeout  disk  memory  \
-# instance
-# foo.xxx#1  foo.xxx   t1/t3/a2    1                       0     1       1
-# foo.xxx#2  foo.xxx   t1/t3/a2    1                       0     1       1
-# bla.xxx#3  bla.xxx      t2/a1    1                       0     1       1
-#
-#                   order  pending  rank server      util
-# instance
-# foo.xxx#1  1.458152e+15        0    99   srv1 -0.135714
-# foo.xxx#2  1.458152e+15        0    99   srv1 -0.128571
-# bla.xxx#3  1.458152e+15        0   100   srv1 -0.121429
+        pd.util.testing.assert_frame_equal(apps_df, pd.DataFrame([
+            [
+                'bla.xxx#3', 't2/a1', 100, 'bla.xxx', 'part',
+                None, -1, 3, 0, 100,
+                0, 0, 'srv1', -0.128571, 1, 1, 1
+            ],
+            [
+                'foo.xxx#1', 't1/t3/a2', 100, 'foo.xxx', '_default',
+                None, -1, 1, 0, 100,
+                0, 0, 'srv3', -0.128571, 1, 1, 1
+            ],
+            [
+                'foo.xxx#2', 't1/t3/a2', 100, 'foo.xxx', '_default',
+                None, -1, 2, 0, 100,
+                0, 0, 'srv4', -0.114286, 1, 1, 1
+            ],
+        ], columns=[
+            'instance', 'allocation', 'rank', 'affinity', 'partition',
+            'identity_group', 'identity', 'order', 'lease', 'expires',
+            'data_retention', 'pending', 'server', 'util', 'mem', 'cpu', 'disk'
+        ]).set_index('instance'))
 
         time.time.return_value = 100
         self.assertEqual(apps_df.ix['foo.xxx#2']['cpu'], 1)
@@ -148,6 +171,59 @@ class ReportsTest(unittest.TestCase):
         time1 = pd.Timestamp(datetime.datetime.fromtimestamp(101))
         self.assertEqual(util1.ix[time0]['bla.xxx']['cpu'], 1)
         self.assertEqual(util1.ix[time1]['foo.xxx']['count'], 2)
+
+    def test_explain_queue(self):
+        """Test explain queue"""
+        app1 = scheduler.Application('foo.xxx#1', 100,
+                                     demand=[1, 1, 1],
+                                     affinity='foo.xxx')
+        app2 = scheduler.Application('bar.xxx#2', 100,
+                                     demand=[1, 1, 1],
+                                     affinity='foo.xxx')
+        app3 = scheduler.Application('bla.xxx#3', 50,
+                                     demand=[1, 1, 1],
+                                     affinity='bla.xxx')
+
+        (self.cell.partitions['_default'].allocation
+         .get_sub_alloc('t1')
+         .get_sub_alloc('t3')
+         .get_sub_alloc('a2').add(app1))
+
+        (self.cell.partitions['_default'].allocation
+         .get_sub_alloc('t1')
+         .get_sub_alloc('t3')
+         .get_sub_alloc('a2').add(app2))
+
+        (self.cell.partitions['part'].allocation
+         .get_sub_alloc('t2')
+         .get_sub_alloc('a2').add(app3))
+
+        df = reports.explain_queue(self.cell, '_default')
+        self.assertEqual(len(df), 2 * 4)  # 2 apps at 4 alloc levels
+
+        df = reports.explain_queue(self.cell, '_default', 'foo*')
+        self.assertEqual(len(df), 4)  # 1 app at 4 alloc levels
+
+        df = reports.explain_queue(self.cell, 'part')
+        self.assertEqual(len(df), 3)  # 1 app at 3 alloc levels
+
+    def test_explain_placement(self):
+        """Test explain placement"""
+        app1 = scheduler.Application('foo.xxx#1', 100,
+                                     demand=[1, 1, 1],
+                                     affinity='foo.xxx')
+
+        alloc = (self.cell.partitions['_default'].allocation
+                 .get_sub_alloc('t1')
+                 .get_sub_alloc('t3')
+                 .get_sub_alloc('a2'))
+        self.cell.add_app(alloc, app1)
+
+        df = reports.explain_placement(self.cell, app1, mode='full')
+        self.assertEqual(len(df), 7)
+
+        df = reports.explain_placement(self.cell, app1, mode='servers')
+        self.assertEqual(len(df), 4)
 
 
 if __name__ == '__main__':

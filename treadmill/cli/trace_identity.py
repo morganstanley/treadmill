@@ -1,6 +1,11 @@
 """Treadmill identity trace CLI.
 """
 
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+from __future__ import absolute_import
+
 import logging
 import sys
 
@@ -62,7 +67,7 @@ def init():
             identity_group = result['identity-group']
             identity = result['identity']
 
-            print('{identity_group}/{identity} {app} {host}'.format(
+            cli.out('{identity_group}/{identity} {app} {host}'.format(
                 identity_group=identity_group,
                 identity=identity,
                 app=app,
@@ -84,7 +89,7 @@ def init():
                 on_message,
                 on_error
             )
-        except ws_client.ConnectionError:
+        except ws_client.WSConnectionError:
             click.echo('Could not connect to any Websocket APIs', err=True)
             sys.exit(-1)
 

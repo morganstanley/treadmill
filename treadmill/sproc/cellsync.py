@@ -1,5 +1,10 @@
-"""Syncronizes cell Zookeeper with LDAP data."""
+"""Syncronizes cell Zookeeper with LDAP data.
+"""
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import importlib
 import logging
@@ -7,22 +12,24 @@ import time
 
 import click
 
-from treadmill import context
 from treadmill import admin
-from treadmill import zkutils
+from treadmill import context
+from treadmill import master
 from treadmill import zknamespace as z
-
+from treadmill import zkutils
 
 _LOGGER = logging.getLogger(__name__)
 
 
 def _remove_id(entity):
-    """Remove _id from the payload."""
+    """Remove _id from the payload.
+    """
     del entity['_id']
 
 
 def _sync_collection(zkclient, entities, zkpath, match=None):
-    """Syncs ldap collection to Zookeeper."""
+    """Syncs ldap collection to Zookeeper.
+    """
     _LOGGER.info('Sync: %s', zkpath)
 
     zkclient.ensure_path(zkpath)
@@ -54,21 +61,23 @@ def _sync_collection(zkclient, entities, zkpath, match=None):
 
 
 def _sync_allocations(zkclient, allocations):
-    """Syncronize allocations."""
+    """Syncronize allocations.
+    """
     filtered = []
     for alloc in allocations:
         _LOGGER.info('Sync allocation: %s', alloc)
         name, _cell = alloc['_id'].rsplit('/', 1)
         alloc['name'] = name
         filtered.append(alloc)
-
-    zkutils.put(zkclient, z.path.allocation(), filtered, check_content=True)
+    master.update_allocations(zkclient, filtered)
 
 
 def _run_sync():
-    """Sync Zookeeper with LDAP, runs with lock held."""
+    """Sync Zookeeper with LDAP, runs with lock held.
+    """
     def match_appgroup(name, group):
-        """Match if appgroup belongs to the cell."""
+        """Match if appgroup belongs to the cell.
+        """
         if context.GLOBAL.cell in group.get('cells', []):
             return name
         else:
@@ -81,12 +90,27 @@ def _run_sync():
         _sync_collection(context.GLOBAL.zk.conn,
                          app_groups, z.path.appgroup(), match_appgroup)
 
+        # Sync partitions
+        admin_cell = admin.Cell(context.GLOBAL.ldap.conn)
+        partitions = admin_cell.partitions(context.GLOBAL.cell)
+        _sync_collection(context.GLOBAL.zk.conn,
+                         partitions, z.path.partition())
+
         # Sync allocations.
         admin_alloc = admin.CellAllocation(context.GLOBAL.ldap.conn)
 
         allocations = admin_alloc.list({'cell': context.GLOBAL.cell})
         _sync_allocations(context.GLOBAL.zk.conn,
                           allocations)
+
+        # Global servers
+        admin_srv = admin.Server(context.GLOBAL.ldap.conn)
+        global_servers = admin_srv.list({})
+        zkutils.ensure_exists(
+            context.GLOBAL.zk.conn,
+            z.path.globals('servers'),
+            data=[server['_id'] for server in global_servers]
+        )
 
         # Servers - because they can have custom topology - are loaded
         # from the plugin.
@@ -95,20 +119,24 @@ def _run_sync():
                 'treadmill.plugins.sproc.servers')
             servers_plugin.init()
         except ImportError as err:
-            _LOGGER.warn('Unable to load treadmill.plugins.sproc.servers: '
-                         '%s', err)
+            _LOGGER.warning(
+                'Unable to load treadmill.plugins.sproc.servers: %s',
+                err
+            )
 
         time.sleep(60)
 
 
 def init():
-    """Return top level command handler."""
+    """Return top level command handler.
+    """
 
     @click.command()
     @click.option('--no-lock', is_flag=True, default=False,
                   help='Run without lock.')
     def top(no_lock):
-        """Sync LDAP data with Zookeeper data."""
+        """Sync LDAP data with Zookeeper data.
+        """
         if not no_lock:
             _LOGGER.info('Waiting for leader lock.')
             lock = zkutils.make_lock(context.GLOBAL.zk.conn,

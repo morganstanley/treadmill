@@ -1,13 +1,16 @@
+"""A WebSocket handler for Treadmill state.
 """
-A WebSocket handler for Treadmill state.
-"""
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import os
 import logging
 
 from treadmill import schema
-from treadmill.websocket import utils
-
+from treadmill.websocket import _utils
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -21,7 +24,7 @@ class EndpointAPI(object):
         @schema.schema({'$ref': 'websocket/endpoint.json#/message'})
         def subscribe(message):
             """Return filter based on message payload."""
-            parsed_filter = utils.parse_message_filter(message['filter'])
+            parsed_filter = _utils.parse_message_filter(message['filter'])
             if '.' not in parsed_filter.filter:
                 raise ValueError('Invalid filter: expect proid.pattern')
             proid, pattern = parsed_filter.filter.split('.', 1)

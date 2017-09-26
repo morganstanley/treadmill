@@ -1,10 +1,12 @@
-"""Treadmill exceptions and utility functions."""
+"""Treadmill exceptions and utility functions.
+"""
 
-import functools
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import logging
-
-from treadmill import utils
-
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -26,7 +28,14 @@ class InvalidInputError(TreadmillError):
 
 class ContainerSetupError(TreadmillError):
     """Fatal error, indicating problem setting up container environment."""
-    pass
+
+    def __init__(self, msg, reason=None):
+        self.message = msg
+        if reason is None:
+            self.reason = 'unknown'
+        else:
+            self.reason = reason
+        super(ContainerSetupError, self).__init__()
 
 
 class NodeSetupError(TreadmillError):
@@ -34,7 +43,7 @@ class NodeSetupError(TreadmillError):
     pass
 
 
-class FileNotFoundError(TreadmillError):
+class LocalFileNotFoundError(TreadmillError):
     """Thrown if the file cannot be found on the host."""
     pass
 
@@ -47,17 +56,3 @@ class NotFoundError(TreadmillError):
 class FoundError(TreadmillError):
     """Thrown in REST API when a resource is found"""
     pass
-
-
-def exit_on_unhandled(func):
-    """Decorator to exit thread on unhandled exception."""
-    @functools.wraps(func)
-    def _wrap(*args, **kwargs):
-        """Wraps function to exit on unhandled exception."""
-        try:
-            return func(*args, **kwargs)
-        except Exception:  # pylint: disable=W0703
-            _LOGGER.exception('Unhandled exception - exiting.')
-            utils.sys_exit(-1)
-
-    return _wrap

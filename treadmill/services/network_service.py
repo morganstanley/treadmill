@@ -1,17 +1,27 @@
 """Bridge based network management service.
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import errno
 import logging
 import os
-import subprocess
 
 import netifaces
+import six
 
-from .. import logcontext as lc
-from .. import netdev
-from .. import vipfile
-from .. import iptables
+if six.PY2 and os.name == 'posix':
+    import subprocess32 as subprocess  # pylint: disable=import-error
+else:
+    import subprocess  # pylint: disable=wrong-import-order
+
+from treadmill import logcontext as lc
+from treadmill import netdev
+from treadmill import vipfile
+from treadmill import iptables
 
 from ._base_service import BaseResourceServiceImpl
 
@@ -127,7 +137,7 @@ class NetworkResourceService(BaseResourceServiceImpl):
 
     def synchronize(self):
         modified = False
-        for app_unique_name in list(self._devices):
+        for app_unique_name in six.viewkeys(self._devices.copy()):
             if not self._devices[app_unique_name].get('stale', False):
                 continue
 

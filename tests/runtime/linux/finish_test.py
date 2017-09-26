@@ -1,17 +1,22 @@
 """Unit test for treadmill.runtime.linux._finish.
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import datetime
+import io
+import json
 import os
 import shutil
-import tempfile
 import tarfile
+import tempfile
 import time
 import unittest
 
-import kazoo
 import mock
-import yaml
 
 import treadmill
 import treadmill.rulefile
@@ -19,7 +24,7 @@ import treadmill.rulefile
 from treadmill import firewall
 from treadmill import fs
 from treadmill import iptables
-from treadmill import utils
+from treadmill import supervisor
 
 from treadmill.apptrace import events
 from treadmill.runtime.linux import _finish as app_finish
@@ -49,25 +54,19 @@ class LinuxRuntimeFinishTest(unittest.TestCase):
             ),
             rules=mock.Mock(
                 spec_set=treadmill.rulefile.RuleMgr,
-            ),
-            watchdogs=mock.Mock(
-                spec_set=treadmill.watchdog.Watchdog,
-            ),
+            )
         )
 
     def tearDown(self):
         if self.root and os.path.isdir(self.root):
             shutil.rmtree(self.root)
 
-    @mock.patch('kazoo.client.KazooClient', mock.Mock(set_spec=True))
     @mock.patch('shutil.copy', mock.Mock())
     @mock.patch('treadmill.appevents.post', mock.Mock())
     @mock.patch('treadmill.utils.datetime_utcnow', mock.Mock(
         return_value=datetime.datetime(2015, 1, 22, 14, 14, 36, 537918)))
     @mock.patch('treadmill.appcfg.manifest.read', mock.Mock())
     @mock.patch('treadmill.runtime.linux._finish._kill_apps_by_root',
-                mock.Mock())
-    @mock.patch('treadmill.runtime.linux._finish._send_container_archive',
                 mock.Mock())
     @mock.patch('treadmill.sysinfo.hostname',
                 mock.Mock(return_value='xxx.xx.com'))
@@ -76,9 +75,9 @@ class LinuxRuntimeFinishTest(unittest.TestCase):
     @mock.patch('treadmill.apphook.cleanup', mock.Mock())
     @mock.patch('treadmill.iptables.rm_ip_set', mock.Mock())
     @mock.patch('treadmill.rrdutils.flush_noexc', mock.Mock())
-    @mock.patch('treadmill.subproc.call', mock.Mock(return_value=0))
     @mock.patch('treadmill.subproc.check_call', mock.Mock())
-    @mock.patch('treadmill.subproc.invoke', mock.Mock())
+    @mock.patch('treadmill.iptables.rm_ip_set', mock.Mock())
+    @mock.patch('treadmill.supervisor.control_service', mock.Mock())
     @mock.patch('treadmill.zkutils.get',
                 mock.Mock(return_value={
                     'server': 'nonexist',
@@ -154,69 +153,47 @@ class LinuxRuntimeFinishTest(unittest.TestCase):
         }
         mock_nwrk_client.get.return_value = network
         app_dir = os.path.join(self.tm_env.apps_dir, app_unique_name)
+        data_dir = os.path.join(app_dir, 'data')
         # Create content in app root directory, verify that it is archived.
-        fs.mkdir_safe(os.path.join(app_dir, 'root', 'xxx'))
-        fs.mkdir_safe(os.path.join(app_dir, 'services'))
+        fs.mkdir_safe(os.path.join(data_dir, 'root', 'xxx'))
+        fs.mkdir_safe(os.path.join(data_dir, 'services'))
         # Simulate daemontools finish script, marking the app is done.
-        with open(os.path.join(app_dir, 'exitinfo'), 'w') as f:
-            f.write(yaml.dump({'service': 'web_server', 'rc': 0, 'sig': 0}))
-        mock_zkclient = kazoo.client.KazooClient()
-        mock_watchdog = mock.Mock()
+        with io.open(os.path.join(data_dir, 'exitinfo'), 'wb') as f:
+            json.dump(
+                {'service': 'web_server', 'return_code': 0, 'signal': 0},
+                f
+            )
 
-        app_finish.finish(self.tm_env, mock_zkclient, app_dir, mock_watchdog)
+        app_finish.finish(self.tm_env, app_dir)
 
-        treadmill.subproc.check_call.assert_has_calls(
-            [
-                mock.call(
-                    [
-                        's6_svc',
-                        '-d',
-                        app_dir,
-                    ]
-                ),
-                mock.call(
-                    [
-                        's6_svwait',
-                        '-d',
-                        app_dir,
-                    ]
-                ),
-            ]
+        treadmill.supervisor.control_service.assert_called_with(
+            app_dir, supervisor.ServiceControlAction.down,
+            wait=supervisor.ServiceWaitAction.down
         )
+
         # All resource service clients are properly created
         self.tm_env.svc_cgroup.make_client.assert_called_with(
-            os.path.join(app_dir, 'cgroups')
+            os.path.join(data_dir, 'resources', 'cgroups')
         )
         self.tm_env.svc_localdisk.make_client.assert_called_with(
-            os.path.join(app_dir, 'localdisk')
+            os.path.join(data_dir, 'resources', 'localdisk')
         )
         self.tm_env.svc_network.make_client.assert_called_with(
-            os.path.join(app_dir, 'network')
+            os.path.join(data_dir, 'resources', 'network')
         )
 
         treadmill.runtime.linux._finish._kill_apps_by_root.assert_called_with(
-            os.path.join(app_dir, 'root')
+            os.path.join(data_dir, 'root')
         )
 
         # Verify that we tested the archiving for the app root volume
         treadmill.fs.archive_filesystem.assert_called_with(
             '/dev/foo',
-            os.path.join(app_dir, 'root'),
-            os.path.join(app_dir,
+            os.path.join(data_dir, 'root'),
+            os.path.join(data_dir,
                          '001_xxx.xx.com_20150122_141436537918.tar'),
             mock.ANY
         )
-        # Verify that the file is uploaded by Uploader
-        app = utils.to_obj(manifest)
-        treadmill.runtime.linux._finish._send_container_archive\
-            .assert_called_with(
-                mock_zkclient,
-                app,
-                os.path.join(app_dir,
-                             '001_xxx.xx.com_20150122_141436537918.tar.gz'),
-            )
-        # Verify that the app folder was deleted
-        self.assertFalse(os.path.exists(app_dir))
         # Cleanup the block device
         mock_ld_client.delete.assert_called_with(app_unique_name)
         # Cleanup the cgroup resource
@@ -295,8 +272,8 @@ class LinuxRuntimeFinishTest(unittest.TestCase):
                 signal=0,
                 payload={
                     'service': 'web_server',
-                    'sig': 0,
-                    'rc': 0
+                    'signal': 0,
+                    'return_code': 0
                 }
             )
         )
@@ -307,12 +284,9 @@ class LinuxRuntimeFinishTest(unittest.TestCase):
         shutil.copy.assert_called_with(
             os.path.join(self.root, 'metrics', 'apps',
                          app_unique_name + '.rrd'),
-            os.path.join(app_dir, 'metrics.rrd')
+            os.path.join(data_dir, 'metrics.rrd')
         )
 
-        self.assertTrue(mock_watchdog.remove.called)
-
-    @mock.patch('kazoo.client.KazooClient', mock.Mock(set_spec=True))
     @mock.patch('shutil.copy', mock.Mock())
     @mock.patch('treadmill.appevents.post', mock.Mock())
     @mock.patch('treadmill.apphook.cleanup', mock.Mock())
@@ -326,9 +300,9 @@ class LinuxRuntimeFinishTest(unittest.TestCase):
                 mock.Mock(return_value=[]))
     @mock.patch('treadmill.fs.archive_filesystem',
                 mock.Mock(return_value=True))
-    @mock.patch('treadmill.subproc.call', mock.Mock(return_value=0))
     @mock.patch('treadmill.subproc.check_call', mock.Mock())
-    @mock.patch('treadmill.subproc.invoke', mock.Mock())
+    @mock.patch('treadmill.iptables.rm_ip_set', mock.Mock())
+    @mock.patch('treadmill.supervisor.control_service', mock.Mock())
     @mock.patch('treadmill.zkutils.get', mock.Mock(return_value=None))
     @mock.patch('treadmill.rrdutils.flush_noexc', mock.Mock())
     def test_finish_error(self):
@@ -390,18 +364,17 @@ class LinuxRuntimeFinishTest(unittest.TestCase):
         }
         mock_nwrk_client.get.return_value = network
         app_dir = os.path.join(self.tm_env.apps_dir, app_unique_name)
+        data_dir = os.path.join(app_dir, 'data')
         # Create content in app root directory, verify that it is archived.
-        fs.mkdir_safe(os.path.join(app_dir, 'root', 'xxx'))
-        fs.mkdir_safe(os.path.join(app_dir, 'services'))
+        fs.mkdir_safe(os.path.join(data_dir, 'root', 'xxx'))
+        fs.mkdir_safe(os.path.join(data_dir, 'services'))
         # Simulate daemontools finish script, marking the app is done.
-        with open(os.path.join(app_dir, 'exitinfo'), 'w') as f:
-            f.write(yaml.dump({'service': 'web_server', 'rc': 1, 'sig': 3}))
-        mock_zkclient = kazoo.client.KazooClient()
-        mock_watchdog = mock.Mock()
-
-        app_finish.finish(
-            self.tm_env, mock_zkclient, app_dir, mock_watchdog
-        )
+        with io.open(os.path.join(data_dir, 'exitinfo'), 'wb') as f:
+            json.dump(
+                {'service': 'web_server', 'return_code': 1, 'signal': 3},
+                fp=f
+            )
+        app_finish.finish(self.tm_env, app_dir)
 
         treadmill.appevents.post.assert_called_with(
             mock.ANY,
@@ -411,8 +384,8 @@ class LinuxRuntimeFinishTest(unittest.TestCase):
                 signal=3,
                 payload={
                     'service': 'web_server',
-                    'sig': 3,
-                    'rc': 1,
+                    'signal': 3,
+                    'return_code': 1,
                 }
             )
         )
@@ -423,12 +396,9 @@ class LinuxRuntimeFinishTest(unittest.TestCase):
         shutil.copy.assert_called_with(
             os.path.join(self.tm_env.metrics_dir, 'apps',
                          app_unique_name + '.rrd'),
-            os.path.join(app_dir, 'metrics.rrd')
+            os.path.join(data_dir, 'metrics.rrd')
         )
 
-        self.assertTrue(mock_watchdog.remove.called)
-
-    @mock.patch('kazoo.client.KazooClient', mock.Mock(set_spec=True))
     @mock.patch('shutil.copy', mock.Mock())
     @mock.patch('treadmill.appevents.post', mock.Mock())
     @mock.patch('treadmill.appcfg.manifest.read', mock.Mock())
@@ -440,9 +410,8 @@ class LinuxRuntimeFinishTest(unittest.TestCase):
     @mock.patch('treadmill.fs.archive_filesystem',
                 mock.Mock(return_value=True))
     @mock.patch('treadmill.rulefile.RuleMgr.unlink_rule', mock.Mock())
-    @mock.patch('treadmill.subproc.call', mock.Mock(return_value=0))
     @mock.patch('treadmill.subproc.check_call', mock.Mock())
-    @mock.patch('treadmill.subproc.invoke', mock.Mock())
+    @mock.patch('treadmill.iptables.rm_ip_set', mock.Mock())
     @mock.patch('treadmill.zkutils.get', mock.Mock(return_value=None))
     @mock.patch('treadmill.rrdutils.flush_noexc', mock.Mock())
     def test_finish_aborted(self):
@@ -506,28 +475,22 @@ class LinuxRuntimeFinishTest(unittest.TestCase):
         }
         mock_nwrk_client.get.return_value = network
         app_dir = os.path.join(self.root, 'apps', app_unique_name)
+        data_dir = os.path.join(app_dir, 'data')
         # Create content in app root directory, verify that it is archived.
-        fs.mkdir_safe(os.path.join(app_dir, 'root', 'xxx'))
-        fs.mkdir_safe(os.path.join(app_dir, 'services'))
+        fs.mkdir_safe(os.path.join(data_dir, 'root', 'xxx'))
+        fs.mkdir_safe(os.path.join(data_dir, 'services'))
         # Simulate daemontools finish script, marking the app is done.
-        with open(os.path.join(app_dir, 'aborted'), 'w') as aborted:
-            aborted.write('something went wrong')
-        mock_zkclient = kazoo.client.KazooClient()
-        mock_watchdog = mock.Mock()
+        with io.open(os.path.join(data_dir, 'aborted'), 'wb') as aborted:
+            aborted.write('{"why": "reason", "payload": "test"}')
 
-        app_finish.finish(
-            self.tm_env, mock_zkclient, app_dir, mock_watchdog
-        )
+        app_finish.finish(self.tm_env, app_dir)
 
-        treadmill.appevents.post(
+        treadmill.appevents.post.assert_called_with(
             mock.ANY,
             events.AbortedTraceEvent(
                 instanceid='proid.myapp#001',
-                why=None,
-                payload={
-                    'why': 'something went wrong',
-                    'node': 'hostname',
-                }
+                why='reason',
+                payload='test'
             )
         )
         treadmill.rrdutils.flush_noexc.assert_called_with(
@@ -537,18 +500,31 @@ class LinuxRuntimeFinishTest(unittest.TestCase):
         shutil.copy.assert_called_with(
             os.path.join(self.root, 'metrics', 'apps',
                          app_unique_name + '.rrd'),
-            os.path.join(app_dir, 'metrics.rrd')
+            os.path.join(data_dir, 'metrics.rrd')
         )
 
-        self.assertTrue(mock_watchdog.remove.called)
+        treadmill.appevents.post.reset()
+
+        with io.open(os.path.join(data_dir, 'aborted'), 'w') as aborted:
+            aborted.write('')
+
+        app_finish.finish(self.tm_env, app_dir)
+
+        treadmill.appevents.post.assert_called_with(
+            mock.ANY,
+            events.AbortedTraceEvent(
+                instanceid='proid.myapp#001',
+                why='unknown',
+                payload=None
+            )
+        )
 
     @mock.patch('treadmill.subproc.check_call', mock.Mock(return_value=0))
     def test_finish_no_manifest(self):
         """Test app finish on directory with no app.json.
         """
-        app_finish.finish(self.tm_env, None, self.root, mock.Mock())
+        app_finish.finish(self.tm_env, self.root)
 
-    @mock.patch('kazoo.client.KazooClient', mock.Mock(set_spec=True))
     @mock.patch('shutil.copy', mock.Mock())
     @mock.patch('treadmill.appevents.post', mock.Mock())
     @mock.patch('treadmill.apphook.cleanup', mock.Mock())
@@ -557,17 +533,15 @@ class LinuxRuntimeFinishTest(unittest.TestCase):
     @mock.patch('treadmill.appcfg.manifest.read', mock.Mock())
     @mock.patch('treadmill.runtime.linux._finish._kill_apps_by_root',
                 mock.Mock())
-    @mock.patch('treadmill.runtime.linux._finish._send_container_archive',
-                mock.Mock())
     @mock.patch('treadmill.sysinfo.hostname',
                 mock.Mock(return_value='xxx.ms.com'))
     @mock.patch('treadmill.fs.archive_filesystem',
                 mock.Mock(return_value=True))
     @mock.patch('treadmill.iptables.rm_ip_set', mock.Mock())
     @mock.patch('treadmill.rrdutils.flush_noexc', mock.Mock())
-    @mock.patch('treadmill.subproc.call', mock.Mock(return_value=0))
     @mock.patch('treadmill.subproc.check_call', mock.Mock())
-    @mock.patch('treadmill.subproc.invoke', mock.Mock())
+    @mock.patch('treadmill.iptables.rm_ip_set', mock.Mock())
+    @mock.patch('treadmill.supervisor.control_service', mock.Mock())
     @mock.patch('treadmill.zkutils.get',
                 mock.Mock(return_value={
                     'server': 'nonexist',
@@ -632,53 +606,38 @@ class LinuxRuntimeFinishTest(unittest.TestCase):
         mock_ld_client.get.return_value = None
         mock_nwrk_client.get.return_value = None
         app_dir = os.path.join(self.tm_env.apps_dir, app_unique_name)
+        data_dir = os.path.join(app_dir, 'data')
         # Create content in app root directory, verify that it is archived.
-        fs.mkdir_safe(os.path.join(app_dir, 'root', 'xxx'))
-        fs.mkdir_safe(os.path.join(app_dir, 'services'))
+        fs.mkdir_safe(os.path.join(data_dir, 'root', 'xxx'))
+        fs.mkdir_safe(os.path.join(data_dir, 'services'))
         # Simulate daemontools finish script, marking the app is done.
-        with open(os.path.join(app_dir, 'exitinfo'), 'w') as f:
-            f.write(yaml.dump({'service': 'web_server', 'rc': 0, 'sig': 0}))
-        mock_zkclient = kazoo.client.KazooClient()
-        mock_watchdog = mock.Mock()
+        with io.open(os.path.join(data_dir, 'exitinfo'), 'wb') as f:
+            json.dump(
+                {'service': 'web_server', 'return_code': 0, 'signal': 0},
+                f
+            )
+        treadmill.runtime.linux._finish.finish(self.tm_env, app_dir)
 
-        treadmill.runtime.linux._finish.finish(
-            self.tm_env, mock_zkclient, app_dir, mock_watchdog
+        treadmill.supervisor.control_service.assert_called_with(
+            app_dir, supervisor.ServiceControlAction.down,
+            wait=supervisor.ServiceWaitAction.down
         )
 
-        treadmill.subproc.check_call.assert_has_calls(
-            [
-                mock.call(
-                    [
-                        's6_svc',
-                        '-d',
-                        app_dir,
-                    ],
-                ),
-                mock.call(
-                    [
-                        's6_svwait',
-                        '-d',
-                        app_dir,
-                    ],
-                ),
-            ]
-        )
+        # All resource service clients are properly created
         self.tm_env.svc_cgroup.make_client.assert_called_with(
-            os.path.join(app_dir, 'cgroups')
+            os.path.join(data_dir, 'resources', 'cgroups')
         )
         self.tm_env.svc_localdisk.make_client.assert_called_with(
-            os.path.join(app_dir, 'localdisk')
+            os.path.join(data_dir, 'resources', 'localdisk')
         )
         self.tm_env.svc_network.make_client.assert_called_with(
-            os.path.join(app_dir, 'network')
+            os.path.join(data_dir, 'resources', 'network')
         )
 
         treadmill.runtime.linux._finish._kill_apps_by_root.assert_called_with(
-            os.path.join(app_dir, 'root')
+            os.path.join(data_dir, 'root')
         )
 
-        # Verify that the app folder was deleted
-        self.assertFalse(os.path.exists(app_dir))
         # Cleanup the network resources
         mock_nwrk_client.get.assert_called_with(app_unique_name)
         # Cleanup the block device
@@ -694,8 +653,8 @@ class LinuxRuntimeFinishTest(unittest.TestCase):
                 signal=0,
                 payload={
                     'service': 'web_server',
-                    'sig': 0,
-                    'rc': 0
+                    'signal': 0,
+                    'return_code': 0
                 }
             )
         )
@@ -706,17 +665,15 @@ class LinuxRuntimeFinishTest(unittest.TestCase):
         shutil.copy.assert_called_with(
             os.path.join(self.root, 'metrics', 'apps',
                          app_unique_name + '.rrd'),
-            os.path.join(app_dir, 'metrics.rrd')
+            os.path.join(data_dir, 'metrics.rrd')
         )
-
-        self.assertTrue(mock_watchdog.remove.called)
 
     def test__copy_metrics(self):
         """Test that metrics are copied safely.
         """
         # Access protected module _copy_metrics
         # pylint: disable=W0212
-        with open(os.path.join(self.root, 'in.rrd'), 'w+'):
+        with io.open(os.path.join(self.root, 'in.rrd'), 'w'):
             pass
 
         app_finish._copy_metrics(os.path.join(self.root, 'in.rrd'),
@@ -734,15 +691,15 @@ class LinuxRuntimeFinishTest(unittest.TestCase):
         # Access protected module _archive_logs
         #
         # pylint: disable=W0212
-        container_dir = os.path.join(self.root, 'xxx.yyy-1234-qwerty')
-        fs.mkdir_safe(container_dir)
+        data_dir = os.path.join(self.root, 'xxx.yyy-1234-qwerty', 'data')
+        fs.mkdir_safe(data_dir)
         archives_dir = os.path.join(self.root, 'archives')
         fs.mkdir_safe(archives_dir)
         sys_archive = os.path.join(archives_dir,
                                    'xxx.yyy-1234-qwerty.sys.tar.gz')
         app_archive = os.path.join(archives_dir,
                                    'xxx.yyy-1234-qwerty.app.tar.gz')
-        app_finish._archive_logs(self.tm_env, container_dir)
+        app_finish._archive_logs(self.tm_env, 'xxx.yyy-1234-qwerty', data_dir)
 
         self.assertTrue(os.path.exists(sys_archive))
         self.assertTrue(os.path.exists(app_archive))
@@ -751,28 +708,28 @@ class LinuxRuntimeFinishTest(unittest.TestCase):
 
         def _touch_file(path):
             """Touch file, appending path to container_dir."""
-            fpath = os.path.join(container_dir, path)
+            fpath = os.path.join(data_dir, path)
             fs.mkdir_safe(os.path.dirname(fpath))
-            open(fpath, 'w+').close()
+            io.open(fpath, 'w').close()
 
-        _touch_file('sys/foo/log/current')
-        _touch_file('sys/bla/log/current')
-        _touch_file('sys/bla/log/xxx')
-        _touch_file('services/xxx/log/current')
-        _touch_file('services/xxx/log/whatever')
-        _touch_file('a.yml')
+        _touch_file('sys/foo/data/log/current')
+        _touch_file('sys/bla/data/log/current')
+        _touch_file('sys/bla/data/log/xxx')
+        _touch_file('services/xxx/data/log/current')
+        _touch_file('services/xxx/data/log/whatever')
+        _touch_file('a.json')
         _touch_file('a.rrd')
         _touch_file('log/current')
         _touch_file('whatever')
 
-        app_finish._archive_logs(self.tm_env, container_dir)
+        app_finish._archive_logs(self.tm_env, 'xxx.yyy-1234-qwerty', data_dir)
 
         tar = tarfile.open(sys_archive)
         files = sorted([member.name for member in tar.getmembers()])
         self.assertEqual(
             files,
-            ['a.rrd', 'a.yml', 'log/current',
-             'sys/bla/log/current', 'sys/foo/log/current']
+            ['a.json', 'a.rrd', 'log/current',
+             'sys/bla/data/log/current', 'sys/foo/data/log/current']
         )
         tar.close()
 
@@ -780,7 +737,7 @@ class LinuxRuntimeFinishTest(unittest.TestCase):
         files = sorted([member.name for member in tar.getmembers()])
         self.assertEqual(
             files,
-            ['services/xxx/log/current']
+            ['services/xxx/data/log/current']
         )
         tar.close()
 
@@ -795,7 +752,7 @@ class LinuxRuntimeFinishTest(unittest.TestCase):
         # oldest file if threshold is exceeded.
         app_finish._ARCHIVE_LIMIT = 20
         file1 = os.path.join(self.tm_env.archives_dir, '1')
-        with open(file1, 'w+') as f:
+        with io.open(file1, 'w') as f:
             f.write('x' * 10)
 
         app_finish._cleanup_archive_dir(self.tm_env)
@@ -803,13 +760,13 @@ class LinuxRuntimeFinishTest(unittest.TestCase):
 
         os.utime(file1, (time.time() - 1, time.time() - 1))
         file2 = os.path.join(self.tm_env.archives_dir, '2')
-        with open(file2, 'w+') as f:
+        with io.open(file2, 'w') as f:
             f.write('x' * 10)
 
         app_finish._cleanup_archive_dir(self.tm_env)
         self.assertTrue(os.path.exists(file1))
 
-        with open(os.path.join(self.tm_env.archives_dir, '2'), 'w+') as f:
+        with io.open(os.path.join(self.tm_env.archives_dir, '2'), 'w') as f:
             f.write('x' * 15)
         app_finish._cleanup_archive_dir(self.tm_env)
         self.assertFalse(os.path.exists(file1))

@@ -1,6 +1,10 @@
+"""Unit test for lvm - Linux Volume Manager
 """
-Unit test for lvm - Linux Volume Manager
-"""
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import os
 import shutil
@@ -33,6 +37,19 @@ class LVMTest(unittest.TestCase):
                 'lvm', 'pvcreate',
                 '--force',
                 '--yes',
+                'some_blockdev',
+            ]
+        )
+
+    @mock.patch('treadmill.subproc.check_call', mock.Mock())
+    def test_pvremove(self):
+        """Test LVM Physical Volume removal"""
+        lvm.pvremove('some_blockdev')
+
+        treadmill.subproc.check_call.assert_called_with(
+            [
+                'lvm', 'pvremove',
+                '--force',
                 'some_blockdev',
             ]
         )

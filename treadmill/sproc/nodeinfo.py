@@ -1,6 +1,11 @@
 """Node info sproc module."""
 
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import logging
 import os
 import socket
@@ -20,7 +25,7 @@ from treadmill.rest import error_handlers  # noqa: F401
 
 _LOGGER = logging.getLogger(__name__)
 
-_SERVERS_ACL = zkutils.make_role_acl('servers', 'rwcd')
+_SERVERS_ACL = zkutils.make_role_acl('servers', 'rwcda')
 
 
 def init():

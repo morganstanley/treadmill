@@ -1,11 +1,12 @@
-"""
-Treadmill Websocket server.
+"""Treadmill Websocket server.
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import logging
-import os
-import time
 import tornado.httpserver
 import tornado.ioloop
 import tornado.web
@@ -15,6 +16,7 @@ import click
 from treadmill import cli
 from treadmill import websocket as ws
 from treadmill.websocket import api
+from treadmill.zksync import utils as zksync_utils
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -36,10 +38,8 @@ def init():
         """Treadmill Websocket"""
         _LOGGER.debug('port: %s', port)
 
-        modified = os.path.join(fs_root, '.modified')
-        while not os.path.exists(modified):
-            _LOGGER.info('zk2fs mirror does not exist, waiting.')
-            time.sleep(1)
+        # keep sleeping until zksync ready
+        zksync_utils.wait_for_ready(fs_root)
 
         impl, watches = {}, []
         for topic, topic_impl, topic_watches in api.init(modules):

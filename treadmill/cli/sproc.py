@@ -1,20 +1,31 @@
 """Implementation of treadmill-admin CLI plugin.
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import logging
 import os
 
 import click
 
 from treadmill import cli
-from treadmill import cgroups
-from treadmill import cgutils
+from treadmill import osnoop
 
 _LOGGER = logging.getLogger(__name__)
 
 
+@osnoop.windows
 def _configure_core_cgroups(service_name):
     """Configure service specific cgroups."""
+    from treadmill import cgroups
+    from treadmill import cgutils
+
+    if service_name == '.':
+        service_name = os.path.basename(os.path.realpath(service_name))
+
     group = os.path.join('treadmill/core', service_name)
     # create group directory
     for subsystem in ['memory', 'cpu', 'cpuacct', 'blkio']:
@@ -42,7 +53,7 @@ def _configure_core_cgroups(service_name):
 def init():
     """Return top level command handler."""
 
-    @click.group(cls=cli.make_multi_command('treadmill.sproc'))
+    @click.group(cls=cli.make_commands('treadmill.sproc'))
     @click.option('--cgroup',
                   help='Create separate cgroup for the service.')
     @click.option('--cell', required=True,
@@ -65,15 +76,11 @@ def init():
         else:
             log_level = logging.DEBUG
 
-        logging.getLogger('kazoo').setLevel(log_level)
+        logging.getLogger('kazoo').setLevel(logging.INFO)
         logging.getLogger('treadmill').setLevel(log_level)
         logging.getLogger().setLevel(log_level)
 
         if cgroup:
-            if cgroup == '.':
-                service_name = os.path.basename(os.path.realpath(cgroup))
-            else:
-                service_name = cgroup
-            _configure_core_cgroups(service_name)
+            _configure_core_cgroups(cgroup)
 
     return run

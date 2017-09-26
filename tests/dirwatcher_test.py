@@ -1,7 +1,13 @@
 """Unit test for directory watcher.
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import errno
+import io
 import os
 import shutil
 import sys
@@ -38,12 +44,12 @@ class DirWatcherTest(unittest.TestCase):
         watcher.on_modified = lambda x: modified.append(x) or 'two'
         watcher.on_deleted = lambda x: deleted.append(x) or 'three'
 
-        with open(test_file, 'w') as f:
+        with io.open(test_file, 'w') as f:
             f.write('hello')
-        with open(test_file, 'a') as f:
+        with io.open(test_file, 'a') as f:
             f.write(' world!')
         os.unlink(test_file)
-        with open(test_file, 'w') as f:
+        with io.open(test_file, 'w') as f:
             f.write('hello again')
 
         res = watcher.process_events(max_events=3)

@@ -1,16 +1,23 @@
-"""Container instance events."""
+"""Container instance events.
+"""
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import abc
 import logging
 
 import enum
+import six
 
 
 _LOGGER = logging.getLogger(__name__)
 
 
-class AppTraceEvent(object, metaclass=abc.ABCMeta):
+@six.add_metaclass(abc.ABCMeta)
+class AppTraceEvent(object):
     """Parent class of all trace events.
 
     Contains the basic attributes of all events as well as the factory method
@@ -18,7 +25,6 @@ class AppTraceEvent(object, metaclass=abc.ABCMeta):
 
     All event classes must derive from this class.
     """
-
     __slots__ = (
         'event_type',
         'timestamp',
@@ -73,7 +79,7 @@ class AppTraceEvent(object, metaclass=abc.ABCMeta):
                 event_data=event_data,
                 payload=payload
             )
-        except Exception:
+        except Exception:  # pylint: disable=broad-except
             _LOGGER.warning('Failed to parse event type %r:', event_type,
                             exc_info=True)
             event = None
@@ -108,7 +114,7 @@ class AppTraceEvent(object, metaclass=abc.ABCMeta):
         try:
             event = eclass(**event_data)
 
-        except Exception:
+        except Exception:  # pylint: disable=broad-except
             _LOGGER.warning('Failed to instanciate event type %r:', event_type,
                             exc_info=True)
             event = None
@@ -194,6 +200,42 @@ class PendingTraceEvent(AppTraceEvent):
     def __init__(self, why,
                  timestamp=None, source=None, instanceid=None, payload=None):
         super(PendingTraceEvent, self).__init__(
+            timestamp=timestamp,
+            source=source,
+            instanceid=instanceid,
+            payload=payload
+        )
+        self.why = why
+
+    @classmethod
+    def from_data(cls, timestamp, source, instanceid, event_type, event_data,
+                  payload=None):
+        assert cls == getattr(AppTraceEventTypes, event_type).value
+        return cls(
+            timestamp=timestamp,
+            source=source,
+            instanceid=instanceid,
+            payload=payload,
+            why=event_data
+        )
+
+    @property
+    def event_data(self):
+        return self.why
+
+
+class PendingDeleteTraceEvent(AppTraceEvent):
+    """Event emitted when a container instance is about to be deleted from the
+       scheduler.
+    """
+
+    __slots__ = (
+        'why',
+    )
+
+    def __init__(self, why,
+                 timestamp=None, source=None, instanceid=None, payload=None):
+        super(PendingDeleteTraceEvent, self).__init__(
             timestamp=timestamp,
             source=source,
             instanceid=instanceid,
@@ -499,13 +541,17 @@ class AppTraceEventTypes(enum.Enum):
     finished = FinishedTraceEvent
     killed = KilledTraceEvent
     pending = PendingTraceEvent
+    pending_delete = PendingDeleteTraceEvent
     scheduled = ScheduledTraceEvent
     service_exited = ServiceExitedTraceEvent
     service_running = ServiceRunningTraceEvent
 
 
-class AppTraceEventHandler(object, metaclass=abc.ABCMeta):
-    """Base class for processing events."""
+@six.add_metaclass(abc.ABCMeta)
+class AppTraceEventHandler(object):
+    """Base class for processing events.
+    """
+
     __slots__ = (
         'ctx',
     )
@@ -520,6 +566,12 @@ class AppTraceEventHandler(object, metaclass=abc.ABCMeta):
             ),
         PendingTraceEvent:
             lambda self, event: self.on_pending(
+                when=event.timestamp,
+                instanceid=event.instanceid,
+                why=event.why
+            ),
+        PendingDeleteTraceEvent:
+            lambda self, event: self.on_pending_delete(
                 when=event.timestamp,
                 instanceid=event.instanceid,
                 why=event.why
@@ -602,46 +654,61 @@ class AppTraceEventHandler(object, metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def on_scheduled(self, when, instanceid, server, why):
-        """Invoked when task is scheduled."""
+        """Invoked when task is scheduled.
+        """
         pass
 
     @abc.abstractmethod
     def on_pending(self, when, instanceid, why):
-        """Invoked when task is pending."""
+        """Invoked when task is pending.
+        """
+        pass
+
+    @abc.abstractmethod
+    def on_pending_delete(self, when, instanceid, why):
+        """Invoked when task is about to be deleted.
+        """
         pass
 
     @abc.abstractmethod
     def on_configured(self, when, instanceid, server, uniqueid):
-        """Invoked when task is configured."""
+        """Invoked when task is configured.
+        """
         pass
 
     @abc.abstractmethod
     def on_deleted(self, when, instanceid):
-        """Invoked when task is deleted."""
+        """Invoked when task is deleted.
+        """
         pass
 
     @abc.abstractmethod
     def on_finished(self, when, instanceid, server, signal, exitcode):
-        """Invoked when task is finished."""
+        """Invoked when task is finished.
+        """
         pass
 
     @abc.abstractmethod
     def on_aborted(self, when, instanceid, server, why):
-        """Invoked when task is aborted."""
+        """Invoked when task is aborted.
+        """
         pass
 
     @abc.abstractmethod
     def on_killed(self, when, instanceid, server, is_oom):
-        """Default task-finished handler."""
+        """Default task-finished handler.
+        """
         pass
 
     @abc.abstractmethod
     def on_service_running(self, when, instanceid, server, uniqueid, service):
-        """Invoked when service is running."""
+        """Invoked when service is running.
+        """
         pass
 
     @abc.abstractmethod
     def on_service_exited(self, when, instanceid, server, uniqueid, service,
                           exitcode, signal):
-        """Invoked when service exits."""
+        """Invoked when service exits.
+        """
         pass

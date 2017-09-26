@@ -1,13 +1,19 @@
 """Server REST api tests.
 """
 
-import http.client
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import json
 import unittest
 
 import flask
 import flask_restplus as restplus
 import mock
+
+from six.moves import http_client
 
 from treadmill import webutils
 from treadmill.rest.api import server
@@ -40,23 +46,20 @@ class ServerTest(unittest.TestCase):
 
         resp = self.client.get('/server/')
 
-        self.assertEqual(
-            json.loads((b''.join(resp.response)).decode()),
-            server_list
-        )
-        self.assertEqual(resp.status_code, http.client.OK)
+        self.assertEqual(''.join(resp.response), json.dumps(server_list))
+        self.assertEqual(resp.status_code, http_client.OK)
         self.impl.list.assert_called_with(None, None)
 
         resp = self.client.get('/server/?cell=foo')
-        self.assertEqual(resp.status_code, http.client.OK)
+        self.assertEqual(resp.status_code, http_client.OK)
         self.impl.list.assert_called_with('foo', None)
 
         resp = self.client.get('/server/?partition=baz')
-        self.assertEqual(resp.status_code, http.client.OK)
+        self.assertEqual(resp.status_code, http_client.OK)
         self.impl.list.assert_called_with(None, 'baz')
 
         resp = self.client.get('/server/?cell=foo&partition=baz')
-        self.assertEqual(resp.status_code, http.client.OK)
+        self.assertEqual(resp.status_code, http_client.OK)
         self.impl.list.assert_called_with('foo', 'baz')
 
 

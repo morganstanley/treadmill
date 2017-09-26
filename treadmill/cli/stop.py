@@ -1,9 +1,14 @@
-"""Manage Treadmill app manifest."""
+"""Manage Treadmill app manifest.
+"""
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import click
 
-from .. import cli
+from treadmill import cli
 from treadmill import restclient
 from treadmill import context
 
@@ -22,7 +27,7 @@ def init():
     @click.option('--all', 'all_instances', required=False, is_flag=True,
                   help='Stop all instances matching the app provided')
     @click.argument('instances', nargs=-1)
-    @cli.ON_REST_EXCEPTIONS
+    @cli.handle_exceptions(restclient.CLI_REST_EXCEPTIONS)
     def stop(api, all_instances, instances):
         """Stop (unschedule, terminate) Treadmill instance(s)."""
         if not instances:

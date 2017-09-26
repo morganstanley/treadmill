@@ -1,25 +1,42 @@
 """File system utilities such as making dirs/files and mounts etc.
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import errno
 import glob
 import io
 import logging
 import os
+import re
 import stat
 import tarfile
 import tempfile
+
+import six
+
+if six.PY2 and os.name == 'posix':
+    import subprocess32 as subprocess  # pylint: disable=import-error
+else:
+    import subprocess  # pylint: disable=wrong-import-order
 
 from treadmill import exc
 from treadmill import osnoop
 from treadmill import utils
 from treadmill import subproc
 
+
 _LOGGER = logging.getLogger(__name__)
+
+_UUID_RE = re.compile(r'.*UUID="(.*?)".*')
 
 
 def rm_safe(path):
-    """Removes file, ignoring the error if file does not exist."""
+    """Removes file, ignoring the error if file does not exist.
+    """
     try:
         os.unlink(path)
     except OSError as err:
@@ -28,6 +45,36 @@ def rm_safe(path):
             pass
         else:
             raise
+
+
+def write_safe(filename, func, mode='wb', prefix='tmp', permission=None):
+    """Safely write file
+
+    :param filename:
+        full path of file
+    :param func:
+        what to do with the file descriptor, signature func(fd)
+    :param mode:
+        same as tempfile.NamedTemporaryFile
+    :param prefix:
+        same as tempfile.NamedTemporaryFile
+    :param permission:
+        file permission
+    """
+    dirname = os.path.dirname(filename)
+    try:
+        os.makedirs(dirname)
+    except OSError as err:
+        if err.errno != errno.EEXIST:
+            raise
+    with tempfile.NamedTemporaryFile(dir=dirname,
+                                     delete=False,
+                                     prefix=prefix,
+                                     mode=mode) as tmpfile:
+        if permission is not None and os.name == 'posix':
+            os.fchmod(tmpfile.fileno(), permission)
+        func(tmpfile)
+    os.rename(tmpfile.name, filename)
 
 
 def mkdir_safe(path, mode=0o777):
@@ -67,7 +114,8 @@ def mkfile_safe(path):
 
 
 def norm_safe(path):
-    """Returns normalized path, aborts if path is not absolute."""
+    """Returns normalized path, aborts if path is not absolute.
+    """
     if not os.path.isabs(path):
         raise exc.InvalidInputError(path, 'Not absolute path: %r' % path)
 
@@ -75,7 +123,8 @@ def norm_safe(path):
 
 
 def symlink_safe(link, target):
-    """Create symlink to target. Atomically rename if link already exists."""
+    """Create symlink to target. Atomically rename if link already exists.
+    """
     tmp_link = tempfile.mktemp(dir=os.path.dirname(link))
     os.symlink(target, tmp_link)
     os.rename(tmp_link, link)
@@ -127,6 +176,13 @@ def create_excl(filename, size=0, mode=(stat.S_IRUSR | stat.S_IWUSR)):
 
 ###############################################################################
 # mount
+
+@osnoop.windows
+def umount_filesystem(target_dir):
+    """umount filesystem on target directory.
+    """
+    subproc.check_call(['umount', '-n', '-f', target_dir])
+
 
 @osnoop.windows
 def mount_filesystem(block_dev, target_dir):
@@ -192,7 +248,8 @@ def mount_bind(newroot, mount, target=None, bind_opt=None):
 
 @osnoop.windows
 def mount_tmpfs(newroot, path, size):
-    """Mounts directory on tmpfs."""
+    """Mounts directory on tmpfs.
+    """
     while path.startswith('/'):
         path = path[1:]
     subproc.check_call(['mount', '-n', '-o', 'size=%s' % size,
@@ -204,7 +261,8 @@ def mount_tmpfs(newroot, path, size):
 
 @osnoop.windows
 def dev_maj_min(block_dev):
-    """Returns major/minor device numbers for the given block device."""
+    """Returns major/minor device numbers for the given block device.
+    """
     dev_stat = os.stat(os.path.realpath(block_dev))
     return os.major(dev_stat.st_rdev), os.minor(dev_stat.st_rdev)
 
@@ -321,7 +379,7 @@ def tar(target, sources, compression=None):
     :param target:
         target tar file name or file object
     :type target:
-        ``str`` or File
+        ``str`` or file
     :param sources:
         list of folders or file / a single foldler or file
     :type sources:
@@ -335,8 +393,7 @@ def tar(target, sources, compression=None):
     :rtype:
         ``str``
     """
-    assert compression is None or compression in ['gzip', 'bzip2']
-    assert isinstance(target, str) or isinstance(target, io.IOBase)
+    assert compression in [None, 'gzip', 'bzip2']
 
     if compression == 'gzip':
         mode = 'gz'
@@ -349,7 +406,7 @@ def tar(target, sources, compression=None):
         ext = ''
 
     # if target file is not given, we write as stream mode
-    if isinstance(target, str):
+    if isinstance(target, six.string_types):
         mode = 'w:' + mode
         target += ext
         return _tar_impl(sources, name=target, mode=mode)
@@ -359,7 +416,7 @@ def tar(target, sources, compression=None):
 
 
 def _tar_impl(sources, **args):
-    """ implementation of tar
+    """implementation of tar.
     """
     try:
         with tarfile.open(**args) as archive:
@@ -379,8 +436,8 @@ def _tar_impl(sources, **args):
 
 @osnoop.windows
 def read_filesystem_info(block_dev):
-    """
-    Returns blocks group information for the filesystem present on block_dev.
+    """Returns blocks group information for the filesystem present on
+    block_dev.
 
     :param block_dev:
         Block device for the filesystem info to query.
@@ -391,11 +448,15 @@ def read_filesystem_info(block_dev):
     :rtype:
         ``dict``
     """
+    res = {}
+
     # TODO: it might worth to convert the appropriate values to int, date etc.
     #       in the result.
-    output = subproc.check_output(['dumpe2fs', '-h', block_dev])
+    try:
+        output = subproc.check_output(['dumpe2fs', '-h', block_dev])
+    except subprocess.CalledProcessError:
+        return res
 
-    res = dict()
     for line in output.split(os.linesep):
         if not line.strip():
             continue
@@ -407,9 +468,20 @@ def read_filesystem_info(block_dev):
 
 
 @osnoop.windows
-def maj_min_to_blk(major, minor):
+def device_uuid(block_dev):
+    """Get device uuid
     """
-    Returns the block device name to the major:minor numbers in the param.
+    output = subproc.check_output(['blkid', block_dev])
+    match_obj = _UUID_RE.match(output)
+    if match_obj is None:
+        raise ValueError('Invalid device: %s' % block_dev)
+    else:
+        return match_obj.group(1)
+
+
+@osnoop.windows
+def maj_min_to_blk(major, minor):
+    """Returns the block device name to the major:minor numbers in the param.
 
     :param major:
         The major number of the device
@@ -424,7 +496,7 @@ def maj_min_to_blk(major, minor):
     block_dev = None
     for sys_path in glob.glob(os.path.join(os.sep, 'sys', 'class', 'block',
                                            '*', 'dev')):
-        with open(sys_path) as f:
+        with io.open(sys_path) as f:
             if f.read().strip() == maj_min:
                 block_dev = '/dev/{}'.format(sys_path.split(os.sep)[-2])
                 break
@@ -434,6 +506,7 @@ def maj_min_to_blk(major, minor):
 
 @osnoop.windows
 def path_to_maj_min(path):
-    """Returns major/minor device numbers for the given path."""
+    """Returns major/minor device numbers for the given path.
+    """
     dev_stat = os.stat(os.path.realpath(path))
     return os.major(dev_stat.st_dev), os.minor(dev_stat.st_dev)

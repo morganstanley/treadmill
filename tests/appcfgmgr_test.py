@@ -1,7 +1,12 @@
-"""
-Unit test for appcfgmgr - configuring node apps
+"""Unit test for appcfgmgr - configuring node apps
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
+import io
 import os
 import shutil
 import tempfile
@@ -16,7 +21,8 @@ from treadmill import fs
 
 
 class AppCfgMgrTest(unittest.TestCase):
-    """Mock test for treadmill.appcfgmgr.AppCfgMgr."""
+    """Mock test for treadmill.appcfgmgr.AppCfgMgr.
+    """
 
     @mock.patch('treadmill.appenv.AppEnvironment', mock.Mock(autospec=True))
     @mock.patch('treadmill.watchdog.Watchdog', mock.Mock(autospec=True))
@@ -31,7 +37,7 @@ class AppCfgMgrTest(unittest.TestCase):
         for tmp_dir in [self.cache, self.apps, self.running, self.cleanup]:
             os.mkdir(tmp_dir)
 
-        self.appcfgmgr = appcfgmgr.AppCfgMgr(root=self.root)
+        self.appcfgmgr = appcfgmgr.AppCfgMgr(root=self.root, runtime='linux')
         self.appcfgmgr.tm_env.root = self.root
         self.appcfgmgr.tm_env.cache_dir = self.cache
         self.appcfgmgr.tm_env.apps_dir = self.apps
@@ -46,7 +52,8 @@ class AppCfgMgrTest(unittest.TestCase):
                 mock.Mock(return_value='/test/foo'))
     @mock.patch('treadmill.appcfg.configure.schedule', mock.Mock())
     def test__configure(self):
-        """Tests application configuration event."""
+        """Tests application configuration event.
+        """
         # Access to a protected member _configure of a client class
         # pylint: disable=W0212
 
@@ -55,6 +62,7 @@ class AppCfgMgrTest(unittest.TestCase):
         treadmill.appcfg.configure.configure.assert_called_with(
             self.appcfgmgr.tm_env,
             os.path.join(self.cache, 'foo#1'),
+            'linux'
         )
         treadmill.appcfg.configure.schedule.assert_called_with(
             '/test/foo',
@@ -62,11 +70,12 @@ class AppCfgMgrTest(unittest.TestCase):
         )
         self.assertTrue(res)
 
-    @mock.patch('treadmill.appcfg.abort.abort', mock.Mock())
+    @mock.patch('treadmill.appcfg.abort.report_aborted', mock.Mock())
     @mock.patch('treadmill.appcfg.configure.configure', mock.Mock())
     @mock.patch('treadmill.fs.rm_safe', mock.Mock())
-    def test__configure_failure(self):
-        """Tests application configuration failure event."""
+    def test__configure_exception(self):
+        """Tests application configuration exception event.
+        """
         # Access to a protected member _configure of a client class
         # pylint: disable=W0212
 
@@ -74,11 +83,31 @@ class AppCfgMgrTest(unittest.TestCase):
 
         res = self.appcfgmgr._configure('foo#1')
 
-        treadmill.appcfg.abort.abort.assert_called_with(
+        treadmill.appcfg.abort.report_aborted.assert_called_with(
             self.appcfgmgr.tm_env,
-            os.path.join(self.cache, 'foo#1'),
-            mock.ANY,
+            'foo#1',
+            why=treadmill.appcfg.abort.AbortedReason.UNKNOWN,
+            payload=mock.ANY,
         )
+        treadmill.fs.rm_safe.assert_called_with(
+            os.path.join(self.cache, 'foo#1')
+        )
+        self.assertFalse(res)
+
+    @mock.patch('treadmill.appcfg.abort.report_aborted', mock.Mock())
+    @mock.patch('treadmill.appcfg.configure.configure', mock.Mock())
+    @mock.patch('treadmill.fs.rm_safe', mock.Mock())
+    def test__configure_failure(self):
+        """Tests application configuration failure event.
+        """
+        # Access to a protected member _configure of a client class
+        # pylint: disable=W0212
+
+        treadmill.appcfg.configure.configure.return_value = None
+
+        res = self.appcfgmgr._configure('foo#1')
+
+        treadmill.appcfg.abort.report_aborted.assert_not_called()
         treadmill.fs.rm_safe.assert_called_with(
             os.path.join(self.cache, 'foo#1')
         )
@@ -129,7 +158,7 @@ class AppCfgMgrTest(unittest.TestCase):
         treadmill.appcfg.eventfile_unique_name.side_effect = _fake_unique_name
         for app in ('proid.app#0', 'proid.app#1', 'proid.app#2'):
             # Create cache/ entry
-            with open(os.path.join(self.cache, app), 'w'):
+            with io.open(os.path.join(self.cache, app), 'w'):
                 pass
             # Create app/ dir
             uniquename = _fake_unique_name(app)
@@ -175,7 +204,7 @@ class AppCfgMgrTest(unittest.TestCase):
         treadmill.appcfg.eventfile_unique_name.side_effect = _fake_unique_name
         for app in ('proid.app#0', 'proid.app#1', 'proid.app#2'):
             # Create cache/ entry
-            with open(os.path.join(self.cache, app), 'w'):
+            with io.open(os.path.join(self.cache, app), 'w'):
                 pass
             uniquename = _fake_unique_name(app)
             os.mkdir(os.path.join(self.apps, uniquename))
@@ -248,7 +277,7 @@ class AppCfgMgrTest(unittest.TestCase):
         # Access to a protected member _synchronize of a client class
         # pylint: disable=W0212
 
-        with open(os.path.join(self.running, 'xxx'), 'w'):
+        with io.open(os.path.join(self.running, 'xxx'), 'w'):
             pass
 
         self.appcfgmgr._synchronize()
@@ -281,7 +310,7 @@ class AppCfgMgrTest(unittest.TestCase):
             return uniquename
         treadmill.appcfg.eventfile_unique_name.side_effect = _fake_unique_name
         # Create cache/ entry
-        with open(os.path.join(self.cache, 'foo#1'), 'w'):
+        with io.open(os.path.join(self.cache, 'foo#1'), 'w'):
             pass
         # Create a broken running/ symlink
         os.symlink(os.path.join(self.apps, 'foo-1_1234'),
@@ -298,9 +327,10 @@ class AppCfgMgrTest(unittest.TestCase):
         )
 
     @mock.patch('time.sleep', mock.Mock())
-    @mock.patch('treadmill.subproc.call',
-                mock.Mock(side_effect=[1, 1, 0, 1, 0]))
-    @mock.patch('treadmill.subproc.check_call', mock.Mock())
+    @mock.patch('treadmill.supervisor.is_supervised',
+                mock.Mock(side_effect=[False, False, True, False, True]))
+    @mock.patch('treadmill.supervisor.control_svscan', mock.Mock())
+    @mock.patch('treadmill.supervisor.control_service', mock.Mock())
     def test__refresh_supervisor(self):
         """Check how the supervisor is beeing refreshed.
         """
@@ -311,67 +341,35 @@ class AppCfgMgrTest(unittest.TestCase):
             instance_names=['foo#1', 'bar#2']
         )
 
-        treadmill.subproc.check_call.assert_has_calls(
+        treadmill.supervisor.control_svscan.assert_called_with(
+            self.running, (
+                treadmill.supervisor.SvscanControlAction.alarm,
+                treadmill.supervisor.SvscanControlAction.nuke
+            )
+        )
+
+        treadmill.supervisor.control_service.assert_has_calls(
             [
                 mock.call(
-                    [
-                        's6_svscanctl',
-                        '-an',
-                        self.running
-                    ]
+                    os.path.join(self.running, 'foo#1'),
+                    treadmill.supervisor.ServiceControlAction.once
                 ),
                 mock.call(
-                    [
-                        's6_svc',
-                        '-uO',
-                        os.path.join(self.running, 'foo#1'),
-                    ]
-                ),
-                mock.call(
-                    [
-                        's6_svc',
-                        '-uO',
-                        os.path.join(self.running, 'bar#2'),
-                    ]
+                    os.path.join(self.running, 'bar#2'),
+                    treadmill.supervisor.ServiceControlAction.once
                 ),
             ],
             any_order=True
         )
         # Make sure we did the right amount of retries
-        treadmill.subproc.call.assert_has_calls(
+        treadmill.supervisor.is_supervised.assert_has_calls(
             [
-                mock.call(
-                    [
-                        's6_svok',
-                        os.path.join(self.running, 'foo#1'),
-                    ]
-                ),
-                mock.call(
-                    [
-                        's6_svok',
-                        os.path.join(self.running, 'foo#1'),
-                    ]
-                ),
-                mock.call(
-                    [
-                        's6_svok',
-                        os.path.join(self.running, 'foo#1'),
-                    ]
-                ),
-                mock.call(
-                    [
-                        's6_svok',
-                        os.path.join(self.running, 'bar#2'),
-                    ]
-                ),
-                mock.call(
-                    [
-                        's6_svok',
-                        os.path.join(self.running, 'bar#2'),
-                    ]
-                ),
-            ],
-            any_order=True
+                mock.call(os.path.join(self.running, 'foo#1')),
+                mock.call(os.path.join(self.running, 'foo#1')),
+                mock.call(os.path.join(self.running, 'foo#1')),
+                mock.call(os.path.join(self.running, 'bar#2')),
+                mock.call(os.path.join(self.running, 'bar#2')),
+            ]
         )
         self.assertEqual(
             time.sleep.call_count,

@@ -1,5 +1,5 @@
-"""Implementation of state API."""
-
+"""Implementation of trace API.
+"""
 
 import logging
 

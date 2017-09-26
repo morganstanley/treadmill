@@ -1,24 +1,30 @@
 """Websocket API.
 """
 
-import collections
-import datetime
-import errno
-import glob
-import fnmatch
-import logging
-import threading
-import urllib.parse
-import os
-import time
-import sqlite3
-import heapq
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
+import collections
+import errno
+import fnmatch
+import glob
+import heapq
+import io
 import json
+import logging
+import os
+import sqlite3
+import threading
+import time
+
 import tornado.websocket
 
+from six.moves import urllib_parse
+
 from treadmill import dirwatch
-from treadmill import exc
+from treadmill import utils
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -55,7 +61,7 @@ def make_handler(pubsub):
             """
             _LOGGER.info(error_str)
             error_msg = {'_error': error_str,
-                         'when': datetime.datetime.utcnow().isoformat()}
+                         'when': time.time()}
 
             self.write_message(error_msg)
             if close_conn:
@@ -74,7 +80,7 @@ def make_handler(pubsub):
 
             This method returns true all the time.
             """
-            parsed_origin = urllib.parse.urlparse(origin)
+            parsed_origin = urllib_parse.urlparse(origin)
             _LOGGER.debug('parsed_origin: %r', parsed_origin)
             return True
 
@@ -155,104 +161,95 @@ class DirWatchPubSub(object):
         pathname = os.path.realpath(os.path.join(self.root, watch.lstrip('/')))
         return [path for path in glob.glob(pathname) if os.path.isdir(path)]
 
-    @exc.exit_on_unhandled
-    def _on_created(self, filename):
+    @utils.exit_on_unhandled
+    def _on_created(self, path):
         """On file created callback."""
-        if os.path.basename(filename)[0] == '.':
-            return
-        _LOGGER.debug('created: %s', filename)
-        self._handle('c', filename)
+        _LOGGER.debug('created: %s', path)
+        self._handle('c', path)
 
-    @exc.exit_on_unhandled
-    def _on_modified(self, filename):
+    @utils.exit_on_unhandled
+    def _on_modified(self, path):
         """On file modified callback."""
-        if os.path.basename(filename)[0] == '.':
-            return
-        _LOGGER.debug('modified: %s', filename)
-        self._handle('m', filename)
+        _LOGGER.debug('modified: %s', path)
+        self._handle('m', path)
 
-    @exc.exit_on_unhandled
-    def _on_deleted(self, filename):
+    @utils.exit_on_unhandled
+    def _on_deleted(self, path):
         """On file deleted callback."""
+        _LOGGER.debug('deleted: %s', path)
+        self._handle('d', path)
+
+    def _handle(self, operation, path):
+        """Get event data and notify interested handlers of the change."""
+        directory, filename = os.path.split(path)
+
         # Ignore (.) files, as they are temporary or "system".
-        if os.path.basename(filename)[0] == '.':
+        if filename[0] == '.':
             return
 
-        # If .done is present, deleted files indicate that they are being
-        # moved to sow database, ignore.
-        if os.path.exists(os.path.join(os.path.dirname(filename), '.done')):
+        handlers = [
+            (pattern, handler, impl)
+            for pattern, handler, impl in self.handlers.get(directory, [])
+            if handler.active() and fnmatch.fnmatch(filename, pattern)
+        ]
+        if not handlers:
             return
 
-        # The protocol to move files to sow database is:
-        #  - delete all file but .done - there events will be ignored because
-        #    .done is present
-        #  - delete .done file - will be ignored because starts with (.).
-        #  - delete directory (ignored).
-        if os.path.isdir(filename):
-            return
-
-        _LOGGER.debug('deleted: %s', filename)
-        self._notify(filename, 'd', None, time.time())
-
-    def _handle(self, operation, filename):
-        """Read file event, notify all handlers."""
-        _LOGGER.debug('modified: %s', filename)
-
-        try:
-            when = int(os.stat(filename).st_mtime)
-            with open(filename) as f:
-                content = f.read()
-        except IOError as err:
-            if err.errno != errno.ENOENT:
+        if operation == 'd':
+            when = time.time()
+            content = None
+        else:
+            try:
+                when = os.stat(path).st_mtime
+                with io.open(path) as f:
+                    content = f.read()
+            except (IOError, OSError) as err:
+                if err.errno == errno.ENOENT:
+                    # If file was already deleted, it will be handled as 'd'.
+                    return
                 raise
 
-            operation = 'd'
-            content = None
-            when = int(time.time())
+        self._notify(handlers, path, operation, content, when)
 
-        self._notify(filename, operation, content, when)
-
-    def _notify(self, path, operation, content, when):
-        """Notify all handlers of the change."""
+    def _notify(self, handlers, path, operation, content, when):
+        """Notify interested handlers of the change."""
         root_len = len(self.root)
-        directory = os.path.dirname(path)
-        filename = os.path.basename(path)
 
-        for pattern, handler, impl in self.handlers[directory]:
-            if not handler.active():
-                continue
-
-            _LOGGER.debug('filename: %s', filename)
-            _LOGGER.debug('pattern: %s', pattern)
-            if fnmatch.fnmatch(filename, pattern):
-                try:
-                    payload = impl.on_event(path[root_len:],
-                                            operation,
-                                            content)
-                    if payload is not None:
-                        payload['when'] = when
-                        handler.write_message(payload)
-                except Exception as err:
-                    _LOGGER.exception('Error handling event')
-                    handler.send_error_msg(
-                        '{cls}: {err}'.format(
-                            cls=type(err).__name__,
-                            err=str(err)
-                        )
+        for pattern, handler, impl in handlers:
+            try:
+                payload = impl.on_event(path[root_len:],
+                                        operation,
+                                        content)
+                if payload is not None:
+                    _LOGGER.debug('notify: %s, %s (%s)',
+                                  path, operation, pattern)
+                    payload['when'] = when
+                    handler.write_message(payload)
+            except Exception as err:  # pylint: disable=broad-except
+                _LOGGER.exception('Error handling event')
+                handler.send_error_msg(
+                    '{cls}: {err}'.format(
+                        cls=type(err).__name__,
+                        err=str(err)
                     )
+                )
 
-    def _db_records(self, dbpath, sow_table, db_glob, since):
+    def _db_records(self, db_path, sow_table, watch, pattern, since):
         """Get matching records from db."""
-        _LOGGER.info('Using sow db: %s, glob: %s', dbpath, db_glob)
-        conn = sqlite3.connect(dbpath)
-        select_stmt = ('''
-        SELECT timestamp, path, data FROM %s
-          WHERE path GLOB ? AND timestamp >= ?
-          ORDER BY timestamp''' % sow_table)
+        _LOGGER.info('Using sow db: %s, sow table: %s, watch: %s, pattern: %s',
+                     db_path, sow_table, watch, pattern)
+        conn = sqlite3.connect(db_path)
+
+        # Before Python 3.7 GLOB pattern must not be parametrized to use index.
+        select_stmt = """
+            SELECT timestamp, path, data FROM %s
+            WHERE directory GLOB ? AND name GLOB '%s' AND timestamp >= ?
+            ORDER BY timestamp
+        """ % (sow_table, pattern)
 
         # Return open connection, as conn.execute is cursor iterator, not
         # materialized list.
-        return conn, conn.execute(select_stmt, (db_glob, since,))
+        return conn, conn.execute(select_stmt, (watch, since,))
 
     def _sow(self, watch, pattern, since, handler, impl):
         """Publish state of the world."""
@@ -278,16 +275,16 @@ class DirWatchPubSub(object):
             records = []
             if sow:
                 dbs = sorted(glob.glob(os.path.join(self.root, sow, '*')))
-                db_glob = os.path.join(watch, pattern)
-
                 for db in dbs:
                     if os.path.basename(db).startswith('.'):
                         continue
 
-                    conn, db_cursor = self._db_records(db, sow_table, db_glob,
-                                                       since)
+                    conn, db_cursor = self._db_records(
+                        db, sow_table, watch, pattern, since
+                    )
                     records.append(db_cursor)
-                    db_connections.append(conn)
+                    # FIXME: Figure out pylint use before assign
+                    db_connections.append(conn)  # pylint: disable=E0601
 
             records.append(fs_records)
             # Merge db and fs records, removing duplicates.
@@ -315,10 +312,10 @@ class DirWatchPubSub(object):
         for filename in files:
             try:
                 stat = os.stat(filename)
-                with open(filename) as f:
+                with io.open(filename) as f:
                     content = f.read()
                 if stat.st_mtime >= since:
-                    path, when = filename[root_len:], int(stat.st_mtime)
+                    path, when = filename[root_len:], stat.st_mtime
                     items.append((when, path, content))
             except (IOError, OSError) as err:
                 # Ignore deleted files.
@@ -335,29 +332,38 @@ class DirWatchPubSub(object):
                         for pattern, handler, impl in self.handlers[directory]
                         if handler.active()]
 
-            if not handlers and directory not in self.watch_dirs:
+            _LOGGER.info('Number of active handlers for %s: %s',
+                         directory, len(handlers))
+
+            if not handlers:
                 _LOGGER.info('No active handlers for %s', directory)
-                self.watcher.remove_dir(directory)
+                self.handlers.pop(directory, None)
+                if directory not in self.watch_dirs:
+                    # Watch is not permanent, remove dir from watcher.
+                    self.watcher.remove_dir(directory)
+            else:
+                self.handlers[directory] = handlers
 
-            _LOGGER.info('Handlers %s, count %s', directory, len(handlers))
-            self.handlers[directory] = handlers
-
-    @exc.exit_on_unhandled
+    @utils.exit_on_unhandled
     def run(self, once=False):
         """Run event loop."""
+        last_gc = time.time()
         while True:
             wait_interval = 10
             if once:
                 wait_interval = 0
+
             if self.watcher.wait_for_events(wait_interval):
                 self.watcher.process_events()
-            else:
+
+            if (time.time() - last_gc) >= wait_interval:
                 self._gc()
+                last_gc = time.time()
 
             if once:
                 break
 
-    @exc.exit_on_unhandled
+    @utils.exit_on_unhandled
     def run_detached(self):
         """Run event loop in separate thread."""
         event_thread = threading.Thread(target=self.run)

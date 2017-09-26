@@ -1,6 +1,10 @@
+"""Verifies health of Zookeeper.
 """
-Verifies health of Zookeeper.
-"""
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import unittest
 import logging
@@ -38,4 +42,4 @@ class ZookeeperTest(unittest.TestCase):
                 print(str(err))
 
         expected = idx + 1
-        self.assertEquals(actual, expected, 'Not all ensemble members are up.')
+        self.assertEqual(actual, expected, 'Not all ensemble members are up.')

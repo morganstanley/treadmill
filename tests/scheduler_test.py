@@ -1,5 +1,10 @@
-"""Unit test for treadmill.scheduler
+"""Unit test for treadmill.scheduler.
 """
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import time
 import unittest
@@ -11,10 +16,9 @@ import sys
 
 import mock
 import numpy as np
+import six
 
 from treadmill import scheduler
-from functools import reduce
-
 
 _TRAITS = dict()
 
@@ -27,7 +31,7 @@ def _trait2int(trait):
 
 
 def _traits2int(traits):
-    return reduce(
+    return six.moves.reduce(
         lambda acc, t: acc | _trait2int(t),
         traits,
         0
@@ -133,10 +137,10 @@ class AllocationTest(unittest.TestCase):
 
     def test_rank_adjustment(self):
         """Test rank adjustment"""
-        alloc = scheduler.Allocation([3, 3])
+        alloc = scheduler.Allocation()
 
-        alloc.rank = 100
-        alloc.rank_adjustment = 10
+        alloc.update([3, 3], 100, 10)
+
         alloc.add(scheduler.Application('app1', 1, [1, 1], 'app1'))
         alloc.add(scheduler.Application('app2', 1, [2, 2], 'app1'))
         alloc.add(scheduler.Application('app3', 1, [3, 3], 'app1'))
@@ -150,7 +154,7 @@ class AllocationTest(unittest.TestCase):
         """Test updating allocation with allocation vector containing 0's"""
         alloc = scheduler.Allocation(None)
 
-        alloc.update([1, 0], None)
+        alloc.update([1, 0], None, None)
         self.assertEqual(1.0, alloc.reserved[0])
         self.assertEqual(0, alloc.reserved[1])
 
@@ -249,6 +253,24 @@ class AllocationTest(unittest.TestCase):
         self.assertEqual('r1', queue[0][-1].name)
         self.assertEqual('p1', queue[1][-1].name)
         self.assertEqual('r2', queue[2][-1].name)
+
+    def test_visitor(self):
+        """Test queue visitor"""
+        alloc = scheduler.Allocation()
+
+        sub_alloc_a = scheduler.Allocation()
+        sub_alloc_a.add(scheduler.Application('a1', 1, [1, 1], 'app1'))
+        alloc.add_sub_alloc('a', sub_alloc_a)
+
+        sub_alloc_b = scheduler.Allocation()
+        sub_alloc_b.add(scheduler.Application('b1', 1, [5, 5], 'app1'))
+        sub_alloc_b.add(scheduler.Application('b2', 1, [5, 5], 'app1'))
+        alloc.add_sub_alloc('b', sub_alloc_b)
+
+        result = []
+        list(alloc.utilization_queue([20., 20.],
+                                     visitor=lambda _, x: result.append(x)))
+        self.assertEqual(6, len(result))
 
 
 class TraitSetTest(unittest.TestCase):
@@ -438,7 +460,7 @@ class NodeTest(unittest.TestCase):
 
         # Without predicting exact placement, apps will be placed on one of
         # the servers in A bucket but not the other, as they use pack strateg.
-        self.assertNotEquals(len(a1_srv.apps), len(a2_srv.apps))
+        self.assertNotEqual(len(a1_srv.apps), len(a2_srv.apps))
 
     def test_valid_times(self):
         """Tests node valid_until calculation."""
@@ -989,20 +1011,20 @@ class CellTest(unittest.TestCase):
 
         cell.schedule()
         self.assertEqual(sticky_apps[0].server, first_srv)
-        self.assertNotEquals(unsticky_app.server, first_srv)
+        self.assertNotEqual(unsticky_app.server, first_srv)
         self.assertEqual(cell.next_event_at, 130)
 
         time.time.return_value = 110
 
         cell.schedule()
         self.assertEqual(sticky_apps[0].server, first_srv)
-        self.assertNotEquals(unsticky_app.server, first_srv)
+        self.assertNotEqual(unsticky_app.server, first_srv)
         self.assertEqual(cell.next_event_at, 130)
 
         time.time.return_value = 130
         cell.schedule()
-        self.assertNotEquals(sticky_apps[0].server, first_srv)
-        self.assertNotEquals(unsticky_app.server, first_srv)
+        self.assertNotEqual(sticky_apps[0].server, first_srv)
+        self.assertNotEqual(unsticky_app.server, first_srv)
         self.assertEqual(cell.next_event_at, np.inf)
 
         second_srv = sticky_apps[0].server
@@ -1013,7 +1035,7 @@ class CellTest(unittest.TestCase):
 
         cell.schedule()
         self.assertEqual(sticky_apps[0].server, second_srv)
-        self.assertNotEquals(unsticky_app.server, second_srv)
+        self.assertNotEqual(unsticky_app.server, second_srv)
         self.assertEqual(cell.next_event_at, 160)
 
         # Schedule one more sticky app. As it has rack affinity limit 1, it
@@ -1141,7 +1163,7 @@ class CellTest(unittest.TestCase):
 
         cell.schedule()
 
-        self.assertNotEquals(apps[0].server, apps[1].server)
+        self.assertNotEqual(apps[0].server, apps[1].server)
         self.assertFalse(apps[0].evicted)
         self.assertFalse(apps[0].evicted)
 

@@ -1,4 +1,10 @@
-"""Wrapper for sigprocmask(2) operations."""
+"""Wrapper for sigprocmask(2) operations.
+"""
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import logging
 import os
@@ -8,7 +14,6 @@ from ctypes import (
     c_int,
     c_void_p,
 )
-
 from ctypes.util import find_library
 
 import enum
@@ -19,8 +24,8 @@ from ._sigsetops import (
     sigfillset,
 )
 
-
 _LOGGER = logging.getLogger(__name__)
+
 
 ###############################################################################
 # Map the C interface
@@ -86,28 +91,25 @@ def sigprocmask(how, sigset, save_mask=True):
 # #define SIG_SETMASK   2   /* Set the set of blocked signals.  */
 #
 class SigProcMaskHow(enum.IntEnum):
-    """How option supported by sigprocmask."""
-
-    #: Block signals.
+    """How option supported by sigprocmask.
+    """
     SIG_BLOCK = 0
-
-    #: Unblock signals.
     SIG_UNBLOCK = 1
-
-    #: Set the set of blocked signals.
-    #: Set the O_NONBLOCK file status flag on the new open file description.
     SIG_SETMASK = 2
 
 
+#: Block signals.
 SIG_BLOCK = SigProcMaskHow.SIG_BLOCK
+#: Unblock signals.
 SIG_UNBLOCK = SigProcMaskHow.SIG_UNBLOCK
+#: Set the set of blocked signals.
 SIG_SETMASK = SigProcMaskHow.SIG_SETMASK
 
 
 ###############################################################################
 __all__ = [
-    'sigprocmask',
     'SIG_BLOCK',
     'SIG_UNBLOCK',
     'SIG_SETMASK',
+    'sigprocmask',
 ]

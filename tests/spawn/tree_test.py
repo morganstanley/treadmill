@@ -1,6 +1,11 @@
 """Unit test for treadmill.spawn.tree.
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import os
 import shutil
 import unittest
@@ -21,6 +26,7 @@ class TreeTest(unittest.TestCase):
     @mock.patch('treadmill.fs.mkdir_safe', mock.Mock())
     @mock.patch('treadmill.utils.create_script', mock.Mock())
     @mock.patch('treadmill.supervisor.create_environ_dir', mock.Mock())
+    @mock.patch('treadmill.subproc.get_aliases', mock.Mock(return_value={}))
     def test_create(self):
         """Tests creating tree."""
         os.listdir.side_effect = [

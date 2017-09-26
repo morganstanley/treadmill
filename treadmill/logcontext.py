@@ -1,4 +1,10 @@
-"""Treadmill log context helper classes."""
+"""Treadmill log context helper classes.
+"""
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import logging
 import threading
@@ -16,7 +22,7 @@ class Adapter(logging.LoggerAdapter):
     * insert additional information into the log records w/o having to alter
       the log formatter's definition inited by the etc/logging/*.yml files
     * use logging (_LOGGER) in the same way as before apart from the
-      initialization of _LOGGER in a given modul
+      initialization of _LOGGER in a given module.
     """
 
     def __init__(self, logger, extra=None):

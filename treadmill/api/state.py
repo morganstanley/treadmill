@@ -1,5 +1,10 @@
-"""Implementation of state API."""
+"""Implementation of state API.
+"""
 
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+from __future__ import absolute_import
 
 import logging
 
@@ -9,11 +14,13 @@ import sqlite3
 import tempfile
 import fnmatch
 
-import yaml
+import six
 
+from treadmill import admin
 from treadmill import context
 from treadmill import schema
-from treadmill import exc
+from treadmill import utils
+from treadmill import yamlwrapper as yaml
 from treadmill import zknamespace as z
 from treadmill import zkutils
 
@@ -24,17 +31,14 @@ _LOGGER = logging.getLogger(__name__)
 def watch_running(zkclient, cell_state):
     """Watch running instances."""
 
-    @exc.exit_on_unhandled
     @zkclient.ChildrenWatch(z.path.running())
+    @utils.exit_on_unhandled
     def _watch_running(running):
         """Watch /running nodes."""
         cell_state.running = set(running)
-        for name, item in cell_state.placement.items():
-            state = item['state'] = (
-                'running' if name in cell_state.running else 'scheduled'
-            )
-            if item['host'] is not None:
-                item['state'] = state
+        for name, item in six.viewitems(cell_state.placement):
+            if name in cell_state.running:
+                item['state'] = 'running'
         return True
 
     _LOGGER.info('Loaded running.')
@@ -43,8 +47,8 @@ def watch_running(zkclient, cell_state):
 def watch_finished(zkclient, cell_state):
     """Watch finished instances."""
 
-    @exc.exit_on_unhandled
     @zkclient.ChildrenWatch(z.path.finished())
+    @utils.exit_on_unhandled
     def _watch_finished(finished):
         """Watch /finished nodes."""
         for instance in finished:
@@ -63,8 +67,8 @@ def watch_finished(zkclient, cell_state):
 def watch_placement(zkclient, cell_state):
     """Watch placement."""
 
-    @exc.exit_on_unhandled
     @zkclient.DataWatch(z.path.placement())
+    @utils.exit_on_unhandled
     def _watch_placement(placement, _stat, event):
         """Watch /placement data."""
         if placement is None or event == 'DELETED':
@@ -101,11 +105,12 @@ def watch_finished_history(zkclient, cell_state):
         """Get instance from finished node name."""
         return path[_len_finished:]
 
-    @exc.exit_on_unhandled
     @zkclient.ChildrenWatch(z.FINISHED_HISTORY)
+    @utils.exit_on_unhandled
     def _watch_finished_snapshots(snapshots):
         """Watch /finished.history nodes."""
-        for db_node in set(snapshots) - loaded_snapshots:
+
+        for db_node in sorted(set(snapshots) - loaded_snapshots):
             _LOGGER.debug('Loading snapshot: %s', db_node)
             data, _stat = zkclient.get(z.path.finished_history(db_node))
 
@@ -123,6 +128,7 @@ def watch_finished_history(zkclient, cell_state):
             conn.close()
             os.unlink(f.name)
 
+        loaded_snapshots.update(snapshots)
         return True
 
     _LOGGER.info('Loaded finished snapshots.')
@@ -163,8 +169,8 @@ class CellState(object):
                 else:
                     state['exitcode'] = rc
             except ValueError:
-                _LOGGER.warn('Unexpected finished state data for %s: %s',
-                             rsrc_id, data['data'])
+                _LOGGER.warning('Unexpected finished state data for %s: %s',
+                                rsrc_id, data['data'])
 
         state['oom'] = data['state'] == 'killed' and data['data'] == 'oom'
 
@@ -173,6 +179,13 @@ class CellState(object):
 
 class API(object):
     """Treadmill State REST api."""
+
+    @staticmethod
+    def _get_server_info():
+        """Get server information"""
+        return admin.Server(context.GLOBAL.ldap.conn).list({
+            'cell': context.GLOBAL.cell
+        })
 
     def __init__(self):
 
@@ -187,7 +200,7 @@ class API(object):
             watch_finished(zkclient, cell_state)
             watch_finished_history(zkclient, cell_state)
 
-        def _list(match=None, finished=False):
+        def _list(match=None, finished=False, partition=None):
             """List instances state."""
             if match is None:
                 match = '*'
@@ -195,17 +208,24 @@ class API(object):
                 match += '#*'
             filtered = [
                 {'name': name, 'state': item['state'], 'host': item['host']}
-                for name, item in cell_state.placement.items()
+                for name, item in six.viewitems(cell_state.placement.copy())
                 if fnmatch.fnmatch(name, match)
             ]
 
             if finished:
-                for name in cell_state.finished.keys():
+                for name in six.viewkeys(cell_state.finished.copy()):
                     if fnmatch.fnmatch(name, match):
                         state = cell_state.get_finished(name)
                         item = {'name': name}
                         item.update(state)
                         filtered.append(item)
+
+            if partition is not None:
+                hosts = [rec['_id'] for rec in
+                         API._get_server_info()
+                         if rec['partition'] == partition]
+                filtered = [item for item in filtered
+                            if item['host'] in hosts]
 
             return sorted(filtered, key=lambda item: item['name'])
 

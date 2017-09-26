@@ -1,6 +1,11 @@
 """Treadmill Instance REST api.
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import flask
 import flask_restplus as restplus
 from flask_restplus import fields
@@ -94,9 +99,10 @@ def init(api, cors, impl):
                            req_model=bulk_del_inst_req,)
         def post(self):
             """Bulk deletes list of instances."""
+            user = flask.g.get('user')
             instance_ids = flask.request.json['instances']
             for instance_id in instance_ids:
-                impl.delete(instance_id)
+                impl.delete(instance_id, user)
 
     @namespace.route(
         '/_bulk/update',
@@ -164,7 +170,11 @@ def init(api, cors, impl):
             args = count_parser.parse_args()
             count = args.get('count', 1)
 
-            instances = impl.create(instance_id, flask.request.json, count)
+            user = flask.g.get('user')
+
+            instances = impl.create(
+                instance_id, flask.request.json, count, user
+            )
             return {'instances': instances}
 
         @webutils.put_api(api, cors,
@@ -176,4 +186,5 @@ def init(api, cors, impl):
         @webutils.delete_api(api, cors)
         def delete(self, instance_id):
             """Deletes Treadmill application."""
-            return impl.delete(instance_id)
+            user = flask.g.get('user')
+            return impl.delete(instance_id, user)

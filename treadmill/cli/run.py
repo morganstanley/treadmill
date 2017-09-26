@@ -1,14 +1,22 @@
-"""Manage Treadmill app manifest."""
+"""Manage Treadmill app manifest.
+"""
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
+import io
 import logging
+import os
+import shlex
 
 import click
-import yaml
 
 from treadmill import cli
 from treadmill import context
 from treadmill import restclient
+from treadmill import yamlwrapper as yaml
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -36,8 +44,8 @@ def _run(apis,
     # pylint: disable=R0912
     app = {}
     if manifest:
-        with open(manifest, 'rb') as fd:
-            app = yaml.load(fd.read())
+        with io.open(manifest, 'rb') as fd:
+            app = yaml.load(stream=fd)
 
     if endpoint:
         app['endpoints'] = [{'name': name, 'port': port}
@@ -49,7 +57,7 @@ def _run(apis,
         if not service:
             # Take the basename of the command, always assume / on all
             # platforms.
-            service = command[0].split('/')[-1]
+            service = os.path.basename(shlex.split(command[0])[0])
 
     services_dict = {svc['name']: svc for svc in app.get('services', [])}
     if service:
@@ -129,7 +137,7 @@ def init():
                   type=(str, int), multiple=True)
     @click.argument('appname')
     @click.argument('command', nargs=-1)
-    @cli.ON_REST_EXCEPTIONS
+    @cli.handle_exceptions(restclient.CLI_REST_EXCEPTIONS)
     def run(api,
             count,
             manifest,

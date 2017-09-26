@@ -1,30 +1,42 @@
-"""Handles ticket forwarding from the ticket master to the node."""
+"""Handles ticket forwarding from the ticket master to the node.
+"""
 
-import pwd
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import base64
 import hashlib
+import io
 import logging
 import os
+import pwd
 import random
 import shutil
 import stat
-import subprocess
 import tempfile
-
-from twisted.internet import reactor
-from twisted.internet import protocol
 
 import kazoo
 import kazoo.client
 
-from . import exc
-from . import gssapiprotocol
-from . import sysinfo
-from . import subproc
-from . import fs
-from . import zkutils
-from . import zknamespace as z
+from twisted.internet import reactor
+from twisted.internet import protocol
 
+import six
+
+if six.PY2 and os.name == 'posix':
+    import subprocess32 as subprocess  # pylint: disable=import-error
+else:
+    import subprocess  # pylint: disable=wrong-import-order
+
+from treadmill import fs
+from treadmill import gssapiprotocol
+from treadmill import subproc
+from treadmill import sysinfo
+from treadmill import utils
+from treadmill import zknamespace as z
+from treadmill import zkutils
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -43,7 +55,7 @@ class Ticket(object):
         try:
             self.uid = pwd.getpwnam(user).pw_uid
         except KeyError:
-            _LOGGER.warn('princ/user does not exist: %s', user)
+            _LOGGER.warning('princ/user does not exist: %s', user)
             self.uid = None
 
     def __repr__(self):
@@ -65,25 +77,25 @@ class Ticket(object):
 
     def write(self, path=None):
         """Writes the ticket to /var/spool/ticket/<princ>."""
+        def _write_temp(tkt_file):
+            # Write the file
+            tkt_file.write(self.ticket)
+            # Set the owner
+            if self.uid is not None:
+                os.fchown(tkt_file.fileno(), self.uid, -1)
+            # TODO: Should we enforce the mode too?
+            tkt_file.flush()
+
         if path is None:
             path = self.tkt_path
         try:
-            with tempfile.NamedTemporaryFile(dir=os.path.dirname(path),
-                                             prefix='.tmp' + self.princ,
-                                             delete=False,
-                                             mode='w') as tkt_file:
-                # Write the file
-                tkt_file.write(self.ticket)
-                # Set the owner
-                if self.uid is not None:
-                    os.fchown(tkt_file.fileno(), self.uid, -1)
-                # TODO: Should we enforce the mode too?
-                tkt_file.flush()
-            os.rename(tkt_file.name, path)
-
+            fs.write_safe(
+                path,
+                _write_temp,
+                prefix='.tmp' + self.princ
+            )
         except (IOError, OSError):
             _LOGGER.exception('Error writing ticket file: %s', path)
-            fs.rm_safe(tkt_file.name)
 
     def copy(self, dst, src=None):
         """Atomically copy tickets to destination."""
@@ -92,7 +104,7 @@ class Ticket(object):
 
         dst_dir = os.path.dirname(dst)
         try:
-            with open(src, 'rb') as tkt_src_file:
+            with io.open(src, 'rb') as tkt_src_file:
                 with tempfile.NamedTemporaryFile(dir=dst_dir,
                                                  prefix='.tmp' + self.princ,
                                                  delete=False,
@@ -147,7 +159,7 @@ def krbcc_ok(tkt_path):
         subproc.check_call(['klist', '-5', '-s', tkt_path])
         return True
     except subprocess.CalledProcessError:
-        _LOGGER.warn('Ticket cache invalid: %s', tkt_path)
+        _LOGGER.warning('Ticket cache invalid: %s', tkt_path)
         return False
 
 
@@ -207,11 +219,13 @@ class TicketLocker(object):
             for ticket in tickets:
                 tkt_file = os.path.join(self.tkt_spool_dir, ticket)
                 if os.path.exists(tkt_file):
-                    with open(tkt_file) as f:
+                    with io.open(tkt_file, 'rb') as f:
                         encoded = base64.urlsafe_b64encode(f.read())
                         tkt_dict[ticket] = encoded
                 else:
-                    _LOGGER.warn('Ticket file does not exist: %s', tkt_file)
+                    _LOGGER.warning(
+                        'Ticket file does not exist: %s', tkt_file
+                    )
 
         except kazoo.client.NoNodeError:
             _LOGGER.info('App does not exist: %s', appname)
@@ -231,7 +245,7 @@ def run_server(locker):
     class TicketLockerServer(gssapiprotocol.GSSAPILineServer):
         """Ticket locker server."""
 
-        @exc.exit_on_unhandled
+        @utils.exit_on_unhandled
         def got_line(self, line):
             """Callback on received line."""
             appname = line
@@ -289,7 +303,7 @@ def request_tickets(zkclient, appname):
                         _LOGGER.debug('Got empty response.')
                         break
 
-                    princ, encoded = line.split(':')
+                    princ, encoded = line.split(b':')
                     if encoded:
                         _LOGGER.info(
                             'got ticket %s:%s',
@@ -304,8 +318,8 @@ def request_tickets(zkclient, appname):
                         tickets.append(Ticket(princ, None))
                 break
             else:
-                _LOGGER.warn('Cannot connect to %s:%s, %s', host, port,
-                             service)
+                _LOGGER.warning('Cannot connect to %s:%s, %s', host, port,
+                                service)
         except Exception:
             _LOGGER.exception('Exception processing tickets.')
             raise

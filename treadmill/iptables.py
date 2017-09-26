@@ -1,10 +1,27 @@
-"""Wrapper for iptables/ipset"""
+"""Wrapper for iptables/ipset.
+"""
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import logging
+import os
 import re
-import subprocess
+
+try:
+    import xml.etree.cElementTree as etree
+except ImportError:
+    import xml.etree.ElementTree as etree
 
 import jinja2
+import six
+
+if six.PY2 and os.name == 'posix':
+    import subprocess32 as subprocess  # pylint: disable=import-error
+else:
+    import subprocess  # pylint: disable=wrong-import-order
 
 from . import firewall
 from . import subproc
@@ -166,7 +183,7 @@ _PASSTHROUGH_RULE_RE = re.compile((
 ))
 
 #: Container environment to ipset set.
-_SET_BY_ENVIRONMENT = {
+SET_BY_ENVIRONMENT = {
     'dev': SET_NONPROD_CONTAINERS,
     'qa': SET_NONPROD_CONTAINERS,
     'uat': SET_NONPROD_CONTAINERS,
@@ -180,10 +197,8 @@ def initialize(external_ip):
 
     It is assumed that none but Treadmill manages these tables.
 
-    :param external_ip:
+    :param ``str`` external_ip:
         External IP to use with NAT rules
-    :type external_ip:
-        ``str``
     """
     ipset_rules = _IPSET_SETS.render(
         any_container=_SET_CONTAINERS,
@@ -260,22 +275,14 @@ def initialize_container():
 def add_raw_rule(table, chain, rule, safe=False):
     """Adds rule to a fiven table/chain.
 
-    :param table:
+    :param ``str`` table:
         Name of the table where the chain resides.
-    :type table:
-        ``str``
-    :param chain:
+    :param ``str`` chain:
         Name of the chain where to insert the rule.
-    :type chain:
-        ``str``
-    :param rule:
+    :param ``str`` rule:
         Raw iptables rule in the same format as "iptables -S"
-    :type rule:
-        ``str``
-    :param safe:
+    :param ``bool`` safe:
         Query iptables prior to adding to prevent duplicates
-    :param safe:
-        ``bool``
     """
     add_cmd = ['iptables', '-t', table, '-A', chain] + rule.split()
     _LOGGER.info("%s", add_cmd)
@@ -295,18 +302,12 @@ def add_raw_rule(table, chain, rule, safe=False):
 def delete_raw_rule(table, chain, rule):
     """Deletes rule from a given table/chain.
 
-    :param table:
+    :param ``str`` table:
         Name of the table where the chain resides.
-    :type table:
-        ``str``
-    :param chain:
+    :param ``str`` chain:
         Name of the chain from where to remove the rule.
-    :type chain:
-        ``str``
-    :param rule:
+    :param ``str`` rule:
         Raw iptables rule
-    :type rule:
-        ``str``
     """
     del_cmd = ['iptables', '-t', table, '-D', chain] + rule.split()
     _LOGGER.info("%s", del_cmd)
@@ -325,14 +326,10 @@ def delete_raw_rule(table, chain, rule):
 def create_chain(table, chain):
     """Creates new chain in the given table.
 
-    :param table:
+    :param ``str`` table:
         Name of the table where the chain resides.
-    :type table:
-        ``str``
-    :param chain:
+    :param ``str`` chain:
         Name of the chain to create
-    :type chain:
-        ``str``
     """
     subproc.call(['iptables', '-t', table, '-N', chain])
 
@@ -379,19 +376,13 @@ def _dnat_rule_format(dnat_rule):
 def add_dnat_rule(dnat_rule, chain=PREROUTING_DNAT, safe=False):
     """Adds dnat rule to a given chain.
 
-    :param dnat_rule:
+    :param ``DNATRule`` dnat_rule:
         DNAT rule to insert
-    :type dnat_rule:
-        ``DNATRule``
-    :param chain:
+    :param ``str`` chain:
         Name of the chain where to insert the new rule. If ``None``, the
         default chain ``PREROUTING_DNAT`` will be picked.
-    :type chain:
-        ``str``
-    :param safe:
+    :param ``bool`` safe:
         Query iptables prior to adding to prevent duplicates
-    :param safe:
-        ``bool``
     """
     if chain is None:
         chain = PREROUTING_DNAT
@@ -406,15 +397,11 @@ def add_dnat_rule(dnat_rule, chain=PREROUTING_DNAT, safe=False):
 def delete_dnat_rule(dnat_rule, chain=PREROUTING_DNAT):
     """Deletes dnat rule from a given chain.
 
-    :param chain:
+    :param ``str`` chain:
         Name of the chain from where to remove the rule. If ``None``, the
         default chain ``PREROUTING_DNAT`` will be picked.
-    :type chain:
-        ``str``
-    :param dnat_rule:
+    :param ``DNATRule`` dnat_rule:
         DNAT rule to remove
-    :type dnat_rule:
-        ``DNATRule``
     """
     if chain is None:
         chain = PREROUTING_DNAT
@@ -609,10 +596,8 @@ def configure_snat_rules(target, chain=None):
 def _get_current_passthrough_rules(chain):
     """Extract all PassThrough rules from iptables.
 
-    :param chain:
+    :param ``str`` chain:
         Iptables chain to process.
-    :type chain:
-        ``str``
     :returns:
         ``set([PassThroughRule])`` -- Set of rules.
     """
@@ -642,14 +627,10 @@ def configure_passthrough_rules(target, chain=None):
     The function will sync existing iptables configuration with the target
     state, by adding/removing extra rules.
 
-    :param target:
+    :param ``set([PassThroughRule])`` target:
         Desired set of rules
-    :type target:
-        ``set([PassThroughRule])``
-    :param chain:
+    :param ``str`` chain:
         Name of the chain to process.
-    :type chain:
-        ``str``
     """
     current = _get_current_passthrough_rules(chain)
 
@@ -673,18 +654,12 @@ def add_passthrough_rule(passthrough_rule, chain=PREROUTING_PASSTHROUGH,
     From the perspective of apps running on specified external ips, this
     appears as if container is behind a firewall (real host).
 
-    :param passthrough_rule:
+    :param ``PassThroughRule`` passthrough_rule:
         PassThrough rule to insert
-    :type passthrough_rule:
-        ``PassThroughRule``
-    :param chain:
+    :param ``str`` chain:
         Name of the chain where to insert the new rule.
-    :type chain:
-        ``str``
-    :param safe:
+    :param ``bool`` safe:
         Query iptables prior to adding to prevent duplicates
-    :param safe:
-        ``bool``
     """
     if chain is None:
         chain = PREROUTING_PASSTHROUGH
@@ -701,14 +676,10 @@ def add_passthrough_rule(passthrough_rule, chain=PREROUTING_PASSTHROUGH,
 def delete_passthrough_rule(passthrough_rule, chain=PREROUTING_PASSTHROUGH):
     """Deletes passthrough configuration for given hosts.
 
-    :param passthrough_rule:
+    :param ``PassThroughRule`` passthrough_rule:
         PassThrough rule to delete
-    :type passthrough_rule:
-        ``PassThroughRule``
-    :param chain:
+    :param ``str`` chain:
         Name of the chain where to remove the rule from.
-    :type chain:
-        ``str``
     """
     if chain is None:
         chain = PREROUTING_PASSTHROUGH
@@ -752,15 +723,11 @@ def flush_conntrack_table(vip):
 def add_rule(rule, chain=None):
     """Adds a rule to a given chain.
 
-    :param rule:
+    :param ``DNATRule|PassThroughRule`` rule:
         Rule to add
-    :type rule:
-        ``DNATRule``||``PassThroughRule``
-    :param chain:
+    :param ``str`` chain:
         Name of the chain where to insert the new rule. If set to None
         (default), the default chain will be picked based on the rule type.
-    :type chain:
-        ``str``
     """
     if isinstance(rule, firewall.DNATRule):
         add_dnat_rule(rule, chain=chain)
@@ -777,15 +744,11 @@ def add_rule(rule, chain=None):
 def delete_rule(rule, chain=None):
     """Delete a rule from a given chain.
 
-    :param rule:
+    :param ``DNATRule|PassThroughRule`` rule:
         Rule to remove
-    :type rule:
-        ``DNATRule``||``PassThroughRule``
-    :param chain:
+    :param ``str`` chain:
         Name of the chain from which to remove the new rule. If set to None
         (default), the default chain will be picked based on the rule type.
-    :type chain:
-        ``str``
     """
     if isinstance(rule, firewall.DNATRule):
         delete_dnat_rule(rule, chain=chain)
@@ -803,24 +766,20 @@ def delete_rule(rule, chain=None):
 def add_mark_rule(src_ip, environment):
     """Add an environment mark for all traffic coming from an IP.
 
-    :param src_ip:
+    :param ``str`` src_ip:
         Source IP to be marked
-    :type src_ip:
-        ``str``
-    :param environment:
+    :param ``str`` environment:
         Environment to use for the mark
-    :type environment:
-        ``str``
     """
-    assert environment in _SET_BY_ENVIRONMENT, \
+    assert environment in SET_BY_ENVIRONMENT, \
         "Unknown environment: %r" % environment
 
-    target_set = _SET_BY_ENVIRONMENT[environment]
+    target_set = SET_BY_ENVIRONMENT[environment]
     add_ip_set(target_set, src_ip)
 
     # Check that the IP is not marked in any other environment
     other_env_sets = {
-        env_set for env_set in _SET_BY_ENVIRONMENT.values()
+        env_set for env_set in six.viewvalues(SET_BY_ENVIRONMENT)
         if env_set != target_set
     }
     for other_set in other_env_sets:
@@ -831,35 +790,27 @@ def add_mark_rule(src_ip, environment):
 def delete_mark_rule(src_ip, environment):
     """Remove an environment mark from a source IP.
 
-    :param src_ip:
+    :param ``str`` src_ip:
         Source IP on which the mark is set.
-    :type src_ip:
-        ``str``
-    :param environment:
+    :param ``str`` environment:
         Environment to use for the mark
-    :type environment:
-        ``str``
     """
-    assert environment in _SET_BY_ENVIRONMENT, \
+    assert environment in SET_BY_ENVIRONMENT, \
         "Unknown environment: %r" % environment
 
-    target_set = _SET_BY_ENVIRONMENT[environment]
+    target_set = SET_BY_ENVIRONMENT[environment]
     rm_ip_set(target_set, src_ip)
 
 
 def init_set(new_set, **set_options):
     """Create/Initialize a new IPSet set
 
-    :param new_set:
+    :param ``str`` new_set:
         Name of the IPSet set
-    :type new_set:
-        ``str``
     :param set_options:
         Extra options for the set creation
-    :type set_options:
-        Keyword arguments
     """
-    _ipset('create', new_set, 'hash:ip',
+    _ipset('-exist', 'create', new_set, 'hash:ip',
            # Below expands to a list of k, v, one after the other
            *[str(i) for item in set_options.items() for i in item])
     flush_set(new_set)
@@ -868,10 +819,8 @@ def init_set(new_set, **set_options):
 def destroy_set(target_set):
     """Destroy an IPSet set.
 
-    :param target_set:
+    :param ``str`` target_set:
         Name of the IPSet set to destroy.
-    :type target_set:
-        ``str``
     """
     _ipset('destroy', target_set)
 
@@ -879,29 +828,44 @@ def destroy_set(target_set):
 def flush_set(target_set):
     """Flush an IPSet set.
 
-    :param target_set:
+    :param ``str`` target_set:
         Name of the IPSet set to flush.
-    :type target_set:
-        ``str``
     """
     _ipset('flush', target_set)
+
+
+def list_set(target_set):
+    """List members of the set.
+
+    :param ``str`` target_set:
+        Name of the IPSet set to list.
+    :returns:
+        ``list`` -- List of the set member IPs as strings.
+    """
+    (_res, output) = _ipset(
+        'list',
+        '-o', 'xml',
+        target_set
+    )
+    # Extract the members from the xml output
+    et = etree.fromstring(output)
+    return [
+        c.text
+        for c in et.find('members')
+    ]
 
 
 def test_ip_set(target_set, test_ip):
     """Check persence of an IP in an IPSet set
 
-    :param target_set:
+    :param ``str`` target_set:
         Name of the IPSet set to check.
-    :type target_set:
-        ``str``
-    :param test_ip:
+    :param ``str`` test_ip:
         IP address or host to check.
-    :type test_ip:
-        ``str``
-    :returns ``bool``:
-        Returns ``True`` if the IP is in the set, ``False`` otherwise.
+    :returns:
+        ``bool`` -- ``True`` if the IP is in the set, ``False`` otherwise.
     """
-    res = _ipset(
+    (res, _output) = _ipset(
         'test', target_set, test_ip,
         use_except=False
     )
@@ -911,44 +875,32 @@ def test_ip_set(target_set, test_ip):
 def add_ip_set(target_set, add_ip):
     """Add an IP to an IPSet set
 
-    :param target_set:
+    :param ``str`` target_set:
         Name of the IPSet set where to add the IP.
-    :type target_set:
-        ``str``
-    :param add_ip:
+    :param ``str`` add_ip:
         IP address or host to add to the set
-    :type add_ip:
-        ``str``
     """
-    _ipset('add', target_set, add_ip)
+    _ipset('-exist', 'add', target_set, add_ip)
 
 
 def rm_ip_set(target_set, del_ip):
     """Remove an IP from an IPSet set
 
-    :param target_set:
+    :param ``str`` target_set:
         Name of the IPSet set where to add the IP.
-    :type target_set:
-        ``str``
-    :param del_ip:
+    :param ``str`` del_ip:
         IP address or host to remove from the set
-    :type del_ip:
-        ``str``
     """
-    _ipset('del', target_set, del_ip)
+    _ipset('-exist', 'del', target_set, del_ip)
 
 
 def swap_set(from_set, to_set):
     """Swap to IPSet sets
 
-    :param from_set:
+    :param ``str`` from_set:
         Name of the source IPSet set
-    :type from_set:
-        ``str``
-    :param to_set:
+    :param ``str`` to_set:
         Name of the destination IPSet set.
-    :type to_set:
-        ``str``
     """
     _ipset('swap', from_set, to_set)
 
@@ -956,19 +908,17 @@ def swap_set(from_set, to_set):
 def ipset_restore(ipset_state):
     """Initializes the IPSet state.
 
-    :param ipset_state:
+    :param ``str`` ipset_state:
         Target state for IPSet (using `ipset save` syntax)
-    :type ipset_state:
-        ``str``
     """
-    _ipset('restore', cmd_input=ipset_state)
+    _ipset('-exist', 'restore', cmd_input=ipset_state)
 
 
 def _ipset(*args, **kwargs):
     """Invoke the IPSet command"""
     # Default to using exceptions.
     kwargs.setdefault('use_except', True)
-    full_cmd = ['ipset', '-exist'] + list(args)
+    full_cmd = ['ipset'] + list(args)
     return subproc.invoke(full_cmd, **kwargs)
 
 

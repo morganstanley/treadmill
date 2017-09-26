@@ -1,5 +1,11 @@
 """Low level admin API to manipulate global cell topology.
 """
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 # Disable too many lines warning.
 #
 # pylint: disable=C0302
@@ -19,6 +25,7 @@ from distutils import util
 
 import ldap3
 import jinja2
+import six
 
 import treadmill.ldap3kerberos  # pylint: disable=E0611,F0401
 
@@ -62,6 +69,7 @@ _TREADMILL_ATTR_OID_PREFIX = '1.3.6.1.4.1.360.10.6.1.'
 _TREADMILL_OBJCLS_OID_PREFIX = '1.3.6.1.4.1.360.10.6.2.'
 
 DEFAULT_PARTITION = '_default'
+DEFAULT_TENANT = '_default'
 
 
 def _entry_2_dict(entry, schema):
@@ -80,7 +88,7 @@ def _entry_2_dict(entry, schema):
 
         value = entry[ldap_field]
         if isinstance(field_type, list):
-            obj[obj_field] = list(map(field_type[0], value))
+            obj[obj_field] = [field_type[0](v) for v in value]
         elif field_type == bool:
             obj[obj_field] = bool(util.strtobool(value[0].lower()))
         elif field_type == dict:
@@ -88,7 +96,11 @@ def _entry_2_dict(entry, schema):
         else:
             obj[obj_field] = field_type(value[0])
 
-    return {k: v for k, v in obj.items() if v is not None}
+    return {
+        k: v
+        for k, v in six.iteritems(obj)
+        if v is not None
+    }
 
 
 def _dict_2_entry(obj, schema, option=None, option_value=None):
@@ -121,10 +133,12 @@ def _dict_2_entry(obj, schema, option=None, option_value=None):
                 # TODO: we need to check that all values are of specified type.
                 elem_type = field_type[0]
                 if elem_type == str:
-                    elem_type = (str, str)
+                    elem_type = six.string_types
                 if value:
-                    filtered = [str(v) for v in value
-                                if isinstance(v, elem_type)]
+                    filtered = [
+                        str(v) for v in value
+                        if isinstance(v, elem_type)
+                    ]
                     if len(filtered) < len(value):
                         _LOGGER.critical('Exptected %r, got %r',
                                          field_type, value)
@@ -179,7 +193,10 @@ def _abstract_2_attrtype(name, abstract):
     attr['oid'] = _TREADMILL_ATTR_OID_PREFIX + str(attr['idx'])
     attr['name'] = name
     attr['desc'] = abstract.get('desc', name)
-    type_2_syntax = {v: k for k, v in _SYNTAX_2_TYPE.items()}
+    type_2_syntax = {
+        v: k
+        for k, v in six.iteritems(_SYNTAX_2_TYPE)
+    }
 
     assert abstract['type'] in type_2_syntax
     attr['syntax'] = type_2_syntax[abstract['type']]
@@ -267,20 +284,24 @@ def _grouped_to_list_of_dict(grouped, prefix, schema):
     def _to_dict(values):
         """converts to dict."""
         return _entry_2_dict({k: v for k, _, v in values}, schema)
-    filtered = {k: v for k, v in grouped.items()
+    filtered = {k: v for k, v in six.iteritems(grouped)
                 if k.startswith(prefix)}
-    _list = [_to_dict(v) for _k, v in filtered.items()]
-    return sorted(_list, key=lambda x: sorted(list(x.items())))
+    return sorted([_to_dict(v) for _k, v in six.iteritems(filtered)])
 
 
 def _dict_normalize(data):
     """Normalize the strings in the dictionary."""
-    if isinstance(data, str):
+    if isinstance(data, six.string_types):
         return str(data)
     elif isinstance(data, collections.Mapping):
-        return dict(map(_dict_normalize, iter(data.items())))
+        return dict([
+            _dict_normalize(i)
+            for i in six.iteritems(data)
+        ])
     elif isinstance(data, collections.Iterable):
-        return type(data)(map(_dict_normalize, data))
+        return type(data)([
+            _dict_normalize(i) for i in data
+        ])
     else:
         return data
 
@@ -429,7 +450,14 @@ class Admin(object):
 
         for uri in self.uri:
             try:
-                server = ldap3.Server(uri)
+                # Disable W0212: Access to a protected member _is_ipv6 of a
+                #                client class
+                #
+                # This is needed because twisted monkey patches socket._is_ipv6
+                # and ldap3 code is wrong.
+                # pylint: disable=W0212
+                ldap3.Server._is_ipv6 = lambda x, y: False
+                server = ldap3.Server(uri, mode=ldap3.IP_V4_ONLY)
                 if self.user and self.password:
                     self.ldap = ldap3.Connection(
                         server,
@@ -532,8 +560,6 @@ class Admin(object):
                                          'olcObjectClasses'])
 
         schema_dn, entry = next(result)
-        if not result:
-            return None
 
         attr_types = []
         for attr_type_s in entry.get('olcAttributeTypes', []):
@@ -627,8 +653,8 @@ class Admin(object):
             #                indeed not right...
             #
             # pylint: disable=R0204
-            attr_types = dict(map(_attrtype_2_abstract, attr_types))
-            obj_classes = dict(map(_objcls_2_abstract, obj_classes))
+            attr_types = dict([_attrtype_2_abstract(a) for a in attr_types])
+            obj_classes = dict([_objcls_2_abstract(o) for o in obj_classes])
 
         return {'dn': schema_dn,
                 'attributeTypes': attr_types,
@@ -696,8 +722,10 @@ class Admin(object):
         if not old_ocs:
             next_oid = 1
         else:
-            next_oid = max([item['idx']
-                            for item in old_ocs.values()]) + 1
+            next_oid = 1 + max([
+                item['idx']
+                for item in old_ocs.values()
+            ])
 
         for name in added:
             objcls = new_ocs[name]
@@ -721,14 +749,14 @@ class Admin(object):
 
         if to_del:
             values = [_attrtype_2_str(_abstract_2_attrtype(name, attr))
-                      for name, attr in to_del.items()]
+                      for name, attr in six.iteritems(to_del)]
             _LOGGER.debug('del: %s - olcAttributeTypes: %r', schema_dn, values)
             changes['olcAttributeTypes'].extend(
                 [(ldap3.MODIFY_DELETE, values)])
 
         if to_add:
             values = [_attrtype_2_str(_abstract_2_attrtype(name, attr))
-                      for name, attr in to_add.items()]
+                      for name, attr in six.iteritems(to_add)]
             _LOGGER.debug('add: %s - olcAttributeTypes: %r', schema_dn, values)
             changes['olcAttributeTypes'].extend([(ldap3.MODIFY_ADD, values)])
 
@@ -739,12 +767,12 @@ class Admin(object):
                                                   new_obj_classes)
         if to_del:
             values = [_objcls_2_str(name, item)
-                      for name, item in to_del.items()]
+                      for name, item in six.iteritems(to_del)]
             _LOGGER.debug('del: %s - olcObjectClasses: %r', schema_dn, values)
             changes['olcObjectClasses'].extend([(ldap3.MODIFY_DELETE, values)])
         if to_add:
             values = [_objcls_2_str(name, item)
-                      for name, item in to_add.items()]
+                      for name, item in six.iteritems(to_add)]
             _LOGGER.debug('add: %s - olcObjectClasses: %r', schema_dn, values)
             changes['olcObjectClasses'].extend([(ldap3.MODIFY_ADD, values)])
 
@@ -826,6 +854,16 @@ class Admin(object):
             k: [(ldap3.MODIFY_DELETE, [])] for k in entry.keys()
         }
         self.modify(dn, to_be_removed)
+
+    def get_repls(self):
+        """Get all the replication servers in config"""
+        entry = self.get(
+            'olcDatabase={1}mdb,cn=config',
+            '(objectclass=olcMdbConfig)',
+            ['olcSyncrepl']
+        )
+
+        return entry.get('olcSyncrepl')
 
 
 class LdapObject(object):
@@ -953,7 +991,7 @@ class Server(LdapObject):
         ('cell', 'cell', str),
         ('trait', 'traits', [str]),
         ('partition', 'partition', str),
-        ('data', 'data', [str]),
+        ('data', 'data', dict),
     ]
 
     _oc = 'tmServer'
@@ -1062,6 +1100,7 @@ class Application(LdapObject):
         ('ephemeral-ports-tcp', 'ephemeral_ports_tcp', int),
         ('ephemeral-ports-udp', 'ephemeral_ports_udp', int),
         ('data-retention-timeout', 'data_retention_timeout', str),
+        ('lease', 'lease', str),
     ]
 
     _svc_schema = [
@@ -1113,15 +1152,16 @@ class Application(LdapObject):
     @staticmethod
     def schema():
         """Returns combined schema for retrieval."""
+        name_only = lambda schema_rec: (schema_rec[0], None, None)
         return sum(
             [
-                [(r[0], None, None) for r in Application._svc_schema],
-                [(r[0], None, None) for r in Application._svc_restart_schema],
-                [(r[0], None, None) for r in Application._endpoint_schema],
-                [(r[0], None, None) for r in Application._environ_schema],
-                [(r[0], None, None) for r in Application._affinity_schema],
-                [(r[0], None, None) for r in Application._vring_schema],
-                [(r[0], None, None) for r in Application._vring_rule_schema],
+                [name_only(e) for e in Application._svc_schema],
+                [name_only(e) for e in Application._svc_restart_schema],
+                [name_only(e) for e in Application._endpoint_schema],
+                [name_only(e) for e in Application._environ_schema],
+                [name_only(e) for e in Application._affinity_schema],
+                [name_only(e) for e in Application._vring_schema],
+                [name_only(e) for e in Application._vring_rule_schema],
             ],
             Application._schema
         )
@@ -1277,6 +1317,7 @@ class Cell(LdapObject):
         ('version', 'version', str),
         ('root', 'root', str),
         ('data', 'data', dict),
+        ('status', 'status', str),
     ]
 
     _oc = 'tmCell'
@@ -1286,14 +1327,10 @@ class Cell(LdapObject):
     @staticmethod
     def schema():
         """Returns combined schema for retrieval."""
+        name_only = lambda schema_rec: (schema_rec[0], None, None)
         return (
             Cell._schema +
-            list(
-                map(
-                    lambda schema_rec: (schema_rec[0], None, None),
-                    Cell._master_host_schema
-                )
-            )
+            [name_only(e) for e in Cell._master_host_schema]
         )
 
     def get(self, ident):
@@ -1432,8 +1469,9 @@ class CellAllocation(LdapObject):
         ('cpu', 'cpu', str),
         ('memory', 'memory', str),
         ('disk', 'disk', str),
-        ('max-utilization', 'max-utilization', str),
+        ('max-utilization', 'max_utilization', str),
         ('rank', 'rank', int),
+        ('rank-adjustment', 'rank_adjustment', int),
         ('trait', 'traits', [str]),
         ('partition', 'partition', str),
     ]
@@ -1450,14 +1488,10 @@ class CellAllocation(LdapObject):
     @staticmethod
     def schema():
         """Returns combined schema for retrieval."""
+        name_only = lambda schema_rec: (schema_rec[0], None, None)
         return (
             CellAllocation._schema +
-            list(
-                map(
-                    lambda schema_rec: (schema_rec[0], None, None),
-                    CellAllocation._assign_schema
-                )
-            )
+            [name_only(e) for e in CellAllocation._assign_schema]
         )
 
     def dn(self, ident=None):
@@ -1476,9 +1510,10 @@ class CellAllocation(LdapObject):
         """Converts cell allocation object to dict."""
         obj = super(CellAllocation, self).from_entry(entry, dn)
 
-        ident = _dn2cellalloc_id(dn)
-        if ident:
-            obj['_id'] = ident
+        if dn:
+            ident = _dn2cellalloc_id(dn)
+            if ident:
+                obj['_id'] = ident
 
         grouped = _group_entry_by_opt(entry)
         assignments = _grouped_to_list_of_dict(
@@ -1497,6 +1532,9 @@ class CellAllocation(LdapObject):
 
         if 'partition' not in obj:
             obj['partition'] = DEFAULT_PARTITION
+
+        if 'max_utilization' in obj:
+            obj['max_utilization'] = float(obj['max_utilization'])
 
         return obj
 
@@ -1590,6 +1628,7 @@ class Partition(LdapObject):
         ('cpu', 'cpu', str),
         ('disk', 'disk', str),
         ('memory', 'memory', str),
+        ('system', 'systems', [int]),
         ('down-threshold', 'down-threshold', int)
     ]
 
@@ -1636,3 +1675,23 @@ Partition.schema = staticmethod(lambda: Partition._schema)
 Partition.oc = staticmethod(lambda: Partition._oc)
 Partition.ou = staticmethod(lambda: Partition._ou)
 Partition.entity = staticmethod(lambda: Partition._entity)
+
+
+class HAProxy(LdapObject):
+    """HAProxy object."""
+
+    _schema = [
+        ('server', '_id', str),
+        ('cell', 'cell', str),
+    ]
+
+    _oc = 'tmHAProxy'
+    _ou = 'haproxies'
+    _entity = 'server'
+
+
+# pylint: disable=W0212
+HAProxy.schema = staticmethod(lambda: HAProxy._schema)
+HAProxy.oc = staticmethod(lambda: HAProxy._oc)
+HAProxy.ou = staticmethod(lambda: HAProxy._ou)
+HAProxy.entity = staticmethod(lambda: HAProxy._entity)

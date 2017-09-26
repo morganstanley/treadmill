@@ -1,15 +1,19 @@
 """A collection of native images.
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import errno
 import glob
+import io
 import logging
 import os
 import pwd
 import shutil
 import stat
-
-import treadmill
 
 from treadmill import appcfg
 from treadmill import cgroups
@@ -26,28 +30,25 @@ from . import _repository_base
 
 _LOGGER = logging.getLogger(__name__)
 
-_CONTAINER_ENV_DIR = 'environ'
+_CONTAINER_ENV_DIR = 'env'
 
 
-def create_environ_dir(env_dir, app):
+def create_environ_dir(container_dir, root_dir, app):
     """Creates environ dir for s6-envdir."""
-    appenv = {envvar.name: envvar.value for envvar in app.environ}
-    supervisor.create_environ_dir(
-        os.path.join(env_dir, 'app'),
-        appenv
-    )
+    env_dir = os.path.join(container_dir, _CONTAINER_ENV_DIR)
 
     env = {
+        'TREADMILL_APP': app.app,
+        'TREADMILL_CELL': app.cell,
         'TREADMILL_CPU': app.cpu,
         'TREADMILL_DISK': app.disk,
-        'TREADMILL_MEMORY': app.memory,
-        'TREADMILL_CELL': app.cell,
-        'TREADMILL_APP': app.app,
-        'TREADMILL_INSTANCEID': app.task,
         'TREADMILL_HOST_IP': app.network.external_ip,
         'TREADMILL_IDENTITY': app.identity,
         'TREADMILL_IDENTITY_GROUP': app.identity_group,
+        'TREADMILL_INSTANCEID': app.task,
+        'TREADMILL_MEMORY': app.memory,
         'TREADMILL_PROID': app.proid,
+        'TREADMILL_ENV': app.environment,
     }
 
     for endpoint in app.endpoints:
@@ -62,178 +63,87 @@ def create_environ_dir(env_dir, app):
     )
 
     env['TREADMILL_CONTAINER_IP'] = app.network.vip
+    env['TREADMILL_GATEWAY_IP'] = app.network.gateway
+    if app.shared_ip:
+        env['TREADMILL_SERVICE_IP'] = app.network.external_ip
 
-    # Override appenv with mandatory treadmill environment.
-    supervisor.create_environ_dir(
-        os.path.join(env_dir, 'sys'),
-        env
-    )
+    supervisor.create_environ_dir(env_dir, env)
 
-
-def _create_logrun(directory):
-    """Creates log directory with run file to start s6 logger."""
-    fs.mkdir_safe(os.path.join(directory, 'log'))
-    utils.create_script(os.path.join(directory, 'log', 'run'),
-                        'logger.run')
+    # Bind the environ directory in the container volume
+    fs.mkdir_safe(os.path.join(root_dir, _CONTAINER_ENV_DIR))
+    fs.mount_bind(root_dir, os.path.join('/', _CONTAINER_ENV_DIR),
+                  target=os.path.join(container_dir, _CONTAINER_ENV_DIR),
+                  bind_opt='--bind')
 
 
-def _create_sysrun(sys_dir, name, command, down=False):
-    """Create system script."""
-    fs.mkdir_safe(os.path.join(sys_dir, name))
-    utils.create_script(os.path.join(sys_dir, name, 'run'),
-                        'supervisor.run_sys',
-                        cmd=command)
-    _create_logrun(os.path.join(sys_dir, name))
-    if down:
-        utils.touch(os.path.join(sys_dir, name, 'down'))
-
-
-def create_supervision_tree(container_dir, app):
+def create_supervision_tree(container_dir, root_dir, app):
     """Creates s6 supervision tree."""
-    # Disable R0915: Too many statements
-    # pylint: disable=R0915
-    root_dir = os.path.join(container_dir, 'root')
-
-    # Services and sys directories will be restored when container restarts
-    # with data retention on existing volume.
-    #
-    # Sys directories will be removed. Services directory will stay, which
-    # present a danger of accumulating restart counters in finished files.
-    #
-    # TODO:
-    #
-    # It is rather arbitrary how restart counts should work when data is
-    # restored, but most likely services are "restart always" policy, so it
-    # will not affect them.
-    services_dir = os.path.join(container_dir, 'services')
     sys_dir = os.path.join(container_dir, 'sys')
-    if os.path.exists(sys_dir):
-        _LOGGER.info('Deleting existing sys dir: %s', sys_dir)
-        shutil.rmtree(sys_dir)
-
-    app_json = os.path.join(root_dir, 'app.json')
-
-    # Create /services directory for the supervisor
-    svcdir = os.path.join(root_dir, 'services')
-    fs.mkdir_safe(svcdir)
-
-    fs.mkdir_safe(services_dir)
-    fs.mount_bind(root_dir, '/services', services_dir)
-
-    root_pw = pwd.getpwnam('root')
-    proid_pw = pwd.getpwnam(app.proid)
-
-    # Create .s6-svscan directories for svscan finish
-    sys_svscandir = os.path.join(sys_dir, '.s6-svscan')
-    fs.mkdir_safe(sys_svscandir)
-
-    svc_svscandir = os.path.join(services_dir, '.s6-svscan')
-    fs.mkdir_safe(svc_svscandir)
-
-    # svscan finish scripts to wait on all services
-    utils.create_script(
-        os.path.join(sys_svscandir, 'finish'),
-        'svscan.finish',
-        timeout=6000
-    )
-
-    utils.create_script(
-        os.path.join(svc_svscandir, 'finish'),
-        'svscan.finish',
-        timeout=5000
-    )
-
-    for svc in app.services:
-        if getattr(svc, 'root', False):
-            svc_user = 'root'
-            svc_home = root_pw.pw_dir
-            svc_shell = root_pw.pw_shell
-        else:
-            svc_user = app.proid
-            svc_home = proid_pw.pw_dir
-            svc_shell = proid_pw.pw_shell
-
-        supervisor.create_service(
-            services_dir, svc_user, svc_home, svc_shell,
-            svc.name, svc.command,
-            env=app.environment, down=True,
-            envdirs=['/environ/app', '/environ/sys'], as_root=True,
-        )
-        _create_logrun(os.path.join(services_dir, svc.name))
-
-    for svc in app.system_services:
-        supervisor.create_service(
-            services_dir, 'root', root_pw.pw_dir, root_pw.pw_shell,
-            svc.name, svc.command,
-            env=app.environment, down=False,
-            envdirs=['/environ/sys'], as_root=True,
-        )
-        _create_logrun(os.path.join(services_dir, svc.name))
-
-    # Vring services
-    for cell in app.vring.cells:
-        fs.mkdir_safe(os.path.join(sys_dir, 'vring.%s' % cell))
-        cmd = '%s sproc --zookeeper - --cell %s vring %s' % (
-            treadmill.TREADMILL_BIN, cell, app_json)
-        utils.create_script(
-            os.path.join(sys_dir, 'vring.%s' % cell, 'run'),
-            'supervisor.run_sys',
-            cmd=cmd
-        )
-        _create_logrun(os.path.join(sys_dir, 'vring.%s' % cell))
-
-    # Create endpoint presence service
-    presence_monitor_cmd = '%s sproc presence monitor %s %s' % (
-        treadmill.TREADMILL_BIN,
-        app_json,
-        container_dir
-    )
-    presence_register_cmd = '%s sproc presence register %s %s' % (
-        treadmill.TREADMILL_BIN,
-        app_json,
-        container_dir
-    )
-    shadow_etc = os.path.join(container_dir, 'overlay', 'etc')
-    host_aliases_cmd = '%s sproc host-aliases --aliases-dir %s %s %s' % (
-        treadmill.TREADMILL_BIN,
-        os.path.join(shadow_etc, 'host-aliases'),
-        os.path.join(shadow_etc, 'hosts.original'),
-        os.path.join(shadow_etc, 'hosts'),
-    )
-
-    _create_sysrun(sys_dir, 'monitor', presence_monitor_cmd)
-    _create_sysrun(sys_dir, 'register', presence_register_cmd)
-    _create_sysrun(sys_dir, 'hostaliases', host_aliases_cmd)
-
-    cmd = None
-    args = None
-
-    if hasattr(app, 'command'):
-        cmd = app.command
-
-    if hasattr(app, 'args'):
-        args = app.args
-
-    if not cmd:
-        cmd = subproc.resolve('s6_svscan')
-        if not args:
-            args = ['/services']
-
-    _create_sysrun(
+    sys_scandir = supervisor.create_scan_dir(
         sys_dir,
-        'start_container',
-        '%s %s %s -m -p -i %s %s' % (
-            subproc.resolve('chroot'),
-            root_dir,
-            subproc.resolve('pid1'),
-            cmd,
-            ' '.join(args)
-        ),
-        down=True
+        finish_timeout=6000,
+        monitor_service='monitor'
+    )
+    for svc_def in app.system_services:
+        supervisor.create_service(
+            sys_scandir,
+            name=svc_def.name,
+            app_run_script=svc_def.command,
+            userid='root',
+            environ_dir=os.path.join(container_dir, _CONTAINER_ENV_DIR),
+            environ={
+                envvar.name: envvar.value
+                for envvar in svc_def.environ
+            },
+            environment=app.environment,
+            downed=svc_def.downed,
+            trace=None,
+            monitor_policy={
+                'limit': svc_def.restart.limit,
+                'interval': svc_def.restart.interval,
+            }
+        )
+    sys_scandir.write()
+
+    services_dir = os.path.join(container_dir, 'services')
+    services_scandir = supervisor.create_scan_dir(
+        services_dir,
+        finish_timeout=5000
     )
 
+    trace = {
+        'instanceid': app.name,
+        'uniqueid': app.uniqueid
+    }
+    for svc_def in app.services:
+        supervisor.create_service(
+            services_scandir,
+            name=svc_def.name,
+            app_run_script=svc_def.command,
+            userid=svc_def.proid,
+            environ_dir='/' + _CONTAINER_ENV_DIR,
+            environ={
+                envvar.name: envvar.value
+                for envvar in svc_def.environ
+            },
+            environment=app.environment,
+            downed=False,
+            trace=trace if svc_def.trace else None,
+            monitor_policy={
+                'limit': svc_def.restart.limit,
+                'interval': svc_def.restart.interval,
+            }
+        )
+    services_scandir.write()
 
-def make_fsroot(root, proid):
+    # Bind the service directory in the container volume
+    fs.mkdir_safe(os.path.join(root_dir, 'services'))
+    fs.mount_bind(root_dir, '/services',
+                  target=os.path.join(container_dir, 'services'),
+                  bind_opt='--bind')
+
+
+def make_fsroot(root_dir, proid):
     """Initializes directory structure for the container in a new root.
 
      - Bind directories in parent / (with exceptions - see below.)
@@ -244,7 +154,7 @@ def make_fsroot(root, proid):
        - /var/spool - create empty with dirs.
      - Bind everything in /var, skipping /spool/tickets
      """
-    newroot_norm = fs.norm_safe(root)
+    newroot_norm = fs.norm_safe(root_dir)
     mounts = [
         '/bin',
         '/common',
@@ -262,7 +172,9 @@ def make_fsroot(root, proid):
         '/var/lib/sss',
         '/var/tmp/treadmill/env',
         '/var/tmp/treadmill/spool',
-    ] + glob.glob('/opt/*')
+    ]
+    # Add everything under /opt
+    mounts += glob.glob('/opt/*')
 
     emptydirs = [
         '/tmp',
@@ -286,16 +198,16 @@ def make_fsroot(root, proid):
         '/var/tmp/cores/',
     ]
 
+    for mount in mounts:
+        if os.path.exists(mount):
+            fs.mount_bind(newroot_norm, mount)
+
     for directory in emptydirs:
         _LOGGER.debug('Creating empty dir: %s', directory)
         fs.mkdir_safe(newroot_norm + directory)
 
     for directory in stickydirs:
         os.chmod(newroot_norm + directory, 0o777 | stat.S_ISVTX)
-
-    for mount in mounts:
-        if os.path.exists(mount):
-            fs.mount_bind(newroot_norm, mount)
 
     # Mount .../tickets .../keytabs on tempfs, so that they will be cleaned
     # up when the container exits.
@@ -306,7 +218,7 @@ def make_fsroot(root, proid):
         fs.mount_tmpfs(newroot_norm, tmpfsdir, '4M')
 
 
-def etc_overlay(tm_env, container_dir, root_dir, app):
+def create_etc_overlay(tm_env, container_dir, root_dir, app):
     """Create overlay configuration (etc) files for the container.
     """
     # ldpreloads
@@ -317,8 +229,26 @@ def etc_overlay(tm_env, container_dir, root_dir, app):
     _prepare_resolv_conf(tm_env, container_dir)
     # sshd PAM configuration
     _prepare_pam_sshd(tm_env, container_dir, app)
+    # constructed keytab.
+    _prepare_krb(tm_env, container_dir)
     # bind prepared inside container
     _bind_etc_overlay(container_dir, root_dir)
+
+
+def _prepare_krb(tm_env, container_dir):
+    """Manage kerberos environment inside container.
+    """
+    etc_dir = os.path.join(container_dir, 'overlay', 'etc')
+    fs.mkdir_safe(etc_dir)
+    kt_dest = os.path.join(etc_dir, 'krb5.keytab')
+
+    kt_source = os.path.join(tm_env.root, 'spool', 'krb5.keytab')
+    if os.path.exists(kt_source):
+        _LOGGER.info('Copy keytab: %s to %s', kt_source, kt_dest)
+        shutil.copyfile(kt_source, kt_dest)
+    else:
+        # TODO: need to abort.
+        _LOGGER.error('Unable to copy host keytab: %s', kt_source)
 
 
 def _prepare_ldpreload(container_dir, app):
@@ -345,7 +275,7 @@ def _prepare_ldpreload(container_dir, app):
         return
 
     _LOGGER.info('Configuring /etc/ld.so.preload: %r', ldpreloads)
-    with open(new_ldpreload, 'a') as f:
+    with io.open(new_ldpreload, 'a') as f:
         f.write('\n'.join(ldpreloads) + '\n')
 
 
@@ -426,7 +356,8 @@ def _bind_etc_overlay(container_dir, root_dir):
                          'etc/host-aliases',
                          'etc/ld.so.preload',
                          'etc/pam.d/sshd',
-                         'etc/resolv.conf']:
+                         'etc/resolv.conf',
+                         'etc/krb5.keytab']:
         fs.mount_bind(root_dir, os.path.join('/', overlay_file),
                       target=os.path.join(overlay_dir, overlay_file),
                       bind_opt='--bind')
@@ -438,7 +369,7 @@ def _bind_etc_overlay(container_dir, root_dir):
                   bind_opt='--bind')
 
 
-def share_cgroup_info(app, root_dir):
+def share_cgroup_info(root_dir, app):
     """Shares subset of cgroup tree with the container."""
     # Bind /cgroup/memory inside chrooted environment to /cgroup/.../memory
     # of the container.
@@ -469,7 +400,7 @@ class NativeImage(_image_base.Image):
     def unpack(self, container_dir, root_dir, app):
         make_fsroot(root_dir, app.proid)
 
-        image_fs.configure_plugins(self.tm_env, root_dir, app)
+        image_fs.configure_plugins(self.tm_env, container_dir, app)
 
         # FIXME: Lots of things are still reading this file.
         #        Copy updated state manifest as app.json in the
@@ -477,14 +408,11 @@ class NativeImage(_image_base.Image):
         shutil.copy(os.path.join(container_dir, runtime.STATE_JSON),
                     os.path.join(root_dir, appcfg.APP_JSON))
 
-        # FIXME: env_dir should be in a well defined location (part of the
-        #        container "API").
-        env_dir = os.path.join(root_dir, 'environ')
-        create_environ_dir(env_dir, app)
-        create_supervision_tree(container_dir, app)
+        create_environ_dir(container_dir, root_dir, app)
+        create_supervision_tree(container_dir, root_dir, app)
+        create_etc_overlay(self.tm_env, container_dir, root_dir, app)
 
-        share_cgroup_info(app, root_dir)
-        etc_overlay(self.tm_env, container_dir, root_dir, app)
+        share_cgroup_info(root_dir, app)
 
 
 class NativeImageRepository(_repository_base.ImageRepository):

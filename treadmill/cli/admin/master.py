@@ -1,17 +1,24 @@
-"""Implementation of treadmill admin master CLI plugin
+"""Implementation of treadmill admin master CLI plugin.
 """
 
+from __future__ import division
+from __future__ import absolute_import
+from __future__ import unicode_literals
+from __future__ import print_function
+
+import io
+
 import click
-import yaml
 
 from treadmill import cli
 from treadmill import context
 from treadmill import master
+from treadmill import yamlwrapper as yaml
 
 
 def server_group(parent):
     """Server CLI group"""
-    formatter = cli.make_formatter(cli.ServerNodePrettyFormatter)
+    formatter = cli.make_formatter('server-node')
 
     @parent.group()
     def server():
@@ -87,7 +94,7 @@ def server_group(parent):
 
 def app_group(parent):
     """App CLI group"""
-    formatter = cli.make_formatter(cli.AppPrettyFormatter)
+    formatter = cli.make_formatter('app')
 
     @parent.group(name='app')
     def app():
@@ -112,8 +119,8 @@ def app_group(parent):
     @cli.admin.ON_EXCEPTIONS
     def schedule(app, manifest, count, env, proid):
         """Schedule app(s) on the cell master"""
-        with open(manifest, 'rb') as fd:
-            data = yaml.load(fd.read())
+        with io.open(manifest, 'rb') as fd:
+            data = yaml.load(stream=fd)
         # TODO: should we delete all potential attributes starting
         #                with _ ?
         if '_id' in data:
@@ -126,7 +133,7 @@ def app_group(parent):
 
         data['proid'] = proid
         scheduled = master.create_apps(context.GLOBAL.zk.conn,
-                                       app, data, count)
+                                       app, data, count, 'admin')
         for app_id in scheduled:
             print(app_id)
 
@@ -143,7 +150,7 @@ def app_group(parent):
     @cli.admin.ON_EXCEPTIONS
     def delete(apps):
         """Deletes (unschedules) the app by pattern"""
-        master.delete_apps(context.GLOBAL.zk.conn, apps)
+        master.delete_apps(context.GLOBAL.zk.conn, apps, 'admin')
 
     del list
     del schedule
@@ -153,7 +160,7 @@ def app_group(parent):
 
 def monitor_group(parent):
     """App monitor CLI group"""
-    formatter = cli.make_formatter(cli.AppMonitorPrettyFormatter())
+    formatter = cli.make_formatter('app-monitor')
 
     @parent.group()
     def monitor():
@@ -232,7 +239,7 @@ def cell_group(parent):
 
 def bucket_group(parent):
     """Bucket CLI group"""
-    formatter = cli.make_formatter(cli.BucketPrettyFormatter)
+    formatter = cli.make_formatter('bucket')
 
     @parent.group()
     def bucket():
@@ -285,7 +292,7 @@ def bucket_group(parent):
 
 def identity_group_group(parent):
     """App monitor CLI group"""
-    formatter = cli.make_formatter(cli.IdentityGroupPrettyFormatter)
+    formatter = cli.make_formatter('identity-group')
 
     @parent.group(name='identity-group')
     def identity_group():

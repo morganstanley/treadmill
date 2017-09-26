@@ -1,4 +1,8 @@
 """Zookeeper status interface."""
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import socket
 import logging
@@ -130,7 +134,7 @@ def check_blackouts():
     try:
         blacked_out_nodes = zkclient.get_children(z.BLACKEDOUT_SERVERS)
         for server in blacked_out_nodes:
-            _LOGGER.warn('Server blackedout: %s', server)
+            _LOGGER.warning('Server blackedout: %s', server)
     except kazoo.client.NoNodeError:
         pass
 

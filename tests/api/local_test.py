@@ -1,16 +1,26 @@
 """Local API tests.
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import os
 import unittest
 
 import mock
 
-from treadmill.api import local
-from treadmill.exc import (FileNotFoundError, InvalidInputError)
+import six
 
-METRICS_DIR = '.../metrics'
+from treadmill.api import local
+# pylint: disable=W0622
+from treadmill.exc import (LocalFileNotFoundError, InvalidInputError)
+
+APPS_DIR = '.../apps'
 ARCHIVES_DIR = '.../archives'
+METRICS_DIR = '.../metrics'
+RUNNING_DIR = '.../running'
 
 # do not complain about accessing protected member
 # pylint: disable=W0212
@@ -27,7 +37,7 @@ class MetricsAPITest(unittest.TestCase):
         tm_env_func = mock.Mock()
         tm_env_func.return_value = tm_env
 
-        self.met = local._MetricsAPI(tm_env_func)
+        self.met = local.mk_metrics_api(tm_env_func)()
 
     def test_metrics_fpath(self):
         """Test the path for application and service rrd metrics"""
@@ -65,19 +75,24 @@ class LogAPITest(unittest.TestCase):
 
     def setUp(self):
         tm_env = mock.Mock()
+        tm_env.apps_dir = APPS_DIR
+        tm_env.archives_dir = ARCHIVES_DIR
+        tm_env.running_dir = RUNNING_DIR
 
         tm_env_func = mock.Mock()
         tm_env_func.return_value = tm_env
 
-        self.log = local._LogAPI(tm_env_func)
+        self.log = local.mk_logapi(tm_env_func)()
 
     # Don't complain about unused parameters
     # pylint: disable=W0613
-    @mock.patch('builtins.open', return_value=mock.MagicMock())
-    @mock.patch('treadmill.api.local._fragment', return_value='invoked')
-    def test_get(self, mopen, _):
+    @mock.patch('io.open', mock.mock_open())
+    @mock.patch('treadmill.api.local._fragment',
+                mock.Mock(spec_set=True, return_value='invoked'))
+    @mock.patch('treadmill.api.local._get_file',
+                mock.Mock(spec_set=True))
+    def test_get(self):
         """Test the _LogAPI.get() method."""
-        self.log._get_logfile = mock.Mock()
         with self.assertRaises(InvalidInputError):
             self.log.get('no/such/log/exists', start=-1)
 
@@ -85,6 +100,48 @@ class LogAPITest(unittest.TestCase):
             self.log.get('no/such/log/exists',
                          start=0, limit=3),
             'invoked')
+
+    @mock.patch('treadmill.api.local._get_file')
+    def test_get_logfile_new(self, _get_file_mock):
+        """Test _LogAPI._get_logfile_new()."""
+        # ARCHIVED
+        self.log._get_logfile_new('proid.app#123', 'uniq', 'service', 'foo')
+        _get_file_mock.assert_called_once_with(
+            '.../apps/proid.app-123-uniq/data/services/foo/data/log/current',
+            arch_fname='.../archives/proid.app-123-uniq.service.tar.gz',
+            arch_extract=True,
+            arch_extract_fname='services/foo/data/log/current')
+
+        _get_file_mock.reset_mock()
+
+        # RUNNING
+        self.log._get_logfile_new('proid.app#123', 'running', 'service', 'foo')
+        _get_file_mock.assert_called_once_with(
+            '.../running/proid.app#123/data/services/foo/data/log/current',
+            arch_fname='.../archives/proid.app-123-running.service.tar.gz',
+            arch_extract=False,
+            arch_extract_fname='services/foo/data/log/current')
+
+    @mock.patch('treadmill.api.local._get_file')
+    def test_get_logfile_old(self, _get_file_mock):
+        """Test _LogAPI._get_logfile_old()."""
+        # ARCHIVED
+        self.log._get_logfile_old('app#123', 'uniq', 'service', 'foo')
+        _get_file_mock.assert_called_once_with(
+            '.../apps/app-123-uniq/services/foo/log/current',
+            arch_fname='.../archives/app-123-uniq.service.tar.gz',
+            arch_extract=True,
+            arch_extract_fname='services/foo/log/current')
+
+        _get_file_mock.reset_mock()
+
+        # RUNNING
+        self.log._get_logfile_old('proid.app#123', 'running', 'service', 'foo')
+        _get_file_mock.assert_called_once_with(
+            '.../running/proid.app#123/services/foo/log/current',
+            arch_fname='.../archives/proid.app-123-running.service.tar.gz',
+            arch_extract=False,
+            arch_extract_fname='services/foo/log/current')
 
 
 class HelperFuncTests(unittest.TestCase):
@@ -99,101 +156,136 @@ class HelperFuncTests(unittest.TestCase):
         """Test the _get_file() func."""
         self.assertEqual(local._get_file(__file__), __file__)
 
-        with self.assertRaises(FileNotFoundError):
+        with self.assertRaises(LocalFileNotFoundError):
             local._get_file('no_such_file', arch_extract=False)
 
-        with self.assertRaises(FileNotFoundError):
+        with self.assertRaises(LocalFileNotFoundError):
             local._get_file(fname='no_such_file',
                             arch_fname='no_such_archive',
                             arch_extract=True)
 
     def test_fragment_file(self):
         """Test the _fragment() func."""
+        self.assertEqual(list(local._fragment(iter(six.moves.range(10)),
+                                              limit=-1)),
+                         list(six.moves.range(10)))
+
         self.assertEqual(
-            list(local._fragment(iter(range(10)))),
-            list(range(10))
-        )
+            list(local._fragment(iter(six.moves.range(10)), limit=2)),
+            list(six.moves.range(2)))
+
         self.assertEqual(
-            list(local._fragment(iter(range(10)), limit=2)),
-            list(range(2))
-        )
+            list(local._fragment(iter(six.moves.range(10)), start=0, limit=3)),
+            list(six.moves.range(3)))
+
         self.assertEqual(
-            list(local._fragment(iter(range(10)), start=0, limit=3)),
-            list(range(3))
-        )
+            list(local._fragment(iter(six.moves.range(10)), start=1, limit=4)),
+            list(six.moves.range(1, 5)))
+
         self.assertEqual(
-            list(local._fragment(iter(range(10)), start=1, limit=4)),
-            list(range(1, 5))
-        )
+            list(local._fragment(iter(six.moves.range(10)), start=5,
+                                 limit=-1)),
+            list(six.moves.range(5, 10)))
+
         self.assertEqual(
-            list(local._fragment(iter(range(10)), start=5)),
-            list(range(5, 10))
-        )
+            list(local._fragment(iter(six.moves.range(10)), start=8, limit=8)),
+            [8, 9])
+
         self.assertEqual(
-            list(local._fragment(iter(range(10)), start=8, limit=8)),
-            [8, 9]
-        )
-        self.assertEqual(
-            list(local._fragment(iter(range(10)), start=8, limit=40)),
-            [8, 9]
-        )
-        with self.assertRaises(InvalidInputError):
-            list(local._fragment(iter(range(10)), start=99))
+            list(local._fragment(iter(six.moves.range(10)), start=8,
+                                 limit=40)),
+            [8, 9])
 
         with self.assertRaises(InvalidInputError):
-            list(local._fragment(iter(range(10)), 99, limit=5))
+            list(local._fragment(iter(six.moves.range(10)), start=99,
+                                 limit=-1))
+
+        with self.assertRaises(InvalidInputError):
+            list(local._fragment(iter(six.moves.range(10)), 99, limit=5))
 
     def test_fragment_in_reverse(self):
         """Test the _fragment_in_reverse() func."""
         self.assertEqual(
-            list(local._fragment_in_reverse(iter(range(10)))),
-            list(reversed(range(10)))
-        )
+            list(local._fragment_in_reverse(iter(six.moves.range(10)),
+                                            limit=-1)),
+            list(reversed(six.moves.range(10))))
+
         self.assertEqual(
-            list(local._fragment_in_reverse(iter(range(10)), limit=2)),
-            [9, 8]
-        )
+            list(local._fragment_in_reverse(iter(six.moves.range(10)),
+                                            limit=2)),
+            [9, 8])
+
         self.assertEqual(
-            list(local._fragment_in_reverse(iter(range(10)), 0, limit=3)),
-            [9, 8, 7]
-        )
+            list(local._fragment_in_reverse(iter(six.moves.range(10)), 0,
+                                            limit=3)),
+            [9, 8, 7])
+
         self.assertEqual(
-            list(local._fragment_in_reverse(iter(range(10)), 1, 4)),
-            list(range(8, 4, -1))
-        )
+            list(local._fragment_in_reverse(iter(six.moves.range(10)), 1, 4)),
+            list(six.moves.range(8, 4, -1)))
+
         self.assertEqual(
-            list(local._fragment_in_reverse(iter(range(10)), start=5)),
-            [4, 3, 2, 1, 0]
-        )
+            list(local._fragment_in_reverse(iter(six.moves.range(10)),
+                                            start=5, limit=-1)),
+            [4, 3, 2, 1, 0])
+
         self.assertEqual(
-            list(local._fragment_in_reverse(iter(range(10)), 8, limit=8)),
-            [1, 0]
-        )
+            list(local._fragment_in_reverse(iter(six.moves.range(10)), 8,
+                                            limit=8)),
+            [1, 0])
+
         self.assertEqual(
-            list(local._fragment_in_reverse(iter(range(10)), 8, limit=40)),
-            [1, 0]
-        )
+            list(local._fragment_in_reverse(iter(six.moves.range(10)), 8,
+                                            limit=40)),
+            [1, 0])
+
         self.assertEqual(
-            list(local._fragment_in_reverse(iter(range(10)), 8, 1)),
-            [1]
-        )
-        with self.assertRaises(InvalidInputError):
-            list(local._fragment_in_reverse(iter(range(10)), start=99))
+            list(local._fragment_in_reverse(iter(six.moves.range(10)), 8, 1)),
+            [1])
 
         with self.assertRaises(InvalidInputError):
-            list(local._fragment_in_reverse(iter(range(10)), 99, limit=9))
+            list(local._fragment_in_reverse(iter(six.moves.range(10)),
+                                            start=99))
+
+        with self.assertRaises(InvalidInputError):
+            list(local._fragment_in_reverse(iter(six.moves.range(10)), 99,
+                                            limit=9))
+
+    def test_archive_path(self):
+        """Test the _archive_paths() func."""
+        tm_env = mock.Mock()
+        tm_env.archives_dir = ARCHIVES_DIR
+
+        self.assertEqual(
+            local._archive_path(tm_env, 'app', 'app#123', 'uniq'),
+            '{}/app-123-uniq.app.tar.gz'.format(ARCHIVES_DIR))
 
 
 class APITest(unittest.TestCase):
     """Basic API tests."""
 
-    def test_archive(self):
+    def setUp(self):
         """Test the _get_file() func."""
-        api = local.API()
+        self.api = local.API()
         os.environ['TREADMILL_APPROOT'] = os.getcwd()
 
-        with self.assertRaises(FileNotFoundError):
-            api.archive.get('no/such/archive')
+    def test_archive(self):
+        """Test ArvhiveApi's get() method."""
+        with self.assertRaises(LocalFileNotFoundError):
+            self.api.archive.get('no/such/archive')
+
+    # W0613: unused argument 'dont_care'
+    # pylint: disable=W0613
+    @mock.patch('glob.glob',
+                return_value=['.../archives/proid.app-foo-bar#123.sys.tar.gz',
+                              '.../archives/proid.app-123-uniq.sys.tar.gz',
+                              '.../archives/proid.app#123.sys.tar.gz'])
+    @mock.patch('os.stat')
+    def test_list_finished(self, _, dont_care):
+        """Test _list_finished()."""
+        res = self.api.list('finished')
+        self.assertEqual(len(res), 1)
+        self.assertEqual(res[0]['_id'], 'proid.app#123/uniq')
 
 
 if __name__ == '__main__':

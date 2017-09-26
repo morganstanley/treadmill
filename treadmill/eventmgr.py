@@ -11,26 +11,28 @@ Applications that are scheduled to run on the server are mirrored in the
 'cache' directory.
 """
 
-
-import os
-import time
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import glob
+import io
 import logging
-import tempfile
+import os
+import time
 
 import kazoo
 import kazoo.client
 
-import yaml
-
 from treadmill import appenv
 from treadmill import context
-from treadmill import exc
 from treadmill import fs
 from treadmill import sysinfo
-from treadmill import zkutils
+from treadmill import utils
+from treadmill import yamlwrapper as yaml
 from treadmill import zknamespace as z
+from treadmill import zkutils
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -81,32 +83,27 @@ class EventMgr(object):
 
         # Wait for presence node to appear. Once up, syncronize the placement.
         @zkclient.DataWatch(z.path.server_presence(self._hostname))
-        @exc.exit_on_unhandled
+        @utils.exit_on_unhandled
         def _server_presence_update(data, _stat, event):
             """Watch server presence."""
             if data is None and event is None:
                 # The node is not there yet, wait.
                 _LOGGER.info('Server node missing.')
                 seen.clear()
-                self._cache_notify(False)
             elif event is not None and event.type == 'DELETED':
                 _LOGGER.info('Presence node deleted.')
                 seen.clear()
-                self._cache_notify(False)
             else:
                 _LOGGER.info('Presence is up.')
                 seen.set()
-                apps = zkclient.get_children(z.path.placement(self._hostname))
-                self._synchronize(zkclient, apps)
+            self._cache_notify(seen.is_set())
             return True
 
         @zkclient.ChildrenWatch(z.path.placement(self._hostname))
-        @exc.exit_on_unhandled
+        @utils.exit_on_unhandled
         def _app_watch(apps):
             """Watch application placement."""
-            if seen.is_set():
-                self._synchronize(zkclient, apps)
-                self._cache_notify(True)
+            self._synchronize(zkclient, apps)
             return True
 
         while True:
@@ -165,12 +162,11 @@ class EventMgr(object):
                 manifest.update(placement_info)
 
             manifest_file = os.path.join(self.tm_env.cache_dir, app)
-            with tempfile.NamedTemporaryFile(dir=self.tm_env.cache_dir,
-                                             prefix='.%s-' % app,
-                                             delete=False,
-                                             mode='w') as temp_manifest:
-                yaml.dump(manifest, stream=temp_manifest)
-            os.rename(temp_manifest.name, manifest_file)
+            fs.write_safe(
+                manifest_file,
+                lambda f: yaml.dump(manifest, stream=f),
+                prefix='.%s-' % app
+            )
             _LOGGER.info('Created cache manifest: %s', manifest_file)
 
         except kazoo.exceptions.NoNodeError:
@@ -189,7 +185,7 @@ class EventMgr(object):
         _LOGGER.debug("cache notify (seen: %r)", is_seen)
         if is_seen:
             # Mark the cache folder as ready.
-            with open(os.path.join(self.tm_env.cache_dir, _SEEN_FILE), 'w+'):
+            with io.open(os.path.join(self.tm_env.cache_dir, _SEEN_FILE), 'w'):
                 pass
         else:
             # Mark the cache folder as outdated.

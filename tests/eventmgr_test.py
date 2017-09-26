@@ -1,8 +1,13 @@
-"""
-Unit test for eventmgr - processing Zookeeper events.
+"""Unit test for eventmgr - processing Zookeeper events.
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import glob
+import io
 import os
 import shutil
 import tempfile
@@ -12,11 +17,11 @@ from tests.testutils import mockzk
 
 import kazoo
 import mock
-import yaml
 
 import treadmill
 from treadmill import context
 from treadmill import eventmgr
+from treadmill import yamlwrapper as yaml
 
 
 class MockEvent(object):
@@ -200,8 +205,8 @@ class EventMgrTest(mockzk.MockZookeeperTestCase):
         appcache = os.path.join(self.cache, 'xxx.app1#1234')
         self.assertTrue(os.path.exists(appcache))
 
-        with open(appcache) as f:
-            data = yaml.load(f.read())
+        with io.open(appcache) as f:
+            data = yaml.load(stream=f)
             self.assertEqual(data['identity'], 1)
 
 

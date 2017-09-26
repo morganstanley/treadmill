@@ -1,12 +1,24 @@
-"""Multi-platform directory watcher."""
+"""Multi-platform directory watcher.
+"""
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import os
 
-from treadmill.dirwatch.dirwatch_base import DirWatcherEvent
+from .dirwatch_base import DirWatcherEvent
 
 if os.name == 'nt':
     from .windows_dirwatch import WindowsDirWatcher as DirWatcher
 else:
     from .linux_dirwatch import LinuxDirWatcher as DirWatcher
 
-__all__ = ['DirWatcherEvent', 'DirWatcher']
+from .dirwatch_dispatcher import DirWatcherDispatcher
+
+__all__ = [
+    'DirWatcherEvent',
+    'DirWatcher',
+    'DirWatcherDispatcher'
+]

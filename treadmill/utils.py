@@ -1,43 +1,53 @@
 """Useful utility functions.
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
+import collections
 import datetime
+import errno
 import functools
 import hashlib
+import io
 import locale
 import logging
 import os
 import pkgutil
 import signal
 import stat
+import sys
+import tempfile
 import time
 import urllib.parse
-
-from collections import namedtuple
 
 # Pylint warning re string being deprecated
 #
 # pylint: disable=W0402
 import string
 
-# see:
-# http://stackoverflow.com/questions/13193278/understand-python-threading-bug
-import threading
-
-import yaml
-import jinja2
-
-import treadmill
-
-from treadmill import subproc
-from treadmill import osnoop
-
 if os.name != 'nt':
     import fcntl
     import pwd
+else:
+    # Pylint warning unable to import because it is on Windows only
+    import win32api  # pylint: disable=E0401
+    import win32security  # pylint: disable=E0401
+
+import jinja2
+import six
+
+if six.PY2 and os.name == 'posix':
+    import subprocess32 as subprocess  # pylint: disable=import-error
+else:
+    import subprocess  # pylint: disable=wrong-import-order
 
 
-threading._DummyThread._Thread__stop = lambda x: 0  # pylint: disable=W0212
+from treadmill import exc
+from treadmill import osnoop
+
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -54,28 +64,42 @@ EXEC_MODE = (stat.S_IRUSR |
 _DEFAULT_BASE_ALPHABET = string.digits + string.ascii_lowercase
 
 
-def create_script(path, templatename, mode=EXEC_MODE, *args, **kwargs):
+def generate_template(templatename, **kwargs):
+    """This renders a JINJA template as a generator.
+
+    The templates exist in our lib/python/treadmill/templates directory.
+
+    :param ``str`` templatename:
+        The name of the template file.
+    :param ``dict`` kwargs:
+        key/value passed into the template.
+    """
+    template = JINJA2_ENV.get_template(templatename)
+    return template.generate(**kwargs)
+
+
+def create_script(filename, templatename, mode=EXEC_MODE, **kwargs):
     """This Creates a file from a JINJA template.
 
-    The templates exist in our lib/python/templates directory.
+    The templates exist in our lib/python/treadmill/templates directory.
 
-    templatename - The name of the template file.
-    mode - The mode for the file.  Defaults to +x
-    args and kwargs are passed into the template."""
-    template = JINJA2_ENV.get_template(templatename)
-
-    all_kwargs = {}
-
-    executables = subproc.get_aliases()
-    if executables:
-        all_kwargs.update(executables)
-
-    all_kwargs.update(kwargs)
-
-    with open(path, 'w') as f:
-        f.write(template.render(*args, **all_kwargs))
-    # cast to int required in order for default EXEC_MODE to work
-    os.chmod(path, int(mode))
+    :param ``str`` filename:
+        Name of the file to generate.
+    :param ``str`` templatename:
+        The name of the template file.
+    :param ``int`` mode:
+        The mode for the file (Defaults to +x).
+    :param ``dict`` kwargs:
+        key/value passed into the template.
+    """
+    filepath = os.path.dirname(filename)
+    with tempfile.NamedTemporaryFile(dir=filepath, delete=False) as f:
+        for data in generate_template(templatename, **kwargs):
+            f.write(data)
+        if os.name == 'posix':
+            # cast to int required in order for default EXEC_MODE to work
+            os.fchmod(f.fileno(), int(mode))
+    os.rename(f.name, filename)
 
 
 def ip2int(ip_addr):
@@ -105,10 +129,20 @@ def to_obj(value, name='struct'):
     if isinstance(value, list):
         return [to_obj(item) for item in value]
     elif isinstance(value, dict):
-        return namedtuple(name, value.keys())(
-            *[to_obj(v, k) for k, v in value.items()])
+        return collections.namedtuple(name, value.keys())(
+            *[to_obj(v, k) for k, v in value.iteritems()])
     else:
         return value
+
+
+def get_iterable(obj):
+    """Gets an iterable from either a list or a single value.
+    """
+    if (isinstance(obj, collections.Iterable) and
+            not isinstance(obj, six.string_types)):
+        return obj
+    else:
+        return (obj,)
 
 
 def sys_exit(code):
@@ -122,55 +156,16 @@ def sys_exit(code):
     os._exit(code)
 
 
-def _repr_unicode(dumper, data):
-    """Fix yaml str representation."""
-    data = data.encode('ascii', 'ignore').decode()  # XXX:Is this the best way?
-    if '\n' in data:
-        return dumper.represent_scalar('tag:yaml.org,2002:str', data,
-                                       style='|')
-    else:
-        return dumper.represent_scalar('tag:yaml.org,2002:str', data)
-
-
-def _repr_tuple(dumper, data):
-    """Fix yaml tuple representation (use list)."""
-    return dumper.represent_list(list(data))
-
-
-def _repr_none(dumper, data_unused):
-    """Fix yaml None representation (use ~)."""
-    return dumper.represent_scalar('tag:yaml.org,2002:null', '~')
-
-
-# This will be invoked on module import once.
-yaml.add_representer(str, _repr_unicode)
-yaml.add_representer(tuple, _repr_tuple)
-yaml.add_representer(type(None), _repr_none)
-
-
-def dump_yaml(obj):
-    """Returns yaml representation of the object."""
-    return yaml.dump(obj,
-                     default_flow_style=False,
-                     explicit_start=True,
-                     explicit_end=True)
-
-
-def print_yaml(obj):
-    """Print yaml wih correct options."""
-    print(dump_yaml(obj))
-
-
 def hashcmp(file1, file2):
     """Compare two files based on sha1 hash value."""
     sha1 = hashlib.sha1()
     sha2 = hashlib.sha1()
 
-    with open(file1, 'rb') as f:
+    with io.open(file1, 'rb') as f:
         data = f.read()
         sha1.update(data)
 
-    with open(file2, 'rb') as f:
+    with io.open(file2, 'rb') as f:
         data = f.read()
         sha2.update(data)
 
@@ -193,18 +188,22 @@ def distro():
 
 
 def touch(filename):
-    """'Touch' a filename."""
+    """'Touch' a filename.
+    """
     try:
         os.utime(filename, None)
-    except OSError:
-        open(filename, 'a').close()
+    except OSError as err:
+        if err.errno == errno.ENOENT:
+            io.open(filename, 'wb').close()
+        else:
+            raise
 
 
 class FileLock(object):
     """Utility file based lock."""
 
     def __init__(self, filename):
-        self.fd = open(filename + '.lock', 'w')
+        self.fd = io.open(filename + '.lock', 'w')
 
     def __enter__(self):
         fcntl.flock(self.fd, fcntl.LOCK_EX)
@@ -254,8 +253,8 @@ def size_to_bytes(size):
     >>> size_to_bytes("1K")
     1024
     """
-    if isinstance(size, str):
-        size = str(size).upper().strip()
+    if isinstance(size, six.string_types):
+        size = size.upper().strip()
         unit = 1024
         if size[-1] == 'B':
             unit = 1000
@@ -287,12 +286,12 @@ def kilobytes(value):
         _LOGGER.error('Invalid (unitless) value: %s', value)
         raise Exception('Invalid (unitless) value: ' + str(value))
 
-    return size_to_bytes(value) / 1024
+    return size_to_bytes(value) // 1024
 
 
 def megabytes(value):
     """Converts values with M/K/G suffix info numeric in Mbytes"""
-    return kilobytes(value) / 1024
+    return kilobytes(value) // 1024
 
 
 def validate(struct, schema):
@@ -304,20 +303,24 @@ def validate(struct, schema):
     with the type constructor.
     """
     if not isinstance(struct, dict):
-        raise treadmill.exc.InvalidInputError(struct, 'Expected dict.')
+        raise exc.InvalidInputError(struct, 'Expected dict.')
 
     for field, required, ftype in schema:
         if field not in struct:
             if required:
-                raise treadmill.exc.InvalidInputError(
+                raise exc.InvalidInputError(
                     struct, 'Required field: %s' % field)
             else:
-                struct[field] = ftype()
+                continue
+
+        # Make str type validation work across Py2 and Py3
+        if ftype is str:
+            ftype = six.string_types
 
         if not isinstance(struct[field], ftype):
-            raise treadmill.exc.InvalidInputError(
-                struct, 'Invalid type for %s, expected: %s' %
-                (field, str(ftype)))
+            raise exc.InvalidInputError(
+                struct, 'Invalid type for %s, expected: %s, got: %s' %
+                (field, str(ftype), type(struct[field])))
 
 
 _TIME_SCALE = {'S': 1,
@@ -351,13 +354,13 @@ def bytes_to_readable(num, power='M'):
 
 def cpu_to_readable(num):
     """Converts CPU % into readable number."""
-    locale.setlocale(locale.LC_ALL, 'en_US.utf8')
+    locale.setlocale(locale.LC_ALL, ('en_US', sys.getdefaultencoding()))
     return locale.format("%d", num, grouping=True)
 
 
 def cpu_to_cores_readable(num):
     """Converts CPU % into number of abstract cores."""
-    locale.setlocale(locale.LC_ALL, 'en_US.utf8')
+    locale.setlocale(locale.LC_ALL, ('en_US', sys.getdefaultencoding()))
     return locale.format("%.2f", num / 100.0, grouping=True)
 
 
@@ -380,7 +383,8 @@ def find_in_path(prog):
 
 
 def tail_stream(stream, nlines=10):
-    """Returns last N lines from the io object (file or io.string)."""
+    """Returns last N lines from the io object (file or io.string).
+    """
     # Seek to eof, backtrack 1024 or to the beginning, return last
     # N lines.
     stream.seek(0, 2)
@@ -393,10 +397,10 @@ def tail_stream(stream, nlines=10):
 def tail(filename, nlines=10):
     """Retuns last N lines from the file."""
     try:
-        with open(filename) as f:
+        with io.open(filename) as f:
             return tail_stream(f, nlines=nlines)
-    except Exception:
-        _LOGGER.error('Cannot open %s for reading.', filename)
+    except Exception:  # pylint: disable=W0703
+        _LOGGER.exception('Cannot open %r for reading.', filename)
         return []
 
 
@@ -472,7 +476,7 @@ def from_base_n(base_num, base=None, alphabet=None):
 def report_ready():
     """Reports the service as ready for s6-svwait -U."""
     try:
-        with open('notification-fd') as f:
+        with io.open('notification-fd') as f:
             try:
                 fd = int(f.readline())
                 os.write(fd, b'ready\n')
@@ -480,7 +484,7 @@ def report_ready():
             except OSError:
                 _LOGGER.exception('Cannot read notification-fd')
     except IOError:
-        _LOGGER.warn('notification-fd does not exist.')
+        _LOGGER.warning('notification-fd does not exist.')
 
 
 @osnoop.windows
@@ -507,8 +511,23 @@ def drop_privileges(uid_name='nobody'):
     os.environ['KRB5CCNAME'] = 'FILE:/no_such_krbcc'
 
 
-_SIG2NAME = {getattr(signal, attr): attr for attr in dir(signal)
-             if attr.startswith('SIG') and '_' not in attr}
+def _setup_sigs():
+    sigs = {}
+    for signame, sigval in vars(signal).items():
+        # We want all signal.SIG* but not signal.SIG_*
+        if (not signame.startswith('SIG')) or signame.startswith('SIG_'):
+            continue
+
+        sigs.setdefault(sigval, [str(sigval)]).append(signame)
+
+    return {
+        sigval: '/'.join(signames)
+        for sigval, signames in sigs.items()
+    }
+
+
+_SIG2NAME = _setup_sigs()
+del _setup_sigs
 
 
 def signal2name(num):
@@ -540,8 +559,9 @@ def make_signal_flag(*signals):
 
 
 def compose(*funcs):
-    """Compose functions."""
-    return lambda x: functools.reduce(lambda v, f: f(v), reversed(funcs), x)
+    """Compose functions.
+    """
+    return lambda x: six.moves.reduce(lambda v, f: f(v), reversed(funcs), x)
 
 
 def modules_in_pkg(pkg):
@@ -569,6 +589,132 @@ def encode_uri_parts(path):
     return '/'.join([urllib.parse.quote(part) for part in path.split('/')])
 
 
-def log_extension_failure(_manager, _entrypoint, exception):
-    """Logs errors for stevedore extensions."""
-    _LOGGER.error(str(exception))
+# R0912(too-many-branches): Too many branches (13/12)
+# pylint: disable=R0912
+def which(cmd, mode=os.F_OK | os.X_OK, path=None):
+    """TODO: This function has been copied from the shutil package shipped with
+    python 3.4.4. This func has to be deleted once we've upgraded to python 3.
+
+    Given a command, mode, and a PATH string, return the path which
+    conforms to the given mode on the PATH, or None if there is no such
+    file.
+
+    `mode` defaults to os.F_OK | os.X_OK. `path` defaults to the result
+    of os.environ.get("PATH"), or can be overridden with a custom search
+    path.
+
+    """
+    # Check that a given file can be accessed with the correct mode.
+    # Additionally check that `file` is not a directory, as on Windows
+    # directories pass the os.access check.
+    def _access_check(filename, mode):
+        return (os.path.exists(filename) and
+                os.access(filename, mode) and
+                not os.path.isdir(filename))
+
+    # If we're given a path with a directory part, look it up directly rather
+    # than referring to PATH directories. This includes checking relative to
+    # the current directory, e.g. ./script
+    if os.path.dirname(cmd):
+        if _access_check(cmd, mode):
+            return cmd
+        return None
+
+    if path is None:
+        path = os.environ.get("PATH", os.defpath)
+    if not path:
+        return None
+    path = path.split(os.pathsep)
+
+    if sys.platform == "win32":
+        # The current directory takes precedence on Windows.
+        if os.curdir not in path:
+            path.insert(0, os.curdir)
+
+        # PATHEXT is necessary to check on Windows.
+        pathext = os.environ.get("PATHEXT", "").split(os.pathsep)
+        # See if the given file matches any of the expected path extensions.
+        # This will allow us to short circuit when given "python.exe".
+        # If it does match, only test that one, otherwise we have to try
+        # others.
+        if any(cmd.lower().endswith(ext.lower()) for ext in pathext):
+            files = [cmd]
+        else:
+            files = [cmd + ext for ext in pathext]
+    else:
+        # On other platforms you don't have things like PATHEXT to tell you
+        # what file suffixes are executable, so just pass on cmd as-is.
+        files = [cmd]
+
+    seen = set()
+    for dir_ in path:
+        normdir = os.path.normcase(dir_)
+        if normdir not in seen:
+            seen.add(normdir)
+            for thefile in files:
+                name = os.path.join(dir_, thefile)
+                if _access_check(name, mode):
+                    return name
+    return None
+
+
+def is_root():
+    """Gets whether the current user is root"""
+    if os.name == 'nt':
+        sid = win32security.CreateWellKnownSid(win32security.WinLocalSystemSid,
+                                               None)
+        return win32security.CheckTokenMembership(None, sid)
+    else:
+        return os.geteuid() == 0
+
+
+def get_current_username():
+    """Returns the current user name"""
+    if os.name == 'nt':
+        return win32api.GetUserName()
+    else:
+        return pwd.getpwuid(os.getuid()).pw_name
+
+
+# List of signals that can be manipulated
+if sys.platform == 'win32':
+    _SIGNALS = {signal.SIGABRT, signal.SIGFPE, signal.SIGILL, signal.SIGINT,
+                signal.SIGSEGV, signal.SIGTERM, signal.SIGBREAK}
+else:
+    _SIGNALS = (set(range(1, signal.NSIG)) -
+                {signal.SIGKILL, signal.SIGSTOP, 32, 33})
+
+
+def sane_execvp(filename, args, close_fds=True, restore_signals=True):
+    """Execute a new program with sanitized environment.
+    """
+    def _restore_signals():
+        """Reset the default behavior to all signals.
+        """
+        for i in _SIGNALS:
+            signal.signal(i, signal.SIG_DFL)
+
+    def _close_fds():
+        """Close all file descriptors except 0, 1, 2.
+        """
+        os.closerange(3, subprocess.MAXFD)
+
+    if close_fds:
+        _close_fds()
+    if restore_signals:
+        _restore_signals()
+    os.execvp(filename, args)
+
+
+def exit_on_unhandled(func):
+    """Decorator to exit thread on unhandled exception."""
+    @functools.wraps(func)
+    def _wrap(*args, **kwargs):
+        """Wraps function to exit on unhandled exception."""
+        try:
+            return func(*args, **kwargs)
+        except Exception:  # pylint: disable=W0703
+            _LOGGER.exception('Unhandled exception - exiting.')
+            sys_exit(-1)
+
+    return _wrap

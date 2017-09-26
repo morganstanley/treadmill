@@ -1,4 +1,10 @@
-"""Application environment."""
+"""Application environment.
+"""
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import abc
 import logging
@@ -24,21 +30,20 @@ class AppEnvironment(object):
     """
 
     __slots__ = (
-        'app_types',
         'apps_dir',
+        'app_events_dir',
+        'app_types',
         'archives_dir',
         'cache_dir',
         'cleanup_dir',
         'configs_dir',
+        'images_dir',
         'init_dir',
         'metrics_dir',
-        'pending_cleanup_dir',
         'root',
         'running_dir',
-        'app_events_dir',
         'watchdogs',
         'watchdog_dir',
-        'images_dir'
     )
 
     APPS_DIR = 'apps'
@@ -47,7 +52,6 @@ class AppEnvironment(object):
     CLEANUP_DIR = 'cleanup'
     CONFIG_DIR = 'configs'
     INIT_DIR = 'init'
-    PENDING_CLEANUP_DIR = 'pending_cleanup'
     RUNNING_DIR = 'running'
     METRICS_DIR = 'metrics'
     WATCHDOG_DIR = 'watchdogs'
@@ -68,8 +72,6 @@ class AppEnvironment(object):
         self.archives_dir = os.path.join(self.root, self.ARCHIVES_DIR)
         self.images_dir = os.path.join(self.root, self.IMAGES_DIR)
         self.init_dir = os.path.join(self.root, self.INIT_DIR)
-        self.pending_cleanup_dir = os.path.join(self.root,
-                                                self.PENDING_CLEANUP_DIR)
 
         self.watchdogs = watchdog.Watchdog(self.watchdog_dir)
 

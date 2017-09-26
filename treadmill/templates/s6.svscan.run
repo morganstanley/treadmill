@@ -1,0 +1,11 @@
+#!{{ _alias.execlineb }} -P
+
+{{ _alias.redirfd }} -r 0 /dev/null
+{{ _alias.fdmove }} -c 2 1
+
+{{ _alias.s6_svscan }}
+    -c {{ max }}
+{%- if diverted -%}
+    -s
+{%- endif %}
+    {{ service_dir }}

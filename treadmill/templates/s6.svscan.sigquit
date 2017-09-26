@@ -1,0 +1,17 @@
+#!{{ _alias.execlineb }} -P
+
+{{ _alias.redirfd }} -r 0 /dev/null
+{{ _alias.fdmove }} -c 2 1
+
+{{ _alias.if }} {
+    {{ _alias.echo }} "Received SIGQUIT"
+}
+
+{% if monitor_service -%}
+{{ _alias.if }} {
+    {{ _alias.s6_svc }} -k -wD "{{ monitor_service }}"
+}
+{% endif -%}
+
+# SIGQUIT : acts as if a s6-svscanctl -q command had been received.
+{{ _alias.s6_svscanctl }} -q .

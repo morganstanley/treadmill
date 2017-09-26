@@ -36,7 +36,7 @@ $RM -vrf {{ dir }}/init/*/data/exits/*
 
 
 # Starting svscan
-exec $IONICE -c2 -n0 {{ s6 }}/bin/s6-envdir {{ dir }}/env                  \
+exec $IONICE -c2 -n0 {{ _alias.s6_envdir }} {{ dir }}/env                  \
     {{ treadmill }}/bin/treadmill sproc --cell - cgroup                    \
         cleanup --delete --apps --core                                     \
         mount                                                              \
@@ -49,4 +49,4 @@ exec $IONICE -c2 -n0 {{ s6 }}/bin/s6-envdir {{ dir }}/env                  \
              --into memory:/treadmill/core                                 \
              --into cpuset:/treadmill --                                   \
         {{ _alias.pid1 }} -m -p                                            \
-        {{ s6 }}/bin/s6-svscan {{ dir }}/init
+        {{ _alias.s6_svscan }}  -s {{ dir }}/init

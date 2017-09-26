@@ -1,8 +1,11 @@
 """
 Unit test for treadmill.cli.configure
 """
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
-import importlib
 import unittest
 import re
 
@@ -12,6 +15,7 @@ import mock
 import requests
 
 from treadmill import restclient
+from treadmill import plugin_manager
 
 
 class ConfigureTest(unittest.TestCase):
@@ -20,8 +24,8 @@ class ConfigureTest(unittest.TestCase):
     def setUp(self):
         """Setup common test variables"""
         self.runner = click.testing.CliRunner()
-        self.configure_cli = importlib.import_module(
-            'treadmill.cli.configure').init()
+        self.cli = plugin_manager.load('treadmill.cli',
+                                       'configure').init()
 
     @mock.patch('treadmill.restclient.get',
                 mock.Mock(return_value=mock.MagicMock(requests.Response)))
@@ -37,7 +41,7 @@ class ConfigureTest(unittest.TestCase):
             'identity_group': 'ident-group',
         }
 
-        result = self.runner.invoke(self.configure_cli,
+        result = self.runner.invoke(self.cli,
                                     ['proid.app'])
         self.assertEqual(result.exit_code, 0)
         self.assertIn('proid.app', result.output)
@@ -70,7 +74,7 @@ class ConfigureTest(unittest.TestCase):
              'identity_group': 'ident-group2'},
         ]
 
-        result = self.runner.invoke(self.configure_cli, [])
+        result = self.runner.invoke(self.cli, [])
 
         self.assertEqual(result.exit_code, 0)
 

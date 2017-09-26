@@ -1,5 +1,10 @@
-"""Base for all node resource services."""
+"""Base for all node resource services.
+"""
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import abc
 import collections
@@ -8,6 +13,7 @@ import errno
 import functools
 import glob
 import importlib
+import io
 import logging
 import os
 import select
@@ -17,17 +23,16 @@ import struct
 import tempfile
 import time
 
-import yaml
+import six
 
-from .. import exc
-from .. import fs
-from .. import logcontext as lc
-from .. import dirwatch
-from .. import utils
-from .. import watchdog
-
-from ..syscall import eventfd
-
+from treadmill import dirwatch
+from treadmill import exc
+from treadmill import fs
+from treadmill import logcontext as lc
+from treadmill import utils
+from treadmill import watchdog
+from treadmill import yamlwrapper as yaml
+from treadmill.syscall import eventfd
 
 _LOGGER = lc.ContainerAdapter(logging.getLogger(__name__))
 
@@ -130,52 +135,43 @@ class ResourceServiceClient(object):
             (New) Parameters for the requested resource.
         """
         req_dir = self._req_dirname(rsrc_id)
+        fs.mkdir_safe(req_dir)
 
-        if fs.mkdir_safe(req_dir):
-            self._create(rsrc_id, rsrc_data, req_dir)
-        else:
-            self._update(rsrc_id, rsrc_data, req_dir)
-
-    def _create(self, rsrc_id, rsrc_data, req_dir):
-        """Request creation of a resource.
-        """
-        with open(os.path.join(req_dir, _REQ_FILE), 'w') as f:
+        with io.open(os.path.join(req_dir, _REQ_FILE), 'w') as f:
             os.fchmod(f.fileno(), 0o644)
             yaml.dump(rsrc_data,
                       explicit_start=True, explicit_end=True,
                       default_flow_style=False,
                       stream=f)
 
-        with lc.LogContext(_LOGGER, rsrc_id):
-            try:
-                svc_req_uuid = self._serviceinst.clt_new_request(rsrc_id,
-                                                                 req_dir)
-
-            except OSError as _err:
-                # Error registration failed, delete the request.
-                _LOGGER.exception('Unable to submit request')
-                shutil.rmtree(req_dir)
-
-            with open(os.path.join(req_dir, self._REQ_UID_FILE), 'w') as f:
-                os.fchmod(f.fileno(), 0o644)
-                f.write(svc_req_uuid)
-
-    def _update(self, rsrc_id, rsrc_data, req_dir):
-        """Update an existing resource.
-        """
-        with open(os.path.join(req_dir, self._REQ_UID_FILE)) as f:
-            os.fchmod(f.fileno(), 0o644)
-            svc_req_uuid = f.read().strip()
-
-        with open(os.path.join(req_dir, _REQ_FILE), 'w') as f:
-            os.fchmod(f.fileno(), 0o644)
-            yaml.dump(rsrc_data,
-                      explicit_start=True, explicit_end=True,
-                      default_flow_style=False,
-                      stream=f)
+        req_uuid_file = os.path.join(req_dir, self._REQ_UID_FILE)
+        try:
+            with io.open(req_uuid_file) as f:
+                svc_req_uuid = f.read().strip()
+        except IOError as err:
+            if err.errno == errno.ENOENT:
+                svc_req_uuid = None
+            else:
+                raise
 
         with lc.LogContext(_LOGGER, rsrc_id):
-            self._serviceinst.clt_update_request(svc_req_uuid)
+            if svc_req_uuid is None:
+                try:
+                    # New request
+                    svc_req_uuid = self._serviceinst.clt_new_request(rsrc_id,
+                                                                     req_dir)
+                    # Write down the UUID
+                    with io.open(req_uuid_file, 'w') as f:
+                        f.write(svc_req_uuid)
+                        os.fchmod(f.fileno(), 0o644)
+
+                except OSError:
+                    # Error registration failed, delete the request.
+                    _LOGGER.exception('Unable to submit request')
+                    shutil.rmtree(req_dir)
+
+            else:
+                self._serviceinst.clt_update_request(svc_req_uuid)
 
     def delete(self, rsrc_id):
         """Delete an existing resource.
@@ -186,7 +182,7 @@ class ResourceServiceClient(object):
         with lc.LogContext(_LOGGER, rsrc_id) as log:
             req_dir = self._req_dirname(rsrc_id)
             try:
-                with open(os.path.join(req_dir, self._REQ_UID_FILE)) as f:
+                with io.open(os.path.join(req_dir, self._REQ_UID_FILE)) as f:
                     svc_req_uuid = f.read().strip()
             except IOError as err:
                 if err.errno == errno.ENOENT:
@@ -232,7 +228,7 @@ class ResourceServiceClient(object):
             )
 
         try:
-            with open(rep_file) as f:
+            with io.open(rep_file) as f:
                 reply = yaml.load(stream=f)
 
         except (IOError, OSError) as err:
@@ -312,7 +308,7 @@ class ResourceService(object):
         self._service_class = None
         self._io_eventfd = None
         # Figure out the service's name
-        if isinstance(self._service_impl, str):
+        if isinstance(self._service_impl, six.string_types):
             svc_name = self._service_impl.rsplit('.', 1)[-1]
         else:
             svc_name = self._service_impl.__name__
@@ -378,7 +374,7 @@ class ResourceService(object):
         """Read the reply of a given request.
         """
         rep_file = os.path.join(self._rsrc_dir, req_id, _REP_FILE)
-        with open(rep_file) as f:
+        with io.open(rep_file) as f:
             reply = yaml.load(stream=f)
 
         if isinstance(reply, dict) and '_error' in reply:
@@ -542,8 +538,13 @@ class ResourceService(object):
 
         except select.error as err:
             # Ignore signal interruptions
-            if err[0] != errno.EINTR:
-                raise
+            if six.PY2:
+                # pylint: disable=W1624,E1136,indexing-exception
+                if err[0] != errno.EINTR:
+                    raise
+            else:
+                if err.errno != errno.EINTR:
+                    raise
 
         results = [
             callback()
@@ -592,7 +593,7 @@ class ResourceService(object):
     def _load_impl(self):
         """Load the implementation class of the service.
         """
-        if isinstance(self._service_impl, str):
+        if isinstance(self._service_impl, six.string_types):
             (module_name, cls_name) = self._service_impl.rsplit('.', 1)
             impl_module = importlib.import_module(module_name)
             impl_class = getattr(impl_module, cls_name)
@@ -740,7 +741,7 @@ class ResourceService(object):
         rep_file = os.path.join(filepath, _REP_FILE)
 
         try:
-            with open(req_file) as f:
+            with io.open(req_file) as f:
                 req_data = yaml.load(stream=f)
 
         except IOError as err:
@@ -770,16 +771,16 @@ class ResourceService(object):
             # Request was not actioned
             return False
 
-        with tempfile.NamedTemporaryFile(dir=filepath,
-                                         delete=False,
-                                         mode='w') as f:
-            os.fchmod(f.fileno(), 0o644)
-            yaml.dump(res,
-                      explicit_start=True, explicit_end=True,
-                      default_flow_style=False,
-                      stream=f)
+        _LOGGER.debug('created %r', req_id)
 
-        os.rename(f.name, rep_file)
+        fs.write_safe(
+            rep_file,
+            lambda f: yaml.dump(
+                res, explicit_start=True, explicit_end=True,
+                default_flow_style=False, stream=f
+            ),
+            permission=0o644
+        )
         # Return True if there were no error
         return not bool(res.get('_error', False))
 
@@ -800,9 +801,11 @@ class ResourceService(object):
         return res
 
 
-class BaseResourceServiceImpl(object, metaclass=abc.ABCMeta):
+@six.add_metaclass(abc.ABCMeta)
+class BaseResourceServiceImpl(object):
     """Base interface of Resource Service implementations.
     """
+
     __slots__ = (
         '_service_dir',
         '_service_rsrc_dir',

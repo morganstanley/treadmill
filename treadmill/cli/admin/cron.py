@@ -1,5 +1,9 @@
 """Treadmill admin cron CLI tools.
 """
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import logging
 
@@ -15,9 +19,10 @@ from treadmill import exc
 
 from treadmill.cron import model as cron_model
 
+
 _LOGGER = logging.getLogger(__name__)
 
-_FORMATTER = cli.make_formatter(cli.CronPrettyFormatter)
+_FORMATTER = cli.make_formatter('cron')
 
 ON_EXCEPTIONS = cli.handle_exceptions([
     (exc.InvalidInputError, None),
@@ -89,8 +94,30 @@ def init():
         _LOGGER.info('Removing job %s', job_id)
         scheduler.remove_job(job_id)
 
+    @cron_group.command()
+    @click.argument('job_id')
+    @ON_EXCEPTIONS
+    def pause(job_id):
+        """Pause a job ID"""
+        scheduler = ctx['scheduler']
+
+        _LOGGER.info('Pause job %s', job_id)
+        scheduler.pause_job(job_id)
+
+    @cron_group.command()
+    @click.argument('job_id')
+    @ON_EXCEPTIONS
+    def resume(job_id):
+        """Resume a job ID"""
+        scheduler = ctx['scheduler']
+
+        _LOGGER.info('Resume job %s', job_id)
+        scheduler.resume_job(job_id)
+
     del configure
     del _list
     del delete
+    del pause
+    del resume
 
     return cron_group

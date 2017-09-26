@@ -1,7 +1,11 @@
 """Unit test for cgroups module.
 """
 
-import builtins
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import io
 import os
 import shutil
@@ -107,16 +111,16 @@ class CGroupsTest(unittest.TestCase):
 
     @mock.patch('treadmill.cgroups.get_mountpoint',
                 mock.Mock(return_value='/cgroups'))
-    @mock.patch('builtins.open', mock.mock_open())
+    @mock.patch('io.open', mock.mock_open())
     def test_join(self):
         """Tests joining the cgroup."""
         group = os.path.join('treadmill', 'apps', 'test1')
 
         cgroups.join('cpu', group, '1234')
 
-        builtins.open.assert_called_once_with(
-            '/cgroups/treadmill/apps/test1/tasks', 'w+')
-        builtins.open().write.assert_called_once_with('1234')
+        io.open.assert_called_once_with(
+            '/cgroups/treadmill/apps/test1/tasks', 'w')
+        io.open().write.assert_called_once_with('1234')
 
     @mock.patch('treadmill.cgroups.mounted_subsystems',
                 mock.Mock(return_value={'cpu': '/cgroup/cpu'}))
@@ -126,8 +130,7 @@ class CGroupsTest(unittest.TestCase):
         cgroups.ensure_mounted(['cpu', 'memory'])
         treadmill.cgroups.mount.assert_called_with('memory')
 
-    @mock.patch('builtins.open',
-                mock.Mock(return_value=io.StringIO(PROCCGROUPS)))
+    @mock.patch('io.open', mock.Mock(return_value=io.StringIO(PROCCGROUPS)))
     def test_available_subsystems(self):
         """Test functions """
         subsystems = cgroups.available_subsystems()
@@ -215,6 +218,7 @@ class CGroupsTest(unittest.TestCase):
                            'memory.memsw.limit_in_bytes', treadmill_apps_mem)]
         treadmill.cgroups.set_value.assert_has_calls(calls)
 
+    # TODO: Remove or fix
     # @mock.patch('os.kill', mock.Mock())
     # def test_kill_apps_in_cgroup(self):
     #     """Make sure we kill all the stale apps."""

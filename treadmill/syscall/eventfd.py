@@ -1,5 +1,10 @@
-"""Wrapper for eventfd(2) system call."""
+"""Wrapper for eventfd(2) system call.
+"""
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import logging
 import os
@@ -9,11 +14,9 @@ from ctypes import (
     c_int,
     c_uint,
 )
-
 from ctypes.util import find_library
 
 import enum
-
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -52,7 +55,11 @@ def eventfd(initval, flags):
 # See man eventfd(2) for more details.
 #
 class EFDFlags(enum.IntEnum):
-    """Flags supported by EventFD."""
+    """Flags supported by EventFD.
+    """
+
+    #: Provice semaphore-like semantics for reads from the new file descriptor.
+    SEMAPHORE = 1
 
     #: Set the O_NONBLOCK file status flag on the new open file description.
     #: Using this flag saves extra calls to fcntl(2) to achieve the same
@@ -66,7 +73,8 @@ class EFDFlags(enum.IntEnum):
 
     @classmethod
     def parse(cls, flags):
-        """Parse EventFD flags into list of flags."""
+        """Parse EventFD flags into list of flags.
+        """
         masks = []
         remain_flags = flags
         # pylint - Non-iterable value cls is used in an iterating context
@@ -81,5 +89,26 @@ class EFDFlags(enum.IntEnum):
         return masks
 
 
+#: Provice semaphore-like semantics for reads from the new file descriptor.
+#: (since Linux 2.6.30)
+EFD_SEMAPHORE = EFDFlags.SEMAPHORE
+
+#: Set the O_NONBLOCK file status flag on the new open file description.  Using
+#: this flag saves extra calls to fcntl(2) to achieve the same result.
+#: (since Linux 2.6.27)
 EFD_NONBLOCK = EFDFlags.NONBLOCK
+
+#: Set the close-on-exec (FD_CLOEXEC) flag on the new file descriptor.  See
+#: the description of the O_CLOEXEC flag in open(2) for reasons why this may be
+#: useful.
+#: (since Linux 2.6.27)
 EFD_CLOEXEC = EFDFlags.CLOEXEC
+
+
+###############################################################################
+__all__ = [
+    'EFD_SEMAPHORE',
+    'EFD_NONBLOCK',
+    'EFD_CLOEXEC',
+    'eventfd',
+]

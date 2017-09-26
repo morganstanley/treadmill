@@ -1,1 +1,0 @@
-{{ s6 }}\winss-svscan.exe {{ dir }}\init

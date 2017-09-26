@@ -1,12 +1,18 @@
 """Unit test for sysinfo.
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
+import collections
 import os
 import sys
 import unittest
-from collections import namedtuple
 
 import mock
+import six
 
 import treadmill
 import treadmill.appenv
@@ -16,34 +22,7 @@ from treadmill import sysinfo
 class SysinfoTest(unittest.TestCase):
     """treadmill.sysinfo test."""
 
-    def test_proc_info(self):
-        """Proc info test."""
-        proc_info = sysinfo.proc_info(os.getpid())
-        # Handle running python with options, as in:
-        # sys.argv[0] == 'python -m unittest'
-        expected = os.path.basename(sys.argv[0].split()[0])
-
-        # TODO: When running coverage, script is execed under python.
-        #                but sys.argv[0] reports as setup.py
-        #
-        # train starts subprocess for the test with altnose.py
-        # this makes this assert unusable
-        expected_progs = ['setup.py', 'altnose.py', 'sysinfo_test.py']
-        if expected not in expected_progs:
-            self.assertEqual(expected, proc_info.filename)
-        self.assertEqual(os.getppid(), proc_info.ppid)
-
-        # We do not check the starttime, but just verify that calling
-        # proc_info twice returns same starttime, which can be used as part of
-        # process signature.
-        self.assertEqual(
-            proc_info.starttime,
-            sysinfo.proc_info(os.getpid()).starttime
-        )
-
-    def test_mem_info(self):
-        """Mock test for mem info."""
-        proc_meminfo = """
+    PROC_MEMINFO = """
 MemTotal:      7992596 kB
 MemFree:       3572940 kB
 Buffers:        202564 kB
@@ -75,29 +54,7 @@ HugePages_Free:      0
 HugePages_Rsvd:      0
 Hugepagesize:     2048 kB
 """
-
-        open_mock = mock.mock_open(read_data=proc_meminfo.strip())
-        with mock.patch('builtins.open', open_mock, create=True):
-            meminfo = sysinfo.mem_info()
-
-        self.assertEqual(7992596, meminfo.total)
-
-    @mock.patch('os.statvfs', mock.Mock())
-    def test_disk_usage(self):
-        """Mock test for disk usage."""
-        os.statvfs.return_value = namedtuple(
-            'statvfs',
-            'f_blocks f_bavail, f_frsize')(100, 20, 4)
-        du = sysinfo.disk_usage('/var/tmp')
-        os.statvfs.assert_called_with('/var/tmp')
-        self.assertEqual(400, du.total)
-        self.assertEqual(80, du.free)
-
-    @mock.patch('treadmill.cgroups.get_cpuset_cores',
-                mock.Mock(return_value=range(0, 4)))
-    def test_bogomips(self):
-        """Mock test for mem info."""
-        cpuinfo = """
+    CPUINFO = """
 processor   : 0
 vendor_id   : GenuineIntel
 cpu family  : 6
@@ -196,9 +153,57 @@ power management: [8]
 
 """
 
-        open_mock = mock.mock_open(read_data=cpuinfo.strip())
-        with mock.patch('builtins.open', open_mock, create=True):
-            bogomips = sysinfo.total_bogomips()
+    def test_proc_info(self):
+        """Proc info test."""
+        proc_info = sysinfo.proc_info(os.getpid())
+        # Handle running python with options, as in:
+        # sys.argv[0] == 'python -m unittest'
+        expected = os.path.basename(sys.argv[0].split()[0])
+
+        # TODO: When running coverage, script is execed under python.
+        #                but sys.argv[0] reports as setup.py
+        #
+        # train starts subprocess for the test with altnose.py
+        # this makes this assert unusable
+        expected_progs = ['setup.py', 'altnose.py', 'sysinfo_test.py']
+        if expected not in expected_progs:
+            self.assertEqual(expected, proc_info.filename)
+        self.assertEqual(os.getppid(), proc_info.ppid)
+
+        # We do not check the starttime, but just verify that calling
+        # proc_info twice returns same starttime, which can be used as part of
+        # process signature.
+        self.assertEqual(
+            proc_info.starttime,
+            sysinfo.proc_info(os.getpid()).starttime
+        )
+
+    @mock.patch('io.open', mock.mock_open(read_data=PROC_MEMINFO.strip()))
+    def test_mem_info(self):
+        """Mock test for mem info."""
+
+        meminfo = sysinfo.mem_info()
+
+        self.assertEqual(7992596, meminfo.total)
+
+    @mock.patch('os.statvfs', mock.Mock())
+    def test_disk_usage(self):
+        """Mock test for disk usage."""
+        os.statvfs.return_value = collections.namedtuple(
+            'statvfs',
+            'f_blocks f_bavail, f_frsize')(100, 20, 4)
+        du = sysinfo.disk_usage('/var/tmp')
+        os.statvfs.assert_called_with('/var/tmp')
+        self.assertEqual(400, du.total)
+        self.assertEqual(80, du.free)
+
+    @mock.patch('treadmill.cgroups.get_cpuset_cores',
+                mock.Mock(return_value=six.moves.range(0, 4)))
+    @mock.patch('io.open', mock.mock_open(read_data=CPUINFO.strip()))
+    def test_bogomips(self):
+        """Mock test for mem info."""
+
+        bogomips = sysinfo.total_bogomips()
 
         # bogomips  : 6385.66
         # bogomips  : 6384.64
@@ -214,8 +219,7 @@ power management: [8]
     @mock.patch('treadmill.cgroups.get_cpu_shares',
                 mock.Mock(return_value=2))
     @mock.patch('treadmill.sysinfo.BMIPS_PER_CPU', 1)
-    @mock.patch('treadmill.syscall.sysinfo.sysinfo',
-                mock.Mock(return_value=namedtuple('mock_si', ['uptime'])(42)))
+    @mock.patch('psutil.boot_time', mock.Mock(return_value=8))
     def test_node_info(self):
         """Test node information report generation.
         """
@@ -237,7 +241,7 @@ power management: [8]
             'size': 100 * 1024 ** 2,
         }
 
-        res = sysinfo.node_info(mock_tm_env)
+        res = sysinfo.node_info(mock_tm_env, 'linux')
 
         mock_tm_env.svc_localdisk.status.assert_called_with(timeout=30)
         mock_tm_env.svc_cgroup.status.assert_called_with(timeout=30)

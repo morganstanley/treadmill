@@ -8,16 +8,21 @@ act on the events. The following events should be supported:
     3. Allocation: disable/enable allocations
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import logging
 
 import click
 from twisted.internet import reactor
 
 from treadmill import context
-from treadmill import exc
 from treadmill import cron
-from treadmill import zkutils
+from treadmill import utils
 from treadmill import zknamespace as z
+from treadmill import zkutils
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -26,8 +31,8 @@ def _do_watch(zkclient):
     """Actually do the children watch"""
     scheduler = cron.get_scheduler(zkclient)
 
-    @exc.exit_on_unhandled
     @zkclient.ChildrenWatch(z.CRON_JOBS)
+    @utils.exit_on_unhandled
     def _new_cron_jobs(_children):
         """Children watch on new cron jobs"""
         _LOGGER.info(

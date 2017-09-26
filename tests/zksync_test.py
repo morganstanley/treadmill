@@ -1,8 +1,14 @@
-"""Unit test for Zookeeper to FS module
+"""Unit test for Zookeeper to FS module.
 """
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import collections
 import glob
+import io
 import os
 import shutil
 import tempfile
@@ -14,7 +20,9 @@ import kazoo
 import mock
 
 from treadmill import fs
-from treadmill import zksync
+from treadmill import utils
+from treadmill.zksync import zk2fs
+from treadmill.zksync import utils as zksync_utils
 
 
 class ZkSyncTest(mockzk.MockZookeeperTestCase):
@@ -36,7 +44,7 @@ class ZkSyncTest(mockzk.MockZookeeperTestCase):
         self.assertTrue(os.path.exists(os.path.join(self.root, fpath)))
 
         if content is not None:
-            with open(os.path.join(self.root, fpath)) as f:
+            with io.open(os.path.join(self.root, fpath)) as f:
                 self.assertTrue(content == f.read())
 
     @mock.patch('kazoo.client.KazooClient.get', mock.Mock())
@@ -57,7 +65,7 @@ class ZkSyncTest(mockzk.MockZookeeperTestCase):
 
         self.make_mock_zk(zk_content)
 
-        zk2fs_sync = zksync.Zk2Fs(kazoo.client.KazooClient(), self.root)
+        zk2fs_sync = zk2fs.Zk2Fs(kazoo.client.KazooClient(), self.root)
         fs.mkdir_safe(os.path.join(self.root, 'a'))
         zk2fs_sync._children_watch('/a', ['x', 'y', 'z'],
                                    False,
@@ -112,7 +120,7 @@ class ZkSyncTest(mockzk.MockZookeeperTestCase):
         add = []
         rm = []
 
-        zk2fs_sync = zksync.Zk2Fs(kazoo.client.KazooClient(), self.root)
+        zk2fs_sync = zk2fs.Zk2Fs(kazoo.client.KazooClient(), self.root)
         zk2fs_sync._children_watch('/a', ['z', 'x', 'y'],
                                    False,
                                    lambda x: add.append(os.path.basename(x)),
@@ -139,7 +147,7 @@ class ZkSyncTest(mockzk.MockZookeeperTestCase):
 
         self.make_mock_zk(zk_content)
 
-        zk2fs_sync = zksync.Zk2Fs(kazoo.client.KazooClient(), self.root)
+        zk2fs_sync = zk2fs.Zk2Fs(kazoo.client.KazooClient(), self.root)
         fs.mkdir_safe(os.path.join(self.root, 'a'))
         zk2fs_sync._children_watch('/a', ['x', 'y', 'z'],
                                    True,
@@ -171,7 +179,7 @@ class ZkSyncTest(mockzk.MockZookeeperTestCase):
         mock_stat = collections.namedtuple('ZkStat', ['last_modified'])(0)
 
         self.make_mock_zk(zk_content)
-        zk2fs_sync = zksync.Zk2Fs(kazoo.client.KazooClient(), self.root)
+        zk2fs_sync = zk2fs.Zk2Fs(kazoo.client.KazooClient(), self.root)
         fs.mkdir_safe(os.path.join(self.root, 'a'))
 
         event = kazoo.protocol.states.WatchedEvent(
@@ -211,7 +219,7 @@ class ZkSyncTest(mockzk.MockZookeeperTestCase):
 
         self.make_mock_zk(zk_content)
 
-        zk2fs_sync = zksync.Zk2Fs(kazoo.client.KazooClient(), self.root)
+        zk2fs_sync = zk2fs.Zk2Fs(kazoo.client.KazooClient(), self.root)
         fs.mkdir_safe(os.path.join(self.root, 'a'))
         zk2fs_sync.sync_children('/a',
                                  watch_data=False,
@@ -239,17 +247,24 @@ class ZkSyncTest(mockzk.MockZookeeperTestCase):
     def test_write_data(self):
         """Tests writing data to filesystem."""
         path_ok = os.path.join(self.root, 'a')
-        zksync.write_data(path_ok, None, 12345)
+        zksync_utils.write_data(path_ok, None, 12345)
         self.assertTrue(os.path.exists(path_ok))
 
         path_too_long = os.path.join(self.root, 'a' * 1024)
         self.assertRaises(
             OSError,
-            zksync.write_data, path_too_long, None, 12345)
+            zksync_utils.write_data, path_too_long, None, 12345)
         self.assertFalse(os.path.exists(path_too_long))
 
-        zksync.write_data(path_too_long, None, 12345, raise_err=False)
+        zksync_utils.write_data(path_too_long, None, 12345, raise_err=False)
         self.assertFalse(os.path.exists(path_too_long))
+
+    def test_wait_for_ready(self):
+        """Test wait for ready
+        """
+        modified = os.path.join(self.root, '.modified')
+        utils.touch(modified)
+        self.assertEqual(zksync_utils.wait_for_ready(self.root), modified)
 
 
 if __name__ == '__main__':

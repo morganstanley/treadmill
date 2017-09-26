@@ -1,6 +1,11 @@
 """Checks ldap infrastructure.
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import unittest
 import os
 import pwd
@@ -11,6 +16,7 @@ from treadmill import admin
 from treadmill import checkout as chk
 from treadmill import sysinfo
 
+_PROVIDER = 'provider='
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -46,6 +52,27 @@ def mk_test_cls(sysproid, ldap_suffix, url):
     return LdapTest
 
 
+def _get_repl_urls(url):
+    """Get all the replication servers in config"""
+    ldap_admin = admin.Admin(url, '')
+    ldap_admin.connect()
+
+    repls = ldap_admin.get_repls()
+    _LOGGER.debug('repls: %r', repls)
+
+    repl_urls = set()
+    for repl in repls:
+        _rid, url, _rest = repl.split(' ', 2)
+
+        if url.startswith(_PROVIDER):
+            url = url[len(_PROVIDER):]
+        _LOGGER.debug('url: %r', url)
+
+        repl_urls.add(url)
+
+    return list(repl_urls)
+
+
 def test(ldap_urls, ldap_suffix):
     """Create sysapps test class."""
 
@@ -53,11 +80,14 @@ def test(ldap_urls, ldap_suffix):
 
     tests = []
 
-    for url in ldap_urls:
+    repl_urls = _get_repl_urls(ldap_urls[0])
+    _LOGGER.info('repl_urls: %r', repl_urls)
+
+    for url in repl_urls:
 
         cls = mk_test_cls(sysproid, ldap_suffix, url)
 
-        for other_url in ldap_urls:
+        for other_url in repl_urls:
 
             @chk.T(cls, url=url, other_url=other_url, ldap_suffix=ldap_suffix)
             def _test_replication(self, ldap_suffix, url, other_url):

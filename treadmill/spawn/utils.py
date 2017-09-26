@@ -1,5 +1,11 @@
 """Treadmill spawn utilities."""
 
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import logging
 import os
 import pwd
@@ -13,7 +19,7 @@ def get_user_safe(path):
     try:
         return pwd.getpwuid(os.stat(path).st_uid).pw_name
     except (OSError, KeyError):
-        _LOGGER.warn('Could not get user of path %r', path)
+        _LOGGER.warning('Could not get user of path %r', path)
         return None
 
 

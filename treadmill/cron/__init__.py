@@ -2,6 +2,11 @@
 High level cron API.
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import logging
 
 from apscheduler.jobstores import base
@@ -17,20 +22,30 @@ ONE_DAY_IN_SECS = 60 * 60 * 24
 
 CRON_MODULE = 'treadmill.cron'
 
+_FIELD_NAMES = [
+    'second', 'minute', 'hour', 'day', 'month', 'day_of_week', 'year'
+]
+_FIELD_POS = dict((field, i) for i, field in enumerate(_FIELD_NAMES))
+
+_SCHEDULER = None
+
 
 def get_scheduler(zkclient):
     """Get scheduler"""
-    scheduler = twisted.TwistedScheduler()
-    zk_jobstore = zookeeper.ZooKeeperJobStore(
-        path=z.CRON_JOBS,
-        client=zkclient
-    )
+    global _SCHEDULER  # pylint: disable=W0603
 
-    scheduler.add_jobstore(zk_jobstore)
+    if not _SCHEDULER:
 
-    scheduler.start()
+        _SCHEDULER = twisted.TwistedScheduler()
+        zk_jobstore = zookeeper.ZooKeeperJobStore(
+            path=z.CRON_JOBS,
+            client=zkclient
+        )
 
-    return scheduler
+        _SCHEDULER.add_jobstore(zk_jobstore)
+        _SCHEDULER.start()
+
+    return _SCHEDULER
 
 
 def cron_to_dict(cron):
@@ -54,6 +69,13 @@ def cron_to_dict(cron):
     if len(cexpression) > 6:
         trigger_args['year'] = cexpression[6]
     if len(cexpression) > 7:
+        value = cexpression[7]
+        if value == '*':
+            raise exc.InvalidInputError(
+                __name__,
+                'TimeZone can not be "*"',
+            )
+
         trigger_args['timezone'] = cexpression[7]
     _LOGGER.debug('trigger_args: %r', trigger_args)
 
@@ -62,7 +84,16 @@ def cron_to_dict(cron):
 
 def cron_expression(trigger):
     """Get a cron expression from the given trigger"""
-    fields = [str(field) for field in reversed(trigger.fields)]
+    _LOGGER.debug('trigger.fields: %r', trigger.fields)
+    # Need to loop through, as it is an array and not in the same Cron
+    # expression order, thus we need to insert into the proper order.
+    fields = ['*'] * len(_FIELD_NAMES)
+    for field in trigger.fields:
+        try:
+            fields[_FIELD_POS[field.name]] = str(field)
+        except KeyError:
+            pass
+
     _LOGGER.debug('fields: %r', fields)
 
     return ' '.join(fields)

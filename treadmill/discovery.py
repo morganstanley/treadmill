@@ -1,10 +1,17 @@
-"""List Treadmill endpoints matching a given pattern."""
+"""List Treadmill endpoints matching a given pattern.
+"""
 
-import queue
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import fnmatch
 import logging
 
-import kazoo
+import kazoo.exceptions
+
+from six.moves import queue
 
 from treadmill import zknamespace as z
 
@@ -20,7 +27,7 @@ class Discovery(object):
         self.queue = queue.Queue()
         # Pattern is assumed to be in the form of <proid>.<pattern>
         self.prefix, self.pattern = pattern.split('.', 1)
-        if self.pattern.find('#') == -1:
+        if '#' not in self.pattern:
             self.pattern = self.pattern + '#*'
         self.endpoint = endpoint
 
@@ -96,7 +103,8 @@ class Discovery(object):
             match = set([endpoint for endpoint in endpoints
                          if fnmatch.fnmatch(endpoint, full_pattern)])
         except kazoo.exceptions.NoNodeError:
-            self.zkclient.exists(endpoints_path, watch=watch_cb)
+            if watch_cb:
+                self.zkclient.exists(endpoints_path, watch=watch_cb)
             match = set()
 
         return match
@@ -115,7 +123,7 @@ class Discovery(object):
 def iterator(zkclient, pattern, endpoint, watch):
     """Returns app discovery iterator based on native zk discovery."""
     app_discovery = Discovery(zkclient, pattern, endpoint)
-    app_discovery.sync()
+    app_discovery.sync(watch)
     if not watch:
         app_discovery.exit_loop()
 

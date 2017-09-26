@@ -1,4 +1,10 @@
-"""An interface for a directory watcher."""
+"""An interface for a directory watcher.
+"""
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import abc
 import collections
@@ -7,6 +13,8 @@ import os
 import sys
 
 import enum
+
+import six
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -24,10 +32,10 @@ class DirWatcherEvent(enum.Enum):
     MORE_PENDING = 'more events pending'
 
 
+@six.add_metaclass(abc.ABCMeta)
 class DirWatcher(object):
     """Directory watcher base, invoking callbacks on file create/delete events.
     """
-    __metaclass__ = abc.ABCMeta
     __slots__ = (
         'event_list',
         'on_created',
@@ -81,7 +89,7 @@ class DirWatcher(object):
                 break
         else:
             wid = None
-            _LOGGER.warn('Directory %r not currently watched', watch_dir)
+            _LOGGER.warning('Directory %r not currently watched', watch_dir)
             return
 
         _LOGGER.info('Unwatching directory %r (id: %r)', watch_dir, wid)

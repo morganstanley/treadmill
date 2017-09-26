@@ -1,29 +1,34 @@
 """Treadmill master process.
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 # Disable too many lines in module warning.
 #
 # pylint: disable=C0302
 
 import collections
-import logging
 import fnmatch
+import logging
 import os
-import time
-import threading
 import re
+import time
 
 import kazoo
+import six
 
 from treadmill import admin
 from treadmill import appevents
-from treadmill import utils
-from treadmill import zkutils
-from treadmill import exc
-from treadmill import zknamespace as z
+from treadmill import reports
 from treadmill import scheduler
-from treadmill import sysinfo
+from treadmill import utils
+from treadmill import zknamespace as z
+from treadmill import zkutils
 
+from treadmill.appcfg import abort as app_abort
 from treadmill.apptrace import events as traceevents
 
 _LOGGER = logging.getLogger(__name__)
@@ -35,6 +40,15 @@ def _app_node(app_id, existing=True):
     if not existing:
         path = path + '#'
     return path
+
+
+def _alloc_key(name):
+    """Constructs allocation key based on app name/pattern."""
+    if '@' in name:
+        key = name[name.find('@') + 1:name.find('.')]
+    else:
+        key = name[0:name.find('.')]
+    return key
 
 
 def resources(data):
@@ -80,6 +94,9 @@ _SERVERS_ACL_DEL = zkutils.make_role_acl('servers', 'd')
 # Time interval between running the scheduler (seconds).
 SCHEDULER_INTERVAL = 2
 
+# Save reports on the scheduler state to ZooKeeper every minute.
+STATE_REPORT_INTERVAL = 60
+
 # Interval to sleep before checking if there is new event in the queue.
 CHECK_EVENT_INTERVAL = 0.5
 
@@ -99,15 +116,16 @@ EVENT_BATCH_COUNT = 20
 class Master(object):
     """Treadmill master scheduler."""
 
-    def __init__(self, zkclient, cellname, events_dir=None):
+    def __init__(self, zkclient, cellname, events_dir=None, readonly=False):
         self.zkclient = zkclient
         self.cell = scheduler.Cell(cellname)
         self.events_dir = events_dir
+        self.readonly = readonly
 
         self.buckets = dict()
         self.servers = dict()
         self.allocations = dict()
-        self.assignments = dict()
+        self.assignments = collections.defaultdict(list)
         self.partitions = dict()
 
         self.queue = collections.deque()
@@ -116,8 +134,34 @@ class Master(object):
         # Signals that processing of a given event.
         self.process_complete = dict()
 
+        self.event_handlers = {
+            z.SERVER_PRESENCE: self.process_server_presence,
+            z.SCHEDULED: self.process_scheduled,
+            z.EVENTS: self.process_events,
+        }
+
+    def _zk_ensure_exists(self, path, acl=None):
+        """Ensure ZK node exists, complying with readonly flag."""
+        if self.readonly:
+            return
+        zkutils.ensure_exists(self.zkclient, path, acl=acl)
+
+    def _zk_put(self, path, data, acl=None):
+        """Put data in ZK node, complying with readonly flag."""
+        if self.readonly:
+            return
+        zkutils.put(self.zkclient, path, data, acl=acl)
+
+    def _zk_delete(self, path):
+        """Ensure ZK node does not exist, complying with readonly flag."""
+        if self.readonly:
+            return
+        zkutils.ensure_deleted(self.zkclient, path)
+
     def create_rootns(self):
         """Create root nodes and set appropriate acls."""
+        if self.readonly:
+            return
 
         root_ns = {
             '/': None,
@@ -131,6 +175,7 @@ class Master(object):
             z.SCHEDULED: [_SERVERS_ACL_DEL],
             z.SCHEDULER: None,
             z.SERVERS: None,
+            z.STATE_REPORTS: None,
             z.STRATEGIES: None,
             z.FINISHED: [_SERVERS_ACL],
             z.FINISHED_HISTORY: None,
@@ -148,12 +193,10 @@ class Master(object):
             z.REBOOTS: [_SERVERS_ACL],
         }
 
-        for path, acl in root_ns.items():
-            zkutils.ensure_exists(self.zkclient, path, acl)
+        for path, acl in six.iteritems(root_ns):
+            self._zk_ensure_exists(path, acl)
         for path in z.trace_shards():
-            zkutils.ensure_exists(self.zkclient,
-                                  path,
-                                  acl=[_SERVERS_ACL])
+            self._zk_ensure_exists(path, [_SERVERS_ACL])
 
     def load_cell(self):
         """Construct cell from top level buckets."""
@@ -166,24 +209,28 @@ class Master(object):
     def load_partitions(self):
         """Load partitions."""
         # Create default partition.
-        self.cell.partitions[admin.DEFAULT_PARTITION] = scheduler.Partition()
+        self.cell.partitions[admin.DEFAULT_PARTITION] = scheduler.Partition(
+            label=admin.DEFAULT_PARTITION
+        )
 
-        partitions = self.zkclient.get_childrent(z.PARTITIONS)
+        partitions = self.zkclient.get_children(z.PARTITIONS)
         for partition in partitions:
             self.load_partition(partition)
 
     def load_partition(self, partition):
         """Load partition."""
         try:
+            _LOGGER.info('loading partition: %s', partition)
             data = zkutils.get(self.zkclient, z.path.partition(partition))
             self.cell.partitions[partition] = scheduler.Partition(
                 max_server_uptime=data.get('server_uptime'),
                 max_lease=data.get('max_lease'),
                 threshold=data.get('threshold'),
+                label=partition
             )
 
         except kazoo.client.NoNodeError:
-            _LOGGER.warn('Partition node not found: %s', partition)
+            _LOGGER.warning('Partition node not found: %s', partition)
 
     def load_buckets(self):
         """Load bucket hierarchy."""
@@ -213,13 +260,13 @@ class Master(object):
             parent.add_node(bucket)
         return bucket
 
-    def load_servers(self, readonly=False):
+    def load_servers(self):
         """Load server topology."""
         servers = self.zkclient.get_children(z.SERVERS)
         for servername in servers:
-            self.load_server(servername, readonly)
+            self.load_server(servername)
 
-    def load_server(self, servername, readonly=False):
+    def load_server(self, servername):
         """Load individual server."""
         try:
             data = zkutils.get(self.zkclient, z.path.server(servername))
@@ -249,23 +296,23 @@ class Master(object):
 
             parent = self.buckets.get(parentname)
             if not parent:
-                _LOGGER.warn('Server parent does not exist: %s/%s',
-                             servername, parentname)
+                _LOGGER.warning('Server parent does not exist: %s/%s',
+                                servername, parentname)
                 return
 
             self.buckets[parentname].add_node(server)
             self.servers[servername] = server
             assert server.parent == self.buckets[parentname]
 
-            if not readonly:
-                zkutils.ensure_exists(self.zkclient,
-                                      z.path.placement(servername),
-                                      acl=[_SERVERS_ACL])
+            self._zk_ensure_exists(
+                z.path.placement(servername),
+                acl=[_SERVERS_ACL]
+            )
 
-            self.adjust_server_state(servername, readonly)
+            self.adjust_server_state(servername)
 
         except kazoo.client.NoNodeError:
-            _LOGGER.warn('Server node not found: %s', servername)
+            _LOGGER.warning('Server node not found: %s', servername)
 
     def remove_server(self, servername):
         """Remove server from scheduler."""
@@ -338,9 +385,9 @@ class Master(object):
 
         except kazoo.client.NoNodeError:
             self.remove_server(servername)
-            _LOGGER.warn('Server node not found: %s', servername)
+            _LOGGER.warning('Server node not found: %s', servername)
 
-    def adjust_server_state(self, servername, readonly=False):
+    def adjust_server_state(self, servername):
         """Set server state."""
         server = self.servers.get(servername)
         if not server:
@@ -351,12 +398,6 @@ class Master(object):
         placement_node = z.path.placement(servername)
 
         # Restore state as it was stored in server placement node.
-        #
-        # zkutils.get_default return tuple if need_metadata is True, default it
-        # is False, so it will return dict. pylint complains about it,
-        # and it should be fixed in zkutils.
-        #
-        # pylint: disable=R0204
         state_since = zkutils.get_default(self.zkclient, placement_node)
         if not state_since:
             state_since = {'state': 'down', 'since': time.time()}
@@ -374,9 +415,7 @@ class Master(object):
 
         # Record server state:
         state, since = server.get_state()
-        if not readonly:
-            zkutils.put(self.zkclient, placement_node,
-                        {'state': state.value, 'since': since})
+        self._zk_put(placement_node, {'state': state.value, 'since': since})
 
     def load_allocations(self):
         """Load allocations and assignments map."""
@@ -384,37 +423,43 @@ class Master(object):
         if not data:
             return
 
+        self.assignments = collections.defaultdict(list)
         for obj in data:
-            label = obj.get('partition')
+            partition = obj.get('partition')
             name = obj['name']
 
-            _LOGGER.info('Loading allocation: %s, label: %s', name, label)
+            _LOGGER.info('Loading allocation: %s into partition: %s',
+                         name, partition)
 
-            alloc = self.cell.partitions[label].allocation
-            alloc.label = label
-
+            alloc = self.cell.partitions[partition].allocation
             for part in re.split('[/:]', name):
                 alloc = alloc.get_sub_alloc(part)
-                alloc.label = label
 
             capacity = resources(obj)
-            alloc.update(capacity, obj['rank'], obj.get('max-utilization'))
+            alloc.update(capacity, obj['rank'], obj.get('rank_adjustment'),
+                         obj.get('max_utilization'))
 
             for assignment in obj.get('assignments', []):
                 pattern = assignment['pattern'] + '[#]' + ('[0-9]' * 10)
+                pattern_re = fnmatch.translate(pattern)
+                key = _alloc_key(pattern)
                 priority = assignment['priority']
+
                 _LOGGER.info('Assignment: %s - %s', pattern, priority)
-                self.assignments[pattern] = (priority, alloc)
+                self.assignments[key].append(
+                    (re.compile(pattern_re), priority, alloc)
+                )
 
     def find_assignment(self, name):
         """Find allocation by matching app assignment."""
         _LOGGER.debug('Find assignment: %s', name)
-        assignments = reversed(sorted(self.assignments.items()))
+        key = _alloc_key(name)
 
-        for pattern, assignment in assignments:
-            if fnmatch.fnmatch(name, pattern):
-                _LOGGER.info('Found: %s, assignment: %s', pattern, assignment)
-                return assignment
+        if key in self.assignments:
+            for assignment in self.assignments[key]:
+                pattern_re, priority, alloc = assignment
+                if pattern_re.match(name):
+                    return (priority, alloc)
 
         _LOGGER.info('Default assignment.')
         return self.find_default_assignment(name)
@@ -422,14 +467,11 @@ class Master(object):
     def find_default_assignment(self, name):
         """Finds (creates) default assignment."""
         alloc = self.cell.partitions[admin.DEFAULT_PARTITION].allocation
-        alloc.label = admin.DEFAULT_PARTITION
 
-        unassigned = alloc.get_sub_alloc('_default')
-        unassigned.label = admin.DEFAULT_PARTITION
+        unassigned = alloc.get_sub_alloc(admin.DEFAULT_TENANT)
 
         proid, _rest = name.split('.', 1)
         proid_alloc = unassigned.get_sub_alloc(proid)
-        proid_alloc.label = admin.DEFAULT_PARTITION
 
         return 1, proid_alloc
 
@@ -438,8 +480,6 @@ class Master(object):
         apps = self.zkclient.get_children(z.SCHEDULED)
         for appname in apps:
             self.load_app(appname)
-
-        self.restore_placements()
 
     def load_app(self, appname):
         """Load single application data."""
@@ -511,63 +551,66 @@ class Master(object):
             except kazoo.exceptions.NoNodeError:
                 placed_apps = []
 
+            server = self.servers[servername]
+            server.remove_all()
+
             for appname in placed_apps:
                 appnode = z.path.placement(servername, appname)
                 if appname not in self.cell.apps:
                     # Stale app - safely ignored.
-                    zkutils.ensure_deleted(self.zkclient, appnode)
-                else:
-                    # Try to restore placement, if failed (e.g capacity of the
-                    # servername changed - remove.
-                    #
-                    # The servername does not need to be active at the time,
-                    # for applications will be moved from servers in DOWN state
-                    # on subsequent reschedule.
-                    app = self.cell.apps[appname]
-                    integrity[appname].append(servername)
+                    self._zk_delete(appnode)
+                    continue
 
-                    server = self.servers[servername]
+                # Try to restore placement, if failed (e.g capacity of the
+                # servername changed - remove.
+                #
+                # The servername does not need to be active at the time,
+                # for applications will be moved from servers in DOWN state
+                # on subsequent reschedule.
+                app = self.cell.apps[appname]
+                integrity[appname].append(servername)
 
-                    # Placement is restored and assumed to be correct, so
-                    # force placement be specifying the server label.
-                    assert app.allocation is not None
-                    if server.put(app):
-                        _LOGGER.info('Restore placement: %s => %s',
-                                     appname, servername)
-                    else:
-                        _LOGGER.info('Failed to restore placement: %s => %s',
-                                     appname, servername)
-                        zkutils.ensure_deleted(self.zkclient, appnode)
-                        # Check if app is marked to be scheduled once. If it is
-                        # remove the app.
-                        if app.schedule_once:
-                            _LOGGER.info('Removing scheduled once app: %s',
-                                         appname)
-                            zkutils.ensure_deleted(self.zkclient,
-                                                   z.path.scheduled(appname))
-                            self.cell.remove_app(appname)
+                # Placement is restored and assumed to be correct, so
+                # force placement be specifying the server label.
+                assert app.allocation is not None
+                _LOGGER.info('Restore placement %s => %s', appname, servername)
+                if not server.put(app):
+                    _LOGGER.info('Failed to restore placement %s => %s',
+                                 appname, servername)
+                    self._zk_delete(appnode)
+                    # Check if app is marked to be scheduled once. If it is
+                    # remove the app.
+                    if app.schedule_once:
+                        _LOGGER.info('Removing scheduled once app: %s',
+                                     appname)
+                        self.cell.remove_app(appname)
+                        self._zk_delete(z.path.scheduled(appname))
 
-        for appname, servers in integrity.items():
-            if len(servers) > 1:
-                _LOGGER.warn('Integrity error: %s placed on %r',
-                             appname, servers)
-                for servername in servers:
-                    zkutils.ensure_deleted(
-                        self.zkclient,
-                        z.path.placement(servername, appname)
-                    )
-                    self.servers[servername].remove(appname)
+        for appname, servers in six.iteritems(integrity):
+            if len(servers) <= 1:
+                continue
+
+            _LOGGER.warning(
+                'Integrity error: %s placed on %r', appname, servers
+            )
+            for servername in servers:
+                self.servers[servername].remove(appname)
+                self._zk_delete(z.path.placement(servername, appname))
 
     def load_placement_data(self):
         """Restore app identities."""
-        for appname, app in self.cell.apps.items():
-            if app.server:
-                placement_data = zkutils.get_default(
-                    self.zkclient, z.path.placement(app.server, appname))
+        for appname, app in six.iteritems(self.cell.apps):
+            if not app.server:
+                continue
 
-                if placement_data is not None:
-                    app.force_set_identity(placement_data.get('identity'))
-                    app.placement_expiry = placement_data.get('expires', 0)
+            placement_data = zkutils.get_default(
+                self.zkclient,
+                z.path.placement(app.server, appname)
+            )
+
+            if placement_data is not None:
+                app.force_set_identity(placement_data.get('identity'))
+                app.placement_expiry = placement_data.get('expires', 0)
 
     def adjust_presence(self, servers):
         """Given current presence set, adjust status."""
@@ -590,6 +633,10 @@ class Master(object):
 
     def check_placement_integrity(self):
         """Check integrity of app placement."""
+        if self.readonly:
+            # Not interested in repairing placements when in readonly mode
+            return
+
         app2server = dict()
         servers = self.zkclient.get_children(z.PLACEMENT)
         for server in servers:
@@ -613,18 +660,16 @@ class Master(object):
                 if server != correct_placement:
                     _LOGGER.critical('Removing incorrect placement: %s/%s',
                                      server, app)
-                    zkutils.ensure_deleted(
-                        self.zkclient, z.path.placement(server, app))
+                    self._zk_delete(z.path.placement(server, app))
 
                 if app2server[app] != correct_placement:
                     _LOGGER.critical('Removing incorrect placement: %s/%s',
                                      app2server[app], app)
-                    zkutils.ensure_deleted(
-                        self.zkclient, z.path.placement(app2server[app], app))
+                    self._zk_delete(z.path.placement(app2server[app], app))
 
         # Cross check that all apps in the model are recorded in placement.
         success = True
-        for appname, app in self.cell.apps.items():
+        for appname, app in six.iteritems(self.cell.apps):
             if app.server:
                 if appname not in app2server:
                     _LOGGER.critical('app missing from placement: %s', appname)
@@ -643,20 +688,28 @@ class Master(object):
         """Checks integrity of scheduler state vs. real."""
         return True
 
-    @exc.exit_on_unhandled
+    def save_state_reports(self):
+        """Prepare scheduler reports and save them to ZooKeeper."""
+        if self.readonly:
+            # Can't save reports to ZK in readonly mode
+            return
+
+        for report_type in ('servers', 'allocations', 'apps'):
+            _LOGGER.info('Saving scheduler report "%s" to ZooKeeper',
+                         report_type)
+            self._zk_put(
+                z.path.state_report(report_type),
+                getattr(reports, report_type)(self.cell).to_csv()
+            )
+
+    @utils.exit_on_unhandled
     def process(self, event):
         """Process state change event."""
         path, children = event
         _LOGGER.info('processing: %r', event)
-        callbacks = {
-            z.SERVER_PRESENCE: self.process_server_presence,
-            z.SCHEDULED: self.process_scheduled,
-            z.EVENTS: self.process_events,
-        }
 
-        assert path in callbacks
-
-        callbacks[path](children)
+        assert path in self.event_handlers
+        self.event_handlers[path](children)
 
         _LOGGER.info('waiting for completion.')
         self.process_complete[path].set()
@@ -672,8 +725,7 @@ class Master(object):
         for appname in current - target:
             app = self.cell.apps[appname]
             if app.server:
-                zkutils.ensure_deleted(self.zkclient,
-                                       z.path.placement(app.server, appname))
+                self._zk_delete(z.path.placement(app.server, appname))
             if self.events_dir:
                 appevents.post(
                     self.events_dir,
@@ -681,12 +733,11 @@ class Master(object):
                         instanceid=appname
                     )
                 )
-            # If finished does nto exist, it means app is terminated by
+            # If finished does not exist, it means app is terminated by
             # explicit request, not because it finished on the node.
             if not self.zkclient.exists(z.path.finished(appname)):
                 zkutils.with_retry(
-                    zkutils.put,
-                    self.zkclient,
+                    self._zk_put,
                     z.path.finished(appname),
                     {'state': 'terminated',
                      'when': time.time(),
@@ -717,9 +768,13 @@ class Master(object):
             _LOGGER.info('event: %s %s %s', prio, seq, resource)
             node_name = '-'.join([prio, resource, seq])
             if resource == 'allocations':
-                # TODO: changing allocations has potential of complete
-                #                reshuffle, so while ineffecient, reload
-                #                all apps as well.
+                # Changing allocations has potential of complete
+                # reshuffle, so while ineffecient, reload all apps as well.
+                #
+                # If application is assigned to different partition, from
+                # scheduler perspective is no different than host deleted. It
+                # will be detected on schedule and app will be assigned new
+                # host from proper partition.
                 self.load_allocations()
                 self.load_apps()
             elif resource == 'apps':
@@ -732,6 +787,8 @@ class Master(object):
                     self.load_app(app)
             elif resource == 'cell':
                 self.load_cell()
+            elif resource == 'buckets':
+                self.load_buckets()
             elif resource == 'servers':
                 servers = zkutils.get_default(
                     self.zkclient,
@@ -746,17 +803,17 @@ class Master(object):
             elif resource == 'identity_groups':
                 self.load_identity_groups()
             else:
-                _LOGGER.warn('Unsupported event resource: %s', resource)
+                _LOGGER.warning('Unsupported event resource: %s', resource)
 
         for node in events:
             _LOGGER.info('Deleting event: %s', z.path.event(node))
-            zkutils.ensure_deleted(self.zkclient, z.path.event(node))
+            self._zk_delete(z.path.event(node))
 
     def watch(self, path):
         """Constructs a watch on a given path."""
 
-        @exc.exit_on_unhandled
         @self.zkclient.ChildrenWatch(path)
+        @utils.exit_on_unhandled
         def _watch(children):
             """Watch children events."""
             _LOGGER.debug('watcher begin: %s', path)
@@ -774,35 +831,45 @@ class Master(object):
                 _LOGGER.debug('watcher waiting for completion: %s', path)
                 self.process_complete[path].wait()
             else:
-                self.process_complete[path] = threading.Event()
+                self.process_complete[path] = \
+                    self.zkclient.handler.event_object()
 
             _LOGGER.debug('watcher finished: %s', path)
             return True
 
-    @exc.exit_on_unhandled
-    def run_real(self):
-        """Loads cell state from Zookeeper."""
-        self.create_rootns()
+    def load_model(self):
+        """Load cell state from Zookeeper."""
+        self.load_partitions()
         self.load_buckets()
         self.load_cell()
         self.load_servers()
         self.load_allocations()
         self.load_strategies()
         self.load_apps()
+        self.restore_placements()
         self.load_identity_groups()
         self.load_placement_data()
 
-        # Must be called last
-        self.load_schedule()
-
+    def attach_watchers(self):
+        """Attach watchers that push ZK children events into a queue."""
         self.watch(z.SERVER_PRESENCE)
         self.watch(z.SCHEDULED)
         self.watch(z.EVENTS)
 
+    @utils.exit_on_unhandled
+    def run_loop(self):
+        """Run the master loop."""
+        self.create_rootns()
+        self.load_model()
+        self.init_schedule()
+        self.attach_watchers()
+
         last_sched_time = time.time()
         last_integrity_check = 0
         last_reboot_check = 0
+        last_state_report = 0
         while not self.exit:
+            # Process ZK children events queue
             queue_empty = False
             for _idx in range(0, EVENT_BATCH_COUNT):
                 try:
@@ -811,18 +878,22 @@ class Master(object):
                 except IndexError:
                     queue_empty = True
                     break
-            try:
-                if time_past(last_sched_time + SCHEDULER_INTERVAL):
-                    last_sched_time = time.time()
-                    if not self.up_to_date:
-                        self.reschedule()
-                        self.check_placement_integrity()
 
-                if time_past(last_integrity_check + INTEGRITY_INTERVAL):
-                    assert self.check_integrity()
-                    last_integrity_check = time.time()
-            except AssertionError:
-                raise
+            # Run periodic tasks
+
+            if time_past(last_sched_time + SCHEDULER_INTERVAL):
+                last_sched_time = time.time()
+                if not self.up_to_date:
+                    self.reschedule()
+                    self.check_placement_integrity()
+
+            if time_past(last_state_report + STATE_REPORT_INTERVAL):
+                last_state_report = time.time()
+                self.save_state_reports()
+
+            if time_past(last_integrity_check + INTEGRITY_INTERVAL):
+                assert self.check_integrity()
+                last_integrity_check = time.time()
 
             if time_past(last_reboot_check + REBOOT_CHECK_INTERVAL):
                 self.check_reboot()
@@ -831,19 +902,24 @@ class Master(object):
             if queue_empty:
                 time.sleep(CHECK_EVENT_INTERVAL)
 
-    @exc.exit_on_unhandled
+    @utils.exit_on_unhandled
     def run(self):
         """Runs the master (once it is elected leader)."""
+        if self.readonly:
+            # Readonly masters don't need election locks
+            return self.run_loop()
+
         lock = zkutils.make_lock(self.zkclient, z.path.election(__name__))
         _LOGGER.info('Waiting for leader lock.')
         with lock:
-            self.run_real()
+            self.run_loop()
 
     def _schedule_reboot(self, servername):
         """Schedule server reboot."""
-        zkutils.ensure_exists(self.zkclient,
-                              z.path.reboot(servername),
-                              acl=[_SERVERS_ACL_DEL])
+        self._zk_ensure_exists(
+            z.path.reboot(servername),
+            acl=[_SERVERS_ACL_DEL]
+        )
 
     def check_reboot(self):
         """Identify all expired servers."""
@@ -852,7 +928,7 @@ class Master(object):
         now = time.time()
 
         # expired servers rebooted unconditionally, as they are no use anumore.
-        for name, server in self.servers.items():
+        for name, server in six.iteritems(self.servers):
             if now > server.valid_until:
                 _LOGGER.info(
                     'Expired: %s at %s',
@@ -881,37 +957,35 @@ class Master(object):
             'expires': self.cell.apps[app].placement_expiry
         }
 
-    def load_schedule(self):
+    def init_schedule(self):
         """Run scheduler first time and update scheduled data."""
         placement = self.cell.schedule()
 
-        for servername, server in self.cell.members().items():
+        for servername, server in six.iteritems(self.cell.members()):
             placement_node = z.path.placement(servername)
-            zkutils.ensure_exists(self.zkclient,
-                                  placement_node,
-                                  acl=[_SERVERS_ACL])
+            self._zk_ensure_exists(placement_node, acl=[_SERVERS_ACL])
 
             current = set(self.zkclient.get_children(placement_node))
             correct = set(server.apps.keys())
 
             for app in current - correct:
                 _LOGGER.info('Unscheduling: %s - %s', servername, app)
-                zkutils.ensure_deleted(self.zkclient,
-                                       os.path.join(placement_node, app))
+                self._zk_delete(os.path.join(placement_node, app))
             for app in correct - current:
                 _LOGGER.info('Scheduling: %s - %s,%s',
                              servername, app, self.cell.apps[app].identity)
 
                 placement_data = self._placement_data(app)
-                zkutils.put(self.zkclient,
-                            os.path.join(placement_node, app),
-                            placement_data,
-                            acl=[_SERVERS_ACL])
+                self._zk_put(
+                    os.path.join(placement_node, app),
+                    placement_data,
+                    acl=[_SERVERS_ACL]
+                )
 
                 self._update_task(app, servername, why=None)
 
         # Store latest placement as reference.
-        zkutils.put(self.zkclient, z.path.placement(), placement)
+        self._zk_put(z.path.placement(), placement)
         self.up_to_date = True
 
     def reschedule(self):
@@ -929,14 +1003,12 @@ class Master(object):
         # any new ones. This ensures that in the event of loop interruption
         # for anyreason (like Zookeeper connection lost or master restart)
         # there are no duplicate placements.
-        for app, before, exp_before, after, exp_after in changed_placement:
+        for app, before, _exp_before, after, _exp_after in changed_placement:
             if before and before != after:
                 _LOGGER.info('Unscheduling: %s - %s', before, app)
-                zkutils.ensure_deleted(
-                    self.zkclient,
-                    z.path.placement(before, app))
+                self._zk_delete(z.path.placement(before, app))
 
-        for app, before, exp_before, after, exp_after in changed_placement:
+        for app, before, _exp_before, after, exp_after in changed_placement:
             placement_data = self._placement_data(app)
 
             why = ''
@@ -957,11 +1029,11 @@ class Master(object):
                              self.cell.apps[app].identity,
                              exp_after)
 
-                zkutils.put(
-                    self.zkclient,
+                self._zk_put(
                     z.path.placement(after, app),
                     placement_data,
-                    acl=[_SERVERS_ACL])
+                    acl=[_SERVERS_ACL]
+                )
                 self._update_task(app, after, why=why)
             else:
                 self._update_task(app, None, why=why)
@@ -969,7 +1041,7 @@ class Master(object):
         self._unschedule_evicted()
 
         # Store latest placement as reference.
-        zkutils.put(self.zkclient, z.path.placement(), placement)
+        self._zk_put(z.path.placement(), placement)
         self.up_to_date = True
 
     def _unschedule_evicted(self):
@@ -979,13 +1051,12 @@ class Master(object):
         #
         # Remove will trigger rescheduling which will be harmless but
         # strictly speaking unnecessary.
-        for appname, app in self.cell.apps.items():
+        for appname, app in six.iteritems(self.cell.apps):
             if app.schedule_once and app.evicted:
                 _LOGGER.info('Removing schedule_once/evicted app: %s',
                              appname)
                 # TODO: need to publish trace event.
-                zkutils.ensure_deleted(self.zkclient,
-                                       z.path.scheduled(appname))
+                self._zk_delete(z.path.scheduled(appname))
 
     def _update_task(self, appname, server, why):
         """Creates/updates application task with the new placement."""
@@ -1016,7 +1087,8 @@ class Master(object):
                 self.events_dir,
                 traceevents.AbortedTraceEvent(
                     instanceid=appname,
-                    why=type(exception).__name__
+                    why=app_abort.SCHEDULER,
+                    payload=exception
                 )
             )
 
@@ -1034,10 +1106,10 @@ def create_event(zkclient, priority, event, payload):
                     sequence=True))
 
 
-def create_apps(zkclient, app_id, app, count):
+def create_apps(zkclient, app_id, app, count, created_by=None):
     """Schedules new apps."""
     instance_ids = []
-    acl = zkutils.make_role_acl('servers', 'rwcd')
+    acl = zkutils.make_role_acl('servers', 'rwcda')
     for _idx in range(0, count):
         node_path = zkutils.put(zkclient,
                                 _app_node(app_id, existing=False),
@@ -1045,32 +1117,32 @@ def create_apps(zkclient, app_id, app, count):
                                 sequence=True,
                                 acl=[acl])
         instance_id = os.path.basename(node_path)
+        instance_ids.append(instance_id)
 
-        # Create task for the app, and put it in pending state.
-        # TODO: probably need to create PendingEvent and use to_data method.
-        task_node = z.path.trace(
-            instance_id,
-            '{time},{hostname},pending,{data}'.format(
-                time=time.time(),
-                hostname=sysinfo.hostname(),
-                data='created'
+        appevents.post_zk(
+            zkclient,
+            traceevents.PendingTraceEvent(
+                instanceid=instance_id,
+                why='%s:created' % created_by if created_by else 'created',
+                payload=''
             )
         )
-        try:
-            zkclient.create(task_node, b'',
-                            acl=[_SERVERS_ACL], makepath=True)
-        except kazoo.client.NodeExistsError:
-            pass
-
-        instance_ids.append(instance_id)
 
     return instance_ids
 
 
-def delete_apps(zkclient, app_ids):
+def delete_apps(zkclient, app_ids, deleted_by=None):
     """Unschedules apps."""
     for app_id in app_ids:
         zkutils.ensure_deleted(zkclient, _app_node(app_id))
+
+        appevents.post_zk(
+            zkclient,
+            traceevents.PendingDeleteTraceEvent(
+                instanceid=app_id,
+                why='%s:deleted' % deleted_by if deleted_by else 'deleted'
+            )
+        )
 
 
 def get_app(zkclient, app_id):
@@ -1093,7 +1165,7 @@ def list_running_apps(zkclient):
 def update_app_priorities(zkclient, updates):
     """Updates app priority."""
     modified = []
-    for app_id, priority in updates.items():
+    for app_id, priority in six.iteritems(updates):
         assert 0 <= priority <= 100
 
         app = get_app(zkclient, app_id)
@@ -1118,6 +1190,7 @@ def create_bucket(zkclient, bucket_id, parent_id, traits=0):
         'parent': parent_id
     }
     zkutils.put(zkclient, z.path.bucket(bucket_id), data, check_content=True)
+    create_event(zkclient, 0, 'buckets', None)
 
 
 def update_bucket_traits(zkclient, bucket_id, traits):
@@ -1135,6 +1208,7 @@ def get_bucket(zkclient, bucket_id):
 def delete_bucket(zkclient, bucket_id):
     """Deletes bucket definition from Zoookeeper."""
     zkutils.ensure_deleted(zkclient, z.path.bucket(bucket_id))
+    # NOTE: we never remove buckets, no need for event.
 
 
 def list_buckets(zkclient):
@@ -1149,9 +1223,6 @@ def create_server(zkclient, server_id, parent_id):
 
     zkutils.ensure_exists(zkclient, server_node, acl=[server_acl])
 
-    # zkutils.get return dict/tuple if need_metadata is true.
-    #
-    # pylint: disable=R0204
     data = zkutils.get(zkclient, server_node)
     if parent_id:
         if not data:
@@ -1309,3 +1380,12 @@ def delete_identity_group(zkclient, ident_group_id):
     node = z.path.identity_group(ident_group_id)
     zkutils.ensure_deleted(zkclient, node)
     create_event(zkclient, 0, 'identity_groups', [ident_group_id])
+
+
+def update_allocations(zkclient, allocations):
+    """Updates identity group count."""
+    if zkutils.put(zkclient,
+                   z.path.allocation(),
+                   allocations,
+                   check_content=True):
+        create_event(zkclient, 0, 'allocations', None)

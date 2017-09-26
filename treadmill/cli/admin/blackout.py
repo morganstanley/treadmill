@@ -1,5 +1,8 @@
 """Kills all connections from a given treadmill server."""
-
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import logging
 import re
@@ -44,8 +47,7 @@ def _list_server_blackouts(zkclient, fmt):
         blacked_out_nodes = zkclient.get_children(z.BLACKEDOUT_SERVERS)
         for server in blacked_out_nodes:
             node_path = z.path.blackedout_server(server)
-            data, metadata = zkutils.get(zkclient, node_path,
-                                         need_metadata=True)
+            data, metadata = zkutils.get_with_metadata(zkclient, node_path)
             blacked_out.append((metadata.created, server, data))
 
     except kazoo.client.NoNodeError:

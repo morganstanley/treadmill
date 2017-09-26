@@ -1,5 +1,10 @@
-"""Cleans up old trace from Treadmill.
-"""
+"""Cleans up old trace from Treadmill."""
+
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import logging
 import time
@@ -16,6 +21,9 @@ _LOGGER = logging.getLogger(__name__)
 
 # Interval between cleanup - every min
 TRACE_CLEANUP_INTERVAL = 60
+
+# Default max service trace events count.
+TRACE_SERVICE_EVENTS_MAX_COUNT = 10
 
 # Number of traces in batch.
 TRACE_BATCH = 5000
@@ -47,6 +55,9 @@ def init():
     @trace.command()
     @click.option('--interval', help='Timeout between checks (sec).',
                   default=TRACE_CLEANUP_INTERVAL)
+    @click.option('--trace-service-events-max-count',
+                  help='Max service trace events (running/exited) to keep.',
+                  type=int, default=TRACE_SERVICE_EVENTS_MAX_COUNT)
     @click.option('--trace-batch-size', help='Batch size.',
                   type=int, default=TRACE_BATCH)
     @click.option('--trace-expire-after', help='Expire after (sec).',
@@ -64,6 +75,7 @@ def init():
     @click.option('--no-lock', is_flag=True, default=False,
                   help='Run without lock.')
     def cleanup(interval,
+                trace_service_events_max_count,
                 trace_batch_size,
                 trace_expire_after,
                 trace_history_max_count,
@@ -76,6 +88,10 @@ def init():
         def _cleanup():
             """Do cleanup."""
             while True:
+                zk.prune_trace(
+                    context.GLOBAL.zk.conn,
+                    trace_service_events_max_count
+                )
                 zk.cleanup_trace(
                     context.GLOBAL.zk.conn,
                     trace_batch_size,

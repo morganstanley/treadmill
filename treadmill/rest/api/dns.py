@@ -1,7 +1,10 @@
-"""
-Treadmill DNS REST api.
+"""Treadmill DNS REST api.
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import flask_restplus as restplus
 from flask_restplus import fields

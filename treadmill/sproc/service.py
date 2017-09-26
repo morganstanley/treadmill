@@ -1,10 +1,19 @@
 """Runs the Treadmill localdisk service."""
 
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import logging
 import os
 
 import click
+
+from treadmill import diskbenchmark
+from treadmill import fs
+from treadmill import localdiskutils
 
 from .. import services
 
@@ -35,6 +44,16 @@ def init():
                   help='Amount of local disk space to use for the image.')
     @click.option('--block-dev',
                   help='Use a block device to back LVM group.')
+    @click.option('--block-dev-configuration',
+                  help='Block device io throughput configuration.')
+    @click.option('--block-dev-read-bps',
+                  help='Block device read byte per second value.')
+    @click.option('--block-dev-write-bps',
+                  help='Block device write byte per second value.')
+    @click.option('--block-dev-read-iops', type=int,
+                  help='Block device read IO per second value.')
+    @click.option('--block-dev-write-iops', type=int,
+                  help='Block device write IO per second value.')
     @click.option('--default-read-bps', required=True,
                   help='Default read byte per second value.')
     @click.option('--default-write-bps', required=True,
@@ -43,9 +62,12 @@ def init():
                   help='Default read IO per second value.')
     @click.option('--default-write-iops', required=True, type=int,
                   help='Default write IO per second value.')
-    def localdisk(img_location, img_size, block_dev, default_read_bps,
-                  default_write_bps, default_read_iops,
-                  default_write_iops):
+    def localdisk(img_location, img_size, block_dev,
+                  block_dev_configuration,
+                  block_dev_read_bps, block_dev_write_bps,
+                  block_dev_read_iops, block_dev_write_iops,
+                  default_read_bps, default_write_bps,
+                  default_read_iops, default_write_iops):
         """Runs localdisk service."""
 
         impl = 'treadmill.services.localdisk_service.LocalDiskResourceService'
@@ -57,33 +79,85 @@ def init():
             impl=impl
         )
 
+        block_dev_params = [block_dev_read_bps, block_dev_write_bps,
+                            block_dev_read_iops, block_dev_write_iops]
+        if img_location is None:
+            img_location = root_dir
+
+        # prepare block device
         if block_dev is not None:
-            svc.run(
-                watchdogs_dir=os.path.join(root_dir,
-                                           watchdogs_dir),
-                block_dev=block_dev,
-                default_read_bps=default_read_bps,
-                default_write_bps=default_write_bps,
-                default_read_iops=default_read_iops,
-                default_write_iops=default_write_iops,
+            underlying_device_uuid = fs.device_uuid(
+                block_dev
             )
-
         else:
-            if img_location is None:
-                img_location = root_dir
-            else:
-                img_location = img_location
-
-            svc.run(
-                watchdogs_dir=os.path.join(root_dir,
-                                           watchdogs_dir),
-                img_location=img_location,
-                img_size=img_size,
-                default_read_bps=default_read_bps,
-                default_write_bps=default_write_bps,
-                default_read_iops=default_read_iops,
-                default_write_iops=default_write_iops,
+            underlying_device_uuid = fs.device_uuid(
+                fs.maj_min_to_blk(*fs.path_to_maj_min(img_location))
             )
+            block_dev = localdiskutils.init_block_dev(
+                localdiskutils.TREADMILL_IMG,
+                img_location,
+                img_size
+            )
+
+        # prepare block device configuration
+        read_bps = None
+        write_bps = None
+        read_iops = None
+        write_iops = None
+
+        # use block device config file
+        if block_dev_configuration is not None and all(
+                param is None for param in block_dev_params
+        ):
+            try:
+                current_benchmark = diskbenchmark.read(
+                    block_dev_configuration
+                )[underlying_device_uuid]
+                read_bps = current_benchmark['read_bps']
+                write_bps = current_benchmark['write_bps']
+                read_iops = int(current_benchmark['read_iops'])
+                write_iops = int(current_benchmark['write_iops'])
+            except IOError:
+                _LOGGER.error(
+                    'No benchmark found : %s',
+                    block_dev_configuration
+                )
+            except (KeyError, ValueError):
+                _LOGGER.error(
+                    'Incorrect disk benchmark for device %s in %s',
+                    underlying_device_uuid,
+                    block_dev_configuration
+                )
+
+        # use block device config parameters
+        if all(
+                param is not None for param in block_dev_params
+        ) and block_dev_configuration is None:
+            read_bps = block_dev_read_bps
+            write_bps = block_dev_write_bps
+            read_iops = block_dev_read_iops
+            write_iops = block_dev_write_iops
+
+        if None in [read_bps, write_bps, read_iops, write_iops]:
+            _LOGGER.error('Bad block dev configuration')
+            read_bps = '200M'
+            write_bps = '200M'
+            read_iops = 3000
+            write_iops = 3000
+
+        svc.run(
+            watchdogs_dir=os.path.join(root_dir,
+                                       watchdogs_dir),
+            block_dev=block_dev,
+            read_bps=read_bps,
+            write_bps=write_bps,
+            read_iops=read_iops,
+            write_iops=write_iops,
+            default_read_bps=default_read_bps,
+            default_write_bps=default_write_bps,
+            default_read_iops=default_read_iops,
+            default_write_iops=default_write_iops,
+        )
 
     @service.command()
     def cgroup():

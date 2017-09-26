@@ -1,21 +1,39 @@
-"""Supervises services."""
+"""Monitor services.
+"""
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import abc
+import collections
 import errno
+import io
+import json
 import logging
 import os
-import tempfile
 
 import enum
-import yaml
+import six
 
+if six.PY2 and os.name == 'posix':
+    import subprocess32 as subprocess  # pylint: disable=import-error
+else:
+    import subprocess  # pylint: disable=wrong-import-order
+
+from treadmill import appevents
 from treadmill import fs
 from treadmill import dirwatch
-from treadmill import subproc
 from treadmill import supervisor
+
+from treadmill.appcfg import abort as app_abort
+from treadmill.apptrace import events as traceevents
 
 
 _LOGGER = logging.getLogger(__name__)
+
+EXIT_INFO = 'exitinfo'
 
 
 class Monitor(object):
@@ -27,17 +45,20 @@ class Monitor(object):
     __slots__ = (
         '_dirwatcher',
         '_down_action',
-        '_down_reason',
+        '_down_reasons',
         '_policy_impl',
         '_services',
         '_services_dir',
         '_service_policies',
+        '_event_hook',
     )
 
-    def __init__(self, services_dir, service_dirs, policy_impl, down_action):
+    def __init__(self, services_dir, service_dirs, policy_impl, down_action,
+                 event_hook=None):
         self._dirwatcher = None
         self._down_action = down_action
-        self._down_reason = None
+        self._down_reasons = collections.deque()
+        self._event_hook = event_hook
         self._policy_impl = policy_impl
         self._services = list(service_dirs)
         self._services_dir = services_dir
@@ -56,11 +77,8 @@ class Monitor(object):
         else:
             # A service exited
             policy = self._service_policies.get(watched, None)
-            if policy is None:
-                return
-
-            if not policy.process():
-                self._down_reason = policy.fail_reason
+            if policy is not None:
+                self._process(policy)
 
     def _on_deleted(self, removed_entry):
         if os.path.basename(removed_entry)[0] == '.':
@@ -95,12 +113,73 @@ class Monitor(object):
 
         policy = self._policy_impl()
         new_watch = policy.register(service)
-        self._service_policies[new_watch] = policy
+
         # Add the new service directory to the policy watcher
-        self._dirwatcher.add_dir(new_watch)
+        try:
+            self._dirwatcher.add_dir(new_watch)
+
+        except OSError:
+            _LOGGER.exception('Unable to add dir to watcher %r', new_watch)
+            return
+
+        self._service_policies[new_watch] = policy
         # Immediately ensure we start within policy.
-        if not policy.process():
-            self._down_reason = policy.fail_reason
+        self._process(policy)
+
+    def _process(self, policy):
+        """Process an event on the service directory.
+        """
+        result = policy.check()
+
+        if result is MonitorRestartPolicyResult.NOOP:
+            return
+
+        reason = policy.fail_reason
+        self._went_down(policy.service, reason)
+
+        if result is MonitorRestartPolicyResult.FAIL:
+            self._down_reasons.append(reason)
+            return
+
+        else:
+            self._bring_up(policy.service)
+            self._went_up(policy.service)
+
+    def _went_down(self, service, data):
+        """Called when the service went down.
+
+        :params ``supervisor.Service`` service:
+            Service that went down.
+        :params ``dict`` data:
+            Policy reason data why the service went down.
+
+        """
+        _LOGGER.info('Service went down %r', service)
+        if self._event_hook:
+            self._event_hook.down(service, data)
+
+    def _went_up(self, service):
+        """Called when the service went up.
+
+        :params ``supervisor.Service`` service:
+            Service that went down.
+        """
+        _LOGGER.info('Service went up %r', service)
+        if self._event_hook:
+            self._event_hook.up(service)
+
+    def _bring_up(self, service):
+        """Brings up the given service.
+
+        :params ``supervisor.Service`` service:
+            Service to bring up.
+        """
+        _LOGGER.debug('Waiting till %r is really down', service)
+        supervisor.wait_service(service.directory,
+                                supervisor.ServiceWaitAction.really_down)
+        _LOGGER.info('Bringing up service %r', service)
+        supervisor.control_service(service.directory,
+                                   supervisor.ServiceControlAction.up)
 
     def run(self):
         """Run the monitor.
@@ -126,24 +205,29 @@ class Monitor(object):
         for service_dir in service_dirs:
             self._add_service(service_dir)
 
-        keep_running = True
-        while keep_running:
-            while self._down_reason is None:
+        running = True
+        while running:
+            while not self._down_reasons:
                 if self._dirwatcher.wait_for_events():
                     self._dirwatcher.process_events()
 
-            keep_running = self._down_action.execute(self._down_reason)
-            self._down_reason = None
+            # Process all the down reasons through the down_action callback.
+            for down_reason in self._down_reasons:
+                if not self._down_action.execute(down_reason):
+                    # If one of the down_action stops the monitor, break early.
+                    running = False
+                    break
+            else:
+                # Clear the down reasons now that we have processed them all.
+                self._down_reasons.clear()
 
-        return
 
-
+@six.add_metaclass(abc.ABCMeta)
 class MonitorDownAction(object):
-    """Abstract base clase for all monitor down actions.
+    """Abstract base class for all monitor down actions.
 
     Behavior when a service fails its policy.
     """
-    __metaclass__ = abc.ABCMeta
     __slots__ = ()
 
     @abc.abstractmethod
@@ -176,33 +260,186 @@ class MonitorNodeDown(MonitorDownAction):
         """Shut down the node by writing a watchdog with the down reason data.
         """
         _LOGGER.critical('Node down: %r', data)
-        with tempfile.NamedTemporaryFile(prefix='.tmp',
-                                         dir=self._watchdog_dir,
-                                         delete=False,
-                                         mode='w') as f:
-            f.write(
+        filename = os.path.join(
+            self._watchdog_dir, 'Monitor-%s' % data['service']
+        )
+        fs.write_safe(
+            filename,
+            lambda f: f.write(
                 'Node service {service!r} crashed.'
                 ' Last exit {return_code} (sig:{signal}).'.format(
                     service=data['service'],
                     return_code=data['return_code'],
                     signal=data['signal']
                 )
-            )
-            os.fchmod(f.fileno(), 0o644)
-        os.rename(
-            f.name,
-            os.path.join(self._watchdog_dir, 'Monitor-%s' % data['service'])
+            ),
+            prefix='.tmp'
         )
+        if os.name == 'posix':
+            os.chmod(filename, 0o644)
 
         return True
 
 
+class MonitorContainerCleanup(MonitorDownAction):
+    """Monitor container cleanup action.
+    """
+    __slots__ = (
+        '_running_dir',
+        '_cleanup_dir'
+    )
+
+    def __init__(self, tm_env):
+        self._running_dir = tm_env.running_dir
+        self._cleanup_dir = tm_env.cleanup_dir
+
+    def execute(self, data):
+        """Pass a container to the cleanup service.
+        """
+        _LOGGER.critical('Monitor container cleanup: %r', data)
+        running = os.path.join(self._running_dir, data['service'])
+        data_dir = supervisor.open_service(running).data_dir
+        cleanup = os.path.join(self._cleanup_dir, data['service'])
+
+        # pid1 will SIGABRT(6) when there is an issue
+        if int(data['signal']) == 6:
+            app_abort.flag_aborted(data_dir, why=app_abort.AbortedReason.PID1)
+
+        try:
+            _LOGGER.info('Moving %r -> %r', running, cleanup)
+            os.rename(running, cleanup)
+        except OSError as err:
+            if err.errno == errno.ENOENT:
+                pass
+            else:
+                raise
+
+        try:
+            supervisor.control_svscan(self._running_dir, [
+                supervisor.SvscanControlAction.alarm,
+                supervisor.SvscanControlAction.nuke
+            ])
+        except subprocess.CalledProcessError as err:
+            _LOGGER.warning('Failed to nuke svscan: %r', self._running_dir)
+
+        return True
+
+
+class MonitorContainerDown(MonitorDownAction):
+    """Monitor container down action.
+    """
+    __slots__ = (
+        '_container_svc',
+    )
+
+    def __init__(self, container_dir):
+        self._container_svc = supervisor.open_service(container_dir)
+
+    def execute(self, data):
+        """Execute the down action.
+
+        :returns ``bool``:
+            ``True`` - Monitor should keep running.
+            ``False`` - Monitor should stop.
+        """
+        _LOGGER.critical('Container down: %r', data)
+        data_dir = self._container_svc.data_dir
+        fs.write_safe(
+            os.path.join(data_dir, EXIT_INFO),
+            lambda f: json.dump(data, f),
+            prefix='.tmp',
+            permission=0o644
+        )
+        # NOTE: This will take down the monitor service as well.
+        supervisor.control_service(self._container_svc.directory,
+                                   supervisor.ServiceControlAction.down)
+        return False
+
+
+@six.add_metaclass(abc.ABCMeta)
+class MonitorEventHook(object):
+    """Abstract base class for monitor events.
+    """
+    __slots__ = ()
+
+    @abc.abstractmethod
+    def down(self, service, data):
+        """Called when a service has went down.
+
+        :params service:
+            The service that went down.
+        :params ``dict`` data:
+            Output of the `class:MonitorPolicy.fail_reason()` method.
+        """
+        pass
+
+    # pylint complains: Invalid class attribute name "up"
+    @abc.abstractmethod
+    def up(self, service):  # pylint: disable=C0103
+        """Called when a service has been brought back up.
+
+        :params service:
+            The service that has been brought back up.
+        """
+        pass
+
+
+class PresenceMonitorEventHook(MonitorEventHook):
+    """Adds hooks to the monitor to enable presence."""
+    __slots__ = (
+        'tm_env',
+    )
+
+    def __init__(self, tm_env):
+        self.tm_env = tm_env
+
+    def _get_trace(self, service):
+        """Gets the trace details for the given service."""
+        trace_file = os.path.join(service.data_dir, supervisor.TRACE_FILE)
+
+        if not os.path.exists(trace_file):
+            return None
+
+        with io.open(trace_file) as f:
+            return json.load(f)
+
+    def down(self, service, data):
+        trace = self._get_trace(service)
+        if trace is None:
+            return
+
+        appevents.post(
+            self.tm_env.app_events_dir,
+            traceevents.ServiceExitedTraceEvent(
+                instanceid=trace['instanceid'],
+                uniqueid=trace['uniqueid'],
+                service=service.name,
+                rc=data['return_code'],
+                signal=data['signal']
+            )
+        )
+
+    def up(self, service):
+        trace = self._get_trace(service)
+        if trace is None:
+            return
+
+        appevents.post(
+            self.tm_env.app_events_dir,
+            traceevents.ServiceRunningTraceEvent(
+                instanceid=trace['instanceid'],
+                uniqueid=trace['uniqueid'],
+                service=service.name
+            )
+        )
+
+
+@six.add_metaclass(abc.ABCMeta)
 class MonitorPolicy(object):
     """Abstract base class of all monitor policies implementations.
 
     Behaviors for policing services executions.
     """
-    __metaclass__ = abc.ABCMeta
     __slots__ = ()
 
     @abc.abstractmethod
@@ -215,25 +452,31 @@ class MonitorPolicy(object):
         """
         pass
 
-    @abc.abstractmethod
-    def process(self):
-        """Process an service event.
+    @abc.abstractproperty
+    def check(self):
+        """Check the status of the service against the policy.
 
-        Ensure the service is down, check the policy and decide to restart the
-        service or not.
-
-        :returns ``bool``:
-            True - Service still in compliance.
-            False - Server failed policy.
+        :returns ``MonitorRestartPolicyResult``:
+            ``NOOP`` is nothing needs be done, ``RESTART`` to bring the service
+             back up and ``FAIL`` to fail.
         """
-        pass
+        return
+
+    @abc.abstractproperty
+    def service(self):
+        """The service which this policy is for
+
+        :returns:
+            The service.
+        """
+        return
 
     @abc.abstractproperty
     def fail_reason(self):
         """Policy failure data
 
         :returns ``dict``:
-            Dictionary of failure data
+            Dictionary of failure data.
         """
         return
 
@@ -261,8 +504,7 @@ class MonitorRestartPolicy(MonitorPolicy):
     )
 
     EXITS_DIR = 'exits'
-    POLICY_FILE = 'policy.yml'
-    # TODO(boysson): configurable timeout for really down
+    # TODO: configurable timeout for really down
     REALLY_DOWN_TIMEOUT = '50'
 
     def __init__(self):
@@ -274,22 +516,14 @@ class MonitorRestartPolicy(MonitorPolicy):
         self._service = None
         self._service_exits_log = None
 
-    @property
-    def fail_reason(self):
-        return {
-            'return_code': self._last_rc,
-            'service': self._service.name,
-            'signal': self._last_signal,
-            'timestamp': self._last_timestamp,
-        }
-
     def register(self, service):
         self._service = service
         try:
-            with open(os.path.join(service.data_dir, self.POLICY_FILE)) as f:
-                policy_conf = yaml.load(stream=f)
-                self._policy_limit = policy_conf['limit']
-                self._policy_interval = policy_conf['interval']
+            with io.open(os.path.join(service.data_dir,
+                                      supervisor.POLICY_JSON)) as f:
+                policy_conf = json.load(f)
+            self._policy_limit = policy_conf['limit']
+            self._policy_interval = policy_conf['interval']
 
         except IOError as err:
             if err.errno == errno.ENOENT:
@@ -309,40 +543,17 @@ class MonitorRestartPolicy(MonitorPolicy):
 
         return os.path.realpath(service_exits_log)
 
-    def process(self):
-        """Process an event on the service directory
-        """
-        result = self._check_policy()
-        if result is MonitorRestartPolicyResult.NOOP:
-            return True
-
-        elif result is MonitorRestartPolicyResult.FAIL:
-            return False
-
-        else:
-            # Bring the service back up.
-            _LOGGER.info('Bringing up %r', self._service)
-            subproc.check_call(
-                [
-                    's6_svc', '-u',
-                    self._service.directory
-                ]
-            )
-
-        return True
-
-    def _check_policy(self):
-        """Check the status of the service against the policy.
-
-        :returns ``MonitorRestartPolicyResult``:
-            ``NOOP`` is nothing needs be done, ``RESTART`` to bring the service
-             back up and ``FAIL`` to fail.
-        """
-        exits = sorted([
-            direntry
-            for direntry in os.listdir(self._service_exits_log)
-            if direntry[0] != '.'
-        ])
+    def check(self):
+        try:
+            exits = sorted([
+                direntry
+                for direntry in os.listdir(self._service_exits_log)
+                if direntry[0] != '.'
+            ])
+        except OSError:
+            _LOGGER.info('Dir %s was deleted.', self._service_exits_log)
+            # The dir deleted event will remove from watcher
+            return MonitorRestartPolicyResult.NOOP
 
         total_restarts = len(exits)
         if total_restarts == 0:
@@ -388,3 +599,16 @@ class MonitorRestartPolicy(MonitorPolicy):
                 os.unlink(os.path.join(self._service_exits_log, old_exit))
 
             return MonitorRestartPolicyResult.RESTART
+
+    @property
+    def service(self):
+        return self._service
+
+    @property
+    def fail_reason(self):
+        return {
+            'return_code': self._last_rc,
+            'service': self._service.name,
+            'signal': self._last_signal,
+            'timestamp': self._last_timestamp,
+        }

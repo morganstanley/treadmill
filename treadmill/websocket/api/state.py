@@ -1,33 +1,37 @@
+"""A WebSocket handler for Treadmill state.
 """
-A WebSocket handler for Treadmill state.
-"""
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import logging
 import os
-import yaml
 
 from treadmill import schema
-from treadmill.websocket import utils
-
+from treadmill.websocket import _utils
+from treadmill import yamlwrapper as yaml
 
 _LOGGER = logging.getLogger(__name__)
 
 
 class RunningAPI(object):
-    """Handler for /running topic."""
+    """Handler for /running topic.
+    """
 
     def __init__(self):
-        """init"""
-
         @schema.schema({'$ref': 'websocket/state.json#/message'})
         def subscribe(message):
-            """Return filter based on message payload."""
-            parsed_filter = utils.parse_message_filter(message['filter'])
+            """Return filter based on message payload.
+            """
+            parsed_filter = _utils.parse_message_filter(message['filter'])
 
             return [('/running', parsed_filter.filter)]
 
         def on_event(filename, _operation, content):
-            """Event handler."""
+            """Event handler.
+            """
             if not filename.startswith('/running/'):
                 return
 
@@ -43,20 +47,21 @@ class RunningAPI(object):
 
 
 class ScheduledAPI(object):
-    """Handler for /scheduled topic."""
+    """Handler for /scheduled topic.
+    """
 
     def __init__(self):
-        """init"""
-
         @schema.schema({'$ref': 'websocket/state.json#/message'})
         def subscribe(message):
-            """Return filter based on message payload."""
-            parsed_filter = utils.parse_message_filter(message['filter'])
+            """Return filter based on message payload.
+            """
+            parsed_filter = _utils.parse_message_filter(message['filter'])
 
             return [('/scheduled', parsed_filter.filter)]
 
         def on_event(filename, _operation, content):
-            """Event handler."""
+            """Event handler.
+            """
             if not filename.startswith('/scheduled/'):
                 return
 
@@ -76,7 +81,8 @@ class ScheduledAPI(object):
 
 
 def init():
-    """API module init."""
+    """API module init.
+    """
     return [
         ('/running', RunningAPI(), []),
         ('/scheduled', ScheduledAPI(), []),

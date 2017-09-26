@@ -1,5 +1,10 @@
-"""Implementation of tenant API."""
+"""Implementation of tenant API.
+"""
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 from .. import admin
 from .. import authz
@@ -18,7 +23,7 @@ class API(object):
 
         def _list():
             """List tenants."""
-            return _admin_tnt().list({})
+            return sorted(_admin_tnt().list({}), key=lambda x: x['tenant'])
 
         @schema.schema({'$ref': 'tenant.json#/resource_id'})
         def get(rsrc_id):

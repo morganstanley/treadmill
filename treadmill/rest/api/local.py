@@ -1,6 +1,11 @@
 """Local node REST api.
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import logging
 import os
 
@@ -17,7 +22,9 @@ _LOGGER = logging.getLogger(__name__)
 def init(api, cors, impl):
     """Configures REST handlers for allocation resource."""
 
-    app_ns = api.namespace('app', description='Local app REST operations')
+    app_ns = api.namespace(
+        'local-app', description='Local app REST operations'
+    )
 
     req_parser = api.parser()
     req_parser.add_argument('start',
@@ -29,7 +36,8 @@ def init(api, cors, impl):
                             help='The number of lines to return. '
                             '-1 (the default) means no limit ie. return all'
                             ' the lines in the file from "start".',
-                            location='args', required=False, type=int)
+                            location='args', required=False, type=int,
+                            default=-1)
     req_parser.add_argument('order',
                             choices=('asc', 'desc'), default='asc',
                             help="The order of the log lines to return. 'asc':"

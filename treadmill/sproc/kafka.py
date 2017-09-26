@@ -1,8 +1,14 @@
 """Treadmill Kafka system process"""
 
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import sys
 
+import io
 import logging
 import os
 import pwd
@@ -50,7 +56,7 @@ def setup_kafka_env(zkurl, template_dir, broker_port, broker_id, zkroot,
     broker_props = os.path.join(tkafka.DEFAULT_KAFKA_DIR, broker_props_name)
     _LOGGER.info('Writting %s file', broker_props)
 
-    with open(broker_props, 'w') as prop_fh:
+    with io.open(broker_props, 'w') as prop_fh:
         variables = {
             'broker_port': str(broker_port),
             'broker_id': str(broker_id),
@@ -65,7 +71,7 @@ def setup_kafka_env(zkurl, template_dir, broker_port, broker_id, zkroot,
     jaas_conf = os.path.join(tkafka.DEFAULT_KAFKA_DIR, jaas_conf_name)
     _LOGGER.info('Writting %s file', jaas_conf)
 
-    with open(jaas_conf, 'w') as jaas_fh:
+    with io.open(jaas_conf, 'w') as jaas_fh:
         variables = {
             'user_id': CURRENT_USER,
             'hostname': HOSTNAME,

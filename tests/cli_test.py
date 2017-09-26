@@ -1,5 +1,9 @@
 """Unit test for treadmill.cli.
 """
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import sys
 import unittest
@@ -7,12 +11,15 @@ import unittest
 import click
 import mock
 
+import six
+
 from treadmill import cli
+from treadmill.formatter import tablefmt
 
 
 def _lines(tbl):
     """Convert table to list of lines."""
-    return list(map(str.strip, str(tbl).splitlines()))
+    return list(six.moves.map(str.strip, str(tbl).splitlines()))
 
 
 class CliTest(unittest.TestCase):
@@ -24,8 +31,8 @@ class CliTest(unittest.TestCase):
                   ('b', None, None),
                   ('c', None, None)]
 
-        tbl = cli.make_dict_to_table(schema)
-        list_tbl = cli.make_list_to_table(schema)
+        tbl = tablefmt.make_dict_to_table(schema)
+        list_tbl = tablefmt.make_list_to_table(schema)
 
         self.assertEqual(
             _lines(tbl({'a': 1, 'b': 2, 'c': [1, 2, 3]})),
@@ -78,7 +85,9 @@ class CliTest(unittest.TestCase):
         sys.exit.assert_called_with(1)
 
     def test_combine(self):
-        """Test combining lists."""
+        """Test combining lists.
+        """
+        self.assertEqual(['a', 'b', 'c'], cli.combine(['a', 'b,c']))
         self.assertEqual(None, cli.combine(['-']))
 
 

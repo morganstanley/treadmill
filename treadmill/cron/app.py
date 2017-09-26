@@ -1,94 +1,62 @@
-"""
-Treadmill schedule application event.
+"""Treadmill schedule application event.
 
 This module allows the treadmill cron to take actions on applications,
 for example, start and stop them at a given time.
 """
 
-import logging
-import importlib
-import fnmatch
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
-from treadmill import admin
-from treadmill import context
-from treadmill import master
-from treadmill import cron
+import logging
+
+from treadmill import restclient
 
 _LOGGER = logging.getLogger(__name__)
+
+# TODO: this is hack, as this should be pass as option from cron sproc
+#       command line. I was not able to figure out how to pass context from
+#       cron/scheduler to the callback.
+_API_URL = 'http+unix://%2Ftmp%2Fcellapi.sock'
 
 
 def stop(job_id=None, app_name=None):
     """Stop an application"""
-    _LOGGER.debug('app_name: %r', app_name)
-    _LOGGER.debug('job_id: %s', job_id)
+    _LOGGER.debug('job_id: %s, app_name: %r', job_id, app_name)
 
-    zkclient = context.GLOBAL.zk.conn
+    try:
+        instances = restclient.get(
+            [_API_URL],
+            '/instance/?match={}'.format(app_name)
+        )
+        _LOGGER.info('Stopping: %r', instances)
 
-    instances = master.list_scheduled_apps(zkclient)
-
-    app_name_pattern = '{}*'.format(app_name)
-    filtered = [
-        inst for inst in instances
-        if fnmatch.fnmatch(inst, app_name_pattern)
-    ]
-
-    if not filtered:
-        _LOGGER.info('Nothing is running for %s', app_name)
-        return
-
-    _LOGGER.info('Stopping all instances: %r', filtered)
-    master.delete_apps(zkclient, filtered)
+        restclient.post(
+            [_API_URL],
+            '/instance/_bulk/delete',
+            payload=instances,
+            headers={'X-Treadmill-Trusted-Agent': 'cron'}
+        )
+    except Exception:  # pylint: disable=W0703
+        _LOGGER.exception('Error stopping app: %s', app_name)
 
 
 def start(job_id=None, app_name=None, count=1):
     """Start an application in the given cell"""
-    _LOGGER.debug('app_name: %s', app_name)
-    _LOGGER.debug('job_id: %s', job_id)
-    _LOGGER.debug('count: %s', count)
-
-    zkclient = context.GLOBAL.zk.conn
-    scheduler = cron.get_scheduler(zkclient)
-
-    job = scheduler.get_job(job_id)
+    _LOGGER.debug('job_id: %s, app_name: %s, count: %s',
+                  job_id, app_name, count)
 
     if not app_name:
         _LOGGER.error('No app name provided, cannot continue')
         return
 
-    admin_app = admin.Application(context.GLOBAL.ldap.conn)
-
-    configured = admin_app.get(app_name)
-
-    if not configured:
-        _LOGGER.info(
-            'App %s is not configured, pausing job %s', app_name, job.id
-        )
-        job.pause()
-        return
-
-    instance_plugin = None
     try:
-        instance_plugin = importlib.import_module(
-            'treadmill.plugins.api.instance')
-    except ImportError as err:
-        _LOGGER.info('Unable to load auth plugin: %s', err)
-
-    if instance_plugin:
-        configured = instance_plugin.add_attributes(
-            app_name, configured
+        restclient.post(
+            [_API_URL],
+            '/instance/{}?count={}'.format(app_name, count),
+            payload={},
+            headers={'X-Treadmill-Trusted-Agent': 'cron'}
         )
-
-    if 'identity_group' not in configured:
-        configured['identity_group'] = None
-
-    if 'affinity' not in configured:
-        configured['affinity'] = '{0}.{1}'.format(*app_name.split('.'))
-
-    if '_id' in configured:
-        del configured['_id']
-    _LOGGER.info('Configured: %s %r', app_name, configured)
-
-    scheduled = master.create_apps(
-        zkclient, app_name, configured, count
-    )
-    _LOGGER.debug('scheduled: %r', scheduled)
+    except Exception:  # pylint: disable=W0703
+        _LOGGER.exception('Error starting app: %s', app_name)

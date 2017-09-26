@@ -1,9 +1,10 @@
-"""Treadmill hierarchical scheduler."""
+"""Treadmill hierarchical scheduler.
+"""
 
-
-# Disable "too many lines in module" warning.
-#
-# pylint: disable=C0302
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import abc
 import collections
@@ -15,9 +16,8 @@ import time
 import sys
 
 import enum
-
 import numpy as np
-from functools import reduce
+import six
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -42,9 +42,12 @@ DEFAULT_APP_LEASE = 24 * 60 * 60
 # Default partition threshold
 DEFAULT_THRESHOLD = 0.9
 
+# pylint: disable=C0302,too-many-lines
+
 
 def _bit_count(value):
-    """Returns number of bits set."""
+    """Returns number of bits set.
+    """
     count = 0
     while value:
         value &= value - 1
@@ -53,13 +56,15 @@ def _bit_count(value):
 
 
 def zero_capacity():
-    """Returns zero capacity vector."""
+    """Returns zero capacity vector.
+    """
     assert DIMENSION_COUNT is not None, 'Dimension count not set.'
     return np.zeros(DIMENSION_COUNT)
 
 
 def eps_capacity():
-    """Returns eps capacity vector."""
+    """Returns eps capacity vector.
+    """
     assert DIMENSION_COUNT is not None, 'Dimension count not set.'
     return np.array(
         [np.finfo(float).eps for _x in range(0, DIMENSION_COUNT)]
@@ -76,82 +81,98 @@ def _global_order():
 
 
 def utilization(demand, allocated, available):
-    """Calculates utilization score."""
+    """Calculates utilization score.
+    """
     return np.max(np.subtract(demand, allocated) / available)
 
 
 def _all(oper, left, right):
-    """Short circuit all for ndarray."""
-    return all(oper(ai, bi) for ai, bi in zip(left, right))
+    """Short circuit all for ndarray.
+    """
+    return all(oper(ai, bi) for ai, bi in itertools.izip(left, right))
 
 
 def _any(oper, left, right):
-    """Short circuit any for ndarray."""
-    return any(oper(ai, bi) for ai, bi in zip(left, right))
+    """Short circuit any for ndarray.
+    """
+    return any(oper(ai, bi) for ai, bi in itertools.izip(left, right))
 
 
 def _any_eq(left, right):
-    """Short circuit any eq for ndarray."""
+    """Short circuit any eq for ndarray.
+    """
     return _any(operator.eq, left, right)
 
 
 def _any_isclose(left, right):
-    """Short circuit any isclose for ndarray."""
+    """Short circuit any isclose for ndarray.
+    """
     return _any(np.isclose, left, right)
 
 
 def _any_lt(left, right):
-    """Short circuit any lt for ndarray."""
+    """Short circuit any lt for ndarray.
+    """
     return _any(operator.lt, left, right)
 
 
 def _any_le(left, right):
-    """Short circuit any le for ndarray."""
+    """Short circuit any le for ndarray.
+    """
     return _any(operator.le, left, right)
 
 
 def _any_gt(left, right):
-    """Short circuit any gt for ndarray."""
+    """Short circuit any gt for ndarray.
+    """
     return _any(operator.gt, left, right)
 
 
 def _any_ge(left, right):
-    """Short circuit any ge for ndarray."""
+    """Short circuit any ge for ndarray.
+    """
     return _any(operator.ge, left, right)
 
 
 def _all_eq(left, right):
-    """Short circuit all eq for ndarray."""
+    """Short circuit all eq for ndarray.
+    """
     return _all(operator.eq, left, right)
 
 
 def _all_isclose(left, right):
-    """Short circuit all isclose for ndarray."""
+    """Short circuit all isclose for ndarray.
+    """
     return _all(np.isclose, left, right)
 
 
 def _all_lt(left, right):
-    """Short circuit all lt for ndarray."""
+    """Short circuit all lt for ndarray.
+    """
     return _all(operator.lt, left, right)
 
 
 def _all_le(left, right):
-    """Short circuit all le for ndarray."""
+    """Short circuit all le for ndarray.
+    """
     return _all(operator.le, left, right)
 
 
 def _all_gt(left, right):
-    """Short circuit all gt for ndarray."""
+    """Short circuit all gt for ndarray.
+    """
     return _all(operator.gt, left, right)
 
 
 def _all_ge(left, right):
-    """Short circuit all ge for ndarray."""
+    """Short circuit all ge for ndarray.
+    """
     return _all(operator.ge, left, right)
 
 
 class IdentityGroup(object):
-    """Identity group."""
+    """Identity group.
+    """
     __slots__ = (
         'available',
         'count',
@@ -162,14 +183,16 @@ class IdentityGroup(object):
         self.available = set(range(0, count))
 
     def acquire(self):
-        """Return next available identity or None."""
+        """Return next available identity or None.
+        """
         if self.available:
             return self.available.pop()
         else:
             return None
 
     def release(self, ident):
-        """Mark identity as available."""
+        """Mark identity as available.
+        """
         self.available.add(ident)
 
     def adjust(self, count):
@@ -182,21 +205,19 @@ class IdentityGroup(object):
         schedule cycle.
         """
         if count >= self.count:
-            self.available ^= set(range(self.count, count))
+            self.available ^= set(six.moves.xrange(self.count, count))
         else:
-            self.available -= set(range(count, self.count))
+            self.available -= set(six.moves.xrange(count, self.count))
         self.count = count
 
 
-# Disable pylint complaint about not having __init__
-#
-# pylint: disable=W0232
 class State(enum.Enum):
-    """Enumeration of node/server states."""
+    """Enumeration of node/server states.
+    """
 
     # Ready to accept new applications.
-    # pylint complains: Invalid class attribute name "up"
-    up = 'up'  # pylint: disable=C0103
+    # TODO: Fix attribute name
+    up = 'up'  # pylint: disable=invalid-name
 
     # Applications need to be migrated.
     down = 'down'
@@ -206,7 +227,8 @@ class State(enum.Enum):
 
 
 class Affinity(object):
-    """Model affinity and affinity limits."""
+    """Model affinity and affinity limits.
+    """
     __slots__ = (
         'name',
         'limits',
@@ -220,7 +242,8 @@ class Affinity(object):
 
 
 class Application(object):
-    """Application object."""
+    """Application object.
+    """
     __slots__ = (
         'global_order',
         'name',
@@ -288,47 +311,56 @@ class Application(object):
         return self.identity is not None
 
     def release_identity(self):
-        """Release app identity."""
+        """Release app identity.
+        """
         if self.identity_group_ref and self.identity is not None:
             self.identity_group_ref.release(self.identity)
             self.identity = None
 
     def force_set_identity(self, identity):
-        """Force identity of the app."""
+        """Force identity of the app.
+        """
         if identity is not None:
             assert self.identity_group_ref
             self.identity = identity
             self.identity_group_ref.available.discard(identity)
 
     def has_identity(self):
-        """Checks if app has identity if identity group is specified."""
+        """Checks if app has identity if identity group is specified.
+        """
         return self.identity_group_ref is None or self.identity is not None
 
     @property
     def traits(self):
-        """The app traits are derived from allocation."""
+        """The app traits are derived from allocation.
+        """
         if self.allocation is None:
             return 0
         else:
             return self.allocation.traits
 
 
-class Strategy(object, metaclass=abc.ABCMeta):
-    """Base class for all placement strategies."""
+@six.add_metaclass(abc.ABCMeta)
+class Strategy(object):
+    """Base class for all placement strategies.
+    """
 
     @abc.abstractmethod
     def suggested_node(self):
-        """Suggested node that should be tried first."""
+        """Suggested node that should be tried first.
+        """
         pass
 
     @abc.abstractmethod
     def next_node(self):
-        """Next node to try, if previous suggestion was rejected."""
+        """Next node to try, if previous suggestion was rejected.
+        """
         pass
 
 
 class SpreadStrategy(Strategy):
-    """Spread strategy will suggest new node for each subsequent placement."""
+    """Spread strategy will suggest new node for each subsequent placement.
+    """
     __slots__ = (
         'current_idx',
         'node',
@@ -339,8 +371,9 @@ class SpreadStrategy(Strategy):
         self.node = node
 
     def suggested_node(self):
-        """Suggest next node from the cycle."""
-        for _ in range(0, len(self.node.children)):
+        """Suggest next node from the cycle.
+        """
+        for _ in six.moves.xrange(0, len(self.node.children)):
             if self.current_idx == len(self.node.children):
                 self.current_idx = 0
 
@@ -352,12 +385,14 @@ class SpreadStrategy(Strategy):
         return None
 
     def next_node(self):
-        """Suggest next node from the cycle."""
+        """Suggest next node from the cycle.
+        """
         return self.suggested_node()
 
 
 class PackStrategy(Strategy):
-    """Pack strategy will suggest same node until it is full."""
+    """Pack strategy will suggest same node until it is full.
+    """
     __slots__ = (
         'current_idx',
         'node',
@@ -368,8 +403,9 @@ class PackStrategy(Strategy):
         self.node = node
 
     def suggested_node(self):
-        """Suggest same node as previous placement."""
-        for _ in range(0, len(self.node.children)):
+        """Suggest same node as previous placement.
+        """
+        for _ in six.moves.xrange(0, len(self.node.children)):
             if self.current_idx == len(self.node.children):
                 self.current_idx = 0
             node = self.node.children[self.current_idx]
@@ -379,13 +415,15 @@ class PackStrategy(Strategy):
         return None
 
     def next_node(self):
-        """Suggest next node from the cycle."""
+        """Suggest next node from the cycle.
+        """
         self.current_idx += 1
         return self.suggested_node()
 
 
 class TraitSet(object):
-    """Hierarchical set of traits."""
+    """Hierarchical set of traits.
+    """
     __slots__ = (
         'self_traits',
         'children_traits',
@@ -397,7 +435,7 @@ class TraitSet(object):
             traits = 0
 
         # Private traits.
-        assert isinstance(traits, int) or isinstance(traits, int)
+        assert isinstance(traits, six.integer_types)
         self.self_traits = traits
 
         # Union of all children traits.
@@ -406,34 +444,40 @@ class TraitSet(object):
         self._recalculate()
 
     def _recalculate(self):
-        """Calculate combined set of all traits."""
+        """Calculate combined set of all traits.
+        """
         self.traits = self.self_traits
         for trait in self.children_traits.values():
             self.traits |= trait
 
     def has(self, traits):
-        """Check if all traits are present."""
+        """Check if all traits are present.
+        """
         return (self.traits & traits) == traits
 
     def add(self, child, traits):
-        """."""
+        """Add a child with given traits.
+        """
         # Update children traits.
         self.children_traits[child] = traits
         self._recalculate()
 
     def remove(self, child):
-        """Remove child traits from the list."""
+        """Remove child traits from the list.
+        """
         if child in self.children_traits:
             del self.children_traits[child]
         self._recalculate()
 
     def is_same(self, other):
-        """Compares own traits, ignore child."""
+        """Compares own traits, ignore child.
+        """
         return self.self_traits == other.self_traits
 
 
 class AffinityCounter(object):
-    """Manages affinity count"""
+    """Manages affinity count.
+    """
     __slots__ = (
         'affinity_counter',
     )
@@ -443,7 +487,8 @@ class AffinityCounter(object):
 
 
 class Node(object):
-    """Abstract placement node."""
+    """Abstract placement node.
+    """
 
     __slots__ = (
         'name',
@@ -475,21 +520,25 @@ class Node(object):
         self._state_since = time.time()
 
     def empty(self):
-        """Return true if there are no children."""
+        """Return true if there are no children.
+        """
         return not bool(self.children_by_name)
 
     def children_iter(self):
-        """Iterate over active children."""
+        """Iterate over active children.
+        """
         for child in self.children:
             if child:
                 yield child
 
     def get_state(self):
-        """Returns tuple of (state, since)."""
+        """Returns tuple of (state, since).
+        """
         return self. _state, self._state_since
 
     def set_state(self, state, since):
-        """Sets the state and time since."""
+        """Sets the state and time since.
+        """
         if self._state is not state:
             self._state_since = since
         self._state = state
@@ -498,23 +547,27 @@ class Node(object):
 
     @property
     def state(self):
-        """Return current state."""
+        """Return current state.
+        """
         return self._state
 
     @state.setter
     def state(self, new_state):
-        """Set node state and records time."""
+        """Set node state and records time.
+        """
         self.set_state(new_state, time.time())
 
     def add_child_traits(self, node):
-        """Recursively add child traits up."""
+        """Recursively add child traits up.
+        """
         self.traits.add(node.name, node.traits.traits)
         if self.parent:
             self.parent.remove_child_traits(self.name)
             self.parent.add_child_traits(self)
 
     def adjust_valid_until(self, child_valid_until):
-        """Recursively adjust valid until time."""
+        """Recursively adjust valid until time.
+        """
         if child_valid_until:
             self.valid_until = max(self.valid_until, child_valid_until)
         else:
@@ -528,21 +581,24 @@ class Node(object):
             self.parent.adjust_valid_until(child_valid_until)
 
     def remove_child_traits(self, node_name):
-        """Recursively remove child traits up."""
+        """Recursively remove child traits up.
+        """
         self.traits.remove(node_name)
         if self.parent:
             self.parent.remove_child_traits(self.name)
             self.parent.add_child_traits(self)
 
     def reset_children(self):
-        """Reset children to empty list."""
+        """Reset children to empty list.
+        """
         for child in self.children_iter():
             child.parent = None
         self.children = list()
         self.children_by_name = dict()
 
     def add_node(self, node):
-        """Add child node, set the traits and propagate traits up."""
+        """Add child node, set the traits and propagate traits up.
+        """
         assert node.parent is None
         assert node.name not in self.children_by_name
 
@@ -556,17 +612,19 @@ class Node(object):
         self.adjust_valid_until(node.valid_until)
 
     def add_labels(self, labels):
-        """Recursively add labels to self and parents."""
+        """Recursively add labels to self and parents.
+        """
         self.labels.update(labels)
         if self.parent:
             self.parent.add_labels(self.labels)
 
     def remove_node(self, node):
-        """Remove child node and adjust the traits."""
+        """Remove child node and adjust the traits.
+        """
         assert node.name in self.children_by_name
 
         del self.children_by_name[node.name]
-        for idx in range(0, len(self.children)):
+        for idx in six.moves.xrange(0, len(self.children)):
             if self.children[idx] == node:
                 self.children[idx] = None
 
@@ -578,12 +636,14 @@ class Node(object):
         return node
 
     def remove_node_by_name(self, nodename):
-        """Removes node by name."""
+        """Removes node by name.
+        """
         assert nodename in self.children_by_name
         return self.remove_node(self.children_by_name[nodename])
 
     def check_app_constraints(self, app):
-        """Find app placement on the node."""
+        """Find app placement on the node.
+        """
         if app.allocation is not None:
             if app.allocation.label not in self.labels:
                 _LOGGER.info('Missing label: %s on %s', app.allocation.label,
@@ -594,8 +654,7 @@ class Node(object):
             _LOGGER.info('Missing traits: %s on %s', app.traits, self.name)
             return False
 
-        if (self.affinity_counters[app.affinity.name] >=
-                app.affinity.limits[self.level]):
+        if not self.check_app_affinity_limit(app):
             return False
 
         if _any_gt(app.demand, self.free_capacity):
@@ -603,12 +662,21 @@ class Node(object):
 
         return True
 
+    def check_app_affinity_limit(self, app):
+        """Check app affinity limits
+        """
+        count = self.affinity_counters[app.affinity.name]
+        limit = app.affinity.limits[self.level]
+        return count < limit
+
     def put(self, _app):
-        """Abstract method, should never be called."""
+        """Abstract method, should never be called.
+        """
         raise Exception('Not implemented.')
 
     def size(self, label):
-        """Returns total capacity of the children."""
+        """Returns total capacity of the children.
+        """
         if self.empty() or label not in self.labels:
             return eps_capacity()
 
@@ -616,7 +684,8 @@ class Node(object):
             n.size(label) for n in self.children_iter()], 0)
 
     def members(self):
-        """Return set of all leaf node names."""
+        """Return set of all leaf node names.
+        """
         names = dict()
         for node in self.children_iter():
             names.update(node.members())
@@ -624,20 +693,23 @@ class Node(object):
         return names
 
     def increment_affinity(self, counters):
-        """Increment affinity counters recursively."""
+        """Increment affinity counters recursively.
+        """
         self.affinity_counters.update(counters)
         if self.parent:
             self.parent.increment_affinity(counters)
 
     def decrement_affinity(self, counters):
-        """Decrement affinity counters recursively."""
+        """Decrement affinity counters recursively.
+        """
         self.affinity_counters.subtract(counters)
         if self.parent:
             self.parent.decrement_affinity(counters)
 
 
 class Bucket(Node):
-    """Collection of nodes/buckets."""
+    """Collection of nodes/buckets.
+    """
 
     __slots__ = (
         'affinity_strategies',
@@ -652,24 +724,28 @@ class Bucket(Node):
         self.traits = TraitSet(traits)
 
     def set_affinity_strategy(self, affinity, strategy_t):
-        """Initilaizes placement strategy for given affinity."""
+        """Initilaizes placement strategy for given affinity.
+        """
         self.affinity_strategies[affinity] = strategy_t(self)
 
     def get_affinity_strategy(self, affinity):
-        """Returns placement strategy for the affinity, defaults to spread."""
+        """Returns placement strategy for the affinity, defaults to spread.
+        """
         if affinity not in self.affinity_strategies:
             self.set_affinity_strategy(affinity, Bucket._default_strategy_t)
 
         return self.affinity_strategies[affinity]
 
     def adjust_capacity_up(self, new_capacity):
-        """Node can only increase capacity."""
+        """Node can only increase capacity.
+        """
         self.free_capacity = np.maximum(self.free_capacity, new_capacity)
         if self.parent:
             self.parent.adjust_capacity_up(self.free_capacity)
 
     def adjust_capacity_down(self, prev_capacity=None):
-        """Called when capacity is decreased."""
+        """Called when capacity is decreased.
+        """
         if self.empty():
             self.free_capacity = zero_capacity()
             if self.parent:
@@ -695,12 +771,14 @@ class Bucket(Node):
                     self.parent.adjust_capacity_down(prev_capacity)
 
     def add_node(self, node):
-        """Adds node to the bucket."""
+        """Adds node to the bucket.
+        """
         super(Bucket, self).add_node(node)
         self.adjust_capacity_up(node.free_capacity)
 
     def remove_node(self, node):
-        """Removes node from the bucket."""
+        """Removes node from the bucket.
+        """
         super(Bucket, self).remove_node(node)
         # if _any_isclose(self.free_capacity, node.free_capacity):
         self.adjust_capacity_down(node.free_capacity)
@@ -708,7 +786,8 @@ class Bucket(Node):
         return node
 
     def put(self, app):
-        """Try to put app on one of the nodes that belong to the bucket."""
+        """Try to put app on one of the nodes that belong to the bucket.
+        """
         # Check if it is feasible to put app on some node low in the
         # hierarchy
         _LOGGER.debug('bucket.put: %s => %s', app.name, self.name)
@@ -746,7 +825,8 @@ class Bucket(Node):
 
 
 class Server(Node):
-    """Server object, final app placement."""
+    """Server object, final app placement.
+    """
 
     __slots__ = (
         'init_capacity',
@@ -775,7 +855,8 @@ class Server(Node):
                 self.traits.is_same(other.traits))
 
     def put(self, app):
-        """Tries to put the app on the server."""
+        """Tries to put the app on the server.
+        """
         assert app.name not in self.apps
         _LOGGER.debug('server.put: %s => %s', app.name, self.name)
 
@@ -799,7 +880,8 @@ class Server(Node):
         return True
 
     def restore(self, app, placement_expiry=None):
-        """Put app back on the server, ignore app lifetime."""
+        """Put app back on the server, ignore app lifetime.
+        """
         lease = app.lease
         # If not explicit
         if placement_expiry is None:
@@ -814,7 +896,8 @@ class Server(Node):
         return rc
 
     def renew(self, app):
-        """Try to extend the placement for app lease."""
+        """Try to extend the placement for app lease.
+        """
         can_renew = self.check_app_lifetime(app)
         if can_renew:
             app.placement_expiry = time.time() + app.lease
@@ -822,7 +905,8 @@ class Server(Node):
         return can_renew
 
     def check_app_lifetime(self, app):
-        """Check if the app lease fits until server is rebooted."""
+        """Check if the app lease fits until server is rebooted.
+        """
         # app with 0 lease can be placed anywhere (ignore potentially
         # expired servers)
         if not app.lease:
@@ -831,7 +915,8 @@ class Server(Node):
         return time.time() + app.lease < self.valid_until
 
     def remove(self, app_name):
-        """Removes app from the server."""
+        """Removes app from the server.
+        """
         assert app_name in self.apps
         app = self.apps[app_name]
         del self.apps[app_name]
@@ -847,23 +932,27 @@ class Server(Node):
             self.parent.adjust_capacity_up(self.free_capacity)
 
     def remove_all(self):
-        """Remove all apps."""
+        """Remove all apps.
+        """
         # iterate over copy of the keys, as we are removing them in the loop.
         for appname in list(self.apps):
             self.remove(appname)
 
     def size(self, label):
-        """Return server capacity."""
+        """Return server capacity.
+        """
         if label not in self.labels:
             return eps_capacity()
         return self.init_capacity
 
     def members(self):
-        """Return set of all leaf node names."""
+        """Return set of all leaf node names.
+        """
         return {self.name: self}
 
     def set_state(self, state, since):
-        """Change host state."""
+        """Change host state.
+        """
         super(Server, self).set_state(state, since)
 
         if self.state is state:
@@ -879,9 +968,13 @@ class Server(Node):
             raise Exception('Invalid state: ' % state)
 
     def latest_app_expiry(self):
-        """Return max expire time for all apps."""
+        """Return max expire time for all apps.
+        """
         return max(
-            [0] + [app.placement_expiry for app in self.apps.values()]
+            itertools.chain(
+                [0],
+                [app.placement_expiry for app in six.itervalues(self.apps)]
+            )
         )
 
 
@@ -917,30 +1010,32 @@ class Allocation(object):
     )
 
     def __init__(self, reserved=None, rank=None, traits=None,
-                 max_utilization=None):
+                 max_utilization=None, partition=None):
         self.set_reserved(reserved)
 
         self.rank = None
         self.rank_adjustment = 0
         self.traits = 0
-        self.label = None
+        self.label = partition
         self.max_utilization = _MAX_UTILIZATION
         self.reserved = zero_capacity()
 
         self.set_max_utilization(max_utilization)
         self.set_traits(traits)
-        self.update(reserved, rank)
+        self.update(reserved, rank, 0)
         self.apps = dict()
         self.sub_allocations = dict()
         self.path = []
 
     @property
     def name(self):
-        """Returns full allocation name."""
+        """Returns full allocation name.
+        """
         return '/'.join(self.path)
 
     def set_reserved(self, reserved):
-        """Update reserved capacity."""
+        """Update reserved capacity.
+        """
         if reserved is None:
             self.reserved = zero_capacity()
         elif isinstance(reserved, int):
@@ -957,24 +1052,29 @@ class Allocation(object):
         else:
             assert 'Unsupported type: %r' % type(reserved)
 
-    def update(self, reserved, rank, max_utilization=None):
-        """Updates allocation."""
+    def update(self, reserved, rank, rank_adjustment, max_utilization=None):
+        """Updates allocation.
+        """
         if rank is not None:
             self.rank = rank
         else:
             self.rank = DEFAULT_RANK
+        if rank_adjustment is not None:
+            self.rank_adjustment = rank_adjustment
         self.set_reserved(reserved)
         self.set_max_utilization(max_utilization)
 
     def set_max_utilization(self, max_utilization):
-        """Sets max_utilization, accounting for default None value."""
+        """Sets max_utilization, accounting for default None value.
+        """
         if max_utilization is not None:
             self.max_utilization = max_utilization
         else:
             self.max_utilization = _MAX_UTILIZATION
 
     def set_traits(self, traits):
-        """Set traits, account for default None value."""
+        """Set traits, account for default None value.
+        """
         if not traits:
             self.traits = 0
         else:
@@ -988,14 +1088,17 @@ class Allocation(object):
         """
         # Check that there are no duplicate app names.
         if app.name in self.apps:
-            _LOGGER.warn('Duplicate app on alllocation queue: %s', app.name)
+            _LOGGER.warning(
+                'Duplicate app on alllocation queue: %s', app.name
+            )
             return
 
         app.allocation = self
         self.apps[app.name] = app
 
     def remove(self, name):
-        """Remove application from the allocation queue."""
+        """Remove application from the allocation queue.
+        """
         if name in self.apps:
             self.apps[name].allocation = None
             del self.apps[name]
@@ -1013,7 +1116,8 @@ class Allocation(object):
         global priority queue.
         """
         def app_key(app):
-            """Compares apps by priority, state, global index"""
+            """Compares apps by priority, state, global index
+            """
             return (-app.priority, 0 if app.server else 1,
                     app.global_order, app.name)
 
@@ -1043,7 +1147,7 @@ class Allocation(object):
 
             yield (rank, util, pending, app.global_order, app)
 
-    def utilization_queue(self, free_capacity):
+    def utilization_queue(self, free_capacity, visitor=None):
         """Returns utilization queue including the sub-allocs.
 
         All app queues from self and sub-allocs are merged in standard order,
@@ -1054,7 +1158,7 @@ class Allocation(object):
         with utilization < 1 will remain with utilzation < 1.
         """
         total_reserved = self.total_reserved()
-        queues = [alloc.utilization_queue(free_capacity)
+        queues = [alloc.utilization_queue(free_capacity, visitor)
                   for alloc in self.sub_allocations.values()]
 
         queues.append(self.priv_utilization_queue())
@@ -1074,44 +1178,59 @@ class Allocation(object):
             # - False < True, so for apps with same utilization we prefer
             #   those that already running (False == not pending)
             # - Global order
-            yield rank, util, pending, order, app
+            entry = (rank, util, pending, order, app)
+            if visitor:
+                visitor(self, entry)
+            yield entry
 
     def total_reserved(self):
-        """Total reserved capacity including sub-allocs."""
-        return reduce(lambda acc, alloc: acc + alloc.total_reserved(),
-                      self.sub_allocations.values(),
-                      self.reserved)
+        """Total reserved capacity including sub-allocs.
+        """
+        return six.moves.reduce(
+            lambda acc, alloc: acc + alloc.total_reserved(),
+            self.sub_allocations.values(),
+            self.reserved
+        )
 
     def add_sub_alloc(self, name, alloc):
-        """Add child allocation."""
+        """Add child allocation.
+        """
         self.sub_allocations[name] = alloc
         assert not alloc.path
         alloc.path = self.path + [name]
+        alloc.label = self.label
 
     def remove_sub_alloc(self, name):
-        """Remove chlid allocation."""
+        """Remove chlid allocation.
+        """
         if name in self.sub_allocations:
             del self.sub_allocations[name]
 
     def get_sub_alloc(self, name):
-        """Return sub allocation, create empty if it does not exist."""
+        """Return sub allocation, create empty if it does not exist.
+        """
         if name not in self.sub_allocations:
             self.add_sub_alloc(name, Allocation())
         return self.sub_allocations[name]
 
 
 class Partition(object):
-    """Cell partition."""
+    """Cell partition.
+    """
 
     __slots__ = (
         'allocation',
         'max_server_uptime',
         'max_lease',
         'threshold',
+        'label',
     )
 
-    def __init__(self, max_server_uptime=None, max_lease=None, threshold=None):
-        self.allocation = Allocation()
+    def __init__(self, max_server_uptime=None, max_lease=None, threshold=None,
+                 label=None):
+        self.label = label
+        self.allocation = Allocation(partition=label)
+
         # Default -
         if not max_server_uptime:
             max_server_uptime = DEFAULT_SERVER_UPTIME
@@ -1125,7 +1244,8 @@ class Partition(object):
         self.threshold = threshold
 
     def valid_until(self, up_since):
-        """Calculates valid until time given reboot time."""
+        """Calculates valid until time given reboot time.
+        """
         expires_local_tm = time.localtime(up_since +
                                           self.max_server_uptime)
         return time.mktime((expires_local_tm.tm_year,
@@ -1134,8 +1254,22 @@ class Partition(object):
                             23, 59, 59, 0, 0, 0))
 
 
+class PartitionDict(dict):
+    """Dict that creates partitions on demand.
+
+    We use this instead of collections.defaultdict so that we can provide
+    the new partition with its label, to be propagated to its allocations.
+    """
+    def __missing__(self, label):
+        """Create a new partition, passing the label to its constructor.
+        """
+        self[label] = Partition(label=label)
+        return self[label]
+
+
 class Cell(Bucket):
-    """Top level node."""
+    """Top level node.
+    """
     __slots__ = (
         'partitions',
         'next_event_at',
@@ -1143,21 +1277,17 @@ class Cell(Bucket):
         'identity_groups',
     )
 
-    def __init__(self, name, labels=None):
+    def __init__(self, name):
         super(Cell, self).__init__(name, traits=0, level='cell')
 
-        if not labels:
-            labels = set()
-
-        assert isinstance(labels, set)
-        self.partitions = collections.defaultdict(Partition)
-
+        self.partitions = PartitionDict()
         self.apps = dict()
         self.identity_groups = collections.defaultdict(IdentityGroup)
         self.next_event_at = np.inf
 
     def add_app(self, allocation, app):
-        """Adds application to the scheduled list."""
+        """Adds application to the scheduled list.
+        """
         assert allocation is not None
 
         if app.allocation:
@@ -1169,7 +1299,8 @@ class Cell(Bucket):
             app.identity_group_ref = self.identity_groups[app.identity_group]
 
     def remove_app(self, appname):
-        """Remove app from scheduled list."""
+        """Remove app from scheduled list.
+        """
         if appname not in self.apps:
             return
         app = self.apps[appname]
@@ -1184,14 +1315,16 @@ class Cell(Bucket):
         del self.apps[appname]
 
     def configure_identity_group(self, name, count):
-        """Add identity group to the cell."""
+        """Add identity group to the cell.
+        """
         if name not in self.identity_groups:
             self.identity_groups[name] = IdentityGroup(count)
         else:
             self.identity_groups[name].adjust(count)
 
     def remove_identity_group(self, name):
-        """Remove identity group."""
+        """Remove identity group.
+        """
         ident_group = self.identity_groups.get(name)
         if ident_group:
             in_use = False
@@ -1204,7 +1337,8 @@ class Cell(Bucket):
                 del self.identity_groups[name]
 
     def _fix_invalid_placements(self, queue, servers):
-        """If app is placed on non-existent server, set server to None."""
+        """If app is placed on non-existent server, set server to None.
+        """
         for app in queue:
             if app.server and app.server not in servers:
                 app.server = None
@@ -1212,7 +1346,8 @@ class Cell(Bucket):
                 app.release_identity()
 
     def _record_rank_and_util(self, queue):
-        """Set final rank and utilization for all apps in the queue."""
+        """Set final rank and utilization for all apps in the queue.
+        """
         for item in queue:
             rank = item[0]
             util = item[1]
@@ -1222,7 +1357,8 @@ class Cell(Bucket):
             app.final_util = util
 
     def _fix_invalid_identities(self, queue, servers):
-        """Check that app identity is valid for given identity group."""
+        """Check that app identity is valid for given identity group.
+        """
         for app in queue:
             if app.identity is not None and app.identity_group_ref is not None:
                 # Can happen if identity group was adjusted to lower count.
@@ -1237,7 +1373,8 @@ class Cell(Bucket):
                         servers[app.server].remove(app.name)
 
     def _handle_inactive_servers(self, servers):
-        """Migrate app from inactive servers."""
+        """Migrate app from inactive servers.
+        """
         self.next_event_at = np.inf
         for server in servers.values():
             state, since = server.get_state()
@@ -1245,7 +1382,7 @@ class Cell(Bucket):
             if state == State.down:
                 _LOGGER.debug('Server state is down: %s', server.name)
                 to_be_moved = []
-                for name, app in server.apps.items():
+                for name, app in six.iteritems(server.apps):
                     if app.data_retention_timeout is None:
                         expires_at = 0
                     else:
@@ -1264,13 +1401,11 @@ class Cell(Bucket):
                     server.remove(name)
 
     def _find_placements(self, queue, servers):
-        """Run the queue and find placements."""
-        # Disable too many branches/statements warning
-        #
+        """Run the queue and find placements.
+        """
         # TODO: refactor to get rid of warnings.
         #
-        # pylint: disable=R0912
-        # pylint: disable=R0915
+        # pylint: disable=too-many-branches,too-many-statements
         #
         # At this point, if app.server is defined, it points to attached
         # server.
@@ -1374,7 +1509,8 @@ class Cell(Bucket):
                     app.release_identity()
 
     def schedule_alloc(self, allocation):
-        """Run the scheduler for given allocation."""
+        """Run the scheduler for given allocation.
+        """
 
         begin = time.time()
 
@@ -1415,26 +1551,30 @@ class Cell(Bucket):
         return placement
 
     def schedule(self):
-        """Run the scheduler."""
+        """Run the scheduler.
+        """
         placement = []
-        for label, partition in self.partitions.items():
+        for label, partition in six.iteritems(self.partitions):
             allocation = partition.allocation
             allocation.label = label
             placement.extend(self.schedule_alloc(allocation))
         return placement
 
     def resolve_reboot_conflicts(self):
-        """Adjust server exipiration time to avoid conflicts."""
+        """Adjust server exipiration time to avoid conflicts.
+        """
         pass
 
 
 def dumps(cell):
-    """Serializes cell to string."""
+    """Serializes cell to string.
+    """
     del cell
     return ''
 
 
 def loads(data):
-    """Loads scheduler from string."""
+    """Loads scheduler from string.
+    """
     del data
     assert False, 'not implemented.'

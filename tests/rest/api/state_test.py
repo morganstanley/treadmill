@@ -1,13 +1,19 @@
 """State REST api tests.
 """
 
-import http.client
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import json
 import unittest
 
 import flask
 import flask_restplus as restplus
 import mock
+
+from six.moves import http_client
 
 from treadmill import webutils
 from treadmill.rest import error_handlers
@@ -56,24 +62,30 @@ class StateTest(unittest.TestCase):
              'expires': None, 'when': 1234567890.2, 'host': 'baz3',
              'state': 'finished', 'exitcode': None}
         ])
-        self.assertEqual(resp.status_code, http.client.OK)
-        self.impl.list.assert_called_with(None, False)
+        self.assertEqual(resp.status_code, http_client.OK)
+        self.impl.list.assert_called_with(None, False, None)
 
         resp = self.client.get('/state/?match=test*')
-        self.assertEqual(resp.status_code, http.client.OK)
-        self.impl.list.assert_called_with('test*', False)
+        self.assertEqual(resp.status_code, http_client.OK)
+        self.impl.list.assert_called_with('test*', False, None)
 
         resp = self.client.get('/state/?finished=true')
-        self.assertEqual(resp.status_code, http.client.OK)
-        self.impl.list.assert_called_with(None, True)
+        self.assertEqual(resp.status_code, http_client.OK)
+        self.impl.list.assert_called_with(None, True, None)
 
         resp = self.client.get('/state/?finished=false')
-        self.assertEqual(resp.status_code, http.client.OK)
-        self.impl.list.assert_called_with(None, False)
+        self.assertEqual(resp.status_code, http_client.OK)
+        self.impl.list.assert_called_with(None, False, None)
 
         resp = self.client.get('/state/?match=test*&finished=true')
-        self.assertEqual(resp.status_code, http.client.OK)
-        self.impl.list.assert_called_with('test*', True)
+        self.assertEqual(resp.status_code, http_client.OK)
+        self.impl.list.assert_called_with('test*', True, None)
+
+        resp = self.client.get(
+            '/state/?match=test*&finished=true&partition=part1'
+        )
+        self.assertEqual(resp.status_code, http_client.OK)
+        self.impl.list.assert_called_with('test*', True, 'part1')
 
     @unittest.skip('BROKEN: Flask exception handling')
     def test_get_state(self):
@@ -89,12 +101,12 @@ class StateTest(unittest.TestCase):
             'expires': None, 'when': None, 'host': 'baz1',
             'state': 'running', 'exitcode': None
         })
-        self.assertEqual(resp.status_code, http.client.OK)
+        self.assertEqual(resp.status_code, http_client.OK)
         self.impl.get.assert_called_with('foo.bar#0000000001')
 
         self.impl.get.return_value = None
         resp = self.client.get('/state/foo.bar#0000000002')
-        self.assertEqual(resp.status_code, http.client.NOT_FOUND)
+        self.assertEqual(resp.status_code, http_client.NOT_FOUND)
 
 
 if __name__ == '__main__':

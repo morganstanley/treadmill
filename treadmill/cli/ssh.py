@@ -1,18 +1,31 @@
-"""Trace treadmill application events."""
+"""Trace treadmill application events.
+"""
 
-
-import sys
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import logging
 import os
-import subprocess
+import sys
 import urllib
 
 import click
+import gevent
+from gevent import queue as g_queue
+import six
 
+if six.PY2 and os.name == 'posix':
+    import subprocess32 as subprocess  # pylint: disable=E0401
+else:
+    import subprocess  # pylint: disable=wrong-import-order
+
+from treadmill import checkout
 from treadmill import context
 from treadmill import cli
 from treadmill import restclient
+from treadmill import utils
 from treadmill.websocket import client as ws_client
 
 
@@ -22,6 +35,11 @@ if sys.platform == 'win32':
     _DEFAULT_SSH = 'putty.exe'
 else:
     _DEFAULT_SSH = 'ssh'
+
+
+def _check_handle(handle):
+    """Checks if provided file handle is valid."""
+    return handle is not None and handle.fileno() >= 0
 
 
 def run_ssh(host, port, ssh, command):
@@ -37,22 +55,29 @@ def run_unix(host, port, ssh, command):
     if not host or not port:
         return -2
 
+    if not utils.which(ssh):
+        cli.bad_exit('{} cannot be found in the PATH'.format(ssh))
+
     ssh = [ssh,
            '-o', 'UserKnownHostsFile=/dev/null',
            '-o', 'StrictHostKeyChecking=no',
            '-p', port, host] + command
 
     _LOGGER.debug('Starting ssh: %s', ssh)
-    os.execvp(ssh[0], ssh)
+    utils.sane_execvp(ssh[0], ssh)
 
 
 def run_putty(host, port, sshcmd, command):
-    """Runs standard ssh (non-windows)."""
+    """Runs plink/putty (windows)."""
     if not host or not port:
         return -2
 
     # Trick putty into storing ssh key automatically.
     plink = os.path.join(os.path.dirname(sshcmd), 'plink.exe')
+
+    if not utils.which(plink):
+        cli.bad_exit('{} cannot be found in the PATH'.format(plink))
+
     store_key_cmd = [plink, '-P', port,
                      '%s@%s' % (os.environ['USERNAME'], host), 'exit']
 
@@ -73,23 +98,71 @@ def run_putty(host, port, sshcmd, command):
     if command:
         ssh.extend(command)
 
+    devnull = {}
+
+    def _get_devnull():
+        """Gets handle to the null device."""
+        if not devnull:
+            devnull['fd'] = os.open(os.devnull, os.O_RDWR)
+        return devnull['fd']
+
+    if not utils.which(sshcmd):
+        cli.bad_exit('{} cannot be found in the PATH'.format(sshcmd))
+
     _LOGGER.debug('Starting ssh: %s', ssh)
     try:
         if os.path.basename(sshcmd).lower() == 'putty.exe':
-            os.execvp(ssh[0], ssh)
+            utils.sane_execvp(ssh[0], ssh)
         else:
-            subprocess.call(ssh)
+            # Call plink. Redirect to devnull if std streams are empty/invalid.
+            subprocess.call(
+                ssh,
+                stdin=None if _check_handle(sys.stdin) else _get_devnull(),
+                stdout=None if _check_handle(sys.stdout) else _get_devnull(),
+                stderr=None if _check_handle(sys.stderr) else _get_devnull()
+            )
     except KeyboardInterrupt:
         sys.exit(0)
+    finally:
+        if devnull:
+            os.close(devnull['fd'])
 
 
-def _wait_for_app(wsapi, ssh, app, command):
+def _wait_for_ssh(queue, ssh, command, timeout=1, attempts=40):
+    """Wait until a successful connection to the ssh endpoint can be made."""
+    try:
+        host, port = queue.get(timeout=timeout * attempts)
+    except g_queue.Empty:
+        cli.bad_exit("No SSH endpoint found.")
+
+    for _ in six.moves.range(attempts):
+        _LOGGER.debug('Checking SSH endpoint %s:%s', host, port)
+        if checkout.connect(host, port):
+            run_ssh(host, port, ssh, list(command))
+            break  # if run_ssh doesn't end with os.execvp()...
+
+        try:
+            host, port = queue.get(timeout=timeout)
+            queue.task_done()
+        except g_queue.Empty:
+            pass
+
+    # Either all the connection attempts failed or we're after run_ssh
+    # (not resulting in os.execvp) so let's "clear the queue" so the thread
+    # can join
+    queue.task_done()
+
+
+def _wait_for_app(wsapi, ssh, app, command, queue=None):
     """Use websockets to wait for the app to start"""
-    def on_message(result):
+    # JoinableQueue is filled with a dummy item otherwise queue.join() unblocks
+    # immediately wo/ actually letting the ws_loop and _wait_for_ssh to run.
+    queue = queue or g_queue.JoinableQueue(items=[('dummy.host', 1234)])
+
+    def on_message(result, queue=queue):
         """Callback to process trace message."""
-        host = result['host']
-        port = result['port']
-        run_ssh(host, port, ssh, list(command))
+        _LOGGER.debug('Endpoint trase msg: %r', result)
+        queue.put((result['host'], result['port']))
         return False
 
     def on_error(result):
@@ -97,17 +170,20 @@ def _wait_for_app(wsapi, ssh, app, command):
         click.echo('Error: %s' % result['_error'], err=True)
 
     try:
-        return ws_client.ws_loop(
-            wsapi,
-            {'topic': '/endpoints',
-             'filter': app,
-             'proto': 'tcp',
-             'endpoint': 'ssh'},
-            False,
-            on_message,
-            on_error
-        )
-    except ws_client.ConnectionError:
+        gevent.spawn(_wait_for_ssh, queue, ssh, command)
+        gevent.spawn(ws_client.ws_loop,
+                     wsapi,
+                     {'topic': '/endpoints',
+                      'filter': app,
+                      'proto': 'tcp',
+                      'endpoint': 'ssh'},
+                     False,
+                     on_message,
+                     on_error)
+
+        queue.join()
+
+    except ws_client.WSConnectionError:
         cli.bad_exit('Could not connect to any Websocket APIs')
 
 

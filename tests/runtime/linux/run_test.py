@@ -1,5 +1,10 @@
-"""Unit test for treadmill.runtime.linux._run
+"""Unit test for treadmill.runtime.linux._run.
 """
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 # Disable C0302: Too many lines in module.
 # pylint: disable=C0302
@@ -82,16 +87,12 @@ class LinuxRuntimeRunTest(unittest.TestCase):
         )
         app_unique_name = appcfg.app_unique_name(app)
         container_dir = os.path.join(self.root, 'apps', app_unique_name)
-        mock_ld_client = self.tm_env.svc_localdisk.make_client.return_value
         localdisk = {
             'block_dev': '/dev/foo',
         }
-        mock_ld_client.wait.return_value = localdisk
 
-        treadmill.runtime.linux._run._create_root_dir(self.tm_env,
-                                                      container_dir,
-                                                      '/some/root_dir',
-                                                      app)
+        treadmill.runtime.linux._run._create_root_dir(container_dir,
+                                                      localdisk)
 
         treadmill.fs.create_filesystem.assert_called_with('/dev/foo')
         unshare.unshare.assert_called_with(unshare.CLONE_NEWNS)
@@ -102,88 +103,17 @@ class LinuxRuntimeRunTest(unittest.TestCase):
         """Test cgroup creation."""
         # Disable W0212: Access to a protected member
         # pylint: disable=W0212
-        manifest = {
-            'type': 'native',
-            'proid': 'foo',
-            'environment': 'dev',
-            'shared_network': False,
-            'cpu': '100',
-            'memory': '100M',
-            'disk': '100G',
-            'services': [
-                {
-                    'name': 'web_server',
-                    'command': '/bin/true',
-                    'restart': {
-                        'limit': 5,
-                        'interval': 60,
-                    },
-                },
-            ],
-            'endpoints': [
-                {
-                    'name': 'http',
-                    'port': '8000',
-                },
-            ],
-            'name': 'proid.myapp#0',
-            'uniqueid': 'AAAAA',
-        }
-
-        app_unique_name = 'proid.myapp-0-00000000AAAAA'
-
-        mock_cgroup_client = self.tm_env.svc_cgroup.make_client.return_value
-        mock_ld_client = self.tm_env.svc_localdisk.make_client.return_value
-        mock_nwrk_client = self.tm_env.svc_network.make_client.return_value
-
         cgroups = {
             'cpu': '/some/path',
             'cpuacct': '/some/other/path',
             'memory': '/mem/path',
             'blkio': '/io/path',
         }
-        mock_cgroup_client.wait.return_value = cgroups
-
-        app_dir = os.path.join(self.root, 'apps', app_unique_name)
-        os.makedirs(app_dir)
 
         app_run._apply_cgroup_limits(
-            self.tm_env,
-            app_dir,
-            manifest
+            cgroups,
         )
 
-        self.tm_env.svc_cgroup.make_client.assert_called_with(
-            os.path.join(app_dir, 'cgroups')
-        )
-        mock_cgroup_client.put.assert_called_with(
-            app_unique_name,
-            {
-                'memory': '100M',
-                'cpu': '100',
-            }
-        )
-        self.tm_env.svc_localdisk.make_client.assert_called_with(
-            os.path.join(app_dir, 'localdisk')
-        )
-        mock_ld_client.put.assert_called_with(
-            app_unique_name,
-            {
-                'size': '100G',
-            }
-        )
-        self.tm_env.svc_network.make_client.assert_called_with(
-            os.path.join(app_dir, 'network')
-        )
-        mock_nwrk_client.put.assert_called_with(
-            app_unique_name,
-            {
-                'environment': 'dev',
-            }
-        )
-        mock_cgroup_client.wait.assert_called_with(
-            'proid.myapp-0-00000000AAAAA'
-        )
         treadmill.cgroups.join.assert_has_calls(
             [
                 mock.call(ss, path)
@@ -443,7 +373,7 @@ class LinuxRuntimeRunTest(unittest.TestCase):
     @mock.patch('treadmill.fs.mount_bind', mock.Mock())
     @mock.patch('treadmill.runtime.linux.image.get_image_repo', mock.Mock())
     @mock.patch('treadmill.apphook.configure', mock.Mock())
-    @mock.patch('treadmill.supervisor.exec_root_supervisor', mock.Mock())
+    @mock.patch('treadmill.subproc.exec_pid1', mock.Mock())
     @mock.patch('treadmill.subproc.check_call', mock.Mock())
     @mock.patch('treadmill.utils.rootdir',
                 mock.Mock(return_value='/treadmill'))
@@ -509,7 +439,16 @@ class LinuxRuntimeRunTest(unittest.TestCase):
         app_unique_name = 'proid.myapp-0-0000000ID1234'
         app_dir = os.path.join(self.root, 'apps', app_unique_name)
         os.makedirs(app_dir)
+        mock_cgroup_client = self.tm_env.svc_cgroup.make_client.return_value
+        mock_ld_client = self.tm_env.svc_localdisk.make_client.return_value
         mock_nwrk_client = self.tm_env.svc_network.make_client.return_value
+        cgroups = {
+            'cpu': '/some/path',
+            'cpuacct': '/some/other/path',
+            'memory': '/mem/path',
+            'blkio': '/io/path',
+        }
+        mock_cgroup_client.wait.return_value = cgroups
         network = {
             'vip': '2.2.2.2',
             'gateway': '1.1.1.1',
@@ -525,15 +464,40 @@ class LinuxRuntimeRunTest(unittest.TestCase):
             return mock.DEFAULT
         treadmill.runtime.allocate_network_ports.side_effect = \
             _fake_allocate_network_ports
-        mock_watchdog = mock.Mock()
         mock_image = mock.Mock()
 
         treadmill.runtime.linux.image.get_image_repo.return_value = mock_image
 
-        app_run.run(
-            self.tm_env, app_dir, manifest, mock_watchdog, terminated=()
-        )
+        app_run.run(self.tm_env, app_dir, manifest)
 
+        mock_cgroup_client.put.assert_called_with(
+            app_unique_name,
+            {
+                'memory': '100M',
+                'cpu': '100%',
+            }
+        )
+        mock_ld_client.put.assert_called_with(
+            app_unique_name,
+            {
+                'size': '100G',
+            }
+        )
+        mock_nwrk_client.put.assert_called_with(
+            app_unique_name,
+            {
+                'environment': 'dev',
+            }
+        )
+        mock_cgroup_client.wait.assert_called_with(
+            app_unique_name
+        )
+        mock_ld_client.wait.assert_called_with(
+            app_unique_name
+        )
+        mock_nwrk_client.wait.assert_called_with(
+            app_unique_name
+        )
         # Check that port allocation is correctly called.
         manifest['network'] = network
         manifest['ephemeral_ports'] = {'tcp': ['1', '2', '3']}
@@ -556,13 +520,9 @@ class LinuxRuntimeRunTest(unittest.TestCase):
         )
         # Create root dir
         treadmill.runtime.linux._run._create_root_dir.assert_called_with(
-            self.tm_env,
             app_dir,
-            os.path.join(app_dir, 'root'),
-            app
+            mock_ld_client.wait.return_value
         )
-
-        self.assertTrue(mock_watchdog.remove.called)
 
     @mock.patch('pwd.getpwnam', mock.Mock())
     @mock.patch('shutil.copy', mock.Mock())
@@ -575,7 +535,7 @@ class LinuxRuntimeRunTest(unittest.TestCase):
     @mock.patch('treadmill.runtime.linux.image.get_image_repo', mock.Mock())
     @mock.patch('treadmill.fs.mount_bind', mock.Mock())
     @mock.patch('treadmill.apphook.configure', mock.Mock())
-    @mock.patch('treadmill.supervisor.exec_root_supervisor', mock.Mock())
+    @mock.patch('treadmill.subproc.exec_pid1', mock.Mock())
     @mock.patch('treadmill.subproc.check_call', mock.Mock())
     @mock.patch('treadmill.utils.rootdir',
                 mock.Mock(return_value='/treadmill'))
@@ -645,18 +605,14 @@ class LinuxRuntimeRunTest(unittest.TestCase):
             return mock.DEFAULT
         treadmill.runtime.allocate_network_ports.side_effect = \
             _fake_allocate_network_ports
-        mock_watchdog = mock.Mock()
 
-        app_run.run(
-            self.tm_env, app_dir, manifest, mock_watchdog, terminated=()
-        )
+        app_run.run(self.tm_env, app_dir, manifest)
 
         self.assertFalse(
             os.path.exists(
                 os.path.join(rootdir, '.etc/ld.so.preload')
             )
         )
-        self.assertTrue(mock_watchdog.remove.called)
 
     @mock.patch('pwd.getpwnam', mock.Mock())
     @mock.patch('shutil.copy', mock.Mock())
@@ -668,7 +624,7 @@ class LinuxRuntimeRunTest(unittest.TestCase):
     @mock.patch('treadmill.runtime.linux.image.get_image_repo', mock.Mock())
     @mock.patch('treadmill.fs.mount_bind', mock.Mock())
     @mock.patch('treadmill.apphook.configure', mock.Mock())
-    @mock.patch('treadmill.supervisor.exec_root_supervisor', mock.Mock())
+    @mock.patch('treadmill.subproc.exec_pid1', mock.Mock())
     @mock.patch('treadmill.subproc.check_call', mock.Mock())
     @mock.patch('treadmill.utils.rootdir',
                 mock.Mock(return_value='/treadmill'))
@@ -726,13 +682,42 @@ class LinuxRuntimeRunTest(unittest.TestCase):
         treadmill.runtime.allocate_network_ports.side_effect = \
             _fake_allocate_network_ports
         # Make sure that despite ticket absence there is no throw.
-        mock_watchdog = mock.Mock()
+        app_run.run(self.tm_env, app_dir, manifest)
 
-        app_run.run(
-            self.tm_env, app_dir, manifest, mock_watchdog, terminated=()
-        )
+    @mock.patch('socket.socket.bind', mock.Mock())
+    @mock.patch('socket.socket.listen', mock.Mock())
+    def test_allocate_network_ports(self):
+        """Test allocate network ports"""
+        manifest = {
+            'type': 'native',
+            'shared_network': False,
+            'disk': '100G',
+            'name': 'proid.myapp#0',
+            'memory': '100M',
+            'environment': 'dev',
+            'uniqueid': 'ID1234',
+            'proid': 'foo',
+            'services': [
+                {
+                    'name': 'web_server',
+                    'command': '/bin/true',
+                    'restart': {
+                        'limit': 3,
+                        'interval': 60,
+                    },
+                }
+            ],
+            'endpoints': [
+                {'name': 'http', 'port': 8000},
+                {'name': 'port0', 'port': 0}
+            ],
+            'ephemeral_ports': {},
+            'cpu': '100%'
+        }
 
-        self.assertTrue(mock_watchdog.remove.called)
+        treadmill.runtime.allocate_network_ports('0.0.0.0', manifest)
+        socket.socket.bind.assert_called_with(mock.ANY)
+        socket.socket.listen.assert_called_with(0)
 
 
 if __name__ == '__main__':

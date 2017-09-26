@@ -1,17 +1,22 @@
-"""Cgroup management service."""
+"""Cgroup management service.
+"""
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import errno
 import logging
 import os
 import select
 
-from .. import cgroups
-from .. import cgutils
-from .. import logcontext as lc
-from .. import sysinfo
-from .. import utils
-from .. import supervisor
+from treadmill import cgroups
+from treadmill import cgutils
+from treadmill import logcontext as lc
+from treadmill import sysinfo
+from treadmill import utils
+from treadmill import supervisor
 
 from ._base_service import BaseResourceServiceImpl
 
@@ -175,7 +180,7 @@ class CgroupResourceService(BaseResourceServiceImpl):
                                 handler_data['instance_id'])
 
                 # Kill container
-                _shutdown_container(instance_id, self._apps_dir)
+                _shutdown_container(self._apps_dir, instance_id)
 
                 try:
                     os.close(handler_data['fd'])
@@ -209,16 +214,10 @@ class CgroupResourceService(BaseResourceServiceImpl):
                      cgrp)
 
 
-def _shutdown_container(instance_id, apps_dir):
+def _shutdown_container(apps_dir, instance_id):
     """Shutdown a container.
     """
-    # TODO: This is the wrong place for this knowledge
-    instance_sys = os.path.join(
-        apps_dir,
-        instance_id,
-        'sys',
-    )
-    supervisor.stop_service(
-        instance_sys,
-        'start_container'
-    )
+    container_dir = os.path.join(apps_dir, instance_id)
+    utils.touch(os.path.join(container_dir, 'data', 'oom'))
+    supervisor.control_service(container_dir,
+                               supervisor.ServiceControlAction.kill)

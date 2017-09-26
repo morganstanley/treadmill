@@ -1,11 +1,17 @@
 """Unit test for Zookeeper helper - testing zk connection and leader election.
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import hashlib
+import io
 import os
-import unittest
-import tempfile
 import shutil
+import tempfile
+import unittest
 
 from tests.testutils import mockzk
 
@@ -117,7 +123,7 @@ class VersionMgrTest(mockzk.MockZookeeperTestCase):
         os.makedirs(os.path.join(self.root, 'common'))
         os.makedirs(os.path.join(self.root, 'common', 'foo'))
         # /common/foo/bar
-        with open(os.path.join(self.root, 'common', 'foo', 'bar'), 'w'):
+        with io.open(os.path.join(self.root, 'common', 'foo', 'bar'), 'w'):
             pass
         # /common/foo/baz -> bar
         os.symlink('bar',

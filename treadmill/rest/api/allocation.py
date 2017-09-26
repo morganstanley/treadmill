@@ -1,7 +1,10 @@
-"""
-Treadmill allocation REST api.
+"""Treadmill allocation REST api.
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import flask
 import flask_restplus as restplus
@@ -36,6 +39,8 @@ def init(api, cors, impl):
         'cpu': fields.String(description='CPU'),
         'disk': fields.String(description='Disk size'),
         'rank': fields.Integer(description='App rank'),
+        'rank_adjustment': fields.Integer(description='Rank adjustment.'),
+        'max_utilization': fields.Float(description='Maximum utilization.'),
         'cell': fields.String(description='Cell'),
         'partition': fields.String(description='Partition'),
         'traits': fields.List(fields.String(description='Traits')),

@@ -1,44 +1,112 @@
 """Manages Treadmill applications lifecycle."""
 
+
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
+from __future__ import absolute_import
+
+import json
 import logging
 import os
 
+import enum
+
 from treadmill import appevents
+from treadmill import fs
+from treadmill import supervisor
 from treadmill.apptrace import events
 
 _LOGGER = logging.getLogger(__name__)
 
 
-def abort(tm_env, event, exc=None, reason=None):
-    """Abort a unconfigured application.
+ABORTED_UNKNOWN = {
+    'why': 'unknown',
+    'payload': None,
+}
 
-    Called when aborting after failed configure step.
+
+class AbortedReason(enum.Enum):
+    """Container abort reasons.
     """
-    # If aborting after failed configure step, the 'name' attribute is
-    # derived from the event file name.
-    instanceid = os.path.basename(event)
-    _LOGGER.info('Aborting %s', instanceid)
+    # W0232: Class has no __init__ method
+    # pylint: disable=W0232
+    UNKNOWN = 'unknown'
+    INVALID_TYPE = 'invalid_type'
+    TICKETS = 'tickets'
+    SCHEDULER = 'scheduler'
+    PORTS = 'ports'
+    PRESENCE = 'presence'
+    IMAGE = 'image'
+    PID1 = 'pid1'
 
-    # Report start failure.
-    if reason is None and exc:
-        reason = type(exc).__name__
-
-    appevents.post(
-        tm_env.app_events_dir,
-        events.AbortedTraceEvent(
-            why=reason,
-            instanceid=instanceid,
-            payload=None
-        )
-    )
+    def description(self):
+        """Gets the description for the current aborted reason."""
+        return {
+            AbortedReason.INVALID_TYPE: 'invalid image type',
+            AbortedReason.TICKETS: 'tickets could not be fetched',
+            AbortedReason.SCHEDULER: 'scheduler error',
+            AbortedReason.PORTS: 'ports could not be assigned',
+            AbortedReason.IMAGE: 'could not use given image',
+            AbortedReason.PID1: 'pid1 failed to start',
+        }.get(self, self.value)
 
 
-def flag_aborted(_tm_env, container_dir, exc=None):
+def abort(container_dir, why=None, payload=None):
+    """Abort a running application.
+
+    Called when some initialization failed in a running container.
+    """
+    flag_aborted(container_dir, why, payload)
+    container_dir = os.path.realpath(os.path.join(container_dir, '../'))
+    supervisor.control_service(container_dir,
+                               supervisor.ServiceControlAction.kill)
+
+
+def _why_str(why):
+    """Gets the string for app aborted reason."""
+    if isinstance(why, AbortedReason):
+        return why.value
+
+    return str(why)
+
+
+def flag_aborted(container_dir, why=None, payload=None):
     """Flags container as aborted.
 
     Called when aborting in failed run step.
     Consumed by cleanup script.
     """
-    with open(os.path.join(container_dir, 'aborted'), 'w+') as f:
-        if exc:
-            f.write(str(exc))
+    if payload is not None:
+        payload = str(payload)
+
+    fs.write_safe(
+        os.path.join(container_dir, 'aborted'),
+        lambda f: json.dump(
+            {
+                'why': _why_str(why),
+                'payload': payload
+            },
+            fp=f
+        ),
+        permission=0o644
+    )
+
+
+def report_aborted(tm_env, instance, why=None, payload=None):
+    """Report an aborted instance.
+
+    Called when aborting after failed configure step or from cleanup.
+    """
+    if payload is not None:
+        payload = str(payload)
+
+    appevents.post(
+        tm_env.app_events_dir,
+        events.AbortedTraceEvent(
+            instanceid=instance,
+            why=_why_str(why),
+            payload=payload
+        )
+    )

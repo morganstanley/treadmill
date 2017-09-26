@@ -1,37 +1,33 @@
-"""LVM based local disk management service."""
+"""LVM based local disk management service.
+"""
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
-import math
 import errno
 import logging
+import math
 import os
-import re
-import subprocess
 
-from .. import cgroups
-from .. import cgutils
-from .. import exc
-from .. import fs
-from .. import logcontext as lc
-from .. import lvm
-from .. import sysinfo
-from .. import utils
-from .. import subproc
+import six
+
+if six.PY2 and os.name == 'posix':
+    import subprocess32 as subprocess  # pylint: disable=import-error
+else:
+    import subprocess  # pylint: disable=wrong-import-order
+
+from treadmill import cgroups
+from treadmill import cgutils
+from treadmill import localdiskutils
+from treadmill import logcontext as lc
+from treadmill import lvm
+from treadmill import utils
 
 from ._base_service import BaseResourceServiceImpl
 
 _LOGGER = lc.ContainerAdapter(logging.getLogger(__name__))
-
-
-#: Minimum size for the Treadmill volume group. If we can't use this much, the
-#: server node start will fail
-TREADMILL_MIN_VG_SIZE = utils.size_to_bytes('100M')
-
-#: Minimum free disk space to leave for the OS
-TREADMILL_MIN_RESERVE_SIZE = utils.size_to_bytes('100M')
-
-#: Name of the Treadmill loopback image file
-TREADMILL_IMG = 'treadmill.img'
 
 
 class LocalDiskResourceService(BaseResourceServiceImpl):
@@ -40,14 +36,16 @@ class LocalDiskResourceService(BaseResourceServiceImpl):
 
     __slots__ = (
         '_block_dev',
+        '_read_bps',
+        '_write_bps',
+        '_read_iops',
+        '_write_iops',
         '_default_read_bps',
         '_default_read_iops',
         '_default_write_bps',
         '_default_write_iops',
-        '_img_location',
-        '_img_size',
         '_pending',
-        '_status',
+        '_vg_status',
         '_volumes',
     )
 
@@ -55,31 +53,17 @@ class LocalDiskResourceService(BaseResourceServiceImpl):
         ('size', True, str),
     )
 
-    #: Name of the Treadmill LVM volume group
-    TREADMILL_VG = 'treadmill'
-
-    def __init__(self, block_dev=None, img_location=None, img_size='2G',
+    def __init__(self, block_dev, read_bps, write_bps, read_iops, write_iops,
                  default_read_bps='20M', default_write_bps='20M',
                  default_read_iops=100, default_write_iops=100):
         super(LocalDiskResourceService, self).__init__()
 
-        assert bool(block_dev is None) ^ bool(img_location is None)
-
-        if block_dev is not None:
-            self._block_dev = block_dev
-            self._img_size = None
-            self._img_location = None
-
-        elif img_location is not None:
-            self._img_size = img_size
-            self._img_location = os.path.realpath(img_location)
-            self._block_dev = None
-
-        else:
-            raise ValueError('Need to provide either a block device'
-                             ' or an image location.')
-
-        self._status = {}
+        self._block_dev = block_dev
+        self._read_bps = read_bps
+        self._write_bps = write_bps
+        self._read_iops = read_iops
+        self._write_iops = write_iops
+        self._vg_status = {}
         self._volumes = {}
         self._pending = []
         # TODO: temp solution - throttle read/writes to
@@ -94,27 +78,12 @@ class LocalDiskResourceService(BaseResourceServiceImpl):
 
     def initialize(self, service_dir):
         super(LocalDiskResourceService, self).initialize(service_dir)
-        # Setup the LVM Volume Group
-        # Assume VG is ready
-        need_init = False
-        try:
-            lvm.vgactivate(group=self.TREADMILL_VG)
 
-        except subprocess.CalledProcessError:
-            need_init = True
-
-        if need_init:
-            _LOGGER.info('Initialiazing Volume Group')
-
-            if self._block_dev is None:
-                self._block_dev = _init_block_dev(self._img_location,
-                                                  self._img_size)
-
-            # Create the VG
-            _init_vg(self.TREADMILL_VG, self._block_dev)
+        # Make sure LVM Volume Group set up
+        localdiskutils.setup_device_lvm(self._block_dev)
 
         # Finally retrieve the LV info
-        lvs_info = lvm.lvsdisplay(group=self.TREADMILL_VG)
+        lvs_info = lvm.lvsdisplay(group=localdiskutils.TREADMILL_VG)
 
         # Mark all retrived volume as 'stale'
         for lv in lvs_info:
@@ -128,20 +97,23 @@ class LocalDiskResourceService(BaseResourceServiceImpl):
                 for k in [
                     'name', 'block_dev',
                     'dev_major', 'dev_minor',
+                    'extent_size',
                     'stale',
                 ]
             }
             for lv in lvs_info
         }
         self._volumes = volumes
-        self._status = _refresh_vg_status(self.TREADMILL_VG)
+        self._vg_status = localdiskutils.refresh_vg_status(
+            localdiskutils.TREADMILL_VG
+        )
 
     def synchronize(self):
         """Make sure that all stale volumes are removed.
         """
         modified = False
-        for uniqueid in list(self._volumes):
-            if not self._volumes[uniqueid].get('stale', False):
+        for uniqueid in six.viewkeys(self._volumes.copy()):
+            if not self._volumes[uniqueid].pop('stale', False):
                 continue
             modified = True
             # This is a stale volume, destroy it.
@@ -158,10 +130,17 @@ class LocalDiskResourceService(BaseResourceServiceImpl):
 
         # We just destroyed a volume, refresh cached status from LVM and notify
         # the service of the availability of the new status.
-        self._status = _refresh_vg_status(self.TREADMILL_VG)
+        self._vg_status = localdiskutils.refresh_vg_status(
+            localdiskutils.TREADMILL_VG
+        )
 
     def report_status(self):
-        return self._status
+        return dict(self._vg_status.items() + {
+            'read_bps': self._read_bps,
+            'write_bps': self._write_bps,
+            'read_iops': self._read_iops,
+            'write_iops': self._write_iops
+        }.items())
 
     def on_create_request(self, rsrc_id, rsrc_data):
         app_unique_name = rsrc_id
@@ -181,25 +160,33 @@ class LocalDiskResourceService(BaseResourceServiceImpl):
             # Create the logical volume
             existing_volume = uniqueid in self._volumes
             if not existing_volume:
-                needed = math.ceil(size_in_bytes / self._status['extent_size'])
-                if needed > self._status['extent_free']:
+                needed = math.ceil(
+                    size_in_bytes / self._vg_status['extent_size']
+                )
+                if needed > self._vg_status['extent_free']:
                     # If we do not have enough space, delay the creation until
                     # another volume is deleted.
-                    log.logger.info(
-                        'Delaying request %r until %d extents are free',
-                        rsrc_id, needed)
+                    log.info(
+                        'Delaying request %r until %d extents are free.'
+                        ' Current volumes: %r',
+                        rsrc_id, needed, self._volumes)
                     self._pending.append(rsrc_id)
                     return None
 
                 lvm.lvcreate(
                     volume=uniqueid,
-                    group=self.TREADMILL_VG,
+                    group=localdiskutils.TREADMILL_VG,
                     size_in_bytes=size_in_bytes,
                 )
                 # We just created a volume, refresh cached status from LVM
-                self._status = _refresh_vg_status(self.TREADMILL_VG)
+                self._vg_status = localdiskutils.refresh_vg_status(
+                    localdiskutils.TREADMILL_VG
+                )
 
-            lv_info = lvm.lvdisplay(volume=uniqueid, group=self.TREADMILL_VG)
+            lv_info = lvm.lvdisplay(
+                volume=uniqueid,
+                group=localdiskutils.TREADMILL_VG
+            )
 
             # Configure block device using cgroups (this is idempotent)
             # FIXME(boysson): The unique id <-> cgroup relation should be
@@ -246,7 +233,8 @@ class LocalDiskResourceService(BaseResourceServiceImpl):
 
             volume_data = {
                 k: lv_info[k]
-                for k in ['name', 'block_dev', 'dev_major', 'dev_minor']
+                for k in ['name', 'block_dev',
+                          'dev_major', 'dev_minor', 'extent_size']
             }
 
             # Record existence of the volume.
@@ -273,7 +261,9 @@ class LocalDiskResourceService(BaseResourceServiceImpl):
 
             # We just destroyed a volume, refresh cached status from LVM and
             # notify the service of the availability of the new status.
-            self._status = _refresh_vg_status(self.TREADMILL_VG)
+            self._vg_status = localdiskutils.refresh_vg_status(
+                localdiskutils.TREADMILL_VG
+            )
 
         return True
 
@@ -283,7 +273,7 @@ class LocalDiskResourceService(BaseResourceServiceImpl):
         # Remove it from state (if present)
         self._volumes.pop(uniqueid, None)
         try:
-            lvm.lvremove(uniqueid, group=self.TREADMILL_VG)
+            lvm.lvremove(uniqueid, group=localdiskutils.TREADMILL_VG)
         except subprocess.CalledProcessError:
             _LOGGER.warning('Ignoring unknow volume %r', uniqueid)
             return False
@@ -307,192 +297,3 @@ class LocalDiskResourceService(BaseResourceServiceImpl):
         except OSError as err:
             if err.errno != errno.ENOENT:
                 raise
-
-
-def _refresh_vg_status(group):
-    """Query LVM for the current volume group status.
-    """
-    vg_info = lvm.vgdisplay(group=group)
-    status = {
-        'name': vg_info['name'],
-        'extent_size': utils.size_to_bytes(
-            '{kb}k'.format(kb=vg_info['extent_size'])
-        ),
-        'extent_free': vg_info['extent_free'],
-        'extent_nb': vg_info['extent_nb'],
-        'size': utils.size_to_bytes(
-            '{kb}k'.format(
-                kb=vg_info['extent_nb'] * vg_info['extent_size']
-            )
-        )
-    }
-    _LOGGER.info('Group %r available space: %s (bytes)',
-                 group, status['size'])
-    return status
-
-
-def _init_vg(group, block_dev):
-    """Initialize the 'treadmill' volume group.
-
-    :param group:
-        Name of the LVM Volume Group.
-    :type group:
-        ``str``
-    :param block_dev:
-        LVM Physical Volume device backing the Volume Group
-    :type block_dev:
-        ``str``
-    """
-    # Can we see the Volume Group now that we have the block device? If
-    # so, we are done.
-    try:
-        lvm.vgactivate(group)
-        return
-
-    except subprocess.CalledProcessError:
-        # The Volume group doesn't exist, more work to do
-        pass
-
-    # Create Physical Volume backend
-    lvm.pvcreate(device=block_dev)
-    # Create a Volume Group using the above Physical Volume
-    lvm.vgcreate(group, device=block_dev)
-    # Activate this Volume Group
-    lvm.vgactivate(group)
-
-
-def _init_block_dev(img_location, img_size='-2G'):
-    """Initialize a block_dev suitable to back the Treadmill Volume Group.
-
-    The physical volume size will be auto-size based on the available capacity
-    minus the reserved size.
-
-    :param img_location:
-        Path name to the file which is going to back the new volume group.
-    :type img_location:
-        ``str``
-    :param img_size:
-        Size of the image or reserved amount of free filesystem space
-        to leave to the OS if negative, in bytes or using a literal
-        qualifier (e.g. "2G").
-    :type size:
-        ``int`` or ``str``
-    """
-    filename = os.path.join(img_location, TREADMILL_IMG)
-
-    # Initialize the OS loopback devices (needed to back the Treadmill
-    # volume group by a file)
-    _init_loopback_devices()
-
-    loop_dev = _loop_dev_for(filename)
-    if loop_dev is None:
-        # The file doesn't exist.
-        _create_image(TREADMILL_IMG, img_location, img_size)
-        # Assign a loop device (if not already assigned)
-        # Create the loop device
-        subproc.check_call(
-            [
-                'losetup',
-                '-f',
-                filename
-            ]
-        )
-        loop_dev = _loop_dev_for(filename)
-
-    if loop_dev is None:
-        raise exc.NodeSetupError('Unable to find /dev/loop device')
-
-    _LOGGER.info('Using %r as backing for the physical volume group', loop_dev)
-    return loop_dev
-
-
-def _create_image(img_name, img_location, img_size):
-    """Create a sparse file of the appropriate size.
-    """
-    fs.mkdir_safe(img_location)
-    filename = os.path.join(img_location, img_name)
-
-    retries = 10
-    while retries > 0:
-        retries -= 1
-        try:
-            stats = os.stat(filename)
-            os.unlink(filename)
-            _LOGGER.info('Disk image found and unlinked: %r; stat: %r',
-                         filename, stats)
-        except OSError as err:
-            if err.errno == errno.ENOENT:
-                pass
-            else:
-                raise
-
-        available_size = sysinfo.disk_usage(img_location)
-        img_size_bytes = utils.size_to_bytes(img_size)
-        if img_size_bytes <= 0:
-            real_img_size = available_size.free - abs(img_size_bytes)
-        else:
-            real_img_size = img_size_bytes
-
-        if (real_img_size < TREADMILL_MIN_VG_SIZE or
-                available_size.free <
-                real_img_size + TREADMILL_MIN_RESERVE_SIZE):
-            raise exc.NodeSetupError('Not enough free disk space')
-
-        if fs.create_excl(filename, real_img_size):
-            break
-
-    if retries == 0:
-        raise exc.NodeSetupError('Something is messing with '
-                                 'disk image creation')
-
-
-###############################################################################
-# Loopback
-
-#: Number of loop devices to initialize
-_TREADMILL_LOOPDEV_NB = 8
-
-
-def _init_loopback_devices():
-    """Create and initialize loopback devices."""
-    for i in range(0, _TREADMILL_LOOPDEV_NB):
-        if not os.path.exists('/dev/loop%s' % i):
-            subproc.check_call(['mknod', '-m660', '/dev/loop%s' % i, 'b',
-                                '7', str(i)])
-            subproc.check_call(['chown', 'root.disk', '/dev/loop%s' % i])
-
-
-def _loop_dev_for(filename):
-    """Lookup the loop device associated with a given filename.
-
-    :param filename:
-        Name of the file
-    :type filename:
-        ``str``
-    :returns:
-        Name of the loop device or None if not found
-    """
-    filename = os.path.realpath(filename)
-    try:
-        loop_dev = subproc.check_output(
-            [
-                'losetup',
-                '-j',
-                filename
-            ]
-        )
-    except subprocess.CalledProcessError:
-        return None
-
-    loop_dev = loop_dev.strip()
-
-    match = re.match(
-        r'^(?P<loop_dev>[^:]+):.*\({fname}\)'.format(fname=filename),
-        loop_dev
-    )
-    if match is not None:
-        loop_dev = match.groupdict()['loop_dev']
-    else:
-        loop_dev = None
-
-    return loop_dev

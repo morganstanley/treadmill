@@ -1,13 +1,19 @@
-"""Manage Treadmill vIPs allocations"""
+"""Manage Treadmill vIPs allocations.
+"""
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import errno
-
 import glob
 import logging
 import os
 
-from . import fs
+import six
+
+from treadmill import fs
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -34,7 +40,8 @@ class VipMgr(object):
 
     def initialize(self):
         """Initialize the vip folder."""
-        map(os.unlink, glob.glob(os.path.join(self._base_path, '*')))
+        for vip in glob.glob(os.path.join(self._base_path, '*')):
+            os.unlink(vip)
 
     def alloc(self, owner, picked_ip=None):
         """Atomically allocates virtual IP pair for the container.
@@ -45,7 +52,7 @@ class VipMgr(object):
                                 picked_ip, owner)
             return picked_ip
 
-        for index in range(0, 256**2):
+        for index in six.moves.range(0, 256**2):
             major, minor = (index >> 8), (index % 256)
             if major in [128, 256]:
                 continue

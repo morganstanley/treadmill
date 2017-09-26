@@ -1,6 +1,8 @@
 {
     "$schema": "http://json-schema.org/draft-04/schema#",
     "resource_id": { "$ref": "common.json#/app_id" },
+    "pause": { "type": "boolean" },
+    "resume": { "type": "boolean" },
     "resource": {
         "type": "object",
         "additionalProperties": false,

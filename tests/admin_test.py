@@ -1,6 +1,12 @@
 """Unit test for treadmill admin.
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
+
 # Disable C0302: Too many lines in the module
 # pylint: disable=C0302
 
@@ -347,6 +353,14 @@ class AdminTest(unittest.TestCase):
             admin_app.from_entry(admin_app.to_entry(app))
         )
 
+        app['lease'] = '3d'
+        expected['lease'] = '3d'
+
+        self.assertEqual(
+            expected,
+            admin_app.from_entry(admin_app.to_entry(app))
+        )
+
     def test_server_to_entry(self):
         """Tests convertion of app dictionary to ldap entry."""
         srv = {
@@ -354,7 +368,7 @@ class AdminTest(unittest.TestCase):
             'cell': 'yyy',
             'partition': 'p',
             'traits': ['a', 'b', 'c'],
-            'data': ['a=1', 'b=2'],
+            'data': {'a': '1', 'b': '2'},
         }
 
         ldap_entry = {
@@ -362,7 +376,7 @@ class AdminTest(unittest.TestCase):
             'cell': ['yyy'],
             'partition': ['p'],
             'trait': ['a', 'b', 'c'],
-            'data': ['a=1', 'b=2'],
+            'data': ['{"a": "1", "b": "2"}'],
         }
 
         self.assertEqual(ldap_entry, admin.Server(None).to_entry(srv))
@@ -387,7 +401,7 @@ class AdminTest(unittest.TestCase):
                  'zk-followers-port': 7000,
                  'zk-election-port': 8000}
             ],
-            'data': ['foo=bar', 'x=y'],
+            'data': {'foo': 'bar', 'x': 'y'},
         }
         cell_admin = admin.Cell(None)
         self.assertEqual(
@@ -590,6 +604,52 @@ class AllocationTest(unittest.TestCase):
             obj['reservations'][0]['assignments'])
 
 
+class CellAllocationTest(unittest.TestCase):
+    """Tests CellAllocation ldapobject routines."""
+
+    def setUp(self):
+        self.cell_alloc = admin.CellAllocation(
+            admin.Admin(None, 'dc=xx,dc=com'))
+
+    def test_dn(self):
+        """Tests cell allocation identity to dn mapping."""
+        self.assertTrue(
+            self.cell_alloc.dn(['somecell', 'foo:bar/prod1']).startswith(
+                'cell=somecell,allocation=prod1,'
+                'tenant=bar,tenant=foo,ou=allocations,'))
+
+    def test_to_entry(self):
+        """Tests conversion of cell allocation to LDAP entry."""
+        obj = {
+            'cell': 'somecell',
+            'cpu': '100%',
+            'memory': '10G',
+            'disk': '100G',
+            'rank': 100,
+            'rank_adjustment': 10,
+            'partition': '_default',
+            'max_utilization': 4.2,
+            'traits': [],
+        }
+        ldap_entry = {
+            'cell': ['somecell'],
+            'cpu': ['100%'],
+            'memory': ['10G'],
+            'disk': ['100G'],
+            'rank': ['100'],
+            'rank-adjustment': ['10'],
+            'partition': ['_default'],
+            'max-utilization': ['4.2'],
+        }
+        self.assertEqual(ldap_entry, self.cell_alloc.to_entry(obj))
+
+        obj.update({
+            'traits': [],
+            'assignments': [],
+        })
+        self.assertEqual(obj, self.cell_alloc.from_entry(ldap_entry))
+
+
 class PartitionTest(unittest.TestCase):
     """Tests Partition ldapobject routines."""
 
@@ -613,6 +673,7 @@ class PartitionTest(unittest.TestCase):
             'cpu': '42%',
             'disk': '100G',
             'down-threshold': 42,
+            'systems': [],
         }
 
         ldap_entry = {

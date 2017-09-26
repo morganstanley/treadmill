@@ -24,27 +24,33 @@ Upon change, appcfgmgr will do the following:
    to run and will start all the new apps.
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import errno
 import glob
 import logging
 import os
 import time
+import traceback
 
 from treadmill import appenv
 from treadmill import appcfg
+from treadmill import exc
 from treadmill import fs
 from treadmill import dirwatch
 from treadmill import logcontext as lc
-from treadmill import subproc
+from treadmill import supervisor
 
 from treadmill.appcfg import configure as app_cfg
 from treadmill.appcfg import abort as app_abort
 
 if os.name == 'nt':
-    from .syscall import winsymlink  # noqa: F401
+    import treadmill.syscall.winsymlink  # pylint: disable=W0611,F401
 
 _LOGGER = lc.Adapter(logging.getLogger(__name__))
-
 
 _HEARTBEAT_SEC = 30
 _WATCHDOG_TIMEOUT_SEC = _HEARTBEAT_SEC * 4
@@ -56,12 +62,14 @@ class AppCfgMgr(object):
     __slots__ = (
         'tm_env',
         '_is_active',
+        '_runtime',
     )
 
-    def __init__(self, root):
-        _LOGGER.info('init appcfgmgr: %s', root)
+    def __init__(self, root, runtime):
+        _LOGGER.info('init appcfgmgr: %s, %s', root, runtime)
         self.tm_env = appenv.AppEnvironment(root=root)
         self._is_active = False
+        self._runtime = runtime
 
     @property
     def name(self):
@@ -190,7 +198,7 @@ class AppCfgMgr(object):
         instance_name = os.path.basename(event_file)
         if instance_name == '.seen':
             _LOGGER.info('Cache folder not ready.'
-                         ' Stoping processing of events.')
+                         ' Stopping processing of events.')
             self._is_active = False
             return
 
@@ -295,7 +303,7 @@ class AppCfgMgr(object):
             if self._configure(instance_name):
                 added_instances.add(instance_name)
 
-        _LOGGER.debug('End resuld: %r / %r - %r + %r',
+        _LOGGER.debug('End result: %r / %r - %r + %r',
                       cached_containers,
                       running_instances,
                       removed_instances,
@@ -324,16 +332,31 @@ class AppCfgMgr(object):
         with lc.LogContext(_LOGGER, instance_name):
             try:
                 _LOGGER.info('Configuring')
-                container_dir = app_cfg.configure(self.tm_env, event_file)
+                container_dir = app_cfg.configure(self.tm_env, event_file,
+                                                  self._runtime)
+                if container_dir is None:
+                    # configure step failed, skip.
+                    fs.rm_safe(event_file)
+                    return False
+
                 app_cfg.schedule(
                     container_dir,
                     os.path.join(self.tm_env.running_dir, instance_name)
                 )
                 return True
 
+            except exc.ContainerSetupError as err:  # pylint: disable=W0703
+                _LOGGER.exception('Error configuring (%r)', instance_name)
+                app_abort.report_aborted(self.tm_env, instance_name,
+                                         why=err.reason,
+                                         payload=traceback.format_exc())
+                fs.rm_safe(event_file)
+                return False
             except Exception as err:  # pylint: disable=W0703
-                _LOGGER.exception('Error configuring (%r)', event_file)
-                app_abort.abort(self.tm_env, event_file, err)
+                _LOGGER.exception('Error configuring (%r)', instance_name)
+                app_abort.report_aborted(self.tm_env, instance_name,
+                                         why=app_abort.AbortedReason.UNKNOWN,
+                                         payload=traceback.format_exc())
                 fs.rm_safe(event_file)
                 return False
 
@@ -384,13 +407,11 @@ class AppCfgMgr(object):
 
     def _refresh_supervisor(self, instance_names=()):
         """Notify the supervisor of new instances to run."""
-        subproc.check_call(
-            [
-                's6_svscanctl',
-                '-an',
-                self.tm_env.running_dir
-            ]
-        )
+        supervisor.control_svscan(self.tm_env.running_dir, (
+            supervisor.SvscanControlAction.alarm,
+            supervisor.SvscanControlAction.nuke
+        ))
+
         for instance_name in instance_names:
             with lc.LogContext(_LOGGER, instance_name):
                 _LOGGER.info('Starting')
@@ -400,24 +421,16 @@ class AppCfgMgr(object):
                 )
                 # Wait for the supervisor to pick up the new instance.
                 for _ in range(10):
-                    res = subproc.call(
-                        [
-                            's6_svok',
-                            instance_run_link,
-                        ]
-                    )
-                    if res == 0:
+                    if supervisor.is_supervised(instance_run_link):
                         break
                     else:
                         _LOGGER.warning('Supervisor has not picked it up yet')
                         time.sleep(0.5)
+
                 # Bring the instance up.
-                subproc.check_call(
-                    [
-                        's6_svc',
-                        '-uO',
-                        instance_run_link,
-                    ]
+                supervisor.control_service(
+                    instance_run_link,
+                    supervisor.ServiceControlAction.once
                 )
 
     @staticmethod

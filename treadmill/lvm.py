@@ -1,5 +1,10 @@
-"""Linux Volume Manager operations."""
+"""Linux Volume Manager operations.
+"""
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import logging
 import os
@@ -25,6 +30,20 @@ def pvcreate(device):
             'pvcreate',
             '--force',
             '--yes',
+            device,
+        ]
+    )
+
+
+###############################################################################
+def pvremove(device):
+    """Remove LVM physical volume.
+    """
+    return subproc.check_call(
+        [
+            'lvm',
+            'pvremove',
+            '--force',
             device,
         ]
     )

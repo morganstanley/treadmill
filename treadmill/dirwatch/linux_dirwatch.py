@@ -1,8 +1,16 @@
-"""Implements directory watcher using inofify."""
+"""Implements directory watcher using inofify.
+"""
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import errno
 import logging
 import select
+
+import six
 
 from . import dirwatch_base
 
@@ -62,8 +70,13 @@ class LinuxDirWatcher(dirwatch_base.DirWatcher):
             rc = self.poll.poll(timeout)
             return bool(rc)
         except select.error as err:
-            if err[0] == errno.EINTR:
-                return False
+            if six.PY2:
+                # pylint: disable=W1624,E1136,indexing-exception
+                if err[0] == errno.EINTR:
+                    return False
+            else:
+                if err.errno == errno.EINTR:
+                    return False
             raise
 
     def _read_events(self):

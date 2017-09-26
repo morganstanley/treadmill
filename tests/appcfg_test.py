@@ -1,6 +1,11 @@
 """Unit test for treadmill.appcfg
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import os
 import shutil
 import tempfile
@@ -23,12 +28,10 @@ class AppCfgTest(unittest.TestCase):
     @staticmethod
     def _write_app_yaml(event, manifest_str):
         """Helper method to create app.yaml file in the event directory."""
-        fs.mkdir_safe(os.path.dirname(event))
-        with tempfile.NamedTemporaryFile(dir=os.path.dirname(event),
-                                         delete=False,
-                                         mode='w') as f:
-            f.write(manifest_str)
-        os.rename(f.name, event)
+        fs.write_safe(
+            event,
+            lambda f: f.write(manifest_str)
+        )
 
     def test_gen_uniqueid(self):
         """Test generation of app uniqueid.
@@ -44,7 +47,7 @@ foo: bar
         uniqueid2 = appcfg.gen_uniqueid(event_filename0)
 
         self.assertTrue(len(uniqueid1) <= 13)
-        self.assertNotEquals(uniqueid1, uniqueid2)
+        self.assertNotEqual(uniqueid1, uniqueid2)
 
 
 if __name__ == '__main__':

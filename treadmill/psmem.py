@@ -4,31 +4,39 @@ The code is based on:
 https://raw.githubusercontent.com/pixelb/ps_mem/master/ps_mem.py
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
-import sys
 import errno
-
-import os
 import fnmatch
+import io
+import logging
+import os
+import sys
 
 from treadmill import sysinfo
 
+_LOGGER = logging.getLogger(__name__)
 
 # Pagesize in K.
-_PAGESIZE = os.sysconf('SC_PAGE_SIZE') / 1024
+_PAGESIZE = os.sysconf(b'SC_PAGE_SIZE') / 1024
 
 _KERNEL_VER = sysinfo.kernel_ver()
 
 
 def proc_path(*args):
-    """Helper function to construct /proc path."""
+    """Helper function to construct /proc path.
+    """
     return os.path.join('/proc', *(str(a) for a in args))
 
 
 def proc_open(*args):
-    """Helper function to open /proc path."""
+    """Helper function to open /proc path.
+    """
     try:
-        return open(proc_path(*args))
+        return io.open(proc_path(*args))
     except (IOError, OSError):
         val = sys.exc_info()[1]
         # kernel thread or process gone
@@ -38,31 +46,36 @@ def proc_open(*args):
 
 
 def proc_readlines(*args):
-    """Read lines from /proc file."""
+    """Read lines from /proc file.
+    """
     with proc_open(*args) as f:
         return f.readlines()
 
 
 def proc_readline(*args):
-    """Read line from /proc file."""
+    """Read line from /proc file.
+    """
     with proc_open(*args) as f:
         return f.readline()
 
 
 def proc_read(*args):
-    """Read content of /proc file."""
+    """Read content of /proc file.
+    """
     with proc_open(*args) as f:
         return f.read()
 
 
 def get_thread_id(pid):
-    """Read thread group id designated in /proc/<pid>/status"""
+    """Read thread group id designated in /proc/<pid>/status.
+    """
     return proc_readlines(pid, 'status')[2][6:-1]
 
 
 def get_threads(pid):
-    """Read number of threads designated in /proc/<pid>/status"""
-    return proc_readlines(pid, 'status')[26][8:-1]
+    """Read number of threads designated in /proc/<pid>/status.
+    """
+    return int(proc_readlines(pid, 'status')[26][8:-1].strip())
 
 
 def get_mem_stats(pid, use_pss=True):
@@ -119,12 +132,12 @@ def get_cmd_name(pid, verbose):
         # Some symlink targets were seen to contain NULs on RHEL 5 at least
         # https://github.com/pixelb/scripts/pull/10, so take string up to NUL
         path = path.split(r'\0')[0]
-    except OSError as e:
+    except OSError as err:
         val = sys.exc_info()[1]
         # either kernel thread or process gone
         if val.errno == errno.ENOENT or val.errno == errno.EPERM:
             raise LookupError
-        print('OS Error: {0}'.format(e))
+        _LOGGER.error('OS Error: %s', err)
         raise
 
     if verbose:
@@ -155,7 +168,7 @@ def get_memory_usage(pids, verbose=False, exclude=None, use_pss=True):
     """Returns memory stats for list of pids, aggregated by cmd line."""
     # TODO: pylint complains about too many branches, need to refactor.
     # pylint: disable=R0912
-    meminfos = {}
+    meminfos = []
 
     for pid in pids:
         thread_id = int(get_thread_id(pid))
@@ -180,10 +193,9 @@ def get_memory_usage(pids, verbose=False, exclude=None, use_pss=True):
             if match:
                 continue
 
-        meminfos[thread_id] = {}
-
-        meminfo = meminfos[thread_id]
+        meminfo = {}
         meminfo['name'] = cmd
+        meminfo['tgid'] = thread_id
         try:
             private, shared, have_pss = get_mem_stats(pid, use_pss=use_pss)
         except RuntimeError:
@@ -200,5 +212,6 @@ def get_memory_usage(pids, verbose=False, exclude=None, use_pss=True):
         meminfo['private'] = meminfo.setdefault('private', 0) + private
         meminfo['threads'] = get_threads(pid)
         meminfo['total'] = meminfo['private'] + meminfo['shared']
+        meminfos.append(meminfo)
 
     return meminfos

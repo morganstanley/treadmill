@@ -1,7 +1,12 @@
 """Unit test for cgutils module.
 """
 
-import builtins
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
+import io
 import os
 import shutil
 import tempfile
@@ -43,18 +48,17 @@ class CGutilsTest(unittest.TestCase):
         if self.root and os.path.isdir(self.root):
             shutil.rmtree(self.root)
 
-    @mock.patch('builtins.open')
+    @mock.patch('io.open', mock.mock_open())
     @mock.patch('treadmill.cgroups.makepath', mock.Mock())
     @mock.patch('treadmill.cgroups.set_value', mock.Mock())
     @mock.patch('treadmill.syscall.eventfd.eventfd',
                 mock.Mock(return_value=42))
-    def test_get_memory_oom_eventfd(self, mock_open):
+    def test_get_memory_oom_eventfd(self):
         """Test registration of oom events.
         """
         treadmill.cgroups.makepath.return_value = 'mock_oom_control'
-        mock_fileobj = mock_open.return_value
-        mock_filectx = mock_fileobj.__enter__.return_value
-        mock_filectx.fileno.return_value = 43
+        mock_handle = io.open.return_value
+        mock_handle.fileno.return_value = 43
 
         res = cgutils.get_memory_oom_eventfd('some_cgrp')
 
@@ -64,7 +68,7 @@ class CGutilsTest(unittest.TestCase):
         treadmill.cgroups.makepath.assert_called_with(
             'memory', 'some_cgrp', 'memory.oom_control'
         )
-        builtins.open.assert_called_with('mock_oom_control')
+        io.open.assert_called_with('mock_oom_control')
         treadmill.cgroups.set_value.assert_called_with(
             'memory', 'some_cgrp', 'cgroup.event_control',
             # '<eventfd_fd> <oom_control_fd>'
@@ -98,7 +102,7 @@ class CGutilsTest(unittest.TestCase):
     def test_get_blkio_bps_info(self):
         """Test reading of blkio throttle bps information."""
 
-        with open(self._BLKIO_THROTTLE_BPS) as f:
+        with io.open(self._BLKIO_THROTTLE_BPS) as f:
             data = f.read()
             treadmill.cgroups.get_data.side_effect = [data]
 
@@ -108,7 +112,7 @@ class CGutilsTest(unittest.TestCase):
         treadmill.cgroups.get_data.assert_called_with(
             'blkio', 'mycgrp', 'blkio.throttle.io_service_bytes'
         )
-        self.assertEquals(
+        self.assertEqual(
             data['253:6'],
             {
                 'Read': 331776,
@@ -123,7 +127,7 @@ class CGutilsTest(unittest.TestCase):
     def test_get_blkio_info_empty(self):
         """Test reading of blkio information with empty file"""
 
-        with open(self._BLKIO_BPS_EMPTY) as f:
+        with io.open(self._BLKIO_BPS_EMPTY) as f:
             data = f.read()
             treadmill.cgroups.get_data.side_effect = [data]
 
@@ -132,7 +136,7 @@ class CGutilsTest(unittest.TestCase):
         treadmill.cgroups.get_data.assert_called_with(
             'blkio', 'mycgrp', 'blkio.io_service_bytes'
         )
-        self.assertEquals(
+        self.assertEqual(
             data,
             {}
         )
@@ -141,7 +145,7 @@ class CGutilsTest(unittest.TestCase):
     def test_get_blkio_value_empty(self):
         """Test reading of blkio information with empty file"""
 
-        with open(self._BLKIO_SECTORS_EMPTY) as f:
+        with io.open(self._BLKIO_SECTORS_EMPTY) as f:
             data = f.read()
             treadmill.cgroups.get_data.side_effect = [data]
 
@@ -150,7 +154,7 @@ class CGutilsTest(unittest.TestCase):
         treadmill.cgroups.get_data.assert_called_with(
             'blkio', 'mycgrp', 'blkio.sectors'
         )
-        self.assertEquals(
+        self.assertEqual(
             data,
             {}
         )
@@ -159,7 +163,7 @@ class CGutilsTest(unittest.TestCase):
     def test_get_blkio_iops_info(self):
         """Test reading of blkio throttle iops information."""
 
-        with open(self._BLKIO_THROTTLE_IOPS) as f:
+        with io.open(self._BLKIO_THROTTLE_IOPS) as f:
             data = f.read()
             treadmill.cgroups.get_data.side_effect = [data]
 
@@ -169,7 +173,7 @@ class CGutilsTest(unittest.TestCase):
         treadmill.cgroups.get_data.assert_called_with(
             'blkio', 'mycgrp', 'blkio.throttle.io_serviced'
         )
-        self.assertEquals(
+        self.assertEqual(
             data['253:6'],
             {
                 'Read': 81,

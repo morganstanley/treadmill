@@ -1,16 +1,22 @@
 """Implementation of treadmill-admin-install CLI plugin.
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
+import io
 import os
 import pkgutil
 import sys
 
-import yaml
 import click
 
 import treadmill
 from treadmill import cli
 from treadmill import context
+from treadmill import yamlwrapper as yaml
 
 
 __path__ = pkgutil.extend_path(__path__, __name__)
@@ -19,40 +25,42 @@ __path__ = pkgutil.extend_path(__path__, __name__)
 def init():
     """Return top level command handler."""
 
-    @click.group(cls=cli.make_multi_command(__name__))
+    @click.group(cls=cli.make_commands(__name__))
     @click.option('--install-dir', required=True,
                   help='Target installation directory.',
                   envvar='TREADMILL_APPROOT')
+    @click.option('--profile', required=False, help='Install profile.',
+                  envvar='TREADMILL_PROFILE')
     @click.option('--cell', required=True, envvar='TREADMILL_CELL')
     @click.option('--config', required=False,
                   type=click.Path(exists=True, readable=True, allow_dash=True),
                   multiple=True)
     @click.option('--override', required=False, type=cli.DICT)
     @click.pass_context
-    def install(ctx, install_dir, cell, config, override):
+    def install(ctx, install_dir, profile, cell, config, override):
         """Installs Treadmill."""
         if cell == '-':
             cell = None
 
         if cell:
             context.GLOBAL.cell = cell
-            context.GLOBAL.resolve(cell)
 
         ctx.obj['PARAMS'] = {
             'cell': cell,
-            'zookeeper': context.GLOBAL.zk.url,
-            'ldap': context.GLOBAL.ldap.url,
             'dns_domain': context.GLOBAL.dns_domain,
-            'ldap_suffix': context.GLOBAL.ldap.ldap_suffix,
+            'ldap_suffix': context.GLOBAL.ldap_suffix,
             'treadmill': treadmill.TREADMILL,
             'dir': install_dir,
+            'profile': profile,
+            'python': sys.executable,
+            'python_path': os.getenv('PYTHONPATH', ''),
         }
 
         for conf in config:
             if conf == '-':
                 ctx.obj['PARAMS'].update(yaml.load(stream=sys.stdin))
             else:
-                with open(conf, 'r') as fd:
+                with io.open(conf, 'r') as fd:
                     ctx.obj['PARAMS'].update(yaml.load(stream=fd))
 
         if override:

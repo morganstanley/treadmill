@@ -1,9 +1,16 @@
-"""Treadmill Websocket APIs"""
+"""Treadmill Websocket APIs.
+"""
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import logging
-import importlib
 import pkgutil
+
+from treadmill import plugin_manager
+
 
 __path__ = pkgutil.extend_path(__path__, __name__)
 
@@ -15,15 +22,11 @@ def init(apis):
     handlers = []
     for apiname in apis:
         try:
-            apimod = apiname.replace('-', '_')
-            _LOGGER.info('Loading api: %s', apimod)
-
-            wsapi_mod = importlib.import_module(
-                'treadmill.websocket.api.' + apimod)
-            # handlers.append(('/' + apimod, wsapi_mod.API))
+            _LOGGER.info('Loading api: %s', apiname)
+            wsapi_mod = plugin_manager.load('treadmill.websocket.api', apiname)
             handlers.extend(wsapi_mod.init())
 
         except ImportError as err:
-            _LOGGER.warn('Unable to load %s api: %s', apimod, err)
+            _LOGGER.warning('Unable to load %s api: %s', apiname, err)
 
     return handlers

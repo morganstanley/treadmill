@@ -1,17 +1,21 @@
 """Waits for Treadmill application completion.
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import logging
 import sys
 
 import click
-import yaml
 
 from treadmill import cli
 from treadmill import context
-from treadmill import exc
 from treadmill import utils
 from treadmill import zknamespace as z
+from treadmill import yamlwrapper as yaml
 
 from treadmill.apptrace import (events, zk)
 
@@ -20,10 +24,10 @@ _LOGGER = logging.getLogger(__name__)
 
 def print_yaml(obj):
     """Print yaml wih correct options."""
-    print(yaml.dump(obj,
-                    default_flow_style=False,
-                    explicit_start=True,
-                    explicit_end=True))
+    cli.out(yaml.dump(obj,
+                      default_flow_style=False,
+                      explicit_start=True,
+                      explicit_end=True))
 
 
 class _AppTraceEventsOnly(events.AppTraceEventHandler):
@@ -38,6 +42,10 @@ class _AppTraceEventsOnly(events.AppTraceEventHandler):
         """Invoked when task is pending."""
         pass
 
+    def on_pending_delete(self, when, instanceid, why):
+        """Invoked when task is about to be deleted."""
+        pass
+
     def on_configured(self, when, instanceid, server, uniqueid):
         """Invoked when task is configured."""
         pass
@@ -49,11 +57,12 @@ class _AppTraceEventsOnly(events.AppTraceEventHandler):
     def on_finished(self, when, instanceid, server, signal, exitcode):
         """Invoked when task is finished."""
         if exitcode > 255:
-            print('%s - %s killed, signal: %s' % (
+            cli.out(
+                '%s - %s killed, signal: %s',
                 utils.strftime_utc(when),
                 instanceid,
                 utils.signal2name(signal)
-            ))
+            )
             self.ctx.update(
                 {
                     'signal': signal,
@@ -62,11 +71,12 @@ class _AppTraceEventsOnly(events.AppTraceEventHandler):
                 }
             )
         else:
-            print('%s - %s exited, return code: %s' % (
+            cli.out(
+                '%s - %s exited, return code: %s',
                 utils.strftime_utc(when),
                 instanceid,
                 exitcode
-            ))
+            )
             self.ctx.update(
                 {
                     'exitcode': exitcode,
@@ -91,21 +101,23 @@ class _AppTraceEventsOnly(events.AppTraceEventHandler):
                           exitcode, signal):
         """Suppress stdout/err info."""
         if exitcode > 255:
-            print('%s - %s/%s/service/%s killed, signal: %s' % (
+            cli.out(
+                '%s - %s/%s/service/%s killed, signal: %s',
                 utils.strftime_utc(when),
                 instanceid,
                 uniqueid,
                 service,
                 utils.signal2name(signal)
-            ))
+            )
         else:
-            print('%s - %s/%s/service/%s exited, return code: %s' % (
+            cli.out(
+                '%s - %s/%s/service/%s exited, return code: %s',
                 utils.strftime_utc(when),
                 instanceid,
                 uniqueid,
                 service,
                 exitcode
-            ))
+            )
 
 
 def init():
@@ -134,7 +146,7 @@ def init():
 
             info = dict(instance=instance)
 
-            @exc.exit_on_unhandled
+            @utils.exit_on_unhandled
             def _watch_scheduled(data, _stat, event):
                 """Watch on scheduled node."""
 

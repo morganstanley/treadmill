@@ -1,14 +1,17 @@
-"""Treadmill context."""
+"""Treadmill context.
+"""
 
-import importlib
+
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
+from __future__ import absolute_import
+
+import functools
 import logging
-import random
 
-import ldap3
-
-from treadmill import admin
-from treadmill import zkutils
-from treadmill import dnsutils
+from treadmill import plugin_manager
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -19,128 +22,196 @@ class ContextError(Exception):
     pass
 
 
+def required(msg):
+    """Raises error if return value of function is None."""
+
+    def _decorator(func):
+        """Actual decorator."""
+
+        @functools.wraps(func)
+        def decorated_function(*args, **kwargs):
+            """Decorated function, checks result is not None."""
+            result = func(*args, **kwargs)
+            if result is None:
+                raise ContextError(msg)
+            return result
+
+        return decorated_function
+
+    return _decorator
+
+
+class DnsContext(object):
+    """DNS context."""
+
+    __slots__ = (
+        '_context',
+        '_dns',
+    )
+
+    def __init__(self, ctx):
+        self._context = ctx
+        self._dns = None
+
+    @property
+    def _resolver(self):
+        if self._dns is not None:
+            return self._dns
+
+        dns = plugin_manager.load('treadmill.context', 'dns')
+        dns.init(self._context)
+        self._dns = dns
+        return self._dns
+
+    def admin_api_srv(self):
+        """Get Admin API SRV record data.
+        """
+        (srv_entry, _proto) = self._resolver.lookup(
+            self._context,
+            'admin_api'
+        )
+        return srv_entry
+
+    def state_api_srv(self, cell):
+        """Get State API SRV record data.
+        """
+        (srv_entry, _proto) = self._resolver.lookup(
+            self._context,
+            'state_api',
+            scope=self._resolver.cell_scope(cell)
+        )
+        return srv_entry
+
+    def cell_api_srv(self, cell):
+        """Get Cell API SRV record data.
+        """
+        (srv_entry, _proto) = self._resolver.lookup(
+            self._context,
+            'cell_api',
+            scope=self._resolver.cell_scope(cell)
+        )
+        return srv_entry
+
+    def ws_api_srv(self, cell):
+        """Get Websocket API SRV record data.
+        """
+        (srv_entry, _proto) = self._resolver.lookup(
+            self._context,
+            'ws_api',
+            scope=self._resolver.cell_scope(cell)
+        )
+        return srv_entry
+
+
 class AdminContext(object):
     """Ldap context."""
     __slots__ = (
-        'ldap_suffix',
-        '_user',
-        '_password',
-        '_url',
+        '_context',
         '_conn',
-        '_resolve',
     )
 
-    def __init__(self, resolve=None, user=None, password=None):
-        self.ldap_suffix = None
-        self._user = None
-        self._password = None
-
-        if password:
-            self.password = password
-
-        if user:
-            self.user = user
-
-        self._url = None
+    def __init__(self, ctx):
+        self._context = ctx
         self._conn = None
-        self._resolve = resolve
+
+    @property
+    @required('Cannot resolve LDAP suffix.')
+    def ldap_suffix(self):
+        """LDAP suffix getter."""
+        return self._context.get('ldap_suffix', resolve=False)
 
     @property
     def user(self):
         """User, getter."""
-        return self._user
+        return self._context.get('ldap_user', resolve=False)
 
     @user.setter
     def user(self, value):
         """User, setter."""
-        if value != self._user:
+        if value != self._context.get('ldap_user', resolve=False):
             self._conn = None
-        self._user = value
+        self._context.set('ldap_user', value)
 
     @property
     def password(self):
         """Password, getter."""
-        return self._password
+        return self._context.get('ldap_pwd', resolve=False)
 
     @password.setter
     def password(self, value):
         """Password, setter."""
-        self._password = value
-        if self._user is None:
+        self._context.set('ldap_pwd', value)
+        if self.user is None:
             self.user = 'cn=Manager,%s' % self.ldap_suffix
 
     @property
+    @required('Cannot resolve LDAP url.')
     def url(self):
         """URL, getter"""
-        return self._url
+        return self._context.get('ldap_url', resolve=True)
 
     @url.setter
     def url(self, value):
         """Set URL, then nullify the connection"""
-        self._url = value
+        self._context.set('ldap_url', value)
         self._conn = None
 
     @property
     def conn(self):
         """Lazily establishes connection to admin LDAP."""
-        if self._conn is None:
-            if self.ldap_suffix is None:
-                raise ContextError('LDAP suffix is not set.')
+        if self._conn:
+            return self._conn
 
-            if self.url is None:
-                if self._resolve:
-                    self._resolve()
-                if self.url is None:
-                    raise ContextError('LDAP url not set.')
-
-            _LOGGER.debug('Connecting to LDAP %s, %s',
-                          self.url, self.ldap_suffix)
-
-            self._conn = admin.Admin(self.url, self.ldap_suffix,
-                                     user=self.user, password=self.password)
-            self._conn.connect()
-
+        plugin = plugin_manager.load('treadmill.context', 'admin')
+        self._conn = plugin.connect(self.url, self.ldap_suffix,
+                                    self.user, self.password)
         return self._conn
 
 
 class ZkContext(object):
     """Zookeeper context."""
     __slots__ = (
-        'url',
         'proid',
+        '_context',
         '_conn',
-        '_resolve',
         '_listeners',
     )
 
-    def __init__(self, resolve=None):
-        self.url = None
-        self.proid = None
+    def __init__(self, ctx):
+        self._context = ctx
         self._conn = None
-        self._resolve = resolve
         self._listeners = []
+        self.proid = None
 
     def add_listener(self, listener):
         """Add a listener"""
         self._listeners.append(listener)
 
     @property
+    @required('Cannot resolve Zookeeper connection string.')
+    def url(self):
+        """Resolves and return context zk url."""
+        return self._context.get('zk_url', resolve=True)
+
+    @url.setter
+    def url(self, value):
+        """Sets context zk url."""
+        self._context.set('zk_url', value)
+
+    @property
     def conn(self):
         """Lazily creates Zookeeper client."""
-        if self._conn is None:
-            _LOGGER.debug('Connecting to Zookeeper %s', self.url)
-            if self.url is None:
-                if self._resolve:
-                    self._resolve()
-                if self.url is None:
-                    raise ContextError('Zookeeper url not set.')
+        if self._conn:
+            return self._conn
 
-            self.proid, _ = self.url[len('zookeeper://'):].split('@')
-            self._conn = zkutils.connect(self.url, listener=zkutils.exit_never)
+        _LOGGER.debug('Connecting to Zookeeper %s', self.url)
 
-            if self._listeners:
-                for listener in self._listeners:
-                    self._conn.add_listener(listener)
+        self.proid, _ = self.url[len('zookeeper://'):].split('@')
+        plugin = plugin_manager.load('treadmill.context', 'zookeeper')
+        self._conn = plugin.connect(self.url)
+        if self._listeners:
+            for listener in self._listeners:
+                self._conn.add_listener(listener)
 
         return self._conn
 
@@ -148,226 +219,204 @@ class ZkContext(object):
 class Context(object):
     """Global connection context."""
     __slots__ = (
-        'cell',
         'ldap',
         'zk',
-        'dns_domain',
-        'dns_server',
-        'admin_api_scope',
-        'ctx_plugin',
-        'resolvers',
+        'dns',
+        '_resolvers',
+        '_plugins',
+        '_profile',
+        '_profile_name',
+        '_defaults',
+        '_stack',
     )
 
     def __init__(self):
-        self.cell = None
-        self.dns_domain = None
-        self.dns_server = None
-        self.ldap = AdminContext(self.resolve)
-        self.zk = ZkContext(self.resolve)
-        self.admin_api_scope = (None, None)
-        self.ctx_plugin = None
+        self._profile_name = None
+        self._profile = {}
+        self._defaults = None
+        self._plugins = []
 
+        # Protect against recursive gets
+        self._stack = set()
+
+        # Lazy connections to Zookeeper, LDAP and DNS
+        self.zk = ZkContext(self)
+        self.ldap = AdminContext(self)
+        self.dns = DnsContext(self)
+
+    def _load_profile(self):
+        """Loads the profile."""
+
+        if not self._profile_name:
+            return
+
+        # Load once.
+        if self._defaults is not None:
+            return
+
+        self._defaults = {}
         try:
-            self.ctx_plugin = importlib.import_module(
-                'treadmill.plugins.context')
-            self.dns_domain = self.ctx_plugin.dns_domain()
-            self.admin_api_scope = self.ctx_plugin.api_scope()
-            self.ldap.ldap_suffix = self.ctx_plugin.ldap_suffix()
-        except Exception as err:  # pylint: disable=W0703
-            _LOGGER.debug('Unable to load context plugin: %s.', err)
+            profile_mod = plugin_manager.load('treadmill.profiles',
+                                              self._profile_name)
+            self._defaults = profile_mod.PROFILE
+        except KeyError:
+            _LOGGER.warning('Profile not found: %s', self._profile_name)
 
-        self.resolvers = [
-            lambda _: self.zk.url,
-            self._resolve_cell_from_dns,
-            self._resolve_cell_from_ldap,
-        ]
+    def _init_plugins(self):
+        """Initialize plugins."""
+        if self._plugins:
+            return
+
+        _LOGGER.debug('Loading plugins.')
+
+        # TODO: Thsi is a hack, need a better way to determine if plugin
+        #       should be loaded.
+        if self.get('dns_domain', resolve=False):
+            _LOGGER.debug('Loading dns plugin.')
+            dns = plugin_manager.load('treadmill.context', 'dns')
+            dns.init(self)
+            self._plugins.append(dns)
+
+        if self.get('ldap_url', resolve=False):
+            _LOGGER.debug('Loading admin plugin.')
+            ldap = plugin_manager.load('treadmill.context', 'admin')
+            ldap.init(self)
+            self._plugins.append(ldap)
+
+    def get(self, attr, default=None, resolve=True, volatile=False):
+        """Get attribute from profile or defaults."""
+
+        if attr in self._profile:
+            return self._profile[attr]
+
+        self._load_profile()
+
+        if resolve and attr not in self._stack:
+            self._stack.add(attr)
+            try:
+                self._init_plugins()
+                for plugin in self._plugins:
+                    try:
+                        self._profile[attr] = plugin.resolve(self, attr)
+                    except ContextError:
+                        _LOGGER.warning('Error resolving attribute - %s: %s',
+                                        plugin, attr)
+                    except KeyError:
+                        # Plugin is not responsible fot the attribute.
+                        pass
+            finally:
+                self._stack.discard(attr)
+
+        if attr not in self._profile:
+            # Attr was not found, look for it in _defaults
+            if (self._defaults is not None and
+                    self._defaults.get(attr) is not None):
+                self._profile[attr] = self._defaults[attr]
+
+        if attr not in self._profile and default is not None:
+            self._profile[attr] = default
+
+        # The end of the function attribute is recorded in the profile and
+        # never evaluated again.
+        #
+        # volatile attributes are evaluated all the time.
+        if volatile:
+            return self._profile.pop(attr, default)
+        else:
+            return self._profile.get(attr, default)
+
+    def set(self, attr, value):
+        """Set profile attribute."""
+        self._profile[attr] = value
+
+    def set_profile(self, profile_name):
+        """Sets current profile."""
+        self._profile_name = profile_name
+
+    @property
+    def profile(self):
+        """Returns the profile name."""
+        self._load_profile()
+        return self._profile
+
+    @property
+    @required('Cannot resolve cell.')
+    def cell(self):
+        """Returns cell name."""
+        return self.get('cell', resolve=False)
+
+    @cell.setter
+    def cell(self, value):
+        """Sets cell name."""
+        self.set('cell', value)
+
+    @property
+    @required('Cannot resolve DNS domain.')
+    def dns_domain(self):
+        """Returns DNS domain."""
+        return self.get('dns_domain', resolve=False)
+
+    @dns_domain.setter
+    def dns_domain(self, value):
+        """Sets DNS domain."""
+        self.set('dns_domain', value)
+
+    @property
+    def dns_server(self):
+        """Returns DNS server."""
+        return self.get('dns_server')
+
+    @dns_server.setter
+    def dns_server(self, value):
+        """Sets DNS server."""
+        return self.set('dns_server', value)
+
+    @property
+    @required('Cannot resolve LDAP suffix.')
+    def ldap_suffix(self):
+        """Returns LDAP suffix."""
+        return self.get('ldap_suffix')
+
+    @ldap_suffix.setter
+    def ldap_suffix(self, value):
+        """Sets DNS server."""
+        return self.set('ldap_suffix', value)
 
     def scopes(self):
         """Returns supported scopes."""
-        scopes = ['cell']
-        if self.ctx_plugin:
-            scopes.extend(self.ctx_plugin.scopes())
+        return self.get('scopes', ['cell'])
 
-        return scopes
+    @required('Cannot resolve admin api.')
+    def admin_api(self, api=None):
+        """Returns admin api."""
+        if api:
+            return [api]
 
-    def _resolve_srv(self, srv_rec):
-        """Returns list of host, port tuples for given srv record."""
-        _LOGGER.debug('Query DNS -t SRV %s.%s', srv_rec, self.dns_domain)
-        if not self.dns_domain:
-            raise ContextError('Treadmill DNS domain not specified.')
+        return self.get('admin_api', volatile=True)
 
-        result = dnsutils.srv(
-            srv_rec + '.' + self.dns_domain, self.dns_server
-        )
-        random.shuffle(result)
-        return result
+    @required('Cannot resolve cell api.')
+    def cell_api(self, api=None):
+        """Returns cell api."""
+        if api:
+            return [api]
 
-    def _srv_to_urls(self, srv_recs, protocol=None):
-        """Randomizes and converts SRV records to URLs."""
-        _LOGGER.debug('Result: %r', srv_recs)
+        return self.get('cell_api', volatile=True)
 
-        return [dnsutils.srv_rec_to_url(srv_rec,
-                                        protocol=protocol)
-                for srv_rec in srv_recs]
+    @required('Cannot resolve websocket api.')
+    def ws_api(self, api=None):
+        """Returns cell api."""
+        if api:
+            return [api]
 
-    def cell_api_srv(self, cellname):
-        """Resolve REST API SRV records."""
+        return self.get('ws_api', volatile=True)
 
-        target = '_http._tcp.cellapi.{}.cell'.format(cellname)
-        srv_recs = self._resolve_srv(target)
+    @required('Cannot resolve state api.')
+    def state_api(self, api=None):
+        """Returns cell api."""
+        if api:
+            return [api]
 
-        if not srv_recs:
-            raise ContextError('No srv records found: %s' % target)
-
-        return srv_recs
-
-    def cell_api(self, restapi=None):
-        """Resolve REST API endpoints."""
-        if restapi:
-            return [restapi]
-
-        if not self.cell:
-            raise ContextError('Cell is not specified.')
-
-        return self._srv_to_urls(self.cell_api_srv(self.cell),
-                                 'http')
-
-    def state_api_srv(self, cellname):
-        """Resolve state API SRV records."""
-        target = '_http._tcp.stateapi.{}.cell'.format(cellname)
-        srv_recs = self._resolve_srv(target)
-
-        if not srv_recs:
-            raise ContextError('No srv records found: %s' % target)
-
-        return srv_recs
-
-    def state_api(self, restapi=None):
-        """Resolve state API endpoints."""
-        if restapi:
-            return [restapi]
-
-        if not self.cell:
-            raise ContextError('Cell is not specified.')
-
-        return self._srv_to_urls(self.state_api_srv(self.cell),
-                                 'http')
-
-    def ws_api_srv(self, cellname):
-        """Resolve state API SRV records."""
-        target = '_ws._tcp.wsapi.{}.cell'.format(cellname)
-        srv_recs = self._resolve_srv(target)
-
-        if not srv_recs:
-            raise ContextError('No srv records found: %s' % target)
-
-        return srv_recs
-
-    def ws_api(self, wsapi=None):
-        """Resolve state API endpoints."""
-        if wsapi:
-            return [wsapi]
-
-        if not self.cell:
-            raise ContextError('Cell is not specified.')
-
-        return self._srv_to_urls(self.ws_api_srv(self.cell),
-                                 'ws')
-
-    def admin_api_srv(self):
-        """Resolve admin API SRV records."""
-        for scope in self.admin_api_scope:
-            try:
-                result = self._resolve_srv('_http._tcp.adminapi.' + scope)
-                if result:
-                    return result
-            except ContextError:
-                pass
-
-        raise ContextError('no admin api found.')
-
-    def admin_api(self, restapi=None):
-        """Resolve Admin REST API endpoints."""
-        if restapi:
-            return [restapi]
-
-        return self._srv_to_urls(self.admin_api_srv(), 'http')
-
-    def resolve(self, cellname=None):
-        """Resolve Zookeeper connection string by cell name."""
-        # TODO: LDAPs should be a list, and admin object shuld accept
-        #                list of host:port as connection arguments rather than
-        #                single host:port.
-        if not cellname:
-            cellname = self.cell
-
-        if not cellname:
-            raise ContextError('Cell is not specified.')
-
-        if not self.ldap.url:
-            ldap_srv_rec = dnsutils.srv(
-                '_ldap._tcp.%s.%s' % (cellname, self.dns_domain),
-                self.dns_server
-            )
-            self.ldap.url = ','.join([
-                'ldap://%s:%s' % (rec[0], rec[1])
-                for rec in ldap_srv_rec
-            ])
-
-        cell_resolved = False
-        while self.resolvers and not cell_resolved:
-            resolver = self.resolvers.pop(0)
-            cell_resolved = resolver(cellname)
-
-        if not cell_resolved:
-            raise ContextError('Unable to resolve cell: %s' % cellname)
-
-        self.cell = cellname
-
-    def _resolve_cell_from_dns(self, cellname):
-        """Resolve Zookeeper connection string from DNS."""
-        if not self.dns_domain:
-            _LOGGER.warn('DNS domain is not set.')
-            zkurl_rec = dnsutils.txt('zk.%s' % (cellname), self.dns_server)
-        else:
-            zkurl_rec = dnsutils.txt(
-                'zk.%s.%s' % (cellname, self.dns_domain),
-                self.dns_server
-            )
-
-        if zkurl_rec:
-            self.cell = cellname
-            self.zk.url = zkurl_rec[0]
-
-        return bool(self.zk.url)
-
-    def _resolve_cell_from_ldap(self, cellname):
-        """Resolve Zookeeper connection sting from LDAP by cell name."""
-        # TODO: in case of invalid cell it will throw ldap exception.
-        #                need to standardize on ContextError raised lazily
-        #                on first connection attempt, and keep resolve
-        #                exception free.
-        admin_cell = admin.Cell(self.ldap.conn)
-        try:
-            cell = admin_cell.get(cellname)
-            zk_hostports = [
-                '%s:%s' % (master['hostname'], master['zk-client-port'])
-                for master in cell['masters']
-            ]
-            self.zk.url = 'zookeeper://%s@%s/treadmill/%s' % (
-                cell['username'],
-                ','.join(zk_hostports),
-                cellname
-            )
-            self.cell = cellname
-        except ldap3.LDAPNoSuchObjectResult:
-            exception = ContextError(
-                'Cell not defined in LDAP {}'.format(cellname)
-            )
-            _LOGGER.debug(str(exception))
-            raise exception
-
-        return bool(self.zk.url)
+        return self.get('state_api', volatile=True)
 
 
 GLOBAL = Context()

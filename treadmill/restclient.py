@@ -3,14 +3,21 @@
 This is meant to replace treadmill.http, as this uses outdated urlib.
 """
 
-import http.client
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import logging
+import re
 import time
 
 import requests
 import requests_unixsocket
 import requests_kerberos
 import simplejson.scanner
+
+from six.moves import http_client
 
 # to support unixscoket for URL
 requests_unixsocket.monkeypatch()
@@ -105,13 +112,15 @@ class MaxRequestRetriesError(Exception):
 def _handle_error(url, response):
     """Handle response status codes."""
     handlers = {
-        http.client.NOT_FOUND: NotFoundError('Resource not found: %s' % url),
-        http.client.FOUND: AlreadyExistsError(
-            'Resource already exists: %s' % url
+        http_client.NOT_FOUND: NotFoundError(
+            'Resource not found: {}'.format(url)
         ),
-        http.client.FAILED_DEPENDENCY: ValidationError(response),
-        http.client.UNAUTHORIZED: NotAuthorizedError(response),
-        http.client.BAD_REQUEST: BadRequestError(response),
+        http_client.FOUND: AlreadyExistsError(
+            'Resource already exists: {}'.format(url)
+        ),
+        http_client.FAILED_DEPENDENCY: ValidationError(response),
+        http_client.UNAUTHORIZED: NotAuthorizedError(response),
+        http_client.BAD_REQUEST: BadRequestError(response),
     }
 
     if response.status_code in handlers:
@@ -135,10 +144,10 @@ def _call(url, method, payload=None, headers=None, auth=_KERBEROS_AUTH,
         return False, None, _CONNECTION_ERROR_STATUS_CODE
     except requests.exceptions.Timeout:
         _LOGGER.debug('Request timeout: %r', timeout)
-        return False, None, http.client.REQUEST_TIMEOUT
+        return False, None, http_client.REQUEST_TIMEOUT
 
-    if response.status_code == http.client.OK:
-        return True, response, http.client.OK
+    if response.status_code == http_client.OK:
+        return True, response, http_client.OK
 
     # Raise an appropirate exception for certain status codes (and never retry)
     _handle_error(url, response)
@@ -247,3 +256,20 @@ def configure(api, url, payload, headers=None, auth=_KERBEROS_AUTH,
     except NotFoundError:
         return post(api, url, payload, headers, auth, proxies, retries,
                     timeout)
+
+
+def handle_not_authorized(err):
+    """Handle REST NotAuthorizedExceptions"""
+    msg = str(err)
+    msgs = [re.sub(r'failure: ', '    ', line) for line in msg.split(r'\n')]
+    print('Not authorized: ', '\n'.join(msgs))
+
+
+CLI_REST_EXCEPTIONS = [
+    (NotFoundError, 'Resource not found'),
+    (AlreadyExistsError, 'Resource already exists'),
+    (ValidationError, None),
+    (NotAuthorizedError, handle_not_authorized),
+    (BadRequestError, None),
+    (MaxRequestRetriesError, None)
+]

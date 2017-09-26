@@ -1,5 +1,12 @@
-"""Unit test for treadmill.spawn.manifest_watch."""
+"""Unit test for treadmill.spawn.manifest_watch.
+"""
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
+import io
 import os
 import unittest
 
@@ -32,7 +39,7 @@ class ManifestWatchTest(unittest.TestCase):
         self.assertFalse(watch._check_path('test'))
         self.assertTrue(watch._check_path('test.yml'))
 
-    @mock.patch("treadmill.spawn.manifest_watch.open", create=True)
+    @mock.patch('io.open', mock.mock_open(), create=True)
     @mock.patch('os.path.exists', mock.Mock(return_value=False))
     @mock.patch('os.chmod', mock.Mock())
     @mock.patch('treadmill.fs.mkdir_safe', mock.Mock())
@@ -40,7 +47,8 @@ class ManifestWatchTest(unittest.TestCase):
     @mock.patch('treadmill.utils.create_script', mock.Mock())
     @mock.patch('treadmill.spawn.manifest_watch.ManifestWatch._scan',
                 mock.Mock())
-    def test_create_instance(self, mock_open):
+    @mock.patch('treadmill.subproc.get_aliases', mock.Mock(return_value={}))
+    def test_create_instance(self):
         """Tests basic create instance functionality."""
         watch = manifest_watch.ManifestWatch('/does/not/exist', 2)
 
@@ -49,7 +57,13 @@ class ManifestWatchTest(unittest.TestCase):
         self.assertEqual(3, treadmill.fs.mkdir_safe.call_count)
         self.assertEqual(2, treadmill.utils.create_script.call_count)
         self.assertEqual(1, treadmill.fs.symlink_safe.call_count)
-        self.assertEqual(2, mock_open.call_count)
+        io.open.assert_has_calls(
+            [
+                mock.call('/does/not/exist/apps/jobs/test/data/manifest', 'w'),
+                mock.call('/does/not/exist/apps/jobs/test/timeout-finish', 'w')
+            ],
+            any_order=True
+        )
         self.assertEqual(
             1,
             treadmill.spawn.manifest_watch.ManifestWatch._scan.call_count

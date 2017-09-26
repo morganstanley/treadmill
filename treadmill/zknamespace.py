@@ -1,9 +1,14 @@
-"""Treadmill constants."""
+"""Treadmill constants.
+"""
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
-import collections
 import functools
 
+import six
 
 ALLOCATIONS = '/allocations'
 APPGROUPS = '/app-groups'
@@ -13,59 +18,67 @@ BLACKEDOUT_APPS = '/blackedout.apps'
 BLACKEDOUT_SERVERS = '/blackedout.servers'
 BUCKETS = '/buckets'
 CELL = '/cell'
+CRON_JOBS = '/cron-jobs'
+ELECTION = '/election'
 ENDPOINTS = '/endpoints'
 EVENTS = '/events'
+FINISHED = '/finished'
+FINISHED_HISTORY = '/finished.history'
+GLOBALS = '/globals'
 IDENTITY_GROUPS = '/identity-groups'
+KEYTAB_LOCKER = '/keytab-locker'
+PARTITIONS = '/partitions'
 PLACEMENT = '/placement'
+REBOOTS = '/reboots'
 RUNNING = '/running'
 SCHEDULED = '/scheduled'
 SCHEDULER = '/scheduler'
 SERVERS = '/servers'
-PARTITIONS = '/partitions'
-REBOOTS = '/reboots'
 SERVER_PRESENCE = '/server.presence'
+STATE_REPORTS = '/reports'
 STRATEGIES = '/strategies'
-FINISHED = '/finished'
-FINISHED_HISTORY = '/finished.history'
+TICKET_LOCKER = '/ticket-locker'
 TRACE = '/trace'
 TRACE_HISTORY = '/trace.history'
-TICKET_LOCKER = '/ticket-locker'
 TREADMILL = '/treadmill'
 VERSION = '/version'
 VERSION_ID = '/version-id'
 ZOOKEEPER = '/zookeeper'
-ELECTION = '/election'
-CRON_JOBS = '/cron-jobs'
 
 TRACE_SHARDS_COUNT = 256
 
 
 def join_zookeeper_path(root, *child):
-    """"Returns zookeeper path joined by slash."""
+    """Returns zookeeper path joined by slash.
+    """
     return '/'.join((root,) + child)
 
 
 def _make_path_f(zkpath):
-    """"Return closure that will construct node path."""
+    """Return closure that will construct node path.
+    """
     return staticmethod(functools.partial(join_zookeeper_path, zkpath))
 
 
 @staticmethod
 def _path_trace_shard(shard_id):
-    """Returns path of a trace shard."""
+    """Returns path of a trace shard.
+    """
     shard = '{:04X}'.format(int(shard_id) % TRACE_SHARDS_COUNT)
     return '/'.join([TRACE, shard])
 
 
 def trace_shards():
-    """Return list of trace shards."""
+    """Return list of trace shards.
+    """
     return ['/'.join([TRACE, '{:04X}'.format(idx)])
-            for idx in range(0, TRACE_SHARDS_COUNT)]
+            for idx in six.moves.range(0, TRACE_SHARDS_COUNT)]
 
 
 @staticmethod
 def _path_trace(instancename, event=None):
-    """Returns path of a trace object for given app instance."""
+    """Returns path of a trace object for given app instance.
+    """
     instance_id = instancename[instancename.find('#') + 1:]
     shard = '{:04X}'.format(int(instance_id) % TRACE_SHARDS_COUNT)
     if event:
@@ -99,59 +112,43 @@ def _path_endpoint_proid(name):
     return '/'.join([ENDPOINTS, proid])
 
 
-# pylint: disable=C0103
-path = collections.namedtuple('path', """
-    allocation
-    blackedout_server
-    bucket
-    cell
-    chroot
-    event
-    placement
-    running
-    scheduled
-    scheduler
-    server_presence
-    server
-    strategy
-    ticket_locker
-    version
-    version_id
-    zookeeper
-    endpoint
-    task
-    """)
+class path(object):  # pylint: disable=C0103
+    """Helper class to manage Zk namespace.
+    """
 
-path.allocation = _make_path_f(ALLOCATIONS)
-path.appgroup = _make_path_f(APPGROUPS)
-path.appmonitor = _make_path_f(APPMONITORS)
-path.blackedout_app = _make_path_f(BLACKEDOUT_APPS)
-path.blackedout_server = _make_path_f(BLACKEDOUT_SERVERS)
-path.bucket = _make_path_f(BUCKETS)
-path.cell = _make_path_f(CELL)
-path.chroot = _make_path_f(TREADMILL)
-path.event = _make_path_f(EVENTS)
-path.identity_group = _make_path_f(IDENTITY_GROUPS)
-path.partition = _make_path_f(PARTITIONS)
-path.placement = _make_path_f(PLACEMENT)
-path.reboot = _make_path_f(REBOOTS)
-path.running = _make_path_f(RUNNING)
-path.scheduled = _make_path_f(SCHEDULED)
-path.scheduler = _make_path_f(SCHEDULER)
-path.server_presence = _make_path_f(SERVER_PRESENCE)
-path.server = _make_path_f(SERVERS)
-path.strategy = _make_path_f(STRATEGIES)
-path.ticket_locker = _make_path_f(TICKET_LOCKER)
-path.version = _make_path_f(VERSION)
-path.version_id = _make_path_f(VERSION_ID)
-path.zookeeper = _make_path_f(ZOOKEEPER)
-path.election = _make_path_f(ELECTION)
-path.finished = _make_path_f(FINISHED)
-path.finished_history = _make_path_f(FINISHED_HISTORY)
-path.trace_history = _make_path_f(TRACE_HISTORY)
-path.trace_shard = _make_path_f(TRACE)
+    allocation = _make_path_f(ALLOCATIONS)
+    appgroup = _make_path_f(APPGROUPS)
+    appmonitor = _make_path_f(APPMONITORS)
+    blackedout_app = _make_path_f(BLACKEDOUT_APPS)
+    blackedout_server = _make_path_f(BLACKEDOUT_SERVERS)
+    bucket = _make_path_f(BUCKETS)
+    cell = _make_path_f(CELL)
+    chroot = _make_path_f(TREADMILL)
+    event = _make_path_f(EVENTS)
+    identity_group = _make_path_f(IDENTITY_GROUPS)
+    partition = _make_path_f(PARTITIONS)
+    placement = _make_path_f(PLACEMENT)
+    reboot = _make_path_f(REBOOTS)
+    running = _make_path_f(RUNNING)
+    scheduled = _make_path_f(SCHEDULED)
+    scheduler = _make_path_f(SCHEDULER)
+    server_presence = _make_path_f(SERVER_PRESENCE)
+    server = _make_path_f(SERVERS)
+    strategy = _make_path_f(STRATEGIES)
+    ticket_locker = _make_path_f(TICKET_LOCKER)
+    keytab_locker = _make_path_f(KEYTAB_LOCKER)
+    version = _make_path_f(VERSION)
+    version_id = _make_path_f(VERSION_ID)
+    zookeeper = _make_path_f(ZOOKEEPER)
+    election = _make_path_f(ELECTION)
+    finished = _make_path_f(FINISHED)
+    finished_history = _make_path_f(FINISHED_HISTORY)
+    trace_history = _make_path_f(TRACE_HISTORY)
+    trace_shard = _make_path_f(TRACE)
+    state_report = _make_path_f(STATE_REPORTS)
+    globals = _make_path_f(GLOBALS)
 
-# Special methods
-path.endpoint = _path_endpoint
-path.endpoint_proid = _path_endpoint_proid
-path.trace = _path_trace
+    # Special methods
+    endpoint = _path_endpoint
+    endpoint_proid = _path_endpoint_proid
+    trace = _path_trace

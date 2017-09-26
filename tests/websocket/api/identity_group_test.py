@@ -1,6 +1,10 @@
+"""Unit test for identity_group websocket API.
 """
-Unit test for identity_group websocket API.
-"""
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import unittest
 
@@ -32,14 +36,14 @@ class WSIdentityGroupAPITest(unittest.TestCase):
             api.subscribe({'topic': '/identity-groups'})
         )
 
-        with self.assertRaisesRegexp(
+        with self.assertRaisesRegexp(  # pylint: disable=deprecated-method
             jsonschema.exceptions.ValidationError,
             "'filter' was unexpected"
         ):
             api.subscribe({'topic': '/identity-groups',
                            'filter': 'foo!'})
 
-        with self.assertRaisesRegexp(
+        with self.assertRaisesRegexp(  # pylint: disable=deprecated-method
             jsonschema.exceptions.ValidationError,
             "None is not of type 'string'"
         ):

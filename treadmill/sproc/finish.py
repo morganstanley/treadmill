@@ -1,4 +1,10 @@
-"""Treadmill application finishing."""
+"""Treadmill application finishing.
+"""
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import logging
 import os
@@ -19,11 +25,10 @@ def init():
     @click.command()
     @click.option('--approot', type=click.Path(exists=True),
                   envvar='TREADMILL_APPROOT', required=True)
-    @click.option('--runtime', default=app_runtime.DEFAULT_RUNTIME)
+    @click.option('--runtime', envvar='TREADMILL_RUNTIME', required=True)
     @click.argument('container_dir', type=click.Path(exists=True))
     def finish(approot, runtime, container_dir):
         """Finish treadmill application on the node."""
-
         # Run with finish context as finish runs in cleanup.
         with lc.LogContext(_LOGGER, os.path.basename(container_dir),
                            lc.ContainerAdapter) as log:

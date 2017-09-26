@@ -1,13 +1,22 @@
-"""Manage core level cgroups."""
+"""Manage core level cgroups.
+"""
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import errno
-
 import logging
 import os
-import subprocess
 
 import click
+import six
+
+if six.PY2 and os.name == 'posix':
+    import subprocess32 as subprocess  # pylint: disable=import-error
+else:
+    import subprocess  # pylint: disable=wrong-import-order
 
 from treadmill import cgroups
 from treadmill import cgutils
@@ -15,7 +24,6 @@ from treadmill import cli
 from treadmill import subproc
 from treadmill import sysinfo
 from treadmill import utils
-
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -92,13 +100,14 @@ def init():
     def cginit(mem, mem_core, cpu, cpu_cores):
         """Initialize core and system cgroups."""
         if cpu_cores > 0:
-            tm_cpu_shares = sysinfo.bogomips_linux(range(0, cpu_cores))
+            tm_cores = six.moves.range(cpu_cores)
+            tm_cpu_shares = sysinfo.bogomips(tm_cores)
             tm_core_cpu_shares = int(tm_cpu_shares * 0.01)
             tm_apps_cpu_shares = tm_cpu_shares - tm_core_cpu_shares
 
             total_cores = sysinfo.cpu_count()
-            system_cores = range(cpu_cores, total_cores)
-            system_cpu_shares = sysinfo.bogomips_linux(system_cores)
+            system_cores = six.moves.range(cpu_cores, total_cores)
+            system_cpu_shares = sysinfo.bogomips(system_cores)
 
             _LOGGER.info('Configuring CPU limits: '
                          'treadmill cores: %d, '
@@ -111,7 +120,7 @@ def init():
                          tm_apps_cpu_shares)
         else:
             total_cores = sysinfo.cpu_count()
-            total_cpu_shares = sysinfo.bogomips_linux(range(0, total_cores))
+            total_cpu_shares = sysinfo.bogomips(six.moves.range(total_cores))
             tm_cpu_shares = int(total_cpu_shares *
                                 utils.cpu_units(cpu) / 100.0)
             system_cpu_shares = int(total_cpu_shares - tm_cpu_shares)
@@ -180,7 +189,7 @@ def init():
 
         if subcommand:
             execargs = list(subcommand)
-            os.execvp(execargs[0], execargs)
+            utils.sane_execvp(execargs[0], execargs)
 
     @top.command(name='migrate')
     @click.option('--group-from', '-f', default='')

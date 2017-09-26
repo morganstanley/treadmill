@@ -1,8 +1,13 @@
 """Tests for treadmill.tickets module.
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
+import collections
 import unittest
-from collections import namedtuple
 
 import kazoo
 import kazoo.client
@@ -23,20 +28,21 @@ class TicketLockerTest(unittest.TestCase):
     @mock.patch('treadmill.gssapiprotocol.GSSAPILineClient.write', mock.Mock())
     @mock.patch('treadmill.gssapiprotocol.GSSAPILineClient.read', mock.Mock())
     @mock.patch('pwd.getpwnam', mock.Mock(
-        return_value=namedtuple('pwnam', ['pw_uid'])(3)))
+        return_value=collections.namedtuple('pwnam', ['pw_uid'])(3)))
     def test_request_tickets(self):
         """Test parsing output of request_tickets."""
         treadmill.zkutils.connect.return_value = kazoo.client.KazooClient()
         kazoo.client.KazooClient.get_children.return_value = [
             'xxx.xx.com:1234', 'yyy.xx.com:1234'
         ]
-
         # base64.urlsafe_b64encode('abcd') : YWJjZA==
-        lines = ['foo@bar:YWJjZA==', '']
+        lines = [b'foo@bar:YWJjZA==', b'']
         treadmill.gssapiprotocol.GSSAPILineClient.read.side_effect = (
             lambda: lines.pop(0))
+
         reply = tickets.request_tickets(kazoo.client.KazooClient(), 'myapp')
-        self.assertEqual([tickets.Ticket('foo@bar', b'abcd')], reply)
+
+        self.assertEqual([tickets.Ticket('foo@bar', 'abcd')], reply)
 
     @mock.patch('kazoo.client.KazooClient.exists',
                 mock.Mock(return_value=True))

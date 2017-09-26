@@ -11,9 +11,9 @@
             "cpu": { "$ref": "common.json#/cpu" },
             "disk": { "$ref": "common.json#/disk" },
             "rank": { "$ref": "common.json#/rank" },
-            "partition": {
-                "$ref": "common.json#/partition"
-            }
+            "rank_adjustment": { "$ref": "common.json#/rank_adjustment" },
+            "max_utilization": { "$ref": "common.json#/max_utilization" },
+            "partition": { "$ref": "common.json#/partition" }
         }
     },
     "verbs": {

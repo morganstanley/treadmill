@@ -114,6 +114,9 @@ attributeTypes:
   rank:
     desc: Treadmill rank
     type: int
+  rank-adjustment:
+    desc: Treadmill rank adjustment
+    type: int
   root:
     desc: Treadmill root
     type: str
@@ -217,6 +220,13 @@ attributeTypes:
     desc: Data retention timeout
     ignore_case: true
     type: str
+  lease:
+    desc: Lease interval
+    ignore_case: true
+    type: str
+  status:
+    desc: Status
+    type: str
 dn: cn={1}treadmill,cn=schema,cn=config
 objectClasses:
   tmAllocation:
@@ -239,6 +249,7 @@ objectClasses:
     - pattern
     - priority
     - rank
+    - rank-adjustment
     - trait
   tmPartition:
     desc: Treadmill Partition
@@ -248,6 +259,7 @@ objectClasses:
     - cpu
     - disk
     - memory
+    - system
     - down-threshold
   tmApp:
     desc: Treadmill Application
@@ -287,6 +299,7 @@ objectClasses:
     - ephemeral-ports-udp
     - schedule-once
     - data-retention-timeout
+    - lease
   tmCell:
     desc: Treadmill Cell
     must:
@@ -306,6 +319,7 @@ objectClasses:
     - master-zk-followers-port
     - master-zk-election-port
     - data
+    - status
   tmServer:
     desc: Treadmill Server
     must:
@@ -352,4 +366,10 @@ objectClasses:
     - fqdn
     - ttl
     - nameservers
+  tmHAProxy:
+    desc: Treadmill HAProxy Server
+    must:
+    - server
+    may:
+    - cell
 ...

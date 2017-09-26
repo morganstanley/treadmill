@@ -1,12 +1,20 @@
 """Checkout utilities.
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import socket
 import pkgutil
 import logging
 import telnetlib
 import functools
 import hashlib
+
+import websocket as ws_client
+import six
 
 from treadmill import restclient
 
@@ -66,13 +74,22 @@ def _http_check(url):
         return False
 
 
+def _ws_check(url):
+    """Check ws url availability"""
+    try:
+        ws_connection = ws_client.create_connection(url, timeout=5)
+        ws_connection.close()
+        return True
+    except:  # pylint: disable=W0702
+        return False
+
+
 def url_check(url):
     """Check url."""
     if url.startswith('http://'):
         return _http_check(url)
     elif url.startswith('ws://'):
-        # TBD
-        return True
+        return _ws_check(url)
 
 
 def add_test(cls, func, message, *args, **kwargs):
@@ -97,7 +114,7 @@ class T(object):  # pylint: disable=C0103
             partial(me)
         test_func.__doc__ = func.__doc__.format(**self.kwargs)
         hash_md5 = hashlib.md5()
-        for name, value in self.kwargs.items():
+        for name, value in six.moves.iteritems(self.kwargs):
             hash_md5.update(name)
             hash_md5.update(str(value))
         setattr(

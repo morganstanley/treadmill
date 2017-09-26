@@ -1,11 +1,17 @@
-"""Implementation of treadmill-admin CLI plugin."""
+"""Implementation of treadmill-admin CLI plugin.
+"""
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import logging
 import pkgutil
 
 import click
 import dns.exception  # pylint: disable=E0611
+import dns.resolver
 import kazoo
 import kazoo.exceptions
 import ldap3
@@ -42,7 +48,7 @@ ON_EXCEPTIONS = cli.handle_exceptions([
     (ldap3.LDAPNoSuchObjectResult, _handle_no_such_ldap_obj),
     (kazoo.exceptions.NoAuthError, 'Error: not authorized.'),
     (kazoo.exceptions.NoNodeError, 'Error: resource does not exist.'),
-    (restclient.NotAuthorizedError, cli.handle_not_authorized),
+    (restclient.NotAuthorizedError, restclient.handle_not_authorized),
     (restclient.MaxRequestRetriesError, None),
     (dns.exception.Timeout, 'Error: DNS server timeout.'),
     (dns.resolver.NXDOMAIN, 'Error: Could not resolve DNS record.'),
@@ -54,11 +60,8 @@ ON_EXCEPTIONS = cli.handle_exceptions([
 def init():
     """Return top level command handler."""
 
-    @click.group(cls=cli.make_multi_command(__name__))
-    @click.option('--zookeeper', required=False,
-                  envvar='TREADMILL_ZOOKEEPER',
-                  callback=cli.handle_context_opt,
-                  expose_value=False)
+    @click.group(cls=cli.make_commands(__name__))
+    @click.option('--ldap', envvar='TREADMILL_LDAP')
     @click.pass_context
     def run(ctx):
         """Admin commands."""

@@ -1,27 +1,34 @@
 """Treadmill runtime framework.
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import errno
+import json
 import logging
 import os
 import random
 import socket
 import stat
-import tempfile
 
-import json
-
-from stevedore import driver
+import six
 
 from treadmill import exc
+from treadmill import fs
 from treadmill import utils
+from treadmill import plugin_manager
 
+from treadmill.appcfg import abort as app_abort
 from treadmill.appcfg import manifest as app_manifest
 
 
 STATE_JSON = 'state.json'
 
 _LOGGER = logging.getLogger(__name__)
+
 _RUNTIME_NAMESPACE = 'treadmill.runtime'
 
 
@@ -33,31 +40,21 @@ if os.name == 'posix':
     PROD_PORT_HIGH = iptables.PROD_PORT_HIGH
     NONPROD_PORT_LOW = iptables.NONPROD_PORT_LOW
     NONPROD_PORT_HIGH = iptables.NONPROD_PORT_HIGH
-    DEFAULT_RUNTIME = 'linux'
 else:
     PORT_SPAN = 8192
     PROD_PORT_LOW = 32768
     PROD_PORT_HIGH = PROD_PORT_LOW + PORT_SPAN - 1
     NONPROD_PORT_LOW = PROD_PORT_LOW + PORT_SPAN
     NONPROD_PORT_HIGH = NONPROD_PORT_LOW + PORT_SPAN - 1
-    DEFAULT_RUNTIME = 'docker'
 
 
 def get_runtime(runtime_name, tm_env, container_dir):
     """Gets the runtime implementation with the given name."""
-    runtime_driver = driver.DriverManager(
-        namespace=_RUNTIME_NAMESPACE,
-        name=runtime_name,
-        invoke_on_load=True,
-        invoke_args=(tm_env, container_dir),
-        on_load_failure_callback=utils.log_extension_failure
-    )
-
-    if not runtime_driver:
-        raise Exception('Runtime {0} is not supported.',
-                        runtime_name)
-
-    return runtime_driver.driver
+    try:
+        runtime_cls = plugin_manager.load(_RUNTIME_NAMESPACE, runtime_name)
+        return runtime_cls(tm_env, container_dir)
+    except KeyError:
+        _LOGGER.error('Runtime not supported: %s', runtime_name)
 
 
 def load_app(container_dir, app_json=STATE_JSON):
@@ -73,7 +70,7 @@ def load_app(container_dir, app_json=STATE_JSON):
         if err.errno != errno.ENOENT:
             raise
 
-        _LOGGER.critical('Manifest file does not exit: %r', manifest_file)
+        _LOGGER.critical('Manifest file does not exist: %r', manifest_file)
         return None
 
 
@@ -81,16 +78,16 @@ def save_app(manifest, container_dir, app_json=STATE_JSON):
     """Saves app manifest and freezes to object."""
     # Save the manifest with allocated vip and ports in the state
     state_file = os.path.join(container_dir, app_json)
-    with tempfile.NamedTemporaryFile(dir=container_dir,
-                                     delete=False,
-                                     mode='w') as temp_file:
-        json.dump(manifest, temp_file)
-        # chmod for the file to be world readable.
-        os.fchmod(
-            temp_file.fileno(),
+    fs.write_safe(
+        state_file,
+        lambda f: json.dump(manifest, f)
+    )
+    # chmod for the file to be world readable.
+    if os.name == 'posix':
+        os.chmod(
+            state_file,
             stat.S_IWUSR | stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH
         )
-    os.rename(temp_file.name, state_file)
 
     # Freeze the app data into a namedtuple object
     return utils.to_obj(manifest)
@@ -101,9 +98,9 @@ def _allocate_sockets(environment, host_ip, sock_type, count):
     """
     # TODO: this should probably be abstracted away
     if environment == 'prod':
-        port_pool = range(PROD_PORT_LOW, PROD_PORT_HIGH + 1)
+        port_pool = six.moves.range(PROD_PORT_LOW, PROD_PORT_HIGH + 1)
     else:
-        port_pool = range(NONPROD_PORT_LOW, NONPROD_PORT_HIGH + 1)
+        port_pool = six.moves.range(NONPROD_PORT_LOW, NONPROD_PORT_HIGH + 1)
 
     port_pool = random.sample(port_pool, PORT_SPAN)
 
@@ -116,9 +113,11 @@ def _allocate_sockets(environment, host_ip, sock_type, count):
             break
 
         socket_ = socket.socket(socket.AF_INET, sock_type)
-        socket_.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         try:
             socket_.bind((host_ip, real_port))
+            if sock_type == socket.SOCK_STREAM:
+                socket_.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                socket_.listen(0)
         except socket.error as err:
             if err.errno == errno.EADDRINUSE:
                 continue
@@ -126,8 +125,8 @@ def _allocate_sockets(environment, host_ip, sock_type, count):
 
         sockets.append(socket_)
     else:
-        raise exc.ContainerSetupError(
-            'run.alloc_sockets:{0} < {1}'.format(len(sockets), count))
+        raise exc.ContainerSetupError('{0} < {1}'.format(len(sockets), count),
+                                      app_abort.AbortedReason.PORTS)
 
     return sockets
 
@@ -135,8 +134,6 @@ def _allocate_sockets(environment, host_ip, sock_type, count):
 def _allocate_network_ports_proto(host_ip, manifest, proto, so_type):
     """Allocate ports for named and unnamed endpoints given protocol."""
     ephemeral_count = manifest['ephemeral_ports'].get(proto, 0)
-    if isinstance(ephemeral_count, list):
-        ephemeral_count = len(ephemeral_count)
 
     endpoints = [ep for ep in manifest['endpoints']
                  if ep.get('proto', 'tcp') == proto]
@@ -153,7 +150,7 @@ def _allocate_network_ports_proto(host_ip, manifest, proto, so_type):
         sock = sockets[idx]
         endpoint['real_port'] = sock.getsockname()[1]
 
-        # Specifying port 0 tells runtime that application wants to
+        # Specifying port 0 tells appmgr that application wants to
         # have same numeric port value in the container and in
         # the public interface.
         #
