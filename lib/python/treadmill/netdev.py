@@ -492,5 +492,5 @@ def _proc_sys_write(path, value):
     assert path.startswith('/proc/sys/')
 
     _LOGGER.debug('Setting %r to %r', path, value)
-    with io.open(path, 'w') as f:
-        f.write(str(value))
+    with io.open(path, 'wb') as f:
+        f.write(str(value).encode(encoding='utf8', errors='replace'))
