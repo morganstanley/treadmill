@@ -214,6 +214,7 @@ def install(package, dst_dir, params, run=None, profile=None):
     aliases_path = [package]
 
     module = plugin_manager.load('treadmill.bootstrap', package)
+    extension_module = None
     if profile:
         extension_name = '{}.{}'.format(package, profile)
         aliases_path.append(extension_name)

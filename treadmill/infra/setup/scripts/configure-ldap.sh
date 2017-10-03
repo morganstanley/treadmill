@@ -2,25 +2,14 @@ echo Installing openldap
 
 yum -y install openldap openldap-clients openldap-servers ipa-admintools
 
-echo Adding host to service keytab retrieval list
-REQ_URL="http://ipa-ca:5108/ipa/service"
-REQ_STATUS=254
-TIMEOUT_RETRY_COUNT=0
 HOST_FQDN=$(hostname -f)
-while [ $REQ_STATUS -eq 254 ] && [ $TIMEOUT_RETRY_COUNT -ne 30 ]
-do
-    REQ_OUTPUT=$(curl --connect-timeout 5 -H "Content-Type: application/json" -X POST -d '{"domain": "{{ DOMAIN }}", "hostname": "'${HOST_FQDN}'", "service": "'ldap/$HOST_FQDN'"}' "${REQ_URL}" 2>&1) && REQ_STATUS=0 || REQ_STATUS=254
-    TIMEOUT_RETRY_COUNT=$((TIMEOUT_RETRY_COUNT+1))
-    sleep 60
-done
 
 kinit -kt /etc/krb5.keytab
 
-echo Retrieving ldap service keytab
+echo Retrieving LDAP service keytab
 ipa-getkeytab -s "{{ IPA_SERVER_HOSTNAME }}" -p "ldap/$HOST_FQDN@{{ DOMAIN|upper }}" -k /etc/ldap.keytab
-
-ipa-getkeytab -r -p treadmld -D "cn=Directory Manager" -w "{{ IPA_ADMIN_PASSWORD }}" -k /etc/treadmld.keytab
-chown treadmld:treadmld /etc/ldap.keytab /etc/treadmld.keytab
+ipa-getkeytab -r -p "${PROID}" -D "cn=Directory Manager" -w "{{ IPA_ADMIN_PASSWORD }}" -k /etc/"${PROID}".keytab
+chown "${PROID}":"${PROID}" /etc/ldap.keytab /etc/"${PROID}".keytab
 
 # Enable 22389 port for LDAP (requires policycoreutils-python)
 /sbin/semanage  port -a -t ldap_port_t -p tcp 22389
@@ -38,8 +27,8 @@ After=network.target
 
 [Service]
 Environment="KRB5_KTNAME=/etc/ldap.keytab"
-User=treadmld
-Group=treadmld
+User=${PROID}
+Group=${PROID}
 SyslogIdentifier=openldap
 ExecStart=/var/tmp/treadmill-openldap/bin/run.sh
 Restart=always
@@ -50,10 +39,10 @@ WantedBy=multi-user.target
 EOF
 ) > /etc/systemd/system/openldap.service
 
-s6-setuidgid treadmld \
+s6-setuidgid "${PROID}" \
     {{ TREADMILL }} admin install --install-dir /var/tmp/treadmill-openldap \
         openldap \
-        --owner treadmld \
+        --owner "${PROID}" \
         --uri ldap://0.0.0.0:22389 \
         --suffix "${LDAP_DC}" \
         --gssapi
@@ -65,16 +54,16 @@ systemctl status openldap
 
 echo Initializing openldap
 
-su -c "kinit -k -t /etc/treadmld.keytab treadmld" treadmld
+su -c "kinit -k -t /etc/${PROID}.keytab ${PROID}" "${PROID}"
 
-s6-setuidgid treadmld {{ TREADMILL }} admin ldap init
+s6-setuidgid "${PROID}" {{ TREADMILL }} admin ldap init
 
 (
 # FIXME: Flaky command. Works after a few re-runs.
 TIMEOUT=120
 
 retry_count=0
-until ( s6-setuidgid treadmld {{ TREADMILL }} admin ldap schema --update ) || [ $retry_count -eq $TIMEOUT ]
+until ( s6-setuidgid "${PROID}" {{ TREADMILL }} admin ldap schema --update ) || [ $retry_count -eq $TIMEOUT ]
 do
     retry_count=`expr $retry_count + 1`
     echo "Trying ldap schema update : $retry_count"

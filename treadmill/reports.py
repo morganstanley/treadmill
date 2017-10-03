@@ -89,7 +89,9 @@ def iterate_allocations(path, alloc):
                 iterate_allocations(path + [name], suballoc)
             )
 
-        return six.moves.reduce(_chain, alloc.sub_allocations.iteritems(), [])
+        return six.moves.reduce(
+            _chain, six.iteritems(alloc.sub_allocations), []
+        )
 
 
 def allocations(cell):
@@ -122,7 +124,7 @@ def allocations(cell):
 
     frame = pd.DataFrame.from_dict([
         _alloc_row(label, name, alloc)
-        for label, partition in cell.partitions.iteritems()
+        for label, partition in six.iteritems(cell.partitions)
         for name, alloc in iterate_allocations([], partition.allocation)
     ])
     if frame.empty:

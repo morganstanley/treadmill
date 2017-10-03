@@ -9,31 +9,13 @@ yum -y install zookeeper-ldap-plugin --nogpgcheck
 
 # Configure
 
-(
-cat <<EOF
-server.1=TreadmillZookeeper1.{{ DOMAIN }}:2888:3888
-server.2=TreadmillZookeeper2.{{ DOMAIN }}:2888:3888
-server.3=TreadmillZookeeper3.{{ DOMAIN }}:2888:3888
-EOF
-) >> /etc/zookeeper/conf/zoo.cfg
+echo "{{ CFG_DATA }}" >> /etc/zookeeper/conf/zoo.cfg
 
 mac_addr=`cat /sys/class/net/eth0/address`
 subnet_id=`curl http://169.254.169.254/latest/meta-data/network/interfaces/macs/$mac_addr/subnet-id`
 HOST_FQDN=$(hostname -f)
 
 export TREADMILL_CELL=$subnet_id
-
-echo Adding host to service keytab retrieval list
-
-REQ_URL="http://ipa-ca:5108/ipa/service"
-REQ_STATUS=254
-TIMEOUT_RETRY_COUNT=0
-while [ $REQ_STATUS -eq 254 ] && [ $TIMEOUT_RETRY_COUNT -ne 30 ]
-do
-    REQ_OUTPUT=$(curl --connect-timeout 5 -H "Content-Type: application/json" -X POST -d '{"domain": "{{ DOMAIN }}", "hostname": "'${HOST_FQDN}'", "service": "'zookeeper/$HOST_FQDN'"}' "${REQ_URL}" 2>&1) && REQ_STATUS=0 || REQ_STATUS=254
-    TIMEOUT_RETRY_COUNT=$((TIMEOUT_RETRY_COUNT+1))
-    sleep 60
-done
 
 kinit -kt /etc/krb5.keytab
 
@@ -54,8 +36,8 @@ After=network.target
 
 [Service]
 Type=forking
-User=treadmld
-Group=treadmld
+User=${PROID}
+Group=${PROID}
 SyslogIdentifier=zookeeper
 Environment=ZOO_LOG_DIR=/var/lib/zookeeper
 ExecStart=/usr/lib/zookeeper/bin/zkServer.sh start
@@ -66,13 +48,13 @@ WantedBy=multi-user.target
 EOF
 ) > /etc/systemd/system/zookeeper.service
 
-chown -R treadmld:treadmld /var/lib/zookeeper
+chown -R "${PROID}":"${PROID}" /var/lib/zookeeper
 
-su -c "zookeeper-server-initialize" treadmld
+su -c "zookeeper-server-initialize" "${PROID}"
 
-su -c "echo {{ IDX }} > /var/lib/zookeeper/myid" treadmld
+su -c "echo {{ IDX }} > /var/lib/zookeeper/myid" "${PROID}"
 
-chown treadmld:treadmld /etc/zk.keytab
+chown "${PROID}":"${PROID}" /etc/zk.keytab
 kinit -k
 
 /bin/systemctl enable zookeeper.service

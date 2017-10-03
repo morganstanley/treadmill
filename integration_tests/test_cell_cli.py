@@ -77,6 +77,8 @@ class CellCLITest(unittest.TestCase):
                 '--vpc-name=' + self.vpc_name,
                 '--cell-cidr-block=172.23.0.0/24',
                 '--ipa-admin-password=Tre@dmill1',
+                '--cell-subnet-name=TreadmillCell',
+                '--ldap-subnet-name=TreadmillLDAP',
             ],
             obj={}
         )
@@ -135,8 +137,8 @@ class CellCLITest(unittest.TestCase):
                 '--domain=treadmill.org',
                 'delete',
                 'cell',
-                '--subnet-id=' + cell_info['SubnetId'],
-                '--vpc-name=' + self.vpc_name
+                '--vpc-name=' + self.vpc_name,
+                '--subnet-name=TreadmillCell',
             ],
             obj={}
         )
@@ -145,8 +147,8 @@ class CellCLITest(unittest.TestCase):
                 '--domain=treadmill.org',
                 'delete',
                 'ldap',
-                '--subnet-id=' + ldap_info['SubnetId'],
-                '--vpc-name=' + self.vpc_name
+                '--vpc-name=' + self.vpc_name,
+                '--subnet-name=TreadmillLDAP',
             ],
             obj={}
         )

@@ -21,7 +21,7 @@ Check treadmill exist:
 
 Set AWS Credentials and Region
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-Assuming a user is present on AWS Account having AmazonEC2FullAccess, AmazonVPCFullAccess and AmazonRoute53FullAccess, there are two ways to set the credentials and region:
+Assuming a user is present on AWS Account having AmazonEC2FullAccess and AmazonVPCFullAccess, there are two ways to set the credentials and region:
 
 Either export them:
 
@@ -57,7 +57,7 @@ Configure VPC
 
   treadmill admin cloud --domain <domain> configure vpc --name <vpc_name>
 
-This creates a VPC, Internet Gateway, Security Group and Route53 Hosted Zone. Default values are used to create these resources. The values can be overwritten from command line.
+This creates a VPC, Internet Gateway and Security Group. Default values are used to create these resources. The values can be overwritten from command line.
 
 List the options:
 
@@ -101,7 +101,7 @@ Configure Cell
 
   treadmill cloud --domain <domain> --api <ipa-server-ip:5108> configure cell --help
 
-This will setup 1 openldap, 3 masters and 3 zookeeper instances by default.
+This will setup 3 masters and 3 zookeeper instances by default.
 
 At this point all the hosts will be registered with IPA server.
 
@@ -125,6 +125,6 @@ List Cell
 ^^^^^^^^^
 ::
 
-  treadmill cloud --domain <domain> --api <ipa-server-ip:5108> list cell --vpc-name <vpc_name> --cell-id <cell_id>
+  treadmill cloud --domain <domain> --api <ipa-server-ip:5108> list cell --vpc-name <vpc_name> --subnet-name <subnet_name>
 
 This lists all the EC2 instances running inside a cell.

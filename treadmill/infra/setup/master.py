@@ -1,5 +1,5 @@
 from treadmill.infra.setup import base_provision
-from treadmill.infra import configuration, constants, instances
+from treadmill.infra import configuration, constants, exceptions
 from treadmill.api import ipa
 
 
@@ -14,45 +14,42 @@ class Master(base_provision.BaseProvision):
             instance_type,
             app_root,
             ipa_admin_password,
-            subnet_id=None,
+            proid,
+            subnet_name,
     ):
-        _hostnames = instances.Instances.get_hostnames_by_roles(
-            vpc_id=self.vpc.id,
-            roles=[
-                constants.ROLES['LDAP'],
-            ]
-        )
+        ldap_hostname, zk_hostname = self.hostnames_for(roles=[
+            constants.ROLES['LDAP'],
+            constants.ROLES['ZOOKEEPER'],
+        ])
 
-        self.subnet_name = constants.TREADMILL_CELL_SUBNET_NAME
+        if not ldap_hostname:
+            raise exceptions.LDAPNotFound()
+
         _ipa = ipa.API()
         _master_hostnames = self._hostname_cluster(count)
 
-        def _subnet_id(subnet_id):
-            if getattr(self, 'subnet', None) and self.subnet.id:
-                return self.subnet.id
-            else:
-                return subnet_id
-
-        _name = self.name
-        for _master_h in _master_hostnames.keys():
+        for _idx in _master_hostnames.keys():
+            _master_h = _master_hostnames[_idx]
             _otp = _ipa.add_host(hostname=_master_h)
-            _idx = _master_hostnames[_master_h]
+            self.name = _master_h
+
             self.configuration = configuration.Master(
                 hostname=_master_h,
                 otp=_otp,
-                subnet_id=subnet_id,
-                ldap_hostname=_hostnames[constants.ROLES['LDAP']],
+                ldap_hostname=ldap_hostname,
                 tm_release=tm_release,
                 app_root=app_root,
                 ipa_admin_password=ipa_admin_password,
-                idx=_idx
+                idx=_idx,
+                proid=proid,
+                zk_url=self._zk_url(zk_hostname)
             )
-            self.name = _name + _idx
             super().setup(
                 image=image,
                 count=1,
                 cidr_block=cidr_block,
-                subnet_id=_subnet_id(subnet_id),
                 key=key,
-                instance_type=instance_type
+                instance_type=instance_type,
+                subnet_name=subnet_name,
+                sg_names=[constants.COMMON_SEC_GRP],
             )

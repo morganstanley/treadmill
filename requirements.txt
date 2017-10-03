@@ -36,3 +36,7 @@ pyasn1==0.2.2
 pure-sasl==0.4.0
 kerberos==1.2.5
 git+https://github.com/ceache/kazoo.git@puresasl#egg=kazoo
+psutil
+tabulate
+gevent
+parse

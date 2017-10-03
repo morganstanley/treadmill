@@ -142,7 +142,7 @@ class Watchdog(object):
                 fs.mkdir_safe(dirname)
                 fs.write_safe(
                     self.filename,
-                    lambda f: f.write(self.content),
+                    lambda f: f.write(self.content.encode()),
                     prefix='.' + filename,
                     permission=0o600
                 )

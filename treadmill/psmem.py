@@ -21,7 +21,7 @@ from treadmill import sysinfo
 _LOGGER = logging.getLogger(__name__)
 
 # Pagesize in K.
-_PAGESIZE = os.sysconf(b'SC_PAGE_SIZE') / 1024
+_PAGESIZE = os.sysconf('SC_PAGE_SIZE') / 1024
 
 _KERNEL_VER = sysinfo.kernel_ver()
 

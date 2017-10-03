@@ -135,12 +135,12 @@ class LocalDiskResourceService(BaseResourceServiceImpl):
         )
 
     def report_status(self):
-        return dict(self._vg_status.items() + {
+        return dict(list(self._vg_status.items()) + list({
             'read_bps': self._read_bps,
             'write_bps': self._write_bps,
             'read_iops': self._read_iops,
             'write_iops': self._write_iops
-        }.items())
+        }.items()))
 
     def on_create_request(self, rsrc_id, rsrc_data):
         app_unique_name = rsrc_id

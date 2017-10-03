@@ -7,5 +7,5 @@ yum install s6 execline treadmill-pid1 --nogpgcheck -y
 
 # Install treadmill
 mkdir -p /opt/treadmill/bin
-curl -L "https://github.com/ThoughtWorksInc/treadmill/releases/download/{{ TREADMILL_RELEASE }}/treadmill" -o /opt/treadmill/bin/treadmill
+curl -L "{{ TREADMILL_RELEASE }}" -o /opt/treadmill/bin/treadmill
 chmod +x /opt/treadmill/bin/treadmill

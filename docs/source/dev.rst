@@ -10,6 +10,10 @@ Treadmill Binary
 
 **Build:**
 
+
+Make sure you have cloned the treadmill source to build the binary. Then, to  build treadmill pex binary and RPM -
+
+
 ::
 
-   pex . -o treadmill -e treadmill.console:run -v
+   treadmill build_binary -s <treadmill_source_path> -t <release_tag> -m <release_message>

@@ -1,9 +1,10 @@
-from treadmill.infra import vpc
+from treadmill.infra import vpc, constants
 import click
 import re
 import pkg_resources
 
 _IPA_PASSWORD_RE = re.compile('.{8,}')
+_URL_RE = re.compile('https?|www.*')
 
 
 def convert_to_vpc_id(ctx, param, value):
@@ -11,7 +12,10 @@ def convert_to_vpc_id(ctx, param, value):
     if not value:
         return value
 
-    return vpc.VPC.get_id_from_name(value)
+    try:
+        return vpc.VPC.get_id_from_name(value)
+    except ValueError as ex:
+        raise click.BadParameter(ex.__str__())
 
 
 def validate_vpc_name(ctx, param, value):
@@ -51,8 +55,18 @@ def ipa_password_prompt(ctx, param, value):
     return value or click.prompt('IPA admin password ', hide_input=True)
 
 
-def current_release_version(ctx, param, value):
+def create_release_url(ctx, param, value):
     """Treadmill current release version"""
+    if value and _URL_RE.match(value):
+        return value
+
+    _build_url = lambda version: '{}/{}/treadmill'.format(
+        constants.TREADMILL_DEFAULT_URL, version,
+    )
+
+    if value:
+        return _build_url(value)
+
     version = None
 
     try:
@@ -64,6 +78,6 @@ def current_release_version(ctx, param, value):
         pass
 
     if version:
-        return version.decode('utf-8').strip()
+        return _build_url(version.decode('utf-8').strip())
     else:
         raise click.BadParameter('No version specified in VERSION.txt')

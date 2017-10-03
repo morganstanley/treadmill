@@ -31,9 +31,11 @@ from six.moves import configparser
 
 from treadmill import context
 from treadmill import plugin_manager
-
+from treadmill import restclient
+from botocore import exceptions
 
 __path__ = pkgutil.extend_path(__path__, __name__)
+
 
 EXIT_CODE_DEFAULT = 1
 IPA_PASSWORD_RE = re.compile('.{8,}')
@@ -407,3 +409,75 @@ def echo_yellow(string, *args):
 def echo_red(string, *args):
     """click.echo yellow with support for placeholders, e.g. %s"""
     echo_colour('red', string, *args)
+
+
+def handle_not_authorized(err):
+    """Handle REST NotAuthorizedExceptions"""
+    msg = str(err)
+    msgs = [re.sub(r'failure: ', '    ', line) for line in msg.split(r'\n')]
+    echo_red('Not authorized.')
+    click.echo('\n'.join(msgs), nl=False)
+
+
+def handle_cli_exceptions(exclist):
+    """Decorator that will handle exceptions and output friendly messages."""
+
+    def wrap(f):
+        """Returns decorator that wraps/handles exceptions."""
+        exclist_copy = copy.copy(exclist)
+
+        @functools.wraps(f)
+        def wrapped_f(*args, **kwargs):
+            """Wrapped function."""
+            if not exclist_copy:
+                f(*args, **kwargs)
+            else:
+                exc, handler = exclist_copy.pop(0)
+
+                try:
+                    wrapped_f(*args, **kwargs)
+                except exc as err:
+                    if handler is None:
+                        raise click.UsageError(
+                            err.response['Error']['Message']
+                        )
+                    elif isinstance(handler, str):
+                        click.echo(err, err=True)
+
+                    sys.exit(EXIT_CODE_DEFAULT)
+
+        @functools.wraps(f)
+        def _handle_any(*args, **kwargs):
+            """Default exception handler."""
+            try:
+                return wrapped_f(*args, **kwargs)
+            except Exception as unhandled:  # pylint: disable=W0703
+                with tempfile.NamedTemporaryFile(delete=False, mode='w') as f:
+                    traceback.print_exc(file=f)
+                    click.echo('Error: %s [ %s ]' % (unhandled, f.name),
+                               err=True)
+
+                sys.exit(EXIT_CODE_DEFAULT)
+
+        return _handle_any
+
+    return wrap
+
+
+REST_EXCEPTIONS = [
+    (restclient.NotFoundError, 'Resource not found'),
+    (restclient.AlreadyExistsError, 'Resource already exists'),
+    (restclient.ValidationError, None),
+    (restclient.NotAuthorizedError, handle_not_authorized),
+    (restclient.BadRequestError, None),
+    (restclient.MaxRequestRetriesError, None)
+]
+
+CLI_EXCEPTIONS = [
+    (exceptions.ClientError, None),
+    (exceptions.PartialCredentialsError, 'Partial Crendentials'),
+    (exceptions.NoCredentialsError, 'No Creds'),
+]
+
+ON_REST_EXCEPTIONS = handle_exceptions(REST_EXCEPTIONS)
+ON_CLI_EXCEPTIONS = handle_cli_exceptions(CLI_EXCEPTIONS)

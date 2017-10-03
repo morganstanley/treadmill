@@ -78,7 +78,7 @@ class TcpRestServer(RestServer):
             _LOGGER.info('Starting REST server: %s:%s, auth: %s, protect: %r',
                          self.host, self.port, self.auth_type, self.protect)
             try:
-                auth = plugin_manager.load('treadmill.rest.authentication',
+                auth = plugin_manager.load('treadmill.rest.auth',
                                            self.auth_type)
                 FLASK_APP.wsgi_app = auth.wrap(FLASK_APP.wsgi_app,
                                                self.protect)
@@ -115,7 +115,7 @@ class UdsRestServer(RestServer):
             _LOGGER.info('Starting REST server: %s, auth: %s',
                          self.socket, self.auth_type)
             try:
-                auth = plugin_manager.load('treadmill.rest.authentication',
+                auth = plugin_manager.load('treadmill.rest.auth',
                                            self.auth_type)
                 FLASK_APP.wsgi_app = auth.wrap(FLASK_APP.wsgi_app)
             except KeyError:

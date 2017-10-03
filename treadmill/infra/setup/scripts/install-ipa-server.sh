@@ -19,9 +19,9 @@ ipa-server-install --unattended \
 
 echo "{{ IPA_ADMIN_PASSWORD }}" | kinit admin
 
-ipa dnszone-mod "{{ DOMAIN }}" --allow-sync-ptr=TRUE
+ipa dnszone-mod "{{ DOMAIN }}" --allow-sync-ptr=TRUE || echo "Skipping dnszon-mod"
 
-ipa dnsrecord-add "{{ DOMAIN }}" ipa-ca --a-rec ${PRIVATE_IP}
+ipa dnsrecord-add "{{ DOMAIN }}" ipa-ca --a-rec ${PRIVATE_IP} || echo "Skipping dnrecord-add. Probably already present."
 
 TMHOSTADM_OUTPUT=$(ipa -n user-add tmhostadm --first tmhostadm --last proid --shell /bin/bash --class proid --random)
 TMP_TMHOSTADM_PASSWORD=$(echo "${TMHOSTADM_OUTPUT}" | grep 'Random password:' | awk '{print $3}')
@@ -54,17 +54,19 @@ EOF
 chmod 755 /etc/cron.hourly/tmhostadm-kinit
 /etc/cron.hourly/tmhostadm-kinit
 
-export TREADMILL_CELL="{{ CELL }}"
-
 nohup su -c "{{ TREADMILL }} sproc restapi -p 5108 --title 'Treadmill_API' \
     -m ipa,cloud --cors-origin='.*'" tmhostadm > /var/log/ipa_api.out 2>&1 &
 
-TREADMLD_OUTPUT=$(ipa -n user-add --first=treadmld --last=proid --shell /bin/bash --class proid --random treadmld)
+TREADMLD_OUTPUT=$(ipa -n user-add --first="${PROID}" --last=proid --shell /bin/bash --class proid --random "${PROID}")
 TMP_TREADMLD_PASSWORD=$(echo "${TREADMLD_OUTPUT}" | grep 'Random password:' | awk '{print $3}')
 NEW_TREADMLD_PASSWORD=$(openssl rand -base64 12)
 
-kpasswd treadmld <<EOF
+kpasswd "${PROID}" <<EOF
 ${TMP_TREADMLD_PASSWORD}
 ${NEW_TREADMLD_PASSWORD}
 ${NEW_TREADMLD_PASSWORD}
 EOF
+
+mkdir -m 700 -p /home/tmhostadm
+chown tmhostadm:tmhostadm /home/tmhostadm
+su -c 'echo source /etc/profile.d/treadmill_profile.sh >> ~/.bashrc' tmhostadm

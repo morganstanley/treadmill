@@ -145,6 +145,42 @@ class SubnetTest(unittest.TestCase):
         get_instances_mock.assert_called_once_with(refresh=True, role=None)
         refresh_mock.assert_called_once()
 
+    @mock.patch('treadmill.infra.connection.Connection')
+    def test_persisted(self, ConnectionMock):
+        _subnet = Subnet(id='subnet-id', metadata={'foo': 'goo'})
 
-if __name__ == '__main__':
-    unittest.main()
+        self.assertFalse(_subnet.persisted)
+
+        _subnet.metadata['SubnetId'] = 'subnet-id'
+        self.assertTrue(_subnet.persisted)
+
+    @mock.patch('treadmill.infra.connection.Connection')
+    def test_persist(self, ConnectionMock):
+        ConnectionMock.context.region_name = 'us-east-1'
+        conn_mock = ConnectionMock()
+        Subnet.ec2_conn = Subnet.route53_conn = conn_mock
+
+        conn_mock.create_subnet = mock.Mock(
+            return_value={
+                'Subnet': {
+                    'foo': 'bar'
+                }
+            }
+        )
+
+        _subnet = Subnet(
+            id='subnet-id', metadata=None, vpc_id='vpc-id', name='subnet-name'
+        )
+
+        _subnet.persist(
+            cidr_block='cidr-block',
+            gateway_id='gateway-id',
+        )
+
+        self.assertEqual(_subnet.metadata, {'foo': 'bar'})
+
+        conn_mock.create_subnet.assert_called_once_with(
+            VpcId='vpc-id',
+            CidrBlock='cidr-block',
+            AvailabilityZone='us-east-1a'
+        )
