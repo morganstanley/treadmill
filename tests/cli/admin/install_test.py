@@ -1,3 +1,5 @@
+# flake8: noqa
+
 import importlib
 import unittest
 import io
@@ -23,13 +25,12 @@ def _open_side_effect_for_configs(path, *args):
     else:
         return open(path, *args)
 
+# original = install._load_configs
 
-original = install._load_configs
 
-
-def wrap_func(config, default_file, ctx):
-    ctx.obj = {}
-    original(config, default_file, ctx)
+# def wrap_func(config, default_file, ctx):
+#     ctx.obj = {}
+#     original(config, default_file, ctx)
 
 
 @unittest.skip('BROKEN: click options parsing')

@@ -1,8 +1,14 @@
-import os.path, pkgutil
+import os, pkgutil
 import treadmill.cli
 import click.testing
 from click.core import Group
 import importlib
+
+
+os.environ.update({
+    'TREADMILL_DNS_DOMAIN': 'treadmill.org',
+    'TREADMILL_CLOUD_RESTAPI': 'http://example.com'
+})
 
 failures = []
 

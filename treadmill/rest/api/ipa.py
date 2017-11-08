@@ -82,8 +82,9 @@ def init(api, cors, impl):
             """Deletes User from IPA."""
             return impl.delete_user(username)
 
-    @namespace.route('/service/<service>')
-    @api.doc(params={'service': 'Service'})
+    @namespace.route('/protocol/<protocol>/service/<service>')
+    @api.doc(params={'service': 'Service',
+                     'protocol': 'Protocol (ldap/zookeeper/etc)'})
     class _Service(restplus.Resource):
         """Treadmill IPA Service"""
         @webutils.post_api(
@@ -91,6 +92,6 @@ def init(api, cors, impl):
             cors,
             req_model=service_model
         )
-        def post(self, service):
+        def post(self, protocol, service):
             """Add Service to IPA"""
-            return impl.service_add(service, flask.request.json)
+            return impl.service_add(protocol, service, flask.request.json)

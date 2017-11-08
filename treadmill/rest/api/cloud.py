@@ -10,11 +10,13 @@ from treadmill import webutils  # pylint: disable=E0611
 
 
 def handle_api_error(func):
-    def wrapper(*args):
+    def wrapper(*args, **kwargs):
         try:
-            return func(*args)
+            return func(*args, **kwargs)
         except Exception as e:
-            return flask.abort(400, {'message': e.message})
+            return flask.abort(flask.make_response(
+                flask.jsonify(message=e.message), 400)
+            )
     return wrapper
 
 
@@ -34,7 +36,8 @@ def init(api, cors, impl):
         'image': fields.String(description='Image', required=True),
         'ipa_admin_password': fields.String(description='IPA Admin Password',
                                             required=True),
-        'subnet_id': fields.String(description='Cell ID', required=True),
+        'subnet_name': fields.String(description='Cell(Subnet) Name',
+                                     required=True),
         'region': fields.String(description='Region'),
         'with_api': fields.String(description='With API Flag'),
         'instance_type': fields.String(description='Instance Type'),
@@ -54,9 +57,9 @@ def init(api, cors, impl):
         'image': fields.String(description='Image', required=True),
         'ipa_admin_password': fields.String(description='IPA Admin Password',
                                             required=True),
-        'cell_subnet_id': fields.String(description='Cell ID', required=True),
+        'subnet_name': fields.String(description='LDAP Subnet Name',
+                                     required=True),
         'region': fields.String(description='Region'),
-        'ldap_subnet_id': fields.String(description='LDAP Subnet ID'),
         'ldap_cidr_block': fields.String(description='LDAP CIDR Block'),
         'instance_type': fields.String(description='Instance Type'),
         'tm_release': fields.String(
@@ -73,6 +76,8 @@ def init(api, cors, impl):
         'role': fields.String(description='Role', required=True),
         'key': fields.String(description='Key', required=True),
         'image': fields.String(description='Image', required=True),
+        'subnet_name': fields.String(description='Cell(Subnet) Name',
+                                     required=True),
         'ipa_admin_password': fields.String(description='IPA Admin Password',
                                             required=True),
         'region': fields.String(description='Region'),
@@ -81,8 +86,7 @@ def init(api, cors, impl):
             description='Treadmill Release URL/Version'
         ),
         'app_root': fields.String(description='Server APP Root'),
-        'cell_cidr_block': fields.String(description='Cell CIDR Block'),
-        'subnet_id': fields.String(description='Subnet ID'),
+        'cidr_block': fields.String(description='Cell CIDR Block'),
     }
 
     cell_model = api.model(
@@ -104,6 +108,7 @@ def init(api, cors, impl):
             cors,
             req_model=server_model
         )
+        @handle_api_error
         def post(self, vpc_name, domain, name):
             "Configure Worker Node"""
             return impl.configure(
@@ -114,6 +119,7 @@ def init(api, cors, impl):
             api,
             cors,
         )
+        @handle_api_error
         def delete(self, vpc_name, domain, name):
             "Delete Worker Node"""
             return impl.delete_server(
@@ -135,6 +141,7 @@ def init(api, cors, impl):
             cors,
             req_model=ldap_model
         )
+        @handle_api_error
         def post(self, vpc_name, domain, name):
             """Configure LDAP Server"""
             return impl.configure(
@@ -145,6 +152,7 @@ def init(api, cors, impl):
             api,
             cors,
         )
+        @handle_api_error
         def delete(self, vpc_name, domain, name):
             """Delete LDAP Server"""
             return impl.delete_ldap(
@@ -152,7 +160,7 @@ def init(api, cors, impl):
             )
 
     cell_req_parser = api.parser()
-    cell_req_parser.add_argument('cell_id', help='CELL(Subnet) ID',
+    cell_req_parser.add_argument('cell_name', help='CELL(Subnet) Name',
                                  location='args', required=False)
 
     @namespace.route(
@@ -172,16 +180,17 @@ def init(api, cors, impl):
         def get(self, vpc_name, domain):
             """CELL Info"""
             args = cell_req_parser.parse_args()
-            cell_id = args.get('cell_id')
+            cell_name = args.get('cell_name')
             return impl.cells(domain,
                               vpc_name,
-                              cell_id)
+                              cell_name)
 
         @webutils.post_api(
             api,
             cors,
             req_model=cell_model
         )
+        @handle_api_error
         def post(self, vpc_name, domain):
             """Configure Treadmill CELL"""
             return impl.configure(
@@ -192,25 +201,26 @@ def init(api, cors, impl):
             )
 
     @namespace.route(
-        '/vpc/<vpc_name>/domain/<domain>/cell/<cell_id>'
+        '/vpc/<vpc_name>/domain/<domain>/cell/<cell_name>'
     )
     @api.doc(params={
         'vpc_name': 'VPC Name',
         'domain': 'Domain',
-        'cell_id': 'Cell(Subnet) ID'
+        'cell_name': 'Cell(Subnet) Name'
     })
     class _CellCleaner(restplus.Resource):
         """Treadmill CELL Delete"""
+        @handle_api_error
         @webutils.delete_api(
             api,
             cors,
         )
-        def delete(self, vpc_name, domain, cell_id):
+        def delete(self, vpc_name, domain, cell_name):
             """Delete Treadmill CELL"""
             return impl.delete_cell(
                 vpc_name,
                 domain,
-                cell_id
+                cell_name
             )
 
     vpc_req_parser = api.parser()

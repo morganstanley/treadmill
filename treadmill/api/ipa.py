@@ -28,9 +28,10 @@ class API(object):
 
             assert 'Deleted host "' + hostname + '"' in result
 
-        def service_add(service, args):
+        def service_add(protocol, service, args):
             domain = args.get('domain')
             hostname = args.get('hostname')
+            service = protocol + '/' + service
             _service_with_domain = service + '@' + domain.upper()
 
             subprocess.check_output([

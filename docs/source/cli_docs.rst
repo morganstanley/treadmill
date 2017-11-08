@@ -13,8 +13,7 @@ Module: treadmill.cli.admin
 		  Admin commands.
 		
 		Options:
-		  --zookeeper TEXT
-		  --help            Show this message and exit.
+		  --help  Show this message and exit.
 		
 		Commands:
 		  blackout    Manage server and app blackouts.
@@ -25,8 +24,8 @@ Module: treadmill.cli.admin
 		  discovery   Discover container endpoints.
 		  http        Invoke Treadmill HTTP REST API.
 		  install     Installs Treadmill.
-		  invoke      Directly invoke Treadmill API without REST.
 		  ldap        Manage Treadmill LDAP data
+		  logs        View application's service logs.
 		  master      Manage Treadmill master data
 		  ok          Check status of Zookeeper ensemble.
 		  postmortem  Collect Treadmill node data
@@ -185,11 +184,10 @@ Module: treadmill.cli.admin.cloud
 		  --help         Show this message and exit.
 		
 		Commands:
-		  configure           Configure Treadmill EC2 Objects
-		  delete              Delete Treadmill EC2 Objects
-		  delete-hosted-zone  Delete Hosted Zones
-		  list                Show Treadmill Cloud Resources
-		  port                enable/disable EC2 instance port
+		  configure  Configure Treadmill EC2 Objects
+		  delete     Delete Treadmill EC2 Objects
+		  list       Show Treadmill Cloud Resources
+		  port       enable/disable EC2 instance port
 
 
 
@@ -198,7 +196,8 @@ Module: treadmill.cli.admin.cloud
 		  Configure Treadmill EC2 Objects
 		
 		Options:
-		  --help  Show this message and exit.
+		  --proid TEXT  Proid user for treadmill  [default: treadmld]
+		  --help        Show this message and exit.
 		
 		Commands:
 		  cell    Configure Treadmill Cell
@@ -220,14 +219,6 @@ Module: treadmill.cli.admin.cloud
 		  ldap    Delete LDAP
 		  node    Delete Node
 		  vpc     Delete VPC
-
-		Usage: cloud delete-hosted-zone [OPTIONS]
-		
-		  Delete Hosted Zones
-		
-		Options:
-		  --zones-to-retain TEXT  Hosted Zone IDs to retain  [required]
-		  --help                  Show this message and exit.
 
 		Usage: cloud list [OPTIONS] COMMAND [ARGS]...
 		
@@ -259,28 +250,24 @@ Module: treadmill.cli.admin.cloud
 		
 		Options:
 		  --vpc-name TEXT            VPC Name  [required]
-		  --region TEXT              Region for the vpc
-		  --name TEXT                Treadmill master name  [default: TreadmillMaster]
 		  --key TEXT                 SSH Key Name  [required]
-		  --count INTEGER            Number of Treadmill masters to spin up  [default:
-		                             3]
 		  --image TEXT               Image to use for new instances e.g. RHEL-7.4
 		                             [required]
+		  --subnet-name TEXT         Cell(Subnet) Name  [required]
+		  --count INTEGER            Number of Treadmill masters to spin up  [default:
+		                             3]
+		  --region TEXT              Region for the vpc
+		  --name TEXT                Treadmill master name  [default: TreadmillMaster]
 		  --instance-type TEXT       AWS ec2 instance type  [default: t2.micro]
 		  --tm-release TEXT          Treadmill release to use
 		  --app-root TEXT            Treadmill app root  [default: /var/tmp]
-		  --cell-cidr-block TEXT     CIDR block for the cell  [default: 172.23.0.0/24]
-		  --ldap-cidr-block TEXT     CIDR block for LDAP  [default: 172.23.1.0/24]
-		  --subnet-id TEXT           Subnet ID
-		  --ldap-subnet-id TEXT      Subnet ID for LDAP
-		  --without-ldap             Flag for LDAP Server  [default: False]
+		  --cidr-block TEXT          CIDR block for the cell  [default: 172.23.0.0/24]
 		  --ipa-admin-password TEXT  Password for IPA admin
 		  -m, --manifest TEXT        Options YAML file.  NOTE: This argument is mutually
-		                             exclusive with arguments: [app_root, key, vpc_name,
-		                             count, ldap_cidr_block, subnet_id, name,
-		                             without_ldap, cell_cidr_blockldap_subnet_id,
-		                             ipa_admin_password, region, instance_type,
-		                             tm_release, image].
+		                             exclusive with arguments: [ipa_admin_password,
+		                             region, cell_subnet_name, cidr_block,
+		                             instance_type, vpc_name, key, count, name,
+		                             app_root, tm_release, image].
 		  --help                     Show this message and exit.
 
 		Usage: configure domain [OPTIONS]
@@ -288,23 +275,24 @@ Module: treadmill.cli.admin.cloud
 		  Configure Treadmill Domain (IPA)
 		
 		Options:
+		  --vpc-name TEXT            VPC Name  [required]
+		  --key TEXT                 SSH key name  [required]
+		  --image TEXT               Image to use for new master instance e.g. RHEL-7.4
+		                             [required]
+		  --subnet-name TEXT         Subnet Name  [required]
 		  --name TEXT                Name of the instance  [default: TreadmillIPA]
 		  --region TEXT              Region for the vpc
-		  --vpc-name TEXT            VPC Name  [required]
 		  --subnet-cidr-block TEXT   Cidr block of subnet for IPA  [default:
 		                             172.23.2.0/24]
-		  --subnet-id TEXT           Subnet ID
 		  --count INTEGER            Count of the instances  [default: 1]
 		  --ipa-admin-password TEXT  Password for IPA admin
 		  --tm-release TEXT          Treadmill Release
-		  --key TEXT                 SSH key name  [required]
 		  --instance-type TEXT       Instance type  [default: t2.medium]
-		  --image TEXT               Image to use for new master instance e.g. RHEL-7.4
-		                             [required]
 		  -m, --manifest TEXT        Options YAML file.  NOTE: This argument is mutually
-		                             exclusive with arguments: [key, count, vpc_id,
-		                             name, ipa_admin_password, region, instance_type,
-		                             tm_release, subnet_cidr_blocksubnet_id, image].
+		                             exclusive with arguments: [ipa_admin_password,
+		                             region, subnet_cidr_blocksubnet_name,
+		                             instance_type, vpc_id, key, count, name,
+		                             tm_release, image].
 		  --help                     Show this message and exit.
 
 		Usage: configure ldap [OPTIONS]
@@ -313,23 +301,22 @@ Module: treadmill.cli.admin.cloud
 		
 		Options:
 		  --vpc-name TEXT            VPC name  [required]
-		  --region TEXT              Region for the vpc
 		  --key TEXT                 SSH Key Name  [required]
 		  --name TEXT                LDAP Instance Name  [required]
 		  --image TEXT               Image to use for instances e.g. RHEL-7.4
 		                             [required]
+		  --subnet-name TEXT         Subnet Name for LDAP  [required]
+		  --region TEXT              Region for the vpc
 		  --instance-type TEXT       AWS ec2 instance type  [default: t2.micro]
 		  --tm-release TEXT          Treadmill release to use
 		  --app-root TEXT            Treadmill app root  [default: /var/tmp]
 		  --ldap-cidr-block TEXT     CIDR block for LDAP  [default: 172.23.1.0/24]
-		  --ldap-subnet-id TEXT      Subnet ID for LDAP
-		  --cell-subnet-id TEXT      Subnet ID of Cell  [required]
 		  --ipa-admin-password TEXT  Password for IPA admin
 		  -m, --manifest TEXT        Options YAML file.  NOTE: This argument is mutually
-		                             exclusive with arguments: [app_root, key, vpc_name,
-		                             name, instance_type, region, tm_release,
-		                             cell_subnet_id, ipa_admin_passwordldap_cidr_block,
-		                             image, ldap_subnet_id].
+		                             exclusive with arguments: [region,
+		                             ipa_admin_passwordldap_cidr_block, instance_type,
+		                             vpc_name, key, name, subnet_name, app_root,
+		                             tm_release, image].
 		  --help                     Show this message and exit.
 
 		Usage: configure node [OPTIONS]
@@ -338,23 +325,24 @@ Module: treadmill.cli.admin.cloud
 		
 		Options:
 		  --vpc-name TEXT            VPC Name  [required]
-		  --region TEXT              Region for the vpc
-		  --name TEXT                Node name  [default: TreadmillNode]
 		  --key TEXT                 SSH Key Name  [required]
 		  --image TEXT               Image to use for new node instance e.g. RHEL-7.4
 		                             [required]
+		  --subnet-name TEXT         Cell(Subnet) Name  [required]
+		  --region TEXT              Region for the vpc
+		  --name TEXT                Node name  [default: TreadmillNode]
 		  --instance-type TEXT       AWS ec2 instance type  [default: t2.large]
 		  --tm-release TEXT          Treadmill release to use
 		  --app-root TEXT            Treadmill app root  [default: /var/tmp/treadmill-
 		                             node]
-		  --subnet-id TEXT           Subnet ID  [required]
 		  --ipa-admin-password TEXT  Password for IPA admin
 		  --with-api                 Provision node with Treadmill APIs  [default:
 		                             False]
 		  -m, --manifest TEXT        Options YAML file.  NOTE: This argument is mutually
-		                             exclusive with arguments: [app_root, key, vpc_name,
-		                             subnet_id, name, instance_type, region, tm_release,
-		                             ipa_admin_passwordwith_api, image].
+		                             exclusive with arguments: [region,
+		                             ipa_admin_passwordwith_api, instance_type,
+		                             vpc_name, key, name, subnet_name, app_root,
+		                             tm_release, image].
 		  --help                     Show this message and exit.
 
 		Usage: configure vpc [OPTIONS]
@@ -362,15 +350,12 @@ Module: treadmill.cli.admin.cloud
 		  Configure Treadmill VPC
 		
 		Options:
+		  --name TEXT            VPC name  [required]
 		  --region TEXT          Region for the vpc
 		  --vpc-cidr-block TEXT  CIDR block for the vpc  [default: 172.23.0.0/16]
-		  --secgroup_name TEXT   Security group name  [default: sg_common]
-		  --secgroup_desc TEXT   Description for the security group  [default: Treadmill
-		                         Security Group]
-		  --name TEXT            VPC name  [required]
 		  -m, --manifest TEXT    Options YAML file.  NOTE: This argument is mutually
-		                         exclusive with arguments: [secgroup_desc,
-		                         secgroup_name, name, vpc_cidr_block, region].
+		                         exclusive with arguments: [vpc_cidr_block, name,
+		                         region].
 		  --help                 Show this message and exit.
 
 
@@ -380,29 +365,29 @@ Module: treadmill.cli.admin.cloud
 		  Delete Cell (Subnet)
 		
 		Options:
-		  --vpc-name TEXT   VPC Name  [required]
-		  --subnet-id TEXT  Subnet ID of cell  [required]
-		  --help            Show this message and exit.
+		  --vpc-name TEXT     VPC Name  [required]
+		  --subnet-name TEXT  Subnet Name of cell  [required]
+		  --help              Show this message and exit.
 
 		Usage: delete domain [OPTIONS]
 		
 		  Delete IPA
 		
 		Options:
-		  --vpc-name TEXT   VPC Name  [required]
-		  --subnet-id TEXT  Subnet ID of IPA  [required]
-		  --name TEXT       Name of Instance  [default: TreadmillIPA]
-		  --help            Show this message and exit.
+		  --vpc-name TEXT     VPC Name  [required]
+		  --subnet-name TEXT  Subnet Name of Domain  [required]
+		  --name TEXT         Name of Instance  [default: TreadmillIPA]
+		  --help              Show this message and exit.
 
 		Usage: delete ldap [OPTIONS]
 		
 		  Delete LDAP
 		
 		Options:
-		  --vpc-name TEXT   VPC Name  [required]
-		  --subnet-id TEXT  Subnet ID of LDAP
-		  --name TEXT       Name of Instance  [default: TreadmillLDAP]
-		  --help            Show this message and exit.
+		  --vpc-name TEXT     VPC Name  [required]
+		  --subnet-name TEXT  Subnet Name of LDAP
+		  --name TEXT         Name of Instance
+		  --help              Show this message and exit.
 
 		Usage: delete node [OPTIONS]
 		
@@ -429,9 +414,9 @@ Module: treadmill.cli.admin.cloud
 		  Show Cell
 		
 		Options:
-		  --vpc-name TEXT   VPC Name
-		  --subnet-id TEXT  Subnet ID of cell
-		  --help            Show this message and exit.
+		  --vpc-name TEXT     VPC Name
+		  --subnet-name TEXT  Subnet Name of cell
+		  --help              Show this message and exit.
 
 		Usage: list vpc [OPTIONS]
 		
@@ -482,6 +467,8 @@ Module: treadmill.cli.admin.cron
 		  configure  Create or modify an existing app start...
 		  delete     Delete an app schedule
 		  list       List out all cron events
+		  pause      Pause a job ID
+		  resume     Resume a job ID
 
 
 
@@ -591,6 +578,7 @@ Module: treadmill.cli.admin.install
 		
 		Options:
 		  --install-dir TEXT          Target installation directory.  [required]
+		  --profile TEXT              Install profile.
 		  --cell TEXT                 [required]
 		  --config PATH
 		  --override KEY/VALUE PAIRS
@@ -643,7 +631,8 @@ Module: treadmill.cli.admin.install.node
 		
 		Options:
 		  --run / --no-run
-		  --help            Show this message and exit.
+		  --benchmark / --no-benchmark
+		  --help                        Show this message and exit.
 
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Module: treadmill.cli.admin.install.openldap
@@ -655,14 +644,16 @@ Module: treadmill.cli.admin.install.openldap
 		  Installs Treadmill Openldap server.
 		
 		Options:
-		  --gssapi            use gssapi auth.
-		  -p, --rootpw TEXT   password hash, generated by slappass -s <pwd>.
-		  -o, --owner TEXT    root user.
-		  -s, --suffix TEXT   suffix (e.g dc=example,dc=com).  [required]
-		  -u, --uri TEXT      uri, e.g: ldap://...:20389  [required]
-		  -m, --masters LIST  list of masters.
+		  --gssapi                        use gssapi auth.
+		  -p, --rootpw TEXT               password hash, generated by slappass -s <pwd>.
+		  -o, --owner TEXT                root user.  [required]
+		  --env TEXT                      Treadmill environment  [required]
+		  -s, --suffix TEXT               suffix (e.g dc=example,dc=com).
+		  -u, --uri TEXT                  uri, e.g: ldap://...:20389  [required]
+		  -m, --masters LIST              list of masters.
+		  --first-time / --no-first-time
 		  --run / --no-run
-		  --help              Show this message and exit.
+		  --help                          Show this message and exit.
 
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Module: treadmill.cli.admin.install.spawn
@@ -708,19 +699,20 @@ Module: treadmill.cli.admin.invoke
 		
 		Commands:
 		  allocation      Treadmill Allocation REST api.
-		  api_lookup      Treadmill API lookup API.
+		  api-lookup      Treadmill API lookup API.
 		  app             Treadmill App REST api.
-		  app_group       Treadmill AppGroup REST api.
-		  app_monitor     Treadmill AppMonitor REST api.
+		  app-group       Treadmill AppGroup REST api.
+		  app-monitor     Treadmill AppMonitor REST api.
 		  cell            Treadmill Cell REST api.
 		  cloud           Treadmill Cloud REST API.
-		  cron            Treadmill Cron REST api.
+		  cron            Treadmill CRON REST api.
 		  dns             Treadmill DNS REST api.
-		  identity_group  Treadmill Identity Group REST api.
+		  identity-group  Treadmill Identity Group REST api.
 		  instance        Treadmill Instance REST api.
 		  ipa             Treadmill IPA REST API.
 		  local           Treadmill Local REST api.
 		  nodeinfo        Treadmill Local REST api.
+		  scheduler       Scheduler reports API.
 		  server          Treadmill Server REST api.
 		  tenant          Treadmill Tenant REST api.
 
@@ -734,15 +726,13 @@ Module: treadmill.cli.admin.invoke
 		  --help  Show this message and exit.
 		
 		Commands:
-		  assignment   Assignment API.
-		  create       Create allocation.
-		  delete       Delete allocation.
-		  get          Get allocation configuration.
-		  list         List allocations.
-		  reservation  Reservation API.
-		  update       Update allocation.
+		  create  Create allocation.
+		  delete  Delete allocation.
+		  get     Get allocation configuration.
+		  list    List allocations.
+		  update  Update allocation.
 
-		Usage: invoke api_lookup [OPTIONS] COMMAND [ARGS]...
+		Usage: invoke api-lookup [OPTIONS] COMMAND [ARGS]...
 		
 		  Treadmill API lookup API.
 		
@@ -750,12 +740,8 @@ Module: treadmill.cli.admin.invoke
 		  --help  Show this message and exit.
 		
 		Commands:
-		  adminapi  Treadmill Admin API Lookup API
-		  cellapi   Treadmill Cell API Lookup API
-		  get       No get method
-		  list      Constructs a command handler.
-		  stateapi  Treadmill State API Lookup API
-		  wsapi     Treadmill WS API Lookup API
+		  get   No get method
+		  list  Constructs a command handler.
 
 		Usage: invoke app [OPTIONS] COMMAND [ARGS]...
 		
@@ -771,7 +757,7 @@ Module: treadmill.cli.admin.invoke
 		  list    List configured applications.
 		  update  Update application configuration.
 
-		Usage: invoke app_group [OPTIONS] COMMAND [ARGS]...
+		Usage: invoke app-group [OPTIONS] COMMAND [ARGS]...
 		
 		  Treadmill AppGroup REST api.
 		
@@ -785,7 +771,7 @@ Module: treadmill.cli.admin.invoke
 		  list    List configured applications.
 		  update  Update application configuration.
 
-		Usage: invoke app_monitor [OPTIONS] COMMAND [ARGS]...
+		Usage: invoke app-monitor [OPTIONS] COMMAND [ARGS]...
 		
 		  Treadmill AppMonitor REST api.
 		
@@ -830,18 +816,17 @@ Module: treadmill.cli.admin.invoke
 
 		Usage: invoke cron [OPTIONS] COMMAND [ARGS]...
 		
-		  Treadmill Cron REST api.
+		  Treadmill CRON REST api.
 		
 		Options:
 		  --help  Show this message and exit.
 		
 		Commands:
-		  create     Create (configure) instance.
-		  delete     Delete configured instance.
-		  get        Get instance configuration.
-		  list       List configured instances.
-		  scheduler  Lazily get scheduler
-		  update     Update instance configuration.
+		  create  Create cron job.
+		  delete  Delete configured cron job.
+		  get     Get cron job configuration.
+		  list    List configured cron jobs.
+		  update  Update cron job configuration.
 
 		Usage: invoke dns [OPTIONS] COMMAND [ARGS]...
 		
@@ -854,7 +839,7 @@ Module: treadmill.cli.admin.invoke
 		  get   Get DNS server entry
 		  list  List DNS servers
 
-		Usage: invoke identity_group [OPTIONS] COMMAND [ARGS]...
+		Usage: invoke identity-group [OPTIONS] COMMAND [ARGS]...
 		
 		  Treadmill Identity Group REST api.
 		
@@ -904,11 +889,8 @@ Module: treadmill.cli.admin.invoke
 		  --help  Show this message and exit.
 		
 		Commands:
-		  archive  Access to archive files.
-		  get      Get instance info.
-		  list     List all instances on the node.
-		  log      Access to log files.
-		  metrics  Acess to the locally gathered metrics.
+		  get   Get instance info.
+		  list  List all instances on the node.
 
 		Usage: invoke nodeinfo [OPTIONS] COMMAND [ARGS]...
 		
@@ -919,6 +901,16 @@ Module: treadmill.cli.admin.invoke
 		
 		Commands:
 		  get  Get hostname nodeinfo endpoint info.
+
+		Usage: invoke scheduler [OPTIONS] COMMAND [ARGS]...
+		
+		  Scheduler reports API.
+		
+		Options:
+		  --help  Show this message and exit.
+		
+		Commands:
+		  get  Fetch report from ZooKeeper and return it as...
 
 		Usage: invoke server [OPTIONS] COMMAND [ARGS]...
 		
@@ -950,19 +942,6 @@ Module: treadmill.cli.admin.invoke
 
 
 
-		Usage: allocation assignment [OPTIONS] COMMAND [ARGS]...
-		
-		  Assignment API.
-		
-		Options:
-		  --help  Show this message and exit.
-		
-		Commands:
-		  create  Create assignment.
-		  delete  Delete assignment.
-		  get     Get assignment configuration.
-		  update  Update assignment.
-
 		Usage: allocation create [OPTIONS] RSRC_ID RSRC
 		
 		  Create allocation.
@@ -992,19 +971,6 @@ Module: treadmill.cli.admin.invoke
 		  --tenant_id TEXT
 		  --help            Show this message and exit.
 
-		Usage: allocation reservation [OPTIONS] COMMAND [ARGS]...
-		
-		  Reservation API.
-		
-		Options:
-		  --help  Show this message and exit.
-		
-		Commands:
-		  create  Create reservation.
-		  delete  Delete reservation.
-		  get     Get reservation configuration.
-		  update  Create reservation.
-
 		Usage: allocation update [OPTIONS] RSRC_ID RSRC
 		
 		  Update allocation.
@@ -1014,182 +980,14 @@ Module: treadmill.cli.admin.invoke
 
 
 
-		Usage: assignment create [OPTIONS] RSRC_ID RSRC
-		
-		  Create assignment.
-		
-		Options:
-		  --help  Show this message and exit.
-
-		Usage: assignment delete [OPTIONS] RSRC_ID
-		
-		  Delete assignment.
-		
-		Options:
-		  --help  Show this message and exit.
-
-		Usage: assignment get [OPTIONS] RSRC_ID
-		
-		  Get assignment configuration.
-		
-		Options:
-		  --help  Show this message and exit.
-
-		Usage: assignment update [OPTIONS] RSRC_ID RSRC
-		
-		  Update assignment.
-		
-		Options:
-		  --help  Show this message and exit.
-
-
-
-		Usage: reservation create [OPTIONS] RSRC_ID RSRC
-		
-		  Create reservation.
-		
-		Options:
-		  --help  Show this message and exit.
-
-		Usage: reservation delete [OPTIONS] RSRC_ID
-		
-		  Delete reservation.
-		
-		Options:
-		  --help  Show this message and exit.
-
-		Usage: reservation get [OPTIONS] RSRC_ID
-		
-		  Get reservation configuration.
-		
-		Options:
-		  --help  Show this message and exit.
-
-		Usage: reservation update [OPTIONS] RSRC_ID RSRC
-		
-		  Create reservation.
-		
-		Options:
-		  --help  Show this message and exit.
-
-
-
-		Usage: api_lookup adminapi [OPTIONS] COMMAND [ARGS]...
-		
-		  Treadmill Admin API Lookup API
-		
-		Options:
-		  --help  Show this message and exit.
-		
-		Commands:
-		  get   Get Admin API SRV records
-		  list  Constructs a command handler.
-
-		Usage: api_lookup cellapi [OPTIONS] COMMAND [ARGS]...
-		
-		  Treadmill Cell API Lookup API
-		
-		Options:
-		  --help  Show this message and exit.
-		
-		Commands:
-		  get   Get Cell API SRV records for given cell
-		  list  Constructs a command handler.
-
-		Usage: api_lookup get [OPTIONS]
+		Usage: api-lookup get [OPTIONS]
 		
 		  No get method
 		
 		Options:
 		  --help  Show this message and exit.
 
-		Usage: api_lookup list [OPTIONS]
-		
-		  Constructs a command handler.
-		
-		Options:
-		  --help  Show this message and exit.
-
-		Usage: api_lookup stateapi [OPTIONS] COMMAND [ARGS]...
-		
-		  Treadmill State API Lookup API
-		
-		Options:
-		  --help  Show this message and exit.
-		
-		Commands:
-		  get   Get State API SRV records for given cell
-		  list  Constructs a command handler.
-
-		Usage: api_lookup wsapi [OPTIONS] COMMAND [ARGS]...
-		
-		  Treadmill WS API Lookup API
-		
-		Options:
-		  --help  Show this message and exit.
-		
-		Commands:
-		  get   Get WS API SRV records for given cell
-		  list  Constructs a command handler.
-
-
-
-		Usage: adminapi get [OPTIONS]
-		
-		  Get Admin API SRV records
-		
-		Options:
-		  --help  Show this message and exit.
-
-		Usage: adminapi list [OPTIONS]
-		
-		  Constructs a command handler.
-		
-		Options:
-		  --help  Show this message and exit.
-
-
-
-		Usage: cellapi get [OPTIONS] CELL_NAME
-		
-		  Get Cell API SRV records for given cell
-		
-		Options:
-		  --help  Show this message and exit.
-
-		Usage: cellapi list [OPTIONS]
-		
-		  Constructs a command handler.
-		
-		Options:
-		  --help  Show this message and exit.
-
-
-
-		Usage: stateapi get [OPTIONS] CELL_NAME
-		
-		  Get State API SRV records for given cell
-		
-		Options:
-		  --help  Show this message and exit.
-
-		Usage: stateapi list [OPTIONS]
-		
-		  Constructs a command handler.
-		
-		Options:
-		  --help  Show this message and exit.
-
-
-
-		Usage: wsapi get [OPTIONS] CELL_NAME
-		
-		  Get WS API SRV records for given cell
-		
-		Options:
-		  --help  Show this message and exit.
-
-		Usage: wsapi list [OPTIONS]
+		Usage: api-lookup list [OPTIONS]
 		
 		  Constructs a command handler.
 		
@@ -1236,28 +1034,28 @@ Module: treadmill.cli.admin.invoke
 
 
 
-		Usage: app_group create [OPTIONS] RSRC_ID RSRC
+		Usage: app-group create [OPTIONS] RSRC_ID RSRC
 		
 		  Create (configure) application.
 		
 		Options:
 		  --help  Show this message and exit.
 
-		Usage: app_group delete [OPTIONS] RSRC_ID
+		Usage: app-group delete [OPTIONS] RSRC_ID
 		
 		  Delete configured application.
 		
 		Options:
 		  --help  Show this message and exit.
 
-		Usage: app_group get [OPTIONS] RSRC_ID
+		Usage: app-group get [OPTIONS] RSRC_ID
 		
 		  Get application configuration.
 		
 		Options:
 		  --help  Show this message and exit.
 
-		Usage: app_group list [OPTIONS]
+		Usage: app-group list [OPTIONS]
 		
 		  List configured applications.
 		
@@ -1265,7 +1063,7 @@ Module: treadmill.cli.admin.invoke
 		  --match TEXT
 		  --help        Show this message and exit.
 
-		Usage: app_group update [OPTIONS] RSRC_ID RSRC
+		Usage: app-group update [OPTIONS] RSRC_ID RSRC
 		
 		  Update application configuration.
 		
@@ -1274,28 +1072,28 @@ Module: treadmill.cli.admin.invoke
 
 
 
-		Usage: app_monitor create [OPTIONS] RSRC_ID RSRC
+		Usage: app-monitor create [OPTIONS] RSRC_ID RSRC
 		
 		  Create (configure) application monitor.
 		
 		Options:
 		  --help  Show this message and exit.
 
-		Usage: app_monitor delete [OPTIONS] RSRC_ID
+		Usage: app-monitor delete [OPTIONS] RSRC_ID
 		
 		  Delete configured application monitor.
 		
 		Options:
 		  --help  Show this message and exit.
 
-		Usage: app_monitor get [OPTIONS] RSRC_ID
+		Usage: app-monitor get [OPTIONS] RSRC_ID
 		
 		  Get application monitor configuration.
 		
 		Options:
 		  --help  Show this message and exit.
 
-		Usage: app_monitor list [OPTIONS]
+		Usage: app-monitor list [OPTIONS]
 		
 		  List configured monitors.
 		
@@ -1303,7 +1101,7 @@ Module: treadmill.cli.admin.invoke
 		  --match TEXT
 		  --help        Show this message and exit.
 
-		Usage: app_monitor update [OPTIONS] RSRC_ID RSRC
+		Usage: app-monitor update [OPTIONS] RSRC_ID RSRC
 		
 		  Update application configuration.
 		
@@ -1349,7 +1147,7 @@ Module: treadmill.cli.admin.invoke
 
 
 
-		Usage: cloud cells [OPTIONS] DOMAIN VPC_NAME CELL_ID
+		Usage: cloud cells [OPTIONS] DOMAIN VPC_NAME CELL_NAME
 		
 		  Constructs a command handler.
 		
@@ -1363,7 +1161,7 @@ Module: treadmill.cli.admin.invoke
 		Options:
 		  --help  Show this message and exit.
 
-		Usage: cloud delete_cell [OPTIONS] VPC_NAME DOMAIN CELL_ID
+		Usage: cloud delete_cell [OPTIONS] VPC_NAME DOMAIN CELL_NAME
 		
 		  Constructs a command handler.
 		
@@ -1395,46 +1193,42 @@ Module: treadmill.cli.admin.invoke
 
 		Usage: cron create [OPTIONS] RSRC_ID RSRC
 		
-		  Create (configure) instance.
+		  Create cron job.
 		
 		Options:
 		  --help  Show this message and exit.
 
 		Usage: cron delete [OPTIONS] RSRC_ID
 		
-		  Delete configured instance.
+		  Delete configured cron job.
 		
 		Options:
 		  --help  Show this message and exit.
 
 		Usage: cron get [OPTIONS] RSRC_ID
 		
-		  Get instance configuration.
+		  Get cron job configuration.
 		
 		Options:
 		  --help  Show this message and exit.
 
 		Usage: cron list [OPTIONS]
 		
-		  List configured instances.
+		  List configured cron jobs.
 		
 		Options:
+		  --resource TEXT
 		  --match TEXT
-		  --help        Show this message and exit.
-
-		Usage: cron scheduler [OPTIONS]
-		
-		  Lazily get scheduler
-		
-		Options:
-		  --help  Show this message and exit.
+		  --help           Show this message and exit.
 
 		Usage: cron update [OPTIONS] RSRC_ID RSRC
 		
-		  Update instance configuration.
+		  Update cron job configuration.
 		
 		Options:
-		  --help  Show this message and exit.
+		  --resume BOOLEAN
+		  --pause BOOLEAN
+		  --help            Show this message and exit.
 
 
 
@@ -1454,28 +1248,28 @@ Module: treadmill.cli.admin.invoke
 
 
 
-		Usage: identity_group create [OPTIONS] RSRC_ID RSRC
+		Usage: identity-group create [OPTIONS] RSRC_ID RSRC
 		
 		  Create (configure) application group.
 		
 		Options:
 		  --help  Show this message and exit.
 
-		Usage: identity_group delete [OPTIONS] RSRC_ID
+		Usage: identity-group delete [OPTIONS] RSRC_ID
 		
 		  Delete configured application group.
 		
 		Options:
 		  --help  Show this message and exit.
 
-		Usage: identity_group get [OPTIONS] RSRC_ID
+		Usage: identity-group get [OPTIONS] RSRC_ID
 		
 		  Get application group configuration.
 		
 		Options:
 		  --help  Show this message and exit.
 
-		Usage: identity_group list [OPTIONS]
+		Usage: identity-group list [OPTIONS]
 		
 		  List configured identity groups.
 		
@@ -1483,7 +1277,7 @@ Module: treadmill.cli.admin.invoke
 		  --match TEXT
 		  --help        Show this message and exit.
 
-		Usage: identity_group update [OPTIONS] RSRC_ID RSRC
+		Usage: identity-group update [OPTIONS] RSRC_ID RSRC
 		
 		  Update application configuration.
 		
@@ -1497,15 +1291,17 @@ Module: treadmill.cli.admin.invoke
 		  Create (configure) instance.
 		
 		Options:
+		  --created_by TEXT
 		  --count INTEGER
-		  --help           Show this message and exit.
+		  --help             Show this message and exit.
 
 		Usage: instance delete [OPTIONS] RSRC_ID
 		
 		  Delete configured instance.
 		
 		Options:
-		  --help  Show this message and exit.
+		  --deleted_by TEXT
+		  --help             Show this message and exit.
 
 		Usage: instance get [OPTIONS] RSRC_ID
 		
@@ -1559,7 +1355,7 @@ Module: treadmill.cli.admin.invoke
 		Options:
 		  --help  Show this message and exit.
 
-		Usage: ipa service_add [OPTIONS] SERVICE ARGS
+		Usage: ipa service_add [OPTIONS] PROTOCOL SERVICE ARGS
 		
 		  Constructs a command handler.
 		
@@ -1567,16 +1363,6 @@ Module: treadmill.cli.admin.invoke
 		  --help  Show this message and exit.
 
 
-
-		Usage: local archive [OPTIONS] COMMAND [ARGS]...
-		
-		  Access to archive files.
-		
-		Options:
-		  --help  Show this message and exit.
-		
-		Commands:
-		  get  Get log file.
 
 		Usage: local get [OPTIONS] UNIQID
 		
@@ -1594,151 +1380,6 @@ Module: treadmill.cli.admin.invoke
 		  --state TEXT
 		  --help             Show this message and exit.
 
-		Usage: local log [OPTIONS] COMMAND [ARGS]...
-		
-		  Access to log files.
-		
-		Options:
-		  --help  Show this message and exit.
-		
-		Commands:
-		  _get_logfile  Return the corresponding log file.
-		  get           Get log file.
-		  tm_env        Lazy instantiate app environment.
-
-		Usage: local metrics [OPTIONS] COMMAND [ARGS]...
-		
-		  Acess to the locally gathered metrics.
-		
-		Options:
-		  --help  Show this message and exit.
-		
-		Commands:
-		  _app_rrd_file   Return an application's rrd file.
-		  _core_rrd_file  Return the given service's rrd file.
-		  _get_rrd_file   Return the rrd file path of an app or a core...
-		  _metrics_fpath  Return the rrd metrics file's full path.
-		  _remove_ext     Returns the basename of a file and removes...
-		  _unpack_id      Decompose resource_id to a dictionary.
-		  file_path       Return the rrd metrics file path.
-		  get             Return the rrd metrics.
-		  tm_env          Lazy instantiate app environment.
-
-
-
-		Usage: archive get [OPTIONS] ARCHIVE_ID
-		
-		  Get log file.
-		
-		Options:
-		  --help  Show this message and exit.
-
-
-
-		Usage: log _get_logfile [OPTIONS] SELF INSTANCE UNIQ LOGTYPE COMPONENT
-		
-		  Return the corresponding log file.
-		
-		Options:
-		  --help  Show this message and exit.
-
-		Usage: log get [OPTIONS] SELF LOG_ID
-		
-		  Get log file.
-		
-		Options:
-		  --order TEXT
-		  --limit TEXT
-		  --start INTEGER
-		  --help           Show this message and exit.
-
-		Usage: log tm_env [OPTIONS]
-		
-		  Lazy instantiate app environment.
-		
-		Options:
-		  --_metrics_api TEXT
-		  --help               Show this message and exit.
-
-
-
-		Usage: metrics _app_rrd_file [OPTIONS] SELF APP UNIQ
-		
-		  Return an application's rrd file.
-		
-		Options:
-		  --arch_extract BOOLEAN
-		  --help                  Show this message and exit.
-
-		Usage: metrics _core_rrd_file [OPTIONS] SELF SERVICE
-		
-		  Return the given service's rrd file.
-		
-		Options:
-		  --help  Show this message and exit.
-
-		Usage: metrics _get_rrd_file [OPTIONS] SELF
-		
-		  Return the rrd file path of an app or a core service.
-		
-		Options:
-		  --arch_extract BOOLEAN
-		  --uniq TEXT
-		  --app TEXT
-		  --service TEXT
-		  --help                  Show this message and exit.
-
-		Usage: metrics _metrics_fpath [OPTIONS] SELF
-		
-		  Return the rrd metrics file's full path.
-		
-		Options:
-		  --uniq TEXT
-		  --app TEXT
-		  --service TEXT
-		  --help          Show this message and exit.
-
-		Usage: metrics _remove_ext [OPTIONS] SELF FNAME
-		
-		  Returns the basename of a file and removes the extension as well.
-		
-		Options:
-		  --extension TEXT
-		  --help            Show this message and exit.
-
-		Usage: metrics _unpack_id [OPTIONS] SELF RSRC_ID
-		
-		  Decompose resource_id to a dictionary.
-		
-		  Unpack the (core) service name or the application name and "uniq name" from
-		  rsrc_id to a dictionary.
-		
-		Options:
-		  --help  Show this message and exit.
-
-		Usage: metrics file_path [OPTIONS] SELF RSRC_ID
-		
-		  Return the rrd metrics file path.
-		
-		Options:
-		  --help  Show this message and exit.
-
-		Usage: metrics get [OPTIONS] SELF RSRC_ID TIMEFRAME
-		
-		  Return the rrd metrics.
-		
-		Options:
-		  --as_json BOOLEAN
-		  --help             Show this message and exit.
-
-		Usage: metrics tm_env [OPTIONS]
-		
-		  Lazy instantiate app environment.
-		
-		Options:
-		  --_metrics_api TEXT
-		  --help               Show this message and exit.
-
 
 
 		Usage: nodeinfo get [OPTIONS] HOSTNAME
@@ -1747,6 +1388,16 @@ Module: treadmill.cli.admin.invoke
 		
 		Options:
 		  --help  Show this message and exit.
+
+
+
+		Usage: scheduler get [OPTIONS] REPORT_TYPE
+		
+		  Fetch report from ZooKeeper and return it as a DataFrame.
+		
+		Options:
+		  --match TEXT
+		  --help        Show this message and exit.
 
 
 
@@ -1843,6 +1494,7 @@ Module: treadmill.cli.admin.ldap
 		  cell        Manage cell configuration
 		  direct      Direct access to LDAP data
 		  dns         Manage Critical DNS server configuration
+		  haproxy     Manage HAProxies
 		  init        Initializes the LDAP directory structure
 		  partition   Manage partitions
 		  schema      View or update LDAP schema
@@ -1928,6 +1580,18 @@ Module: treadmill.cli.admin.ldap
 		  configure  Create, get or modify Critical DNS quorum
 		  delete     Delete Critical DNS server
 		  list       Displays Critical DNS servers list
+
+		Usage: ldap_group haproxy [OPTIONS] COMMAND [ARGS]...
+		
+		  Manage HAProxies
+		
+		Options:
+		  --help  Show this message and exit.
+		
+		Commands:
+		  configure  Create, get or modify HAProxy servers
+		  delete     Delete a partition
+		  list       List partitions
 
 		Usage: ldap_group init [OPTIONS]
 		
@@ -2022,15 +1686,16 @@ Module: treadmill.cli.admin.ldap
 		  Reserve capacity on a given cell
 		
 		Options:
-		  -m, --memory TEXT            Memory.
-		  -c, --cpu TEXT               CPU.
-		  -d, --disk TEXT              Disk.
-		  -r, --rank INTEGER           Rank.
-		  -u, --max-utilization FLOAT  Max utilization.
-		  -t, --traits LIST            Allocation traits
-		  -p, --partition TEXT         Allocation partition
-		  --cell TEXT                  Cell.  [required]
-		  --help                       Show this message and exit.
+		  -m, --memory TEXT              Memory.
+		  -c, --cpu TEXT                 CPU.
+		  -d, --disk TEXT                Disk.
+		  -r, --rank INTEGER             Rank.
+		  -a, --rank-adjustment INTEGER  Rank adjustment.
+		  -u, --max-utilization FLOAT    Max utilization.
+		  -t, --traits LIST              Allocation traits
+		  -p, --partition TEXT           Allocation partition
+		  --cell TEXT                    Cell.  [required]
+		  --help                         Show this message and exit.
 
 
 
@@ -2115,6 +1780,7 @@ Module: treadmill.cli.admin.ldap
 		  --archive-username TEXT  Archive username.
 		  --ssq-namespace TEXT     SSQ namespace.
 		  -d, --data PATH          Cell specific data in YAML
+		  --status TEXT            Cell status
 		  -m, --manifest PATH      Load cell from manifest file.
 		  --help                   Show this message and exit.
 
@@ -2188,7 +1854,7 @@ Module: treadmill.cli.admin.ldap
 		
 		Options:
 		  --server LIST        Server name
-		  -m, --manifest PATH  Load DNS from manifest file  [required]
+		  -m, --manifest PATH  Load DNS from manifest file
 		  --help               Show this message and exit.
 
 		Usage: dns delete [OPTIONS] NAME
@@ -2208,7 +1874,31 @@ Module: treadmill.cli.admin.ldap
 
 
 
-		Usage: partition configure [OPTIONS] LABEL
+		Usage: haproxy configure [OPTIONS] HAPROXY
+		
+		  Create, get or modify HAProxy servers
+		
+		Options:
+		  -c, --cell TEXT  Treadmll cell
+		  --help           Show this message and exit.
+
+		Usage: haproxy delete [OPTIONS] HAPROXY
+		
+		  Delete a partition
+		
+		Options:
+		  --help  Show this message and exit.
+
+		Usage: haproxy list [OPTIONS]
+		
+		  List partitions
+		
+		Options:
+		  --help  Show this message and exit.
+
+
+
+		Usage: partition configure [OPTIONS] PARTITION
 		
 		  Create, get or modify partition configuration
 		
@@ -2216,6 +1906,7 @@ Module: treadmill.cli.admin.ldap
 		  -m, --memory TEXT          Memory.
 		  -c, --cpu TEXT             CPU.
 		  -d, --disk TEXT            Disk.
+		  -s, --systems LIST         System eon id list
 		  -t, --down-threshold TEXT  Down threshold.
 		  --help                     Show this message and exit.
 
@@ -2243,7 +1934,7 @@ Module: treadmill.cli.admin.ldap
 		  -c, --cell TEXT       Treadmll cell
 		  -t, --traits TEXT     List of server traits
 		  -p, --partition TEXT  Server partition
-		  -d, --data LIST       Server specific data as key=value comma separated list
+		  -d, --data PATH       Server specific data in JSON
 		  --help                Show this message and exit.
 
 		Usage: server delete [OPTIONS] [SERVERS]...
@@ -2286,6 +1977,22 @@ Module: treadmill.cli.admin.ldap
 		
 		Options:
 		  --help  Show this message and exit.
+
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Module: treadmill.cli.admin.logs
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+::
+
+		Usage: logs [OPTIONS] APP_OR_SVC
+		
+		  View application's service logs.
+		
+		Options:
+		  --cell TEXT     [required]
+		  --host TEXT     Hostname where to look for the logs  [required]
+		  --uniq TEXT     The container uniq id
+		  --service TEXT  The name of the service for which the logs are to be retreived
+		  --help          Show this message and exit.
 
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Module: treadmill.cli.admin.master
@@ -2542,6 +2249,76 @@ Module: treadmill.cli.admin.master
 		  --help  Show this message and exit.
 
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Module: treadmill.cli.admin.node
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+::
+
+		Usage: node_group [OPTIONS] COMMAND [ARGS]...
+		
+		  Manage Treadmill node data
+		
+		Options:
+		  --aliases-path TEXT  Colon separated command alias paths
+		  --help               Show this message and exit.
+		
+		Commands:
+		  benchmark  Benchmark node IO performance
+		  lvm        Set up LVM on node
+
+
+
+		Usage: node_group benchmark [OPTIONS]
+		
+		  Benchmark node IO performance
+		
+		Options:
+		  --benchmark-publish-file PATH  File for benchmark process to publish result
+		                                 [required]
+		  --vg-name TEXT                 Benchmark this volume group
+		  --underlying-device-name PATH  Underlying device name of the vg
+		  --underlying-image-path PATH   Underlying image path of the vg
+		  --benchmark-volume TEXT        Benchmark file size, fio size
+		  --rw-type TEXT                 Benchmark r/w type, fio rw
+		  --job-number TEXT              Benchmark process number, fio numjobs
+		  --thread-number TEXT           Benchmark thread number each process, fio
+		                                 iodepth
+		  --iops-block-size TEXT         small block size to find max iops, fio bs
+		  --bps-block-size TEXT          large block size to find max bps, fio bs
+		  --max-seconds TEXT             Benchmark max run time in seconds, fio runtime
+		  --help                         Show this message and exit.
+
+		Usage: node_group lvm [OPTIONS] COMMAND [ARGS]...
+		
+		  Set up LVM on node
+		
+		Options:
+		  --help  Show this message and exit.
+		
+		Commands:
+		  device  Set up LVM on device
+		  image   Set up LVM on image file
+
+
+
+		Usage: lvm device [OPTIONS]
+		
+		  Set up LVM on device
+		
+		Options:
+		  --device-name PATH  Set up LVM this device  [required]
+		  --help              Show this message and exit.
+
+		Usage: lvm image [OPTIONS]
+		
+		  Set up LVM on image file
+		
+		Options:
+		  --image-path PATH  Set up LVM on an image file under this path  [required]
+		  --image-size TEXT  Image file size  [required]
+		  --image-name TEXT  Image file name
+		  --help             Show this message and exit.
+
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Module: treadmill.cli.admin.ok
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ::
@@ -2559,17 +2336,16 @@ Module: treadmill.cli.admin.postmortem
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ::
 
-		Usage: collect [OPTIONS] COMMAND [ARGS]...
+		Usage: collect [OPTIONS]
 		
 		  Collect Treadmill node data
 		
 		Options:
-		  --install-dir TEXT    Treadmill node install directory.
-		  --upload_script TEXT  upload script to upload post-mortem file
-		  --upload_args TEXT    arguments for upload script
-		  --help                Show this message and exit.
-
-
+		  --treadmill-root PATH  Treadmill root path.  [required]
+		  --upload-user TEXT     Upload postmortem statistics with this user.
+		                         [required]
+		  --upload-url TEXT      Upload postmortem statistics to this file url.
+		  --help                 Show this message and exit.
 
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Module: treadmill.cli.admin.scheduler
@@ -2586,9 +2362,21 @@ Module: treadmill.cli.admin.scheduler
 		  --help            Show this message and exit.
 		
 		Commands:
-		  view  Examine scheduler state.
+		  explain  Explain scheduler internals
+		  view     Examine scheduler state.
 
 
+
+		Usage: top explain [OPTIONS] COMMAND [ARGS]...
+		
+		  Explain scheduler internals
+		
+		Options:
+		  --help  Show this message and exit.
+		
+		Commands:
+		  placement  Explain application placement
+		  queue      Explain the application queue
 
 		Usage: top view [OPTIONS] COMMAND [ARGS]...
 		
@@ -2602,7 +2390,27 @@ Module: treadmill.cli.admin.scheduler
 		  allocs   View allocation report
 		  apps     View apps report
 		  queue    View utilization queue
+		  reboots  View server reboot times.
 		  servers  View servers report
+
+
+
+		Usage: explain placement [OPTIONS] INSTANCE
+		
+		  Explain application placement
+		
+		Options:
+		  --mode [full|default|servers]  Tree traversal method
+		  --help                         Show this message and exit.
+
+		Usage: explain queue [OPTIONS]
+		
+		  Explain the application queue
+		
+		Options:
+		  --instance TEXT   Application instance
+		  --partition TEXT  Cell partition
+		  --help            Show this message and exit.
 
 
 
@@ -2626,6 +2434,14 @@ Module: treadmill.cli.admin.scheduler
 		
 		Options:
 		  --help  Show this message and exit.
+
+		Usage: view reboots [OPTIONS]
+		
+		  View server reboot times.
+		
+		Options:
+		  --histogram  Print histogram of reboot times
+		  --help       Show this message and exit.
 
 		Usage: view servers [OPTIONS]
 		
@@ -2740,7 +2556,15 @@ Module: treadmill.cli.allocation
 
 		Usage: allocation [OPTIONS] COMMAND [ARGS]...
 		
-		  Configure Treadmill allocations.
+		  Manage Treadmill allocations.
+		
+		  Allocation is a group of applications that share same capacity. Each
+		  allocation is partitioned by environment and cell. Given allocation, cell
+		  and environment, users reserve capacity for their apps.
+		
+		  Allocations form a hierarchy, so that when reservation is underused, extra
+		  capacity is offered to sibling apps first (by environment), and then up the
+		  tree for applications in parent allocations.
 		
 		Options:
 		  --api TEXT  API url to use.
@@ -2748,10 +2572,10 @@ Module: treadmill.cli.allocation
 		
 		Commands:
 		  assign     Assign application pattern:priority to the...
-		  configure  Configure allocation tenant.
+		  configure  Configure allocation.
 		  delete     Delete a tenant/allocation/reservation.
-		  list       Configure allocation tenant.
-		  reserve    Reserve capacity on the cell.
+		  list       List allocations.
+		  reserve    Reserve capacity on the cell for given...
 
 
 
@@ -2759,21 +2583,33 @@ Module: treadmill.cli.allocation
 		
 		  Assign application pattern:priority to the allocation.
 		
+		  Application pattern must start with <PROID>. and is a glob expression.
+		
+		  Environments of the proid and one specified in command line using --env
+		  option must match.
+		
+		  Once scheduled, Treadmill scheduler will match application against all
+		  available patterns and assign application to a reserved capacity.
+		
+		  All application assigned to a capacity are ordered by priority from high to
+		  low.
+		
 		Options:
+		  -e, --env TEXT      Environment.  [required]
 		  -c, --cell TEXT     Treadmill cell  [required]
 		  --pattern TEXT      Application pattern.  [required]
 		  --priority INTEGER  Assignment priority.
 		  --delete            Delete assignment.
 		  --help              Show this message and exit.
 
-		Usage: allocation configure [OPTIONS] TENANT
+		Usage: allocation configure [OPTIONS] ALLOCATION
 		
-		  Configure allocation tenant.
+		  Configure allocation.
+		
+		  Allocation name is global, and is associated with list of systems.
 		
 		Options:
 		  -s, --systems LIST  System ID
-		  -e, --env TEXT      Environment
-		  -n, --name TEXT     Allocation name
 		  --help              Show this message and exit.
 
 		Usage: allocation delete [OPTIONS] ITEM
@@ -2785,23 +2621,42 @@ Module: treadmill.cli.allocation
 
 		Usage: allocation list [OPTIONS]
 		
-		  Configure allocation tenant.
+		  List allocations.
 		
 		Options:
 		  --help  Show this message and exit.
 
 		Usage: allocation reserve [OPTIONS] ALLOCATION
 		
-		  Reserve capacity on the cell.
+		  Reserve capacity on the cell for given environment.
 		
 		Options:
-		  -c, --cell TEXT       Treadmill cell
-		  -p, --partition TEXT  Allocation partition
-		  -r, --rank INTEGER    Allocation rank
-		  --memory G|M          Memory demand.
-		  --cpu XX%             CPU demand, %.
-		  --disk G|M            Disk demand.
-		  --help                Show this message and exit.
+		  -e, --env TEXT             Environment.  [required]
+		  -c, --cell TEXT            Treadmill cell  [required]
+		  -p, --partition TEXT       Allocation partition
+		  -r, --rank INTEGER         Allocation rank
+		  --rank-adjustment INTEGER  Rank adjustment
+		  --max-utilization FLOAT    Maximum utilization
+		  --empty                    Make empty (zero capacity) reservation.
+		  --memory G|M               Memory demand.
+		  --cpu XX%                  CPU demand, %.
+		  --disk G|M                 Disk demand.
+		  --help                     Show this message and exit.
+
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Module: treadmill.cli.build_binary
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+::
+
+		Usage: build-binary [OPTIONS]
+		
+		  Build treadmill binary and RPM
+		
+		Options:
+		  -s, --source TEXT           Treadmill source directory path  [required]
+		  -t, --release-tag TEXT      Release tag
+		  -m, --release-message TEXT  Release message
+		  --help                      Show this message and exit.
 
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Module: treadmill.cli.cell
@@ -2817,12 +2672,12 @@ Module: treadmill.cli.cell
 		  --help      Show this message and exit.
 		
 		Commands:
-		  get   Display the details of a cell.
-		  list  List the configured cells.
+		  configure  Display the details of a cell.
+		  list       List the configured cells.
 
 
 
-		Usage: cell get [OPTIONS] NAME
+		Usage: cell configure [OPTIONS] NAME
 		
 		  Display the details of a cell.
 		
@@ -2916,20 +2771,18 @@ Module: treadmill.cli.cloud
 		  --region TEXT              Region for the vpc
 		  --name TEXT                Treadmill master name  [default: TreadmillMaster]
 		  --key TEXT                 SSH Key Name  [required]
-		  --count INTEGER            Number of Treadmill masters to spin up  [default:
-		                             3]
 		  --image TEXT               Image to use for new instances e.g. RHEL-7.4
 		                             [required]
+		  --subnet-name TEXT         Cell(Subnet) Name  [required]
 		  --instance-type TEXT       AWS ec2 instance type  [default: t2.micro]
 		  --tm-release TEXT          Treadmill release to use
 		  --app-root TEXT            Treadmill app root  [default: /var/tmp]
-		  --cell-cidr-block TEXT     CIDR block for the cell  [default: 172.23.0.0/24]
-		  --subnet-id TEXT           Subnet ID
+		  --cidr-block TEXT          CIDR block for the cell  [default: 172.23.0.0/24]
 		  --ipa-admin-password TEXT  Password for IPA admin
 		  -m, --manifest TEXT        Options YAML file.  NOTE: This argument is mutually
-		                             exclusive with arguments: [app_root, key, vpc_name,
-		                             count, cell_cidr_blocksubnet_id, name,
-		                             ipa_admin_password, region, instance_type,
+		                             exclusive with arguments: [ipa_admin_password,
+		                             region, instance_type, vpc_name,
+		                             cidr_blocksubnet_name, key, name, app_root,
 		                             tm_release, image].
 		  --help                     Show this message and exit.
 
@@ -2939,23 +2792,22 @@ Module: treadmill.cli.cloud
 		
 		Options:
 		  --vpc-name TEXT            VPC name  [required]
-		  --region TEXT              Region for the vpc
 		  --key TEXT                 SSH Key Name  [required]
 		  --name TEXT                LDAP Instance Name  [required]
 		  --image TEXT               Image to use for instances e.g. RHEL-7.4
 		                             [required]
+		  --subnet-name TEXT         Subnet Name for LDAP  [required]
+		  --region TEXT              Region for the vpc
 		  --instance-type TEXT       AWS ec2 instance type  [default: t2.micro]
 		  --tm-release TEXT          Treadmill release to use
 		  --app-root TEXT            Treadmill app root  [default: /var/tmp]
 		  --ldap-cidr-block TEXT     CIDR block for LDAP  [default: 172.23.1.0/24]
-		  --ldap-subnet-id TEXT      Subnet ID for LDAP
-		  --cell-subnet-id TEXT      Subnet ID of Cell  [required]
 		  --ipa-admin-password TEXT  Password for IPA admin
 		  -m, --manifest TEXT        Options YAML file.  NOTE: This argument is mutually
-		                             exclusive with arguments: [app_root, key, vpc_name,
-		                             name, instance_type, region, tm_release,
-		                             cell_subnet_id, ipa_admin_passwordldap_cidr_block,
-		                             image, ldap_subnet_id].
+		                             exclusive with arguments: [region,
+		                             ipa_admin_passwordldap_cidr_block, instance_type,
+		                             vpc_name, key, name, subnet_name, app_root,
+		                             tm_release, image].
 		  --help                     Show this message and exit.
 
 		Usage: configure node [OPTIONS]
@@ -2969,18 +2821,19 @@ Module: treadmill.cli.cloud
 		  --key TEXT                 SSH Key Name  [required]
 		  --image TEXT               Image to use for new node instance e.g. RHEL-7.4
 		                             [required]
+		  --subnet-name TEXT         Cell(Subnet) Name  [required]
 		  --instance-type TEXT       AWS ec2 instance type  [default: t2.large]
 		  --tm-release TEXT          Treadmill release to use
 		  --app-root TEXT            Treadmill app root  [default: /var/tmp/treadmill-
 		                             node]
-		  --subnet-id TEXT           Subnet ID  [required]
 		  --ipa-admin-password TEXT  Password for IPA admin
 		  --with-api                 Provision node with Treadmill APIs  [default:
 		                             False]
 		  -m, --manifest TEXT        Options YAML file.  NOTE: This argument is mutually
-		                             exclusive with arguments: [app_root, key, vpc_name,
-		                             subnet_id, name, instance_type, region, tm_release,
-		                             ipa_admin_passwordwith_api, image].
+		                             exclusive with arguments: [ipa_admin_password,
+		                             region, instance_type, vpc_name, key, name,
+		                             subnet_name, app_root, tm_release, image,
+		                             with_api].
 		  --help                     Show this message and exit.
 
 
@@ -2990,9 +2843,9 @@ Module: treadmill.cli.cloud
 		  Delete Cell
 		
 		Options:
-		  --vpc-name TEXT   VPC Name  [required]
-		  --subnet-id TEXT  Cell(Subnet) ID  [required]
-		  --help            Show this message and exit.
+		  --vpc-name TEXT     VPC Name  [required]
+		  --subnet-name TEXT  Cell(Subnet) Name  [required]
+		  --help              Show this message and exit.
 
 		Usage: delete ldap [OPTIONS]
 		
@@ -3094,9 +2947,9 @@ Module: treadmill.cli.cloud
 		  Show Cell(s)
 		
 		Options:
-		  --vpc-name TEXT  VPC Name  [required]
-		  --cell-id TEXT   Cell(Subnet) ID
-		  --help           Show this message and exit.
+		  --vpc-name TEXT   VPC Name  [required]
+		  --cell-name TEXT  Cell(Subnet) Name
+		  --help            Show this message and exit.
 
 		Usage: list vpc [OPTIONS]
 		
@@ -3139,10 +2992,12 @@ Module: treadmill.cli.cron
 		  configure  Create or modify an existing app start...
 		  delete     Delete a cron events
 		  list       List out all cron events
+		  pause      Pause a cron job
+		  resume     Resume a cron job
 
 
 
-		Usage: cron_group configure [OPTIONS] JOB_ID EVENT
+		Usage: cron_group configure [OPTIONS] JOB_ID [EVENT]
 		
 		  Create or modify an existing app start schedule
 		
@@ -3162,6 +3017,22 @@ Module: treadmill.cli.cron
 		Usage: cron_group list [OPTIONS]
 		
 		  List out all cron events
+		
+		Options:
+		  --match TEXT     Cron name pattern match
+		  --resource TEXT  Pattern match on the resource name
+		  --help           Show this message and exit.
+
+		Usage: cron_group pause [OPTIONS] JOB_ID
+		
+		  Pause a cron job
+		
+		Options:
+		  --help  Show this message and exit.
+
+		Usage: cron_group resume [OPTIONS] JOB_ID
+		
+		  Resume a cron job
 		
 		Options:
 		  --help  Show this message and exit.
@@ -3287,30 +3158,6 @@ Module: treadmill.cli.manage
 		  --help  Show this message and exit.
 
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-Module: treadmill.cli.metrics
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-::
-
-		Usage: metrics [OPTIONS] COMMAND [ARGS]...
-		
-		  Retrieve node / app metrics.
-		
-		Options:
-		  --cell-api TEXT    Cell API url to use.
-		  --api TEXT         State API url to use.
-		  --cell TEXT        [required]
-		  -o, --outdir PATH  Output directory.  [required]
-		  --ws-api TEXT      Websocket API url to use.
-		  --help             Show this message and exit.
-		
-		Commands:
-		  app      Get the metrics of the application in params.
-		  running  Get the metrics of running instances.
-		  sys      Get the metrics of the server(s) in params.
-
-
-
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Module: treadmill.cli.monitor
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ::
@@ -3396,6 +3243,95 @@ Module: treadmill.cli.run
 		  --help                        Show this message and exit.
 
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Module: treadmill.cli.scheduler
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+::
+
+		Usage: run [OPTIONS] COMMAND [ARGS]...
+		
+		  Report scheduler state.
+		
+		Options:
+		  --cell TEXT  Treadmill cell  [required]
+		  --api URL    Cell API URL
+		  --help       Show this message and exit.
+
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Module: treadmill.cli.scheduler.allocs
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+::
+
+		Usage: allocs [OPTIONS]
+		
+		  View allocations report.
+		
+		Options:
+		  --match TEXT  Server name pattern match
+		  --help        Show this message and exit.
+
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Module: treadmill.cli.scheduler.apps
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+::
+
+		Usage: apps [OPTIONS]
+		
+		  View apps report.
+		
+		Options:
+		  --match TEXT  Server name pattern match
+		  --full
+		  --help        Show this message and exit.
+
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Module: treadmill.cli.scheduler.servers
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+::
+
+		Usage: servers [OPTIONS]
+		
+		  View servers report.
+		
+		Options:
+		  --match TEXT  Server name pattern match
+		  --help        Show this message and exit.
+
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Module: treadmill.cli.server
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+::
+
+		Usage: server [OPTIONS] COMMAND [ARGS]...
+		
+		  List & display Treadmill servers.
+		
+		Options:
+		  --api TEXT  API url to use.
+		  --help      Show this message and exit.
+		
+		Commands:
+		  configure  Display details of the server.
+		  list       List all servers.
+
+
+
+		Usage: server configure [OPTIONS] NAME
+		
+		  Display details of the server.
+		
+		Options:
+		  --help  Show this message and exit.
+
+		Usage: server list [OPTIONS]
+		
+		  List all servers.
+		
+		Options:
+		  --cell TEXT       Filter servers by cell  [required]
+		  --partition TEXT  Filter servers by partition
+		  --help            Show this message and exit.
+
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Module: treadmill.cli.show
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ::
@@ -3426,8 +3362,9 @@ Module: treadmill.cli.show
 		  Show scheduled instances.
 		
 		Options:
-		  --match TEXT  Application name pattern match
-		  --help        Show this message and exit.
+		  --match TEXT      Application name pattern match
+		  --partition TEXT  Filter apps by partition
+		  --help            Show this message and exit.
 
 		Usage: show endpoints [OPTIONS] PATTERN [ENDPOINT] [PROTO]
 		
@@ -3441,8 +3378,9 @@ Module: treadmill.cli.show
 		  Show finished instances.
 		
 		Options:
-		  --match TEXT  Application name pattern match
-		  --help        Show this message and exit.
+		  --match TEXT      Application name pattern match
+		  --partition TEXT  Filter apps by partition
+		  --help            Show this message and exit.
 
 		Usage: show instance [OPTIONS] INSTANCE_ID
 		
@@ -3456,24 +3394,27 @@ Module: treadmill.cli.show
 		  Show pending instances.
 		
 		Options:
-		  --match TEXT  Application name pattern match
-		  --help        Show this message and exit.
+		  --match TEXT      Application name pattern match
+		  --partition TEXT  Filter apps by partition
+		  --help            Show this message and exit.
 
 		Usage: show running [OPTIONS]
 		
 		  Show running instances.
 		
 		Options:
-		  --match TEXT  Application name pattern match
-		  --help        Show this message and exit.
+		  --match TEXT      Application name pattern match
+		  --partition TEXT  Filter apps by partition
+		  --help            Show this message and exit.
 
 		Usage: show scheduled [OPTIONS]
 		
 		  Show scheduled instances.
 		
 		Options:
-		  --match TEXT  Application name pattern match
-		  --help        Show this message and exit.
+		  --match TEXT      Application name pattern match
+		  --partition TEXT  Filter apps by partition
+		  --help            Show this message and exit.
 
 		Usage: show state [OPTIONS]
 		
@@ -3500,17 +3441,20 @@ Module: treadmill.cli.sproc
 		  --help            Show this message and exit.
 		
 		Commands:
+		  ad               Manage Active Directory integration.
 		  appcfgmgr        Starts appcfgmgr process.
 		  appevents        Publish application events.
 		  appmonitor       Sync LDAP data with Zookeeper data.
 		  cellsync         Sync LDAP data with Zookeeper data.
 		  cgroup           Manage core cgroups.
+		  cgroup-server    Create pge server to provide authorize...
 		  checkout         Test treadmill infrastructure.
 		  cleanup          Start cleanup process.
 		  configure        Configure local manifest and schedule app to...
 		  cron             Run Treadmill master scheduler.
 		  eventdaemon      Listens to Zookeeper events.
 		  exec             Exec command line in treadmill environment.
+		  export-reports   Export scheduler reports from ZooKeeper to...
 		  finish           Finish treadmill application on the node.
 		  firewall         Manage Treadmill firewall.
 		  haproxy          Run Treadmill HAProxy
@@ -3518,19 +3462,18 @@ Module: treadmill.cli.sproc
 		  host-ring        Manage /etc/hosts file inside the container.
 		  init             Run treadmill init process.
 		  kafka            Run Treadmill Kafka
+		  keytabs          Manage Kerberos keytabs.
 		  metrics          Collect node and container metrics.
 		  monitor          Monitor group of services.
 		  nodeinfo         Runs nodeinfo server.
 		  presence         Register container/app presence.
 		  reboot-monitor   Runs node reboot monitor.
 		  restapi          Run Treadmill API server.
-		  run              Runs container given a container dir.
 		  scheduler        Run Treadmill master scheduler.
 		  service          Run local node service.
-		  spawn            Spawn group.
 		  tickets          Manage Kerberos tickets.
 		  trace            Manage Treadmill traces.
-		  version-monitor  Runs node version monitor.
+		  version-monitor  Monitor group of services.
 		  vring            Run vring manager.
 		  websocket        Treadmill Websocket
 		  zk2fs            Starts appcfgmgr process.
@@ -3578,10 +3521,6 @@ Module: treadmill.cli.supervise
 		
 		Options:
 		  --help  Show this message and exit.
-		
-		Commands:
-		  multi-cell-monitor  Control app monitors across cells
-		  reaper              Removes unhealthy instances of the app.
 
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Module: treadmill.cli.supervise.multi_cell_monitor
@@ -3642,6 +3581,15 @@ Module: treadmill.cli.trace
 		
 		  Specifying only an application name will list all the instance IDs with
 		  trace information available.
+		
+		  The trace will exit with the exit code of the container service that caused
+		  container finish (reached retry count).
+		
+		  Special error codes if service did not exit gracefully and it is not
+		  possible to capture the return code:
+		
+		      101 - container was aborted.     102 - container was killed (possible
+		      out of memory)     100 - everything else.
 		
 		Options:
 		  --cell TEXT  [required]

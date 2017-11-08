@@ -1,6 +1,5 @@
 from treadmill.infra.setup import base_provision
-from treadmill.infra import configuration, constants, instances, connection
-import time
+from treadmill.infra import configuration, constants, instances
 from treadmill.api import ipa
 
 
@@ -12,38 +11,43 @@ class Node(base_provision.BaseProvision):
             tm_release,
             instance_type,
             app_root,
-            subnet_id,
             with_api,
-            ipa_admin_password
+            ipa_admin_password,
+            proid,
+            subnet_name
     ):
-        self.name = self.name + '-' + str(time.time())
-        self.hostname = self.name + '.' + connection.Connection.context.domain
-        ldap_hostname = instances.Instances.get_hostnames_by_roles(
-            vpc_id=self.vpc.id,
-            roles=[
-                constants.ROLES['LDAP'],
-            ]
-        )[constants.ROLES['LDAP']]
+        ldap_hostname, zk_hostname = self.hostnames_for(roles=[
+            constants.ROLES['LDAP'],
+            constants.ROLES['ZOOKEEPER'],
+        ])
 
-        otp = ipa.API().add_host(hostname=self.hostname)
-        self.configuration = configuration.Node(
-            tm_release=tm_release,
-            app_root=app_root,
-            subnet_id=subnet_id,
-            ldap_hostname=ldap_hostname,
-            otp=otp,
-            with_api=with_api,
-            hostname=self.hostname,
-            ipa_admin_password=ipa_admin_password
-        )
-        self.subnet_name = constants.TREADMILL_CELL_SUBNET_NAME
-        super().setup(
-            image=image,
-            count=1,
-            subnet_id=subnet_id,
-            key=key,
-            instance_type=instance_type
-        )
+        _ipa = ipa.API()
+        _node_hostnames = self._hostname_cluster(count=1)
+
+        for _idx in _node_hostnames.keys():
+            _node_h = _node_hostnames[_idx]
+            otp = _ipa.add_host(hostname=_node_h)
+            self.name = _node_h
+
+            self.configuration = configuration.Node(
+                tm_release=tm_release,
+                app_root=app_root,
+                ldap_hostname=ldap_hostname,
+                otp=otp,
+                with_api=with_api,
+                hostname=_node_h,
+                ipa_admin_password=ipa_admin_password,
+                proid=proid,
+                zk_url=self._zk_url(zk_hostname)
+            )
+            super().setup(
+                image=image,
+                count=1,
+                key=key,
+                instance_type=instance_type,
+                subnet_name=subnet_name,
+                sg_names=[constants.COMMON_SEC_GRP],
+            )
 
     def destroy(self, instance_id=None):
         if instance_id:

@@ -293,7 +293,7 @@ def connect_native(zkurl, client_id=None, listener=None, max_tries=30,
                 if not zkclient.exists(component):
                     # TODO: need to compare acls if component exists.
                     try:
-                        zkclient.create(component, '', makepath=True, acl=acl)
+                        zkclient.create(component, b'', makepath=True, acl=acl)
                     except kazoo.exceptions.KazooException:
                         _LOGGER.exception('chroot %s does not exist.', chroot)
                         raise

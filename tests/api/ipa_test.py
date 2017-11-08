@@ -64,6 +64,7 @@ class ApiIPATest(unittest.TestCase):
         subprocess.check_output = mock.Mock(return_value=_ipa_result_mock)
 
         self.ipa.service_add(
+            protocol='prot',
             service='some-service',
             args={
                 'domain': 'some-domain',
@@ -78,12 +79,12 @@ class ApiIPATest(unittest.TestCase):
                     'ipa',
                     'service-add',
                     '--force',
-                    'some-service'
+                    'prot/some-service'
                 ]),
                 mock.call([
                     'ipa',
                     'service-allow-retrieve-keytab',
-                    'some-service@SOME-DOMAIN',
+                    'prot/some-service@SOME-DOMAIN',
                     '--hosts=some-host'
                 ])
             ]

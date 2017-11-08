@@ -2,13 +2,28 @@ import treadmill
 from treadmill.infra.setup import base_provision
 from treadmill.infra import configuration, constants
 import polling
-import time
+import logging
+
+_LOGGER = logging.getLogger(__name__)
 
 
 class IPA(base_provision.BaseProvision):
+    def __init__(self, *args, **kwargs):
+        self._instances = None
+
+        super().__init__(*args, **kwargs)
+
     @property
-    def metadata(self):
-        return self.subnet.show(constants.ROLES['IPA'])['Instances'][0]
+    def instances(self):
+        if not self._instances:
+            self.subnet.refresh()
+            self.subnet.get_instances(
+                refresh=True,
+                role=constants.ROLES['IPA']
+            )
+            self._instances = self.subnet.instances
+
+        return self._instances
 
     def setup(
             self,
@@ -19,49 +34,81 @@ class IPA(base_provision.BaseProvision):
             tm_release,
             key,
             instance_type,
-            subnet_id=None
+            proid,
+            subnet_name,
     ):
         treadmill.infra.get_iam_role(
             name=constants.IPA_EC2_IAM_ROLE,
             create=True
         )
 
-        self.configuration = configuration.IPA(
-            name=self.name,
-            cell=subnet_id,
-            vpc=self.vpc,
-            ipa_admin_password=ipa_admin_password,
-            tm_release=tm_release,
+        secgroup_id = self.vpc.create_security_group(
+            constants.IPA_SEC_GRP, 'IPA Security Group'
         )
-        super().setup(
-            image=image,
-            count=count,
-            cidr_block=cidr_block,
-            subnet_id=subnet_id,
-            key=key,
-            instance_type=instance_type
-        )
+        ip_permissions = [{
+            'IpProtocol': 'tcp',
+            'FromPort': constants.IPA_API_PORT,
+            'ToPort': constants.IPA_API_PORT,
+            'IpRanges': [{'CidrIp': '0.0.0.0/0'}]
+        }]
+        self.vpc.add_secgrp_rules(ip_permissions, secgroup_id)
 
-        def get_ipa_status():
-            while self.metadata['InstanceState'] != 'running':
-                time.sleep(2)
-            return self.ec2_conn.describe_instance_status(
-                InstanceIds=[self.metadata['InstanceId']]
-            )['InstanceStatuses'][0]['InstanceStatus']['Details'][0]['Status']
+        _ipa_hostnames = self._hostname_cluster(count=count)
+
+        for _idx in _ipa_hostnames.keys():
+            _ipa_h = _ipa_hostnames[_idx]
+            self.name = _ipa_h
+
+            self.configuration = configuration.IPA(
+                hostname=_ipa_h,
+                vpc=self.vpc,
+                ipa_admin_password=ipa_admin_password,
+                tm_release=tm_release,
+                proid=proid
+            )
+            super().setup(
+                image=image,
+                count=count,
+                cidr_block=cidr_block,
+                key=key,
+                instance_type=instance_type,
+                subnet_name=subnet_name,
+                sg_names=[constants.COMMON_SEC_GRP, constants.IPA_SEC_GRP],
+            )
+
+        def check_passed_status():
+            _LOGGER.info('Checking IPA server running status...')
+            return all(
+                map(
+                    lambda i: i.running_status(refresh=True) == 'passed',
+                    self.instances.instances
+                )
+            )
 
         polling.poll(
-            lambda: get_ipa_status() == 'passed',
+            check_passed_status,
             step=10,
             timeout=600
         )
+        self.vpc.associate_dhcp_options(default=True)
+
+        try:
+            self.vpc.delete_dhcp_options()
+        except:
+            pass
+
         self.vpc.associate_dhcp_options([
             {
                 'Key': 'domain-name-servers',
-                'Values': [self.metadata['PrivateIpAddress']]
+                'Values': [
+                    i.metadata['PrivateIpAddress']
+                    for i in self.instances.instances
+                ]
             }
         ])
 
-    def destroy(self, subnet_id):
+    def destroy(self, subnet_name):
         super().destroy(
-            subnet_id=subnet_id
+            subnet_name=subnet_name
         )
+        self.vpc.delete_security_groups(sg_names=[constants.IPA_SEC_GRP])

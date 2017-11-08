@@ -7,52 +7,29 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class Cell:
-    def __init__(self, subnet_id=None, vpc_id=None):
+    def __init__(self, subnet_name, vpc_id):
+        self.subnet_name = subnet_name
         self.vpc = vpc.VPC(id=vpc_id)
-        self.master = master.Master(
-            name=None,
-            vpc_id=self.vpc.id,
-        )
-        self.master.subnet = subnet.Subnet(id=subnet_id)
-        self.id = subnet_id
-
-    def setup_vpc(
-            self,
-            vpc_cidr_block,
-            secgroup_name,
-            secgroup_desc
-    ):
-        if not self.vpc.id:
-            self.vpc.create(vpc_cidr_block)
-        else:
-            self.vpc.refresh()
-
-        self.vpc.create_internet_gateway()
-        self.vpc.create_security_group(secgroup_name, secgroup_desc)
 
     def setup_zookeeper(self, name, key, image, instance_type,
-                        subnet_cidr_block,
-                        ipa_admin_password, count=3):
-        self.zookeeper = zookeeper.Zookeeper(name, self.vpc.id)
+                        subnet_cidr_block, ipa_admin_password, count,
+                        proid):
+        self.zookeeper = zookeeper.Zookeeper(name=name, vpc_id=self.vpc.id)
         self.zookeeper.setup(
+            count=count,
             image=image,
             key=key,
             cidr_block=subnet_cidr_block,
             instance_type=instance_type,
             ipa_admin_password=ipa_admin_password,
-            subnet_id=self.id,
-            count=count
+            proid=proid,
+            subnet_name=self.subnet_name
         )
-        if not self.id:
-            self.id = self.zookeeper.subnet.id
 
     def setup_master(self, name, key, count, image, instance_type,
-                     tm_release,
-                     app_root, ipa_admin_password, subnet_cidr_block=None):
-        if not self.vpc.id:
-            raise('Provide vpc_id in init or setup vpc prior.')
-
-        self.master.name = name
+                     tm_release, app_root, ipa_admin_password, proid,
+                     subnet_cidr_block=None):
+        self.master = master.Master(name=name, vpc_id=self.vpc.id,)
         self.master.setup(
             image=image,
             count=count,
@@ -61,16 +38,17 @@ class Cell:
             tm_release=tm_release,
             instance_type=instance_type,
             app_root=app_root,
-            subnet_id=self.id,
-            ipa_admin_password=ipa_admin_password
+            ipa_admin_password=ipa_admin_password,
+            proid=proid,
+            subnet_name=self.subnet_name
         )
         self.show()
 
-    def destroy(self):
-        self.master.subnet.destroy()
-
     def show(self):
-        self.output = self.master.subnet.show()
+        self.output = subnet.Subnet(
+            name=self.subnet_name,
+            vpc_id=self.vpc.id
+        ).show()
         _LOGGER.info("******************************************************")
         _LOGGER.info(self.output)
         _LOGGER.info("******************************************************")

@@ -15,16 +15,16 @@ do
 done
 )
 
-ipa-getkeytab -r -p treadmld -D "cn=Directory Manager" -w "{{ IPA_ADMIN_PASSWORD }}" -k /etc/treadmld.keytab
-chown treadmld:treadmld /etc/treadmld.keytab
-su -c "kinit -k -t /etc/treadmld.keytab treadmld" treadmld
+ipa-getkeytab -r -p "${PROID}" -D "cn=Directory Manager" -w "{{ IPA_ADMIN_PASSWORD }}" -k /etc/"${PROID}".keytab
+chown "${PROID}":"${PROID}" /etc/"${PROID}".keytab
+su -c "kinit -k -t /etc/${PROID}.keytab ${PROID}" "${PROID}"
 
-s6-setuidgid treadmld \
+s6-setuidgid "${PROID}" \
     {{ TREADMILL }} admin ldap cell configure "{{ SUBNET_ID }}" --version 0.1 --root "{{ APP_ROOT }}" \
-        --username treadmld \
+        --username "${PROID}" \
         --location local.local
 
-s6-setuidgid treadmld \
+s6-setuidgid "${PROID}" \
     {{ TREADMILL }} admin ldap cell insert "{{ SUBNET_ID }}" --idx "${MASTER_ID}" \
         --hostname "$(hostname -f)" --client-port 2181
 
@@ -33,13 +33,13 @@ s6-setuidgid treadmld \
 (
 cat <<EOF
 mkdir -p /var/spool/tickets
-kinit -k -t /etc/krb5.keytab -c /var/spool/tickets/treadmld
-chown treadmld:treadmld /var/spool/tickets/treadmld
+kinit -k -t /etc/krb5.keytab -c /var/spool/tickets/${PROID}
+chown ${PROID}:${PROID} /var/spool/tickets/${PROID}
 EOF
-) > /etc/cron.hourly/hostkey-treadmld-kinit
+) > /etc/cron.hourly/hostkey-"${PROID}"-kinit
 
-chmod 755 /etc/cron.hourly/hostkey-treadmld-kinit
-/etc/cron.hourly/hostkey-treadmld-kinit
+chmod 755 /etc/cron.hourly/hostkey-"${PROID}"-kinit
+/etc/cron.hourly/hostkey-"${PROID}"-kinit
 
 # Install master service
 {{ TREADMILL }} admin install --install-dir /var/tmp/treadmill-master \

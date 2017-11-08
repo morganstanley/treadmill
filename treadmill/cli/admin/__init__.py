@@ -61,7 +61,6 @@ def init():
     """Return top level command handler."""
 
     @click.group(cls=cli.make_commands(__name__))
-    @click.option('--ldap', envvar='TREADMILL_LDAP')
     @click.pass_context
     def run(ctx):
         """Admin commands."""

@@ -89,13 +89,13 @@ def utilization(demand, allocated, available):
 def _all(oper, left, right):
     """Short circuit all for ndarray.
     """
-    return all(oper(ai, bi) for ai, bi in itertools.izip(left, right))
+    return all(oper(ai, bi) for ai, bi in zip(left, right))
 
 
 def _any(oper, left, right):
     """Short circuit any for ndarray.
     """
-    return any(oper(ai, bi) for ai, bi in itertools.izip(left, right))
+    return any(oper(ai, bi) for ai, bi in zip(left, right))
 
 
 def _any_eq(left, right):

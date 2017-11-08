@@ -212,6 +212,8 @@ def init_block_dev(img_name, img_location, img_size='-2G'):
     except subprocess.CalledProcessError:
         # The file doesn't exist.
         loop_dev = None
+
+    if not loop_dev:
         create_image(img_name, img_location, img_size)
 
     # Assign a loop device (if not already assigned)

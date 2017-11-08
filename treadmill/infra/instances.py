@@ -1,6 +1,8 @@
 from treadmill.infra import connection
 from treadmill.infra import ec2object
 from treadmill.infra import constants
+from treadmill.api import ipa
+
 from datetime import datetime
 from functools import reduce
 import logging
@@ -18,11 +20,26 @@ class Instance(ec2object.EC2Object):
             metadata=metadata,
             role=role
         )
+        self._running_status = None
         self.private_ip = self._get_private_ip()
+
+    def running_status(self, refresh=False):
+        if refresh or not self._running_status:
+            _status = self.ec2_conn.describe_instance_status(
+                InstanceIds=[self.metadata['InstanceId']]
+            )['InstanceStatuses']
+            if _status:
+                self._running_status = _status[0]['InstanceStatus'][
+                    'Details'
+                ][0]['Status']
+            else:
+                self._running_status = self.metadata['State']['Name']
+
+        return self._running_status
 
     @property
     def hostname(self):
-        return self.name.lower() + '.' + connection.Connection.context.domain
+        return self.name
 
     @property
     def subnet_id(self):
@@ -125,9 +142,13 @@ class Instances:
             vpc_id=vpc_id,
             roles=roles
         ).instances
+
         _hostnames = {}
         for _i in _instances:
-            _hostnames[_i.role] = _i.hostname
+            if _hostnames.get(_i.role):
+                _hostnames[_i.role] += ',' + _i.hostname
+            else:
+                _hostnames[_i.role] = _i.hostname
 
         return _hostnames
 
@@ -199,6 +220,20 @@ class Instances:
         self.load_volume_ids()
         if self.volume_ids:
             self.delete_volumes()
+
+        self._delete_host_from_ipa()
+
+    def _delete_host_from_ipa(self):
+        _api = ipa.API()
+        for _i in self.instances:
+            if _i.role != constants.ROLES['IPA']:
+                try:
+                    _api.delete_host(hostname=_i.hostname.lower())
+                except AssertionError as e:
+                    _LOGGER.warn(
+                        'Couldn\'t delete host ' + _i.hostname + ' from ipa. ',
+                        e
+                    )
 
     def delete_volumes(self):
         for volume_id in self.volume_ids:

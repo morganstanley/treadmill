@@ -24,14 +24,14 @@ class ConfigurationTest(unittest.TestCase):
             io.StringIO('{{ CELL }}'),
         ]
 
-        config = configuration.Configuration([])
-        userdata = config.get_userdata()
-        self.assertEquals(userdata, '')
+        config = configuration.Configuration()
+        self.assertEquals(config.get_userdata(), '')
 
-        config = configuration.Configuration([
+        config = configuration.Configuration()
+        config.setup_scripts = [
             {'name': 'script1.sh', 'vars': {'DOMAIN': 'test.treadmill'}},
             {'name': 'script2.sh', 'vars': {'CELL': 'mycell'}},
-        ])
+        ]
         userdata = config.get_userdata()
 
         self.assertEquals(
@@ -45,10 +45,11 @@ class MasterTest(unittest.TestCase):
 
     @mock.patch('builtins.open', create=True)
     def test_master_configuration_script_data(self, open_mock):
-        config = configuration.Master('', '', '', '', '', '', '', '')
+        config = configuration.Master('', '', '', '', '', '', '', '', '')
         expected_script_data = {
             'provision-base.sh': [
                 'DOMAIN', 'HOSTNAME', 'SUBNET_ID', 'LDAP_HOSTNAME', 'APP_ROOT',
+                'PROID', 'ZK_URL'
             ],
             'install-ipa-client-with-otp.sh': [
                 'OTP'
@@ -81,14 +82,15 @@ class LDAPTest(unittest.TestCase):
         config = configuration.LDAP('', '', '', '', '', '', '')
         expected_script_data = {
             'provision-base.sh': [
-                'DOMAIN', 'HOSTNAME', 'SUBNET_ID', 'LDAP_HOSTNAME', 'APP_ROOT',
+                'DOMAIN', 'HOSTNAME', 'LDAP_HOSTNAME', 'APP_ROOT',
+                'PROID'
             ],
             'install-ipa-client-with-otp.sh': [
                 'OTP'
             ],
             'install-treadmill.sh': ['TREADMILL_RELEASE'],
             'configure-ldap.sh': [
-                'SUBNET_ID', 'APP_ROOT', 'IPA_ADMIN_PASSWORD', 'DOMAIN',
+                'APP_ROOT', 'IPA_ADMIN_PASSWORD', 'DOMAIN',
                 'IPA_SERVER_HOSTNAME'
             ],
         }
@@ -115,15 +117,16 @@ class IPATest(unittest.TestCase):
         config = configuration.IPA(
             ipa_admin_password='admin-password',
             tm_release='some-release',
-            name='ipa',
-            cell='subnet-id',
+            hostname='ipa',
             vpc=mock.Mock(),
+            proid='foobar'
         )
         expected_script_data = {
-            'provision-base.sh': ['DOMAIN', 'NAME', 'REGION'],
+            'provision-base.sh': ['DOMAIN', 'HOSTNAME', 'REGION',
+                                  'PROID', 'SUBNET_ID'],
             'install-treadmill.sh': ['TREADMILL_RELEASE'],
             'install-ipa-server.sh': [
-                'DOMAIN', 'IPA_ADMIN_PASSWORD', 'CELL', 'REVERSE_ZONE',
+                'DOMAIN', 'IPA_ADMIN_PASSWORD', 'REVERSE_ZONE',
             ],
         }
 
@@ -151,14 +154,17 @@ class ZookeeperTest(unittest.TestCase):
             ldap_hostname='ldap_host',
             ipa_server_hostname='ipa_server_hostname',
             otp='otp',
-            idx='idx'
+            idx='idx',
+            proid='foobar',
+            cfg_data='foobar'
         )
         expected_script_data = {
             'provision-base.sh': [
-                'DOMAIN', 'HOSTNAME', 'LDAP_HOSTNAME'
+                'DOMAIN', 'HOSTNAME', 'LDAP_HOSTNAME', 'PROID'
             ],
             'install-ipa-client-with-otp.sh': ['OTP'],
-            'provision-zookeeper.sh': ['DOMAIN', 'IPA_SERVER_HOSTNAME', 'IDX'],
+            'provision-zookeeper.sh': ['DOMAIN', 'IPA_SERVER_HOSTNAME',
+                                       'IDX', 'CFG_DATA'],
         }
 
         self.assertCountEqual(
@@ -184,15 +190,17 @@ class NodeTest(unittest.TestCase):
             hostname='node',
             tm_release='tm_release',
             app_root='/var/tmp',
-            subnet_id='sub-123',
             ldap_hostname='ldap_host',
             ipa_admin_password='Tre@admill1',
             with_api=False,
-            otp='otp'
+            otp='otp',
+            proid='foobar',
+            zk_url='zk-url',
         )
         expected_script_data = {
             'provision-base.sh': ['DOMAIN', 'HOSTNAME', 'APP_ROOT',
-                                  'SUBNET_ID', 'LDAP_HOSTNAME'],
+                                  'PROID', 'SUBNET_ID', 'LDAP_HOSTNAME',
+                                  'ZK_URL'],
             'install-ipa-client-with-otp.sh': ['OTP'],
             'install-treadmill.sh': ['TREADMILL_RELEASE'],
             'configure-node.sh': [
