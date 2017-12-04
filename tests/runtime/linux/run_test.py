@@ -124,6 +124,10 @@ class LinuxRuntimeRunTest(unittest.TestCase):
 
     @mock.patch('treadmill.iptables.add_ip_set', mock.Mock())
     @mock.patch('treadmill.newnet.create_newnet', mock.Mock())
+    @mock.patch(
+        'treadmill.ms.plugins.firewall.apply_exception_rules',
+        mock.Mock()
+    )
     def test__unshare_network_simple(self):
         """Tests unshare network sequence.
         """
@@ -166,7 +170,9 @@ class LinuxRuntimeRunTest(unittest.TestCase):
         )
         app_unique_name = appcfg.app_unique_name(app)
 
-        treadmill.runtime.linux._run._unshare_network(self.tm_env, app)
+        treadmill.runtime.linux._run._unshare_network(
+            self.tm_env, 'test_container_dir', app
+        )
 
         treadmill.iptables.add_ip_set.assert_has_calls(
             [
@@ -222,6 +228,10 @@ class LinuxRuntimeRunTest(unittest.TestCase):
     @mock.patch('socket.gethostbyname', mock.Mock())
     @mock.patch('treadmill.iptables.add_ip_set', mock.Mock())
     @mock.patch('treadmill.newnet.create_newnet', mock.Mock())
+    @mock.patch(
+        'treadmill.ms.plugins.firewall.apply_exception_rules',
+        mock.Mock()
+    )
     def test__unshare_network_complex(self):
         """Test unshare network advanced sequence (ephemeral/passthrough)."""
         # Disable W0212: Access to a protected member
@@ -279,6 +289,7 @@ class LinuxRuntimeRunTest(unittest.TestCase):
 
         treadmill.runtime.linux._run._unshare_network(
             self.tm_env,
+            'test_container_dir',
             app
         )
 
@@ -515,7 +526,7 @@ class LinuxRuntimeRunTest(unittest.TestCase):
 
         app = utils.to_obj(manifest)
         treadmill.runtime.linux._run._unshare_network.assert_called_with(
-            self.tm_env, app
+            self.tm_env, app_dir, app
         )
         # Create root dir
         treadmill.runtime.linux._run._create_root_dir.assert_called_with(

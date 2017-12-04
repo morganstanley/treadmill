@@ -9,7 +9,7 @@ from __future__ import absolute_import
 
 import logging
 
-import ldap3
+from ldap3.core import exceptions as ldap_exceptions
 
 from treadmill import admin
 from treadmill import context
@@ -49,7 +49,7 @@ def resolve(ctx, attr):
             ','.join(zk_hostports),
             ctx.cell
         )
-    except ldap3.LDAPNoSuchObjectResult:
+    except ldap_exceptions.LDAPNoSuchObjectResult:
         exception = context.ContextError(
             'Cell not defined in LDAP {}'.format(ctx.cell)
         )

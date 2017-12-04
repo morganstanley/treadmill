@@ -1,4 +1,6 @@
-"""Implementation of treadmill-admin CLI plugin."""
+"""Implementation of treadmill-admin CLI plugin.
+"""
+
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
@@ -6,25 +8,22 @@ from __future__ import unicode_literals
 
 import logging
 import os
-import pkgutil
 import tempfile
 import traceback
 
 import click
-import dns.exception  # pylint: disable=E0611
+import dns.exception
 import dns.resolver
 import kazoo
 import kazoo.exceptions
 import ldap3
+from ldap3.core import exceptions as ldap_exceptions
 
 import treadmill
 from treadmill import restclient
 from treadmill import cli
 from treadmill import context
 from treadmill import yamlwrapper as yaml
-
-
-__path__ = pkgutil.extend_path(__path__, __name__)
 
 
 def _handle_no_such_ldap_obj(err):
@@ -46,9 +45,10 @@ def _handle_no_such_ldap_obj(err):
 
 
 ON_EXCEPTIONS = cli.handle_exceptions([
-    (ldap3.LDAPInsufficientAccessRightsResult, 'Error: access denied.'),
-    (ldap3.LDAPBindError, 'Error: invalid credentials.'),
-    (ldap3.LDAPNoSuchObjectResult, _handle_no_such_ldap_obj),
+    (ldap_exceptions.LDAPInsufficientAccessRightsResult,
+     'Error: access denied.'),
+    (ldap_exceptions.LDAPBindError, 'Error: invalid credentials.'),
+    (ldap_exceptions.LDAPNoSuchObjectResult, _handle_no_such_ldap_obj),
     (kazoo.exceptions.NoAuthError, 'Error: not authorized.'),
     (kazoo.exceptions.NoNodeError, 'Error: resource does not exist.'),
     (restclient.NotAuthorizedError, restclient.handle_not_authorized),

@@ -37,9 +37,3 @@ class API(object):
             return None
 
         self.get = _get
-
-
-def init(_authorizer):
-    """Returns module API wrapped with authorizer function."""
-    api = API()
-    return api

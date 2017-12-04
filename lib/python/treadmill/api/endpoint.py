@@ -9,6 +9,8 @@ from __future__ import unicode_literals
 import logging
 
 import fnmatch
+
+import six
 import kazoo
 
 from treadmill import context
@@ -54,7 +56,7 @@ class API(object):
 
     def __init__(self):
 
-        cell_state = dict()
+        cell_state = {}
 
         if context.GLOBAL.cell is not None:
             zkclient = context.GLOBAL.zk.conn
@@ -68,22 +70,24 @@ class API(object):
                 target = set(proids)
 
                 for proid in current - target:
+                    _LOGGER.info('Removing proid: %s', proid)
                     del cell_state[proid]
 
                 for proid in target - current:
-                    if proid not in cell_state:
-                        cell_state[proid] = {}
+                    _LOGGER.info('Adding proid: %s', proid)
+                    cell_state[proid] = {}
                     make_endpoint_watcher(zkclient, cell_state, proid)
 
                 return True
 
         def _list(pattern, proto, endpoint):
             """List endpoints state."""
+            _LOGGER.info('list: %s %s %s', pattern, proto, endpoint)
+
             proid, match = pattern.split('.', 1)
 
-            if not match:
-                match = '*'
-            if match.find('#') == -1:
+            match = match or '*'
+            if '#' not in match:
                 match += '#*'
 
             if endpoint is None:
@@ -100,7 +104,7 @@ class API(object):
             _LOGGER.debug('endpoints: %r', endpoints)
 
             filtered = []
-            for name, hostport in endpoints.iteritems():
+            for name, hostport in six.viewitems(endpoints.copy()):
                 if not fnmatch.fnmatch(name, full_pattern):
                     continue
                 appname, proto, endpoint = name.split(':')
@@ -114,8 +118,3 @@ class API(object):
             return sorted(filtered, key=lambda item: item['name'])
 
         self.list = _list
-
-
-def init(_authorizer):
-    """Returns module API wrapped with authorizer function."""
-    return API()

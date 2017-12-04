@@ -35,9 +35,9 @@ def data_write(filename, data):
     :param``unicode`` data:
         File content.
     """
-    with io.open(filename, 'wb') as f:
+    with io.open(filename, 'w') as f:
         if data is not None:
-            f.write(data.encode(encoding='utf8', errors='replace') + '\n')
+            f.write(data + '\n')
         if os.name == 'posix':
             os.fchmod(f.fileno(), 0o644)
 
@@ -60,7 +60,7 @@ def environ_dir_write(env_dir, env, update=False):
             if key not in env:
                 os.unlink(os.path.join(env_dir, key))
 
-    for key, value in env.iteritems():
+    for key, value in six.iteritems(env):
         if not _ENV_KEY_RE.match(key):
             _LOGGER.warning('Ignoring invalid environ variable %r', key)
             continue
@@ -140,14 +140,10 @@ def set_list_write(filename, entries):
     :param ``str`` filename:
         Name of the file to read.
     :param ``set`` entries:
-        Set of values to write into ``filename``. Value can be unicode.
+        Set of unicode values to write into ``filename``.
     """
-    values = {
-        entry.encode(encoding='utf8', errors='replace')
-        for entry in entries
-    }
     with io.open(filename, 'wb') as f:
-        f.writelines(values)
+        f.writelines(entries)
         if os.name == 'posix':
             os.fchmod(f.fileno(), 0o644)
 
@@ -163,7 +159,7 @@ def value_read(filename, default=0):
         Value read or default value.
     """
     try:
-        with io.open(filename, 'rb') as f:
+        with io.open(filename, 'r') as f:
             value = f.readline()
     except IOError as err:
         if err.errno is errno.ENOENT:
@@ -182,8 +178,8 @@ def value_write(filename, value):
     :param ``int`` value:
         Value to write in the file.
     """
-    with io.open(filename, 'wb') as f:
-        f.write(b'%d\n' % value)
+    with io.open(filename, 'w') as f:
+        f.write('%d\n' % value)
         if os.name == 'posix':
             os.fchmod(f.fileno(), 0o644)
 
@@ -208,8 +204,8 @@ def script_write(filename, script):
 
     :param ``str`` filename:
         File to write to.
-    :param ``script:
-        String or iterable returning strings. Can be unicode.
+    :param ``iterable|unicode`` script:
+        Unicode string or iterable.
     """
     if isinstance(script, six.string_types):
         # If the script is fully provided in a string, wrap it in a StringIO
@@ -218,11 +214,9 @@ def script_write(filename, script):
         else:
             script = io.StringIO(script)
 
-    with io.open(filename, 'wb') as f:
+    with io.open(filename, 'w') as f:
         for chunk in script:
-            # The value must be properly encoded
-            data = chunk.encode(encoding='utf8', errors='replace')
-            f.write(data)
+            f.write(chunk)
         if os.name == 'posix':
             os.fchmod(f.fileno(), 0o755)
 

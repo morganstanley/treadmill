@@ -9,9 +9,7 @@ from __future__ import unicode_literals
 import os
 import stat
 
-# pylint: disable=E0611
 from treadmill import fs
-
 from treadmill.runtime.linux.image import fs as image_fs
 
 

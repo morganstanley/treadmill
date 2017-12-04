@@ -12,6 +12,7 @@ import unittest
 import tests.treadmill_test_deps  # pylint: disable=W0611
 
 import flask
+import mock
 
 from treadmill import webutils
 
@@ -24,26 +25,6 @@ def trimall(string):
 
 class WebUtilsTest(unittest.TestCase):
     """Tests for teadmill.webutils."""
-
-    def test_jsonp(self):
-        """Tests jsonp decorator."""
-        app = flask.Flask(__name__)
-        app.testing = True
-
-        @app.route('/xxx')
-        @webutils.jsonp
-        def handler_unused():
-            """Name does not matter, flask will route the request."""
-            return flask.jsonify({'apps': 1})
-
-        resp = app.test_client().get('/xxx')
-        self.assertEqual(resp.mimetype, 'application/json')
-        self.assertEqual({'apps': 1}, flask.json.loads(resp.data))
-
-        resp = app.test_client().get('/xxx?callback=foo')
-        self.assertEqual(resp.mimetype, 'application/json')
-        expected = 'foo({"apps":1})'
-        self.assertEqual(expected, trimall(resp.data))
 
     def test_cors(self):
         """Tests cors decorator."""
@@ -76,6 +57,24 @@ class WebUtilsTest(unittest.TestCase):
                                                 'text/*; q=0.8, image/gif; '
                                                 'q=0.6, image/jpeg;')]):
             self.assertFalse(webutils.wants_json_resp(flask.request))
+
+    def test_namespace(self):
+        """Tests namespace()."""
+        m_api = mock.Mock()
+
+        # W0613: Unused argument 'kwargs'
+        # pylint: disable=W0613
+        def noop(*args, **kwargs):
+            """Simply return the positional arguments"""
+            return args
+
+        m_api.namespace = noop
+        (ns,) = webutils.namespace(m_api, 'treadmill.rest.api.state', 'foo')
+        self.assertEqual(ns, 'state')
+
+        (ns,) = webutils.namespace(
+            m_api, 'treadmill.ms.rest.api.allocation_group', 'foo')
+        self.assertEqual(ns, 'allocation-group')
 
 
 if __name__ == '__main__':

@@ -1,40 +1,38 @@
-"""Treadmill Kafka system process"""
-
+"""Treadmill Kafka system process
+"""
 
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
-import sys
-
 import io
 import logging
 import os
 import pwd
+import sys
 
 import click
 import kazoo
 import jinja2
 
-import treadmill
-
-# pylint: disable=E0611
 from treadmill import admin
 from treadmill import cli
 from treadmill import context
+from treadmill import dist
 from treadmill import kafka as tkafka
 from treadmill import subproc
 from treadmill import sysinfo
 from treadmill import zkutils
 
+# XXX: All these files should be converted to pkg_resources
 
 BROKER_PROP_FILE_NAME = 'broker.properties'
 
 DEFAULT_KAFKA_LAUNCHER = 'kafka_server_start'
-DEFAULT_KAFKA_TEMPLATE_DIR = os.path.join(treadmill.TREADMILL, 'etc', 'kafka')
+DEFAULT_KAFKA_TEMPLATE_DIR = os.path.join(dist.TREADMILL, 'etc', 'kafka')
 
-DEFAULT_KAFKA_PROPERTIES = os.path.join(treadmill.TREADMILL, 'etc', 'kafka',
+DEFAULT_KAFKA_PROPERTIES = os.path.join(dist.TREADMILL, 'etc', 'kafka',
                                         BROKER_PROP_FILE_NAME)
 
 HOSTNAME = sysinfo.hostname()

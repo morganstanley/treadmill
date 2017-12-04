@@ -14,7 +14,7 @@ import logging
 import jsonschema
 import kazoo
 import kazoo.exceptions
-import ldap3
+from ldap3.core import exceptions as ldap_exceptions
 
 from six.moves import http_client
 
@@ -69,7 +69,7 @@ def register(api):
         }
         return resp, http_client.INTERNAL_SERVER_ERROR, _cors_headers()
 
-    @api.errorhandler(ldap3.LDAPEntryAlreadyExistsResult)
+    @api.errorhandler(ldap_exceptions.LDAPEntryAlreadyExistsResult)
     def _ldap_found_exc(err):
         """LDAP exception handler."""
         _LOGGER.info('Ldap already exists error: %r', err)
@@ -77,7 +77,7 @@ def register(api):
                 'status': http_client.FOUND}
         return resp, http_client.FOUND, _cors_headers()
 
-    @api.errorhandler(ldap3.LDAPNoSuchObjectResult)
+    @api.errorhandler(ldap_exceptions.LDAPNoSuchObjectResult)
     def _ldap_not_found_exc(err):
         """LDAP exception handler."""
         _LOGGER.exception('Ldap no such object error: %r', err)

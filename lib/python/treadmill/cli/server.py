@@ -6,9 +6,9 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
-import urllib
-
 import click
+
+from six.moves import urllib_parse
 
 from treadmill import cli
 from treadmill import context
@@ -48,7 +48,7 @@ def init():
         query = {'cell': cell}
         if partition is not None:
             query['partition'] = partition
-        url = '/server/?{}'.format(urllib.urlencode(query))
+        url = '/server/?{}'.format(urllib_parse.urlencode(query))
         restapi = context.GLOBAL.admin_api(ctx.get('api'))
         cli.out(server_formatter(restclient.get(restapi, url).json()))
 

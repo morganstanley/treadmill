@@ -25,7 +25,7 @@ _LOGGER = logging.getLogger(__name__)
 
 _SERVERS_ACL = zkutils.make_role_acl('servers', 'rwcda')
 
-_INVALID_IDENTITY = sys.maxint
+_INVALID_IDENTITY = sys.maxsize
 
 # Time to wait when registering endpoints in case previous ephemeral
 # endpoint is still present.
@@ -148,6 +148,59 @@ class EndpointPresence(object):
         )
 
 
+def server_node(hostname, presence_id):
+    """Return server.presence node for given hostname and presence_id."""
+    if presence_id == '-1':
+        return hostname
+    return '{}#{}'.format(hostname, presence_id)
+
+
+def parse_server(node):
+    """Return hostname and presence_id for given server.presence node."""
+    if '#' not in node:
+        return node, '-1'
+    hostname, presence_id = node.split('#')
+    return hostname, presence_id
+
+
+def server_hostname(node):
+    """Return hostname for given server.presence node."""
+    return parse_server(node)[0]
+
+
+def find_server(zkclient, hostname):
+    """Find server."""
+    for node in sorted(zkclient.get_children(z.SERVER_PRESENCE), reverse=True):
+        if server_hostname(node) == hostname:
+            return z.path.server_presence(node)
+
+
+def register_server(zkclient, hostname, node_info):
+    """Register server."""
+    server_path = z.path.server(hostname)
+
+    server_data = zkutils.get(zkclient, server_path)
+    server_data.update(node_info)
+
+    _LOGGER.info('Registering server %s: %r', hostname, server_data)
+
+    zkutils.update(zkclient, server_path, server_data)
+
+    host_acl = zkutils.make_host_acl(hostname, 'rwcda')
+    return zkutils.put(
+        zkclient, z.path.server_presence(hostname + '#'), {'seen': False},
+        acl=[host_acl], ephemeral=True, sequence=True
+    )
+
+
+def unregister_server(zkclient, hostname):
+    """Unregister server."""
+    _LOGGER.info('Unregistering server %s', hostname)
+    server_presence_path = find_server(zkclient, hostname)
+    if server_presence_path:
+        zkutils.ensure_deleted(zkclient, server_presence_path)
+
+
 def kill_node(zkclient, node):
     """Kills app, endpoints, and server node."""
     _LOGGER.info('killing node: %s', node)
@@ -171,5 +224,5 @@ def kill_node(zkclient, node):
         except kazoo.client.NoNodeError:
             _LOGGER.info('app %s no longer scheduled.', app)
 
-    _LOGGER.info('removing node: %s', node)
-    zkutils.ensure_deleted(zkclient, z.path.server_presence(node))
+    _LOGGER.info('removing server presence: %s', node)
+    unregister_server(zkclient, node)

@@ -7,6 +7,8 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import base64
+import errno
+import glob
 import hashlib
 import io
 import logging
@@ -16,6 +18,7 @@ import random
 import shutil
 import stat
 import tempfile
+import time
 
 import kazoo
 import kazoo.client
@@ -31,6 +34,7 @@ else:
     import subprocess  # pylint: disable=wrong-import-order
 
 from treadmill import fs
+from treadmill import dirwatch
 from treadmill import gssapiprotocol
 from treadmill import subproc
 from treadmill import sysinfo
@@ -39,6 +43,10 @@ from treadmill import zknamespace as z
 from treadmill import zkutils
 
 _LOGGER = logging.getLogger(__name__)
+
+_STALE_TKTS_PRUNE_INTERVAL = 60
+
+_DIRWATCH_EVENTS_COUNT = 10
 
 
 class Ticket(object):
@@ -62,40 +70,54 @@ class Ticket(object):
         ticket_cs = None
         if self.ticket:
             ticket_cs = hashlib.sha1(self.ticket).hexdigest()
-        return "Ticket(princ=%s, ticket=%s)" % (self.princ, ticket_cs)
+        return 'Ticket(princ=%s, ticket=%s)' % (self.princ, ticket_cs)
 
     def __unicode__(self):
         """Returns printable info about the ticket"""
         if self.ticket:
-            return "Ticket: %s, %s" % (self.princ,
+            return 'Ticket: %s, %s' % (self.princ,
                                        hashlib.sha1(self.ticket).hexdigest())
         else:
-            return "Ticket: %s, null"
+            return 'Ticket: %s, null'
 
     def __eq__(self, other):
         return self.princ == other.princ and self.ticket == other.ticket
 
     def write(self, path=None):
         """Writes the ticket to /var/spool/ticket/<princ>."""
-        def _write_temp(tkt_file):
-            # Write the file
-            tkt_file.write(self.ticket)
-            # Set the owner
-            if self.uid is not None:
-                os.fchown(tkt_file.fileno(), self.uid, -1)
-            # TODO: Should we enforce the mode too?
-            tkt_file.flush()
-
         if path is None:
             path = self.tkt_path
+
+        # TODO: confirm the comment or rewrite using fs.write_safe.
+        #
+        # The following code will write ticket to destination only of the
+        # ticket is valid.
+        #
+        # If the ticket is not valid, destination file is not touched.
+        #
+        # It is not clear if it is a good fit for fs.write_safe.
         try:
-            fs.write_safe(
-                path,
-                _write_temp,
-                prefix='.tmp' + self.princ
-            )
+            with tempfile.NamedTemporaryFile(dir=os.path.dirname(path),
+                                             prefix='.tmp' + self.princ,
+                                             delete=False,
+                                             mode='wb') as tkt_file:
+                # Write the file
+                tkt_file.write(self.ticket)
+                # Set the owner
+                if self.uid is not None:
+                    os.fchown(tkt_file.fileno(), self.uid, -1)
+                # TODO: Should we enforce the mode too?
+                tkt_file.flush()
+
+            # Only write valid tickets.
+            if krbcc_ok(tkt_file.name):
+                os.rename(tkt_file.name, path)
+            else:
+                _LOGGER.warning('Invalid or expired ticket: %s', tkt_file.name)
         except (IOError, OSError):
             _LOGGER.exception('Error writing ticket file: %s', path)
+        finally:
+            fs.rm_safe(tkt_file.name)
 
     def copy(self, dst, src=None):
         """Atomically copy tickets to destination."""
@@ -105,9 +127,11 @@ class Ticket(object):
         dst_dir = os.path.dirname(dst)
         try:
             with io.open(src, 'rb') as tkt_src_file:
+                # TODO; rewrite as fs.write_safe.
                 with tempfile.NamedTemporaryFile(dir=dst_dir,
                                                  prefix='.tmp' + self.princ,
-                                                 delete=False) as tkt_dst_file:
+                                                 delete=False,
+                                                 mode='wb') as tkt_dst_file:
                     # Copy binary from source to dest
                     shutil.copyfileobj(tkt_src_file, tkt_dst_file)
                     # Set the owner
@@ -169,6 +193,62 @@ class TicketLocker(object):
         self.zkclient = zkclient
         self.tkt_spool_dir = tkt_spool_dir
         self.zkclient.add_listener(zkutils.exit_on_lost)
+        self.hostname = sysinfo.hostname()
+
+    def prune_tickets(self):
+        """Remove invalid tickets from directory."""
+        published_tickets = self.zkclient.get_children(z.TICKETS)
+        for tkt in published_tickets:
+            if not krbcc_ok(os.path.join(self.tkt_spool_dir, tkt)):
+                zkutils.ensure_deleted(
+                    self.zkclient,
+                    z.path.tickets(tkt, self.hostname)
+                )
+
+    def publish_tickets(self, realms, once=False):
+        """Publish list of all tickets present on the locker."""
+        zkutils.ensure_exists(self.zkclient, z.TICKETS)
+        watcher = dirwatch.DirWatcher(self.tkt_spool_dir)
+
+        def _publish_ticket(tkt_file):
+            """Publish ticket details."""
+            if tkt_file.startswith('.'):
+                return
+
+            if not any([tkt_file.endswith(realm) for realm in realms]):
+                _LOGGER.info('Ignore tkt_file: %s', tkt_file)
+                return
+
+            try:
+                tkt_details = subproc.check_output([
+                    'klist', '-5', '-e', '-f', tkt_file
+                ])
+                tkt_node = z.path.tickets(os.path.basename(tkt_file),
+                                          self.hostname)
+                zkutils.put(self.zkclient,
+                            tkt_node,
+                            tkt_details,
+                            ephemeral=True)
+            except subprocess.CalledProcessError:
+                _LOGGER.exception('Unable to get tickets details.')
+
+        for tkt_file in glob.glob(os.path.join(self.tkt_spool_dir, '*')):
+            _publish_ticket(tkt_file)
+
+        self.prune_tickets()
+        last_prune = time.time()
+
+        if once:
+            return
+
+        watcher.on_created = _publish_ticket
+        while True:
+            if time.time() - last_prune > _STALE_TKTS_PRUNE_INTERVAL:
+                self.prune_tickets()
+                last_prune = time.time()
+
+            if watcher.wait_for_events(timeout=_STALE_TKTS_PRUNE_INTERVAL):
+                watcher.process_events(max_events=_DIRWATCH_EVENTS_COUNT)
 
     def register_endpoint(self, port):
         """Register ticket locker endpoint in Zookeeper."""
@@ -217,14 +297,17 @@ class TicketLocker(object):
             _LOGGER.info('App tickets: %s: %r', appname, tickets)
             for ticket in tickets:
                 tkt_file = os.path.join(self.tkt_spool_dir, ticket)
-                if os.path.exists(tkt_file):
+                try:
                     with io.open(tkt_file, 'rb') as f:
-                        encoded = base64.urlsafe_b64encode(f.read())
+                        encoded = base64.standard_b64encode(f.read())
                         tkt_dict[ticket] = encoded
-                else:
-                    _LOGGER.warning(
-                        'Ticket file does not exist: %s', tkt_file
-                    )
+                except (IOError, OSError) as err:
+                    if err.errno == errno.ENOENT:
+                        _LOGGER.warning(
+                            'Ticket file does not exist: %s', tkt_file
+                        )
+                    else:
+                        raise
 
         except kazoo.client.NoNodeError:
             _LOGGER.info('App does not exist: %s', appname)
@@ -247,23 +330,23 @@ def run_server(locker):
         @utils.exit_on_unhandled
         def got_line(self, line):
             """Callback on received line."""
-            appname = line
+            appname = line.decode()
             tkts = locker.process_request(self.peer(), appname)
             if tkts:
                 _LOGGER.info('Sending tickets for: %r', tkts.keys())
-                for princ, encoded in tkts.iteritems():
+                for princ, encoded in six.iteritems(tkts):
                     if encoded:
                         _LOGGER.info('Sending ticket: %s:%s',
                                      princ,
                                      hashlib.sha1(encoded).hexdigest())
-                        self.write('%s:%s' % (princ, encoded))
+                        self.write(b':'.join((princ.encode(), encoded)))
                     else:
-                        _LOGGER.info('Sending ticket %s, None', princ)
-                        self.write('%s:' % princ)
+                        _LOGGER.info('Sending ticket %s:None', princ)
+                        self.write(b':'.join((princ.encode(), b'')))
             else:
                 _LOGGER.info('No tickets found for app: %s', appname)
 
-            self.write('')
+            self.write(b'')
 
     class TicketLockerServerFactory(protocol.Factory):
         """TicketLockerServer factory."""
@@ -272,6 +355,7 @@ def run_server(locker):
             return TicketLockerServer()
 
     port = reactor.listenTCP(0, TicketLockerServerFactory()).getHost().port
+
     locker.register_endpoint(port)
     reactor.run()
 
@@ -294,22 +378,22 @@ def request_tickets(zkclient, appname):
         try:
             if client.connect():
                 _LOGGER.debug('connected to: %s:%s, %s', host, port, service)
-                client.write(appname)
-                _LOGGER.debug('sent: %s', appname)
+                client.write(appname.encode())
+                _LOGGER.debug('sent: %r', appname)
                 while True:
                     line = client.read()
                     if not line:
                         _LOGGER.debug('Got empty response.')
                         break
 
-                    princ, encoded = line.split(b':')
-                    if encoded:
+                    princ, encoded = line.split(b':', 1)
+                    princ = princ.decode()
+                    ticket_data = base64.standard_b64decode(encoded)
+                    if ticket_data:
                         _LOGGER.info('got ticket %s:%s',
                                      princ,
                                      hashlib.sha1(encoded).hexdigest())
-                        ticket = Ticket(princ,
-                                        base64.urlsafe_b64decode(encoded))
-                        tickets.append(ticket)
+                        tickets.append(Ticket(princ, ticket_data))
                     else:
                         _LOGGER.info('got ticket %s:None', princ)
                         tickets.append(Ticket(princ, None))

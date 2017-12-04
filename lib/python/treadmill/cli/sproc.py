@@ -54,6 +54,8 @@ def init():
     @click.group(cls=cli.make_commands('treadmill.sproc'))
     @click.option('--cgroup',
                   help='Create separate cgroup for the service.')
+    @click.option('--logging-conf', default='daemon.conf',
+                  help='Logging config file to use.')
     @click.option('--cell', required=True,
                   envvar='TREADMILL_CELL',
                   callback=cli.handle_context_opt,
@@ -63,10 +65,10 @@ def init():
                   callback=cli.handle_context_opt,
                   expose_value=False)
     @click.pass_context
-    def run(ctx, cgroup):
+    def run(ctx, cgroup, logging_conf):
         """Run system processes"""
         # Default logging to daemon.conf, at CRITICAL, unless --debug
-        cli.init_logger('daemon.conf')
+        cli.init_logger(logging_conf)
 
         log_level = None
         if ctx.obj.get('logging.debug'):

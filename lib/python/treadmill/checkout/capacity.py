@@ -11,6 +11,7 @@ import unittest
 from treadmill import admin
 from treadmill import context
 from treadmill import checkout as chk
+from treadmill import presence
 from treadmill import zknamespace as z
 
 
@@ -24,7 +25,8 @@ def test():
     zkclient = context.GLOBAL.zk.conn
 
     configured_servers = zkclient.get_children(z.SERVERS)
-    up_servers = zkclient.get_children(z.SERVER_PRESENCE)
+    up_servers = [presence.server_hostname(node)
+                  for node in zkclient.get_children(z.SERVER_PRESENCE)]
     blackedout_servers = zkclient.get_children(z.BLACKEDOUT_SERVERS)
     rebooted_servers = zkclient.get_children(z.REBOOTS)
 

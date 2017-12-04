@@ -97,7 +97,7 @@ class AppCfgConfigureTest(unittest.TestCase):
             self.tm_env.apps_dir,
             name=app_unique_name,
             app_run_script=mock.ANY,
-            downed=True,
+            downed=False,
             monitor_policy={'limit': 0, 'interval': 60},
             userid='root',
             environ={},
@@ -106,6 +106,7 @@ class AppCfgConfigureTest(unittest.TestCase):
         treadmill.fs.write_safe.assert_called_with(
             os.path.join(app_dir, 'data', 'app.json'),
             mock.ANY,
+            mode='w',
             permission=0o644
         )
 

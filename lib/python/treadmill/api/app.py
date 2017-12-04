@@ -1,4 +1,6 @@
-"""Implementation of app API."""
+"""Implementation of app API.
+"""
+
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
@@ -11,7 +13,6 @@ import jsonschema.exceptions
 
 from treadmill import context
 from treadmill import schema
-from treadmill import authz
 from treadmill import admin
 
 from treadmill.appcfg import features
@@ -92,9 +93,3 @@ class API(object):
         self.create = create
         self.update = update
         self.delete = delete
-
-
-def init(authorizer):
-    """Returns module API wrapped with authorizer function."""
-    api = API()
-    return authz.wrap(api, authorizer)

@@ -26,6 +26,7 @@ import enum
 
 import tornado.websocket
 
+import six
 from six.moves import urllib_parse
 
 from treadmill import dirwatch
@@ -46,10 +47,17 @@ def make_handler(pubsub):
             tornado.websocket.WebSocketHandler.__init__(
                 self, application, request, **kwargs
             )
+            self._subscriptions = set()
 
-        def active(self):
-            """Returns true if connection is active, false otherwise."""
-            return bool(self.ws_connection)
+        def active(self, sub_id=None):
+            """Return true if connection (and optional subscription) is active,
+            false otherwise.
+
+            If connection is not active, so are all of its subscriptions.
+            """
+            if not self.ws_connection:
+                return False
+            return sub_id is None or sub_id in self._subscriptions
 
         def open(self):
             """Called when connection is opened.
@@ -58,17 +66,29 @@ def make_handler(pubsub):
             """
             _LOGGER.info('Connection opened.')
 
-        def send_error_msg(self, error_str, close_conn=True):
+        def send_error_msg(self, error_str, sub_id=None, close_conn=True):
             """Convenience method for logging and returning errors.
 
+            If sub_id is provided, it will be included in the error message and
+            subscription will be removed.
+
             Note: this method will close the connection after sending back the
-            error, unless close_conn=False
+            error, unless close_conn=False.
             """
             _LOGGER.info(error_str)
+
             error_msg = {'_error': error_str,
                          'when': time.time()}
+            if sub_id is not None:
+                error_msg['sub-id'] = sub_id
+                _LOGGER.info('Removing subscription %s', sub_id)
+                try:
+                    self._subscriptions.remove(sub_id)
+                except KeyError:
+                    pass
 
             self.write_message(error_msg)
+
             if close_conn:
                 _LOGGER.info('Closing connection.')
                 self.close()
@@ -78,7 +98,7 @@ def make_handler(pubsub):
 
             Override if you want to do something else besides log the action.
             """
-            _LOGGER.info('connection closed.')
+            _LOGGER.info('Connection closed.')
 
         def check_origin(self, origin):
             """Overriding check_origin method from base class.
@@ -95,23 +115,58 @@ def make_handler(pubsub):
                 _LOGGER.fatal('pubsub is not configured, ignore.')
                 self.send_error_msg('Fatal: unexpected error', close_conn=True)
 
+            sub_id = None
+            close_conn = True
             try:
                 message = json.loads(jmessage)
-                topic = message['topic']
-                impl = pubsub.impl.get(topic)
-                if not impl:
-                    self.send_error_msg('Invalid topic: %r' % topic)
+                _LOGGER.debug('message: %r', message)
+
+                sub_id = message.get('sub-id')
+                close_conn = sub_id is None
+
+                if message.get('unsubscribe') is True:
+                    _LOGGER.info('Unsubscribing %s', sub_id)
+                    try:
+                        self._subscriptions.remove(sub_id)
+                    except KeyError:
+                        self.send_error_msg(
+                            'Invalid subscription: %s' % sub_id,
+                            close_conn=False
+                        )
                     return
 
+                if sub_id and sub_id in self._subscriptions:
+                    self.send_error_msg(
+                        'Subscription already exists: %s' % sub_id,
+                        close_conn=False
+                    )
+                    return
+
+                topic = message.get('topic')
+                impl = pubsub.impl.get(topic)
+                if not impl:
+                    self.send_error_msg(
+                        'Invalid topic: %s' % topic,
+                        sub_id=sub_id, close_conn=close_conn
+                    )
+                    return
+
+                subscription = impl.subscribe(message)
                 since = message.get('since', 0)
                 snapshot = message.get('snapshot', False)
-                for watch, pattern in impl.subscribe(message):
-                    pubsub.register(watch, pattern, self, impl, since)
-                if snapshot:
+
+                if sub_id and not snapshot:
+                    _LOGGER.info('Adding subscription %s', sub_id)
+                    self._subscriptions.add(sub_id)
+
+                for watch, pattern in subscription:
+                    pubsub.register(watch, pattern, self, impl, since, sub_id)
+                if snapshot and close_conn:
                     self.close()
 
             except Exception as err:  # pylint: disable=W0703
-                self.send_error_msg(str(err))
+                self.send_error_msg(str(err),
+                                    sub_id=sub_id, close_conn=close_conn)
 
         def data_received(self, message):
             """Passthrough of abstract method data_received"""
@@ -150,7 +205,7 @@ class DirWatchPubSub(object):
         self.ws = make_handler(self)
         self.handlers = collections.defaultdict(list)
 
-    def register(self, watch, pattern, ws_handler, impl, since):
+    def register(self, watch, pattern, ws_handler, impl, since, sub_id=None):
         """Register handler with pattern."""
         watch_dirs = self._get_watch_dirs(watch)
         for directory in watch_dirs:
@@ -159,8 +214,10 @@ class DirWatchPubSub(object):
                 _LOGGER.info('Added dir watcher: %s', directory)
                 self.watcher.add_dir(directory)
 
-            self.handlers[directory].append((pattern, ws_handler, impl))
-        self._sow(watch, pattern, since, ws_handler, impl)
+            self.handlers[directory].append(
+                (pattern, ws_handler, impl, sub_id)
+            )
+        self._sow(watch, pattern, since, ws_handler, impl, sub_id=sub_id)
 
     def _get_watch_dirs(self, watch):
         pathname = os.path.realpath(os.path.join(self.root, watch.lstrip('/')))
@@ -192,10 +249,12 @@ class DirWatchPubSub(object):
         if filename[0] == '.':
             return
 
+        directory_handlers = self.handlers.get(directory, [])
         handlers = [
-            (pattern, handler, impl)
-            for pattern, handler, impl in self.handlers.get(directory, [])
-            if handler.active() and fnmatch.fnmatch(filename, pattern)
+            (pattern, handler, impl, sub_id)
+            for pattern, handler, impl, sub_id in directory_handlers
+            if (handler.active(sub_id=sub_id) and
+                fnmatch.fnmatch(filename, pattern))
         ]
         if not handlers:
             return
@@ -220,7 +279,7 @@ class DirWatchPubSub(object):
         """Notify interested handlers of the change."""
         root_len = len(self.root)
 
-        for pattern, handler, impl in handlers:
+        for pattern, handler, impl, sub_id in handlers:
             try:
                 payload = impl.on_event(path[root_len:],
                                         operation,
@@ -229,6 +288,8 @@ class DirWatchPubSub(object):
                     _LOGGER.debug('notify: %s, %s (%s)',
                                   path, operation, pattern)
                     payload['when'] = when
+                    if sub_id is not None:
+                        payload['sub-id'] = sub_id
                     handler.write_message(payload)
             except Exception as err:  # pylint: disable=broad-except
                 _LOGGER.exception('Error handling event')
@@ -236,7 +297,9 @@ class DirWatchPubSub(object):
                     '{cls}: {err}'.format(
                         cls=type(err).__name__,
                         err=str(err)
-                    )
+                    ),
+                    sub_id=sub_id,
+                    close_conn=sub_id is None
                 )
 
     def _db_records(self, db_path, sow_table, watch, pattern, since):
@@ -256,7 +319,7 @@ class DirWatchPubSub(object):
         # materialized list.
         return conn, conn.execute(select_stmt, (watch, since,))
 
-    def _sow(self, watch, pattern, since, handler, impl):
+    def _sow(self, watch, pattern, since, handler, impl, sub_id=None):
         """Publish state of the world."""
         if since is None:
             since = 0
@@ -267,9 +330,11 @@ class DirWatchPubSub(object):
                 payload = impl.on_event(str(path), None, content)
                 if payload is not None:
                     payload['when'] = when
+                    if sub_id is not None:
+                        payload['sub-id'] = sub_id
                     handler.write_message(payload)
             except Exception as err:  # pylint: disable=W0703
-                handler.send_error_msg(str(err))
+                handler.send_error_msg(str(err), sub_id=sub_id)
 
         db_connections = []
         fs_records = self._get_fs_sow(watch, pattern, since)
@@ -331,10 +396,12 @@ class DirWatchPubSub(object):
 
     def _gc(self):
         """Remove disconnected websocket handlers."""
-        for directory in list(self.handlers.viewkeys()):
-            handlers = [(pattern, handler, impl)
-                        for pattern, handler, impl in self.handlers[directory]
-                        if handler.active()]
+        for directory in list(six.viewkeys(self.handlers)):
+            handlers = [
+                (pattern, handler, impl, sub_id)
+                for pattern, handler, impl, sub_id in self.handlers[directory]
+                if handler.active(sub_id=sub_id)
+            ]
 
             _LOGGER.info('Number of active handlers for %s: %s',
                          directory, len(handlers))

@@ -25,7 +25,7 @@ from treadmill import iptables
 
 from ._base_service import BaseResourceServiceImpl
 
-_LOGGER = lc.ContainerAdapter(logging.getLogger(__name__))
+_LOGGER = logging.getLogger(__name__)
 
 
 class NetworkResourceService(BaseResourceServiceImpl):
@@ -170,7 +170,8 @@ class NetworkResourceService(BaseResourceServiceImpl):
         :returns ``dict``:
             Network IP `vip`, network device `veth`, IP gateway `gateway`.
         """
-        with lc.LogContext(_LOGGER, rsrc_id) as log:
+        with lc.LogContext(_LOGGER, rsrc_id,
+                           adapter_cls=lc.ContainerAdapter) as log:
             log.debug('req: %r', rsrc_data)
 
             app_unique_name = rsrc_id

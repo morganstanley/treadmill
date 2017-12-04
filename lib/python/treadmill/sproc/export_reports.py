@@ -6,7 +6,7 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
-import bz2
+import io
 import logging
 import os.path
 import time
@@ -39,9 +39,10 @@ def export_reports(out_dir, zkclient):
         return
 
     for report_type in reports:
+        # Write the byte contents from ZK, reports are already compressed
         report, _ = zkclient.get(z.path.state_report(report_type))
         filename = '{}_{}.csv.bz2'.format(start_iso, report_type)
-        with bz2.BZ2File(os.path.join(out_dir, filename), 'w') as out:
+        with io.open(os.path.join(out_dir, filename), 'wb') as out:
             out.write(report)
 
     _LOGGER.info('State reports exported in %s (%.3f seconds)',

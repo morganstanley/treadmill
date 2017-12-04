@@ -13,6 +13,7 @@ import os
 import platform
 import socket
 
+import docker
 import psutil
 
 from . import exc
@@ -223,18 +224,15 @@ def _get_docker_node_info(info):
     memcapacity = (psutil.virtual_memory().total * 0.9) // _BYTES_IN_MB
 
     # TODO: manage disk space a little better
-    if os.name == 'nt':
-        path = 'C:\\ProgramData\\docker'
-    else:
-        path = '/var/lib/docker'
-
+    client = docker.from_env()
+    docker_info = client.info()
+    path = docker_info['DockerRootDir']
     diskfree = disk_usage(path).free // _BYTES_IN_MB
 
     info.update({
         'memory': '%dM' % memcapacity,
-        'disk':  '%dM' % diskfree,
+        'disk': '%dM' % diskfree,
         'cpu': '%d%%' % cpucapacity,
-        'up_since': up_since(),
     })
 
     return info
@@ -279,7 +277,7 @@ def _node_info_linux(tm_env, runtime):
 
         info.update({
             'memory': '%dM' % memcapacity,
-            'disk':  '%dM' % diskfree,
+            'disk': '%dM' % diskfree,
             'cpu': '%d%%' % cpucapacity,
             'network': network_status,
             'localdisk': localdisk_status,

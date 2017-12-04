@@ -13,16 +13,8 @@ import json
 import logging
 import os
 import shutil
-import signal
 import socket
 import tarfile
-
-import six
-
-if six.PY2 and os.name == 'posix':
-    import subprocess32 as subprocess  # pylint: disable=import-error
-else:
-    import subprocess  # pylint: disable=wrong-import-order
 
 from treadmill import appevents
 from treadmill import appcfg
@@ -31,18 +23,17 @@ from treadmill import firewall
 from treadmill import fs
 from treadmill import iptables
 from treadmill import logcontext as lc
+from treadmill import plugin_manager
 from treadmill import runtime
 from treadmill import rrdutils
 from treadmill import services
-from treadmill import supervisor
-from treadmill import sysinfo
 from treadmill import utils
 
 from treadmill.appcfg import abort as app_abort
 from treadmill.apptrace import events
 
 
-_LOGGER = lc.ContainerAdapter(logging.getLogger(__name__))
+_LOGGER = logging.getLogger(__name__)
 
 _ARCHIVE_LIMIT = utils.size_to_bytes('1G')
 
@@ -54,7 +45,6 @@ def finish(tm_env, container_dir):
                        lc.ContainerAdapter):
         _LOGGER.info('finishing %r', container_dir)
 
-        _stop_container(container_dir)
         data_dir = os.path.join(container_dir, 'data')
 
         app = runtime.load_app(data_dir)
@@ -121,7 +111,8 @@ def _collect_exit_info(container_dir):
             try:
                 aborted = json.load(f)
             except ValueError:
-                _LOGGER.warn('Invalid json in aborted file: %s', aborted_file)
+                _LOGGER.warning('Invalid json in aborted file: %s',
+                                aborted_file)
                 aborted = app_abort.ABORTED_UNKNOWN
 
     except IOError:
@@ -133,24 +124,6 @@ def _collect_exit_info(container_dir):
         _LOGGER.debug('oom file does not exist: %r', oom_file)
 
     return exitinfo, aborted, oom
-
-
-def _stop_container(container_dir):
-    """Stop container, remove from supervision tree."""
-    try:
-        supervisor.control_service(container_dir,
-                                   supervisor.ServiceControlAction.down,
-                                   wait=supervisor.ServiceWaitAction.down)
-
-    except subprocess.CalledProcessError as err:
-        # The directory was already removed as the app was killed by the user.
-        #
-        # There is nothing to be done here, just log and exit.
-        if err.returncode in (supervisor.ERR_COMMAND, supervisor.ERR_NO_SUP):
-            _LOGGER.info('Cannot control supervisor of %r.',
-                         container_dir)
-        else:
-            raise
 
 
 def _post_oom_event(tm_env, app):
@@ -180,11 +153,6 @@ def _post_exit_event(tm_env, app, exitinfo):
 def _cleanup(tm_env, container_dir, app):
     """Cleanup a container that actually ran.
     """
-    # Too many branches.
-    #
-    # pylint: disable=R0912
-
-    rootdir = os.path.join(container_dir, 'root')
     # Generate a unique name for the app
     unique_name = appcfg.app_unique_name(app)
     # Create service clients
@@ -198,39 +166,6 @@ def _cleanup(tm_env, container_dir, app):
         os.path.join(container_dir, 'resources', 'network')
     )
 
-    # Make sure all processes are killed
-    # FIXME(boysson): Should we use `kill_apps_in_cgroup` instead?
-    _kill_apps_by_root(rootdir)
-
-    # Setup the archive filename that will hold this container's data
-    filetime = utils.datetime_utcnow().strftime('%Y%m%d_%H%M%S%f')
-    archive_filename = os.path.join(
-        container_dir,
-        '{instance_name}_{hostname}_{timestamp}.tar'.format(
-            instance_name=appcfg.appname_task_id(app.name),
-            hostname=sysinfo.hostname(),
-            timestamp=filetime
-        )
-    )
-
-    # Tar up container root filesystem if archive list is in manifest
-    try:
-        localdisk = localdisk_client.get(unique_name)
-        fs.archive_filesystem(
-            localdisk['block_dev'],
-            rootdir,
-            archive_filename,
-            app.archive
-        )
-    except services.ResourceServiceError:
-        _LOGGER.warning('localdisk never allocated')
-    except subprocess.CalledProcessError:
-        _LOGGER.exception('Unable to archive root device of %r',
-                          unique_name)
-    except:  # pylint: disable=W0702
-        _LOGGER.exception('Unknown exception while archiving %r',
-                          unique_name)
-
     # Destroy the volume
     try:
         localdisk_client.delete(unique_name)
@@ -241,7 +176,7 @@ def _cleanup(tm_env, container_dir, app):
             raise
 
     if not app.shared_network:
-        _cleanup_network(tm_env, app, network_client)
+        _cleanup_network(tm_env, container_dir, app, network_client)
 
     # Add metrics to archive
     rrd_file = os.path.join(
@@ -271,7 +206,7 @@ def _cleanup(tm_env, container_dir, app):
         _LOGGER.exception('Unexpected exception storing local logs.')
 
 
-def _cleanup_network(tm_env, app, network_client):
+def _cleanup_network(tm_env, container_dir, app, network_client):
     """Cleanup the network part of a container.
     """
     # Generate a unique name for the app
@@ -363,8 +298,10 @@ def _cleanup_network(tm_env, app, network_client):
         'udp'
     )
 
+    _cleanup_exception_rules(tm_env, container_dir, app)
+
     # Terminate any entries in the conntrack table
-    iptables.flush_conntrack_table(app_network['vip'])
+    iptables.flush_cnt_conntrack_table(app_network['vip'])
     # Cleanup network resources
     network_client.delete(unique_name)
 
@@ -393,24 +330,17 @@ def _cleanup_ephemeral_ports(tm_env, unique_name,
         )
 
 
-def _kill_apps_by_root(approot):
-    """Kills all processes that run in a given chroot."""
-    norm_approot = os.path.normpath(approot)
-    procs = glob.glob('/proc/[0-9]*')
-    procs_killed = 0
-    for proc in procs:
-        pid = proc.split('/')[2]
-        try:
-            procroot = os.readlink(proc + '/root')
-            if os.path.normpath(procroot) == norm_approot:
-                _LOGGER.info('kill %s, root: %s', proc, procroot)
-                os.kill(int(pid), signal.SIGKILL)
-                procs_killed += 1
-        # pylint: disable=W0702
-        except:
-            _LOGGER.critical('Cannot open %s/root', proc, exc_info=True)
-
-    return procs_killed
+def _cleanup_exception_rules(tm_env, container_dir, app):
+    """Clean up firewall exception rules"""
+    try:
+        firewall_plugin = plugin_manager.load(
+            'treadmill.firewall.plugins', 'firewall'
+        )
+        firewall_plugin.cleanup_exception_rules(tm_env, container_dir, app)
+    except:  # pylint: disable=W0702
+        _LOGGER.exception(
+            'Error in firewall plugin, skip cleaning firewall exception rules.'
+        )
 
 
 def _copy_metrics(metrics_file, container_dir):

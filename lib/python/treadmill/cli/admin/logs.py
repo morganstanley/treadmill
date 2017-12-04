@@ -1,13 +1,14 @@
+"""Implementation of treadmill admin logs
 """
-Implementation of treadmill admin logs
-"""
+
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
-import urllib
 import click
+
+from six.moves import urllib_parse
 
 from treadmill import cli
 from treadmill import context
@@ -49,10 +50,10 @@ def init():
 
         api = 'http://{0}:{1}'.format(host, port)
         logurl = '/local-app/%s/%s/%s/%s' % (
-            urllib.quote(app),
-            urllib.quote(uniq),
+            urllib_parse.quote(app),
+            urllib_parse.quote(uniq),
             logtype,
-            urllib.quote(logname)
+            urllib_parse.quote(logname)
         )
 
         log = restclient.get(api, logurl)
@@ -70,4 +71,4 @@ def _nodeinfo_endpoint(host):
             data, _metadata = zkclient.get(
                 '{}/{}'.format(nodeinfo_zk_path, node)
             )
-            return data.split(':')
+            return data.decode().split(':')

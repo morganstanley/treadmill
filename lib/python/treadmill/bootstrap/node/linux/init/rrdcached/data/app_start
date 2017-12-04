@@ -3,9 +3,9 @@
 # Starts rrdcached daemon.
 #
 
-RM={{ rm }}
-CHOWN={{ chown }}
-MKDIR={{ mkdir }}
+RM={{ _alias.rm }}
+CHOWN={{ _alias.chown }}
+MKDIR={{ _alias.mkdir }}
 
 ${RM} /tmp/treadmill.rrd.pid
 ${RM} /tmp/treadmill.rrd
@@ -15,6 +15,12 @@ ${MKDIR} -p {{ dir }}/metrics/core
 
 ${CHOWN} -R nobody {{ dir }}/metrics
 
-exec {{ treadmill }}/bin/treadmill sproc --cgroup . \
-    exec -- {{ s6 }}/bin/s6-setuidgid nobody \
-     {{ rrdcached }} -g -l unix:/tmp/treadmill.rrd -p /tmp/treadmill.rrd.pid
+exec \
+    {{ treadmill }}/bin/treadmill34 \
+    sproc --cgroup . \
+    exec -- \
+        {{ _alias.s6_setuidgid }} nobody \
+        {{ rrdcached }} \
+            -g \
+            -l unix:/tmp/treadmill.rrd \
+            -p /tmp/treadmill.rrd.pid

@@ -22,7 +22,7 @@ def make_user_acl(user, perm):
     :type proto:
         ``str``
     :param perm:
-        Permission string (i.e - "rw", "rwcda").
+        Permission string (i.e - 'rw', 'rwcda').
     :type proto:
         ``str``
 
@@ -47,7 +47,7 @@ def make_role_acl(role, perm):
     :type proto:
         ``str``
     :param perm:
-        Permission string (i.e - "rw", "rwcda").
+        Permission string (i.e - 'rw', 'rwcda').
     :type proto:
         ``str``
 

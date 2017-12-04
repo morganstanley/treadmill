@@ -27,7 +27,16 @@ from treadmill import utils
 
 from ._base_service import BaseResourceServiceImpl
 
-_LOGGER = lc.ContainerAdapter(logging.getLogger(__name__))
+_LOGGER = logging.getLogger(__name__)
+
+TREADMILL_LV_PREFIX = 'tm-'
+
+
+def _uniqueid(app_unique_name):
+    """Create unique volume name based on unique app name.
+    """
+    _, uniqueid = app_unique_name.rsplit('-', 1)
+    return TREADMILL_LV_PREFIX + uniqueid
 
 
 class LocalDiskResourceService(BaseResourceServiceImpl):
@@ -45,15 +54,18 @@ class LocalDiskResourceService(BaseResourceServiceImpl):
         '_default_write_bps',
         '_default_write_iops',
         '_pending',
+        '_vg_name',
         '_vg_status',
         '_volumes',
+        '_extent_reserved',
     )
 
     PAYLOAD_SCHEMA = (
         ('size', True, str),
     )
 
-    def __init__(self, block_dev, read_bps, write_bps, read_iops, write_iops,
+    def __init__(self, block_dev, vg_name,
+                 read_bps, write_bps, read_iops, write_iops,
                  default_read_bps='20M', default_write_bps='20M',
                  default_read_iops=100, default_write_iops=100):
         super(LocalDiskResourceService, self).__init__()
@@ -63,8 +75,10 @@ class LocalDiskResourceService(BaseResourceServiceImpl):
         self._write_bps = write_bps
         self._read_iops = read_iops
         self._write_iops = write_iops
+        self._vg_name = vg_name
         self._vg_status = {}
         self._volumes = {}
+        self._extent_reserved = 0
         self._pending = []
         # TODO: temp solution - throttle read/writes to
         #                20M/s. In the future, IO will become part
@@ -80,16 +94,21 @@ class LocalDiskResourceService(BaseResourceServiceImpl):
         super(LocalDiskResourceService, self).initialize(service_dir)
 
         # Make sure LVM Volume Group set up
-        localdiskutils.setup_device_lvm(self._block_dev)
+        localdiskutils.setup_device_lvm(self._block_dev, self._vg_name)
 
         # Finally retrieve the LV info
-        lvs_info = lvm.lvsdisplay(group=localdiskutils.TREADMILL_VG)
+        lvs_info = lvm.lvsdisplay(group=self._vg_name)
 
-        # Mark all retrived volume as 'stale'
+        # Mark all retrived volumes that were created by treadmill as 'stale'
         for lv in lvs_info:
-            lv['stale'] = True
+            lv['stale'] = lv['name'].startswith(TREADMILL_LV_PREFIX)
             if lv['open_count']:
                 _LOGGER.warning('Logical volume in use: %r', lv['block_dev'])
+
+        # Count the number of extents taken by non-treadmill volumes
+        self._extent_reserved = sum([
+            lv['extent_size'] for lv in lvs_info if not lv['stale']
+        ])
 
         volumes = {
             lv['name']: {
@@ -104,20 +123,17 @@ class LocalDiskResourceService(BaseResourceServiceImpl):
             for lv in lvs_info
         }
         self._volumes = volumes
-        self._vg_status = localdiskutils.refresh_vg_status(
-            localdiskutils.TREADMILL_VG
-        )
+        self._vg_status = localdiskutils.refresh_vg_status(self._vg_name)
 
     def synchronize(self):
         """Make sure that all stale volumes are removed.
         """
         modified = False
         for uniqueid in six.viewkeys(self._volumes.copy()):
-            if not self._volumes[uniqueid].pop('stale', False):
-                continue
-            modified = True
-            # This is a stale volume, destroy it.
-            self._destroy_volume(uniqueid)
+            if self._volumes[uniqueid].pop('stale', False):
+                modified = True
+                # This is a stale volume, destroy it.
+                self._destroy_volume(uniqueid)
 
         if not modified:
             return
@@ -130,17 +146,19 @@ class LocalDiskResourceService(BaseResourceServiceImpl):
 
         # We just destroyed a volume, refresh cached status from LVM and notify
         # the service of the availability of the new status.
-        self._vg_status = localdiskutils.refresh_vg_status(
-            localdiskutils.TREADMILL_VG
-        )
+        self._vg_status = localdiskutils.refresh_vg_status(self._vg_name)
 
     def report_status(self):
-        return dict(self._vg_status.items() + {
+        status = self._vg_status.copy()
+        extent_avail = status['extent_nb'] - self._extent_reserved
+        status['size'] = extent_avail * status['extent_size']
+        status.update({
             'read_bps': self._read_bps,
             'write_bps': self._write_bps,
             'read_iops': self._read_iops,
             'write_iops': self._write_iops
-        }.items())
+        })
+        return status
 
     def on_create_request(self, rsrc_id, rsrc_data):
         app_unique_name = rsrc_id
@@ -150,12 +168,12 @@ class LocalDiskResourceService(BaseResourceServiceImpl):
         read_iops = self._default_read_iops
         write_iops = self._default_write_iops
 
-        with lc.LogContext(_LOGGER, rsrc_id) as log:
+        with lc.LogContext(_LOGGER, rsrc_id,
+                           adapter_cls=lc.ContainerAdapter) as log:
             log.info('Processing request')
 
             size_in_bytes = utils.size_to_bytes(size)
-            # FIXME(boysson): This kind of manipulation should live elsewhere.
-            _, uniqueid = app_unique_name.rsplit('-', 1)
+            uniqueid = _uniqueid(app_unique_name)
 
             # Create the logical volume
             existing_volume = uniqueid in self._volumes
@@ -175,17 +193,17 @@ class LocalDiskResourceService(BaseResourceServiceImpl):
 
                 lvm.lvcreate(
                     volume=uniqueid,
-                    group=localdiskutils.TREADMILL_VG,
+                    group=self._vg_name,
                     size_in_bytes=size_in_bytes,
                 )
                 # We just created a volume, refresh cached status from LVM
                 self._vg_status = localdiskutils.refresh_vg_status(
-                    localdiskutils.TREADMILL_VG
+                    self._vg_name
                 )
 
             lv_info = lvm.lvdisplay(
                 volume=uniqueid,
-                group=localdiskutils.TREADMILL_VG
+                group=self._vg_name
             )
 
             # Configure block device using cgroups (this is idempotent)
@@ -246,8 +264,7 @@ class LocalDiskResourceService(BaseResourceServiceImpl):
         app_unique_name = rsrc_id
 
         with lc.LogContext(_LOGGER, rsrc_id):
-            # FIXME(boysson): This kind of manipulation should live elsewhere.
-            _, uniqueid = app_unique_name.rsplit('-', 1)
+            uniqueid = _uniqueid(app_unique_name)
 
             # Remove it from state (if present)
             if not self._destroy_volume(uniqueid):
@@ -261,9 +278,7 @@ class LocalDiskResourceService(BaseResourceServiceImpl):
 
             # We just destroyed a volume, refresh cached status from LVM and
             # notify the service of the availability of the new status.
-            self._vg_status = localdiskutils.refresh_vg_status(
-                localdiskutils.TREADMILL_VG
-            )
+            self._vg_status = localdiskutils.refresh_vg_status(self._vg_name)
 
         return True
 
@@ -273,12 +288,15 @@ class LocalDiskResourceService(BaseResourceServiceImpl):
         # Remove it from state (if present)
         self._volumes.pop(uniqueid, None)
         try:
-            lvm.lvremove(uniqueid, group=localdiskutils.TREADMILL_VG)
+            lvm.lvdisplay(uniqueid, group=self._vg_name)
         except subprocess.CalledProcessError:
             _LOGGER.warning('Ignoring unknow volume %r', uniqueid)
             return False
 
+        # This should not fail.
+        lvm.lvremove(uniqueid, group=self._vg_name)
         _LOGGER.info('Destroyed volume %r', uniqueid)
+
         return True
 
     def _retry_request(self, rsrc_id):

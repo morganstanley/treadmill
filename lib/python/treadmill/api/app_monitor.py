@@ -9,8 +9,7 @@ import fnmatch
 
 from treadmill import context
 from treadmill import schema
-from treadmill import authz
-from treadmill import master
+from treadmill.scheduler import masterapi
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -28,14 +27,14 @@ class API(object):
 
             zkclient = context.GLOBAL.zk.conn
             monitors = [
-                master.get_appmonitor(zkclient, app)
-                for app in master.appmonitors(zkclient)
+                masterapi.get_appmonitor(zkclient, app)
+                for app in masterapi.appmonitors(zkclient)
             ]
 
             filtered = [
                 monitor for monitor in monitors
-                if (monitor is not None
-                    and fnmatch.fnmatch(monitor['_id'], match))
+                if (monitor is not None and
+                    fnmatch.fnmatch(monitor['_id'], match))
             ]
             return sorted(filtered)
 
@@ -45,8 +44,8 @@ class API(object):
         def get(rsrc_id):
             """Get application monitor configuration."""
             zkclient = context.GLOBAL.zk.conn
-            return master.get_appmonitor(zkclient, rsrc_id,
-                                         raise_notfound=True)
+            return masterapi.get_appmonitor(zkclient, rsrc_id,
+                                            raise_notfound=True)
 
         @schema.schema(
             {'$ref': 'appmonitor.json#/resource_id'},
@@ -56,8 +55,8 @@ class API(object):
         def create(rsrc_id, rsrc):
             """Create (configure) application monitor."""
             zkclient = context.GLOBAL.zk.conn
-            master.update_appmonitor(zkclient, rsrc_id, rsrc['count'])
-            return master.get_appmonitor(zkclient, rsrc_id)
+            masterapi.update_appmonitor(zkclient, rsrc_id, rsrc['count'])
+            return masterapi.get_appmonitor(zkclient, rsrc_id)
 
         @schema.schema(
             {'$ref': 'appmonitor.json#/resource_id'},
@@ -67,8 +66,8 @@ class API(object):
         def update(rsrc_id, rsrc):
             """Update application configuration."""
             zkclient = context.GLOBAL.zk.conn
-            master.update_appmonitor(zkclient, rsrc_id, rsrc['count'])
-            return master.get_appmonitor(zkclient, rsrc_id)
+            masterapi.update_appmonitor(zkclient, rsrc_id, rsrc['count'])
+            return masterapi.get_appmonitor(zkclient, rsrc_id)
 
         @schema.schema(
             {'$ref': 'appmonitor.json#/resource_id'},
@@ -76,7 +75,7 @@ class API(object):
         def delete(rsrc_id):
             """Delete configured application monitor."""
             zkclient = context.GLOBAL.zk.conn
-            master.delete_appmonitor(zkclient, rsrc_id)
+            masterapi.delete_appmonitor(zkclient, rsrc_id)
             return None
 
         self.list = _list
@@ -84,9 +83,3 @@ class API(object):
         self.create = create
         self.update = update
         self.delete = delete
-
-
-def init(authorizer):
-    """Returns module API wrapped with authorizer function."""
-    api = API()
-    return authz.wrap(api, authorizer)

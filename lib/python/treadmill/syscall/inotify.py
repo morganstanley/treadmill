@@ -93,8 +93,19 @@ _INOTIFY_ADD_WATCH = _INOTIFY_ADD_WATCH_DECL(('inotify_add_watch', _LIBC))
 
 
 def inotify_add_watch(fileno, path, mask):
-    """Add a watch to an initialized inotify instance."""
-    watch_id = _INOTIFY_ADD_WATCH(fileno, path, mask)
+    """Add a watch to an initialized inotify instance.
+
+    :params ``int`` fileno:
+        Inotify socket.
+    :params ``str`` path:
+        Path to add the watch on.
+    :params ``int`` mask:
+        Mask of :class:`INAddWatchFlags` values controlling the watch creation.
+    :returns:
+        ``int`` - Corresponding watch ID.
+    """
+    encoded_path = path.encode()
+    watch_id = _INOTIFY_ADD_WATCH(fileno, encoded_path, mask)
     if watch_id < 0:
         errno = ctypes.get_errno()
         raise OSError(errno, os.strerror(errno),
@@ -143,7 +154,13 @@ _INOTIFY_RM_WATCH = _INOTIFY_RM_WATCH_DECL(('inotify_rm_watch', _LIBC))
 
 
 def inotify_rm_watch(fileno, watch_id):
-    """Remove an existing watch from an inotify instance."""
+    """Remove an existing watch from an inotify instance.
+
+    :params ``int`` fileno:
+        Inotify socket.
+    :params ``int`` watch_id:
+        Watch ID to remove.
+    """
     res = _INOTIFY_RM_WATCH(fileno, watch_id)
     if res < 0:
         errno = ctypes.get_errno()
@@ -179,7 +196,7 @@ def _parse_buffer(event_buffer):
             INOTIFY_EVENT_HDRSIZE:
             INOTIFY_EVENT_HDRSIZE + length
         ]
-        name = name.rstrip('\x00')
+        name = name.rstrip(b'\x00')
         event_buffer = event_buffer[INOTIFY_EVENT_HDRSIZE + length:]
         yield wd, mask, cookie, name
 
@@ -280,7 +297,7 @@ def _fmt_mask(mask):
     """Parse an Inotify event mask into indivitual event flags."""
     masks = []
     # Non-iterable value INEvent is used in an iterating context
-    for event in INEvent:  # pylint: disable=E1133
+    for event in INEvent:
         if mask & event:
             masks.append(event.name)
             mask ^= event
@@ -291,10 +308,6 @@ def _fmt_mask(mask):
 
 ###############################################################################
 # High level Python API
-
-# W0232: No __init__
-# E1001: This is not an oldstyle class
-# pylint: disable=E1001,W0232
 class InotifyEvent(collections.namedtuple('InotifyEvent',
                                           'wd mask cookie src_path')):
     """
@@ -475,6 +488,7 @@ class Inotify(object):
         event_buffer = os.read(self._inotify_fd, event_buffer_size)
         event_list = []
         for wd, mask, cookie, name in _parse_buffer(event_buffer):
+            name = name.decode()
             wd_path = self._paths[wd]
             src_path = os.path.normpath(os.path.join(wd_path, name))
             inotify_event = InotifyEvent(wd, mask, cookie, src_path)

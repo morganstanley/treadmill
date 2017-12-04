@@ -23,9 +23,9 @@ _LOGGER = logging.getLogger(__name__)
 class ServiceType(enum.Enum):
     """Types of services.
     """
-    LongRun = b'longrun'
-    Oneshot = b'oneshot'
-    Bundle = b'bundle'
+    LongRun = 'longrun'
+    Oneshot = 'oneshot'
+    Bundle = 'bundle'
 
 
 class Service(object):

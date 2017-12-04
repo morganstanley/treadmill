@@ -148,12 +148,12 @@ class VersionMgrTest(mockzk.MockZookeeperTestCase):
             [
                 # XXX(boysson): Figure out how to test this
                 # mock.call('/common/foo/bar <mode> <size> <mtime> <ctime>'),
-                mock.call('/common/foo/baz -> bar'),
-                mock.call('/foodir -> common/foo'),
-                mock.call('/foo/bar -> ../common/foo/bar'),
-                mock.call('/otherdir -> /dir'),
+                mock.call(b'/common/foo/baz -> bar'),
+                mock.call(b'/foodir -> common/foo'),
+                mock.call(b'/foo/bar -> ../common/foo/bar'),
+                mock.call(b'/otherdir -> /dir'),
             ],
-            any_order=True,
+            any_order=True
         )
         self.assertEqual(mock_checksum.update.call_count, 5)
 

@@ -1,6 +1,6 @@
+"""Local node redirect REST api.
 """
-Local node redirect REST api.
-"""
+
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
@@ -8,7 +8,6 @@ from __future__ import unicode_literals
 
 from six.moves import http_client
 
-# pylint: disable=E0611,F0401
 import flask
 import flask_restplus as restplus
 
@@ -16,7 +15,6 @@ from treadmill import webutils
 from treadmill import utils
 
 
-# pylint: disable=W0232,R0912
 def init(api, _cors, impl):
     """Configures REST handlers for allocation resource."""
 

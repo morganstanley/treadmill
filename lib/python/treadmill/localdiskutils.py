@@ -49,20 +49,13 @@ def refresh_vg_status(group):
     """
     vg_info = lvm.vgdisplay(group=group)
     status = {
-        'name':         vg_info['name'],
-        'extent_size':  utils.size_to_bytes(
+        'name': vg_info['name'],
+        'extent_size': utils.size_to_bytes(
             '{kb}k'.format(kb=vg_info['extent_size'])
         ),
-        'extent_free':  vg_info['extent_free'],
-        'extent_nb':    vg_info['extent_nb'],
-        'size':         utils.size_to_bytes(
-            '{kb}k'.format(
-                kb=vg_info['extent_nb'] * vg_info['extent_size']
-            )
-        )
+        'extent_free': vg_info['extent_free'],
+        'extent_nb': vg_info['extent_nb'],
     }
-    _LOGGER.info('Group %r available space: %s (bytes)',
-                 group, status['size'])
     return status
 
 
@@ -208,14 +201,14 @@ def init_block_dev(img_name, img_location, img_size='-2G'):
 
     try:
         loop_dev = loop_dev_for(filename)
-
     except subprocess.CalledProcessError:
-        # The file doesn't exist.
         loop_dev = None
-        create_image(img_name, img_location, img_size)
 
     # Assign a loop device (if not already assigned)
     if loop_dev is None:
+        # Create image
+        if not os.path.isfile(filename):
+            create_image(img_name, img_location, img_size)
         # Create the loop device
         subproc.check_call(
             [

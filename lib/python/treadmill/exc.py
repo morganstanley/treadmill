@@ -7,12 +7,26 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import logging
+import six
 
 _LOGGER = logging.getLogger(__name__)
 
 
 class TreadmillError(Exception):
-    """Base class for all Treadmill errors"""
+    """Base class for all Treadmill errors.
+    """
+
+    __slots__ = (
+    )
+
+    @property
+    def message(self):
+        """The :class:`~TreadmillError`'s message.
+        """
+        return self.args[0]
+
+    def __init__(self, msg):
+        super(TreadmillError, self).__init__(six.text_type(msg))
 
     def __str__(self):
         return self.message
@@ -21,39 +35,49 @@ class TreadmillError(Exception):
 class InvalidInputError(TreadmillError):
     """Non-fatal error, indicating incorrect input."""
 
+    __slots__ = (
+        'source',
+    )
+
     def __init__(self, source, msg):
+        super(InvalidInputError, self).__init__(msg=msg)
         self.source = source
-        self.message = msg
-        super(InvalidInputError, self).__init__()
 
 
 class ContainerSetupError(TreadmillError):
     """Fatal error, indicating problem setting up container environment."""
 
+    __slots__ = (
+        'reason',
+    )
+
     def __init__(self, msg, reason=None):
-        self.message = msg
+        super(ContainerSetupError, self).__init__(msg=msg)
         if reason is None:
             self.reason = 'unknown'
         else:
             self.reason = reason
-        super(ContainerSetupError, self).__init__()
 
 
 class NodeSetupError(TreadmillError):
     """Fatal error, indicating problem initializing the node environment"""
-    pass
+
+    __slots__ = ()
 
 
 class LocalFileNotFoundError(TreadmillError):
     """Thrown if the file cannot be found on the host."""
-    pass
+
+    __slots__ = ()
 
 
 class NotFoundError(TreadmillError):
     """Thrown in REST API when a resource is not found"""
-    pass
+
+    __slots__ = ()
 
 
 class FoundError(TreadmillError):
     """Thrown in REST API when a resource is found"""
-    pass
+
+    __slots__ = ()

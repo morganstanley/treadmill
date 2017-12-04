@@ -14,13 +14,13 @@ import select
 from treadmill import cgroups
 from treadmill import cgutils
 from treadmill import logcontext as lc
+from treadmill import runtime
 from treadmill import sysinfo
 from treadmill import utils
-from treadmill import supervisor
 
 from ._base_service import BaseResourceServiceImpl
 
-_LOGGER = lc.ContainerAdapter(logging.getLogger(__name__))
+_LOGGER = logging.getLogger(__name__)
 
 
 class CgroupResourceService(BaseResourceServiceImpl):
@@ -29,7 +29,7 @@ class CgroupResourceService(BaseResourceServiceImpl):
 
     __slots__ = (
         '_cgroups',
-        '_apps_dir',
+        '_tm_env'
     )
 
     SUBSYSTEMS = ('cpu', 'cpuacct', 'memory', 'blkio')
@@ -37,9 +37,9 @@ class CgroupResourceService(BaseResourceServiceImpl):
     PAYLOAD_SCHEMA = (('memory', True, str),
                       ('cpu', True, int))
 
-    def __init__(self, apps_dir):
+    def __init__(self, tm_env):
         super(CgroupResourceService, self).__init__()
-        self._apps_dir = apps_dir
+        self._tm_env = tm_env
         self._cgroups = {}
 
     def initialize(self, service_dir):
@@ -74,7 +74,8 @@ class CgroupResourceService(BaseResourceServiceImpl):
 
         cgrp = os.path.join('treadmill', 'apps', instance_id)
 
-        with lc.LogContext(_LOGGER, rsrc_id) as log:
+        with lc.LogContext(_LOGGER, rsrc_id,
+                           adapter_cls=lc.ContainerAdapter) as log:
             log.info('Creating cgroups: %s:%s', self.SUBSYSTEMS, cgrp)
             for subsystem in self.SUBSYSTEMS:
                 cgutils.create(subsystem, cgrp)
@@ -131,7 +132,8 @@ class CgroupResourceService(BaseResourceServiceImpl):
         instance_id = rsrc_id
         cgrp = os.path.join('treadmill/apps', instance_id)
 
-        with lc.LogContext(_LOGGER, rsrc_id) as log:
+        with lc.LogContext(_LOGGER, rsrc_id,
+                           adapter_cls=lc.ContainerAdapter) as log:
             self._unregister_oom_handler(cgrp)
 
             log.info('Deleting cgroups: %s:%s', self.SUBSYSTEMS, cgrp)
@@ -178,7 +180,7 @@ class CgroupResourceService(BaseResourceServiceImpl):
                                 handler_data['instance_id'])
 
                 # Kill container
-                _shutdown_container(self._apps_dir, instance_id)
+                _shutdown_container(self._tm_env, instance_id)
 
                 try:
                     os.close(handler_data['fd'])
@@ -212,10 +214,10 @@ class CgroupResourceService(BaseResourceServiceImpl):
                      cgrp)
 
 
-def _shutdown_container(apps_dir, instance_id):
+def _shutdown_container(tm_env, instance_id):
     """Shutdown a container.
     """
-    container_dir = os.path.join(apps_dir, instance_id)
+    container_dir = os.path.join(tm_env.apps_dir, instance_id)
     utils.touch(os.path.join(container_dir, 'data', 'oom'))
-    supervisor.control_service(container_dir,
-                               supervisor.ServiceControlAction.kill)
+    linux_runtime = runtime.get_runtime('linux', tm_env, container_dir)
+    linux_runtime.kill()

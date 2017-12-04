@@ -29,19 +29,36 @@ _LOGGER = logging.getLogger(__name__)
 # Allow 2 * count tokens to accumulate during 1 hour.
 _INTERVAL = float(60 * 60)
 
+# Delay monitoring for non-existent apps.
+_DELAY_INTERVAL = float(5 * 60)
+
 
 def reevaluate(api_url, state):
     """Evaluate state and adjust app count based on monitor"""
-    # Disable too many branches warning.
+    # Disable too many branches/statements warning.
     #
     # pylint: disable=R0912
+    # pylint: disable=R0915
 
     grouped = dict(state['scheduled'])
     monitors = dict(state['monitors'])
+
+    # Do not create a copy, delayed is accessed by ref.
+    delayed = state['delayed']
+
     now = time.time()
 
     # Increase available tokens.
-    for name, conf in monitors.iteritems():
+    for name, conf in six.iteritems(monitors):
+
+        if delayed.get(name, 0) > now:
+            _LOGGER.debug('Ignoring app %s - delayed.', name)
+            continue
+
+        # Either app is not delayed or it is past-due - remove it from
+        # delayed dict.
+        delayed.pop(name, None)
+
         # Max value reached, nothing to do.
         max_value = conf['count'] * 2
         available = conf['available']
@@ -53,7 +70,11 @@ def reevaluate(api_url, state):
     # Allow every application to evaluate
     success = True
 
-    for name, conf in monitors.iteritems():
+    for name, conf in six.iteritems(monitors):
+
+        if delayed.get(name, 0) > now:
+            _LOGGER.debug('Monitor is delayed for: %s.', name)
+            continue
 
         count = conf['count']
         available = conf['available']
@@ -81,7 +102,15 @@ def reevaluate(api_url, state):
                     headers={'X-Treadmill-Trusted-Agent': 'monitor'}
                 )
                 conf['available'] -= allowed
-
+            except restclient.NotFoundError:
+                _LOGGER.info('App not configured: %s', name)
+                delayed[name] = now + _DELAY_INTERVAL
+            except restclient.BadRequestError:
+                _LOGGER.exception('Unable to start: %s', name)
+                delayed[name] = now + _DELAY_INTERVAL
+            except restclient.ValidationError:
+                _LOGGER.exception('Invalid manifest: %s', name)
+                delayed[name] = now + _DELAY_INTERVAL
             except Exception:  # pylint: disable=W0703
                 _LOGGER.exception('Unable to create instances: %s: %s',
                                   name, needed)
@@ -109,7 +138,8 @@ def _run_sync(api_url):
 
     state = {
         'scheduled': {},
-        'monitors': {}
+        'monitors': {},
+        'delayed': {},
     }
 
     @zkclient.ChildrenWatch(z.path.scheduled())
@@ -117,12 +147,15 @@ def _run_sync(api_url):
     def _scheduled_watch(children):
         """Watch scheduled instances."""
         scheduled = sorted(children)
-        appname_fn = lambda n: n.rpartition('#')[0]
+
+        def _appname_fn(instancename):
+            return instancename.rpartition('#')[0]
+
         grouped = collections.defaultdict(
             list,
             {
                 k: list(v)
-                for k, v in itertools.groupby(scheduled, appname_fn)
+                for k, v in itertools.groupby(scheduled, _appname_fn)
             }
         )
         state['scheduled'] = grouped

@@ -11,9 +11,9 @@ import json
 import logging
 import os
 
-import treadmill
 from treadmill import appcfg
 from treadmill import context
+from treadmill import dist
 from treadmill import subproc
 from treadmill import supervisor
 from treadmill import utils
@@ -164,8 +164,8 @@ def load(tm_env, event, runtime):
             manifest['ephemeral_ports']['udp']
         )
 
-    _add_runtime(tm_env, manifest, runtime)
     _add_features(manifest, runtime)
+    _add_runtime(tm_env, manifest, runtime)
 
     return manifest
 
@@ -233,7 +233,7 @@ def _add_linux_system_services(tm_env, manifest):
                     ' --approot {tm_root}'
                     ' {manifest}'
                 ).format(
-                    tm=treadmill.TREADMILL_BIN,
+                    tm=dist.TREADMILL_BIN,
                     zkurl=manifest['zookeeper'],
                     cell=cell,
                     tm_root=tm_env.root,
@@ -269,7 +269,7 @@ def _add_linux_system_services(tm_env, manifest):
             ' --approot {tm_root}'
             ' {manifest} {container_dir}'
         ).format(
-            tm=treadmill.TREADMILL_BIN,
+            tm=dist.TREADMILL_BIN,
             zkurl=manifest['zookeeper'],
             cell=manifest['cell'],
             tm_root=tm_env.root,
@@ -295,6 +295,7 @@ def _add_linux_system_services(tm_env, manifest):
     manifest['system_services'].append(register_presence)
 
     # Create container /etc/hosts manager service
+    run_overlay = os.path.join(container_data_dir, 'overlay', 'var', 'run')
     etc_overlay = os.path.join(container_data_dir, 'overlay', 'etc')
     hostaliases = {
         'name': 'hostaliases',
@@ -310,11 +311,17 @@ def _add_linux_system_services(tm_env, manifest):
             ' --aliases-dir {aliases_dir}'
             ' {hosts_original} {hosts_container}'
         ).format(
-            tm=treadmill.TREADMILL_BIN,
+            tm=dist.TREADMILL_BIN,
             cell=manifest['cell'],
-            aliases_dir=os.path.join(etc_overlay, 'host-aliases'),
-            hosts_original=os.path.join(etc_overlay, 'hosts.original'),
-            hosts_container=os.path.join(etc_overlay, 'hosts'),
+            aliases_dir=os.path.join(
+                run_overlay, 'host-aliases',
+            ),
+            hosts_original=os.path.join(
+                '/', 'etc', 'hosts'
+            ),
+            hosts_container=os.path.join(
+                etc_overlay, 'hosts'
+            ),
         ),
         'environ': [],
         'downed': False,
@@ -327,7 +334,7 @@ def _add_linux_system_services(tm_env, manifest):
         'name': 'start_container',
         'proid': 'root',
         'restart': {
-            'limit': 1,
+            'limit': 0,
             'interval': 60,
         },
         'command': (
@@ -351,10 +358,7 @@ def _add_linux_system_services(tm_env, manifest):
     monitor = {
         'name': 'monitor',
         'proid': 'root',
-        'restart': {
-            'limit': 5,
-            'interval': 60,
-        },
+        'restart': None,  # Monitor should not be monitored
         'command': (
             'exec {tm} sproc'
             ' --cell {cell}'
@@ -363,7 +367,7 @@ def _add_linux_system_services(tm_env, manifest):
             ' -c {container_dir}'
             ' -s {services_opts}'
         ).format(
-            tm=treadmill.TREADMILL_BIN,
+            tm=dist.TREADMILL_BIN,
             cell=manifest['cell'],
             tm_root=tm_env.root,
             container_dir=container_svcdir.directory,

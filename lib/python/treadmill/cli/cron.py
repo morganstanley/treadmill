@@ -7,9 +7,10 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import logging
-import urllib
 
 import click
+
+from six.moves import urllib_parse
 
 from treadmill import cli
 from treadmill import context
@@ -93,7 +94,7 @@ def init():
             query['resource'] = resource
 
         if query:
-            qstr = urllib.urlencode(query)
+            qstr = urllib_parse.urlencode(query)
             url = '{}?{}'.format(url, qstr)
 
         response = restclient.get(restapi, url)

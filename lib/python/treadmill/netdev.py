@@ -12,6 +12,7 @@ import logging
 import os
 
 import enum
+import six
 
 from treadmill import subproc
 
@@ -51,7 +52,7 @@ def dev_mac(devname):
     :raises:
         OSError, IOError if the device doesn't exist
     """
-    return str(_get_dev_attr(devname, 'address'))
+    return six.text_type(_get_dev_attr(devname, 'address'))
 
 
 def dev_alias(devname):
@@ -64,7 +65,7 @@ def dev_alias(devname):
     :raises:
         OSError, IOError if the device doesn't exist
     """
-    return str(_get_dev_attr(devname, 'ifalias'))
+    return six.text_type(_get_dev_attr(devname, 'ifalias'))
 
 
 class DevState(enum.Enum):
@@ -72,12 +73,13 @@ class DevState(enum.Enum):
 
     https://www.kernel.org/doc/Documentation/networking/operstates.txt
     """
-    # Class has no __init__ method
-    # pylint: disable=W0232
-
-    UP = b'up'  # pylint: disable=C0103
-    DOWN = b'down'
-    UNKNOWN = b'unknown'
+    UP = 'up'  # pylint: disable=C0103
+    DOWN = 'down'
+    UNKNOWN = 'unknown'
+    NOT_PRESENT = 'notpresent'
+    LOWER_LAYER_DOWN = 'lowerlayerdown'
+    TESTING = 'testing'
+    DORMANT = 'dormant'
 
 
 def dev_state(devname):
@@ -188,7 +190,7 @@ def link_set_mtu(devname, mtu):
             _IP_EXE, 'link',
             'set',
             'dev', devname,
-            'mtu', str(mtu),
+            'mtu', six.text_type(mtu),
         ],
     )
 
@@ -204,7 +206,7 @@ def link_set_netns(devname, namespace):
             _IP_EXE, 'link',
             'set',
             'dev', devname,
-            'netns', str(namespace),
+            'netns', six.text_type(namespace),
         ],
     )
 
@@ -344,7 +346,7 @@ def bridge_setfd(devname, forward_delay):
             _BRCTL_EXE,
             'setfd',
             devname,
-            str(forward_delay),
+            six.text_type(forward_delay),
         ],
     )
 
@@ -492,5 +494,5 @@ def _proc_sys_write(path, value):
     assert path.startswith('/proc/sys/')
 
     _LOGGER.debug('Setting %r to %r', path, value)
-    with io.open(path, 'wb') as f:
-        f.write(str(value).encode(encoding='utf8', errors='replace'))
+    with io.open(path, 'w') as f:
+        f.write(six.text_type(value))

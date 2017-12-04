@@ -26,16 +26,21 @@ def stop(job_id=None, app_name=None):
     _LOGGER.debug('job_id: %s, app_name: %r', job_id, app_name)
 
     try:
-        instances = restclient.get(
+        response = restclient.get(
             [_API_URL],
             '/instance/?match={}'.format(app_name)
         )
+        instances = response.json().get('instances', [])
         _LOGGER.info('Stopping: %r', instances)
+
+        if not instances:
+            _LOGGER.warning('No instances running for %s', app_name)
+            return
 
         restclient.post(
             [_API_URL],
             '/instance/_bulk/delete',
-            payload=instances,
+            payload=dict(instances=instances),
             headers={'X-Treadmill-Trusted-Agent': 'cron'}
         )
     except Exception:  # pylint: disable=W0703

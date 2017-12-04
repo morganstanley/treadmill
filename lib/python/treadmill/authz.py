@@ -1,17 +1,15 @@
-"""Authorization for Treadmill API."""
+"""Authorization for Treadmill API.
+"""
 
-
+from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
-
-from __future__ import absolute_import
 
 import logging
 
 import decorator
 
-# Disable E0611: No 'name' in module
 from treadmill import restclient
 
 _LOGGER = logging.getLogger(__name__)
@@ -62,7 +60,7 @@ class ClientAuthorizer(object):
             data['payload'] = args[1]
 
         # POST http://auth_server/user/action/resource
-        # {"pk": "foo", "payload": { ... }}
+        # {'pk': 'foo', 'payload': { ... }}
         response = restclient.post(api=self.remote,
                                    url=url,
                                    payload=data,
@@ -76,7 +74,7 @@ class ClientAuthorizer(object):
         return authd
 
 
-def authorize(authorizer):
+def _authorize(authorizer):
     """Constructs authorizer decorator."""
 
     @decorator.decorator
@@ -98,7 +96,7 @@ def wrap(api, authorizer):
             continue
 
         if authorizer:
-            auth = authorize(authorizer)
+            auth = _authorize(authorizer)
             attr = getattr(api, action)
             if hasattr(attr, '__call__'):
                 setattr(api, action, auth(attr))

@@ -59,7 +59,7 @@ def find_uniq_instance(instance, uniq, ws_api=None):
         return getattr(obj, 'timestamp', None)
 
     last = max(history, key=get_timestamp)
-    _LOGGER.debug("Instance %s's last trace item: %s", instance, last)
+    _LOGGER.debug('Instance %s\'s last trace item: %s', instance, last)
     return {'instanceid': last.instanceid,
             'host': getattr(last, 'source', None),
             'uniq': getattr(last, 'uniqueid', None)}

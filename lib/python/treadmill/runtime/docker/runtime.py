@@ -1,4 +1,5 @@
-"""Docker runtime interface."""
+"""Docker runtime interface.
+"""
 
 from __future__ import absolute_import
 from __future__ import division
@@ -10,6 +11,8 @@ import json
 import logging
 import multiprocessing
 import os
+import socket
+import time
 
 import docker
 
@@ -25,12 +28,17 @@ from treadmill.appcfg import abort as app_abort
 from treadmill.apptrace import events
 from treadmill.runtime import runtime_base
 
+if os.name == 'nt':
+    from treadmill.ad import gmsa
+    from treadmill.ad import credential_spec
+
 
 _LOGGER = logging.getLogger(__name__)
 
 
 def _create_environ(app):
-    """Creates environ object."""
+    """Creates environ object.
+    """
     appenv = {envvar.name: envvar.value for envvar in app.environ}
 
     appenv.update({
@@ -44,6 +52,7 @@ def _create_environ(app):
         'TREADMILL_IDENTITY_GROUP': app.identity_group,
         'TREADMILL_PROID': app.proid,
         'TREADMILL_ENV': app.environment,
+        'TREADMILL_HOSTNAME': socket.getfqdn().lower()
     })
 
     for endpoint in app.endpoints:
@@ -60,35 +69,81 @@ def _create_environ(app):
     return appenv
 
 
-def _create_container(client, app):
-    """Create docker container from given app."""
+def _get_gmsa(tm_env, client, app, container_args):
+    """Waits on GMSA details and adds the credential spec to the args.
+    """
+    check = gmsa.HostGroupCheck(tm_env)
+
+    count = 0
+    found = False
+    while count < 60:
+        found = check.host_in_proid_group(app.proid)
+
+        if found:
+            break
+
+        count += 1
+        time.sleep(1000)
+
+    if not found:
+        raise exc.ContainerSetupError(
+            'Image {0} was not found'.format(app.image),
+            app_abort.AbortedReason.GMSA
+        )
+
+    path = credential_spec.generate(app.proid, container_args['name'], client)
+
+    container_args['security_opt'] = [
+        'credentialspec={}'.format(path)
+    ]
+    container_args['hostname'] = app.proid
+
+
+def _create_container(tm_env, client, app):
+    """Create docker container from given app.
+    """
     ports = {}
     for endpoint in app.endpoints:
-        ports[endpoint.port + '/' + endpoint.proto] = endpoint.real_port
+        port_key = '{0}/{1}'.format(endpoint.port, endpoint.proto)
+        ports[port_key] = endpoint.real_port
 
     # app.image contains a uri which starts with docker://
     image_name = app.image[9:]
     client.images.pull(image_name)
-    container = client.containers.create(
-        image=image_name,
-        name=appcfg.app_unique_name(app),
-        environment=_create_environ(app),
-        entrypoint=app.command,
-        command=app.args,
-        detach=True,
-        tty=True,
-        ports=ports,
-        network='nat',
+
+    name = appcfg.app_unique_name(app)
+
+    container_args = {
+        'image': image_name,
+        'name': name,
+        'environment': _create_environ(app),
+        'entrypoint': app.command,
+        'command': app.args,
+        'detach': True,
+        'tty': True,
+        'ports': ports,
+        'network': 'nat',
         # 1024 is max number of shares for docker
-        cpu_shares=int(
+        'cpu_shares': int(
             (app.cpu / (multiprocessing.cpu_count() * 100.0)) * 1024),
-        mem_limit=app.memory,
-        storage_opt={
+        'mem_limit': app.memory,
+        'storage_opt': {
             'size': app.disk
         }
-    )
+    }
 
-    return container
+    if os.name == 'nt':
+        _get_gmsa(tm_env, client, app, container_args)
+
+    try:
+        # The container might exist already
+        # TODO: start existing container with different ports
+        container = client.containers.get(name)
+        container.remove(force=True)
+    except docker.errors.NotFound:
+        pass
+
+    return client.containers.create(**container_args)
 
 
 def _check_aborted(container_dir):
@@ -108,7 +163,8 @@ def _check_aborted(container_dir):
 
 
 class DockerRuntime(runtime_base.RuntimeBase):
-    """Docker Treadmill runtime."""
+    """Docker Treadmill runtime.
+    """
 
     __slots__ = (
         'client'
@@ -125,7 +181,8 @@ class DockerRuntime(runtime_base.RuntimeBase):
             return False
 
     def _get_client(self):
-        """Gets the docker client."""
+        """Gets the docker client.
+        """
         if self.client is not None:
             return self.client
 
@@ -154,7 +211,7 @@ class DockerRuntime(runtime_base.RuntimeBase):
                 client = self._get_client()
 
                 try:
-                    container = _create_container(client, app)
+                    container = _create_container(self.tm_env, client, app)
                 except docker.errors.ImageNotFound:
                     raise exc.ContainerSetupError(
                         'Image {0} was not found'.format(app.image),
@@ -188,9 +245,9 @@ class DockerRuntime(runtime_base.RuntimeBase):
         if app:
             client = self._get_client()
             container = state = None
+            name = appcfg.app_unique_name(app)
             try:
-                container = client.containers.get(
-                    appcfg.app_unique_name(app))
+                container = client.containers.get(name)
                 state = container.attrs.get('State')
             except docker.errors.NotFound:
                 pass
@@ -222,3 +279,15 @@ class DockerRuntime(runtime_base.RuntimeBase):
                     )
 
                 appevents.post(self.tm_env.app_events_dir, event)
+
+            if os.name == 'nt':
+                credential_spec.cleanup(name, client)
+
+    def kill(self):
+        client = self._get_client()
+        name = os.path.basename(self.container_dir)
+        try:
+            container = client.containers.get(name)
+            container.kill()
+        except docker.errors.NotFound:
+            pass

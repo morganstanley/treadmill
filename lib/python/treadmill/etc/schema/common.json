@@ -115,9 +115,18 @@
         "maximum": 100
     },
     "identity_group_id": {
-        "type": "string",
-        "maxLength": 128,
-        "pattern": "^[\\w\\-]+(\\.[\\w\\-]+)+$"
+        "anyOf": [
+            {
+                "type": "string",
+                "maxLength": 128,
+                "pattern": "^[\\w\\-]+(\\.[\\w\\-]+)+$"
+            },
+            {
+                "type": "string",
+                "maxLength": 128,
+                "pattern": "^([\\w\\-]+)@([\\w\\-]+)(\\.[\\w\\-]+)+$"
+            }
+        ]
     },
     "trait": {
         "type": "string",

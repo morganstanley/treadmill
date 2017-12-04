@@ -25,9 +25,6 @@ import time
 
 import click
 
-# TODO: now that modules are split in two directories, pylint
-#                complaines about core module not found.
-# pylint: disable=E0611
 from treadmill import context
 from treadmill import firewall as fw
 from treadmill import dirwatch
@@ -37,10 +34,6 @@ from treadmill import utils
 from treadmill import watchdog
 from treadmill import yamlwrapper as yaml
 from treadmill import zknamespace as z
-
-# R0915: Need to refactor long function into smaller pieces.
-#
-# pylint: disable=R0915
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -153,8 +146,6 @@ def _configure_rules(target):
 def _watcher(root_dir, rules_dir, containers_dir, watchdogs_dir):
     """Treadmill Firewall rule watcher.
     """
-    # Too many branches
-    # pylint: disable=R0912
     rules_dir = os.path.join(root_dir, rules_dir)
     containers_dir = os.path.join(root_dir, containers_dir)
     watchdogs_dir = os.path.join(root_dir, watchdogs_dir)
@@ -163,7 +154,7 @@ def _watcher(root_dir, rules_dir, containers_dir, watchdogs_dir):
     watchdogs = watchdog.Watchdog(watchdogs_dir)
     wd = watchdogs.create(
         'svc-{svc_name}'.format(svc_name='firewall_watcher'),
-        '{hb:d}s'.format(hb=_FW_WATCHER_HEARTBEAT*2),
+        '{hb:d}s'.format(hb=_FW_WATCHER_HEARTBEAT * 2),
         'Service firewall watcher failed'
     )
 
@@ -185,6 +176,7 @@ def _watcher(root_dir, rules_dir, containers_dir, watchdogs_dir):
                 )
                 _LOGGER.info('Adding passthrough %r', rule.src_ip)
                 iptables.add_ip_set(iptables.SET_PASSTHROUGHS, rule.src_ip)
+                iptables.flush_pt_conntrack_table(rule.src_ip)
         else:
             _LOGGER.warning('Ignoring unparseable rule %r', rule_file)
 
@@ -210,6 +202,7 @@ def _watcher(root_dir, rules_dir, containers_dir, watchdogs_dir):
                     passthrough.pop(rule.src_ip)
                     _LOGGER.info('Removing passthrough %r', rule.src_ip)
                     iptables.rm_ip_set(iptables.SET_PASSTHROUGHS, rule.src_ip)
+                    iptables.flush_pt_conntrack_table(rule.src_ip)
                 else:
                     passthrough[rule.src_ip] -= 1
 
@@ -289,7 +282,7 @@ def init():
                 return True
 
         while True:
-            time.sleep(60*60*12)  # 12 hours
+            time.sleep(60 * 60 * 12)  # 12 hours
 
     @firewall.command()
     @click.option('--root-dir', required=True,

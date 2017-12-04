@@ -2,14 +2,14 @@
 
 # This script is not in chroot yet, so need to resolve local directory.
 
-CHROOT={{ chroot }}
-CHMOD={{ chmod }}
-ECHO={{ echo }}
-GREP={{ grep }}
-LS={{ ls }}
-MKDIR={{ mkdir }}
-MOUNT={{ mount }}
-RM={{ rm }}
+CHROOT={{ _alias.chroot }}
+CHMOD={{ _alias.chmod }}
+ECHO={{ _alias.echo }}
+GREP={{ _alias.grep }}
+LS={{ _alias.ls }}
+MKDIR={{ _alias.mkdir }}
+MOUNT={{ _alias.mount }}
+RM={{ _alias.rm }}
 
 unset KRB5CCNAME
 unset KRB5_KTNAME
@@ -22,7 +22,7 @@ for SVC in $($LS {{ dir }}/treadmill/init); do
     fi
 done
 
-$RM -vrf {{ dir }}/treadmill/init/*/data/exits/*
+$RM -vf {{ dir }}/treadmill/init/*/data/exits/*
 
 # Look at ALL directories, e.g. .mslinks
 for DIR in $(ls -a /); do
@@ -45,7 +45,8 @@ done
 cd {{ dir }}
 
 # Starting svscan
-export PATH={{ s6 }}/bin:$PATH
-exec $CHROOT {{ dir }}                       \
-    {{ s6 }}/bin/s6-envdir /treadmill/env    \
-    {{ s6 }}/bin/s6-svscan /treadmill/init
+export PATH={{ _alias.s6 }}/bin:$PATH
+exec \
+    ${CHROOT} {{ dir }} \
+    {{ _alias.s6_envdir }} /treadmill/env \
+    {{ _alias.s6_svscan }} /treadmill/init

@@ -7,8 +7,17 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import logging
+import os
+
+import six
+
+if six.PY2 and os.name == 'posix':
+    import subprocess32 as subprocess  # pylint: disable=import-error
+else:
+    import subprocess  # pylint: disable=wrong-import-order
 
 from treadmill import appcfg
+from treadmill import supervisor
 from treadmill.runtime import runtime_base
 
 from . import _run as app_run
@@ -38,3 +47,18 @@ class LinuxRuntime(runtime_base.RuntimeBase):
 
     def _finish(self):
         app_finish.finish(self.tm_env, self.container_dir)
+
+    def kill(self):
+        services_dir = os.path.join(self.container_dir, 'data', 'sys',
+                                    'start_container')
+        try:
+            supervisor.control_service(services_dir,
+                                       supervisor.ServiceControlAction.kill)
+        except subprocess.CalledProcessError as err:
+            if err.returncode in (supervisor.ERR_COMMAND,
+                                  supervisor.ERR_NO_SUP):
+                # Ignore the error if there is no supervisor
+                _LOGGER.info('Cannot control supervisor of %r.',
+                             services_dir)
+            else:
+                raise

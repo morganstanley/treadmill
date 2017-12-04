@@ -1,18 +1,20 @@
 """Entry point for treadmill manage ecosystem.
 """
+
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
-import pkgutil
+import logging
+import os
 
-import pkg_resources
 import click
+import pkg_resources
 
-from treadmill import cli
+from treadmill import cli, plugin_manager, utils
 
-__path__ = pkgutil.extend_path(__path__, __name__)
+_LOGGER = logging.getLogger(__name__)
 
 
 def make_manage_multi_command(module_name, **click_args):
@@ -36,6 +38,36 @@ def make_manage_multi_command(module_name, **click_args):
             old_commands = set(self.old_multi.list_commands(ctx))
             new_commands = set(self.new_multi.list_commands(ctx))
             return sorted(old_commands | new_commands)
+
+        def invoke(self, ctx):
+            """
+            invoke the command in a subprocess if it is executable
+            otherwise use it in process
+            """
+            name = ctx.protected_args[0]
+            try:
+                module = plugin_manager.load(module_name, name)
+            except KeyError:
+                return super(MCommand, self).invoke(ctx)
+
+            module_path = module.__file__
+            if module_path.endswith('pyc'):
+                module_path = module_path[:-1]
+            # shebang doesn't work on windows
+            # we use .cmd or a hardcoded default interpreter
+            if os.name == 'nt':
+                nt_path = module_path[:-2] + 'cmd'
+                if os.path.exists(nt_path):
+                    utils.sane_execvp(nt_path, [nt_path] + ctx.args)
+                else:
+                    _LOGGER.critical(
+                        "%s cli is not supported on windows", name)
+            else:
+                is_exec = os.access(module_path, os.X_OK)
+                if not is_exec:
+                    return super(MCommand, self).invoke(ctx)
+                utils.sane_execvp(module_path,
+                                  [os.path.basename(module_path)] + ctx.args)
 
         def get_command(self, ctx, name):
             try:

@@ -31,29 +31,35 @@ class AppEnvironment(object):
 
     __slots__ = (
         'apps_dir',
+        'bin_dir',
         'app_events_dir',
         'app_types',
         'archives_dir',
         'cache_dir',
+        'cleaning_dir',
         'cleanup_dir',
+        'cleanup_apps_dir',
         'configs_dir',
         'images_dir',
         'init_dir',
-        'metrics_dir',
+        'init1_dir',
         'root',
         'running_dir',
         'watchdogs',
-        'watchdog_dir',
+        'watchdog_dir'
     )
 
     APPS_DIR = 'apps'
+    BIN_DIR = 'bin'
     ARCHIVES_DIR = 'archives'
     CACHE_DIR = 'cache'
+    CLEANING_DIR = 'cleaning'
     CLEANUP_DIR = 'cleanup'
+    CLEANUP_APPS_DIR = 'cleanup_apps'
     CONFIG_DIR = 'configs'
     INIT_DIR = 'init'
+    INIT1_DIR = 'init1'
     RUNNING_DIR = 'running'
-    METRICS_DIR = 'metrics'
     WATCHDOG_DIR = 'watchdogs'
     APP_EVENTS_DIR = 'appevents'
     IMAGES_DIR = 'images'
@@ -62,29 +68,35 @@ class AppEnvironment(object):
         self.root = root
 
         self.apps_dir = os.path.join(self.root, self.APPS_DIR)
+        self.bin_dir = os.path.join(self.root, self.BIN_DIR)
         self.watchdog_dir = os.path.join(self.root, self.WATCHDOG_DIR)
         self.running_dir = os.path.join(self.root, self.RUNNING_DIR)
         self.cache_dir = os.path.join(self.root, self.CACHE_DIR)
+        self.cleaning_dir = os.path.join(self.root, self.CLEANING_DIR)
         self.cleanup_dir = os.path.join(self.root, self.CLEANUP_DIR)
+        self.cleanup_apps_dir = os.path.join(self.root, self.CLEANUP_APPS_DIR)
         self.configs_dir = os.path.join(self.root, self.CONFIG_DIR)
         self.app_events_dir = os.path.join(self.root, self.APP_EVENTS_DIR)
-        self.metrics_dir = os.path.join(self.root, self.METRICS_DIR)
         self.archives_dir = os.path.join(self.root, self.ARCHIVES_DIR)
         self.images_dir = os.path.join(self.root, self.IMAGES_DIR)
         self.init_dir = os.path.join(self.root, self.INIT_DIR)
+        self.init1_dir = os.path.join(self.root, self.INIT1_DIR)
 
         self.watchdogs = watchdog.Watchdog(self.watchdog_dir)
 
         fs.mkdir_safe(self.apps_dir)
+        fs.mkdir_safe(self.bin_dir)
         fs.mkdir_safe(self.watchdog_dir)
         fs.mkdir_safe(self.running_dir)
         fs.mkdir_safe(self.cache_dir)
+        fs.mkdir_safe(self.cleaning_dir)
         fs.mkdir_safe(self.cleanup_dir)
+        fs.mkdir_safe(self.cleanup_apps_dir)
         fs.mkdir_safe(self.configs_dir)
         fs.mkdir_safe(self.app_events_dir)
-        fs.mkdir_safe(self.metrics_dir)
         fs.mkdir_safe(self.archives_dir)
         fs.mkdir_safe(self.init_dir)
+        fs.mkdir_safe(self.init1_dir)
 
     @abc.abstractmethod
     def initialize(self, params):

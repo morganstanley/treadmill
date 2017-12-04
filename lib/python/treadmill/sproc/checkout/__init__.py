@@ -1,5 +1,5 @@
-"""Treadmill cell checkout."""
-
+"""Treadmill cell checkout.
+"""
 
 from __future__ import absolute_import
 from __future__ import division
@@ -110,10 +110,10 @@ def init():
     @click.option('--outdir', help='Output directory.',
                   required=True, type=click.Path(exists=True))
     @click.option('--interval', help='Interval between tests.',
-                  required=False, type=int, default=60*5)
+                  required=False, type=int, default=60 * 5)
     @click.option('--randomize',
                   help='Optional random interval between tests.',
-                  required=False, type=int, default=60*5)
+                  required=False, type=int, default=60 * 5)
     @click.option('--age',
                   help='Max report age to keep.',
                   default='1d')
@@ -164,7 +164,7 @@ def init():
                     for test in testcases:
                         suite.addTests(loader.loadTestsFromTestCase(test))
 
-                with io.open(report_file, 'w') as stream:
+                with io.open(report_file, 'wb') as stream:
                     runner = HTMLTestRunner.HTMLTestRunner(
                         stream=stream,
                         title='Treadmill cell checkout',
@@ -176,8 +176,8 @@ def init():
                 _LOGGER.exception('Unhandled exception during checkout')
 
                 result = None
-                with io.open(report_file, 'w') as stream:
-                    stream.write(str(err))
+                with io.open(report_file, 'wb') as stream:
+                    stream.write(str(err).encode('utf8'))
                     traceback.print_exc(file=stream)
 
             for name in processor:

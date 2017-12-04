@@ -24,10 +24,15 @@ _ALIAS_ERROR_MESSAGE = 'Required commands not found, ' \
 def lvm_group(parent):
     """Set up LVM on node"""
 
+    ctx = {}
+
     @parent.group()
-    def lvm():
+    @click.option('--vg-name', required=False,
+                  default=localdiskutils.TREADMILL_VG,
+                  help='Set up LVM on this volume group')
+    def lvm(vg_name):
         """Set up LVM on node"""
-        pass
+        ctx['vg_name'] = vg_name
 
     @lvm.command()
     @click.option('--device-name', required=True,
@@ -36,7 +41,7 @@ def lvm_group(parent):
     def device(device_name):
         """Set up LVM on device"""
         try:
-            localdiskutils.setup_device_lvm(device_name)
+            localdiskutils.setup_device_lvm(device_name, ctx['vg_name'])
         except subproc.CommandAliasError:
             _LOGGER.error(_ALIAS_ERROR_MESSAGE)
 
@@ -55,7 +60,8 @@ def lvm_group(parent):
             localdiskutils.setup_image_lvm(
                 image_name,
                 image_path,
-                image_size
+                image_size,
+                ctx['vg_name']
             )
         except subproc.CommandAliasError:
             _LOGGER.error(_ALIAS_ERROR_MESSAGE)

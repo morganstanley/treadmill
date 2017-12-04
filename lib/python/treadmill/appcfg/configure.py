@@ -10,13 +10,10 @@ import logging
 import os
 import shutil
 import sys
-import tempfile
 
-import json
-
-import treadmill
 from treadmill import appcfg
 from treadmill import appevents
+from treadmill import dist
 from treadmill import fs
 from treadmill import supervisor
 from treadmill import utils
@@ -61,7 +58,7 @@ def configure(tm_env, event, runtime):
         manifest_data = app_manifest.load(tm_env, event, runtime)
     except IOError:
         # File is gone. Nothing to do.
-        _LOGGER.exception("No event to load: %r", event)
+        _LOGGER.exception('No event to load: %r', event)
         return
 
     # Freeze the app data into a namedtuple object
@@ -73,11 +70,11 @@ def configure(tm_env, event, runtime):
     # Write the actual container start script
     if os.name == 'nt':
         run_script = ' '.join([
-            sys.executable, '-m', 'treadmill', 'sproc', 'run', 'data'
+            sys.executable, '-m', 'treadmill.ms', 'sproc', 'run', 'data'
         ])
     else:
         run_script = ' '.join([
-            'exec', treadmill.TREADMILL_BIN, 'sproc', 'run', '.'
+            'exec', dist.TREADMILL_BIN, 'sproc', 'run', '.'
         ])
 
     # Create the service for that container
@@ -86,7 +83,7 @@ def configure(tm_env, event, runtime):
         name=uniq_name,
         app_run_script=run_script,
         userid='root',
-        downed=True,
+        downed=False,
         monitor_policy={'limit': 0, 'interval': 60},
         environ={},
         environment=app.environment
@@ -102,10 +99,10 @@ def configure(tm_env, event, runtime):
     # Store the app.json in the container directory
     fs.write_safe(
         os.path.join(data_dir, appcfg.APP_JSON),
-        lambda f: json.dump(
-            manifest_data,
-            fp=f
+        lambda f: f.writelines(
+            utils.json_genencode(manifest_data)
         ),
+        mode='w',
         permission=0o644
     )
 
@@ -118,14 +115,3 @@ def configure(tm_env, event, runtime):
     )
 
     return container_svc.directory
-
-
-def schedule(container_dir, running_link):
-    """Kick start the container by placing it in the running folder.
-    """
-    # NOTE: We use a temporary file + rename behavior to override any
-    #       potential old symlinks.
-    tmpfile = tempfile.mktemp(prefix='.tmp',
-                              dir=os.path.dirname(running_link))
-    os.symlink(container_dir, tmpfile)
-    os.rename(tmpfile, running_link)

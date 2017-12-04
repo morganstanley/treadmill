@@ -6,10 +6,9 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
-# pylint: disable=E0611
 from treadmill import admin
 from treadmill import context
-from treadmill import master
+from treadmill.scheduler import master
 
 
 def sync_servers():

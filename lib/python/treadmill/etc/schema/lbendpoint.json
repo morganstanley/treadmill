@@ -17,16 +17,12 @@
                 "type": "string"
             },
             "endpoint": { "$ref": "common.json#/endpoint" },
-            "environment": {
-                "type": "string",
-                "pattern": "^dev$|^prod$"
-            },
-            "lbenv": {
-                "type": "string",
-                "pattern": "^qa$|^prod$"
-            },
             "port": { "$ref": "common.json#/port" }
         }
+    },
+    "lbenv": {
+        "type": "string",
+        "pattern": "^qa$|^prod$"
     },
     "options": {
         "type": "object",
@@ -43,13 +39,7 @@
     },
     "verbs": {
         "create": {
-            "required": ["endpoint", "pattern", "lbenv"]
-        },
-        "update": {
-            "required": ["lbenv"]
-        },
-        "delete": {
-            "required": ["lbenv"]
+            "required": ["endpoint", "pattern"]
         }
     }
 }

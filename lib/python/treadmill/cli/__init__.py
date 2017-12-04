@@ -10,17 +10,18 @@ from __future__ import unicode_literals
 #
 # pylint: disable=C0302
 
+import codecs
 import copy
+import functools
 import importlib
 import io
+import logging
 import os
-import functools
 import pkgutil
 import re
 import sys
 import tempfile
 import traceback
-import logging
 
 import click
 import pkg_resources
@@ -30,11 +31,10 @@ from six.moves import configparser
 
 import treadmill
 
+from treadmill import utils
 from treadmill import context
 from treadmill import plugin_manager
 
-
-__path__ = pkgutil.extend_path(__path__, __name__)
 
 EXIT_CODE_DEFAULT = 1
 
@@ -43,9 +43,14 @@ click.disable_unicode_literals_warning = True
 
 
 def init_logger(name):
-    """Initialize logger."""
-    log_conf_file = pkg_resources.resource_stream('treadmill',
-                                                  '/logging/%s' % name)
+    """Initialize logger.
+    """
+    # Logging configuration must be unicode file
+    utf8_reader = codecs.getreader('utf8')
+    log_conf_file = utf8_reader(
+        pkg_resources.resource_stream('treadmill', '/logging/%s' % name)
+    )
+
     try:
         logging.config.fileConfig(log_conf_file)
     except configparser.Error:
@@ -236,7 +241,7 @@ class _KeyValuePairs(click.ParamType):
         if value is None:
             return {}
 
-        items = re.split(r'(\w+=)', value)
+        items = re.split(r'([\w\.\-]+=)', value)
         items.pop(0)
 
         keys = [key.rstrip('=') for key in items[0::2]]
@@ -273,6 +278,17 @@ def validate_cpu(_ctx, _param, value):
         return
     if not re.search(r'\d+%$', value):
         raise click.BadParameter('CPU format: nnn%.')
+    return value
+
+
+def validate_reboot_schedule(_ctx, _param, value):
+    """Validate reboot schedule specification."""
+    if value is None:
+        return
+    try:
+        utils.reboot_schedule(value)
+    except ValueError:
+        raise click.BadParameter('Invalid reboot schedule. (eg.: "sat,sun")')
     return value
 
 
@@ -316,7 +332,7 @@ def handle_exceptions(exclist):
                 try:
                     wrapped_f(*args, **kwargs)
                 except exc as err:
-                    if isinstance(handler, (six.text_type, six.string_types)):
+                    if isinstance(handler, six.string_types):
                         click.echo(handler, err=True)
                     elif handler is None:
                         click.echo(str(err), err=True)
@@ -337,7 +353,7 @@ def handle_exceptions(exclist):
 
             except Exception as unhandled:  # pylint: disable=W0703
 
-                with tempfile.NamedTemporaryFile(delete=False) as f:
+                with tempfile.NamedTemporaryFile(delete=False, mode='w') as f:
                     traceback.print_exc(file=f)
                     click.echo('Error: %s [ %s ]' % (unhandled, f.name),
                                err=True)

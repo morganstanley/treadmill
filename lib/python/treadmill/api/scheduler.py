@@ -1,17 +1,17 @@
-"""Implementation of scheduler reports API."""
+"""Implementation of scheduler reports API.
+"""
+
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
 import fnmatch
-import io
 
-import kazoo
-import pandas as pd
+import kazoo.exceptions
 
-from treadmill import authz
 from treadmill import context
+from treadmill import reports
 from treadmill import zknamespace as z
 
 
@@ -19,17 +19,18 @@ class API(object):
     """Scheduler reports API."""
     def __init__(self):
 
-        def get(report_type, match=None):
+        def get(report_type, match=None, partition=None):
             """Fetch report from ZooKeeper and return it as a DataFrame."""
             try:
                 data, _meta = context.GLOBAL.zk.conn.get(
                     z.path.state_report(report_type)
                 )
 
-                csv = io.StringIO(data.decode())
-                df = pd.read_csv(csv)
+                df = reports.deserialize_dataframe(data)
                 if match:
-                    df = _match_by_name(match, report_type, df)
+                    df = _match_by_name(df, report_type, match)
+                if partition:
+                    df = _match_by_partition(df, partition)
 
                 return df
             except kazoo.exceptions.NoNodeError:
@@ -38,9 +39,8 @@ class API(object):
         self.get = get
 
 
-def _match_by_name(match, report_type, dataframe):
-    """
-    Interpret match with report type and return resulting DataFrame.
+def _match_by_name(dataframe, report_type, match):
+    """Interpret match with report type and return resulting DataFrame.
     """
     pk_match = {
         'allocations': 'name',
@@ -52,7 +52,9 @@ def _match_by_name(match, report_type, dataframe):
     return dataframe.loc[subidx].reset_index(drop=True)
 
 
-def init(authorizer):
-    """Returns module API wrapped with authorizer function."""
-    api = API()
-    return authz.wrap(api, authorizer)
+def _match_by_partition(dataframe, partition):
+    """Filter out dataframes that don't match partition.
+    """
+    partition = fnmatch.translate(partition)
+    subidx = dataframe['partition'].str.match(partition)
+    return dataframe.loc[subidx].reset_index(drop=True)

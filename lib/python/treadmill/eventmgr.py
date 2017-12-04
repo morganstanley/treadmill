@@ -28,6 +28,7 @@ import kazoo.client
 from treadmill import appenv
 from treadmill import context
 from treadmill import fs
+from treadmill import presence
 from treadmill import sysinfo
 from treadmill import utils
 from treadmill import yamlwrapper as yaml
@@ -78,39 +79,59 @@ class EventMgr(object):
         zkclient.add_listener(zkutils.exit_on_lost)
 
         seen = zkclient.handler.event_object()
-        # Start not ready
         seen.clear()
 
-        # Wait for presence node to appear. Once up, syncronize the placement.
-        @zkclient.DataWatch(z.path.server_presence(self._hostname))
+        shutdown = zkclient.handler.event_object()
+        shutdown.clear()
+
         @utils.exit_on_unhandled
         def _server_presence_update(data, _stat, event):
-            """Watch server presence."""
+            deleted = False
             if data is None and event is None:
-                # The node is not there yet, wait.
-                _LOGGER.info('Server node missing.')
-                seen.clear()
-            elif event is not None and event.type == 'DELETED':
-                _LOGGER.info('Presence node deleted.')
+                deleted = True
+            if event is not None and event.type == 'DELETED':
+                deleted = True
+
+            if deleted:
+                _LOGGER.info('Presence node deleted, shutting down.')
+                shutdown.set()
                 seen.clear()
             else:
                 _LOGGER.info('Presence is up.')
                 seen.set()
+
             self._cache_notify(seen.is_set())
-            return True
+            return not shutdown.is_set()
+
+        @zkclient.ChildrenWatch(z.SERVER_PRESENCE)
+        @utils.exit_on_unhandled
+        def _server_presence_watch(server_presence):
+            """Watch server presence."""
+            for node in sorted(server_presence, reverse=True):
+                if presence.server_hostname(node) == self._hostname:
+                    _LOGGER.info('Presence node found: %s, watching.', node)
+                    zkclient.DataWatch(z.path.server_presence(node),
+                                       _server_presence_update)
+                    return False
+            _LOGGER.info('Presence node not found, waiting.')
+            return not shutdown.is_set()
 
         @zkclient.ChildrenWatch(z.path.placement(self._hostname))
         @utils.exit_on_unhandled
         def _app_watch(apps):
             """Watch application placement."""
             self._synchronize(zkclient, apps)
-            return True
+            return not shutdown.is_set()
 
-        while True:
+        while not shutdown.is_set():
             # Refresh watchdog
             watchdog_lease.heartbeat()
             time.sleep(_HEARTBEAT_SEC)
             self._cache_notify(seen.is_set())
+            # In case watch is missed, check periodically.
+            if not seen.is_set() and not shutdown.is_set():
+                server_presence = zkclient.get_children(z.SERVER_PRESENCE)
+                _server_presence_watch(server_presence)
 
         # Graceful shutdown.
         _LOGGER.info('service shutdown.')
@@ -165,7 +186,9 @@ class EventMgr(object):
             fs.write_safe(
                 manifest_file,
                 lambda f: yaml.dump(manifest, stream=f),
-                prefix='.%s-' % app
+                prefix='.%s-' % app,
+                mode='w',
+                permission=0o644
             )
             _LOGGER.info('Created cache manifest: %s', manifest_file)
 
@@ -182,7 +205,7 @@ class EventMgr(object):
         :params ``bool`` is_seen:
             True if the server is seen by the scheduler.
         """
-        _LOGGER.debug("cache notify (seen: %r)", is_seen)
+        _LOGGER.debug('cache notify (seen: %r)', is_seen)
         if is_seen:
             # Mark the cache folder as ready.
             with io.open(os.path.join(self.tm_env.cache_dir, _SEEN_FILE), 'w'):

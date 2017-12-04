@@ -8,7 +8,6 @@ from __future__ import unicode_literals
 
 import datetime
 import io
-import json
 import os
 import shutil
 import tarfile
@@ -27,7 +26,7 @@ import treadmill.rulefile
 from treadmill import firewall
 from treadmill import fs
 from treadmill import iptables
-from treadmill import supervisor
+from treadmill import utils
 
 from treadmill.apptrace import events
 from treadmill.runtime.linux import _finish as app_finish
@@ -69,18 +68,14 @@ class LinuxRuntimeFinishTest(unittest.TestCase):
     @mock.patch('treadmill.utils.datetime_utcnow', mock.Mock(
         return_value=datetime.datetime(2015, 1, 22, 14, 14, 36, 537918)))
     @mock.patch('treadmill.appcfg.manifest.read', mock.Mock())
-    @mock.patch('treadmill.runtime.linux._finish._kill_apps_by_root',
-                mock.Mock())
     @mock.patch('treadmill.sysinfo.hostname',
                 mock.Mock(return_value='xxx.xx.com'))
-    @mock.patch('treadmill.fs.archive_filesystem',
-                mock.Mock(return_value=True))
     @mock.patch('treadmill.apphook.cleanup', mock.Mock())
     @mock.patch('treadmill.iptables.rm_ip_set', mock.Mock())
+    @mock.patch('treadmill.iptables.flush_cnt_conntrack_table', mock.Mock())
     @mock.patch('treadmill.rrdutils.flush_noexc', mock.Mock())
     @mock.patch('treadmill.subproc.check_call', mock.Mock())
     @mock.patch('treadmill.iptables.rm_ip_set', mock.Mock())
-    @mock.patch('treadmill.supervisor.control_service', mock.Mock())
     @mock.patch('treadmill.zkutils.get',
                 mock.Mock(return_value={
                     'server': 'nonexist',
@@ -89,8 +84,6 @@ class LinuxRuntimeFinishTest(unittest.TestCase):
     def test_finish(self):
         """Tests container finish procedure and freeing of the resources.
         """
-        # Access protected module _kill_apps_by_root
-        # pylint: disable=W0212
         manifest = {
             'app': 'proid.myapp',
             'cell': 'test',
@@ -125,6 +118,10 @@ class LinuxRuntimeFinishTest(unittest.TestCase):
                 'tcp': [45024],
                 'udp': [62422],
             },
+            'passthrough': [
+                '8.8.8.8',
+                '9.9.9.9',
+            ],
             'services': [
                 {
                     'name': 'web_server',
@@ -161,18 +158,14 @@ class LinuxRuntimeFinishTest(unittest.TestCase):
         fs.mkdir_safe(os.path.join(data_dir, 'root', 'xxx'))
         fs.mkdir_safe(os.path.join(data_dir, 'services'))
         # Simulate daemontools finish script, marking the app is done.
-        with io.open(os.path.join(data_dir, 'exitinfo'), 'wb') as f:
-            json.dump(
-                {'service': 'web_server', 'return_code': 0, 'signal': 0},
-                f
+        with io.open(os.path.join(data_dir, 'exitinfo'), 'w') as f:
+            f.writelines(
+                utils.json_genencode(
+                    {'service': 'web_server', 'return_code': 0, 'signal': 0},
+                )
             )
 
         app_finish.finish(self.tm_env, app_dir)
-
-        treadmill.supervisor.control_service.assert_called_with(
-            app_dir, supervisor.ServiceControlAction.down,
-            wait=supervisor.ServiceWaitAction.down
-        )
 
         # All resource service clients are properly created
         self.tm_env.svc_cgroup.make_client.assert_called_with(
@@ -185,18 +178,6 @@ class LinuxRuntimeFinishTest(unittest.TestCase):
             os.path.join(data_dir, 'resources', 'network')
         )
 
-        treadmill.runtime.linux._finish._kill_apps_by_root.assert_called_with(
-            os.path.join(data_dir, 'root')
-        )
-
-        # Verify that we tested the archiving for the app root volume
-        treadmill.fs.archive_filesystem.assert_called_with(
-            '/dev/foo',
-            os.path.join(data_dir, 'root'),
-            os.path.join(data_dir,
-                         '001_xxx.xx.com_20150122_141436537918.tar'),
-            mock.ANY
-        )
         # Cleanup the block device
         mock_ld_client.delete.assert_called_with(app_unique_name)
         # Cleanup the cgroup resource
@@ -247,11 +228,22 @@ class LinuxRuntimeFinishTest(unittest.TestCase):
                               new_ip='192.168.0.2', new_port=62422
                           ),
                           owner=app_unique_name),
-
+                mock.call(chain=iptables.PREROUTING_PASSTHROUGH,
+                          rule=firewall.PassThroughRule(
+                              src_ip='8.8.8.8',
+                              dst_ip='192.168.0.2',
+                          ),
+                          owner=app_unique_name),
+                mock.call(chain=iptables.PREROUTING_PASSTHROUGH,
+                          rule=firewall.PassThroughRule(
+                              src_ip='9.9.9.9',
+                              dst_ip='192.168.0.2',
+                          ),
+                          owner=app_unique_name),
             ],
             any_order=True
         )
-        self.assertEqual(self.tm_env.rules.unlink_rule.call_count, 6)
+        self.assertEqual(self.tm_env.rules.unlink_rule.call_count, 8)
         treadmill.iptables.rm_ip_set.assert_has_calls(
             [
                 mock.call(treadmill.iptables.SET_INFRA_SVC,
@@ -267,6 +259,9 @@ class LinuxRuntimeFinishTest(unittest.TestCase):
         )
         self.assertEqual(treadmill.iptables.rm_ip_set.call_count, 4)
         mock_nwrk_client.delete.assert_called_with(app_unique_name)
+        treadmill.iptables.flush_cnt_conntrack_table.assert_called_with(
+            '192.168.0.2'
+        )
         treadmill.appevents.post.assert_called_with(
             mock.ANY,
             events.FinishedTraceEvent(
@@ -293,16 +288,12 @@ class LinuxRuntimeFinishTest(unittest.TestCase):
     @mock.patch('shutil.copy', mock.Mock())
     @mock.patch('treadmill.appevents.post', mock.Mock())
     @mock.patch('treadmill.apphook.cleanup', mock.Mock())
-    @mock.patch('treadmill.runtime.linux._finish._kill_apps_by_root',
-                mock.Mock())
     @mock.patch('treadmill.appcfg.manifest.read', mock.Mock())
     @mock.patch('treadmill.sysinfo.hostname',
                 mock.Mock(return_value='myhostname'))
     @mock.patch('treadmill.cgroups.delete', mock.Mock())
     @mock.patch('treadmill.cgutils.reset_memory_limit_in_bytes',
                 mock.Mock(return_value=[]))
-    @mock.patch('treadmill.fs.archive_filesystem',
-                mock.Mock(return_value=True))
     @mock.patch('treadmill.subproc.check_call', mock.Mock())
     @mock.patch('treadmill.iptables.rm_ip_set', mock.Mock())
     @mock.patch('treadmill.supervisor.control_service', mock.Mock())
@@ -372,10 +363,11 @@ class LinuxRuntimeFinishTest(unittest.TestCase):
         fs.mkdir_safe(os.path.join(data_dir, 'root', 'xxx'))
         fs.mkdir_safe(os.path.join(data_dir, 'services'))
         # Simulate daemontools finish script, marking the app is done.
-        with io.open(os.path.join(data_dir, 'exitinfo'), 'wb') as f:
-            json.dump(
-                {'service': 'web_server', 'return_code': 1, 'signal': 3},
-                fp=f
+        with io.open(os.path.join(data_dir, 'exitinfo'), 'w') as f:
+            f.writelines(
+                utils.json_genencode(
+                    {'service': 'web_server', 'return_code': 1, 'signal': 3},
+                )
             )
         app_finish.finish(self.tm_env, app_dir)
 
@@ -406,12 +398,8 @@ class LinuxRuntimeFinishTest(unittest.TestCase):
     @mock.patch('treadmill.appevents.post', mock.Mock())
     @mock.patch('treadmill.appcfg.manifest.read', mock.Mock())
     @mock.patch('treadmill.apphook.cleanup', mock.Mock())
-    @mock.patch('treadmill.runtime.linux._finish._kill_apps_by_root',
-                mock.Mock())
     @mock.patch('treadmill.sysinfo.hostname',
                 mock.Mock(return_value='hostname'))
-    @mock.patch('treadmill.fs.archive_filesystem',
-                mock.Mock(return_value=True))
     @mock.patch('treadmill.rulefile.RuleMgr.unlink_rule', mock.Mock())
     @mock.patch('treadmill.subproc.check_call', mock.Mock())
     @mock.patch('treadmill.iptables.rm_ip_set', mock.Mock())
@@ -483,7 +471,7 @@ class LinuxRuntimeFinishTest(unittest.TestCase):
         fs.mkdir_safe(os.path.join(data_dir, 'root', 'xxx'))
         fs.mkdir_safe(os.path.join(data_dir, 'services'))
         # Simulate daemontools finish script, marking the app is done.
-        with io.open(os.path.join(data_dir, 'aborted'), 'wb') as aborted:
+        with io.open(os.path.join(data_dir, 'aborted'), 'w') as aborted:
             aborted.write('{"why": "reason", "payload": "test"}')
 
         app_finish.finish(self.tm_env, app_dir)
@@ -534,17 +522,12 @@ class LinuxRuntimeFinishTest(unittest.TestCase):
     @mock.patch('treadmill.utils.datetime_utcnow', mock.Mock(
         return_value=datetime.datetime(2015, 1, 22, 14, 14, 36, 537918)))
     @mock.patch('treadmill.appcfg.manifest.read', mock.Mock())
-    @mock.patch('treadmill.runtime.linux._finish._kill_apps_by_root',
-                mock.Mock())
     @mock.patch('treadmill.sysinfo.hostname',
                 mock.Mock(return_value='xxx.ms.com'))
-    @mock.patch('treadmill.fs.archive_filesystem',
-                mock.Mock(return_value=True))
     @mock.patch('treadmill.iptables.rm_ip_set', mock.Mock())
     @mock.patch('treadmill.rrdutils.flush_noexc', mock.Mock())
     @mock.patch('treadmill.subproc.check_call', mock.Mock())
     @mock.patch('treadmill.iptables.rm_ip_set', mock.Mock())
-    @mock.patch('treadmill.supervisor.control_service', mock.Mock())
     @mock.patch('treadmill.zkutils.get',
                 mock.Mock(return_value={
                     'server': 'nonexist',
@@ -554,7 +537,7 @@ class LinuxRuntimeFinishTest(unittest.TestCase):
     def test_finish_no_resources(self):
         """Test app finish on directory when all resources are already freed.
         """
-        # Access protected module _kill_apps_by_root
+        # Access to a protected member _finish of a client class
         # pylint: disable=W0212
         manifest = {
             'app': 'proid.myapp',
@@ -614,17 +597,13 @@ class LinuxRuntimeFinishTest(unittest.TestCase):
         fs.mkdir_safe(os.path.join(data_dir, 'root', 'xxx'))
         fs.mkdir_safe(os.path.join(data_dir, 'services'))
         # Simulate daemontools finish script, marking the app is done.
-        with io.open(os.path.join(data_dir, 'exitinfo'), 'wb') as f:
-            json.dump(
-                {'service': 'web_server', 'return_code': 0, 'signal': 0},
-                f
+        with io.open(os.path.join(data_dir, 'exitinfo'), 'w') as f:
+            f.writelines(
+                utils.json_genencode(
+                    {'service': 'web_server', 'return_code': 0, 'signal': 0},
+                )
             )
         treadmill.runtime.linux._finish.finish(self.tm_env, app_dir)
-
-        treadmill.supervisor.control_service.assert_called_with(
-            app_dir, supervisor.ServiceControlAction.down,
-            wait=supervisor.ServiceWaitAction.down
-        )
 
         # All resource service clients are properly created
         self.tm_env.svc_cgroup.make_client.assert_called_with(
@@ -635,10 +614,6 @@ class LinuxRuntimeFinishTest(unittest.TestCase):
         )
         self.tm_env.svc_network.make_client.assert_called_with(
             os.path.join(data_dir, 'resources', 'network')
-        )
-
-        treadmill.runtime.linux._finish._kill_apps_by_root.assert_called_with(
-            os.path.join(data_dir, 'root')
         )
 
         # Cleanup the network resources

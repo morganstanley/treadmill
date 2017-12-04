@@ -4,5 +4,8 @@
 # Runs as root.
 #
 
-exec {{ treadmill }}/bin/treadmill sproc --cgroup . \
-    reboot-monitor -- {{ dir }}/bin/reboot.sh
+exec \
+    {{ treadmill }}/bin/treadmill34 \
+    sproc --cgroup . \
+    reboot-monitor -- \
+        {{ dir }}/bin/reboot.sh

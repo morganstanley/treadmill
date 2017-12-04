@@ -25,6 +25,26 @@ FLASK_APP.config['BUNDLE_ERRORS'] = True
 _LOGGER = logging.getLogger(__name__)
 
 
+class CompliantJsonEncoder(flask.json.JSONEncoder):
+    """A JSONEncoder that forces NaN and Infinity into null values.
+
+    The Python community takes the view that NaN and Infinity in JSON are
+    a widespread extension of the standard, but decoders built into the
+    browsers unanimously reject this. We need an encoder with defaults that
+    play well with browsers.
+    """
+    def __init__(self, *args, **kwargs):
+        if 'ignore_nan' in kwargs:
+            del kwargs['ignore_nan']
+
+        super(CompliantJsonEncoder, self).__init__(
+            ignore_nan=True, *args, **kwargs
+        )
+
+
+FLASK_APP.json_encoder = CompliantJsonEncoder
+
+
 class RestServer(object):
     """REST Server."""
 

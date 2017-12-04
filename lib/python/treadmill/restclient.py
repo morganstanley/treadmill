@@ -9,6 +9,7 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import logging
+import os
 import re
 import time
 
@@ -24,8 +25,14 @@ requests_unixsocket.monkeypatch()
 
 _NUM_OF_RETRIES = 5
 
+_KERBEROS_AUTH_PRINCIPLE = None
+if os.name == 'posix':
+    # kerberos 1.2.5 doesn't accept None principal. Remove this once fixed.
+    _KERBEROS_AUTH_PRINCIPLE = ''
+
 _KERBEROS_AUTH = requests_kerberos.HTTPKerberosAuth(
-    mutual_authentication=requests_kerberos.DISABLED
+    mutual_authentication=requests_kerberos.DISABLED,
+    principal=_KERBEROS_AUTH_PRINCIPLE
 )
 
 _LOGGER = logging.getLogger(__name__)

@@ -1,15 +1,27 @@
-#!/bin/sh
+#!{{ _alias.execlineb }}
 
-# Records time and exit code.
-#
+{{ _alias.umask }} 0022
+{{ _alias.redirfd }} -r 0 /dev/null
+{{ _alias.redirfd }} -a 1 data/finish.log
 
-EXIT_CODE=$1
-SIGNAL=$2
+{{ _alias.if }} {
+    {{ _alias.mkdir }} -vp -- data/exits
+}
 
-CAT=/bin/cat
-MV=/bin/mv
-TEMPFILE=$(mktemp)
+# Unix time
+{{ _alias.backtick }} -n NOW {
+    {{ _alias.date }} "+%s.%3N"
+}
+{{ _alias.importas }} -u -i NOW NOW
 
-echo $(date -u): rc=$EXIT_CODE signal=$SIGNAL >> finish.log
-$CAT finish.log | tail -n 100 > $TEMPFILE
-$MV $TEMPFILE finish.log
+{{ _alias.importas }} -u -i EXIT 1
+# The second argument is undefined when the prog was not killed by signal
+{{ _alias.importas }} -u -D0 SIGNAL 2
+
+{{ _alias.emptyenv }} -P
+{{ _alias.backtick }} -n EXITFILE {
+    {{ _alias.printf }} "%014.3f,%03d,%03d" ${NOW} ${EXIT} ${SIGNAL}
+}
+{{ _alias.importas }} -u -i EXITFILE EXITFILE
+
+{{ _alias.touch }} data/exits/${EXITFILE}

@@ -14,6 +14,7 @@ import socket
 import logging
 
 import click
+import six
 
 from treadmill import dirwatch
 
@@ -51,9 +52,9 @@ def _resolve(path, aliases):
 def _generate(aliases, original, dest):
     """Generate target hosts file."""
     _LOGGER.info('Generating: %s', dest)
-    with io.open(dest, 'w+') as f:
+    with io.open(dest, 'w') as f:
         f.write(original)
-        for alias, hostname in aliases.iteritems():
+        for alias, hostname in six.iteritems(aliases):
             try:
                 ipaddr, fqdn = _canonical(hostname)
                 _LOGGER.info('alias: %s %s %s', ipaddr, fqdn, alias)

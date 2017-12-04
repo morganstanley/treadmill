@@ -20,11 +20,12 @@ def init():
     @click.command()
     @cli.handle_exceptions(restclient.CLI_REST_EXCEPTIONS)
     @click.option('--match', help='Server name pattern match')
+    @click.option('--partition', help='Partition name pattern match')
     @click.option('--full', is_flag=True, default=False)
     @click.pass_context
-    def apps(ctx, match, full):
+    def apps(ctx, match, partition, full):
         """View apps report."""
-        report = fetch_report(ctx.obj.get('api'), 'apps', match)
+        report = fetch_report(ctx.obj.get('api'), 'apps', match, partition)
         # Replace integer N/As
         for col in ['identity', 'expires', 'lease', 'data_retention']:
             report.loc[report[col] == -1, col] = ''

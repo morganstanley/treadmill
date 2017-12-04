@@ -38,12 +38,12 @@
             "tcp": {
                 "type": "integer",
                 "minimum": 0,
-                "maximum": 255
+                "maximum": 1024
             },
             "udp": {
                 "type": "integer",
                 "minimum": 0,
-                "maximum": 255
+                "maximum": 1024
             }
         },
         "additionalProperties": false
@@ -108,7 +108,8 @@
             "disk": { "$ref": "common.json#/disk" },
             "services": {
                 "type": "array",
-                "items": { "$ref": "#/service" }
+                "items": { "$ref": "#/service" },
+                "minItems": 1
             },
             "image": {
                 "type": "string",
@@ -176,6 +177,7 @@
                 "$ref": "common.json#/identity_group_id"
             },
             "schedule_once": { "type": "boolean" },
+            "affinity": { "$ref": "common.json#/app_id" },
             "affinity_limits" : {
                 "type" : "object",
                 "additionalProperties" : false,

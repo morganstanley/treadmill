@@ -1,13 +1,16 @@
-"""Manage Treadmill app manifest."""
+"""Manage Treadmill app manifest.
+"""
+
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
 import logging
-import urllib
 
 import click
+
+from six.moves import urllib_parse
 
 from treadmill import cli
 from treadmill import restclient
@@ -33,7 +36,12 @@ def _show_state(apis, match, finished):
         query.append(('finished', '1'))
 
     if query:
-        url += '?' + '&'.join([urllib.urlencode([param]) for param in query])
+        url += '?' + '&'.join(
+            [
+                urllib_parse.urlencode([param])
+                for param in query
+            ]
+        )
 
     response = restclient.get(apis, url)
     cli.out(_STATE_FORMATTER(response.json()))
@@ -51,7 +59,12 @@ def _show_list(apis, match, states, finished=False, partition=None):
         query.append(('partition', partition))
 
     if query:
-        url += '?' + '&'.join([urllib.urlencode([param]) for param in query])
+        url += '?' + '&'.join(
+            [
+                urllib_parse.urlencode([param])
+                for param in query
+            ]
+        )
 
     response = restclient.get(apis, url)
     names = [item['name']
@@ -62,7 +75,7 @@ def _show_list(apis, match, states, finished=False, partition=None):
 
 def _show_endpoints(apis, pattern, endpoint, proto):
     """Show cell endpoints."""
-    url = '/endpoint/%s' % urllib.quote(pattern)
+    url = '/endpoint/%s' % urllib_parse.quote(pattern)
     if endpoint:
         if proto:
             url += '/' + proto
@@ -84,7 +97,7 @@ def _show_endpoints(apis, pattern, endpoint, proto):
 
 def _show_instance(apis, instance_id):
     """Show instance manifest."""
-    url = '/instance/%s' % urllib.quote(instance_id)
+    url = '/instance/%s' % urllib_parse.quote(instance_id)
 
     response = restclient.get(apis, url)
     cli.out(_APP_FORMATTER(response.json()))

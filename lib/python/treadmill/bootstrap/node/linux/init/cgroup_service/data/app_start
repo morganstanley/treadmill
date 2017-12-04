@@ -4,5 +4,9 @@
 # Runs as root.
 #
 
-exec {{ treadmill }}/bin/treadmill sproc --cgroup . \
-    service --root-dir {{ dir }} cgroup
+exec \
+    {{ treadmill }}/bin/treadmill34 \
+    sproc --cgroup . \
+    service \
+        --root-dir {{ dir }} \
+    cgroup

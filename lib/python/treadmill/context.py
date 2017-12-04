@@ -309,8 +309,8 @@ class Context(object):
 
         if attr not in self._profile:
             # Attr was not found, look for it in _defaults
-            if (self._defaults is not None
-                    and self._defaults.get(attr) is not None):
+            if (self._defaults is not None and
+                    self._defaults.get(attr) is not None):
                 self._profile[attr] = self._defaults[attr]
 
         if attr not in self._profile and default is not None:

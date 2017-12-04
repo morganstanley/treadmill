@@ -10,10 +10,11 @@ import collections
 import logging
 import os
 import time
-import urllib
 
 import click
 import six
+
+from six.moves import urllib_parse
 
 if six.PY2 and os.name == 'posix':
     import subprocess32 as subprocess  # pylint: disable=E0401
@@ -36,7 +37,7 @@ _CLOSE_FDS = os.name != 'nt'
 def _health_check(pattern, proto, endpoint, command):
     """Invoke instance health check."""
     stateapi = context.GLOBAL.state_api()
-    stateurl = '/endpoint/%s/%s/%s' % (urllib.quote(pattern),
+    stateurl = '/endpoint/%s/%s/%s' % (urllib_parse.quote(pattern),
                                        proto,
                                        endpoint)
 
@@ -54,11 +55,11 @@ def _health_check(pattern, proto, endpoint, command):
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
         )
-        (out, _err) = proc.communicate(cmd_input)
+        (out, _err) = proc.communicate(cmd_input.encode())
 
         retcode = proc.returncode
         if proc.returncode == 0:
-            for instance in out.splitlines():
+            for instance in out.decode().splitlines():
                 _LOGGER.info('not ok: %s', instance)
                 bad.append(instance)
         else:
@@ -123,11 +124,16 @@ def init():
         failed = collections.Counter()
         while True:
             failed.update(_health_check(pattern, proto, endpoint, command))
-            for instance, count in failed.iteritems():
+            for instance, count in six.iteritems(failed):
                 _LOGGER.info('Failed: %s, count: %s', instance, count)
 
-            reaped = _reap([instance for instance, count in failed.iteritems()
-                            if count > threshold])
+            reaped = _reap(
+                [
+                    instance
+                    for instance, count in six.iteritems(failed)
+                    if count > threshold
+                ]
+            )
 
             for instance in reaped:
                 del failed[instance]

@@ -13,7 +13,6 @@ from __future__ import unicode_literals
 #                  container, copy tickets from /tmp to /var/spool/tickets
 #                  of the container.
 
-import fnmatch
 import glob
 import logging
 import os
@@ -36,6 +35,7 @@ from treadmill import sysinfo
 from treadmill import zkutils
 from treadmill import dirwatch
 from treadmill import utils
+from treadmill import cli
 
 
 _SERVERS_ACL = zkutils.make_role_acl('servers', 'rwcda')
@@ -47,9 +47,12 @@ _RENEW_INTERVAL = 60 * 60
 _LOGGER = logging.getLogger(__name__)
 
 
-def _renew_tickets(tkt_spool_dir, match):
+def _renew_tickets(tkt_spool_dir):
     """Try and renew all tickets that match a pattern."""
-    for tkt in glob.glob(os.path.join(tkt_spool_dir, match)):
+    for tkt in glob.glob(os.path.join(tkt_spool_dir, '*')):
+        if tkt.startswith('.'):
+            continue
+
         _LOGGER.info('Renew ticket: %s', tkt)
         try:
             subproc.check_call(
@@ -66,13 +69,16 @@ def _renew_tickets(tkt_spool_dir, match):
         subproc.call(['klist', '-e', '-5', tkt])
 
 
-def _reforward_ticket(ticket_file, endpoint, realm):
+def _reforward_ticket(ticket_file, endpoint):
     """Forward ticket to self, potentially correcting ticket enc type."""
+    _LOGGER.info('Reforwarding to: %s', endpoint)
     _LOGGER.info('Before loopback forward: %s', ticket_file)
     subproc.call(['klist', '-e', '-5', ticket_file])
 
-    subproc.call(['tkt-send', '--realm=%s' % realm,
-                  '--endpoints=%s' % endpoint, '--timeout=5'],
+    host, port = endpoint.split(':')
+    subproc.call(['tkt_send_v2',
+                  '-h{}'.format(host),
+                  '-p{}'.format(port)],
                  environ={'KRB5CCNAME': 'FILE:' + ticket_file})
 
     _LOGGER.info('After loopback forward: %s', ticket_file)
@@ -97,6 +103,17 @@ def init():
         tickets.run_server(tkt_locker)
 
     @top.command()
+    @click.option('--tkt-spool-dir', help='Ticket spool directory.',
+                  required=True)
+    @click.option('--realms', help='Valid ticket realms.', type=cli.LIST,
+                  required=True)
+    def publish(tkt_spool_dir, realms):
+        """Run ticket locker daemon."""
+        tkt_locker = tickets.TicketLocker(context.GLOBAL.zk.conn,
+                                          tkt_spool_dir)
+        tkt_locker.publish_tickets(realms)
+
+    @top.command()
     @click.option('--tkt-spool-dir',
                   help='Ticket spool directory.')
     @click.option('--port', help='Acceptor port.', default=0)
@@ -104,7 +121,9 @@ def init():
                   required=True)
     @click.option('--endpoint', help='Pseudo endpoint to use for discovery',
                   default='tickets')
-    def accept(tkt_spool_dir, port, appname, endpoint):
+    @click.option('--use-v2', help='Start tkt-recv v2 protocol.', is_flag=True,
+                  default=False)
+    def accept(tkt_spool_dir, port, appname, endpoint, use_v2):
         """Run ticket locker acceptor."""
         if port == 0:
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -138,22 +157,23 @@ def init():
         # Exec into tickets acceptor. If race condition will not allow it to
         # bind to the provided port, it will exit and registration will
         # happen again.
-        subproc.safe_exec(['tkt-recv', 'tcp://*:%s' % port, tkt_spool_dir])
+        if use_v2:
+            subproc.safe_exec(['tkt_recv_v2',
+                               '-p{}'.format(port),
+                               '-d{}'.format(tkt_spool_dir)])
+        else:
+            subproc.safe_exec(['tkt_recv',
+                               'tcp://*:{}'.format(port),
+                               tkt_spool_dir])
 
     @top.command()
     @click.option('--tkt-spool-dir',
                   help='Ticket spool directory.')
-    @click.option('--with-loopback-forward', is_flag=True, default=False,
-                  help='Forward tickets to self after renew')
     @click.option('--appname', help='Pseudo app name to use for discovery',
                   required=True)
-    @click.option('--endpoint', help='Pseudo endpoint to use for discovery',
-                  default='tickets')
-    @click.option('--match', help='Filter ticktets that match the pattern.')
-    @click.option('--realm', help='Realm of the ticket acceptor.',
-                  required=True)
-    def renew(tkt_spool_dir, with_loopback_forward, appname, endpoint, match,
-              realm):
+    @click.option('--endpoint', required=True,
+                  help='Forward tickets to endpoint after renew')
+    def reforward(tkt_spool_dir, appname, endpoint):
         """Renew tickets in the locker."""
 
         endpoint_ref = {}
@@ -187,55 +207,33 @@ def init():
             if ticket_file.startswith('.'):
                 return
 
-            if not fnmatch.fnmatch(ticket_file, match):
-                _LOGGER.info('Ignore ticket: %s', ticket_file)
-                return
-
             _LOGGER.info('Got new ticket: %s', ticket_file)
 
-            if with_loopback_forward:
+            if endpoint_ref:
                 # invoke tkt-send with KRB5CCNAME pointing to the new ticket
                 # file.
-                need_fwd = True
-                try:
-                    last_fwd_f = os.path.join(
-                        os.path.dirname(path),
-                        '.' + ticket_file + '.fwd'
-                    )
-                    mtime = os.stat(last_fwd_f).st_mtime
-                    age = time.time() - mtime
-
-                    if age < _MIN_FWD_REFRESH:
-                        _LOGGER.info('Recent lock %s found, age: %s',
-                                     last_fwd_f, age)
-                        need_fwd = False
-                except OSError as os_err:
-                    _LOGGER.info('Last fwd file does not exist: %s - %s',
-                                 last_fwd_f, os_err.errno)
-
-                if need_fwd:
-                    if endpoint_ref:
-                        _reforward_ticket(path, endpoint_ref['endpoint'],
-                                          realm)
-                        utils.touch(last_fwd_f)
-                    else:
-                        _LOGGER.warning('Ticket endpoint not initialized.')
-                else:
-                    _LOGGER.info('Will not forward ticket: %s', ticket_file)
+                _reforward_ticket(path, endpoint_ref['endpoint'])
 
         watcher = dirwatch.DirWatcher(tkt_spool_dir)
         watcher.on_created = _on_created
 
-        last_renew = 0
         while True:
-            if (time.time() - last_renew) > _RENEW_INTERVAL:
-                _renew_tickets(tkt_spool_dir, match)
-                last_renew = time.time()
-
             if watcher.wait_for_events(timeout=60):
                 watcher.process_events(max_events=10)
 
+    @top.command()
+    @click.option('--tkt-spool-dir',
+                  help='Ticket spool directory.')
+    def renew(tkt_spool_dir):
+        """Renew tickets in the locker."""
+
+        while True:
+            time.sleep(_RENEW_INTERVAL)
+            _renew_tickets(tkt_spool_dir)
+
+    del reforward
     del renew
     del accept
     del locker
+    del publish
     return top

@@ -36,17 +36,6 @@ class Adapter(logging.LoggerAdapter):
         else:
             self.extra = LOCAL_.ctx
 
-    def warn(self, msg, *args, **kwargs):
-        """
-        Delegate warn() to warning().
-
-        This is provided as a convenience method in Logger but it is apparently
-        missing from LoggerAdapter, see
-
-        https://hg.python.org/cpython/file/2.7/Lib/logging/__init__.py#l1181
-        """
-        self.warning(msg, *args, **kwargs)
-
     def process(self, msg, kwargs):
         """
         Add extra content to the log line but don't modify it if no element
@@ -70,7 +59,7 @@ class ContainerAdapter(Adapter):
     def _fmt(self, extra):
         """Format the 'extra' content as it will be represented in the logs."""
         (app_name, inst_id, uniq_id) = self._dec_unique_name(extra)
-        return "{name}#{inst} {uniq}".format(name=app_name,
+        return '{name}#{inst} {uniq}'.format(name=app_name,
                                              inst=inst_id,
                                              uniq=uniq_id)
 

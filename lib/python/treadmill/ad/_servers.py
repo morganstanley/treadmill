@@ -3,6 +3,9 @@ particular partition.
 """
 
 from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import errno
 import fnmatch
@@ -12,11 +15,12 @@ import os
 import sys
 
 import ldap3
+import six
 
 from treadmill import dirwatch
 from treadmill import yamlwrapper as yaml
 
-import treadmill.ldap3kerberos  # pylint: disable=E0611,F0401
+import treadmill.ldap3kerberos
 
 sys.modules['ldap3.protocol.sasl.kerberos'] = treadmill.ldap3kerberos
 
@@ -24,6 +28,29 @@ DC_KEY = 'nt.dc'
 DN_KEY = 'nt.dn'
 
 _LOGGER = logging.getLogger(__name__)
+
+
+def create_ldap_connection(domain_controller):
+    """Create ldap connection object.
+    """
+    # Disable W0212: Access to a protected member _is_ipv6 of a
+    #                client class
+    #
+    # This is needed because twisted monkey patches socket._is_ipv6
+    # and ldap3 code is wrong.
+    # pylint: disable=W0212
+    ldap3.Server._is_ipv6 = lambda x, y: False
+    server = ldap3.Server(domain_controller, mode=ldap3.IP_V4_ONLY)
+
+    return ldap3.Connection(
+        server,
+        authentication=ldap3.SASL,
+        sasl_mechanism='GSSAPI',
+        client_strategy=ldap3.RESTARTABLE,
+        auto_bind=True,
+        auto_range=True,
+        return_empty_attributes=False
+    )
 
 
 class ServersWatch(object):
@@ -74,7 +101,7 @@ class ServersWatch(object):
         :return:
             A list of server information.
         """
-        return self._servers.values()
+        return list(six.itervalues(self._servers))
 
     def _add_ldap_connection(self, server_info):
         """Adds an ldap connection to the dictionary.
@@ -90,23 +117,7 @@ class ServersWatch(object):
         if dc in self._ldap_connections:
             return True
 
-        # Disable W0212: Access to a protected member _is_ipv6 of a
-        #                client class
-        #
-        # This is needed because twisted monkey patches socket._is_ipv6
-        # and ldap3 code is wrong.
-        # pylint: disable=W0212
-        ldap3.Server._is_ipv6 = lambda x, y: False
-        server = ldap3.Server(dc, mode=ldap3.IP_V4_ONLY)
-
-        self._ldap_connections[dc] = ldap3.Connection(
-            server,
-            authentication=ldap3.SASL,
-            sasl_mechanism='GSSAPI',
-            client_strategy=ldap3.STRATEGY_SYNC_RESTARTABLE,
-            auto_bind=True,
-            auto_range=True
-        )
+        self._ldap_connections[dc] = create_ldap_connection(dc)
 
         return True
 

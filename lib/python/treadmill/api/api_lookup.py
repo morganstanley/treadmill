@@ -5,7 +5,6 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
-from treadmill import authz
 from treadmill import context
 from treadmill import dnsutils
 from treadmill import schema
@@ -15,12 +14,12 @@ class NoSuchCellException(Exception):
     """No such cell exception class"""
 
     def __init__(self, cell):
-        self.message = "No such cell: {}".format(cell)
+        self.message = 'No such cell: {}'.format(cell)
         self.cell = cell
         super(NoSuchCellException, self).__init__(self.message)
 
     def __str__(self):
-        return "No such cell: {}".format(self.cell)
+        return 'No such cell: {}'.format(self.cell)
 
 
 def _set_auth_resource(cls, resource):
@@ -140,9 +139,3 @@ class API(object):
         self.cellapi = _CellApiLookupAPI()
         self.stateapi = _StateApiLookupAPI()
         self.wsapi = _WsApiLookupAPI()
-
-
-def init(authorizer):
-    """Returns module API wrapped with authorizer function."""
-    api = API()
-    return authz.wrap(api, authorizer)

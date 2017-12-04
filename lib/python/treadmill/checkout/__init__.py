@@ -8,7 +8,6 @@ from __future__ import unicode_literals
 
 import unittest
 import socket
-import pkgutil
 import logging
 import telnetlib
 import functools
@@ -19,9 +18,6 @@ import websocket as ws_client
 import six
 
 from treadmill import restclient
-
-
-__path__ = pkgutil.extend_path(__path__, __name__)
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -109,12 +105,13 @@ class T(object):  # pylint: disable=C0103
     def __call__(self, func):
 
         partial = functools.partial(func, **self.kwargs)
-        # Lambda is necessary as unittest refuses to work with partial
-        # objects. Disable pylint warning.
-        test_func = lambda me: partial(me)  # pylint: disable=W0108
-        test_func.__doc__ = func.__doc__.format(**self.kwargs)
+
+        def _test_func(arg):
+            return partial(arg)
+
+        _test_func.__doc__ = func.__doc__.format(**self.kwargs)
         hash_md5 = hashlib.md5()
-        for name, value in six.moves.iteritems(self.kwargs):
+        for name, value in six.iteritems(self.kwargs):
             hash_md5.update(name)
             hash_md5.update(str(value))
         setattr(
@@ -123,6 +120,6 @@ class T(object):  # pylint: disable=C0103
                 self.kwargs.keys(),
                 hash_md5.hexdigest()
             ),
-            test_func
+            _test_func
         )
         return func

@@ -7,12 +7,8 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import logging
-import pkgutil
 
 from treadmill import plugin_manager
-
-
-__path__ = pkgutil.extend_path(__path__, __name__)
 
 _LOGGER = logging.getLogger(__name__)
 

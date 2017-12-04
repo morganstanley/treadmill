@@ -10,11 +10,11 @@ LS={{ _alias.ls }}
 MKDIR={{ _alias.mkdir }}
 MOUNT={{ _alias.mount }}
 RM={{ _alias.rm }}
-S6_SVSCANCTL={{ _alias.s6 }}/bin/s6-svscanctl
+S6_SVSCANCTL={{ _alias.s6_svscanctl }}
 
 export PATH="{{_alias.s6}}/bin:${PATH}"
 # XXX(boysson): This is used in reset_services.sh. should be defined there
-export TREADMILL_S6="{{ s6 }}"
+export TREADMILL_S6="{{ _alias.s6 }}"
 
 $ECHO "#####################################################################"
 $ECHO "Starting."
@@ -23,7 +23,7 @@ $ECHO "#####################################################################"
 # Recalculate cgroup limits.
 $ECHO "#####################################################################"
 $ECHO "Re-apply Treadmill cgroup settings."
-{{ treadmill }}/bin/treadmill sproc cginit                             \
+{{ treadmill }}/bin/treadmill34 sproc cginit                             \
     --cpu {{ treadmill_cpu}}                                           \
     --mem {{ treadmill_mem }}                                          \
     --mem-core {{ treadmill_core_mem }}

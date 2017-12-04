@@ -153,7 +153,7 @@ class DirWatcher(object):
             List of ``(DirWatcherEvent, <path>, <callback_return>)``.
         """
         if max_events <= 0:
-            max_events = sys.maxint
+            max_events = sys.maxsize
 
         # If we are out of cached events, get more from inotify
         if not self.event_list and not resume:

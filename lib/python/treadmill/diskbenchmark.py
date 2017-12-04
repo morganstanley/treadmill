@@ -168,13 +168,13 @@ def write(benchmark_result_file, result):
     """
     config = configparser.SafeConfigParser()
     device_count = 0
-    for device, metrics in result.iteritems():
-        section = _DEVICE + str(device_count)
+    for device, metrics in six.iteritems(result):
+        section = _DEVICE + six.text_type(device_count)
         device_count += 1
         config.add_section(section)
         config.set(section, _DEVICE, device)
-        for metric, value in metrics.iteritems():
-            config.set(section, metric, str(value))
+        for metric, value in six.iteritems(metrics):
+            config.set(section, metric, six.text_type(value))
 
     fs.write_safe(
         benchmark_result_file,

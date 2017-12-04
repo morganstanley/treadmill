@@ -56,11 +56,13 @@ class PsmemTotalPrettyFormatter(object):
 
 
 def init():
-    """Top level command handler."""
+    """Top level command handler.
+    """
 
     @click.group()
     def diag():
-        """Local node and container diagnostics."""
+        """Local node and container diagnostics.
+        """
         pass
 
     @diag.command(name='psmem')
@@ -69,7 +71,8 @@ def init():
     @click.option('--percent', is_flag=True)
     @click.argument('app')
     def psmem_cmd(fast, app, verbose, percent):
-        """Reports memory utilization details for given container."""
+        """Reports memory utilization details for given container.
+        """
         if app.find('#') == -1:
             raise click.BadParameter('Specify full instance name: xxx#nnn')
         app = app.replace('#', '-')
@@ -89,17 +92,20 @@ def init():
 
         total = sum([info['total'] for info in memusage])
 
-        readable = lambda value: utils.bytes_to_readable(value, power='B')
-        percentage = lambda value, total: "{:.1%}".format(value / total)
+        def _readable(value):
+            return utils.bytes_to_readable(value, power='B')
+
+        def _percentage(value, total):
+            return '{:.1%}'.format(value / total)
 
         to_format = ['private', 'shared', 'total']
         for info in memusage:
             for key, val in info.items():
                 if key in to_format:
                     if percent:
-                        info[key] = percentage(val, total)
+                        info[key] = _percentage(val, total)
                     else:
-                        info[key] = readable(val)
+                        info[key] = _readable(val)
 
         proc_table = PsmemProcPrettyFormatter()
         print(proc_table.format(memusage))
@@ -109,17 +115,17 @@ def init():
         total_list = []
         # Actual memory usage is without the disk cache
         total_list.append({'memory-type': 'usage', 'value':
-                           readable(metric['memory.usage_in_bytes'] -
-                                    metric['memory.stat']['cache'])})
+                           _readable(metric['memory.usage_in_bytes'] -
+                                     metric['memory.stat']['cache'])})
         total_list.append({'memory-type': '', 'value':
-                           percentage(metric['memory.usage_in_bytes'],
-                                      metric['memory.limit_in_bytes'])})
+                           _percentage(metric['memory.usage_in_bytes'],
+                                       metric['memory.limit_in_bytes'])})
         total_list.append({'memory-type': 'diskcache', 'value':
-                           readable(metric['memory.stat']['cache'])})
+                           _readable(metric['memory.stat']['cache'])})
         total_list.append({'memory-type': 'softlimit', 'value':
-                           readable(metric['memory.soft_limit_in_bytes'])})
+                           _readable(metric['memory.soft_limit_in_bytes'])})
         total_list.append({'memory-type': 'hardlimit', 'value':
-                           readable(metric['memory.limit_in_bytes'])})
+                           _readable(metric['memory.limit_in_bytes'])})
 
         total_table = PsmemTotalPrettyFormatter()
 

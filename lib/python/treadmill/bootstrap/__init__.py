@@ -10,7 +10,6 @@ import errno
 import io
 import logging
 import os
-import pkgutil
 import stat
 import sys
 import tempfile
@@ -28,13 +27,6 @@ from treadmill import fs
 from treadmill import plugin_manager
 from treadmill import utils
 
-# This is required so that symlink API (os.symlink and other link related)
-# work properly on windows.
-if os.name == 'nt':
-    import treadmill.syscall.winsymlink  # pylint: disable=W0611
-
-
-__path__ = pkgutil.extend_path(__path__, __name__)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -74,11 +66,7 @@ def _is_executable(filename):
 def _rename_file(src, dst):
     """Rename the specified file"""
 
-    if os.name == 'nt':
-        # TODO: check that fs.rm_safe works on windows, and if not, fix
-        #       fs.rm_safe.
-        fs.rm_safe(dst)
-    os.rename(src, dst)
+    fs.replace(src, dst)
     mode = os.stat(dst).st_mode
     mode |= (stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH)
     if _is_executable(dst):
@@ -104,6 +92,7 @@ def _update(filename, content):
             raise
 
     with tempfile.NamedTemporaryFile(dir=os.path.dirname(filename),
+                                     mode='w',
                                      prefix='.tmp',
                                      delete=False) as tmp_file:
         tmp_file.write(content)
@@ -125,13 +114,13 @@ def _install(package, src_dir, dst_dir, params, prefix_len=None, rec=None):
         prefix_len = len(src_dir) + 1
 
     for item in contents:
-        resource_path = '/'.join([src_dir, item])
+        resource_path = os.path.join(src_dir, item)
         dst_path = os.path.join(dst_dir, resource_path[prefix_len:])
         if pkg_resources.resource_isdir(package_name,
-                                        '/'.join([src_dir, item])):
+                                        os.path.join(src_dir, item)):
             fs.mkdir_safe(dst_path)
             if rec:
-                rec.write('%s/\n' % dst_path)
+                rec.write('%s\n' % os.path.join(dst_path, ''))
             _install(package,
                      os.path.join(src_dir, item),
                      dst_dir,
@@ -143,11 +132,14 @@ def _install(package, src_dir, dst_dir, params, prefix_len=None, rec=None):
                 continue
 
             _LOGGER.info('Render: %s => %s', resource_path, dst_path)
-            resource_str = pkg_resources.resource_string(package_name,
-                                                         resource_path)
+            resource_str = pkg_resources.resource_string(
+                package_name,
+                resource_path
+            )
+
             if rec:
                 rec.write('%s\n' % dst_path)
-            _update(dst_path, _render(resource_str, params))
+            _update(dst_path, _render(resource_str.decode('utf8'), params))
 
 
 def _interpolate_dict(value, params):
@@ -157,8 +149,10 @@ def _interpolate_dict(value, params):
     counter = 0
     while counter < 100:
         counter += 1
-        result = {k: _interpolate(v, params) for k, v in
-                  target.iteritems()}
+        result = {
+            k: _interpolate(v, params)
+            for k, v in six.iteritems(target)
+        }
         if result == target:
             break
         target = dict(result)
@@ -176,7 +170,7 @@ def _interpolate_list(value, params):
 def _interpolate_scalar(value, params):
     """Interpolate string value by rendering the template."""
     _LOGGER.debug('value: %r', value)
-    if isinstance(value, (six.string_types, six.text_type)):
+    if isinstance(value, six.string_types):
         return _render(value, params)
     else:
         # Do not interpolate numbers.

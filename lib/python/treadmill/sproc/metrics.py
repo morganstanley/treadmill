@@ -11,10 +11,11 @@ from __future__ import absolute_import
 import glob
 import logging
 import os
+import socket
 import time
-import urllib
 
 import click
+from six.moves import urllib_parse
 
 from treadmill import appenv
 from treadmill import exc
@@ -24,7 +25,7 @@ from treadmill import rrdutils
 from treadmill.metrics import rrd
 
 #: Metric collection interval (every X seconds)
-_METRIC_STEP_SEC_MIN = 15
+_METRIC_STEP_SEC_MIN = 30
 _METRIC_STEP_SEC_MAX = 300
 
 
@@ -34,6 +35,39 @@ _LOGGER = logging.getLogger(__name__)
 CORE_RRDS = {'apps': 'treadmill.apps.rrd',
              'core': 'treadmill.core.rrd',
              'treadmill': 'treadmill.system.rrd'}
+
+RRD_SOCKET = '/tmp/treadmill.rrd'
+
+
+class RRDClientLoader(object):
+    """Class to load rrd client
+    """
+    INTERVAL = 5
+
+    def __init__(self, timeout=600):
+        """Load client if failed until timeout
+        """
+        self.client = None
+
+        time_begin = time.time()
+        while True:
+            self.client = self._get_client()
+            if self.client is not None:
+                break
+
+            if time.time() - time_begin > timeout:
+                raise Exception(
+                    'Unable to connect {} in {}'.format(RRD_SOCKET, timeout)
+                )
+            time.sleep(self.INTERVAL)
+
+    @staticmethod
+    def _get_client():
+        """Get RRD client"""
+        try:
+            return rrdutils.RRDClient(RRD_SOCKET)
+        except socket.error:
+            return None
 
 
 def _sys_svcs(root_dir):
@@ -125,13 +159,12 @@ def init():
                   help='Metrics collection frequency (sec)')
     @click.option('--approot', type=click.Path(exists=True),
                   envvar='TREADMILL_APPROOT', required=True)
-    @click.option('--socket', help='unix-socket of cgroup API service',
+    @click.option('--socket', 'api_socket',
+                  help='unix-socket of cgroup API service',
                   required=True)
-    def metrics(step, approot, socket):
+    def metrics(step, approot, api_socket):
         """Collect node and container metrics."""
-        # CAUTION: urllib.quote_plus only works for Python2,
-        # need to use urllib.parse.quote_plus in Python3
-        remote = 'http+unix://{}'.format(urllib.quote_plus(socket))
+        remote = 'http+unix://{}'.format(urllib_parse.quote_plus(api_socket))
         _LOGGER.info('remote cgroup API address %s', remote)
 
         tm_env = appenv.AppEnvironment(root=approot)
@@ -140,8 +173,6 @@ def init():
         core_metrics_dir = os.path.join(tm_env.metrics_dir, 'core')
         fs.mkdir_safe(app_metrics_dir)
         fs.mkdir_safe(core_metrics_dir)
-
-        rrdclient = rrdutils.RRDClient('/tmp/treadmill.rrd')
 
         # Initiate the list for monitored applications
         monitored_apps = set(
@@ -154,6 +185,8 @@ def init():
         _LOGGER.info('Device sys maj:min = %s for approot: %s',
                      sys_maj_min, approot)
 
+        _LOGGER.info('Loading rrd client')
+        rrd_loader = RRDClientLoader()
         second_used = 0
         while True:
             if step > second_used:
@@ -164,16 +197,23 @@ def init():
             data = restclient.get(remote, '/cgroup/_bulk', auth=None).json()
 
             count += _update_core_rrds(
-                data['treadmill'], core_metrics_dir, rrdclient,
+                data['treadmill'], core_metrics_dir,
+                rrd_loader.client,
                 step, sys_maj_min
             )
 
             count += _update_service_rrds(
-                data['core'], core_metrics_dir, rrdclient, step, sys_maj_min
+                data['core'],
+                core_metrics_dir,
+                rrd_loader.client,
+                step, sys_maj_min
             )
 
             count += _update_app_rrds(
-                data['app'], app_metrics_dir, rrdclient, step, tm_env
+                data['app'],
+                app_metrics_dir,
+                rrd_loader.client,
+                step, tm_env
             )
 
             # Removed metrics for apps that are not present anymore
@@ -182,7 +222,7 @@ def init():
                 rrdfile = os.path.join(
                     app_metrics_dir, '{app}.rrd'.format(app=app_unique_name))
                 _LOGGER.info('removing %r', rrdfile)
-                rrd.finish(rrdclient, rrdfile)
+                rrd.finish(rrd_loader.client, rrdfile)
 
             monitored_apps = seen_apps
 

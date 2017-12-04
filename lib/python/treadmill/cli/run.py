@@ -12,6 +12,7 @@ import os
 import shlex
 
 import click
+import six
 
 from treadmill import cli
 from treadmill import context
@@ -74,7 +75,7 @@ def _run(apis,
             services_dict[service]['command'] = ' '.join(list(command))
 
     if services_dict:
-        app['services'] = services_dict.values()
+        app['services'] = list(six.itervalues(services_dict))
 
     if app:
         # Ensure defaults are set.

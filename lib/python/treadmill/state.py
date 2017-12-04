@@ -15,6 +15,7 @@ except ImportError:
     import pickle  # pylint: disable=wrong-import-order
 
 import enum  # pylint: disable=wrong-import-order
+import six
 
 from treadmill import zknamespace as z
 
@@ -33,10 +34,10 @@ class StateEnum(enum.Enum):
 
 
 STATE_NODE_MAP = {
-    StateEnum.SCHEDULED.value:  z.SCHEDULED,
-    StateEnum.RUNNING.value:    z.RUNNING,
-    StateEnum.PENDING.value:    None,
-    StateEnum.STOPPED.value:    None,
+    StateEnum.SCHEDULED.value: z.SCHEDULED,
+    StateEnum.RUNNING.value: z.RUNNING,
+    StateEnum.PENDING.value: None,
+    StateEnum.STOPPED.value: None,
 }
 
 GLOB_CHAR = '*'
@@ -94,14 +95,18 @@ class State(object):
         if sched is None:
             return
 
-        placed = set([app for app in sched.cell.apps
-                      if sched.cell.apps[app].node])
-
-        broken_apps = {name: sched.cell.apps[name].node
-                       for name in sorted(placed - self.running())}
+        placed = {
+            app
+            for app in sched.cell.apps
+            if sched.cell.apps[app].node
+        }
+        broken_apps = {
+            name: sched.cell.apps[name].node
+            for name in sorted(placed - self.running())
+        }
         broken_nodes = {}
 
-        for app, node in broken_apps.iteritems():
+        for app, node in six.iteritems(broken_apps):
             broken_nodes.setdefault(node, []).append(app)
 
         return broken_nodes

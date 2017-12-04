@@ -1,6 +1,6 @@
+"""Treadmill Instance REST api.
 """
-Treadmill Instance REST api.
-"""
+
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
@@ -10,22 +10,14 @@ import flask
 import flask_restplus as restplus
 from flask_restplus import fields
 
-# Disable E0611: No 'name' in module
-from treadmill import exc  # pylint: disable=E0611
-from treadmill import webutils  # pylint: disable=E0611
-# pylint: disable=E0611,E0401
+from treadmill import exc
+from treadmill import webutils
 from treadmill.api.model import app as app_model
 from treadmill.api.model import error as error_model
 
 
-# Old style classes, no init method.
-#
-# pylint: disable=W0232
 def init(api, cors, impl):
     """Configures REST handlers for instance resource."""
-    # Disable too many branches warning.
-    #
-    # pylint: disable=R0912
     namespace = webutils.namespace(
         api, __name__, 'Instance REST operations'
     )

@@ -43,7 +43,10 @@ class RuntimeBase(object):
 
     def __init__(self, tm_env, container_dir):
         self.tm_env = tm_env
-        self.container_dir = container_dir
+        if os.path.islink(container_dir):
+            self.container_dir = os.readlink(container_dir)
+        else:
+            self.container_dir = container_dir
 
     @abc.abstractmethod
     def _can_run(self, manifest):
@@ -93,3 +96,8 @@ class RuntimeBase(object):
 
         shutil.rmtree(self.container_dir)
         _LOGGER.info('Finished cleanup: %s', self.container_dir)
+
+    @abc.abstractmethod
+    def kill(self):
+        """Kills a container."""
+        pass

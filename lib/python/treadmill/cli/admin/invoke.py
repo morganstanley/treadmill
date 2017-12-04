@@ -19,17 +19,7 @@ from treadmill import context
 from treadmill import plugin_manager
 from treadmill import utils
 from treadmill import yamlwrapper as yaml
-
-
-class Context(object):
-    """CLI context."""
-
-    def __init__(self):
-        self.authorizer = authz_mod.NullAuthorizer()
-
-    def authorize(self, resource, action, args, kwargs):
-        """Invoke internal authorizer."""
-        self.authorizer.authorize(resource, action, args, kwargs)
+from treadmill import api as api_mod
 
 
 def make_command(parent, name, func):
@@ -111,7 +101,8 @@ def make_resource_group(ctx, parent, resource_type, api=None):
             return
 
         try:
-            api = getattr(mod, 'init')(ctx)
+            api_cls = getattr(mod, 'API')
+            api = ctx.build_api(api_cls)
         except AttributeError:
             return
 
@@ -137,7 +128,7 @@ def make_resource_group(ctx, parent, resource_type, api=None):
 def init():
     """Constructs parent level CLI group."""
 
-    ctx = Context()
+    ctx = api_mod.Context()
 
     @click.group(name='invoke')
     @click.option('--authz', required=False)
