@@ -8,9 +8,12 @@ from __future__ import unicode_literals
 
 import datetime
 import functools
+import gzip
+import io
 import json
 import logging
 import re
+import shutil
 
 import flask
 import six
@@ -35,22 +38,6 @@ def as_json(func):
         """Marshalls function output as json."""
         return json.dumps(func(*args, **kwargs))
 
-    return decorated_function
-
-
-def jsonp(func):
-    """Wraps JSONified output for JSONP"""
-    @functools.wraps(func)
-    def decorated_function(*args, **kwargs):
-        """Wraps JSONified output for JSONP"""
-        callback = flask.request.args.get('callback', False)
-        if callback:
-            content = '%s(%s)' % (str(callback),
-                                  str(func(*args, **kwargs).data))
-            return flask.current_app.response_class(
-                content, mimetype='application/json')
-        else:
-            return func(*args, **kwargs)
     return decorated_function
 
 
@@ -122,7 +109,7 @@ def cors(origin=None, methods=None, headers=None, max_age=21600,
         max_age = max_age.total_seconds()
 
     if credentials and origin == '*':
-        raise ValueError("Cannot allow credentials with Origin set to '*'")
+        raise ValueError('Cannot allow credentials with Origin set to "*"')
 
     def get_methods():
         """Return allowed methods for CORS response."""
@@ -211,7 +198,7 @@ def run_wsgi(wsgi_app, port):
 
     container = tornado.wsgi.WSGIContainer(wsgi_app)
     app = tornado.web.Application([
-        (r".*", tornado.web.FallbackHandler, dict(fallback=container)),
+        (r'.*', tornado.web.FallbackHandler, dict(fallback=container)),
     ])
 
     http_server = tornado.httpserver.HTTPServer(app)
@@ -224,7 +211,7 @@ def run_wsgi_unix(wsgi_app, socket):
 
     container = tornado.wsgi.WSGIContainer(wsgi_app)
     app = tornado.web.Application([
-        (r".*", tornado.web.FallbackHandler, dict(fallback=container)),
+        (r'.*', tornado.web.FallbackHandler, dict(fallback=container)),
     ])
 
     http_server = tornado.httpserver.HTTPServer(app)
@@ -357,7 +344,7 @@ def delete_api(api, cors_handler, req_model=None, resp_model=None):
 def namespace(api, name, description):
     """Return namespace name for the given module."""
     return api.namespace(
-        '/'.join(name.split('.')[3:]).replace('_', '-'),
+        name.split('.')[-1].replace('_', '-'),
         description=description
     )
 
@@ -375,3 +362,32 @@ def wants_json_resp(request):
     return (
         best == 'application/json' and
         request.accept_mimetypes[best] > request.accept_mimetypes['text/html'])
+
+
+def opt_gzip(func):
+    """Gzip the response if the client accepts it."""
+    @functools.wraps(func)
+    def decorated_function(*args, **kwargs):
+        """Gzip the response if the client accepts it."""
+        response = func(*args, **kwargs)
+        accept_encodings = flask.request.headers.get('Accept-Encoding', '')
+
+        if 'gzip' not in accept_encodings.lower():
+            return response
+
+        uncompressed = response.data
+        if not isinstance(response.data, io.IOBase):
+            uncompressed = io.BytesIO(response.data)
+
+        compressed = io.BytesIO()
+        with gzip.GzipFile(mode='wb', fileobj=compressed) as gz:
+            with uncompressed:
+                shutil.copyfileobj(uncompressed, gz)
+
+        response.data = compressed.getvalue()
+        response.headers['Content-Encoding'] = 'gzip'
+        response.headers['Content-Length'] = len(response.data)
+
+        return response
+
+    return decorated_function

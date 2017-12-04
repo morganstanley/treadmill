@@ -1,4 +1,6 @@
-"""Treadmill REST APIs"""
+"""Treadmill REST APIs
+"""
+
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
@@ -6,36 +8,28 @@ from __future__ import unicode_literals
 
 import os
 import logging
-import pkgutil
 
 import flask
-# E0611: Used when a name cannot be found in a module.
-# F0401: Used when PyLint has been unable to import a module.
-#
-# pylint: disable=E0611,F0401
 import flask_restplus as restplus
 
+from treadmill import api as api_mod
 from treadmill import authz
-from treadmill.rest import error_handlers
+from treadmill import plugin_manager
 from treadmill import rest
 from treadmill import utils
-from treadmill import plugin_manager
 from treadmill import webutils
-
-
-__path__ = pkgutil.extend_path(__path__, __name__)
+from treadmill.rest import error_handlers
 
 _LOGGER = logging.getLogger(__name__)
 
 
 def base_api(title=None, cors_origin=None):
     """Create base_api object"""
-
     blueprint = flask.Blueprint('v1', __name__)
 
     api = restplus.Api(blueprint, version='1.0',
                        title=title,
-                       description="Treadmill REST API Documentation")
+                       description='Treadmill REST API Documentation')
 
     error_handlers.register(api)
 
@@ -101,13 +95,16 @@ def init(apis, title=None, cors_origin=None, authz_arg=None):
     """Module initialization."""
     (api, cors) = base_api(title, cors_origin)
 
+    authorizer = get_authorizer(authz_arg)
+    ctx = api_mod.Context(authorizer=authorizer)
+
     endpoints = []
     for apiname in apis:
         try:
             _LOGGER.info('Loading api: %s', apiname)
 
-            api_impl = plugin_manager.load(
-                'treadmill.api', apiname).init(get_authorizer(authz_arg))
+            api_cls = plugin_manager.load('treadmill.api', apiname).API
+            api_impl = ctx.build_api(api_cls)
             endpoint = plugin_manager.load(
                 'treadmill.rest.api', apiname).init(api, cors, api_impl)
 

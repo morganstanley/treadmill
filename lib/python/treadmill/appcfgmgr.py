@@ -33,8 +33,9 @@ import errno
 import glob
 import logging
 import os
-import time
 import traceback
+
+import six
 
 from treadmill import appenv
 from treadmill import appcfg
@@ -47,8 +48,6 @@ from treadmill import supervisor
 from treadmill.appcfg import configure as app_cfg
 from treadmill.appcfg import abort as app_abort
 
-if os.name == 'nt':
-    import treadmill.syscall.winsymlink  # pylint: disable=W0611
 
 _LOGGER = lc.Adapter(logging.getLogger(__name__))
 
@@ -185,7 +184,7 @@ class AppCfgMgr(object):
             return
 
         elif self._configure(instance_name):
-            self._refresh_supervisor(instance_names=[instance_name])
+            self._refresh_supervisor()
 
     def _on_deleted(self, event_file):
         """Handle removal event of a cached manifest: terminate an instance.
@@ -224,95 +223,91 @@ class AppCfgMgr(object):
             self._synchronize()
 
     def _synchronize(self):
-        """Synchronize cache/ instances with running/ instances.
+        """Synchronize apps to running/cleanup.
 
-        We need to revalidate three things:
+        We need to re-validate three things on startup:
 
-          - All running instances must have an equivalent entry in cache or be
-            terminated.
+          - All configured apps should have an associated cache entry.
+            Otherwise, create a link to cleanup.
 
-          - All event files in the cache that do not have running link must be
-            started.
+          - All configured apps with a cache entry and with a cleanup file
+            should be linked to cleanup. Otherwise, link to running.
 
-          - The cached entry and the running link must be for the same
-            container (equal unique name). Otherwise, terminate it.
+          - Additional cache entries should be configured to run.
+
+        On restart we need to validate another three things:
+
+          - All configured apps that have a running link should be checked
+            if in the cache. If not then terminate the app.
+
+          - All configured apps that have a cleanup link should be left
+            alone as this is handled.
+
+          - Additional cache entries should be configured to run.
+
+        On startup run.sh will clear running and cleanup which simplifies
+        the logic for us as we can check running/cleanup first. Then check
+        startup conditions and finally non-configured apps that are in cache.
+
+        NOTE: a link cannot exist in running and cleanup at the same time.
 
         """
-        cached_files = glob.glob(os.path.join(self.tm_env.cache_dir, '*'))
-        running_links = glob.glob(os.path.join(self.tm_env.running_dir, '*'))
-
-        # Calculate the instance names from every event file
-        cached_instances = {
+        # Disable R0912(too-many-branches)
+        # pylint: disable=R0912
+        configured = {
             os.path.basename(filename)
-            for filename in cached_files
+            for filename in glob.glob(os.path.join(self.tm_env.apps_dir, '*'))
         }
-        # Calculate the container names from every event file
-        cached_containers = {
-            appcfg.eventfile_unique_name(filename)
-            for filename in cached_files
+        cached = {
+            os.path.basename(filename): appcfg.eventfile_unique_name(filename)
+            for filename in glob.glob(os.path.join(self.tm_env.cache_dir, '*'))
         }
-        # Calculate the instance names from every event running link
-        running_instances = {
-            os.path.basename(linkname)
-            for linkname in running_links
-            if os.path.islink(linkname)
-        }
-        removed_instances = set()
-        added_instances = set()
 
-        _LOGGER.info('running %r', running_instances)
-        # If instance is extra, remove the symlink and force svscan to
-        # re-evaluate
-        for instance_link in running_links:
-            # Skip any files and directories (created by svscan). The footprint
-            # that defines the app is the symlink:
-            # - running/<instance_name> -> apps/<container_name>
-            #
-            # Iterate over all symlinks, skipping other files and directories.
-            if not os.path.islink(instance_link):
-                continue
+        for container in configured:
+            appname = appcfg.app_name(container)
+            if os.path.exists(os.path.join(self.tm_env.running_dir, appname)):
+                # App already running.. check if in cache.
+                # No need to check if needs cleanup as that is handled
+                if appname not in cached or cached[appname] != container:
+                    self._terminate(appname)
+                else:
+                    _LOGGER.info('Ignoring %s as it is running', appname)
 
-            instance_name = os.path.basename(instance_link)
-            _LOGGER.info('checking %r', instance_link)
-            if not os.path.exists(instance_link):
-                # Broken symlink, something went wrong.
-                _LOGGER.warning('broken link %r', instance_link)
-                os.unlink(instance_link)
-                removed_instances.add(instance_name)
-                continue
+                cached.pop(appname, None)
 
-            elif instance_name not in cached_instances:
-                self._terminate(instance_name)
-                removed_instances.add(instance_name)
+            elif os.path.exists(os.path.join(self.tm_env.cleanup_dir,
+                                             appname)):
+                # Already in the process of being cleaned up
+                _LOGGER.info('Ignoring %s as it is in cleanup', appname)
+                cached.pop(appname, None)
 
             else:
-                # Now check that the link match the intended container
-                container_dir = self._resolve_running_link(instance_link)
-                container_name = os.path.basename(container_dir)
-                if container_name not in cached_containers:
-                    self._terminate(instance_name)
-                    removed_instances.add(instance_name)
+                needs_cleanup = True
+                if appname in cached and cached[appname] == container:
+                    data_dir = os.path.join(self.tm_env.apps_dir, container,
+                                            'data')
+                    for file in ['cleanup', 'exitinfo', 'aborted', 'oom']:
+                        if os.path.exists(os.path.join(data_dir, file)):
+                            break
+                    else:
+                        if self._configure(appname):
+                            needs_cleanup = False
+                            _LOGGER.debug('Added existing app %r', appname)
 
-        # For all new apps, read the manifest and configure the app. When all
-        # apps are configured, force rescan again.
-        for instance_name in cached_instances:
-            instance_link = os.path.join(
-                self.tm_env.running_dir,
-                instance_name
-            )
-            if self._configure(instance_name):
-                added_instances.add(instance_name)
+                    cached.pop(appname, None)
 
-        _LOGGER.debug('End result: %r / %r - %r + %r',
-                      cached_containers,
-                      running_instances,
-                      removed_instances,
-                      added_instances)
+                if needs_cleanup:
+                    fs.symlink_safe(
+                        os.path.join(self.tm_env.cleanup_dir, appname),
+                        os.path.join(self.tm_env.apps_dir, container)
+                    )
+                    _LOGGER.debug('Removed %r', appname)
 
-        running_instances -= removed_instances
-        running_instances |= added_instances
-        _LOGGER.info('running post cleanup: %r', running_instances)
-        self._refresh_supervisor(instance_names=running_instances)
+        for appname in six.iterkeys(cached):
+            if self._configure(appname):
+                _LOGGER.debug('Added new app %r', appname)
+
+        self._refresh_supervisor()
 
     def _configure(self, instance_name):
         """Configures and starts the instance based on instance cached event.
@@ -339,9 +334,10 @@ class AppCfgMgr(object):
                     fs.rm_safe(event_file)
                     return False
 
-                app_cfg.schedule(
-                    container_dir,
-                    os.path.join(self.tm_env.running_dir, instance_name)
+                # symlink_safe(link, target)
+                fs.symlink_safe(
+                    os.path.join(self.tm_env.running_dir, instance_name),
+                    container_dir
                 )
                 return True
 
@@ -395,7 +391,7 @@ class AppCfgMgr(object):
         )
 
         try:
-            os.rename(instance_run_link, container_cleanup_link)
+            fs.replace(instance_run_link, container_cleanup_link)
 
         except OSError as err:
             # It is OK if the symlink is already removed (race with app own
@@ -405,33 +401,12 @@ class AppCfgMgr(object):
             else:
                 raise
 
-    def _refresh_supervisor(self, instance_names=()):
+    def _refresh_supervisor(self):
         """Notify the supervisor of new instances to run."""
         supervisor.control_svscan(self.tm_env.running_dir, (
             supervisor.SvscanControlAction.alarm,
             supervisor.SvscanControlAction.nuke
         ))
-
-        for instance_name in instance_names:
-            with lc.LogContext(_LOGGER, instance_name):
-                _LOGGER.info('Starting')
-                instance_run_link = os.path.join(
-                    self.tm_env.running_dir,
-                    instance_name
-                )
-                # Wait for the supervisor to pick up the new instance.
-                for _ in range(10):
-                    if supervisor.is_supervised(instance_run_link):
-                        break
-                    else:
-                        _LOGGER.warning('Supervisor has not picked up it yet')
-                        time.sleep(0.5)
-
-                # Bring the instance up.
-                supervisor.control_service(
-                    instance_run_link,
-                    supervisor.ServiceControlAction.once
-                )
 
     @staticmethod
     def _resolve_running_link(running_link):

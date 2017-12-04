@@ -6,10 +6,6 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
-# Disable too many lines warning.
-#
-# pylint: disable=C0302
-
 import sys
 
 import collections
@@ -23,17 +19,16 @@ import shlex
 from distutils import util
 
 import ldap3
+from ldap3.core import exceptions as ldap_exceptions
 import jinja2
 import six
 
-import treadmill.ldap3kerberos  # pylint: disable=E0611,F0401
+import treadmill.ldap3kerberos
 
+# pylint: disable=too-many-lines
+# pylint: disable=C0302
 
 sys.modules['ldap3.protocol.sasl.kerberos'] = treadmill.ldap3kerberos
-
-# Disable invalid name for type argument, pylint complains about 'dn'.
-#
-# pylint: disable=C0103
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -72,7 +67,8 @@ DEFAULT_TENANT = '_default'
 
 
 def _entry_2_dict(entry, schema):
-    """Convert LDAP entry like object to dict."""
+    """Convert LDAP entry like object to dict.
+    """
     obj = dict()
     for ldap_field, obj_field, field_type in schema:
         if obj_field is None:
@@ -87,11 +83,18 @@ def _entry_2_dict(entry, schema):
 
         value = entry[ldap_field]
         if isinstance(field_type, list):
-            obj[obj_field] = [field_type[0](v) for v in value]
-        elif field_type == bool:
-            obj[obj_field] = bool(util.strtobool(value[0].lower()))
-        elif field_type == dict:
+            if field_type[0] is str:
+                obj[obj_field] = [v for v in value]
+            else:
+                obj[obj_field] = [field_type[0](v) for v in value]
+        elif field_type is bool:
+            # XXX: This is necessary until previous bad entries are cleaned up.
+            obj[obj_field] = (bool(util.strtobool(value[0].lower()))
+                              if not isinstance(value[0], bool) else value[0])
+        elif field_type is dict:
             obj[obj_field] = json.loads(value[0])
+        elif field_type is str:
+            obj[obj_field] = value[0]
         else:
             obj[obj_field] = field_type(value[0])
 
@@ -119,8 +122,14 @@ def _dict_2_entry(obj, schema, option=None, option_value=None):
 
         value = obj[obj_field]
         if option is not None:
-            checksum = hashlib.md5(str(option_value)).hexdigest()
-            ldap_field = str(';'.join([ldap_field, option + '-' + checksum]))
+            # We calculate the checksum of the stringification of the value
+            checksum = hashlib.md5(six.text_type(option_value).encode())
+            ldap_field = ';'.join(
+                [
+                    ldap_field,
+                    '{}-{}'.format(option, checksum.hexdigest())
+                ]
+            )
 
         if delete:
             entry[ldap_field] = []
@@ -131,24 +140,35 @@ def _dict_2_entry(obj, schema, option=None, option_value=None):
         else:
             if isinstance(field_type, list):
                 # TODO: we need to check that all values are of specified type.
-                elem_type = field_type[0]
-                if elem_type == str:
-                    elem_type = six.string_types
                 if value:
                     filtered = [
-                        str(v) for v in value
-                        if isinstance(v, elem_type)
+                        six.text_type(v)
+                        for v in value
+                        if v is not None
                     ]
                     if len(filtered) < len(value):
                         _LOGGER.critical('Exptected %r, got %r',
                                          field_type, value)
                     entry[ldap_field] = filtered
-            elif field_type == bool:
-                entry[ldap_field] = [str(value).upper()]
-            elif field_type == dict:
-                entry[ldap_field] = [json.dumps(value)]
+            elif field_type is bool:
+                # XXX: This is necessary until previous bad entries are cleaned
+                # up.
+                entry[ldap_field] = [bool(
+                    util.strtobool(six.text_type(value).lower())
+                    if not isinstance(value, bool) else value
+                )]
+            elif field_type is dict:
+                entry[ldap_field] = [
+                    json.dumps(
+                        # Use an OrderedDict to guaranty the stability of the
+                        # dictionary key order in the JSON dump.
+                        collections.OrderedDict(
+                            sorted(value.items(), key=lambda t: t[0])
+                        )
+                    )
+                ]
             else:
-                entry[ldap_field] = [str(value)]
+                entry[ldap_field] = [six.text_type(value)]
 
     return entry
 
@@ -156,13 +176,17 @@ def _dict_2_entry(obj, schema, option=None, option_value=None):
 def _remove_empty(entry):
     """Remove any empty values and empty lists from entry."""
     new_entry = copy.deepcopy(entry)
-    for k, v in new_entry.iteritems():
-        if isinstance(v, dict):
-            new_entry[k] = _remove_empty(v)
+    for key, value in six.iteritems(new_entry):
+        if isinstance(value, dict):
+            new_entry[key] = _remove_empty(value)
 
-    emptykeys = [k for k, v in new_entry.iteritems() if not v]
-    for k in emptykeys:
-        del new_entry[k]
+    emptykeys = [
+        key
+        for key, value in six.iteritems(new_entry)
+        if not value
+    ]
+    for key in emptykeys:
+        del new_entry[key]
 
     return new_entry
 
@@ -190,7 +214,7 @@ def _abstract_2_attrtype(name, abstract):
     """Converts abstract attribute type to full LDAP definition."""
     attr = {}
     attr['idx'] = abstract['idx']
-    attr['oid'] = _TREADMILL_ATTR_OID_PREFIX + str(attr['idx'])
+    attr['oid'] = _TREADMILL_ATTR_OID_PREFIX + six.text_type(attr['idx'])
     attr['name'] = name
     attr['desc'] = abstract.get('desc', name)
     type_2_syntax = {
@@ -216,26 +240,33 @@ def _abstract_2_attrtype(name, abstract):
 
 
 def _attrtype_2_str(attr):
-    """Converts attribute type dictionary to str."""
-    template = ("( {{ oid_pfx }}{{ item.idx }}"
-                " NAME '{{ item.name }}'"
-                " DESC '{{ item.desc }}'"
-                " SYNTAX {{ item.syntax }}"
-                " {% if item.equality -%}"
-                " EQUALITY {{ item.equality }}"
-                " {% endif -%}"
-                " {% if item.substr -%}"
-                " SUBSTR {{ item.substr }}"
-                " {% endif -%}"
-                " {% if item.ordering -%}"
-                " ORDERING {{ item.ordering }}"
-                " {% endif -%}"
-                " {% if item.single_value -%}"
-                " SINGLE-VALUE"
-                " {% endif -%} )")
+    """Converts attribute type dictionary to str.
+    """
+    template = (
+        '( {{ oid_pfx }}{{ item.idx }}'
+        ' NAME \'{{ item.name }}\''
+        ' DESC \'{{ item.desc }}\''
+        ' SYNTAX {{ item.syntax }}'
+        ' {% if item.equality -%}'
+        ' EQUALITY {{ item.equality }}'
+        ' {% endif -%}'
+        ' {% if item.substr -%}'
+        ' SUBSTR {{ item.substr }}'
+        ' {% endif -%}'
+        ' {% if item.ordering -%}'
+        ' ORDERING {{ item.ordering }}'
+        ' {% endif -%}'
+        ' {% if item.single_value -%}'
+        ' SINGLE-VALUE'
+        ' {% endif -%} )'
+    )
 
-    return str(jinja2.Template(template).render(
-        item=attr, oid_pfx=_TREADMILL_ATTR_OID_PREFIX))
+    return six.text_type(
+        jinja2.Template(template).render(
+            item=attr,
+            oid_pfx=_TREADMILL_ATTR_OID_PREFIX
+        )
+    )
 
 
 def _objcls_2_abstract(obj_cls):
@@ -252,47 +283,77 @@ def _objcls_2_abstract(obj_cls):
 
 
 def _objcls_2_str(name, obj_cls):
-    """Converts object class dict to string."""
-    template = ("( {{ oid_pfx }}{{ item.idx }}"
-                " NAME '{{ name }}'"
-                " DESC '{{ item.desc }}'"
-                " SUP top STRUCTURAL"
-                " MUST ( {{ item.must | join(' $ ') }} )"
-                " {% if item.may -%}"
-                " MAY  ( {{ item.may | join(' $ ') }} )"
-                " {% endif -%}"
-                " )")
+    """Converts object class dict to string.
+    """
+    template = (
+        '( {{ oid_pfx }}{{ item.idx }}'
+        ' NAME \'{{ name }}\''
+        ' DESC \'{{ item.desc }}\''
+        ' SUP top STRUCTURAL'
+        ' MUST ( {{ item.must | join(" $ ") }} )'
+        ' {% if item.may -%}'
+        ' MAY ( {{ item.may | join(" $ ") }} )'
+        ' {% endif -%}'
+        ' )'
+    )
 
-    return str(jinja2.Template(template).render(
-        name=name,
-        item=obj_cls,
-        oid_pfx=_TREADMILL_OBJCLS_OID_PREFIX))
+    return six.text_type(
+        jinja2.Template(template).render(
+            name=name,
+            item=obj_cls,
+            oid_pfx=_TREADMILL_OBJCLS_OID_PREFIX
+        )
+    )
 
 
 def _group_entry_by_opt(entry):
     """Group by attr;option."""
-    attrs_with_opt = [tuple(k.split(';') + [entry[k]])
-                      for k in entry.keys() if k.find(';') > 0]
-    attrs_with_opt.sort(key=lambda x: x[1])
-    return {key: list(group)[0::1]
-            for key, group in itertools.groupby(attrs_with_opt,
-                                                lambda x: x[1])}
+    attrs_with_opt = [
+        tuple(k.split(';') + [entry[k]])
+        for k in entry.keys()
+        if ';' in k
+    ]
+    # Sort by option first, field name second
+    attrs_with_opt.sort(key=lambda x: (x[1], x[0]))
+    return {
+        key: list(group)[0::1]
+        for key, group in itertools.groupby(
+            attrs_with_opt,
+            lambda x: x[1]
+        )
+    }
 
 
 def _grouped_to_list_of_dict(grouped, prefix, schema):
     """Converts grouped attribute to list of dicts."""
     def _to_dict(values):
         """converts to dict."""
-        return _entry_2_dict({k: v for k, _, v in values}, schema)
-    filtered = {k: v for k, v in six.iteritems(grouped)
-                if k.startswith(prefix)}
-    return sorted([_to_dict(v) for _k, v in six.iteritems(filtered)])
+        return _entry_2_dict(
+            {
+                k: v
+                for k, _, v in values
+            },
+            schema
+        )
+
+    filtered = {
+        k: v
+        for k, v in six.iteritems(grouped)
+        if k.startswith(prefix)
+    }
+    values_list = [
+        _to_dict(v) for _k, v in six.iteritems(filtered)
+    ]
+    return sorted(
+        values_list,
+        key=lambda x: sorted(list(six.iteritems(x)))
+    )
 
 
 def _dict_normalize(data):
     """Normalize the strings in the dictionary."""
     if isinstance(data, six.string_types):
-        return str(data)
+        return six.text_type(data)
     elif isinstance(data, collections.Mapping):
         return dict([
             _dict_normalize(i)
@@ -312,13 +373,13 @@ def _diff_attribute_values(old_value, new_value):
     if not are_different:
         old_value_dict = dict.fromkeys(old_value)
         new_value_dict = dict.fromkeys(new_value)
-        for v in old_value:
-            if v not in new_value_dict:
+        for value in old_value:
+            if value not in new_value_dict:
                 are_different = True
                 break
         if not are_different:
-            for v in new_value:
-                if v not in old_value_dict:
+            for value in new_value:
+                if value not in old_value_dict:
                     are_different = True
                     break
     return are_different
@@ -330,37 +391,46 @@ def _diff_entries(old_entry, new_entry):
     # https://github.com/pyldap/pyldap/blob/master/Lib/ldap/modlist.py#L51
     diff = {}
     attrtype_lower_map = {}
-    for a in old_entry.keys():
-        attrtype_lower_map[a.lower()] = a
+    for attr in old_entry.keys():
+        attrtype_lower_map[attr.lower()] = attr
     for attrtype in new_entry.keys():
         attrtype_lower = attrtype.lower()
         # Filter away null-strings
-        new_value = [v for v in new_entry[attrtype] if v is not None]
+        new_values = [
+            value
+            for value in new_entry[attrtype]
+            if value is not None
+        ]
         if attrtype_lower in attrtype_lower_map:
-            old_value = old_entry.get(attrtype_lower_map[attrtype_lower],
-                                      [])
-            old_value = [v for v in old_value if v is not None]
+            old_values = old_entry.get(attrtype_lower_map[attrtype_lower], [])
+            old_values = [
+                value
+                for value in old_values
+                if value is not None
+            ]
             del attrtype_lower_map[attrtype_lower]
         else:
-            old_value = []
+            old_values = []
 
-        if not old_value and new_value:
+        if not old_values and new_values:
             # Add a new attribute to entry
-            diff.setdefault(attrtype, []).append((ldap3.MODIFY_ADD, new_value))
-        elif old_value and new_value:
+            diff.setdefault(attrtype, []).append(
+                (ldap3.MODIFY_ADD, new_values)
+            )
+        elif old_values and new_values:
             # Replace existing attribute
-            if _diff_attribute_values(old_value, new_value):
+            if _diff_attribute_values(old_values, new_values):
                 diff.setdefault(attrtype, []).append(
-                    (ldap3.MODIFY_REPLACE, new_value))
-        elif old_value and not new_value:
+                    (ldap3.MODIFY_REPLACE, new_values))
+        elif old_values and not new_values:
             # Completely delete an existing attribute
             diff.setdefault(attrtype, []).append(
                 (ldap3.MODIFY_DELETE, []))
 
     # Remove all attributes of old_entry which are not present
     # in new_entry at all
-    for a in attrtype_lower_map.keys():
-        attrtype = attrtype_lower_map[a]
+    for attr in attrtype_lower_map.keys():
+        attrtype = attrtype_lower_map[attr]
         diff.setdefault(attrtype, []).append((ldap3.MODIFY_DELETE, []))
 
     return diff
@@ -389,7 +459,10 @@ class AndQuery(object):
 
 
 class Admin(object):
-    """Manages Treadmill objects in ldap."""
+    """Manages Treadmill objects in ldap.
+    """
+    # Allow such names as 'dn', 'ou'
+    # pylint: disable=invalid-name
 
     def __init__(self, uri, ldap_suffix, user=None, password=None):
         self.uri = uri
@@ -406,22 +479,18 @@ class Admin(object):
         try:
             if self.ldap:
                 self.ldap.unbind()
-        except ldap3.LDAPCommunicationError:
+        except ldap_exceptions.LDAPCommunicationError:
             _LOGGER.exception('cannot close connection.')
 
     def dn(self, parts):
         """Constructs dn."""
-        # Distinguished names must be encoded in UTF-8 otherwise
-        # the underlying ldap client library (eg. add_s()) throws
-        # "TypeError: expected a string in the list ... u'<some dn>'"
-        # error. So let's convert the dn to ascii to conform UTF-8.
-        #
-        # See: https://www.ietf.org/rfc/rfc2253.txt
-        return ','.join(parts + [self.root_ou]).encode('ascii', 'ignore')
+        return ','.join(parts + [self.root_ou])
 
     def connect(self):
         """Connects (binds) to LDAP server."""
         ldap3.set_config_parameter('RESTARTABLE_TRIES', 3)
+        ldap3.set_config_parameter('DEFAULT_CLIENT_ENCODING', 'utf8')
+        ldap3.set_config_parameter('DEFAULT_SERVER_ENCODING', 'utf8')
         for uri in self.uri:
             try:
                 # Disable W0212: Access to a protected member _is_ipv6 of a
@@ -438,20 +507,26 @@ class Admin(object):
                         server,
                         user=self.user,
                         password=self.password,
-                        client_strategy=ldap3.STRATEGY_SYNC_RESTARTABLE,
-                        auto_bind=True
+                        client_strategy=ldap3.RESTARTABLE,
+                        auto_bind=True,
+                        auto_encode=True,
+                        auto_escape=True,
+                        return_empty_attributes=False
                     )
                 else:
                     self.ldap = ldap3.Connection(
                         server,
                         authentication=ldap3.SASL,
                         sasl_mechanism='GSSAPI',
-                        client_strategy=ldap3.STRATEGY_SYNC_RESTARTABLE,
-                        auto_bind=True
+                        client_strategy=ldap3.RESTARTABLE,
+                        auto_bind=True,
+                        auto_encode=True,
+                        auto_escape=True,
+                        return_empty_attributes=False
                     )
-            except (ldap3.LDAPSocketOpenError,
-                    ldap3.LDAPBindError,
-                    ldap3.LDAPMaximumRetriesError):
+            except (ldap_exceptions.LDAPSocketOpenError,
+                    ldap_exceptions.LDAPBindError,
+                    ldap_exceptions.LDAPMaximumRetriesError):
                 _LOGGER.debug('Could not connect to %s', uri, exc_info=True)
             else:
                 break
@@ -472,7 +547,7 @@ class Admin(object):
         self._test_raise_exceptions()
 
         for entry in self.ldap.response:
-            yield str(entry['dn']), _dict_normalize(entry['raw_attributes'])
+            yield entry['dn'], _dict_normalize(entry['attributes'])
 
     def _test_raise_exceptions(self):
         """
@@ -484,13 +559,14 @@ class Admin(object):
         exception_type = None
         result_code = self.ldap.result['result']
         if result_code == 68:
-            exception_type = ldap3.LDAPEntryAlreadyExistsResult
+            exception_type = ldap_exceptions.LDAPEntryAlreadyExistsResult
         elif result_code == 32:
-            exception_type = ldap3.LDAPNoSuchObjectResult
+            exception_type = ldap_exceptions.LDAPNoSuchObjectResult
         elif result_code == 50:
-            exception_type = ldap3.LDAPInsufficientAccessRightsResult
+            exception_type =\
+                ldap_exceptions.LDAPInsufficientAccessRightsResult
         elif result_code != 0:
-            exception_type = ldap3.LDAPOperationResult
+            exception_type = ldap_exceptions.LDAPOperationResult
 
         if exception_type:
             raise exception_type(result=self.ldap.result['result'],
@@ -789,13 +865,13 @@ class Admin(object):
                 _LOGGER.debug('Creating: %s %s %s',
                               dn, object_class, attributes)
                 self.add(dn, object_class, attributes)
-            except ldap3.LDAPEntryAlreadyExistsResult:
+            except ldap_exceptions.LDAPEntryAlreadyExistsResult:
                 _LOGGER.debug('%s already exists.', dn)
 
     def get(self, dn, query, attrs):
         """Gets LDAP object given dn."""
         result = self.search(search_base=dn,
-                             search_filter=str(query),
+                             search_filter=six.text_type(query),
                              search_scope=ldap3.BASE,
                              attributes=attrs)
         for _dn, entry in result:
@@ -839,7 +915,10 @@ class Admin(object):
 
 
 class LdapObject(object):
-    """Ldap object base class."""
+    """Ldap object base class.
+    """
+    # Allow such names as 'dn', 'ou'
+    # pylint: disable=invalid-name
 
     def __init__(self, admin):
         self.admin = admin
@@ -886,7 +965,7 @@ class LdapObject(object):
         if isinstance(ident, list):
             ident_attr = ident
         else:
-            ident_attr = [str(ident)]
+            ident_attr = [six.text_type(ident)]
 
         entry.update({'objectClass': [self.oc()],
                       self.entity(): ident_attr})
@@ -1030,7 +1109,7 @@ class AppGroup(LdapObject):
 
         entries = self.list(search)
         if not entries:
-            raise ldap3.LDAPNoSuchObjectResult(
+            raise ldap_exceptions.LDAPNoSuchObjectResult(
                 'No entries for {0} and group-type {1}'.format(
                     ident, group_type)
             )
@@ -1121,16 +1200,18 @@ class Application(LdapObject):
     @staticmethod
     def schema():
         """Returns combined schema for retrieval."""
-        name_only = lambda schema_rec: (schema_rec[0], None, None)
+        def _name_only(schema_rec):
+            return (schema_rec[0], None, None)
+
         return sum(
             [
-                [name_only(e) for e in Application._svc_schema],
-                [name_only(e) for e in Application._svc_restart_schema],
-                [name_only(e) for e in Application._endpoint_schema],
-                [name_only(e) for e in Application._environ_schema],
-                [name_only(e) for e in Application._affinity_schema],
-                [name_only(e) for e in Application._vring_schema],
-                [name_only(e) for e in Application._vring_rule_schema],
+                [_name_only(e) for e in Application._svc_schema],
+                [_name_only(e) for e in Application._svc_restart_schema],
+                [_name_only(e) for e in Application._endpoint_schema],
+                [_name_only(e) for e in Application._environ_schema],
+                [_name_only(e) for e in Application._affinity_schema],
+                [_name_only(e) for e in Application._vring_schema],
+                [_name_only(e) for e in Application._vring_rule_schema],
             ],
             Application._schema
         )
@@ -1296,10 +1377,12 @@ class Cell(LdapObject):
     @staticmethod
     def schema():
         """Returns combined schema for retrieval."""
-        name_only = lambda schema_rec: (schema_rec[0], None, None)
+        def _name_only(schema_rec):
+            return (schema_rec[0], None, None)
+
         return (
             Cell._schema +
-            [name_only(e) for e in Cell._master_host_schema]
+            [_name_only(e) for e in Cell._master_host_schema]
         )
 
     def get(self, ident):
@@ -1415,8 +1498,9 @@ def _allocation_dn_parts(ident):
     return parts
 
 
-def _dn2cellalloc_id(dn):
-    """Converts cell allocation dn to full id."""
+def _dn2cellalloc_id(dn):  # pylint: disable=invalid-name
+    """Converts cell allocation dn to full id.
+    """
     if not dn.startswith('cell='):
         return None
 
@@ -1456,10 +1540,11 @@ class CellAllocation(LdapObject):
     @staticmethod
     def schema():
         """Returns combined schema for retrieval."""
-        name_only = lambda schema_rec: (schema_rec[0], None, None)
+        def _name_only(schema_rec):
+            return (schema_rec[0], None, None)
         return (
             CellAllocation._schema +
-            [name_only(e) for e in CellAllocation._assign_schema]
+            [_name_only(e) for e in CellAllocation._assign_schema]
         )
 
     def dn(self, ident=None):
@@ -1578,7 +1663,7 @@ Allocation.ou = staticmethod(lambda: Allocation._ou)
 Allocation.entity = staticmethod(lambda: Allocation._entity)
 
 
-def _dn2partition_id(dn):
+def _dn2partition_id(dn):  # pylint: disable=invalid-name
     """Converts cell partition dn to full id."""
     parts = dn.split(',')
     partition = parts.pop(0).split('=')[1]
@@ -1596,7 +1681,8 @@ class Partition(LdapObject):
         ('disk', 'disk', str),
         ('memory', 'memory', str),
         ('system', 'systems', [int]),
-        ('down-threshold', 'down-threshold', int)
+        ('down-threshold', 'down-threshold', int),
+        ('reboot-schedule', 'reboot-schedule', str)
     ]
 
     _oc = 'tmPartition'

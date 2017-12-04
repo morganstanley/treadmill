@@ -7,7 +7,6 @@ from __future__ import unicode_literals
 import fnmatch
 import logging
 
-from treadmill import authz
 from treadmill import context
 from treadmill import cron
 from treadmill import schema
@@ -121,9 +120,3 @@ class API(object):
         self.create = create
         self.update = update
         self.delete = delete
-
-
-def init(authorizer):
-    """Returns module API wrapped with authorizer function."""
-    api = API()
-    return authz.wrap(api, authorizer)

@@ -44,7 +44,7 @@ SOCKET = '/tmp/treadmill.rrd'
 
 # Keeps track which RRA to be queried for the first code point according to the
 # timeframces.
-TIMEFRAME_TO_RRA_IDX = {"short": "0", "long": "1"}
+TIMEFRAME_TO_RRA_IDX = {'short': '0', 'long': '1'}
 
 
 class RRDError(Exception):
@@ -58,7 +58,7 @@ class RRDClient(object):
         _LOGGER.info('Initializing rrdclient: %s', path)
         sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         sock.connect(path)
-        self.rrd = sock.makefile()
+        self.rrd = sock.makefile(mode='rw')
 
     def command(self, line, oneway=False):
         """Sends rrd command and checks the output."""
@@ -146,7 +146,11 @@ class RRDClient(object):
 
 def flush_noexc(rrdfile, rrd_socket=SOCKET):
     """Send flush request to the rrd cache daemon."""
-    rrdclient = RRDClient(rrd_socket)
+    try:
+        rrdclient = RRDClient(rrd_socket)
+    except Exception:  # pylint: disable=W0703
+        _LOGGER.exception('error connecting to rrdcache')
+        return
     try:
         rrdclient.flush(rrdfile, oneway=True)
     except Exception:  # pylint: disable=W0703
@@ -159,7 +163,11 @@ def flush_noexc(rrdfile, rrd_socket=SOCKET):
 
 def forget_noexc(rrdfile, rrd_socket=SOCKET):
     """Send flush request to the rrd cache daemon."""
-    rrdclient = RRDClient(rrd_socket)
+    try:
+        rrdclient = RRDClient(rrd_socket)
+    except Exception:  # pylint: disable=W0703
+        _LOGGER.exception('error connecting to rrdcache')
+        return
     try:
         rrdclient.forget(rrdfile, oneway=True)
     except Exception:  # pylint: disable=W0703

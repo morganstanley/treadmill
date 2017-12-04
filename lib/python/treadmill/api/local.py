@@ -8,12 +8,15 @@ from __future__ import unicode_literals
 
 import collections
 import errno
+import fnmatch
+import functools
 import glob
 import io
 import json
 import logging
 import os
 import re
+import shutil
 import tarfile
 
 import six
@@ -29,62 +32,131 @@ _LOGGER = lc.ContainerAdapter(logging.getLogger(__name__))
 
 def _app_path(tm_env, instance, uniq):
     """Return application path given app env, app id and uniq."""
-    return os.path.join(tm_env.apps_dir,
+    return os.path.join(tm_env().apps_dir,
                         '%s-%s' % (instance.replace('#', '-'), uniq))
 
 
 def _archive_path(tm_env, archive_type, instance, uniq):
     """Return archive path given app env, archive id and type."""
-    return os.path.join(tm_env.archives_dir, '%s-%s.%s.tar.gz' %
+    return os.path.join(tm_env().archives_dir, '%s-%s.%s.tar.gz' %
                         (instance.replace('#', '-'), uniq, archive_type))
 
 
-def _temp_file_name():
-    """Construct a temporary file name for each thread."""
-    f_name = 'local-{}.temp'.format(_thread.get_ident())
+def _temp_dir():
+    """Construct an empty temporary dir for each thread and return the path."""
+    dirname = os.path.join(os.path.sep, 'var', 'tmp',
+                           'local-{}.temp'.format(_thread.get_ident()))
 
-    return os.path.join(os.path.sep, 'tmp', f_name)
+    shutil.rmtree(dirname, True)
+    os.mkdir(dirname, 0o755)
+    return dirname
 
 
-def _get_file(fname=None,
-              arch_fname=None,
+def _get_file(file_=None,
+              arch=None,
               arch_extract=True,
-              arch_extract_fname=None):
-    """Return the file pointed by "fname" or extract it from archive.
+              arch_extract_filter=None):
+    """Return the file pointed by "file_" or extract the specified archive.
 
-    Return fname if the specified file exists or extract
-    'arch_extract_fname' from 'arch_fname' first and return the path to
-    the extracted file.
+    Return file_ if the specified file exists or extract the files specified
+    by 'arch_extract_filter' from 'arch' and return the path to the extracted
+    file.
     """
-    if os.path.exists(fname):
-        return fname
+    if os.path.exists(file_):
+        _LOGGER.info('Returning {}'.format(file_))
+        return file_
 
     if not arch_extract:
-        raise exc.LocalFileNotFoundError(
-            '{} cannot be found.'.format(fname)
-        )
+        raise exc.LocalFileNotFoundError('{} cannot be found.'.format(file_))
 
-    _LOGGER.info('Extract %s from archive %s', arch_extract_fname, arch_fname)
+    extracted = _extract_archive(arch, arch_extract_filter)[0]
+    _LOGGER.info('Returning {}'.format(extracted))
+    return extracted
 
-    if not os.path.exists(arch_fname):
-        raise exc.LocalFileNotFoundError(
-            '{} cannot be found.'.format(arch_fname)
-        )
+
+def _arch_file_filter(arch_members, fname=None):
+    """Filter func to return one archive member with name 'fname' of an archive
+    """
+    return [f for f in arch_members if f.name == fname]
+
+
+def _arch_log_filter(arch_members, rel_log_dir=None):
+    """Filter func to return the log file members of an archive.
+
+    It keeps files that are in "rel_log_dir" and created by s6-log
+    ie. 'current' and '@*.s' (rotated log file: @400000847572.s)
+    """
+    return [f for f in arch_members
+            if (os.path.dirname(f.name) == rel_log_dir and (fnmatch.fnmatch(
+                os.path.basename(f.name), 'current') or fnmatch.fnmatch(
+                    os.path.basename(f.name), '@*.s')))]
+
+
+def _extract_archive(arch, extract_filter=None):
+    """Extract the members filtered by 'extract_filter' from archive
+    'arch' and return the path to the extracted files.
+    """
+
+    _LOGGER.info('Extract archive {}'.format(arch))
+    if not os.path.exists(arch):
+        raise exc.LocalFileNotFoundError('{} cannot be found.'.format(arch))
 
     try:
-        # extract the req. file from the archive and copy it to a temp file
-        copy = _temp_file_name()
-        with tarfile.open(arch_fname) as arch, io.open(copy, 'wb') as copy_fd:
-            member = arch.extractfile(arch_extract_fname)
-            copy_fd.writelines(member.readlines())
-            copy_fd.close()
+        # extract the req. paths from the archive to a temp directory
+        temp_dir = _temp_dir()
+        with tarfile.open(arch) as arch_:
+            if extract_filter:
+                to_extract = extract_filter(arch_)
+            else:
+                to_extract = arch_.getmembers()
+
+            arch_.extractall(path=temp_dir, members=to_extract)
+
     except KeyError as err:
         _LOGGER.error(err)
         raise exc.LocalFileNotFoundError(
-            'The file {} cannot be found in {}'.format(arch_extract_fname,
-                                                       arch_fname))
+            'Error while extracting {}: {}'.format(arch, err))
 
-    return copy
+    return [os.path.join(temp_dir, f.name) for f in to_extract]
+
+
+def _rel_log_dir_path(logtype, component):
+    """The relative path of the log directory for a given execution."""
+    if logtype == 'sys':
+        return os.path.join('sys', component, 'data', 'log')
+
+    return os.path.join('services', component, 'data', 'log')
+
+
+def _abs_log_dir_path(tm_env, instance, uniq, rel_log_dir_path):
+    """The absolut path of the log directory for a given execution."""
+    if uniq == 'running':
+        return os.path.join(tm_env().running_dir, instance, 'data',
+                            rel_log_dir_path)
+
+    return os.path.join(
+        _app_path(tm_env, instance, uniq), 'data', rel_log_dir_path)
+
+
+def _concat_files(file_lst):
+    """Concatenate the files in file_lst and return a file-like obj."""
+    _LOGGER.info('Concatenating files: {}'.format(file_lst))
+    concatenated = io.BytesIO()
+    for file_ in file_lst:
+        # Do not abort if a file cannot be opened eg. when the oldest log
+        # file is "rotated out" while this log retrieval op. is running
+        try:
+            with io.open(file_, 'rb') as f:
+                shutil.copyfileobj(f, concatenated)
+        except IOError as err:
+            if err.errno == errno.ENOENT:
+                _LOGGER.info('File {} cannot be opened: {}'.format(file_, err))
+            else:
+                raise
+
+    concatenated.seek(0)
+
+    return io.TextIOWrapper(concatenated, errors='ignore')
 
 
 def _fragment(iterable, start=0, limit=None):
@@ -97,7 +169,7 @@ def _fragment(iterable, start=0, limit=None):
     # TODO: Naive implementation. Needs to be rewritten to a solution with
     # file pointer moving around etc. if it turns out that this isn't
     # performant enough.
-    if limit >= 0:
+    if limit is not None and limit >= 0:
         try:
             fragment = collections.deque(maxlen=limit)
             steps_to_make = start + limit
@@ -112,8 +184,7 @@ def _fragment(iterable, start=0, limit=None):
                 fragment.popleft()
         except IndexError:
             raise exc.InvalidInputError(
-                __name__,
-                'Index start=%s is out of range.' % str(start))
+                __name__, 'Index start=%s is out of range.' % str(start))
 
         return fragment
 
@@ -121,9 +192,8 @@ def _fragment(iterable, start=0, limit=None):
         for _ in six.moves.range(start):
             six.next(iterable)
     except StopIteration:
-        raise exc.InvalidInputError(__name__,
-                                    'Index start=%s is out of range.'
-                                    % str(start))
+        raise exc.InvalidInputError(
+            __name__, 'Index start=%s is out of range.' % str(start))
 
     return list(iterable)
 
@@ -139,7 +209,7 @@ def _fragment_in_reverse(iterable, start=0, limit=None):
     # file pointer moving around etc. if it turns out that this isn't
     # performant enough.
     maxlen = None
-    if limit >= 0:
+    if limit is not None and limit >= 0:
         maxlen = start + limit
 
     fragment = collections.deque(iterable, maxlen)
@@ -147,24 +217,26 @@ def _fragment_in_reverse(iterable, start=0, limit=None):
         for _ in six.moves.range(start):
             fragment.pop()
     except IndexError:
-        raise exc.InvalidInputError(__name__,
-                                    'Index start=%s is out of range.'
-                                    % str(start))
+        raise exc.InvalidInputError(
+            __name__, 'Index start=%s is out of range.' % str(start))
 
     fragment.reverse()
     return fragment
 
 
 def mk_metrics_api(tm_env):
-    """Factory to create metrics api."""
+    """Factory to create metrics api.
+    """
 
     class _MetricsAPI(object):
-        """Acess to the locally gathered metrics."""
+        """Acess to the locally gathered metrics.
+        """
 
         def __init__(self):
 
             def _get(rsrc_id, timeframe, as_json=False):
-                """Return the rrd metrics."""
+                """Return the rrd metrics.
+                """
                 with lc.LogContext(_LOGGER, rsrc_id):
                     _LOGGER.info('Get metrics')
                     id_ = self._unpack_id(rsrc_id)
@@ -176,10 +248,11 @@ def mk_metrics_api(tm_env):
                     return file_
 
             def _file_path(rsrc_id):
-                """Return the rrd metrics file path."""
+                """Return the rrd metrics file path.
+                """
                 id_ = self._unpack_id(rsrc_id)
 
-                return self._metrics_fpath(**id_)
+                return self._abs_met_path(**id_)
 
             self.file_path = _file_path
             self.get = _get
@@ -204,10 +277,11 @@ def mk_metrics_api(tm_env):
 
             return {'service': rsrc_id}
 
-        def _get_rrd_file(
-                self, service=None,
-                app=None, uniq=None,
-                arch_extract=True):
+        def _get_rrd_file(self,
+                          service=None,
+                          app=None,
+                          uniq=None,
+                          arch_extract=True):
             """Return the rrd file path of an app or a core service."""
             if uniq is None:
                 return self._core_rrd_file(service)
@@ -224,21 +298,18 @@ def mk_metrics_api(tm_env):
 
         def _app_rrd_file(self, app, uniq, arch_extract=True):
             """Return an application's rrd file."""
-            _LOGGER.info('Return %s', self._metrics_fpath(app=app, uniq=uniq))
-
             return _get_file(
-                self._metrics_fpath(app=app, uniq=uniq),
+                self._abs_met_path(app=app, uniq=uniq),
                 arch_extract=arch_extract,
-                arch_fname=_archive_path(tm_env(), 'sys', app, uniq),
-                arch_extract_fname='metrics.rrd')
+                arch=_archive_path(tm_env, 'sys', app, uniq),
+                arch_extract_filter=functools.partial(_arch_file_filter,
+                                                      fname='metrics.rrd'))
 
         def _core_rrd_file(self, service):
             """Return the given service's rrd file."""
-            _LOGGER.info('Return %s', self._metrics_fpath(service))
+            return _get_file(self._abs_met_path(service), arch_extract=False)
 
-            return _get_file(self._metrics_fpath(service), arch_extract=False)
-
-        def _metrics_fpath(self, service=None, app=None, uniq=None):
+        def _abs_met_path(self, service=None, app=None, uniq=None):
             """Return the rrd metrics file's full path."""
             if service is not None:
                 return os.path.join(tm_env().metrics_dir, 'core',
@@ -251,19 +322,22 @@ def mk_metrics_api(tm_env):
 
 
 def mk_logapi(tm_env):
-    """Factory  for log api."""
+    """Factory  for log api.
+    """
 
     class _LogAPI(object):
-        """Access to log files."""
+        """Access to log files.
+        """
 
         def __init__(self):
 
             def _get(log_id, start=0, limit=None, order=None):
-                """Get log file."""
+                """Get log file.
+                """
                 instance, uniq, logtype, component = log_id.split('/')
                 with lc.LogContext(_LOGGER, '{}/{}'.format(instance, uniq)):
-                    log_f = self._get_logfile(instance, uniq,
-                                              logtype, component)
+                    log_f = self._get_logfile(instance, uniq, logtype,
+                                              component)
 
                     _LOGGER.info('Requested {} items starting from line {} '
                                  'in {} order'.format(limit, start, order))
@@ -272,89 +346,129 @@ def mk_logapi(tm_env):
                         raise exc.InvalidInputError(
                             __name__,
                             'Index cannot be less than 0, got: {}'.format(
-                                start
-                            )
-                        )
+                                start))
 
-                    with io.open(log_f) as log:
+                    with io.open(log_f, 'rt', errors='ignore') as log:
                         if order == 'desc':
                             return _fragment_in_reverse(log, start, limit)
 
                         return _fragment(log, start, limit)
 
-            self.get = _get
+            def _get_all(log_id):
+                """Return a file-like object with all the log entries including
+                the rotated ones.
+                """
+                instance, uniq, logtype, component = log_id.split('/')
 
-        def _get_logfile(self, instance, uniq, logtype, component):
+                with lc.LogContext(_LOGGER, '{}/{}'.format(instance, uniq)):
+                    rel_log_dir = _rel_log_dir_path(logtype, component)
+                    abs_log_dir = _abs_log_dir_path(tm_env, instance, uniq,
+                                                    rel_log_dir)
+
+                    _LOGGER.info('Check logs in {}'.format(abs_log_dir))
+                    if os.path.exists(abs_log_dir):
+                        logs = glob.glob(os.path.join(abs_log_dir, '@*.s'))
+                        logs.append(os.path.join(abs_log_dir, 'current'))
+
+                        # alphanumerical sort results in chronological order
+                        # as per
+                        # https://skarnet.org/software/skalibs/libstddjb/tai.html
+                        return _concat_files(sorted(logs))
+
+                    if uniq == 'running':
+                        raise exc.LocalFileNotFoundError(
+                            'No log could be found for {}.'.format(log_id))
+
+                    logs = _extract_archive(
+                        _archive_path(tm_env, logtype, instance, uniq),
+                        extract_filter=functools.partial(
+                            _arch_log_filter,
+                            rel_log_dir=rel_log_dir))
+
+                    # alphanumerical sort results in chronological order
+                    # as per
+                    # https://skarnet.org/software/skalibs/libstddjb/tai.html
+                    return _concat_files(sorted(logs))
+
+            self.get = _get
+            self.get_all = _get_all
+
+        def _get_logfile(self, instance, uniq, logtype, comp):
             """Return the corresponding log file."""
-            _LOGGER.info('Log: %s %s %s %s',
-                         instance, uniq, logtype, component)
+            _LOGGER.info('Log: %s %s %s %s', instance, uniq, logtype, comp)
             try:
-                return self._get_logfile_new(instance, uniq, logtype,
-                                             component)
+                return self._get_logfile_new(instance, uniq, logtype, comp)
             except exc.LocalFileNotFoundError:
-                return self._get_logfile_old(instance, uniq, logtype,
-                                             component)
+                return self._get_logfile_old(instance, uniq, logtype, comp)
 
         def _get_logfile_new(self, instance, uniq, logtype, component):
-            """Return the log file according to the newer file layout."""
+            """Return the log file according to the newer file layout.
+            """
 
             if logtype == 'sys':
-                logfile = os.path.join('sys', component, 'data',
-                                       'log', 'current')
+                rel_log_path = os.path.join('sys', component, 'data', 'log',
+                                            'current')
             else:
-                logfile = os.path.join('services', component, 'data',
-                                       'log', 'current')
+                rel_log_path = os.path.join('services', component, 'data',
+                                            'log', 'current')
 
             if uniq == 'running':
-                fname = os.path.join(tm_env().running_dir, instance, 'data',
-                                     logfile)
+                abs_log_path = os.path.join(tm_env().running_dir, instance,
+                                            'data', rel_log_path)
             else:
-                fname = os.path.join(
-                    _app_path(tm_env(), instance, uniq), 'data', logfile)
+                abs_log_path = os.path.join(
+                    _app_path(tm_env, instance, uniq), 'data', rel_log_path)
 
-            _LOGGER.info('Logfile: %s', fname)
+            _LOGGER.info('Logfile: %s', abs_log_path)
 
-            return _get_file(fname,
-                             arch_fname=_archive_path(tm_env(), logtype,
-                                                      instance, uniq),
-                             arch_extract=bool(uniq != 'running'),
-                             arch_extract_fname=logfile)
+            return _get_file(
+                abs_log_path,
+                arch=_archive_path(tm_env, logtype, instance, uniq),
+                arch_extract=bool(uniq != 'running'),
+                arch_extract_filter=functools.partial(_arch_file_filter,
+                                                      fname=rel_log_path))
 
         def _get_logfile_old(self, instance, uniq, logtype, component):
-            """Return the log file according to the old file layout."""
+            """Return the log file according to the old file layout.
+            """
             # TODO: method should be deleted once the old containers disappear
 
             if logtype == 'sys':
-                logfile = os.path.join('sys', component, 'log', 'current')
+                rel_log_path = os.path.join('sys', component, 'log', 'current')
             else:
-                logfile = os.path.join('services', component, 'log', 'current')
+                rel_log_path = os.path.join('services', component, 'log',
+                                            'current')
 
             if uniq == 'running':
-                fname = os.path.join(tm_env().running_dir, instance, logfile)
+                abs_log_path = os.path.join(tm_env().running_dir, instance,
+                                            rel_log_path)
             else:
-                fname = os.path.join(
-                    _app_path(tm_env(), instance, uniq), logfile)
+                abs_log_path = os.path.join(
+                    _app_path(tm_env, instance, uniq), rel_log_path)
 
-            _LOGGER.info('Logfile: %s', fname)
+            _LOGGER.info('Logfile: %s', abs_log_path)
 
-            return _get_file(fname,
-                             arch_fname=_archive_path(tm_env(), logtype,
-                                                      instance, uniq),
-                             arch_extract=bool(uniq != 'running'),
-                             arch_extract_fname=logfile)
+            return _get_file(
+                abs_log_path,
+                arch=_archive_path(tm_env, logtype, instance, uniq),
+                arch_extract=bool(uniq != 'running'),
+                arch_extract_filter=functools.partial(_arch_file_filter,
+                                                      fname=rel_log_path))
 
     return _LogAPI
 
 
 class API(object):
-    """Treadmill Local REST api."""
+    """Treadmill Local REST api.
+    """
 
     def __init__(self):
 
         self._tm_env = None
 
         def tm_env(_metrics_api=None):
-            """Lazy instantiate app environment."""
+            """Lazy instantiate app environment.
+            """
             if not self._tm_env:
                 # TODO: we need to pass this parameter to api, unfortunately
                 #       in current api framework it is not trivial.
@@ -365,7 +479,8 @@ class API(object):
             return self._tm_env
 
         def _list_running():
-            """List all running instances."""
+            """List all running instances.
+            """
             result = {}
             running_glob = os.path.join(tm_env().running_dir, '*')
             for running in glob.glob(running_glob):
@@ -386,7 +501,8 @@ class API(object):
             return result
 
         def _list_finished():
-            """List all finished instances."""
+            """List all finished instances.
+            """
             result = {}
             archive_glob = os.path.join(tm_env().archives_dir, '*.sys.tar.gz')
             pattern = re.compile(r'''.*/        # archives dir
@@ -414,7 +530,8 @@ class API(object):
             return result
 
         def _list_services():
-            """List the local services."""
+            """List the local services.
+            """
             result = {}
             services_glob = os.path.join(tm_env().init_dir, '*')
             for svc in glob.glob(services_glob):
@@ -433,7 +550,8 @@ class API(object):
             return result
 
         def _list(state=None, inc_svc=False):
-            """List all instances on the node."""
+            """List all instances on the node.
+            """
             result = {}
             if state is None or state == 'running':
                 result.update(_list_running())
@@ -441,19 +559,20 @@ class API(object):
                     result.update(_list_services())
             if state is None or state == 'finished':
                 result.update(_list_finished())
-            return result.values()
+            return list(six.itervalues(result))
 
         # TODO: implementation of this is placeholder, need to think about
         #       more relevant info.
         def _get(uniqid):
-            """Get instance info."""
+            """Get instance info.
+            """
             instance, uniq = uniqid.split('/')
             if uniq == 'running':
                 fname = os.path.join(tm_env().running_dir, instance, 'data',
                                      'state.json')
             else:
                 fname = os.path.join(
-                    _app_path(tm_env(), instance, uniq), 'data', 'state.json')
+                    _app_path(tm_env, instance, uniq), 'data', 'state.json')
 
             try:
                 with io.open(fname) as f:
@@ -462,20 +581,22 @@ class API(object):
                 if uniq == 'running' or err.errno != errno.ENOENT:
                     raise
 
-                fname = _archive_path(tm_env(), 'sys', instance, uniq)
+                fname = _archive_path(tm_env, 'sys', instance, uniq)
                 with tarfile.open(fname) as archive:
                     member = archive.extractfile('state.json')
                     return json.load(member)
 
         class _ArchiveAPI(object):
-            """Access to archive files."""
+            """Access to archive files.
+            """
 
             def __init__(self):
 
                 def _get(archive_id):
-                    """Get arch file path."""
+                    """Get arch file path.
+                    """
                     instance, uniq, arch_type = archive_id.split('/')
-                    arch_path = _archive_path(tm_env(), arch_type, instance,
+                    arch_path = _archive_path(tm_env, arch_type, instance,
                                               uniq)
                     if not os.path.exists(arch_path):
                         raise exc.LocalFileNotFoundError(
@@ -490,9 +611,3 @@ class API(object):
         self.log = mk_logapi(tm_env)()
         self.archive = _ArchiveAPI()
         self.metrics = mk_metrics_api(tm_env)()
-
-
-def init(_authorizer):
-    """Returns module API wrapped with authorizer function."""
-    api = API()
-    return api

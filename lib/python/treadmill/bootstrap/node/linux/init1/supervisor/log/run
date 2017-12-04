@@ -1,0 +1,3 @@
+#!{{ _alias.execlineb }} -P
+
+{{ _alias.s6_log }} -b -p T n20 s1000000 .

@@ -36,7 +36,9 @@ def _download(url, temp):
     _LOGGER.debug('Downloading tar file from %r to %r.', url, temp)
 
     krb_auth = requests_kerberos.HTTPKerberosAuth(
-        mutual_authentication=requests_kerberos.DISABLED
+        mutual_authentication=requests_kerberos.DISABLED,
+        # kerberos 1.2.5 doesn't accept None principal. Remove this once fixed.
+        principal=''
     )
 
     request = requests.get(url, stream=True, auth=krb_auth)

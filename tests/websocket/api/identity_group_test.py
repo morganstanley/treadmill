@@ -12,6 +12,7 @@ import unittest
 import tests.treadmill_test_deps  # pylint: disable=W0611
 
 import jsonschema
+import six
 
 from treadmill.websocket.api import identity_group
 
@@ -39,16 +40,18 @@ class WSIdentityGroupAPITest(unittest.TestCase):
             api.subscribe({'topic': '/identity-groups'})
         )
 
-        with self.assertRaisesRegexp(  # pylint: disable=deprecated-method
+        with six.assertRaisesRegex(
+            self,
             jsonschema.exceptions.ValidationError,
-            "'filter' was unexpected"
+            '\'filter\' was unexpected'
         ):
             api.subscribe({'topic': '/identity-groups',
                            'filter': 'foo!'})
 
-        with self.assertRaisesRegexp(  # pylint: disable=deprecated-method
+        with six.assertRaisesRegex(
+            self,
             jsonschema.exceptions.ValidationError,
-            "None is not of type u'string'"
+            'None is not of type u?\'string\''
         ):
             api.subscribe({'topic': '/identity-groups',
                            'identity-group': None})

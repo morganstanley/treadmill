@@ -14,14 +14,12 @@ import unittest
 from collections import namedtuple
 
 # Disable W0611: Unused import
-# pylint: disable=W0611
-import tests.treadmill_test_deps
+import tests.treadmill_test_deps  # pylint: disable=W0611
 
 import mock
 
-# the point of this file is to check at least the syntax
-from treadmill.sproc import metrics
 from treadmill import appenv
+from treadmill.sproc import metrics  # pylint: disable=no-name-in-module
 
 
 class MetricsTest(unittest.TestCase):
@@ -59,11 +57,14 @@ class MetricsTest(unittest.TestCase):
         rrdclient = mock.Mock()
         # pylint: disable=W0212
         metrics._update_core_rrds(data, self.root, rrdclient, 5, '10:0')
-        rrdclient.create.assert_has_calls([
-            mock.call('{}/treadmill.core.rrd'.format(self.root), 5, 10),
-            mock.call('{}/treadmill.apps.rrd'.format(self.root), 5, 10),
-            mock.call('{}/treadmill.system.rrd'.format(self.root), 5, 10),
-        ])
+        rrdclient.create.assert_has_calls(
+            [
+                mock.call('{}/treadmill.core.rrd'.format(self.root), 5, 10),
+                mock.call('{}/treadmill.apps.rrd'.format(self.root), 5, 10),
+                mock.call('{}/treadmill.system.rrd'.format(self.root), 5, 10),
+            ],
+            any_order=True
+        )
 
         metrics_data = {
             'hardmem': 10, 'softmem': 10, 'blk_write_iops': 0, 'memusage': 10,
@@ -111,14 +112,19 @@ class MetricsTest(unittest.TestCase):
         tm_env = appenv.AppEnvironment(self.root)
         # pylint: disable=W0212
         metrics._update_app_rrds(data, self.root, rrdclient, 5, tm_env)
-        rrdclient.create.assert_has_calls([
-            mock.call(
-                '{}/foo.bar-00002-KKmc7hBHskLWj.rrd'.format(self.root), 5, 10
-            ),
-            mock.call(
-                '{}/foo.bar-00001-KKmc7hBHskLWh.rrd'.format(self.root), 5, 10
-            ),
-        ])
+        rrdclient.create.assert_has_calls(
+            [
+                mock.call(
+                    '{}/foo.bar-00002-KKmc7hBHskLWj.rrd'.format(self.root),
+                    5, 10
+                ),
+                mock.call(
+                    '{}/foo.bar-00001-KKmc7hBHskLWh.rrd'.format(self.root),
+                    5, 10
+                ),
+            ],
+            any_order=True
+        )
 
         metrics_data = {
             'hardmem': 10, 'softmem': 10, 'blk_write_iops': 3, 'memusage': 10,
@@ -127,13 +133,15 @@ class MetricsTest(unittest.TestCase):
             'blk_read_iops': 5, 'cputotal': 3000000000, 'blk_write_bps': 3,
             'timestamp': 3,
         }
-        rrdclient.update.assert_has_calls([
-            mock.call(
-                '{}/foo.bar-00002-KKmc7hBHskLWj.rrd'.format(self.root),
-                metrics_data,
-                metrics_time=3
-            )
-        ])
+        rrdclient.update.assert_has_calls(
+            [
+                mock.call(
+                    '{}/foo.bar-00002-KKmc7hBHskLWj.rrd'.format(self.root),
+                    metrics_data,
+                    metrics_time=3
+                )
+            ]
+        )
 
 if __name__ == '__main__':
     unittest.main()

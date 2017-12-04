@@ -91,6 +91,7 @@ def ws_loop(wsapi, message, snapshot, on_message, on_error=None,
                 ws_conn = ws_client.create_connection(api, timeout=timeout)
                 _LOGGER.debug('Connected.')
 
+                _LOGGER.debug('Sending %s', json.dumps(message))
                 return _ws_events(ws_conn, message, snapshot, since,
                                   on_message, on_error)
             except ws_client.WebSocketTimeoutException as to_err:

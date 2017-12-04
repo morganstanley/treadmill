@@ -11,7 +11,7 @@ import unittest
 # Disable W0611: Unused import
 import tests.treadmill_test_deps  # pylint: disable=W0611
 
-import ldap3
+from ldap3.core import exceptions as ldap_exceptions
 import mock
 
 import treadmill
@@ -50,7 +50,8 @@ class ContextTest(unittest.TestCase):
         ctx2.cell = 'somecell'
         ctx2.ldap_suffix = 'dc=test'
         ctx2.ldap.url = 'ldap://foo:1234'
-        treadmill.admin.Cell.get.side_effect = ldap3.LDAPNoSuchObjectResult
+        treadmill.admin.Cell.get.side_effect =\
+            ldap_exceptions.LDAPNoSuchObjectResult
 
         self.assertIsNone(ctx2.get('zk_url'))
 

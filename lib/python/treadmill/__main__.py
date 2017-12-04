@@ -1,37 +1,22 @@
-"""Treadmill module."""
+"""Treadmill module.
+"""
 
-
+from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
-from __future__ import absolute_import
-
 import logging
 import logging.config
 
-try:
-    from treadmill import dependencies  # pylint: disable=E0611,W0611
-except ImportError:
-    pass
-
 import click
 
-# pylint complains about imports from treadmill not grouped, but import
-# dependencies need to come first.
-#
-# pylint: disable=C0412
 from treadmill import cli
 
 # Disable click warning for importing unicode_literals in python 2
 click.disable_unicode_literals_warning = True
 
 
-# pylint complains "No value passed for parameter 'ldap' in function call".
-# This is ok, as these parameters come from click decorators.
-#
-# pylint: disable=E1120
-#
 # TODO: add options to configure logging.
 @click.group(cls=cli.make_commands('treadmill.cli'))
 @click.option('--dns-domain', required=False,
@@ -87,4 +72,7 @@ def run(ctx, outfmt, debug):
         logging.getLogger().setLevel(logging.DEBUG)
 
 
-run()
+# pylint complains "No value passed for parameter ... in function call".
+# This is ok, as these parameters come from click decorators.
+if __name__ == '__main__':
+    run()  # pylint: disable=no-value-for-parameter

@@ -136,7 +136,9 @@ def post(events_dir, event):
     fs.write_safe(
         os.path.join(events_dir, filename),
         _write_temp,
-        prefix='.tmp'
+        prefix='.tmp',
+        mode='w',
+        permission=0o644
     )
 
 

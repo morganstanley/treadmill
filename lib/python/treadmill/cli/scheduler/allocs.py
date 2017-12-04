@@ -19,10 +19,13 @@ def init():
     @click.command()
     @cli.handle_exceptions(restclient.CLI_REST_EXCEPTIONS)
     @click.option('--match', help='Server name pattern match')
+    @click.option('--partition', help='Partition name pattern match')
     @click.pass_context
-    def allocs(ctx, match):
+    def allocs(ctx, match, partition):
         """View allocations report."""
-        report = fetch_report(ctx.obj.get('api'), 'allocations', match)
+        report = fetch_report(
+            ctx.obj.get('api'), 'allocations', match, partition
+        )
         report = report.loc[
             ~report.name.str.startswith('_default/')
         ].reset_index(drop=True)

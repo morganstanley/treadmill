@@ -32,6 +32,8 @@ class LinuxAppEnvironment(appenv.AppEnvironment):
     """
 
     __slots__ = (
+        'metrics_dir',
+        'spool_dir',
         'svc_cgroup',
         'svc_cgroup_dir',
         'svc_localdisk',
@@ -42,6 +44,8 @@ class LinuxAppEnvironment(appenv.AppEnvironment):
         'rules_dir'
     )
 
+    METRICS_DIR = 'metrics'
+    SPOOL_DIR = 'spool'
     SVC_CGROUP_DIR = 'cgroup_svc'
     SVC_LOCALDISK_DIR = 'localdisk_svc'
     SVC_NETWORK_DIR = 'network_svc'
@@ -51,6 +55,8 @@ class LinuxAppEnvironment(appenv.AppEnvironment):
 
         super(LinuxAppEnvironment, self).__init__(root)
 
+        self.metrics_dir = os.path.join(self.root, self.METRICS_DIR)
+        self.spool_dir = os.path.join(self.root, self.SPOOL_DIR)
         self.svc_cgroup_dir = os.path.join(self.root, self.SVC_CGROUP_DIR)
         self.svc_localdisk_dir = os.path.join(self.root,
                                               self.SVC_LOCALDISK_DIR)
@@ -59,6 +65,8 @@ class LinuxAppEnvironment(appenv.AppEnvironment):
         self.rules_dir = os.path.join(self.root, self.RULES_DIR)
 
         # Make sure our directories exists.
+        fs.mkdir_safe(self.metrics_dir)
+        fs.mkdir_safe(self.spool_dir)
         fs.mkdir_safe(self.svc_cgroup_dir)
         fs.mkdir_safe(self.svc_localdisk_dir)
         fs.mkdir_safe(self.svc_network_dir)

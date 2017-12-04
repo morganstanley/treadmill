@@ -16,7 +16,7 @@ if six.PY2 and os.name == 'posix':
 else:
     import subprocess  # pylint: disable=wrong-import-order
 
-import treadmill
+from treadmill import dist
 from treadmill import plugin_manager
 from treadmill import utils
 
@@ -75,7 +75,7 @@ def _check(path):
 def resolve(exe):
     """Resolve logical name to full path."""
     # All exes in distro are trusted.
-    if exe.startswith(treadmill.TREADMILL):
+    if exe.startswith(dist.TREADMILL):
         return exe
 
     executables = get_aliases()
@@ -174,6 +174,9 @@ def check_output(cmdline, environ=(), **kwargs):
         _LOGGER.warning(exc.output)
         raise
 
+    # Decode output back into unicode
+    res = res.decode()
+
     return res
 
 
@@ -232,6 +235,10 @@ def invoke(cmd, cmd_input=None, use_except=False, **environ):
     cmd_environ = dict(os.environ.items())
     cmd_environ.update(**environ)
 
+    # Encode any input from unicode
+    if cmd_input is not None:
+        cmd_input = cmd_input.encode()
+
     try:
         proc = subprocess.Popen(args,
                                 close_fds=_CLOSE_FDS, shell=False,
@@ -246,61 +253,15 @@ def invoke(cmd, cmd_input=None, use_except=False, **environ):
         _LOGGER.exception('Error invoking %r', args)
         raise
 
+    # Decode output back into unicode
+    out = out.decode()
+
     if retcode != 0 and use_except:
         raise subprocess.CalledProcessError(cmd=args,
                                             returncode=retcode,
                                             output=out)
 
     return (retcode, out)
-
-
-def invoke_return(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                  stderr=subprocess.STDOUT, **environ):
-    """Runs command and return, let caller handle process
-
-    Allows passing some input and/or setting all keyword arguments as environ
-    variables.
-
-    :param cmd: Command to run
-    :type cmd: ``list``
-
-    :param stdin:
-        *optional* Provide PIPE for stdin; default is subprocess.PIPE
-    :type stdin: ``PIPE``
-    :param stdout:
-        *optional* Provide PIPE for stdout; default is subprocess.PIPE
-    :type stdout: ``PIPE``
-
-    :param stderr:
-        *optional* Provide PIPE for stderr; default is subprocess.STSOUT
-    :type stderr: ``PIPE``
-
-    :param environ:
-        Environ variable to set prior to running the command
-    :type environ: ``dict``
-
-    :returns:
-        :class:`subprocess.Proc`
-    :raises:
-        :class:`subprocess.CalledProcessError`
-    """
-    _LOGGER.debug('invoke: %r', cmd)
-    args = _alias_command(cmd)
-
-    # Setup a copy of the environ with the provided overrides
-    cmd_environ = dict(os.environ.items())
-    cmd_environ.update(**environ)
-
-    try:
-        return subprocess.Popen(args,
-                                close_fds=_CLOSE_FDS, shell=False,
-                                stdin=stdin,
-                                stdout=stdout,
-                                stderr=stderr,
-                                env=cmd_environ)
-    except Exception:
-        _LOGGER.exception('Error invoking %r', args)
-        raise
 
 
 def exec_pid1(cmd, ipc=True, mount=True, proc=True,

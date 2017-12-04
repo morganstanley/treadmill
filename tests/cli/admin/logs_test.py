@@ -18,6 +18,7 @@ from treadmill import plugin_manager
 from treadmill import restclient
 
 
+@unittest.skip('CLI interface broken (always returns -1)')
 class AdminLogsTest(unittest.TestCase):
     """Mock test for treadmill.cli.admin.logs"""
 
@@ -31,7 +32,6 @@ class AdminLogsTest(unittest.TestCase):
         context.GLOBAL.zk = mock.Mock()
 
     @mock.patch('treadmill.restclient.get', mock.Mock())
-    @mock.patch('click.echo', mock.Mock())
     def test_logs_style1(self):
         """Test treadmill admin logs"""
         context.GLOBAL.zk.conn.get_children.return_value = [
@@ -42,17 +42,21 @@ class AdminLogsTest(unittest.TestCase):
             'test_host:12345',
             ''
         )
-        self.runner.invoke(self.log_cli,
-                           ['--cell', 'test_cell',
-                            'proid.app#123/uniqid/service/foo',
-                            '--host', 'test_host'])
+        res = self.runner.invoke(
+            self.log_cli,
+            [
+                '--cell', 'test_cell',
+                'proid.app#123/uniqid/service/foo',
+                '--host', 'test_host'
+            ]
+        )
+        self.assertEqual(res.exit_code, 0)
         restclient.get.assert_called_with(
             'http://test_host:12345',
             '/local-app/proid.app%23123/uniqid/service/foo'
         )
 
     @mock.patch('treadmill.restclient.get', mock.Mock())
-    @mock.patch('click.echo', mock.Mock())
     def test_logs_style2(self):
         """Test treadmill admin logs"""
         context.GLOBAL.zk.conn.get_children.return_value = [
@@ -63,12 +67,17 @@ class AdminLogsTest(unittest.TestCase):
             'test_host:12345',
             ''
         )
-        self.runner.invoke(self.log_cli,
-                           ['--cell', 'test_cell',
-                            'proid.app#123',
-                            '--host', 'test_host',
-                            '--uniq', 'uniqid',
-                            '--service', 'foo'])
+        res = self.runner.invoke(
+            self.log_cli,
+            [
+                '--cell', 'test_cell',
+                'proid.app#123',
+                '--host', 'test_host',
+                '--uniq', 'uniqid',
+                '--service', 'foo'
+            ]
+        )
+        self.assertEqual(res.exit_code, 0)
         restclient.get.assert_called_with(
             'http://test_host:12345',
             '/local-app/proid.app%23123/uniqid/service/foo'

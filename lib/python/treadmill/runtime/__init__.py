@@ -1,4 +1,5 @@
-"""Treadmill runtime framework."""
+"""Treadmill runtime framework.
+"""
 
 from __future__ import absolute_import
 from __future__ import division
@@ -80,7 +81,11 @@ def save_app(manifest, container_dir, app_json=STATE_JSON):
     state_file = os.path.join(container_dir, app_json)
     fs.write_safe(
         state_file,
-        lambda f: json.dump(manifest, f)
+        lambda f: f.writelines(
+            utils.json_genencode(manifest)
+        ),
+        mode='w',
+        permission=0o644
     )
     # chmod for the file to be world readable.
     if os.name == 'posix':

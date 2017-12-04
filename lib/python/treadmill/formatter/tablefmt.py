@@ -58,7 +58,7 @@ def _cell(item, column, key, fmt):
     if key is None:
         key = column
 
-    if isinstance(key, (six.string_types, six.text_type)):
+    if isinstance(key, six.string_types):
         keys = [key]
     else:
         keys = key
@@ -135,12 +135,14 @@ class AppPrettyFormatter(object):
             ('interval', None, None),
         ])
 
-        command_fmt = lambda cmd: wrap_words(cmd.split(), 40, ' ', '\n   ')
+        def _command_fmt(cmd):
+            return wrap_words(cmd.split(), 40, ' ', '\n   ')
+
         services_tbl = make_list_to_table([
             ('name', None, None),
             ('root', None, None),
             ('restart', None, services_restart_tbl),
-            ('command', None, command_fmt),
+            ('command', None, _command_fmt),
         ])
 
         endpoints_tbl = make_list_to_table([
@@ -360,6 +362,7 @@ class CellPrettyFormatter(object):
             ('memory', None, None),
             ('system', 'systems', None),
             ('down threshold', 'down-threshold', None),
+            ('reboot schedule', 'reboot-schedule', None),
         ])
 
         schema = [
@@ -562,6 +565,7 @@ class PartitionPrettyFormatter(object):
             ('memory', None, None),
             ('system', 'systems', None),
             ('down threshold', 'down-threshold', None),
+            ('reboot schedule', 'reboot-schedule', None),
         ]
 
         format_item = make_dict_to_table(schema)

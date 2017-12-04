@@ -4,17 +4,21 @@
 # Runs as root.
 #
 
-exec {{ treadmill }}/bin/treadmill sproc --cgroup . \
-    service --root-dir {{ dir }} network \
+exec \
+    {{ treadmill }}/bin/treadmill34 \
+    sproc --cgroup . \
+    service \
+        --root-dir {{ dir }} \
+    network \
 {%- if network_device %}
-    --ext-device {{ network_device }} \
+        --ext-device {{ network_device }} \
 {%- endif %}
 {%- if network_ip%}
-    --ext-ip {{ network_ip}} \
+        --ext-ip {{ network_ip}} \
 {%- endif %}
 {%- if network_mtu %}
-    --ext-mtu {{ network_mtu }} \
+        --ext-mtu {{ network_mtu }} \
 {%- endif %}
 {%-if network_speed %}
-    --ext-speed {{ network_speed }} \
+        --ext-speed {{ network_speed }} \
 {%- endif %}

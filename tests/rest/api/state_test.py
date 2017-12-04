@@ -1,4 +1,6 @@
-"""State REST api tests."""
+"""State REST api tests.
+"""
+
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
@@ -8,8 +10,7 @@ import json
 import unittest
 
 # don't complain about unused imports
-# pylint: disable=W0611
-import tests.treadmill_test_deps
+import tests.treadmill_test_deps  # pylint: disable=W0611
 
 import flask
 import flask_restplus as restplus
@@ -17,9 +18,8 @@ import mock
 
 from six.moves import http_client
 
-import treadmill
 from treadmill import webutils
-from treadmill.rest import error_handlers
+from treadmill.rest import error_handlers  # pylint: disable=no-name-in-module
 from treadmill.rest.api import state
 
 
@@ -53,18 +53,21 @@ class StateTest(unittest.TestCase):
         ]
 
         resp = self.client.get('/state/')
-        resp_json = ''.join(resp.response)
-        self.assertEqual(json.loads(resp_json), [
-            {'name': 'foo.bar#0000000001', 'oom': None, 'signal': None,
-             'expires': None, 'when': None, 'host': 'baz1',
-             'state': 'running', 'exitcode': None},
-            {'name': 'foo.bar#0000000002', 'oom': False, 'signal': None,
-             'expires': None, 'when': 1234567890.1, 'host': 'baz2',
-             'state': 'finished', 'exitcode': 0},
-            {'name': 'foo.bar#0000000003', 'oom': False, 'signal': 11,
-             'expires': None, 'when': 1234567890.2, 'host': 'baz3',
-             'state': 'finished', 'exitcode': None}
-        ])
+        resp_json = b''.join(resp.response)
+        self.assertEqual(
+            json.loads(resp_json.decode()),
+            [
+                {'name': 'foo.bar#0000000001', 'oom': None, 'signal': None,
+                 'expires': None, 'when': None, 'host': 'baz1',
+                 'state': 'running', 'exitcode': None},
+                {'name': 'foo.bar#0000000002', 'oom': False, 'signal': None,
+                 'expires': None, 'when': 1234567890.1, 'host': 'baz2',
+                 'state': 'finished', 'exitcode': 0},
+                {'name': 'foo.bar#0000000003', 'oom': False, 'signal': 11,
+                 'expires': None, 'when': 1234567890.2, 'host': 'baz3',
+                 'state': 'finished', 'exitcode': None}
+            ]
+        )
         self.assertEqual(resp.status_code, http_client.OK)
         self.impl.list.assert_called_with(None, False, None)
 
@@ -97,15 +100,20 @@ class StateTest(unittest.TestCase):
         }
 
         resp = self.client.get('/state/foo.bar#0000000001')
-        resp_json = ''.join(resp.response)
-        self.assertEqual(json.loads(resp_json), {
-            'name': 'foo.bar#0000000001', 'oom': None, 'signal': None,
-            'expires': None, 'when': None, 'host': 'baz1',
-            'state': 'running', 'exitcode': None
-        })
+        resp_json = b''.join(resp.response)
+        self.assertEqual(
+            json.loads(resp_json.decode()),
+            {
+                'name': 'foo.bar#0000000001', 'oom': None, 'signal': None,
+                'expires': None, 'when': None, 'host': 'baz1',
+                'state': 'running', 'exitcode': None
+            }
+        )
         self.assertEqual(resp.status_code, http_client.OK)
         self.impl.get.assert_called_with('foo.bar#0000000001')
 
+    def test_get_state_notfound(self):
+        """Test getting an instance state (not found)."""
         self.impl.get.return_value = None
         resp = self.client.get('/state/foo.bar#0000000002')
         self.assertEqual(resp.status_code, http_client.NOT_FOUND)

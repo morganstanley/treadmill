@@ -4,10 +4,9 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
-from .. import admin
-from .. import authz
-from .. import context
-from .. import schema
+from treadmill import admin
+from treadmill import context
+from treadmill import schema
 
 
 class API(object):
@@ -73,9 +72,3 @@ class API(object):
         self.create = create
         self.update = update
         self.delete = delete
-
-
-def init(authorizer):
-    """Returns module API wrapped with authorizer function."""
-    api = API()
-    return authz.wrap(api, authorizer)

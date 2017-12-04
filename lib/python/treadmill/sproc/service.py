@@ -11,6 +11,7 @@ import os
 
 import click
 
+from treadmill import appenv
 from treadmill import diskbenchmark
 from treadmill import fs
 from treadmill import localdiskutils
@@ -44,6 +45,8 @@ def init():
                   help='Amount of local disk space to use for the image.')
     @click.option('--block-dev',
                   help='Use a block device to back LVM group.')
+    @click.option('--vg-name',
+                  help='Name of LVM volume group to use.')
     @click.option('--block-dev-configuration',
                   help='Block device io throughput configuration.')
     @click.option('--block-dev-read-bps',
@@ -62,7 +65,7 @@ def init():
                   help='Default read IO per second value.')
     @click.option('--default-write-iops', required=True, type=int,
                   help='Default write IO per second value.')
-    def localdisk(img_location, img_size, block_dev,
+    def localdisk(img_location, img_size, block_dev, vg_name,
                   block_dev_configuration,
                   block_dev_read_bps, block_dev_write_bps,
                   block_dev_read_iops, block_dev_write_iops,
@@ -149,6 +152,7 @@ def init():
             watchdogs_dir=os.path.join(root_dir,
                                        watchdogs_dir),
             block_dev=block_dev,
+            vg_name=vg_name,
             read_bps=read_bps,
             write_bps=write_bps,
             read_iops=read_iops,
@@ -164,7 +168,6 @@ def init():
         """Runs cgroup node service."""
         root_dir = local_ctx['root-dir']
         watchdogs_dir = local_ctx['watchdogs-dir']
-        apps_dir = local_ctx['apps-dir']
 
         svc = services.ResourceService(
             service_dir=os.path.join(root_dir, 'cgroup_svc'),
@@ -173,7 +176,7 @@ def init():
 
         svc.run(
             watchdogs_dir=os.path.join(root_dir, watchdogs_dir),
-            apps_dir=os.path.join(root_dir, apps_dir),
+            tm_env=appenv.AppEnvironment(root_dir),
         )
 
     @service.command()

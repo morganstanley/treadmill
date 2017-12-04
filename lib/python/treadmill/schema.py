@@ -29,8 +29,10 @@ class _RefResolver(jsonschema.RefResolver):
         #       dict) do not work with local ref points like #/<xxx>.
         if uri.startswith('file://etc/schema/'):
             resource = uri[len('file:/'):]
-            json_string = pkg_resources.resource_string('treadmill', resource)
-            return json.loads(json_string)
+            json_string = pkg_resources.resource_string(
+                'treadmill', resource
+            )
+            return json.loads(json_string.decode('utf8'))
         else:
             return super(_RefResolver, self).resolve_remote(uri)
 

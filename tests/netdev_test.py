@@ -69,7 +69,7 @@ class NetDevTest(unittest.TestCase):
         self.assertEqual(res, 'foo alias')
 
     @mock.patch('io.open', mock.mock_open())
-    def test_dev_state(self):
+    def test_dev_state_up(self):
         """Test device state read.
         """
         mock_handle = io.open.return_value
@@ -79,6 +79,18 @@ class NetDevTest(unittest.TestCase):
 
         io.open.assert_called_with('/sys/class/net/foo/operstate')
         self.assertEqual(res, netdev.DevState.UP)
+
+    @mock.patch('io.open', mock.mock_open())
+    def test_dev_state_lldown(self):
+        """Test device state read.
+        """
+        mock_handle = io.open.return_value
+        mock_handle.read.return_value = 'lowerlayerdown\n'
+
+        res = netdev.dev_state('foo')
+
+        io.open.assert_called_with('/sys/class/net/foo/operstate')
+        self.assertEqual(res, netdev.DevState.LOWER_LAYER_DOWN)
 
     @mock.patch('io.open', mock.mock_open())
     def test_dev_speed(self):
@@ -385,7 +397,7 @@ class NetDevTest(unittest.TestCase):
         netdev.dev_conf_route_localnet_set('foo', True)
 
         io.open.assert_called_with(
-            '/proc/sys/net/ipv4/conf/foo/route_localnet', 'wb'
+            '/proc/sys/net/ipv4/conf/foo/route_localnet', 'w'
         )
         mock_handle.write.assert_called_with('1')
 
@@ -398,7 +410,7 @@ class NetDevTest(unittest.TestCase):
         netdev.dev_conf_proxy_arp_set('foo', True)
 
         io.open.assert_called_with(
-            '/proc/sys/net/ipv4/conf/foo/proxy_arp', 'wb'
+            '/proc/sys/net/ipv4/conf/foo/proxy_arp', 'w'
         )
         mock_handle.write.assert_called_with('1')
 
@@ -411,7 +423,7 @@ class NetDevTest(unittest.TestCase):
         netdev.dev_conf_arp_ignore_set('foo', 2)
 
         io.open.assert_called_with(
-            '/proc/sys/net/ipv4/conf/foo/arp_ignore', 'wb'
+            '/proc/sys/net/ipv4/conf/foo/arp_ignore', 'w'
         )
         mock_handle.write.assert_called_with('2')
 
@@ -424,7 +436,7 @@ class NetDevTest(unittest.TestCase):
         netdev.dev_conf_forwarding_set('foo', True)
 
         io.open.assert_called_with(
-            '/proc/sys/net/ipv4/conf/foo/forwarding', 'wb'
+            '/proc/sys/net/ipv4/conf/foo/forwarding', 'w'
         )
         mock_handle.write.assert_called_with('1')
 

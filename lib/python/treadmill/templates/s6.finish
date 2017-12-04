@@ -5,6 +5,10 @@
 {{ _alias.redirfd }} -a 1 data/finish.log
 
 {{ _alias.if }} {
+    {{ _alias.s6_svwait }} -d .
+}
+
+{{ _alias.if }} {
     {{ _alias.mkdir }} -p -- data/exits
 }
 

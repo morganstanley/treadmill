@@ -3,11 +3,12 @@
 CHROOT={{ _alias.chroot }}
 ECHO={{ _alias.echo }}
 GREP={{ _alias.grep }}
+IONICE={{ _alias.ionice }}
 LS={{ _alias.ls }}
 MKDIR={{ _alias.mkdir }}
 MOUNT={{ _alias.mount }}
 RM={{ _alias.rm }}
-IONICE={{ _alias.ionice }}
+TOUCH={{ _alias.touch }}
 
 unset KRB5CCNAME
 unset KRB5_KTNAME
@@ -22,7 +23,7 @@ if [ -f {{ dir }}/bin/host_tickets.sh ]; then
     {{ dir }}/bin/host_tickets.sh -o {{ dir }}/spool/krb5cc_host
 fi
 
-export PATH={{ s6 }}/bin:${PATH}
+export PATH={{ _alias.s6 }}/bin:${PATH}
 
 $RM -f {{ dir }}/init/server_init/zkid.pickle
 
@@ -30,19 +31,42 @@ $RM -f {{ dir }}/init/server_init/zkid.pickle
 $ECHO Enabling /proc/sys/net/ipv4/ip_forward
 $ECHO 1 > /proc/sys/net/ipv4/ip_forward
 
-for SVC in $($LS {{ dir }}/init); do
-    $GREP {{ dir }}/init/$SVC/\$ {{ dir }}/.install > /dev/null
-    if [ $? != 0 ]; then
-        $ECHO Removing extra service: $SVC
-        $RM -vrf {{ dir }}/init/$SVC
-    fi
+for SVCDIR in init init1; do
+    for SVC in $($LS {{ dir }}/$SVCDIR); do
+        $GREP {{ dir }}/$SVCDIR/$SVC/\$ {{ dir }}/.install > /dev/null
+        if [ $? != 0 ]; then
+            $ECHO Removing extra service: $SVC
+            $RM -vrf {{ dir }}/$SVCDIR/$SVC
+        fi
+    done
+    $RM -vf {{ dir }}/$SVCDIR/*/data/exits/*
 done
 
-$RM -vrf {{ dir }}/init/*/data/exits/*
+# Cleanup the watchdog directory.
+$RM -vf {{ dir }}/watchdogs/*
+
+# Cleanup the running directory.
+$RM -vf {{ dir }}/running/*
+
+# Cleanup the cleanup directory but add cleanup file first.
+for INSTANCE in {{ dir }}/cleanup/*; do
+    if [[ -d $INSTANCE ]]; then
+        $TOUCH $INSTANCE/data/cleanup
+    fi
+done
+$RM -vf {{ dir }}/cleanup/*
+
+# Cleanup the cleaning directory.
+$RM -vf {{ dir }}/cleaning/*
+
+{% if benchmark %}
+    $ECHO Start benchmark
+    {{ dir }}/bin/benchmark.sh
+{% endif %}
 
 # Starting svscan
 exec $IONICE -c2 -n0 {{ _alias.s6_envdir }} {{ dir }}/env                  \
-    {{ treadmill }}/bin/treadmill sproc --cell - cgroup                    \
+    {{ treadmill }}/bin/treadmill34 sproc --cell - cgroup                    \
         cleanup --delete --apps --core                                     \
         mount                                                              \
         init --cpu {{ treadmill_cpu}}                                      \

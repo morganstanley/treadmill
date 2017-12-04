@@ -4,5 +4,9 @@
 #
 
 # get data every 30 seconds
-exec {{ treadmill }}/bin/treadmill sproc --cgroup . metrics --step 30 \
-    --socket {{ dir }}/var/run/cgroup.sock
+exec \
+    {{ treadmill }}/bin/treadmill34 \
+    sproc --cgroup . \
+    metrics \
+        --step 30 \
+        --socket {{ dir }}/var/run/cgroup.sock

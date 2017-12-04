@@ -17,6 +17,7 @@ from treadmill import firewall
 from treadmill import fs
 from treadmill import iptables
 from treadmill import newnet
+from treadmill import plugin_manager
 from treadmill import runtime
 from treadmill import subproc
 
@@ -97,7 +98,7 @@ def run(tm_env, container_dir, manifest):
     app = runtime.save_app(manifest, container_dir)
 
     if not app.shared_network:
-        _unshare_network(tm_env, app)
+        _unshare_network(tm_env, container_dir, app)
 
     # Create and format the container root volume.
     root_dir = _create_root_dir(container_dir, localdisk)
@@ -133,7 +134,7 @@ def _apply_cgroup_limits(app_cgroups):
         cgroups.join(subsystem, cgrp)
 
 
-def _unshare_network(tm_env, app):
+def _unshare_network(tm_env, container_dir, app):
     """Configures private app network.
 
     :param ``appenv.AppEnvironment`` tm_env:
@@ -241,6 +242,17 @@ def _unshare_network(tm_env, app):
             tm_env.rules.create_rule(chain=iptables.PREROUTING_PASSTHROUGH,
                                      rule=passthroughrule,
                                      owner=unique_name)
+
+    # configure exception filter rules
+    try:
+        firewall_plugin = plugin_manager.load(
+            'treadmill.firewall.plugins', 'firewall'
+        )
+        firewall_plugin.apply_exception_rules(tm_env, container_dir, app)
+    except:  # pylint: disable=W0702
+        _LOGGER.exception(
+            'Error in firewall plugin, skip applying firewall exception rules.'
+        )
 
     service_ip = None
     if app.shared_ip:

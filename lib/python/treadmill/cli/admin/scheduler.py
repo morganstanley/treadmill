@@ -15,9 +15,10 @@ import pandas as pd
 
 from treadmill import cli
 from treadmill import context
-from treadmill import master
 from treadmill import scheduler as treadmill_sched
 from treadmill import reports
+from treadmill.scheduler import loader
+from treadmill.scheduler import zkbackend
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -27,10 +28,9 @@ def make_readonly_master(run_scheduler=False):
     """Prepare a readonly master."""
     treadmill_sched.DIMENSION_COUNT = 3
 
-    cell_master = master.Master(
-        context.GLOBAL.zk.conn,
-        context.GLOBAL.cell,
-        readonly=True
+    cell_master = loader.Loader(
+        zkbackend.ZkReadonlyBackend(context.GLOBAL.zk.conn),
+        context.GLOBAL.cell
     )
     cell_master.load_model()
 

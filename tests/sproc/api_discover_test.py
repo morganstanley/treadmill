@@ -12,15 +12,14 @@ import json
 # Disable W0611: Unused import
 import tests.treadmill_test_deps  # pylint: disable=W0611
 
+from ldap3.core import exceptions as ldap_exceptions
 import mock
-
-from treadmill import rest
-from treadmill.sproc import api_discover
-from treadmill import admin
-
 from six.moves import http_client
 
-from ldap3.core import exceptions as ldap_exceptions
+from treadmill import admin
+from treadmill import rest
+
+from treadmill.ms.sproc import api_discover
 
 
 class ApiDiscoverGetTest(unittest.TestCase):
@@ -32,10 +31,12 @@ class ApiDiscoverGetTest(unittest.TestCase):
     LDAP.conn = mock.Mock(return_value={})
     GLOBAL.ldap = mock.Mock(return_value=LDAP)
 
-    LBENDPOINTS = {'data': [
-        'vips=treadmill-ln-foobar.foo.com,treadmill-ny-foobar.foo.com',
-        'port=9876'
-    ]}
+    LBENDPOINTS = {
+        'data': [
+            'vips=treadmill-ln-foobar.foo.com,treadmill-ny-foobar.foo.com',
+            'port=9876'
+        ]
+    }
     ADMIN_AG_LB = mock.MagicMock(admin.AppGroup)
     ADMIN_AG_LB.get = mock.Mock(return_value=LBENDPOINTS)
 
@@ -93,7 +94,7 @@ class ApiDiscoverGetTest(unittest.TestCase):
         """Test json response with no path and with lb"""
         resp = self.app.get('/json/lb/type2/cell1')
         self.assertEqual(resp.status_code, http_client.OK)
-        payload = json.loads(resp.data)
+        payload = json.loads(resp.data.decode())
         self.assertEqual(payload['target'],
                          'p2://treadmill-ny-foobar.foo.com:9876')
 
@@ -106,7 +107,7 @@ class ApiDiscoverGetTest(unittest.TestCase):
         """Test json response with path and no lb"""
         resp = self.app.get('/json/srv/type2/cell1/foo/bar')
         self.assertEqual(resp.status_code, http_client.OK)
-        payload = json.loads(resp.data)
+        payload = json.loads(resp.data.decode())
         self.assertEqual(payload['target'], 'p2://host:1234/foo/bar')
 
     @mock.patch('treadmill.context.GLOBAL', return_value=mock.MagicMock())
@@ -118,7 +119,7 @@ class ApiDiscoverGetTest(unittest.TestCase):
         """Test redirection not allowed error when protocol not http"""
         resp = self.app.get('/redir/srv/type2/cell1/foo/bar')
         self.assertEqual(resp.status_code, http_client.BAD_REQUEST)
-        payload = json.loads(resp.data)
+        payload = json.loads(resp.data.decode())
         self.assertEqual('Redirection not allowed for p2 protocol',
                          payload['message'])
 
@@ -129,7 +130,7 @@ class ApiDiscoverGetTest(unittest.TestCase):
         """Test no srv records error when no LB and no SRV records"""
         resp = self.app.get('/redir/srv/type1/cell1/foo/bar')
         self.assertEqual(resp.status_code, http_client.NOT_FOUND)
-        payload = json.loads(resp.data)
+        payload = json.loads(resp.data.decode())
         self.assertEqual('No SRV records found for '
                          '_http._tcp.type1api.cell1.cell',
                          payload['message'])
@@ -140,7 +141,7 @@ class ApiDiscoverGetTest(unittest.TestCase):
         """Test whether api_discover encodes URI components"""
         resp = self.app.get('/json/lb/type1/cell1/foo/bar%2312340230492304')
         self.assertEqual(resp.status_code, http_client.OK)
-        payload = json.loads(resp.data)
+        payload = json.loads(resp.data.decode())
         self.assertEqual('http://treadmill-ny-foobar.foo.com:9876'
                          '/foo/bar%2312340230492304',
                          payload['target'])

@@ -6,22 +6,18 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
-import pkgutil
-import urllib
-
 import click
 import pandas as pd
 import tabulate
+
+from six.moves import urllib_parse
 
 from treadmill import cli
 from treadmill import context
 from treadmill import restclient
 
 
-__path__ = pkgutil.extend_path(__path__, __name__)
-
-
-def fetch_report(cell_api, report_type, match=None):
+def fetch_report(cell_api, report_type, match=None, partition=None):
     """Fetch a report of the given type and return it as a DataFrame."""
     api_urls = context.GLOBAL.cell_api(cell_api)
     path = '/scheduler/{}'.format(report_type)
@@ -29,8 +25,11 @@ def fetch_report(cell_api, report_type, match=None):
     query = {}
     if match:
         query['match'] = match
+    if partition:
+        query['partition'] = partition
+
     if query:
-        path += '?' + urllib.urlencode(query)
+        path += '?' + urllib_parse.urlencode(query)
 
     response = restclient.get(api_urls, path).json()
     return pd.DataFrame(response['data'], columns=response['columns'])

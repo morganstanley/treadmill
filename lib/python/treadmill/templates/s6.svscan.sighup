@@ -3,12 +3,12 @@
 {{ _alias.redirfd }} -r 0 /dev/null
 {{ _alias.fdmove }} -c 2 1
 
-{{ _alias.if }} {
+{{ _alias.foreground }} {
     {{ _alias.echo }} "Received SIGHUP"
 }
 
 {% if monitor_service -%}
-{{ _alias.if }} {
+{{ _alias.foreground }} {
     {{ _alias.s6_svc }} -k -wD "{{ monitor_service }}"
 }
 {% endif -%}

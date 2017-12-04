@@ -1,4 +1,5 @@
-"""Firewall rule representation"""
+"""Firewall rule representation.
+"""
 
 
 from __future__ import division
@@ -62,16 +63,17 @@ class DNATRule(object):
         return (
             '{cls}({proto}:'
             '{src_ip}:{src_port}:{dst_ip}:{dst_port}'
-            '->D{new_ip}:{new_port})').format(
-                cls=type(self).__name__,
-                proto=self.proto,
-                src_ip=('*' if self.src_ip is ANY_IP else self.src_ip),
-                src_port=(self.src_port or '*'),
-                dst_ip=('*' if self.dst_ip is ANY_IP else self.dst_ip),
-                dst_port=(self.dst_port or '*'),
-                new_ip=self.new_ip,
-                new_port=self.new_port,
-            )
+            '->D{new_ip}:{new_port})'
+        ).format(
+            cls=type(self).__name__,
+            proto=self.proto,
+            src_ip=('*' if self.src_ip is ANY_IP else self.src_ip),
+            src_port=(self.src_port or '*'),
+            dst_ip=('*' if self.dst_ip is ANY_IP else self.dst_ip),
+            dst_port=(self.dst_port or '*'),
+            new_ip=self.new_ip,
+            new_port=self.new_port,
+        )
 
     def __eq__(self, other):
         return (
@@ -152,16 +154,17 @@ class SNATRule(object):
         return (
             '{cls}({proto}:'
             '{src_ip}:{src_port}:{dst_ip}:{dst_port}'
-            '->S{new_ip}:{new_port})').format(
-                cls=type(self).__name__,
-                proto=self.proto,
-                src_ip=('*' if self.src_ip is ANY_IP else self.src_ip),
-                src_port=(self.src_port or '*'),
-                dst_ip=('*' if self.dst_ip is ANY_IP else self.dst_ip),
-                dst_port=(self.dst_port or '*'),
-                new_ip=self.new_ip,
-                new_port=self.new_port,
-            )
+            '->S{new_ip}:{new_port})'
+        ).format(
+            cls=type(self).__name__,
+            proto=self.proto,
+            src_ip=('*' if self.src_ip is ANY_IP else self.src_ip),
+            src_port=(self.src_port or '*'),
+            dst_ip=('*' if self.dst_ip is ANY_IP else self.dst_ip),
+            dst_port=(self.dst_port or '*'),
+            new_ip=self.new_ip,
+            new_port=self.new_port,
+        )
 
     def __eq__(self, other):
         return (

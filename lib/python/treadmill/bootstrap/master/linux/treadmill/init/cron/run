@@ -1,17 +1,12 @@
-#!/bin/sh
-#
-# Starts Treadmill master scheduler process.
-# Runs as {{ treadmillid }} proid
-#
+#!{{ _alias.execlineb }} -P
 
-exec 2>&1
+{{ _alias.redirfd }} -r 0 /dev/null
+{{ _alias.fdmove }} -c 2 1
 
-export KRB5CCNAME=FILE:/var/spool/tickets/{{ treadmillid }}
-export TZ=$(find /usr/share/zoneinfo/ -type f| xargs md5sum | grep $(md5sum \
-    /etc/localtime | cut -d' ' -f1) | head -1 | cut -d' ' -f3 | sed -e \
-    's/\/usr\/share\/zoneinfo\///')
+{{ _alias.s6_envdir }} -i -- /treadmill/env
+{{ _alias.s6_setuidgid }} {{ treadmillid }}
+{{ _alias.s6_envdir }} -i -- ./env
 
-echo "TZ: $TZ"
-
-exec {{ s6 }}/bin/s6-setuidgid {{ treadmillid }} \
-    {{ treadmill }}/bin/treadmill sproc cron
+# Change directory into the data directory and execute the app_start script
+{{ _alias.cd }} ./data
+/bin/sh -l ./app_start

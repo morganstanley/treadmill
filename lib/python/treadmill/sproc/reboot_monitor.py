@@ -30,6 +30,9 @@ from treadmill import zkutils
 
 _LOGGER = logging.getLogger(__name__)
 
+# Do not reboot if server uptime is less than 2 hours.
+_MIN_UPTIME_BEFORE_REBOOT = 60 * 60 * 2
+
 
 def init():
     """Top level command handler."""
@@ -99,9 +102,6 @@ def init():
         # Strictly speaking this is not enough for graceful shutdown.
         #
         # We need a proper shutdown procedure developed.
-        presence_path = z.path.server_presence(hostname)
-        _LOGGER.info('Deleting server presence: %s', presence_path)
-        zkutils.ensure_deleted(zkclient, presence_path)
 
         _LOGGER.info('Checking blackout list.')
         zk_blackout_path = z.path.blackedout_server(hostname)
@@ -109,7 +109,16 @@ def init():
             _LOGGER.info('Node blacked out - will wait.')
             time.sleep(60)
 
-        _LOGGER.info('exec: %r', reboot_cmd)
-        utils.sane_execvp(reboot_cmd[0], reboot_cmd)
+        if time.time() - up_since > _MIN_UPTIME_BEFORE_REBOOT:
+            _LOGGER.info('exec: %r', reboot_cmd)
+            utils.sane_execvp(reboot_cmd[0], reboot_cmd)
+        else:
+            _LOGGER.info('Possible reboot loop detected, blackout the node.')
+            zkutils.ensure_exists(
+                zkclient,
+                zk_blackout_path,
+                acl=[zkutils.make_host_acl(hostname, 'rwcda')],
+                data='Possible reboot loop detected.'
+            )
 
     return reboot_monitor

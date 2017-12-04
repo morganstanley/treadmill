@@ -8,14 +8,12 @@ import fnmatch
 import logging
 
 from treadmill import admin
-from treadmill import authz
 from treadmill import context
 from treadmill import exc
-from treadmill import master
 from treadmill import schema
 from treadmill import utils
 from treadmill import plugin_manager
-
+from treadmill.scheduler import masterapi
 from treadmill.api import app
 
 
@@ -55,6 +53,9 @@ def _set_defaults(configured, rsrc_id):
     if 'identity_group' not in configured:
         configured['identity_group'] = None
 
+    # TODO: default affinity can be and probably better set in instance plugin.
+    #       if it is not set, seems reasonable to just set it to app name and
+    #       not introduce special meaning for the instance id components.
     if 'affinity' not in configured:
         configured['affinity'] = '{0}.{1}'.format(*rsrc_id.split('.'))
 
@@ -85,7 +86,7 @@ class API(object):
             if '#' not in match:
                 match += '#*'
 
-            instances = master.list_scheduled_apps(context.GLOBAL.zk.conn)
+            instances = masterapi.list_scheduled_apps(context.GLOBAL.zk.conn)
             filtered = [
                 inst for inst in instances
                 if fnmatch.fnmatch(inst, match)
@@ -95,7 +96,7 @@ class API(object):
         @schema.schema({'$ref': 'instance.json#/resource_id'})
         def get(rsrc_id):
             """Get instance configuration."""
-            inst = master.get_app(context.GLOBAL.zk.conn, rsrc_id)
+            inst = masterapi.get_app(context.GLOBAL.zk.conn, rsrc_id)
             if inst is None:
                 return inst
 
@@ -123,14 +124,17 @@ class API(object):
             admin_app = admin.Application(context.GLOBAL.ldap.conn)
             if not rsrc:
                 configured = admin_app.get(rsrc_id)
-                _LOGGER.info('Configured: %s %r', rsrc_id, configured)
             else:
                 # Make sure defaults are present
                 configured = admin_app.from_entry(admin_app.to_entry(rsrc))
                 app.verify_feature(rsrc.get('features', []))
 
+            if 'services' in configured and not configured['services']:
+                del configured['services']
             if '_id' in configured:
                 del configured['_id']
+
+            _LOGGER.info('Configured: %s %r', rsrc_id, configured)
 
             _validate(configured)
 
@@ -141,7 +145,7 @@ class API(object):
             _check_required_attributes(configured)
             _set_defaults(configured, rsrc_id)
 
-            scheduled = master.create_apps(
+            scheduled = masterapi.create_apps(
                 context.GLOBAL.zk.conn, rsrc_id, configured, count, created_by
             )
             return scheduled
@@ -156,8 +160,8 @@ class API(object):
 
             delta = {rsrc_id: rsrc['priority']}
 
-            master.update_app_priorities(context.GLOBAL.zk.conn, delta)
-            return master.get_app(context.GLOBAL.zk.conn, rsrc_id)
+            masterapi.update_app_priorities(context.GLOBAL.zk.conn, delta)
+            return masterapi.get_app(context.GLOBAL.zk.conn, rsrc_id)
 
         @schema.schema(
             {'$ref': 'instance.json#/resource_id'},
@@ -170,16 +174,12 @@ class API(object):
             """Delete configured instance."""
             _LOGGER.info('delete: %s, deleted_by = %s', rsrc_id, deleted_by)
 
-            master.delete_apps(context.GLOBAL.zk.conn, [rsrc_id], deleted_by)
+            masterapi.delete_apps(
+                context.GLOBAL.zk.conn, [rsrc_id], deleted_by
+            )
 
         self.list = _list
         self.get = get
         self.create = create
         self.update = update
         self.delete = delete
-
-
-def init(authorizer):
-    """Returns module API wrapped with authorizer function."""
-    api = API()
-    return authz.wrap(api, authorizer)

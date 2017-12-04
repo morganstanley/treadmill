@@ -89,8 +89,13 @@ ERR_COMMAND = 111
 # svc exits 100 if no supervise process is running on servicedir.
 ERR_NO_SUP = 100
 
+# svc exits 99 if a timed request timeouts.
+ERR_TIMEOUT = 99
+
+
 POLICY_JSON = 'policy.json'
 TRACE_FILE = 'trace'
+EXITS_DIR = 'exits'
 
 
 def open_service(service_dir, existing=True):
@@ -127,7 +132,10 @@ def open_service(service_dir, existing=True):
     return service_dir
 
 
-def _create_scan_dir_s6(scan_dir, finish_timeout, monitor_service=None):
+# Disable W0613: Unused argument 'kwargs' (for s6/winss compatibility)
+# pylint: disable=W0613
+def _create_scan_dir_s6(scan_dir, finish_timeout, monitor_service=None,
+                        wait_cgroups=None, **kwargs):
     """Create a scan directory.
 
     :param ``str`` scan_dir:
@@ -136,6 +144,8 @@ def _create_scan_dir_s6(scan_dir, finish_timeout, monitor_service=None):
         The finish script timeout.
     :param ``str`` monitor_service:
         Service monitoring other services in this scan directory.
+    :param ``str`` wait_cgroups:
+        Instruct the finish procedure to wait on all processes in the cgroup.
     :returns ``_service_dir_base.ServiceDirBase``:
         Instance of a service dir
     """
@@ -145,6 +155,7 @@ def _create_scan_dir_s6(scan_dir, finish_timeout, monitor_service=None):
     svscan_finish_script = utils.generate_template(
         's6.svscan.finish',
         timeout=finish_timeout,
+        wait_cgroups=wait_cgroups,
         _alias=subproc.get_aliases()
     )
     scan_dir.finish = svscan_finish_script
@@ -175,13 +186,18 @@ def _create_scan_dir_s6(scan_dir, finish_timeout, monitor_service=None):
     return scan_dir
 
 
-def _create_scan_dir_winss(scan_dir, finish_timeout):
+# Disable W0613: Unused argument 'kwargs' (for s6/winss compatibility)
+# pylint: disable=W0613
+def _create_scan_dir_winss(scan_dir, finish_timeout, monitor_service=None,
+                           **kwargs):
     """Create a scan directory.
 
     :param ``str`` scan_dir:
         Location of the scan directory.
     :param ``int`` finish_timeout:
         The finish script timeout.
+    :param ``str`` monitor_service:
+        Service monitoring other services in this scan directory.
     :returns ``_service_dir_base.ServiceDirBase``:
         Instance of a service dir
     """
@@ -195,6 +211,12 @@ def _create_scan_dir_winss(scan_dir, finish_timeout):
         _alias=subproc.get_aliases()
     )
     scan_dir.finish = svscan_finish_script
+    svscan_sigterm_script = utils.generate_template(
+        'winss.svscan.sigterm',
+        monitor_service=monitor_service,
+        _alias=subproc.get_aliases()
+    )
+    scan_dir.sigterm = svscan_sigterm_script
     return scan_dir
 
 
@@ -285,15 +307,18 @@ def _create_service_s6(base_dir,
         finish_script,
         _alias=subproc.get_aliases()
     )
-    # Setup the log run script
-    svc.log_run_script = utils.generate_template(
-        log_run_script,
-        logdir=os.path.relpath(
-            os.path.join(svc.data_dir, 'log'),
-            svc.logger_dir
-        ),
-        _alias=subproc.get_aliases()
-    )
+
+    if log_run_script is not None:
+        # Setup the log run script
+        svc.log_run_script = utils.generate_template(
+            log_run_script,
+            logdir=os.path.relpath(
+                os.path.join(svc.data_dir, 'log'),
+                svc.logger_dir
+            ),
+            _alias=subproc.get_aliases()
+        )
+
     svc.default_down = bool(downed)
     if monitored:
         svc.timeout_finish = 0
@@ -310,6 +335,10 @@ def _create_service_s6(base_dir,
     # Optionally write a monitor policy file
     _LOGGER.info('monitor_policy, %r', monitor_policy)
     if monitor_policy is not None:
+        exits_dir = os.path.join(svc.data_dir, EXITS_DIR)
+        fs.mkdir_safe(exits_dir)
+        fs.rm_children_safe(exits_dir)
+
         supervisor_utils.data_write(
             os.path.join(svc.data_dir, POLICY_JSON),
             json.dumps(monitor_policy)
@@ -373,15 +402,17 @@ def _create_service_winss(base_dir,
     logdir = os.path.join(svc.data_dir, 'log')
     fs.mkdir_safe(logdir)
 
-    # Setup the log run script
-    svc.log_run_script = utils.generate_template(
-        log_run_script,
-        logdir=os.path.relpath(
-            logdir,
-            svc.logger_dir
-        ),
-        _alias=subproc.get_aliases()
-    )
+    if log_run_script is not None:
+        # Setup the log run script
+        svc.log_run_script = utils.generate_template(
+            log_run_script,
+            logdir=os.path.relpath(
+                logdir,
+                svc.logger_dir
+            ),
+            _alias=subproc.get_aliases()
+        )
+
     svc.default_down = bool(downed)
     if monitored:
         svc.timeout_finish = 0
@@ -392,6 +423,10 @@ def _create_service_winss(base_dir,
 
     # Optionally write a monitor policy file
     if monitor_policy is not None:
+        exits_dir = os.path.join(svc.data_dir, EXITS_DIR)
+        fs.mkdir_safe(exits_dir)
+        fs.rm_children_safe(exits_dir)
+
         supervisor_utils.data_write(
             os.path.join(svc.data_dir, POLICY_JSON),
             json.dumps(monitor_policy)
@@ -462,13 +497,25 @@ def is_supervised(service_dir):
 
 
 def control_service(service_dir, actions, wait=None, timeout=0):
-    """Sends a control signal to the supervised process."""
+    """Sends a control signal to the supervised process.
+
+    :returns:
+        ``True`` - Command was successuful.
+        ``False`` - Command timedout (only if `wait` was provided).
+    :raises ``subprocess.CalledProcessError``:
+        With `returncode` set to `ERR_NO_SUP` if the service is not supervised.
+        With `returncode` set to `ERR_COMMAND` if there is a problem
+        communicating with the supervisor.
+    """
     cmd = [_get_cmd('svc')]
 
-    if wait:
-        cmd.append('-w' + _get_wait_action(wait).value)
-        if timeout > 0:
-            cmd.extend(['-T{}'.format(timeout)])
+    # XXX: A bug in s6 2.6.0.0 causes svc command to hang if the service is not
+    #      supervised. Disable for now.
+    #      This does not happen in winss but we are keeping consitent.
+    # if wait:
+    #     cmd.append('-w' + _get_wait_action(wait).value)
+    #     if timeout > 0:
+    #         cmd.extend(['-T{}'.format(timeout)])
 
     action_str = '-'
     for action in utils.get_iterable(actions):
@@ -479,13 +526,17 @@ def control_service(service_dir, actions, wait=None, timeout=0):
 
     try:
         subproc.check_call(cmd)
-        return True
+        # XXX: Remove below when above bug is fixed.
+        if wait is not None:
+            wait_service(service_dir, wait, timeout=timeout)
+
     except subprocess.CalledProcessError as err:
-        # svc returns 1 on timeout.
-        if err.returncode == 1:
+        if err.returncode == ERR_TIMEOUT:
             return False
         else:
             raise
+
+    return True
 
 
 def control_svscan(scan_dir, actions):
@@ -498,7 +549,8 @@ def control_svscan(scan_dir, actions):
 
 
 def wait_service(service_dirs, action, all_services=True, timeout=0):
-    """Performs a wait task on the given list of service directories."""
+    """Performs a wait task on the given list of service directories.
+    """
     cmd = [_get_cmd('svwait')]
 
     if timeout > 0:
@@ -510,15 +562,7 @@ def wait_service(service_dirs, action, all_services=True, timeout=0):
     cmd.append('-' + _get_wait_action(action).value)
     cmd.extend(utils.get_iterable(service_dirs))
 
-    try:
-        subproc.check_call(cmd)
-        return True
-    except subprocess.CalledProcessError as err:
-        # old svwait returns 1 and new svwait returns 99 on timeout.
-        if err.returncode in (1, 99):
-            return False
-        else:
-            raise
+    subproc.check_call(cmd)
 
 
 def ensure_not_supervised(service_dir):
@@ -533,10 +577,9 @@ def ensure_not_supervised(service_dir):
 
     for service in service_dirs:
         try:
-            # Kill and close supervised process as it should have already
+            # Close supervised process as it should have already
             # been told to go down
-            control_service(service, (ServiceControlAction.kill,
-                                      ServiceControlAction.exit),
+            control_service(service, ServiceControlAction.exit,
                             ServiceWaitAction.really_down,
                             timeout=1000)
         except subprocess.CalledProcessError:
@@ -546,10 +589,9 @@ def ensure_not_supervised(service_dir):
         count = 0
         while is_supervised(service):
             count += 1
-            if count == 50:
+            if count == 600:
                 raise Exception(
-                    'Service dir {0} failed to stop in a reasonable time.'
-                    .format(service)
+                    'Service dir {0} failed to stop in 60s.'.format(service)
                 )
             time.sleep(0.1)
 

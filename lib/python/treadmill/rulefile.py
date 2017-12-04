@@ -207,7 +207,7 @@ class RuleMgr(object):
             if chain_rule is not None:
                 rules.add(chain_rule)
             else:
-                _LOGGER.warning("Ignoring unparseable file %r", entry)
+                _LOGGER.warning('Ignoring unparseable file %r', entry)
 
         return rules
 
@@ -337,4 +337,4 @@ class RuleMgr(object):
                 dst_ip=rule.dst_ip,
             )
         else:
-            raise ValueError("Invalid rule: %r" % (rule, ))
+            raise ValueError('Invalid rule: %r' % (rule, ))

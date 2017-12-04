@@ -1,12 +1,10 @@
-"""Manages Treadmill applications lifecycle."""
+"""Manages Treadmill applications lifecycle.
+"""
 
-
+from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
-
-from __future__ import absolute_import
-
 
 import logging
 import os
@@ -16,7 +14,6 @@ import enum
 
 from treadmill import utils
 
-
 _LOGGER = logging.getLogger(__name__)
 
 APP_JSON = 'app.json'
@@ -24,9 +21,9 @@ APP_JSON = 'app.json'
 
 class AppType(enum.Enum):
     """The type of application."""
-    NATIVE = b'native'
-    TAR = b'tar'
-    DOCKER = b'docker'
+    NATIVE = 'native'
+    TAR = 'tar'
+    DOCKER = 'docker'
 
     @staticmethod
     def get_app_type(image):
@@ -100,11 +97,11 @@ def gen_uniqueid(event_file):
     return '{identifier:>013s}'.format(identifier=ret)
 
 
-def _fmt_unique_name(app_name, app_uniqueid):
+def _fmt_unique_name(appname, app_uniqueid):
     """Format app data into a unique app name.
     """
-    return "{app}-{id:>013s}".format(
-        app=app_name.replace('#', '-'),
+    return '{app}-{id:>013s}'.format(
+        app=appname.replace('#', '-'),
         id=app_uniqueid,
     )
 
@@ -139,3 +136,11 @@ def appname_basename(appname):
     """Returns the base name of the app instance without instance id."""
     basename, _taskid = appname.split('#')
     return basename
+
+
+def app_name(uniquename):
+    """Format app name given its unique name.
+    """
+    appname = uniquename.rsplit('-', 1)[0]
+    parts = appname.rsplit('-', 1)
+    return '#'.join(parts)

@@ -101,7 +101,7 @@ class CgroupReader(object):
         return (block_dev, blkio_major_minor)
 
     def _read(self):
-        _LOGGER.info("start reading cgroups")
+        _LOGGER.info('start reading cgroups')
         sys_block_dev = self._sys_block_dev
 
         for cgrp in CORE_GROUPS:
@@ -141,6 +141,6 @@ class CgroupReader(object):
             del self.cache['app'][cgrp]
 
         _LOGGER.info(
-            "%d core services, %d containers in cache",
+            '%d core services, %d containers in cache',
             len(self.cache['core']), len(self.cache['app'])
         )

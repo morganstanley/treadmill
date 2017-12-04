@@ -16,6 +16,7 @@ from __future__ import unicode_literals
 
 import logging
 import os
+import io
 import time
 
 import click
@@ -37,6 +38,32 @@ from treadmill import zkutils
 from treadmill import zknamespace as z
 
 _LOGGER = logging.getLogger(__name__)
+
+# Number of previous version of each server to save.
+_MAX_VERSIONS = 20
+
+
+def _codepath():
+    """Get treadmill codepath.
+    """
+    path = os.path.join(utils.rootdir(), 'ORIG_CODEPATH')
+    try:
+        with io.open(path, 'rb') as codepath_file:
+            codepath = codepath_file.read()
+            return os.path.dirname(codepath)
+    except IOError:
+        return utils.rootdir()
+
+
+def _save_version(zkclient, hostname, version):
+    """Save server version data to ZK.
+    """
+    node_path = z.path.version_history(hostname)
+    versions = zkutils.get_default(zkclient, node_path)
+    if not versions:
+        versions = []
+    versions.insert(0, version)
+    zkutils.put(zkclient, node_path, versions[0:_MAX_VERSIONS])
 
 
 def init():
@@ -71,7 +98,7 @@ def init():
         hostname = sysinfo.hostname()
         version_path = z.path.version(hostname)
 
-        codepath = os.path.realpath(utils.rootdir())
+        codepath = os.path.realpath(_codepath())
         digest = versionmgr.checksum_dir(codepath).hexdigest()
         _LOGGER.info('codepath: %s, digest: %s', codepath, digest)
 
@@ -82,6 +109,7 @@ def init():
         }
 
         zkutils.put(context.GLOBAL.zk.conn, version_path, info)
+        _save_version(context.GLOBAL.zk.conn, hostname, info)
 
         @context.GLOBAL.zk.conn.DataWatch(version_path)
         @utils.exit_on_unhandled

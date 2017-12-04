@@ -15,9 +15,12 @@ import unittest
 
 # Disable W0611: Unused import
 import tests.treadmill_test_deps  # pylint: disable=W0611
+import tests.treadmill_ldap_patch
+tests.treadmill_ldap_patch.monkey_patch()
 
-import mock
+
 import ldap3
+import mock
 
 import treadmill
 from treadmill import admin
@@ -43,33 +46,88 @@ class AdminTest(unittest.TestCase):
             ('b', 'b', [str]),
             ('c', 'C', int),
             ('d', 'd', dict),
+            ('e', 'e', bool),
+            ('f', 'f', bool),
         ]
 
         self.assertEqual(
-            {'a': '1', 'b': ['x'], 'C': 1},
-            admin._entry_2_dict({'a': ['1'],
-                                 'b': ['x'],
-                                 'c': ['1']}, schema)
+            admin._entry_2_dict(
+                {
+                    'a': ['1'],
+                    'b': ['x'],
+                    'c': ['1'],
+                    'e': [True],
+                    'f': [False],
+                },
+                schema
+            ),
+            {
+                'a': '1',
+                'b': ['x'],
+                'C': 1,
+                'e': True,
+                'f': False
+            },
         )
 
         self.assertEqual(
-            {'a': '1', 'b': ['x'], 'd': {'x': 1}},
-            admin._entry_2_dict({'a': ['1'],
-                                 'b': ['x'],
-                                 'd': ['{"x": 1}']}, schema)
+            admin._entry_2_dict(
+                {
+                    'a': ['1'],
+                    'b': ['x'],
+                    'd': ['{"x": 1}'],
+                    # XXX: This is necessary until previous bad entries are
+                    #      cleaned up.
+                    'e': ['True'],
+                    'f': ['1'],
+                },
+                schema
+            ),
+            {
+                'a': '1',
+                'b': ['x'],
+                'd': {
+                    'x': 1
+                },
+                'e': True,
+                'f': True,
+            }
         )
 
         self.assertEqual(
-            {'a': ['1'], 'b': ['x'], 'c': ['1']},
-            admin._dict_2_entry({'a': '1',
-                                 'b': ['x'],
-                                 'C': 1}, schema)
+            admin._dict_2_entry(
+                {
+                    'a': '1',
+                    'b': ['x'],
+                    'C': 1,
+                    'e': False,
+                    'f': True
+                },
+                schema
+            ),
+            {
+                'a': ['1'],
+                'b': ['x'],
+                'c': ['1'],
+                'e': [False],
+                'f': [True],
+            }
         )
 
         self.assertEqual(
-            {'a': ['1'], 'd': ['{"x": 1}']},
-            admin._dict_2_entry({'a': '1',
-                                 'd': {'x': 1}}, schema)
+            admin._dict_2_entry(
+                {
+                    'a': '1',
+                    'd': {
+                        'x': 1
+                    }
+                },
+                schema
+            ),
+            {
+                'a': ['1'],
+                'd': ['{"x": 1}']
+            }
         )
 
     def test_group_by_opt(self):
@@ -77,12 +135,22 @@ class AdminTest(unittest.TestCase):
         # Disable W0212: Test access protected members of admin module.
         # pylint: disable=W0212
         self.assertEqual(
-            {'a': [('xxx', 'a', ['1']),
-                   ('yyy', 'a', ['2'])],
-             'b': [('xxx', 'b', ['3'])]},
-            admin._group_entry_by_opt({'xxx;a': ['1'],
-                                       'xxx;b': ['3'],
-                                       'yyy;a': ['2']})
+            admin._group_entry_by_opt(
+                {
+                    'xxx;a': ['1'],
+                    'xxx;b': ['3'],
+                    'yyy;a': ['2'],
+                }
+            ),
+            {
+                'a': [
+                    ('xxx', 'a', ['1']),
+                    ('yyy', 'a', ['2']),
+                ],
+                'b': [
+                    ('xxx', 'b', ['3']),
+                ],
+            },
         )
 
     def test_grouped_to_list_of_dict(self):
@@ -90,16 +158,30 @@ class AdminTest(unittest.TestCase):
         # Disable W0212: Test access protected members of admin module.
         # pylint: disable=W0212
         self.assertEqual(
-            [{'name': 'http', 'port': 80}, {'name': 'tcp', 'port': 1000}],
             admin._grouped_to_list_of_dict(
-                {'tm-ep-1': [('name', 'tm-ep-1', ['http']),
-                             ('port', 'tm-ep-1', ['80']),
-                             ('service-name', 'tm-s-1', ['x'])],
-                 'tm-ep-2': [('name', 'tm-ep-2', ['tcp']),
-                             ('port', 'tm-ep-2', ['1000']),
-                             ('service-name', 'tm-s-2', ['x'])]},
+                {
+                    'tm-ep-1': [
+                        ('name', 'tm-ep-1', ['http']),
+                        ('port', 'tm-ep-1', ['80']),
+                        ('service-name', 'tm-s-1', ['x'])
+                    ],
+                    'tm-ep-2': [
+                        ('name', 'tm-ep-2', ['tcp']),
+                        ('port', 'tm-ep-2', ['1000']),
+                        ('service-name', 'tm-s-2', ['x'])
+                    ],
+                },
                 'tm-ep-',
-                [('name', 'name', str), ('port', 'port', int)]))
+                [
+                    ('name', 'name', str),
+                    ('port', 'port', int)
+                ]
+            ),
+            [
+                {'name': 'http', 'port': 80},
+                {'name': 'tcp', 'port': 1000}
+            ],
+        )
 
     def test_remove_empty(self):
         """Test removal of empty values from entry."""
@@ -144,8 +226,8 @@ class AdminTest(unittest.TestCase):
                 },
             ],
             'endpoints': [
-                {'name': 'y', 'port': 2, 'type': 'infra'},
                 {'name': 'x', 'port': 1, 'type': 'infra', 'proto': 'udp'},
+                {'name': 'y', 'port': 2, 'type': 'infra'},
             ],
             'affinity_limits': {'server': 1, 'rack': 2},
             'passthrough': [],
@@ -157,13 +239,13 @@ class AdminTest(unittest.TestCase):
             'shared_network': True
         }
 
-        md5_a = hashlib.md5('a').hexdigest()
-        md5_b = hashlib.md5('b').hexdigest()
-        md5_c = hashlib.md5('c').hexdigest()
-        md5_x = hashlib.md5('x').hexdigest()
-        md5_y = hashlib.md5('y').hexdigest()
-        md5_srv = hashlib.md5('server').hexdigest()
-        md5_rack = hashlib.md5('rack').hexdigest()
+        md5_a = hashlib.md5(b'a').hexdigest()
+        md5_b = hashlib.md5(b'b').hexdigest()
+        md5_c = hashlib.md5(b'c').hexdigest()
+        md5_x = hashlib.md5(b'x').hexdigest()
+        md5_y = hashlib.md5(b'y').hexdigest()
+        md5_srv = hashlib.md5(b'server').hexdigest()
+        md5_rack = hashlib.md5(b'rack').hexdigest()
 
         ldap_entry = {
             'app': ['xxx'],
@@ -198,8 +280,8 @@ class AdminTest(unittest.TestCase):
             'affinity-limit;tm-affinity-' + md5_rack: ['2'],
             'ephemeral-ports-tcp': ['5'],
             'ephemeral-ports-udp': ['10'],
-            'shared-ip': ['TRUE'],
-            'shared-network': ['TRUE']
+            'shared-ip': [True],
+            'shared-network': [True]
         }
 
         self.assertEqual(ldap_entry, admin.Application(None).to_entry(app))
@@ -335,8 +417,14 @@ class AdminTest(unittest.TestCase):
             'data': ['{"a": "1", "b": "2"}'],
         }
 
-        self.assertEqual(ldap_entry, admin.Server(None).to_entry(srv))
-        self.assertEqual(srv, admin.Server(None).from_entry(ldap_entry))
+        self.assertEqual(
+            admin.Server(None).to_entry(srv),
+            ldap_entry
+        )
+        self.assertEqual(
+            admin.Server(None).from_entry(ldap_entry),
+            srv
+        )
 
     def test_cell_to_entry(self):
         """Tests conversion of cell to ldap entry."""
@@ -364,6 +452,65 @@ class AdminTest(unittest.TestCase):
             cell,
             cell_admin.from_entry(cell_admin.to_entry(cell))
         )
+
+    @mock.patch('treadmill.admin._TREADMILL_ATTR_OID_PREFIX', '1.2.3.')
+    def test_attrtype_to_str(self):
+        """Tests conversion of attribute type to LDIF string."""
+        # pylint: disable=protected-access
+        result = admin._attrtype_2_str({
+            'idx': 4,
+            'name': 'name',
+            'desc': 'desc',
+            'syntax': 'syntax',
+            'equality': 'foo',
+            'substr': 'substr',
+            'ordering': 'ordering',
+            'single_value': True
+        })
+        self.assertEqual(result, (
+            '( 1.2.3.4 '
+            'NAME \'name\' '
+            'DESC \'desc\' '
+            'SYNTAX syntax '
+            'EQUALITY foo '
+            'SUBSTR substr '
+            'ORDERING ordering '
+            'SINGLE-VALUE '
+            ')'
+        ))
+
+    @mock.patch('treadmill.admin._TREADMILL_OBJCLS_OID_PREFIX', '1.2.3.')
+    def test_objcls_to_str(self):
+        """Tests conversion of object class to LDIF string."""
+        # pylint: disable=protected-access
+        result = admin._objcls_2_str('name', {
+            'idx': 4,
+            'desc': 'desc',
+            'must': ['one', 'two', 'three'],
+            'may': ['four', 'five']
+        })
+        self.assertEqual(result, (
+            '( 1.2.3.4 '
+            'NAME \'name\' '
+            'DESC \'desc\' '
+            'SUP top STRUCTURAL '
+            'MUST ( one $ two $ three ) '
+            'MAY ( four $ five ) '
+            ')'
+        ))
+        result = admin._objcls_2_str('name', {
+            'idx': 4,
+            'desc': 'desc',
+            'must': ['foo']
+        })
+        self.assertEqual(result, (
+            '( 1.2.3.4 '
+            'NAME \'name\' '
+            'DESC \'desc\' '
+            'SUP top STRUCTURAL '
+            'MUST ( foo ) '
+            ')'
+        ))
 
     def test_schema(self):
         """Test schema parsing."""
@@ -482,7 +629,9 @@ class AllocationTest(unittest.TestCase):
         """Tests allocation identity to dn mapping."""
         self.assertTrue(
             self.alloc.dn('foo:bar/prod1').startswith(
-                'allocation=prod1,tenant=bar,tenant=foo,ou=allocations,'))
+                'allocation=prod1,tenant=bar,tenant=foo,ou=allocations,'
+            )
+        )
 
     def test_to_entry(self):
         """Tests conversion of allocation to LDAP entry."""

@@ -5,7 +5,6 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 from treadmill import admin
-from treadmill import authz
 from treadmill import context
 from treadmill import schema
 
@@ -32,9 +31,3 @@ class API(object):
 
         self.list = _list
         self.get = get
-
-
-def init(authorizer):
-    """Returns module API wrapped with authorizer function."""
-    api = API()
-    return authz.wrap(api, authorizer)

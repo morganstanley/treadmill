@@ -23,6 +23,7 @@ from treadmill import appenv
 from treadmill import context
 from treadmill import netdev
 from treadmill import postmortem
+from treadmill import presence
 from treadmill import supervisor
 from treadmill import sysinfo
 from treadmill import utils
@@ -54,17 +55,15 @@ def init():
                                    idpath=zkid,
                                    listener=_exit_clear_watchdog_on_lost)
 
-        utils.report_ready()
-
         while not zkclient.exists(z.SERVER_PRESENCE):
             _LOGGER.warning('namespace not ready.')
             time.sleep(30)
 
         hostname = sysinfo.hostname()
 
-        zk_blackout_path = z.path.blackedout_server(hostname)
-        zk_presence_path = z.path.server_presence(hostname)
         zk_server_path = z.path.server(hostname)
+        zk_blackout_path = z.path.blackedout_server(hostname)
+        zk_presence_path = None
 
         while not zkclient.exists(zk_server_path):
             _LOGGER.warning('server %s not defined in the cell.', hostname)
@@ -75,14 +74,11 @@ def init():
 
         if not blacklisted:
             # Node startup.
-            _node_start(tm_env, runtime, zkclient, hostname,
-                        zk_server_path, zk_presence_path)
+            zk_presence_path = _node_start(tm_env, runtime, zkclient, hostname)
 
-            # Cleanup the watchdog directory
-            tm_env.watchdogs.initialize()
-
+            utils.report_ready()
             _init_network()
-
+            _start_init1(tm_env)
             _LOGGER.info('Ready.')
 
             down_reason = _main_loop(tm_env, zkclient, zk_presence_path)
@@ -111,7 +107,8 @@ def init():
         # This is the shutdown phase.
 
         # Delete the node
-        zkutils.ensure_deleted(zkclient, zk_presence_path)
+        if zk_presence_path:
+            zkutils.ensure_deleted(zkclient, zk_presence_path)
         zkclient.remove_listener(_exit_clear_watchdog_on_lost)
         zkclient.stop()
         zkclient.close()
@@ -134,32 +131,22 @@ def init():
 def _blackout_terminate(tm_env):
     """Blackout by terminating all containers in running dir.
     """
-    if os.name == 'posix':
-        # XXX: This should be replaced with a supervisor module call hidding
-        #      away all s6 related stuff
-        monitor_dir = os.path.join(tm_env.init_dir, 'monitor')
-        supervisor_dir = os.path.join(tm_env.init_dir, 'supervisor')
-        cleanupd_dir = os.path.join(tm_env.init_dir, 'cleanup')
+    _LOGGER.info('Terminating init1.')
+    supervisor.control_service(
+        os.path.join(tm_env.init_dir, 'start_init1'),
+        supervisor.ServiceControlAction.down,
+        wait=supervisor.ServiceWaitAction.down
+    )
 
-        # We first shutdown the monitoring service.
-        _LOGGER.info('Shutting down monitor service')
-        supervisor.control_service(monitor_dir,
-                                   supervisor.ServiceControlAction.down,
-                                   wait=supervisor.ServiceWaitAction.down)
-        # Then we shutdown cleanup so link in /var/tmp/treadmill/cleanup
-        # will not be recycled before blackout clear
-        _LOGGER.info('Shutting down cleanup service')
-        supervisor.control_service(cleanupd_dir,
-                                   supervisor.ServiceControlAction.down,
-                                   wait=supervisor.ServiceWaitAction.down)
-        # shutdown all the applications by shutting down supervisor
-        _LOGGER.info('Shutting down supervisor')
-        supervisor.control_service(supervisor_dir,
-                                   supervisor.ServiceControlAction.down)
 
-    else:
-        # TODO: Implement terminating containers on windows
-        pass
+def _start_init1(tm_env):
+    """Start init1 supervision."""
+    _LOGGER.info('Starting init1.')
+    supervisor.control_service(
+        os.path.join(tm_env.init_dir, 'start_init1'),
+        supervisor.ServiceControlAction.up,
+        wait=supervisor.ServiceWaitAction.up
+    )
 
 
 def _init_network():
@@ -182,52 +169,41 @@ def _cleanup_network():
     netdev.dev_conf_forwarding_set('tm0', False)
 
 
-def _node_start(tm_env, runtime, zkclient, hostname,
-                zk_server_path, zk_presence_path):
+def _node_start(tm_env, runtime, zkclient, hostname):
     """Node startup. Try to re-establish old session or start fresh.
     """
     old_session_ok = False
-    try:
-        _data, metadata = zkclient.get(zk_presence_path)
-        if metadata.owner_session_id == zkclient.client_id[0]:
-            _LOGGER.info('Reconnecting with previous session: %s',
-                         metadata.owner_session_id)
-            old_session_ok = True
-        else:
-            _LOGGER.info('Session id does not match, new session.')
-            zkclient.delete(zk_presence_path)
-    except kazoo.client.NoNodeError:
-        _LOGGER.info('%s does not exist.', zk_presence_path)
+    old_presence_path = presence.find_server(zkclient, hostname)
+    if old_presence_path:
+        try:
+            _data, metadata = zkclient.get(old_presence_path)
+            if metadata.owner_session_id == zkclient.client_id[0]:
+                _LOGGER.info('Reconnecting with previous session: %s',
+                             metadata.owner_session_id)
+                old_session_ok = True
+            else:
+                _LOGGER.info('Session id does not match, new session.')
+                zkclient.delete(old_presence_path)
+        except kazoo.client.NoNodeError:
+            _LOGGER.info('%s does not exist.', old_presence_path)
 
-    if not old_session_ok:
-        _node_initialize(tm_env, runtime,
-                         zkclient, hostname,
-                         zk_server_path, zk_presence_path)
+    if old_session_ok:
+        return old_presence_path
+    return _node_initialize(tm_env, runtime, zkclient, hostname)
 
 
-def _node_initialize(tm_env, runtime, zkclient, hostname,
-                     zk_server_path, zk_presence_path):
+def _node_initialize(tm_env, runtime, zkclient, hostname):
     """Node initialization. Should only be done on a cold start.
     """
     try:
-        new_node_info = sysinfo.node_info(tm_env, runtime)
-
-        # Merging scheduler data with node_info data
-        node_info = zkutils.get(zkclient, zk_server_path)
-        node_info.update(new_node_info)
-        _LOGGER.info('Registering node: %s: %s, %r',
-                     zk_server_path, hostname, node_info)
-
-        zkutils.update(zkclient, zk_server_path, node_info)
-        host_acl = zkutils.make_host_acl(hostname, 'rwcda')
-        _LOGGER.debug('host_acl: %r', host_acl)
-        zkutils.put(zkclient,
-                    zk_presence_path, {'seen': False},
-                    acl=[host_acl],
-                    ephemeral=True)
+        node_info = sysinfo.node_info(tm_env, runtime)
+        node_presence_path = presence.register_server(
+            zkclient, hostname, node_info
+        )
 
         # Invoke the local node initialization
         tm_env.initialize(node_info)
+        return node_presence_path
 
     except Exception:  # pylint: disable=W0703
         _LOGGER.exception('Node initialization failed')

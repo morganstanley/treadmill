@@ -7,7 +7,6 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import io
-import json
 import logging
 import os
 
@@ -101,10 +100,12 @@ class ManifestWatch(object):
         )
 
         with io.open(os.path.join(data_dir, 'manifest'), 'w') as f:
-            json.dump(inst.manifest, f)
+            f.writelines(
+                utils.json_genencode(inst.manifest)
+            )
 
         with io.open(os.path.join(job, 'timeout-finish'), 'w') as f:
-            f.write(str(spawn.JOB_FINISH_TIMEOUT))
+            f.write(six.text_type(spawn.JOB_FINISH_TIMEOUT))
 
         fs.symlink_safe(running, job)
 

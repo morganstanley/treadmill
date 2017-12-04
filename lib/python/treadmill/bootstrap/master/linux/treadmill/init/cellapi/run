@@ -1,16 +1,12 @@
-#!/bin/sh
-#
-# Starts Treadmill cellapi.
+#!{{ _alias.execlineb }} -P
 
-exec 2>&1
+{{ _alias.redirfd }} -r 0 /dev/null
+{{ _alias.fdmove }} -c 2 1
 
-RM={{ rm }}
+{{ _alias.s6_envdir }} -i -- /treadmill/env
+{{ _alias.s6_setuidgid }} {{ treadmillid }}
+{{ _alias.s6_envdir }} -i -- ./env
 
-export KRB5CCNAME=FILE:/var/spool/tickets/{{ treadmillid }}
-
-$RM -f /var/spool/cellapi.sock
-
-exec {{ s6 }}/bin/s6-setuidgid {{ treadmillid }} \
-    {{ treadmill }}/bin/treadmill sproc restapi -s /tmp/cellapi.sock \
-    --title 'Treadmill_Cell_API' -m instance,app-monitor --cors-origin='.*' \
-    -a trusted
+# Change directory into the data directory and execute the app_start script
+{{ _alias.cd }} ./data
+/bin/sh -l ./app_start

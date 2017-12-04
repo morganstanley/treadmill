@@ -8,6 +8,7 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
+import flask
 import flask_restplus as restplus
 from flask_restplus import fields
 
@@ -27,26 +28,40 @@ def init(api, cors, impl):
         'data': fields.List(fields.List(fields.Raw()))
     })
 
-    match_parser = api.parser()
-    match_parser.add_argument(
-        'match',
-        help='glob to match name or instance',
+    arg_parser = api.parser()
+    arg_parser.add_argument(
+        'match', help='Glob pattern to match name or instance',
         location='args',
-        required=False
+        required=False,
+        default=None,
+    )
+    arg_parser.add_argument(
+        'partition', help='Glob pattern to match partition',
+        location='args',
+        required=False,
+        default=None,
     )
 
-    def fetch_report(report_type, match=None):
+    def fetch_report(report_type, match=None, partition=None):
         """Fetch the report from the impl and return it as json."""
+        status = 200
         try:
-            report = impl.get(report_type, match=match)
+            report = impl.get(report_type, match=match, partition=partition)
             output = report.to_dict(orient='split')
             del output['index']  # just a list of 0 to n, not useful
-            return output
         except KeyError:
-            return {
+            output = {
                 'message': 'No such scheduler report: {}'.format(report_type),
                 'report_type': report_type
-            }, 404
+            }
+            status = 404
+
+        return flask.current_app.response_class(
+            # Use the json_encoder configured in the Flask app
+            response=flask.json.dumps(output),
+            status=status,
+            mimetype='application/json'
+        )
 
     @namespace.route('/servers')
     class _ServersResource(restplus.Resource):
@@ -55,12 +70,13 @@ def init(api, cors, impl):
             api,
             cors,
             resp_model=report_resource_resp_model,
-            parser=match_parser
+            parser=arg_parser,
+            json_resp=False  # Bypass webutils.as_json
         )
         def get(self):
             """Return the servers report."""
-            args = match_parser.parse_args()
-            return fetch_report('servers', match=args.get('match'))
+            args = arg_parser.parse_args()
+            return fetch_report('servers', **args)
 
     @namespace.route('/allocations')
     class _AllocsResource(restplus.Resource):
@@ -69,12 +85,13 @@ def init(api, cors, impl):
             api,
             cors,
             resp_model=report_resource_resp_model,
-            parser=match_parser
+            parser=arg_parser,
+            json_resp=False  # Bypass webutils.as_json
         )
         def get(self):
             """Return the allocations report."""
-            args = match_parser.parse_args()
-            return fetch_report('allocations', match=args.get('match'))
+            args = arg_parser.parse_args()
+            return fetch_report('allocations', **args)
 
     @namespace.route('/apps')
     class _AppsResource(restplus.Resource):
@@ -83,9 +100,10 @@ def init(api, cors, impl):
             api,
             cors,
             resp_model=report_resource_resp_model,
-            parser=match_parser
+            parser=arg_parser,
+            json_resp=False  # Bypass webutils.as_json
         )
         def get(self):
             """Return the apps report."""
-            args = match_parser.parse_args()
-            return fetch_report('apps', match=args.get('match'))
+            args = arg_parser.parse_args()
+            return fetch_report('apps', **args)

@@ -9,12 +9,14 @@ from __future__ import unicode_literals
 import logging
 import os
 import sys
-import urllib
 
 import click
+
 import gevent
 from gevent import queue as g_queue
+
 import six
+from six.moves import urllib_parse
 
 if six.PY2 and os.name == 'posix':
     import subprocess32 as subprocess  # pylint: disable=E0401
@@ -133,7 +135,7 @@ def _wait_for_ssh(queue, ssh, command, timeout=1, attempts=40):
     try:
         host, port = queue.get(timeout=timeout * attempts)
     except g_queue.Empty:
-        cli.bad_exit("No SSH endpoint found.")
+        cli.bad_exit('No SSH endpoint found.')
 
     for _ in six.moves.range(attempts):
         _LOGGER.debug('Checking SSH endpoint %s:%s', host, port)
@@ -217,7 +219,7 @@ def init():
 
         apis = context.GLOBAL.state_api(api)
 
-        url = '/endpoint/{}/tcp/ssh'.format(urllib.quote(app))
+        url = '/endpoint/{}/tcp/ssh'.format(urllib_parse.quote(app))
 
         response = restclient.get(apis, url)
         endpoints = response.json()

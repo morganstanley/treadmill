@@ -1,5 +1,4 @@
-"""
-High level cron API.
+"""High level cron API.
 """
 
 from __future__ import absolute_import

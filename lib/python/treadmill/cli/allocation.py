@@ -143,7 +143,9 @@ def init():
                         restclient.post(
                             restapi,
                             url,
-                            payload={'systems': six.moves.map(int, systems)})
+                            payload={
+                                'systems': list(six.moves.map(int, systems))
+                            })
 
         _display_tenant(restapi, allocation)
 

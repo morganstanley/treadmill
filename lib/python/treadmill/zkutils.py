@@ -35,7 +35,7 @@ logging.getLogger('kazoo.client').setLevel(logging.WARNING)
 ZK_MAX_CONNECTION_START_TIMEOUT = 30
 
 try:
-    _ZK_PLUGIN_MOD = importlib.import_module('treadmill.plugins.zookeeper')
+    _ZK_PLUGIN_MOD = importlib.import_module('treadmill.ms.plugins.zookeeper')
 except ImportError:
     _ZK_PLUGIN_MOD = None
 
@@ -214,7 +214,7 @@ def connect(zkurl, idpath=None, listener=None, max_tries=30,
     client_id = None
     if idpath:
         if os.path.exists(idpath):
-            with io.open(idpath, 'r') as idfile:
+            with io.open(idpath, 'rb') as idfile:
                 client_id = pickle.load(idfile)
 
     zkclient = connect_native(zkurl, client_id=client_id, listener=listener,
@@ -288,7 +288,7 @@ def connect_native(zkurl, client_id=None, listener=None, max_tries=30,
                 if not zkclient.exists(component):
                     # TODO: need to compare acls if component exists.
                     try:
-                        zkclient.create(component, '', makepath=True, acl=acl)
+                        zkclient.create(component, b'', makepath=True, acl=acl)
                     except kazoo.exceptions.KazooException:
                         _LOGGER.exception('chroot %s does not exist.', chroot)
                         raise
@@ -320,7 +320,7 @@ class SequenceNodeWatch(object):
 
         # Sort nodes by seq #
         for seq, node in sorted(seq_children):
-            if seq > self.last:
+            if self.last is None or seq > self.last:
                 self.last = seq
                 yield node
 
@@ -335,7 +335,7 @@ class SequenceNodeWatch(object):
             self.func(fullpath, data, stat)
         # pylint: disable=W0702
         except:
-            _LOGGER.critical("Unexpected error: %s", sys.exc_info()[0])
+            _LOGGER.critical('Unexpected error: %s', sys.exc_info()[0])
 
     def on_child(self, event):
         """The watch function."""

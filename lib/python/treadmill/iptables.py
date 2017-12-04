@@ -1,5 +1,8 @@
 """Wrapper for iptables/ipset.
 """
+# Disable "too many lines in module" warning.
+#
+# pylint: disable=C0302
 
 from __future__ import absolute_import
 from __future__ import division
@@ -50,6 +53,9 @@ VRING_DNAT = 'TM_PREROUTING_VRING'
 
 #: Chain where to add container vring SNAT rule
 VRING_SNAT = 'TM_POSTROUTING_VRING'
+
+#: Chain where to add exception filter rules
+EXCEPTION_FILTER = 'TM_EXCEPTION_FILTER'
 
 #: IPSet set of the IPs of all containers using vring
 SET_VRING_CONTAINERS = 'tm:vring-containers'
@@ -239,7 +245,7 @@ def initialize(external_ip):
     # rules.
     _LOGGER.debug('Reloading Treadmill filter rules')
     try:
-        filter_table_set(None)
+        filter_table_set(None, None)
 
     except subprocess.CalledProcessError:
         # We were not able to load without a NONPROD rule (filtering not setup
@@ -247,18 +253,25 @@ def initialize(external_ip):
         # Insert a default rule that drop all non-prod traffic by default until
         # the proper rules are loaded.
         _LOGGER.debug('Reloading Treadmill filter rules (drop all NONPROD)')
-        filter_table_set(('-j DROP',))
+        filter_table_set(('-j DROP',), ('-j DROP',))
 
 
-def filter_table_set(filter_chain):
+def filter_table_set(filter_in_nonprod_chain, filter_out_nonprod_chain):
     """Initialize the environment based filtering rule with the provided rules.
+
+    :param filter_in_nonprod_chain:
+        prod/nonprod -> non-prod FORWARD filter rules.
+    :param filter_out_nonprod_chain:
+        non-prod -> prod/nonprod FORWARD filter rules.
     """
     filtering_table = _IPTABLES_FILTER_TABLE.render(
         any_container=_SET_CONTAINERS,
         infra_services=SET_INFRA_SVC,
         nonprod_mark=_CONNTRACK_NONPROD_MARK,
         prod_containers=SET_PROD_CONTAINERS,
-        filter_chain=filter_chain,
+        nonprod_containers=SET_NONPROD_CONTAINERS,
+        filter_in_nonprod_chain=filter_in_nonprod_chain,
+        filter_out_nonprod_chain=filter_out_nonprod_chain
     )
     return _iptables_restore(filtering_table, noflush=True)
 
@@ -285,11 +298,11 @@ def add_raw_rule(table, chain, rule, safe=False):
         Query iptables prior to adding to prevent duplicates
     """
     add_cmd = ['iptables', '-t', table, '-A', chain] + rule.split()
-    _LOGGER.info("%s", add_cmd)
+    _LOGGER.info('%s', add_cmd)
     if safe:
         # Check if the rule already exists, and if it is, do nothing.
         list_cmd = ['iptables', '-t', table, '-S', chain]
-        _LOGGER.info("%s", list_cmd)
+        _LOGGER.info('%s', list_cmd)
         lines = [line.strip() for line in
                  subproc.check_output(list_cmd).splitlines()]
         match = '-A %s %s' % (chain, rule)
@@ -310,7 +323,7 @@ def delete_raw_rule(table, chain, rule):
         Raw iptables rule
     """
     del_cmd = ['iptables', '-t', table, '-D', chain] + rule.split()
-    _LOGGER.info("%s", del_cmd)
+    _LOGGER.info('%s', del_cmd)
 
     try:
         subproc.check_call(del_cmd)
@@ -343,6 +356,17 @@ def flush_chain(table, chain):
         Name of the chain to create
     """
     subproc.call(['iptables', '-t', table, '-vF', chain])
+
+
+def delete_chain(table, chain):
+    """Delete a chain in the given table.
+
+    :param ``str`` table:
+        Name of the table where the chain resides.
+    :param ``str`` chain:
+        Name of the chain to delete
+    """
+    subproc.call(['iptables', '-t', table, '-X', chain])
 
 
 def _dnat_rule_format(dnat_rule):
@@ -692,14 +716,14 @@ def delete_passthrough_rule(passthrough_rule, chain=PREROUTING_PASSTHROUGH):
     )
 
 
-def flush_conntrack_table(vip):
+def flush_cnt_conntrack_table(vip):
     """Clear any entry in the conntrack table for a given VIP.
 
     This should be run after all the forwarding rules have been removed but
     *before* the VIP is reused.
 
     :param ``str`` vip:
-        IP to scrub from the conntrack table.
+        NAT IP to scrub from the conntrack table.
     """
     # This addresses the case for UDP session in particular.
     #
@@ -711,6 +735,33 @@ def flush_conntrack_table(vip):
     # works correctly.
     try:
         subproc.check_call(['conntrack', '-D', '-g', vip])
+    except subprocess.CalledProcessError as exc:
+        # return code is 0 if entries were deleted, 1 if no matching
+        # entries were found.
+        if exc.returncode in (0, 1):
+            pass
+        else:
+            raise
+
+
+def flush_pt_conntrack_table(passthrough_ip):
+    """Clear any entry in the conntrack table for a given passthrough IP.
+
+    This should be run after all the forwarding rules have been removed.
+
+    :param ``str`` passthrough_ip:
+        External IP to scrub from the conntrack table.
+    """
+    # This addresses the case for UDP session in particular.
+    #
+    # Since netfilter keeps connection state cache for 30 sec by default, udp
+    # packets will not be routed if the same rule is recreated, rather they
+    # will be routed to non previously associated container.
+    #
+    # Deleting connection state will ensure that netfilter connection tracking
+    # works correctly.
+    try:
+        subproc.check_call(['conntrack', '-D', '-s', passthrough_ip])
     except subprocess.CalledProcessError as exc:
         # return code is 0 if entries were deleted, 1 if no matching
         # entries were found.
@@ -738,7 +789,7 @@ def add_rule(rule, chain=None):
     elif isinstance(rule, firewall.PassThroughRule):
         add_passthrough_rule(rule, chain=chain)
     else:
-        raise ValueError("Unknown rule type %r" % (type(rule)))
+        raise ValueError('Unknown rule type %r' % (type(rule)))
 
 
 def delete_rule(rule, chain=None):
@@ -760,7 +811,7 @@ def delete_rule(rule, chain=None):
         delete_passthrough_rule(rule, chain=chain)
 
     else:
-        raise ValueError("Unknown rule type %r" % (type(rule)))
+        raise ValueError('Unknown rule type %r' % (type(rule)))
 
 
 def add_mark_rule(src_ip, environment):
@@ -772,7 +823,7 @@ def add_mark_rule(src_ip, environment):
         Environment to use for the mark
     """
     assert environment in SET_BY_ENVIRONMENT, \
-        "Unknown environment: %r" % environment
+        'Unknown environment: %r' % environment
 
     target_set = SET_BY_ENVIRONMENT[environment]
     add_ip_set(target_set, src_ip)
@@ -796,33 +847,44 @@ def delete_mark_rule(src_ip, environment):
         Environment to use for the mark
     """
     assert environment in SET_BY_ENVIRONMENT, \
-        "Unknown environment: %r" % environment
+        'Unknown environment: %r' % environment
 
     target_set = SET_BY_ENVIRONMENT[environment]
     rm_ip_set(target_set, src_ip)
 
 
-def init_set(new_set, **set_options):
+def create_set(new_set, set_type='hash:ip', **set_options):
+    """Create a new IPSet set"""
+    _ipset(
+        '-exist', 'create', new_set, set_type,
+        # Below expands to a list of k, v, one after the other
+        *[str(i) for item in set_options.items() for i in item]
+    )
+
+
+def init_set(new_set, set_type='hash:ip', **set_options):
     """Create/Initialize a new IPSet set
 
     :param ``str`` new_set:
         Name of the IPSet set
+    :param ``str`` set_type:
+        Type of the IPSet set
     :param set_options:
         Extra options for the set creation
     """
-    _ipset('-exist', 'create', new_set, 'hash:ip',
-           # Below expands to a list of k, v, one after the other
-           *[str(i) for item in set_options.items() for i in item])
+    create_set(new_set, set_type=set_type, **set_options)
     flush_set(new_set)
 
 
-def destroy_set(target_set):
+def destroy_set(target_set, safe=False):
     """Destroy an IPSet set.
 
     :param ``str`` target_set:
         Name of the IPSet set to destroy.
+    :param ``bool`` safe:
+        Ignore non-existing set.
     """
-    _ipset('destroy', target_set)
+    _ipset('destroy', target_set, use_except=not safe)
 
 
 def flush_set(target_set):
@@ -853,6 +915,19 @@ def list_set(target_set):
         c.text
         for c in et.find('members')
     ]
+
+
+def list_all_sets():
+    """List all sets.
+
+    :returns:
+        ``set`` -- Set of names.
+    """
+    (_res, output) = _ipset(
+        'list',
+        '-name'
+    )
+    return set(output.split())
 
 
 def test_ip_set(target_set, test_ip):

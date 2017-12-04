@@ -81,19 +81,19 @@ def pvdisplay():
     # 11 allocated number of physical extents
     return [
         {
-            'block_dev':           pv_data[0],
-            'group':               pv_data[1],
+            'block_dev': pv_data[0],
+            'group': pv_data[1],
             # Skipping "physical volume size in kilobytes" as it seems bugged
-            # 'size':                int(pv_data[2], base=10),
+            # 'size': int(pv_data[2], base=10),
             # Skipping "internal physical volume number"
-            'status':              pv_data[4],
+            'status': pv_data[4],
             # Skipping "physical volume (not) allocatable"
             # Skipping "current number of logical volumes..."
-            # 'lv_number':           int(pv_data[6], base=10),
-            'extent_size':         int(pv_data[7], base=10),
-            'extent_nb':           int(pv_data[8], base=10),
-            'extent_free':         int(pv_data[9], base=10),
-            'extent_alloc':        int(pv_data[10], base=10),
+            # 'lv_number': int(pv_data[6], base=10),
+            'extent_size': int(pv_data[7], base=10),
+            'extent_nb': int(pv_data[8], base=10),
+            'extent_free': int(pv_data[9], base=10),
+            'extent_alloc': int(pv_data[10], base=10),
         }
         for pv_data in info_data
     ]
@@ -171,23 +171,23 @@ def _parse_vg_data(vg_data):
     # 17 uuid of volume group
     #
     return {
-        'name':             vg_data[0],
-        'access':           vg_data[1],
-        'status':           vg_data[2],
-        'number':           int(vg_data[3], base=10),
-        'lv_max':           int(vg_data[4], base=10),
-        'lv_cur':           int(vg_data[5], base=10),
-        'lv_open_count':    int(vg_data[6], base=10),
-        'max_size':         int(vg_data[7], base=10),
-        'pv_max':           int(vg_data[8], base=10),
-        'pv_cur':           int(vg_data[9], base=10),
-        'pv_actual':        int(vg_data[10], base=10),
-        'size':             int(vg_data[11], base=10),
-        'extent_size':      int(vg_data[12], base=10),
-        'extent_nb':        int(vg_data[13], base=10),
-        'extent_alloc':     int(vg_data[14], base=10),
-        'extent_free':      int(vg_data[15], base=10),
-        'uuid':             vg_data[16],
+        'name': vg_data[0],
+        'access': vg_data[1],
+        'status': vg_data[2],
+        'number': int(vg_data[3], base=10),
+        'lv_max': int(vg_data[4], base=10),
+        'lv_cur': int(vg_data[5], base=10),
+        'lv_open_count': int(vg_data[6], base=10),
+        'max_size': int(vg_data[7], base=10),
+        'pv_max': int(vg_data[8], base=10),
+        'pv_cur': int(vg_data[9], base=10),
+        'pv_actual': int(vg_data[10], base=10),
+        'size': int(vg_data[11], base=10),
+        'extent_size': int(vg_data[12], base=10),
+        'extent_nb': int(vg_data[13], base=10),
+        'extent_alloc': int(vg_data[14], base=10),
+        'extent_free': int(vg_data[15], base=10),
+        'uuid': vg_data[16],
     }
 
 
@@ -297,21 +297,21 @@ def _parse_lv_data(lv_data):
     # 13 minor device number of logical volume
     #
     return {
-        'block_dev':           lv_data[0],
+        'block_dev': lv_data[0],
         # NOTE(boysson): What they call name above is the 'block_dev'
-        'name':                os.path.basename(lv_data[0]),
-        'group':               lv_data[1],
-        # 'access':              lv_data[2],
-        # 'status':              lv_data[3],
-        # 'number':              int(lv_data[4], base=10),
-        'open_count':          int(lv_data[5], base=10),
-        # 'size_sector':         int(lv_data[6], base=10),
-        'extent_size':         int(lv_data[7], base=10),
-        'extent_alloc':        int(lv_data[8], base=10),
+        'name': os.path.basename(lv_data[0]),
+        'group': lv_data[1],
+        # 'access': lv_data[2],
+        # 'status': lv_data[3],
+        # 'number': int(lv_data[4], base=10),
+        'open_count': int(lv_data[5], base=10),
+        # 'size_sector': int(lv_data[6], base=10),
+        'extent_size': int(lv_data[7], base=10),
+        'extent_alloc': int(lv_data[8], base=10),
         # 'extent_alloc_policy': int(lv_data[9], base=10),
-        # 'read_ahead':          int(lv_data[10], base=10),
-        'dev_major':           int(lv_data[11], base=10),
-        'dev_minor':           int(lv_data[12], base=10),
+        # 'read_ahead': int(lv_data[10], base=10),
+        'dev_major': int(lv_data[11], base=10),
+        'dev_minor': int(lv_data[12], base=10),
     }
 
 

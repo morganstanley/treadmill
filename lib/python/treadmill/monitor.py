@@ -23,9 +23,10 @@ else:
     import subprocess  # pylint: disable=wrong-import-order
 
 from treadmill import appevents
-from treadmill import fs
 from treadmill import dirwatch
+from treadmill import fs
 from treadmill import supervisor
+from treadmill import utils
 
 from treadmill.appcfg import abort as app_abort
 from treadmill.apptrace import events as traceevents
@@ -48,20 +49,20 @@ class Monitor(object):
         '_down_reasons',
         '_policy_impl',
         '_services',
-        '_services_dir',
+        '_scan_dirs',
         '_service_policies',
         '_event_hook',
     )
 
-    def __init__(self, services_dir, service_dirs, policy_impl, down_action,
+    def __init__(self, scan_dirs, service_dirs, policy_impl, down_action,
                  event_hook=None):
         self._dirwatcher = None
         self._down_action = down_action
         self._down_reasons = collections.deque()
         self._event_hook = event_hook
         self._policy_impl = policy_impl
-        self._services = list(service_dirs)
-        self._services_dir = services_dir
+        self._services = list(utils.get_iterable(service_dirs))
+        self._scan_dirs = set(utils.get_iterable(scan_dirs))
         self._service_policies = {}
 
     def _on_created(self, new_entry):
@@ -71,7 +72,7 @@ class Monitor(object):
         watched = os.path.dirname(new_entry)
 
         # Check if the created entry is a new service or a service exit entry
-        if watched == self._services_dir:
+        if watched in self._scan_dirs:
             self._add_service(new_entry)
 
         else:
@@ -87,8 +88,8 @@ class Monitor(object):
         _LOGGER.debug('Policies %r', self._service_policies)
 
         watched = os.path.dirname(removed_entry)
-        if watched == self._services_dir:
-            _LOGGER.debug('Removed service dir')
+        if watched in self._scan_dirs:
+            _LOGGER.debug('Removed scan dir')
 
         else:
             # If a policy directory is being removed, remove the associated
@@ -113,6 +114,11 @@ class Monitor(object):
 
         policy = self._policy_impl()
         new_watch = policy.register(service)
+
+        if new_watch is None:
+            _LOGGER.info('Service %r is not configured for monitoring',
+                         service)
+            return
 
         # Add the new service directory to the policy watcher
         try:
@@ -174,10 +180,34 @@ class Monitor(object):
         :params ``supervisor.Service`` service:
             Service to bring up.
         """
-        _LOGGER.debug('Waiting till %r is really down', service)
-        supervisor.wait_service(service.directory,
-                                supervisor.ServiceWaitAction.really_down)
         _LOGGER.info('Bringing up service %r', service)
+        try:
+            # Check in one step the service is supervised and *not* up (we
+            # expect it to be down).
+            supervisor.wait_service(
+                service.directory,
+                supervisor.ServiceWaitAction.up,
+                timeout=100
+            )
+
+            # Service is up, nothing to do.
+            return
+
+        except subprocess.CalledProcessError as err:
+            if err.returncode == supervisor.ERR_NO_SUP:
+                # Watching a directory without supervisor, nothing to do.
+                return
+            elif err.returncode == supervisor.ERR_TIMEOUT:
+                # Service is down, make sure finish script is done.
+                supervisor.wait_service(
+                    service.directory,
+                    supervisor.ServiceWaitAction.really_down,
+                    timeout=(60 * 1000)
+                )
+            else:
+                raise
+
+        # Bring the service back up.
         supervisor.control_service(service.directory,
                                    supervisor.ServiceControlAction.up)
 
@@ -193,12 +223,12 @@ class Monitor(object):
 
         service_dirs = self._services[:]
 
-        if self._services_dir is not None:
+        for scan_dir in self._scan_dirs:
             # If we have a svscan directory to watch add it.
-            self._dirwatcher.add_dir(self._services_dir)
+            self._dirwatcher.add_dir(scan_dir)
             service_dirs += [
-                os.path.join(self._services_dir, dentry)
-                for dentry in os.listdir(self._services_dir)
+                os.path.join(scan_dir, dentry)
+                for dentry in os.listdir(scan_dir)
                 if dentry[0] != '.'
             ]
 
@@ -250,18 +280,23 @@ class MonitorNodeDown(MonitorDownAction):
     Triggers the blacklist through the watchdog service.
     """
     __slots__ = (
-        '_watchdog_dir'
+        '_watchdog_dir',
+        '_prefix'
     )
 
-    def __init__(self, tm_env):
+    def __init__(self, tm_env, prefix=''):
         self._watchdog_dir = tm_env.watchdog_dir
+        self._prefix = prefix
 
     def execute(self, data):
         """Shut down the node by writing a watchdog with the down reason data.
         """
         _LOGGER.critical('Node down: %r', data)
         filename = os.path.join(
-            self._watchdog_dir, 'Monitor-%s' % data['service']
+            self._watchdog_dir, 'Monitor-{prefix}{service}'.format(
+                prefix=self._prefix,
+                service=data['service']
+            )
         )
         fs.write_safe(
             filename,
@@ -273,10 +308,10 @@ class MonitorNodeDown(MonitorDownAction):
                     signal=data['signal']
                 )
             ),
-            prefix='.tmp'
+            prefix='.tmp',
+            mode='w',
+            permission=0o644
         )
-        if os.name == 'posix':
-            os.chmod(filename, 0o644)
 
         return True
 
@@ -307,7 +342,7 @@ class MonitorContainerCleanup(MonitorDownAction):
 
         try:
             _LOGGER.info('Moving %r -> %r', running, cleanup)
-            os.rename(running, cleanup)
+            fs.replace(running, cleanup)
         except OSError as err:
             if err.errno == errno.ENOENT:
                 pass
@@ -346,13 +381,19 @@ class MonitorContainerDown(MonitorDownAction):
         data_dir = self._container_svc.data_dir
         fs.write_safe(
             os.path.join(data_dir, EXIT_INFO),
-            lambda f: json.dump(data, f),
+            lambda f: f.writelines(
+                utils.json_genencode(data)
+            ),
+            mode='w',
             prefix='.tmp',
             permission=0o644
         )
-        # NOTE: This will take down the monitor service as well.
+        # NOTE: This will take down this container's monitor service as well.
+        # NOTE: The supervisor has to be running as we call from inside the
+        #       container.
         supervisor.control_service(self._container_svc.directory,
                                    supervisor.ServiceControlAction.down)
+
         return False
 
 
@@ -446,9 +487,10 @@ class MonitorPolicy(object):
     def register(self, service):
         """Register a service directory with the Monitor.
 
-        :returns ``str``:
-            Absolute (real) path to the watch that needs to be added to the
-            monitor.
+        :returns:
+            ``str`` -- Absolute (real) path to the watch that needs to be added
+                       to the monitor.
+            ``None`` -- Policy registration failed. No watch will be created.
         """
         pass
 
@@ -503,10 +545,6 @@ class MonitorRestartPolicy(MonitorPolicy):
         '_service_exits_log',
     )
 
-    EXITS_DIR = 'exits'
-    # TODO: configurable timeout for really down
-    REALLY_DOWN_TIMEOUT = '50'
-
     def __init__(self):
         self._last_rc = None
         self._last_signal = None
@@ -527,13 +565,13 @@ class MonitorRestartPolicy(MonitorPolicy):
 
         except IOError as err:
             if err.errno == errno.ENOENT:
-                self._policy_limit = 0
-                self._policy_interval = 60
+                _LOGGER.warning('No policy file found for %r', service)
+                return None
             else:
                 raise
 
         service_exits_log = os.path.join(
-            service.data_dir, self.EXITS_DIR
+            service.data_dir, supervisor.EXITS_DIR
         )
         fs.mkdir_safe(service_exits_log)
         self._service_exits_log = service_exits_log
@@ -551,7 +589,7 @@ class MonitorRestartPolicy(MonitorPolicy):
                 if direntry[0] != '.'
             ])
         except OSError:
-            _LOGGER.info('Dir %s was deleted.', self._service_exits_log)
+            _LOGGER.info('Dir %r was deleted.', self._service_exits_log)
             # The dir deleted event will remove from watcher
             return MonitorRestartPolicyResult.NOOP
 
@@ -573,7 +611,7 @@ class MonitorRestartPolicy(MonitorPolicy):
 
             else:
                 # Check if within policy
-                cutoff_exit = exits[-(self._policy_limit+1)]
+                cutoff_exit = exits[-(self._policy_limit + 1)]
                 timestamp, _rc, _sig = cutoff_exit.split(',')
                 if (float(timestamp) + self._policy_interval >
                         self._last_timestamp):
@@ -612,3 +650,26 @@ class MonitorRestartPolicy(MonitorPolicy):
             'signal': self._last_signal,
             'timestamp': self._last_timestamp,
         }
+
+
+class CleanupMonitorRestartPolicy(MonitorRestartPolicy):
+    """Restart services based on limit and interval only when cleanup
+    is still to be done.
+    """
+
+    __slots__ = (
+        '_tm_env'
+    )
+
+    def __init__(self, tm_env):
+        super(CleanupMonitorRestartPolicy, self).__init__()
+        self._tm_env = tm_env
+
+    def check(self):
+        name = os.path.basename(self._service.directory)
+        cleanup_link = os.path.join(self._tm_env.cleanup_dir, name)
+        if os.path.islink(cleanup_link):
+            return super(CleanupMonitorRestartPolicy, self).check()
+        else:
+            # Cleanup link removed so cleanup has done its job
+            return MonitorRestartPolicyResult.NOOP

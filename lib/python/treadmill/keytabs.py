@@ -16,6 +16,7 @@ import random
 import shutil
 import tempfile
 
+import six
 from twisted.internet import reactor
 from twisted.internet import protocol
 
@@ -30,21 +31,27 @@ from treadmill import zkutils
 _LOGGER = logging.getLogger(__name__)
 
 
-def _write(fname, data):
-    """Safely writes data to file."""
-    # TODO: move to treadmill.utils?
+def _write_keytab(fname, data):
+    """Safely writes data to file.
+
+    :param ``str`` fname:
+        Keytab filename.
+    :param ``bytes`` data:
+        Keytab data.
+    """
     _LOGGER.info('Writing %s: %s', fname,
                  hashlib.sha1(data).hexdigest())
-
     fs.write_safe(
         fname,
         lambda f: f.write(data),
-        prefix='.tmp'
+        prefix='.tmp',
+        mode='wb'
     )
 
 
 class KeytabLocker(object):
-    """Manages keytab exchange."""
+    """Manages keytab exchange.
+    """
 
     def __init__(self, zkclient, kt_spool_dir):
         self.zkclient = zkclient
@@ -52,7 +59,8 @@ class KeytabLocker(object):
         self.zkclient.add_listener(zkutils.exit_on_lost)
 
     def register_endpoint(self, port):
-        """Register ticket locker endpoint in Zookeeper."""
+        """Register ticket locker endpoint in Zookeeper.
+        """
         hostname = sysinfo.hostname()
         self.zkclient.ensure_path(z.KEYTAB_LOCKER)
 
@@ -65,17 +73,19 @@ class KeytabLocker(object):
         zkutils.put(self.zkclient, node_path, {}, acl=None, ephemeral=True)
 
     def close_zk_connection(self):
-        """Close Zookeepeer connection."""
+        """Close Zookeepeer connection.
+        """
         self.zkclient.remove_listener(zkutils.exit_on_lost)
         zkutils.disconnect(self.zkclient)
 
     def get(self, princ):
-        """Process keytab request."""
+        """Process keytab request.
+        """
 
         _LOGGER.info('Processing request from: %s', princ)
         keytabs = dict()
         if not princ or not princ.startswith('host/'):
-            _LOGGER.error('Host principal expected, got: %s.', princ)
+            _LOGGER.error('Host principal expected, got: %r.', princ)
             return {}
 
         hostname = princ[len('host/'):princ.rfind('@')]
@@ -90,7 +100,7 @@ class KeytabLocker(object):
                 if kt_file.startswith('.tmp'):
                     continue
 
-                with io.open(kt_file) as f:
+                with io.open(kt_file, 'rb') as f:
                     keytabs[os.path.basename(kt_file)] = f.read()
         except EnvironmentError:
             _LOGGER.exception('Unhandled exception reading: %s',
@@ -100,47 +110,56 @@ class KeytabLocker(object):
 
 
 def run_server(locker):
-    """Runs tickets server."""
+    """Runs keytab server.
+    """
     _LOGGER.info('Keytab locker server starting.')
 
     # no __init__ method.
     #
     # pylint: disable=W0232
     class KeytabLockerServer(gssapiprotocol.GSSAPILineServer):
-        """Keytab locker server."""
+        """Keytab locker server.
+        """
 
         def _get(self):
-            """Get keytabs for given host/app."""
+            """Get keytabs for given host/app.
+            """
             keytabs = locker.get(self.peer())
             _LOGGER.info('Sending keytabs for: %r', keytabs.keys())
-            for kt_name, encoded in keytabs.iteritems():
+            for kt_name, encoded in six.iteritems(keytabs):
                 _LOGGER.info('Sending keytab: %s:%s',
                              kt_name,
                              hashlib.sha1(encoded).hexdigest())
-                self.write('%s:%s' % (kt_name, encoded))
+                self.write(b':'.join((kt_name.encode(), encoded)))
 
         def _put(self, kt_name, encoded):
-            """Store encoded keytab."""
+            """Store encoded keytab.
+            """
             _LOGGER.info('put %s - %s',
                          kt_name,
                          hashlib.sha1(encoded).hexdigest())
-            _write(os.path.join(locker.kt_spool_dir, kt_name), encoded)
+            _write_keytab(
+                os.path.join(locker.kt_spool_dir, kt_name),
+                encoded
+            )
 
         @utils.exit_on_unhandled
         def got_line(self, line):
-            """Callback on received line."""
+            """Callback on received line.
+            """
             items = line.split()
             action = items[0]
 
-            if action == 'get':
+            if action == b'get':
                 self._get()
-            elif action == 'put':
+            elif action == b'put':
                 self._put(kt_name=items[1], encoded=items[2])
 
-            self.write('')
+            self.write(b'')
 
     class KeytabLockerServerFactory(protocol.Factory):
-        """KeytabLockerServer factory."""
+        """KeytabLockerServer factory.
+        """
 
         def buildProtocol(self, addr):  # pylint: disable=C0103
             return KeytabLockerServer()
@@ -151,7 +170,8 @@ def run_server(locker):
 
 
 def _get_keytabs_from(host, port, spool_dir):
-    """Get keytabs from keytab locker server."""
+    """Get keytabs from keytab locker server.
+    """
     service = 'host@%s' % host
     _LOGGER.info('connecting: %s:%s, %s', host, port, service)
     client = gssapiprotocol.GSSAPILineClient(host, int(port), service)
@@ -165,20 +185,22 @@ def _get_keytabs_from(host, port, spool_dir):
 
         _LOGGER.debug('connected to: %s:%s, %s', host, port, service)
 
-        client.write('get')
+        client.write(b'get')
         while True:
             line = client.read()
             if not line:
                 _LOGGER.debug('End of response.')
                 break
 
-            ktname, encoded = line.split(':')
+            ktname, encoded = line.split(b':', 1)
+            ktname = ktname.decode()
             if encoded:
-                _LOGGER.info('got keytab %s:%s',
+                _LOGGER.info('got keytab %s:%r',
                              ktname,
                              hashlib.sha1(encoded).hexdigest())
-                keytab = base64.urlsafe_b64decode(encoded)
-                _write(os.path.join(spool_dir, ktname), keytab)
+                keytab_data = base64.urlsafe_b64decode(encoded)
+                kt_file = os.path.join(spool_dir, ktname)
+                _write_keytab(kt_file, keytab_data)
             else:
                 _LOGGER.warning('got empty keytab %s', ktname)
 
@@ -189,7 +211,8 @@ def _get_keytabs_from(host, port, spool_dir):
 
 
 def make_keytab(zkclient, spool_dir, host_kt=None):
-    """Request keytabs from the locker."""
+    """Request keytabs from the locker.
+    """
     lockers = zkutils.with_retry(zkclient.get_children, z.KEYTAB_LOCKER)
     random.shuffle(lockers)
 
@@ -197,7 +220,9 @@ def make_keytab(zkclient, spool_dir, host_kt=None):
         host, port = locker.split(':')
 
         try:
-            tmp_dir = tempfile.mkdtemp()
+            # put the tmp dir near the destination so they end up on
+            # the same partition
+            tmp_dir = tempfile.mkdtemp(dir=spool_dir)
             if _get_keytabs_from(host, port, tmp_dir):
                 inputs = glob.glob(os.path.join(tmp_dir, '*'))
                 if host_kt:
@@ -205,7 +230,7 @@ def make_keytab(zkclient, spool_dir, host_kt=None):
 
                 kt_file = os.path.join(spool_dir, 'krb5.keytab')
                 kt_temp = os.path.join(tmp_dir, 'krb5.keytab')
-                subproc.check_call(['kt-add', kt_temp] + inputs)
+                subproc.check_call(['kt_add', kt_temp] + inputs)
                 os.rename(kt_temp, kt_file)
                 break
 

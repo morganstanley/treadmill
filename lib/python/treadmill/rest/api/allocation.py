@@ -1,6 +1,6 @@
+"""Treadmill allocation REST api.
 """
-Treadmill allocation REST api.
-"""
+
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
@@ -10,8 +10,7 @@ import flask
 import flask_restplus as restplus
 from flask_restplus import fields
 
-# Disable E0611: No 'name' in module
-from treadmill import webutils  # pylint: disable=E0611
+from treadmill import webutils
 
 
 def _alloc_id(tenant, alloc, cell=None):
@@ -22,7 +21,6 @@ def _alloc_id(tenant, alloc, cell=None):
         return '%s/%s' % (tenant, alloc)
 
 
-# pylint: disable=W0232,R0912
 def init(api, cors, impl):
     """Configures REST handlers for allocation resource."""
 

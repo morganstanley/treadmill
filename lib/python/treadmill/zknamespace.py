@@ -38,10 +38,12 @@ SERVER_PRESENCE = '/server.presence'
 STATE_REPORTS = '/reports'
 STRATEGIES = '/strategies'
 TICKET_LOCKER = '/ticket-locker'
+TICKETS = '/tickets'
 TRACE = '/trace'
 TRACE_HISTORY = '/trace.history'
 TREADMILL = '/treadmill'
 VERSION = '/version'
+VERSION_HISTORY = '/version.history'
 VERSION_ID = '/version-id'
 ZOOKEEPER = '/zookeeper'
 
@@ -54,7 +56,7 @@ def join_zookeeper_path(root, *child):
     return '/'.join((root,) + child)
 
 
-def _make_path_f(zkpath):
+def make_path_f(zkpath):
     """Return closure that will construct node path.
     """
     return staticmethod(functools.partial(join_zookeeper_path, zkpath))
@@ -116,37 +118,39 @@ class path(object):  # pylint: disable=C0103
     """Helper class to manage Zk namespace.
     """
 
-    allocation = _make_path_f(ALLOCATIONS)
-    appgroup = _make_path_f(APPGROUPS)
-    appmonitor = _make_path_f(APPMONITORS)
-    blackedout_app = _make_path_f(BLACKEDOUT_APPS)
-    blackedout_server = _make_path_f(BLACKEDOUT_SERVERS)
-    bucket = _make_path_f(BUCKETS)
-    cell = _make_path_f(CELL)
-    chroot = _make_path_f(TREADMILL)
-    event = _make_path_f(EVENTS)
-    identity_group = _make_path_f(IDENTITY_GROUPS)
-    partition = _make_path_f(PARTITIONS)
-    placement = _make_path_f(PLACEMENT)
-    reboot = _make_path_f(REBOOTS)
-    running = _make_path_f(RUNNING)
-    scheduled = _make_path_f(SCHEDULED)
-    scheduler = _make_path_f(SCHEDULER)
-    server_presence = _make_path_f(SERVER_PRESENCE)
-    server = _make_path_f(SERVERS)
-    strategy = _make_path_f(STRATEGIES)
-    ticket_locker = _make_path_f(TICKET_LOCKER)
-    keytab_locker = _make_path_f(KEYTAB_LOCKER)
-    version = _make_path_f(VERSION)
-    version_id = _make_path_f(VERSION_ID)
-    zookeeper = _make_path_f(ZOOKEEPER)
-    election = _make_path_f(ELECTION)
-    finished = _make_path_f(FINISHED)
-    finished_history = _make_path_f(FINISHED_HISTORY)
-    trace_history = _make_path_f(TRACE_HISTORY)
-    trace_shard = _make_path_f(TRACE)
-    state_report = _make_path_f(STATE_REPORTS)
-    globals = _make_path_f(GLOBALS)
+    allocation = make_path_f(ALLOCATIONS)
+    appgroup = make_path_f(APPGROUPS)
+    appmonitor = make_path_f(APPMONITORS)
+    blackedout_app = make_path_f(BLACKEDOUT_APPS)
+    blackedout_server = make_path_f(BLACKEDOUT_SERVERS)
+    bucket = make_path_f(BUCKETS)
+    cell = make_path_f(CELL)
+    chroot = make_path_f(TREADMILL)
+    event = make_path_f(EVENTS)
+    identity_group = make_path_f(IDENTITY_GROUPS)
+    partition = make_path_f(PARTITIONS)
+    placement = make_path_f(PLACEMENT)
+    reboot = make_path_f(REBOOTS)
+    running = make_path_f(RUNNING)
+    scheduled = make_path_f(SCHEDULED)
+    scheduler = make_path_f(SCHEDULER)
+    server_presence = make_path_f(SERVER_PRESENCE)
+    server = make_path_f(SERVERS)
+    strategy = make_path_f(STRATEGIES)
+    tickets = make_path_f(TICKETS)
+    ticket_locker = make_path_f(TICKET_LOCKER)
+    keytab_locker = make_path_f(KEYTAB_LOCKER)
+    version = make_path_f(VERSION)
+    version_history = make_path_f(VERSION_HISTORY)
+    version_id = make_path_f(VERSION_ID)
+    zookeeper = make_path_f(ZOOKEEPER)
+    election = make_path_f(ELECTION)
+    finished = make_path_f(FINISHED)
+    finished_history = make_path_f(FINISHED_HISTORY)
+    trace_history = make_path_f(TRACE_HISTORY)
+    trace_shard = make_path_f(TRACE)
+    state_report = make_path_f(STATE_REPORTS)
+    globals = make_path_f(GLOBALS)
 
     # Special methods
     endpoint = _path_endpoint

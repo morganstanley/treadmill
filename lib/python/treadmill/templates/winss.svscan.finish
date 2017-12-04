@@ -1,1 +1,1 @@
-{{ _alias.winss_svwait }} -aD -t {{ timeout }} {{ scan_dir }}\*
+{{ _alias.winss_svwait }} -aD -t {{ timeout }} *

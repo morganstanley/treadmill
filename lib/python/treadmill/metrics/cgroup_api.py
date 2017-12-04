@@ -9,9 +9,8 @@ from __future__ import unicode_literals
 import os
 import flask_restplus as restplus
 
+from treadmill import webutils
 from treadmill.metrics import engine
-from treadmill import webutils  # pylint: disable=E0611
-
 
 _ENGINE = {}
 

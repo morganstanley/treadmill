@@ -1,13 +1,11 @@
-"""Manages Treadmill applications lifecycle."""
+"""Manages Treadmill applications lifecycle.
+"""
 
-
+from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
-from __future__ import absolute_import
-
-import json
 import logging
 import os
 
@@ -16,6 +14,7 @@ import enum
 from treadmill import appevents
 from treadmill import fs
 from treadmill import supervisor
+from treadmill import utils
 from treadmill.apptrace import events
 
 _LOGGER = logging.getLogger(__name__)
@@ -40,6 +39,7 @@ class AbortedReason(enum.Enum):
     PRESENCE = 'presence'
     IMAGE = 'image'
     PID1 = 'pid1'
+    GMSA = 'GMSA'
 
     def description(self):
         """Gets the description for the current aborted reason."""
@@ -50,6 +50,7 @@ class AbortedReason(enum.Enum):
             AbortedReason.PORTS: 'ports could not be assigned',
             AbortedReason.IMAGE: 'could not use given image',
             AbortedReason.PID1: 'pid1 failed to start',
+            AbortedReason.GMSA: 'host is not part of GMSA group'
         }.get(self, self.value)
 
 
@@ -61,7 +62,7 @@ def abort(container_dir, why=None, payload=None):
     flag_aborted(container_dir, why, payload)
     container_dir = os.path.realpath(os.path.join(container_dir, '../'))
     supervisor.control_service(container_dir,
-                               supervisor.ServiceControlAction.kill)
+                               supervisor.ServiceControlAction.down)
 
 
 def _why_str(why):
@@ -83,13 +84,15 @@ def flag_aborted(container_dir, why=None, payload=None):
 
     fs.write_safe(
         os.path.join(container_dir, 'aborted'),
-        lambda f: json.dump(
-            {
-                'why': _why_str(why),
-                'payload': payload
-            },
-            fp=f
+        lambda f: f.writelines(
+            utils.json_genencode(
+                {
+                    'why': _why_str(why),
+                    'payload': payload
+                }
+            )
         ),
+        mode='w',
         permission=0o644
     )
 

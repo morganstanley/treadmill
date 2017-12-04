@@ -124,7 +124,7 @@ class NativeImageTest(unittest.TestCase):
         ])
 
         treadmill.fs.mount_bind.assert_has_calls([
-            mock.call(mock.ANY, '/bin')
+            mock.call(mock.ANY, '/bin', remount_opts=['ro'])
         ])
 
     @mock.patch('treadmill.cgroups.makepath',
@@ -135,14 +135,7 @@ class NativeImageTest(unittest.TestCase):
         """Test sharing of cgroup information with the container."""
         # Access protected module _share_cgroup_info
         # pylint: disable=W0212
-        app = utils.to_obj(
-            {
-                'name': 'myproid.test#0',
-                'uniqueid': 'ID1234',
-            }
-        )
-
-        native.share_cgroup_info('/some/root_dir', app)
+        native.share_cgroup_info('/some/root_dir', '/test/cgroup/path')
 
         # Check that cgroup mountpoint exists inside the container.
         treadmill.fs.mkdir_safe.assert_has_calls([
@@ -221,10 +214,7 @@ class NativeImageTest(unittest.TestCase):
                         'name': 'command4',
                         'proid': 'root',
                         'command': '/path/to/other/sbin/command',
-                        'restart': {
-                            'limit': 5,
-                            'interval': 60,
-                        },
+                        'restart': None,  # not monitored
                         'environ': {},
                         'config': None,
                         'downed': False,
@@ -245,8 +235,24 @@ class NativeImageTest(unittest.TestCase):
         native.create_supervision_tree(
             base_dir,
             '/test_treadmill',
-            app
+            app,
+            '/test/cgroup/path'
         )
+
+        treadmill.supervisor.create_scan_dir.assert_has_calls([
+            mock.call(
+                os.path.join(base_dir, 'sys'),
+                finish_timeout=6000,
+                monitor_service='monitor',
+                wait_cgroups='/test/cgroup/path'
+            ),
+            mock.call().write(),
+            mock.call(
+                os.path.join(base_dir, 'services'),
+                finish_timeout=5000,
+            ),
+            mock.call().write(),
+        ])
 
         treadmill.supervisor.create_service.assert_has_calls([
             # system services
@@ -271,10 +277,7 @@ class NativeImageTest(unittest.TestCase):
                       environ={},
                       environment='prod',
                       downed=False,
-                      monitor_policy={
-                          'limit': 5,
-                          'interval': 60,
-                      },
+                      monitor_policy=None,
                       trace=None),
             # user services
             mock.call(mock_service_dir,
@@ -289,6 +292,7 @@ class NativeImageTest(unittest.TestCase):
                           'limit': 3,
                           'interval': 60,
                       },
+                      log_run_script='s6.app-logger.run',
                       trace={
                           'instanceid': 'myproid.test#0',
                           'uniqueid': 'ID1234',
@@ -305,6 +309,7 @@ class NativeImageTest(unittest.TestCase):
                           'limit': 3,
                           'interval': 60,
                       },
+                      log_run_script='s6.app-logger.run',
                       trace={
                           'instanceid': 'myproid.test#0',
                           'uniqueid': 'ID1234',
@@ -347,18 +352,20 @@ class NativeImageTest(unittest.TestCase):
         native._prepare_hosts(self.container_dir, self.app)
 
         etc_dir = os.path.join(self.container_dir, 'overlay', 'etc')
+        run_dir = os.path.join(self.container_dir, 'overlay', 'var', 'run')
 
-        shutil.copyfile.assert_has_calls([
-            mock.call('/etc/hosts', os.path.join(etc_dir, 'hosts')),
-            mock.call('/etc/hosts', os.path.join(etc_dir, 'hosts.original')),
-        ])
+        shutil.copyfile.assert_has_calls(
+            [
+                mock.call('/etc/hosts', os.path.join(etc_dir, 'hosts')),
+            ]
+        )
 
         treadmill.fs.mkdir_safe.assert_called_with(
-            os.path.join(etc_dir, 'host-aliases')
+            os.path.join(run_dir, 'host-aliases')
         )
 
         os.chown.assert_called_with(
-            os.path.join(etc_dir, 'host-aliases'),
+            os.path.join(run_dir, 'host-aliases'),
             42, 42
         )
 
@@ -401,29 +408,36 @@ class NativeImageTest(unittest.TestCase):
 
         overlay_dir = os.path.join(self.container_dir, 'overlay')
 
-        treadmill.fs.mount_bind.assert_has_calls([
-            mock.call(self.root, '/etc/hosts',
-                      target=os.path.join(overlay_dir, 'etc/hosts'),
-                      bind_opt='--bind'),
-            mock.call(self.root, '/etc/host-aliases',
-                      target=os.path.join(overlay_dir, 'etc/host-aliases'),
-                      bind_opt='--bind'),
-            mock.call(self.root, '/etc/ld.so.preload',
-                      target=os.path.join(overlay_dir, 'etc/ld.so.preload'),
-                      bind_opt='--bind'),
-            mock.call(self.root, '/etc/pam.d/sshd',
-                      target=os.path.join(overlay_dir, 'etc/pam.d/sshd'),
-                      bind_opt='--bind'),
-            mock.call(self.root, '/etc/resolv.conf',
-                      target=os.path.join(overlay_dir, 'etc/resolv.conf'),
-                      bind_opt='--bind'),
-            mock.call(self.root, '/etc/krb5.keytab',
-                      target=os.path.join(overlay_dir, 'etc/krb5.keytab'),
-                      bind_opt='--bind'),
-            mock.call('/', '/etc/resolv.conf',
-                      target=os.path.join(overlay_dir, 'etc/resolv.conf'),
-                      bind_opt='--bind')
-        ])
+        treadmill.fs.mount_bind.assert_has_calls(
+            [
+                mock.call(self.root, '/etc/hosts',
+                          target=os.path.join(overlay_dir, 'etc/hosts'),
+                          bind_opt='--bind'),
+                mock.call(self.root, '/var/run/host-aliases',
+                          target=os.path.join(
+                              overlay_dir, 'var/run/host-aliases'
+                          ),
+                          bind_opt='--bind'),
+                mock.call(self.root, '/etc/ld.so.preload',
+                          target=os.path.join(
+                              overlay_dir, 'etc/ld.so.preload'
+                          ),
+                          bind_opt='--bind'),
+                mock.call(self.root, '/etc/pam.d/sshd',
+                          target=os.path.join(overlay_dir, 'etc/pam.d/sshd'),
+                          bind_opt='--bind'),
+                mock.call(self.root, '/etc/resolv.conf',
+                          target=os.path.join(overlay_dir, 'etc/resolv.conf'),
+                          bind_opt='--bind'),
+                mock.call(self.root, '/etc/krb5.keytab',
+                          target=os.path.join(overlay_dir, 'etc/krb5.keytab'),
+                          bind_opt='--bind'),
+                mock.call('/', '/etc/resolv.conf',
+                          target=os.path.join(overlay_dir, 'etc/resolv.conf'),
+                          bind_opt='--bind')
+            ],
+            any_order=True
+        )
 
 
 if __name__ == '__main__':

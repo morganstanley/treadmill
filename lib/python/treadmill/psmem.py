@@ -21,7 +21,7 @@ from treadmill import sysinfo
 _LOGGER = logging.getLogger(__name__)
 
 # Pagesize in K.
-_PAGESIZE = os.sysconf(b'SC_PAGE_SIZE') / 1024
+_PAGESIZE = os.sysconf(os.sysconf_names['SC_PAGE_SIZE']) // 1024
 
 _KERNEL_VER = sysinfo.kernel_ver()
 
@@ -93,11 +93,11 @@ def get_mem_stats(pid, use_pss=True):
 
     if use_pss and os.path.exists(proc_path(pid, 'smaps')):
         for line in proc_readlines(pid, 'smaps'):
-            if line.startswith("Shared"):
+            if line.startswith('Shared'):
                 shared_lines.append(line)
-            elif line.startswith("Private"):
+            elif line.startswith('Private'):
                 private_lines.append(line)
-            elif line.startswith("Pss"):
+            elif line.startswith('Pss'):
                 have_pss = True
                 pss_lines.append(line)
 

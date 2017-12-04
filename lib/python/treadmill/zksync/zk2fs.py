@@ -73,7 +73,8 @@ class Zk2Fs(object):
         )
 
     def _data_watch(self, zkpath, data, stat, event):
-        """Invoked when data changes."""
+        """Invoked when data changes.
+        """
         fpath = self.fpath(zkpath)
         if event is not None and event.type == 'DELETED':
             _LOGGER.info('Node deleted: %s', zkpath)

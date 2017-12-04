@@ -120,7 +120,7 @@ class DockerRuntimeTest(unittest.TestCase):
         """Tests creating a docker container using the api."""
         # Access to a protected member
         # pylint: disable=W0212
-        runtime._create_container(client, self.app)
+        runtime._create_container(self.tm_env, client, self.app)
 
         client.images.pull.assert_called_with(
             'test'

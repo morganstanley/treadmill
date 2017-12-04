@@ -10,6 +10,7 @@ import unittest
 
 from treadmill import context
 from treadmill import checkout as chk
+from treadmill import presence
 from treadmill import zknamespace as z
 
 
@@ -17,7 +18,8 @@ def test():
     """Create server test class."""
 
     zkclient = context.GLOBAL.zk.conn
-    servers = zkclient.get_children(z.SERVER_PRESENCE)
+    servers = [presence.server_hostname(node)
+               for node in zkclient.get_children(z.SERVER_PRESENCE)]
     nodeinfo_endpoints = zkclient.get_children(z.path.endpoint_proid('root'))
 
     server_endpoints = dict()

@@ -5,16 +5,20 @@ from __future__ import print_function
 from __future__ import unicode_literals
 from __future__ import absolute_import
 
-import time
+import bz2
 import datetime
+import fnmatch
+import io
 import itertools
 import logging
-import fnmatch
+import time
 
 import numpy as np
 import pandas as pd
 
 import six
+
+from treadmill import scheduler
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -89,7 +93,11 @@ def iterate_allocations(path, alloc):
                 iterate_allocations(path + [name], suballoc)
             )
 
-        return six.moves.reduce(_chain, alloc.sub_allocations.iteritems(), [])
+        return six.moves.reduce(
+            _chain,
+            six.iteritems(alloc.sub_allocations),
+            []
+        )
 
 
 def allocations(cell):
@@ -120,11 +128,15 @@ def allocations(cell):
             'max_util': alloc.max_utilization,
         }
 
-    frame = pd.DataFrame.from_dict([
-        _alloc_row(label, name, alloc)
-        for label, partition in cell.partitions.iteritems()
-        for name, alloc in iterate_allocations([], partition.allocation)
-    ])
+    frame = pd.DataFrame.from_dict(
+        [
+            _alloc_row(label, name, alloc)
+            for label, partition in six.iteritems(cell.partitions)
+            for name, alloc in iterate_allocations(
+                [], partition.allocation
+            )
+        ]
+    )
     if frame.empty:
         frame = pd.DataFrame(columns=columns)
 
@@ -326,13 +338,13 @@ def _preorder_walk(node, _app=None):
 
 
 def _servers_walk(cell, _app):
-    """Return servers only"""
-    return cell.members().values()
+    """Return servers only
+    """
+    return list(six.itervalues(cell.members()))
 
 
 def _limited_walk(node, app):
-    """Walk the tree like preorder, but only expand nodes when they are
-feasible for placement"""
+    """Walk the tree like preorder, expand nodes iff placement is feasible."""
     if node.check_app_constraints(app):
         return itertools.chain(
             [node],
@@ -353,6 +365,10 @@ def explain_placement(cell, app, mode):
     """Explain placement for app"""
     result = []
     for node in WALKS[mode](cell, app):
+        if isinstance(node, scheduler.Server):
+            lifetime = node.check_app_lifetime(app)
+        else:
+            lifetime = True
         capacity = node.free_capacity > app.demand
         result.append({
             'name': node.name,
@@ -360,6 +376,8 @@ def explain_placement(cell, app, mode):
             'traits': node.traits.has(app.traits),
             'partition': app.allocation.label in node.labels,
             'feasible': node.check_app_constraints(app),
+            'state': node.state == scheduler.State.up,
+            'lifetime': lifetime,
             'memory': capacity[0],
             'cpu': capacity[1],
             'disk': capacity[2],
@@ -367,10 +385,33 @@ def explain_placement(cell, app, mode):
 
     # Hard-code order of columns
     columns = [
-        'partition', 'traits', 'affinity',
+        'partition', 'traits', 'affinity', 'state', 'lifetime',
         'memory', 'cpu', 'disk', 'name'
     ]
     df = pd.DataFrame(result, columns=columns)
     df.replace(True, '.', inplace=True)
     df.replace(False, 'x', inplace=True)
     return df
+
+
+def serialize_dataframe(report, compressed=True):
+    """Serialize a dataframe for storing.
+
+    The dataframe is serialized as CSV and compressed with bzip2.
+    """
+    result = report.to_csv()
+    if compressed:
+        result = bz2.compress(result.encode())
+    return result
+
+
+def deserialize_dataframe(report):
+    """Deserialize a dataframe.
+
+    The dataframe is serialized as CSV and compressed with bzip2.
+    """
+    try:
+        content = bz2.decompress(report)
+    except IOError:
+        content = report
+    return pd.read_csv(io.StringIO(content.decode()))

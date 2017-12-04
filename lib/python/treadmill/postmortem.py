@@ -31,7 +31,7 @@ _LVDISPLAY = 'lvdisplay'
 
 try:
     _UPLOADER = importlib.import_module(
-        'treadmill.plugins.postmortem_uploader'
+        'treadmill.ms.plugins.postmortem_uploader'
     )
 except ImportError:
     _UPLOADER = None
@@ -42,14 +42,15 @@ def run(treadmill_root, upload_url=None):
     filetime = utils.datetime_utcnow().strftime('%Y%m%d_%H%M%SUTC')
     hostname = socket.gethostname()
     postmortem_file_base = os.path.join(
-        '/tmp', '{0}-{1}.tar'.format(hostname, filetime)
+        tempfile.gettempdir(), '{0}-{1}.tar'.format(hostname, filetime)
     )
 
     postmortem_file = collect(
         treadmill_root,
         postmortem_file_base
     )
-    os.chmod(postmortem_file, 0o644)
+    if os.name == 'posix':
+        os.chmod(postmortem_file, 0o644)
     _LOGGER.info('generated postmortem file: %r', postmortem_file)
 
     if _UPLOADER is not None:
@@ -57,11 +58,10 @@ def run(treadmill_root, upload_url=None):
 
 
 def _safe_copy(src, dest):
-    """Copy file from src to dest if need, generate sub directory for dest"""
+    """Copy file from src to dest if need, generate sub directory for dest.
+    """
     parent = os.path.dirname(dest)
-
-    if not os.path.exists(parent):
-        os.makedirs(parent)
+    fs.mkdir_safe(parent)
 
     try:
         shutil.copyfile(src, dest)
@@ -88,11 +88,12 @@ def collect(approot, archive_filename):
 
     collect_init_services(approot, destroot)
     collect_running_app(approot, destroot)
-    collect_sysctl(destroot)
-    collect_cgroup(approot, destroot)
-    collect_localdisk(approot, destroot)
-    collect_network(approot, destroot)
-    collect_message(destroot)
+    if os.name == 'posix':
+        collect_sysctl(destroot)
+        collect_cgroup(approot, destroot)
+        collect_localdisk(approot, destroot)
+        collect_network(approot, destroot)
+        collect_message(destroot)
 
     try:
         archive_filename = fs.tar(sources=destroot,
@@ -110,10 +111,11 @@ def collect(approot, archive_filename):
 
 def collect_init_services(approot, destroot):
     """Get treadmill init services information in node."""
-    pattern = '%s/init/*/log/current' % approot
+    pattern = '%s/init*/*/log/current' % approot
 
     for current in glob.glob(pattern):
-        target = '%s%s' % (destroot, current)
+        path = os.path.splitdrive(current)[1]
+        target = '%s%s' % (destroot, path)
         _safe_copy(current, target)
 
 
@@ -121,14 +123,16 @@ def collect_running_app(approot, destroot):
     """Get treadmill running application information in node."""
     pattern = '%s/running/*/run.*' % approot
 
-    for run_log in glob.glob(pattern):
-        target = '%s%s' % (destroot, run_log)
-        _safe_copy(run_log, target)
+    for current in glob.glob(pattern):
+        path = os.path.splitdrive(current)[1]
+        target = '%s%s' % (destroot, path)
+        _safe_copy(current, target)
 
     pattern = '%s/running/*/data/sys/*/data/log/current' % approot
 
     for current in glob.glob(pattern):
-        target = '%s%s' % (destroot, current)
+        path = os.path.splitdrive(current)[1]
+        target = '%s%s' % (destroot, path)
         _safe_copy(current, target)
 
 
@@ -141,8 +145,8 @@ def collect_sysctl(destroot):
 
 def collect_cgroup(approot, destroot):
     """Get host treadmill cgroups inforamation."""
-    src = "%s/cgroup_svc" % approot
-    dest = "%s%s" % (destroot, src)
+    src = '%s/cgroup_svc' % approot
+    dest = '%s%s' % (destroot, src)
 
     try:
         shutil.copytree(src, dest)
@@ -201,7 +205,6 @@ def collect_message(destroot):
     )
 
     dest_messages = '%s/var/log/messages' % destroot
-    if not os.path.exists(os.path.dirname(dest_messages)):
-        os.makedirs(os.path.dirname(dest_messages))
+    fs.mkdir_safe(os.path.dirname(dest_messages))
     with io.open(dest_messages, 'wb') as f:
         f.write(messages.encode(encoding='utf8', errors='replace'))

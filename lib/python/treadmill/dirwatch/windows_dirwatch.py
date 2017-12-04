@@ -12,6 +12,8 @@ import logging
 import os
 
 # E0401: Unable to import windows only pakages
+import winerror  # pylint: disable=E0401
+
 import pywintypes  # pylint: disable=E0401
 import win32con  # pylint: disable=E0401
 import win32event  # pylint: disable=E0401
@@ -56,14 +58,19 @@ class WindowsDirInfo(object):
         self.file = win32file.CreateFile(
             self.path,
             _FILE_LIST_DIRECTORY,
-            win32con.FILE_SHARE_READ
-            | win32con.FILE_SHARE_WRITE
-            | win32con.FILE_SHARE_DELETE,
+            (
+                win32con.FILE_SHARE_READ |
+                win32con.FILE_SHARE_WRITE |
+                win32con.FILE_SHARE_DELETE
+            ),
             None,
             win32con.OPEN_EXISTING,
-            win32con.FILE_FLAG_BACKUP_SEMANTICS
-            | win32con.FILE_FLAG_OVERLAPPED,
-            None)
+            (
+                win32con.FILE_FLAG_BACKUP_SEMANTICS |
+                win32con.FILE_FLAG_OVERLAPPED
+            ),
+            None
+        )
         self.id = self.overlapped.hEvent.handle
 
     def close(self):
@@ -86,21 +93,27 @@ class WindowsDirWatcher(dirwatch_base.DirWatcher):
 
     @staticmethod
     def _read_dir(info):
-        """Reads the directory for changes async."""
+        """Reads the directory for changes async.
+        """
         try:
             win32file.ReadDirectoryChangesW(
                 info.file,
                 info.buffer,
                 False,
-                win32con.FILE_NOTIFY_CHANGE_FILE_NAME
-                | win32con.FILE_NOTIFY_CHANGE_DIR_NAME
-                | win32con.FILE_NOTIFY_CHANGE_ATTRIBUTES
-                | win32con.FILE_NOTIFY_CHANGE_SIZE
-                | win32con.FILE_NOTIFY_CHANGE_LAST_WRITE
-                | win32con.FILE_NOTIFY_CHANGE_SECURITY,
-                info.overlapped)
+                (
+                    win32con.FILE_NOTIFY_CHANGE_FILE_NAME |
+                    win32con.FILE_NOTIFY_CHANGE_DIR_NAME |
+                    win32con.FILE_NOTIFY_CHANGE_ATTRIBUTES |
+                    win32con.FILE_NOTIFY_CHANGE_SIZE |
+                    win32con.FILE_NOTIFY_CHANGE_LAST_WRITE |
+                    win32con.FILE_NOTIFY_CHANGE_SECURITY
+                ),
+                info.overlapped
+            )
             return True
-        except pywintypes.error:
+        except pywintypes.error as exc:
+            _LOGGER.warning('Failed to read directory \'%s\': %s',
+                            info.path, exc)
             return False
 
     def _add_dir(self, watch_dir):
@@ -153,6 +166,13 @@ class WindowsDirWatcher(dirwatch_base.DirWatcher):
 
         return False
 
+    def _preempt_watch(self, info, result):
+        """Deletes the watch preemptively.
+        """
+        result.append((dirwatch_base.DirWatcherEvent.DELETED, info.path))
+        info.close()
+        del self._dir_infos[info.id]
+
     def _read_events(self):
         """Reads the events from the system and formats as ``DirWatcherEvent``.
 
@@ -168,9 +188,13 @@ class WindowsDirWatcher(dirwatch_base.DirWatcher):
                                                      info.overlapped,
                                                      False)
             except win32file.error as exc:
+                win32event.ResetEvent(info.overlapped.hEvent)
                 _LOGGER.warning(
                     'Failed to get directory changes for \'%s\': %s',
                     info.path, exc)
+
+                if exc[0] == winerror.ERROR_ACCESS_DENIED:
+                    self._preempt_watch(info, result)
                 continue
 
             notifications = win32file.FILE_NOTIFY_INFORMATION(info.buffer,
@@ -192,9 +216,6 @@ class WindowsDirWatcher(dirwatch_base.DirWatcher):
 
             win32event.ResetEvent(info.overlapped.hEvent)
             if not self._read_dir(info):
-                result.append((dirwatch_base.DirWatcherEvent.DELETED,
-                               info.path))
-                info.close()
-                del self._dir_infos[info.id]
+                self._preempt_watch(info, result)
 
         return result

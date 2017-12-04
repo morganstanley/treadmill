@@ -23,7 +23,8 @@ _DEFAULT_WATCHDOG_TIMEOUT = '30s'
 
 
 class Watchdog(object):
-    """Simple file based watchdog system."""
+    """Simple file based watchdog system.
+    """
 
     WATCHDOG_NAME_RE = re.compile(r'^(?P<name>(?:\w+[#:\.\-@]*)*\w+)$')
     WATCHDOG_DURATION_RE = re.compile(r'^(?P<duration>[0-9]{1,3}[smhd])$')
@@ -123,8 +124,7 @@ class Watchdog(object):
             self.filename = os.path.join(basedir, name)
 
             _LOGGER.debug('Setting up watchdog: %r', self)
-            self._write(timeout_at=time.time() + self.timeout,
-                        overwrite=False)
+            self._write(timeout_at=(time.time() + self.timeout))
 
         def __hash__(self):
             return hash(self.filename)
@@ -132,24 +132,25 @@ class Watchdog(object):
         def __eq__(self, other):
             return self.filename == other.filename
 
-        def _write(self, timeout_at, overwrite=True):
-            """Setup the watchdog's lease file."""
+        def _write(self, timeout_at):
+            """Setup the watchdog's lease file.
+            """
+            dirname = os.path.dirname(self.filename)
+            filename = os.path.basename(self.filename)
 
-            if overwrite or not os.path.exists(self.filename):
-                dirname = os.path.dirname(self.filename)
-                filename = os.path.basename(self.filename)
-
-                fs.mkdir_safe(dirname)
-                fs.write_safe(
-                    self.filename,
-                    lambda f: f.write(self.content),
-                    prefix='.' + filename,
-                    permission=0o600
-                )
-                os.utime(self.filename, (timeout_at, timeout_at))
+            fs.mkdir_safe(dirname)
+            fs.write_safe(
+                self.filename,
+                lambda f: f.write(self.content),
+                prefix='.' + filename,
+                mode='w',
+                permission=0o600
+            )
+            os.utime(self.filename, (timeout_at, timeout_at))
 
         def heartbeat(self):
-            """Renew a watchdog for one timeout."""
+            """Renew a watchdog for one timeout.
+            """
             timeout_at = time.time() + self.timeout
 
             try:
@@ -163,19 +164,18 @@ class Watchdog(object):
                     raise
 
         def remove(self):
-            """Remove a watchdog."""
+            """Remove a watchdog.
+            """
             _LOGGER.debug('Clear watchdog: %r:%s', self.name, self.timeout)
             try:
                 os.unlink(self.filename)
 
             except OSError as err:
-                if err.errno == errno.ENOENT:
-                    _LOGGER.warning('Lost lease file: %r', self.filename)
-                else:
+                if err.errno != errno.ENOENT:
                     raise
 
         def __repr__(self):
-            return "<{cls}: {name}:{timeout}>".format(
+            return '<{cls}: {name}:{timeout}>'.format(
                 cls=self.__class__.__name__,
                 name=self.name,
                 timeout=self.timeout
@@ -206,7 +206,8 @@ class Watchdog(object):
 
     @staticmethod
     def _duration_to_secs(duration):
-        """Convert all duration specifications into seconds."""
+        """Convert all duration specifications into seconds.
+        """
         secs = int(duration[:-1])
         if duration[-1] == 's':
             pass

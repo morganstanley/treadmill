@@ -9,8 +9,9 @@ from __future__ import unicode_literals
 import click
 
 from treadmill import context
-from treadmill import master
 from treadmill import scheduler
+from treadmill.scheduler import master
+from treadmill.scheduler import zkbackend
 
 
 def init():
@@ -21,9 +22,11 @@ def init():
     def run(events_dir):
         """Run Treadmill master scheduler."""
         scheduler.DIMENSION_COUNT = 3
-        cell_master = master.Master(context.GLOBAL.zk.conn,
-                                    context.GLOBAL.cell,
-                                    events_dir)
+        cell_master = master.Master(
+            zkbackend.ZkBackend(context.GLOBAL.zk.conn),
+            context.GLOBAL.cell,
+            events_dir
+        )
         cell_master.run()
 
     return run

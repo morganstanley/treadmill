@@ -8,9 +8,10 @@ from __future__ import absolute_import
 
 import logging
 import sys
-import urllib
 
 import click
+
+from six.moves import urllib_parse
 
 from treadmill import cli
 from treadmill import context
@@ -28,6 +29,8 @@ _RC_ABORTED = 101
 
 _RC_KILLED = 102
 
+_RC_NO_TRACES = 103
+
 
 def _trace_loop(ctx, app, snapshot):
     """Instance trace loop."""
@@ -35,6 +38,11 @@ def _trace_loop(ctx, app, snapshot):
     trace_printer = printer.AppTracePrinter()
 
     rc = {'rc': _RC_DEFAULT_EXIT}
+
+    if not snapshot:
+        click.echo(
+            '# No trace information yet, waiting...\r', nl=False, err=True
+        )
 
     def on_message(result):
         """Callback to process trace message."""
@@ -119,6 +127,7 @@ def init():
 
             101 - container was aborted.
             102 - container was killed (possible out of memory)
+            103 - no trace information
             100 - everything else.
         """
         # Disable too many branches.
@@ -130,7 +139,7 @@ def init():
         if '#' not in app:
             apis = context.GLOBAL.state_api(ctx['api'])
             url = '/state/?finished=1&match={app}'.format(
-                app=urllib.quote(app)
+                app=urllib_parse.quote(app)
             )
 
             try:
@@ -142,7 +151,7 @@ def init():
 
             if not app_states:
                 click.echo('# Trace information does not exist.', err=True)
-                return
+                sys.exit(_RC_NO_TRACES)
 
             elif not last:
                 for name in [app['name'] for app in app_states]:

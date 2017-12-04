@@ -65,8 +65,8 @@ class ExistingDataWatch(object):
         """Callable version for use as a decorator"""
         if self._used:
             raise kazoo.exceptions.KazooException(
-                "A function has already been associated with this "
-                "ExistingDataWatch instance.")
+                'A function has already been associated with this '
+                'ExistingDataWatch instance.')
 
         self._func = func
 

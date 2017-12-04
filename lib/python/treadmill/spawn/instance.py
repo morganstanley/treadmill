@@ -49,7 +49,7 @@ class Instance(object):
         docs = []
 
         try:
-            stream = io.open(self.manifest_path, "r")
+            stream = io.open(self.manifest_path, 'r')
             manifest_contents = stream.read()
             generator = yaml.load_all(manifest_contents)
 
@@ -60,7 +60,7 @@ class Instance(object):
             return
 
         if len(docs) < 2:
-            _LOGGER.error("YAML file needs to contain 2 docs")
+            _LOGGER.error('YAML file needs to contain 2 docs')
             return
 
         self.settings.update(docs[0])

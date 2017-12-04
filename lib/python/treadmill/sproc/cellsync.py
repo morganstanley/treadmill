@@ -14,46 +14,76 @@ import click
 
 from treadmill import admin
 from treadmill import context
-from treadmill import master
+from treadmill import utils
 from treadmill import zknamespace as z
 from treadmill import zkutils
+from treadmill.scheduler import masterapi
 
 _LOGGER = logging.getLogger(__name__)
 
 
-def _remove_id(entity):
-    """Remove _id from the payload.
+def _match_appgroup(group):
+    """Match if appgroup belongs to the cell.
     """
-    del entity['_id']
+    return context.GLOBAL.cell in group.get('cells', [])
 
 
 def _sync_collection(zkclient, entities, zkpath, match=None):
-    """Syncs ldap collection to Zookeeper.
+    """Sync ldap collection to Zookeeper.
     """
     _LOGGER.info('Sync: %s', zkpath)
-
     zkclient.ensure_path(zkpath)
 
     in_zk = zkclient.get_children(zkpath)
-    names = [entity['_id'] for entity in entities]
 
+    to_sync = {}
     for entity in entities:
-        _remove_id(entity)
+        name = entity.pop('_id')
+        if match and not match(entity):
+            _LOGGER.debug('Skip: %s', name)
+            continue
+        to_sync[name] = entity
+
+    for to_del in set(in_zk) - set(to_sync):
+        _LOGGER.info('Delete: %s', to_del)
+        zkutils.ensure_deleted(zkclient, z.join_zookeeper_path(zkpath, to_del))
+
+    # Add or update current app-groups
+    for name, entity in to_sync.items():
+        if zkutils.put(zkclient, z.join_zookeeper_path(zkpath, name),
+                       entity, check_content=True):
+            _LOGGER.info('Update: %s', name)
+        else:
+            _LOGGER.info('Up to date: %s', name)
+
+
+def _sync_partitions(zkclient, entities):
+    """Syncs partitions to Zookeeper.
+    """
+    _LOGGER.info('Sync: %s', z.path.partition())
+
+    zkclient.ensure_path(z.path.partition())
+
+    in_zk = zkclient.get_children(z.path.partition())
+    names = [entity['_id'] for entity in entities]
 
     for extra in set(in_zk) - set(names):
         _LOGGER.debug('Delete: %s', extra)
-        zkutils.ensure_deleted(zkclient, z.join_zookeeper_path(zkpath, extra))
+        zkutils.ensure_deleted(zkclient, z.path.partition(extra))
 
-    # Add or update current app-groups
-    for name, entity in zip(names, entities):
-        zkname = name
-        if match:
-            zkname = match(name, entity)
-            if not zkname:
-                _LOGGER.debug('Skip: %s', name)
-                continue
+    # Add or update current partitions
+    for entity in entities:
+        zkname = entity['_id']
 
-        if zkutils.put(zkclient, z.join_zookeeper_path(zkpath, zkname),
+        if 'reboot-schedule' in entity:
+            try:
+                entity['reboot-schedule'] = utils.reboot_schedule(
+                    entity['reboot-schedule']
+                )
+            except ValueError:
+                _LOGGER.info('Invalid reboot schedule, ignoring.')
+
+        if zkutils.put(zkclient, z.path.partition(zkname),
                        entity, check_content=True):
             _LOGGER.info('Update: %s', zkname)
         else:
@@ -69,32 +99,23 @@ def _sync_allocations(zkclient, allocations):
         name, _cell = alloc['_id'].rsplit('/', 1)
         alloc['name'] = name
         filtered.append(alloc)
-    master.update_allocations(zkclient, filtered)
+    masterapi.update_allocations(zkclient, filtered)
 
 
 def _run_sync():
     """Sync Zookeeper with LDAP, runs with lock held.
     """
-    def match_appgroup(name, group):
-        """Match if appgroup belongs to the cell.
-        """
-        if context.GLOBAL.cell in group.get('cells', []):
-            return name
-        else:
-            return None
-
     while True:
         # Sync app groups
         admin_app_group = admin.AppGroup(context.GLOBAL.ldap.conn)
         app_groups = admin_app_group.list({})
         _sync_collection(context.GLOBAL.zk.conn,
-                         app_groups, z.path.appgroup(), match_appgroup)
+                         app_groups, z.path.appgroup(), _match_appgroup)
 
         # Sync partitions
         admin_cell = admin.Cell(context.GLOBAL.ldap.conn)
         partitions = admin_cell.partitions(context.GLOBAL.cell)
-        _sync_collection(context.GLOBAL.zk.conn,
-                         partitions, z.path.partition())
+        _sync_partitions(context.GLOBAL.zk.conn, partitions)
 
         # Sync allocations.
         admin_alloc = admin.CellAllocation(context.GLOBAL.ldap.conn)
@@ -116,11 +137,11 @@ def _run_sync():
         # from the plugin.
         try:
             servers_plugin = importlib.import_module(
-                'treadmill.plugins.sproc.servers')
+                'treadmill.ms.plugins.sproc.servers')
             servers_plugin.init()
         except ImportError as err:
             _LOGGER.warning(
-                'Unable to load treadmill.plugins.sproc.servers: %s',
+                'Unable to load treadmill.ms.plugins.sproc.servers: %s',
                 err
             )
 

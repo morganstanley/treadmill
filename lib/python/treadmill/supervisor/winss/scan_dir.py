@@ -22,6 +22,7 @@ class ScanDir(_scan_dir_base.ScanDir):
 
     __slots__ = (
         '_finish',
+        '_sigterm',
     )
 
     _CONTROL_DIR = '.winss-svscan'
@@ -36,6 +37,10 @@ class ScanDir(_scan_dir_base.ScanDir):
     @property
     def _finish_file(self):
         return os.path.join(self._control_dir, 'finish')
+
+    @property
+    def _sigterm_file(self):
+        return os.path.join(self._control_dir, 'SIGTERM')
 
     def write(self):
         """Write down the service definition.

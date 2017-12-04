@@ -12,6 +12,7 @@ import unittest
 import tests.treadmill_test_deps  # pylint: disable=W0611
 
 import jsonschema
+import six
 
 from treadmill.websocket.api import state
 
@@ -78,9 +79,10 @@ class WSScheduledAPITest(unittest.TestCase):
                            'filter': '*'})
         )
 
-        with self.assertRaisesRegexp(  # pylint: disable=deprecated-method
+        with six.assertRaisesRegex(
+            self,
             jsonschema.exceptions.ValidationError,
-            "'foo!' does not match"
+            'u?\'foo!\' does not match'
         ):
             api.subscribe({'topic': '/scheduled',
                            'filter': 'foo!'})

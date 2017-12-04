@@ -1,4 +1,6 @@
-"""Implementation of allocation API."""
+"""Implementation of allocation API.
+"""
+
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
@@ -6,10 +8,11 @@ from __future__ import unicode_literals
 
 from collections import defaultdict
 import logging
-import ldap3
+
+from ldap3.core import exceptions as ldap_exceptions
+import six
 
 from treadmill import admin
-from treadmill import authz
 from treadmill import context
 from treadmill import exc
 from treadmill import schema
@@ -22,7 +25,8 @@ _DEFAULT_RANK = 100
 
 
 def _set_auth_resource(cls, resource):
-    """Set auth resource name for CRUD methods of the class."""
+    """Set auth resource name for CRUD methods of the class.
+    """
     for method_name in ['get', 'create', 'update', 'delete']:
         method = getattr(cls, method_name, None)
         if method:
@@ -30,30 +34,37 @@ def _set_auth_resource(cls, resource):
 
 
 def _reservation_list(allocs, cell_allocs):
-    """Combine allocations and reservations into single list."""
-    name2alloc = {alloc['_id']: defaultdict(list, alloc) for alloc in allocs}
+    """Combine allocations and reservations into single list.
+    """
+    name2alloc = {
+        alloc['_id']: defaultdict(list, alloc)
+        for alloc in allocs
+    }
     for alloc in cell_allocs:
         name = '/'.join(alloc['_id'].split('/')[:2])
         name2alloc[name]['reservations'].append(alloc)
 
-    return name2alloc.values()
+    return list(six.itervalues(name2alloc))
 
 
 def _admin_partition():
-    """Lazily return admin partition object."""
+    """Lazily return admin partition object.
+    """
     return admin.Partition(context.GLOBAL.ldap.conn)
 
 
 def _admin_cell_alloc():
-    """Lazily return admin cell allocation object."""
+    """Lazily return admin cell allocation object.
+    """
     return admin.CellAllocation(context.GLOBAL.ldap.conn)
 
 
 def _partition_free(partition, cell):
-    """Calculate free capacity for given partition."""
+    """Calculate free capacity for given partition.
+    """
     try:
         part_obj = _admin_partition().get([partition, cell])
-    except ldap3.LDAPNoSuchObjectResult:
+    except ldap_exceptions.LDAPNoSuchObjectResult:
         # pretend partition has zero capacity
         part_obj = {'cpu': '0%', 'memory': '0G', 'disk': '0G'}
 
@@ -72,12 +83,13 @@ def _partition_free(partition, cell):
 
 
 def _check_capacity(cell, allocation, rsrc):
-    """Check that there is enough free space for the allocation."""
+    """Check that there is enough free space for the allocation.
+    """
     try:
         old = _admin_cell_alloc().get([cell, allocation])
         if old['partition'] != rsrc['partition']:
             old = {'cpu': '0%', 'memory': '0G', 'disk': '0G'}
-    except ldap3.LDAPNoSuchObjectResult:
+    except ldap_exceptions.LDAPNoSuchObjectResult:
         old = {'cpu': '0%', 'memory': '0G', 'disk': '0G'}
 
     free = _partition_free(rsrc['partition'], cell)
@@ -99,7 +111,8 @@ def _check_capacity(cell, allocation, rsrc):
 
 
 def _api_plugins(initialized):
-    """Return api  plugins."""
+    """Return api  plugins.
+    """
     if initialized is not None:
         return initialized
 
@@ -111,20 +124,24 @@ def _api_plugins(initialized):
 
 
 class API(object):
-    """Treadmill Allocation REST api."""
+    """Treadmill Allocation REST api.
+    """
 
     def __init__(self):
 
         def _admin_alloc():
-            """Lazily return admin allocation object."""
+            """Lazily return admin allocation object.
+            """
             return admin.Allocation(context.GLOBAL.ldap.conn)
 
         def _admin_tnt():
-            """Lazily return admin tenant object."""
+            """Lazily return admin tenant object.
+            """
             return admin.Tenant(context.GLOBAL.ldap.conn)
 
         def _list(tenant_id=None):
-            """List allocations."""
+            """List allocations.
+            """
             if tenant_id is None:
                 admin_alloc = _admin_alloc()
                 admin_cell_alloc = _admin_cell_alloc()
@@ -137,14 +154,16 @@ class API(object):
 
         @schema.schema({'$ref': 'allocation.json#/resource_id'})
         def get(rsrc_id):
-            """Get allocation configuration."""
+            """Get allocation configuration.
+            """
             return _admin_alloc().get(rsrc_id)
 
         @schema.schema({'$ref': 'allocation.json#/resource_id'},
                        {'allOf': [{'$ref': 'allocation.json#/resource'},
                                   {'$ref': 'allocation.json#/verbs/create'}]})
         def create(rsrc_id, rsrc):
-            """Create allocation."""
+            """Create allocation.
+            """
             _admin_alloc().create(rsrc_id, rsrc)
             return _admin_alloc().get(rsrc_id)
 
@@ -152,18 +171,21 @@ class API(object):
                        {'allOf': [{'$ref': 'allocation.json#/resource'},
                                   {'$ref': 'allocation.json#/verbs/update'}]})
         def update(rsrc_id, rsrc):
-            """Update allocation."""
+            """Update allocation.
+            """
             _admin_alloc().update(rsrc_id, rsrc)
             return _admin_alloc().get(rsrc_id)
 
         @schema.schema({'$ref': 'allocation.json#/resource_id'})
         def delete(rsrc_id):
-            """Delete allocation."""
+            """Delete allocation.
+            """
             _admin_alloc().delete(rsrc_id)
             return None
 
         class _ReservationAPI(object):
-            """Reservation API."""
+            """Reservation API.
+            """
 
             def __init__(self):
 
@@ -171,7 +193,8 @@ class API(object):
 
                 @schema.schema({'$ref': 'reservation.json#/resource_id'})
                 def get(rsrc_id):
-                    """Get reservation configuration."""
+                    """Get reservation configuration.
+                    """
                     allocation, cell = rsrc_id.rsplit('/', 1)
                     inst = _admin_cell_alloc().get([cell, allocation])
                     if inst is None:
@@ -189,7 +212,8 @@ class API(object):
                                {'$ref': 'reservation.json#/verbs/create'}]}
                 )
                 def create(rsrc_id, rsrc):
-                    """Create reservation."""
+                    """Create reservation.
+                    """
                     allocation, cell = rsrc_id.rsplit('/', 1)
                     _check_capacity(cell, allocation, rsrc)
                     if 'rank' not in rsrc:
@@ -208,7 +232,8 @@ class API(object):
                                {'$ref': 'reservation.json#/verbs/create'}]}
                 )
                 def update(rsrc_id, rsrc):
-                    """Create reservation."""
+                    """Create reservation.
+                    """
                     allocation, cell = rsrc_id.rsplit('/', 1)
                     _check_capacity(cell, allocation, rsrc)
                     _admin_cell_alloc().update([cell, allocation], rsrc)
@@ -216,7 +241,8 @@ class API(object):
 
                 @schema.schema({'$ref': 'reservation.json#/resource_id'})
                 def delete(rsrc_id):
-                    """Delete reservation."""
+                    """Delete reservation.
+                    """
                     allocation, cell = rsrc_id.rsplit('/', 1)
                     return _admin_cell_alloc().delete([cell, allocation])
 
@@ -229,13 +255,15 @@ class API(object):
                 _set_auth_resource(self, 'reservation')
 
         class _AssignmentAPI(object):
-            """Assignment API."""
+            """Assignment API.
+            """
 
             def __init__(self):
 
                 @schema.schema({'$ref': 'assignment.json#/resource_id'})
                 def get(rsrc_id):
-                    """Get assignment configuration."""
+                    """Get assignment configuration.
+                    """
                     allocation, cell, _pattern = rsrc_id.rsplit('/', 2)
                     return _admin_cell_alloc().get(
                         [cell, allocation]).get('assignments', [])
@@ -246,7 +274,8 @@ class API(object):
                                {'$ref': 'assignment.json#/verbs/create'}]}
                 )
                 def create(rsrc_id, rsrc):
-                    """Create assignment."""
+                    """Create assignment.
+                    """
                     allocation, cell, pattern = rsrc_id.rsplit('/', 2)
                     priority = rsrc.get('priority', 0)
                     _admin_cell_alloc().create(
@@ -263,7 +292,8 @@ class API(object):
                                {'$ref': 'assignment.json#/verbs/update'}]}
                 )
                 def update(rsrc_id, rsrc):
-                    """Update assignment."""
+                    """Update assignment.
+                    """
                     allocation, cell, pattern = rsrc_id.rsplit('/', 2)
                     priority = rsrc.get('priority', 0)
                     _admin_cell_alloc().update(
@@ -276,7 +306,8 @@ class API(object):
 
                 @schema.schema({'$ref': 'assignment.json#/resource_id'})
                 def delete(rsrc_id):
-                    """Delete assignment."""
+                    """Delete assignment.
+                    """
                     allocation, cell, pattern = rsrc_id.rsplit('/', 2)
                     _admin_cell_alloc().update(
                         [cell, allocation],
@@ -301,9 +332,3 @@ class API(object):
         self.delete = delete
         self.reservation = _ReservationAPI()
         self.assignment = _AssignmentAPI()
-
-
-def init(authorizer):
-    """Returns module API wrapped with authorizer function."""
-    api = API()
-    return authz.wrap(api, authorizer)

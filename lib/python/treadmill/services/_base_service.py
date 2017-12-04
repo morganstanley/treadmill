@@ -17,7 +17,6 @@ import io
 import logging
 import os
 import select
-import shutil
 import socket
 import struct
 import tempfile
@@ -34,7 +33,7 @@ from treadmill import watchdog
 from treadmill import yamlwrapper as yaml
 from treadmill.syscall import eventfd
 
-_LOGGER = lc.ContainerAdapter(logging.getLogger(__name__))
+_LOGGER = logging.getLogger(__name__)
 
 #: Name of the directory holding the resources requests
 _RSRC_DIR = 'resources'
@@ -46,7 +45,7 @@ _REP_FILE = 'reply.yml'
 _STATUS_SOCK = 'status.sock'
 
 
-def _wait_for_file(filename, timeout=60*60):
+def _wait_for_file(filename, timeout=None):
     """Wait at least ``timeout`` seconds for a file to appear or be modified.
 
     :param ``int`` timeout:
@@ -55,7 +54,7 @@ def _wait_for_file(filename, timeout=60*60):
         ``True`` if there was an event, ``False`` otherwise (timeout).
     """
     if timeout is None:
-        timeout = 60*60
+        timeout = 60 * 60
 
     elif timeout == 0:
         return os.path.exists(filename)
@@ -168,7 +167,7 @@ class ResourceServiceClient(object):
                 except OSError:
                     # Error registration failed, delete the request.
                     _LOGGER.exception('Unable to submit request')
-                    shutil.rmtree(req_dir)
+                    fs.rmtree_safe(req_dir)
 
             else:
                 self._serviceinst.clt_update_request(svc_req_uuid)
@@ -179,7 +178,8 @@ class ResourceServiceClient(object):
         :param `str` rsrc_id:
             Unique identifier for the requested resource.
         """
-        with lc.LogContext(_LOGGER, rsrc_id) as log:
+        with lc.LogContext(_LOGGER, rsrc_id,
+                           adapter_cls=lc.ContainerAdapter) as log:
             req_dir = self._req_dirname(rsrc_id)
             try:
                 with io.open(os.path.join(req_dir, self._REQ_UID_FILE)) as f:
@@ -468,7 +468,7 @@ class ResourceService(object):
             base_event_handlers + impl_event_handlers,
         )
 
-        loop_timeout = impl.WATCHDOG_HEARTBEAT_SEC/2
+        loop_timeout = impl.WATCHDOG_HEARTBEAT_SEC // 2
         while not self._is_dead:
 
             # Check for events
@@ -529,7 +529,7 @@ class ResourceService(object):
 
         try:
             # poll timeout is in milliseconds
-            for (fd, _event) in loop_poll.poll(loop_timeout*1000):
+            for (fd, _event) in loop_poll.poll(loop_timeout * 1000):
                 fd_data = loop_callbacks[fd]
                 _LOGGER.debug('Event on %r: %r', fd, fd_data)
                 pending_callbacks.append(
@@ -560,10 +560,11 @@ class ResourceService(object):
         def _normalize_fd(filedescriptor):
             """Return the fd number or filedescriptor.
             """
-            if not isinstance(filedescriptor, int):
-                fd = filedescriptor.fileno()
-            else:
+            if isinstance(filedescriptor, int):
+                # Already a fd number. Use that.
                 fd = filedescriptor
+            else:
+                fd = filedescriptor.fileno()
             return fd
 
         handlers = [
@@ -584,7 +585,7 @@ class ResourceService(object):
                 _LOGGER.debug('Updated %r: %r', fd, fd_data)
 
         all_fds = set(handler[0] for handler in handlers)
-        for fd in poll_callbacks.keys():
+        for fd in list(poll_callbacks.keys()):
             if fd not in all_fds:
                 _LOGGER.debug('Unregistered %r: %r', fd, poll_callbacks[fd])
                 poll.unregister(fd)
@@ -748,7 +749,13 @@ class ResourceService(object):
             if (err.errno == errno.ENOENT or
                     err.errno == errno.ENOTDIR):
                 _LOGGER.exception('Removing invalid request: %r', req_id)
-                fs.rm_safe(filepath)
+                try:
+                    fs.rm_safe(filepath)
+                except OSError as rm_err:
+                    if rm_err.errno == errno.EISDIR:
+                        fs.rmtree_safe(filepath)
+                    else:
+                        raise
                 return
             raise
 
@@ -778,6 +785,7 @@ class ResourceService(object):
                 res, explicit_start=True, explicit_end=True,
                 default_flow_style=False, stream=f
             ),
+            mode='w',
             permission=0o644
         )
         # Return True if there were no error

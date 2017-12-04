@@ -42,7 +42,7 @@ def checksum_dir(path):
                     '{src} -> {dst}'.format(
                         src=fullpath[path_len:],
                         dst=os.readlink(fullpath)
-                    )
+                    ).encode()
                 )
                 # NOTE(boysson): we could os.lstat the link too. Not sure if
                 #                this is worth it.
@@ -56,7 +56,7 @@ def checksum_dir(path):
                         size=stat.st_size,
                         mtime=stat.st_mtime,
                         ctime=stat.st_ctime,
-                    )
+                    ).encode()
                 )
                 # Calculating full checksum on content is slow.
                 # with open(fullpath) as f:
@@ -69,7 +69,7 @@ def checksum_dir(path):
                     '{src} -> {dst}'.format(
                         src=fullpath[path_len:],
                         dst=os.readlink(fullpath)
-                    )
+                    ).encode()
                 )
 
     return checksum

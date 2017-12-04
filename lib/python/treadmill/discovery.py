@@ -114,6 +114,7 @@ class Discovery(object):
         fullpath = z.join_zookeeper_path(z.ENDPOINTS, self.prefix, endpoint)
         try:
             hostport, _metadata = self.zkclient.get(fullpath)
+            hostport = hostport.decode()
         except kazoo.exceptions.NoNodeError:
             hostport = None
 
@@ -121,7 +122,8 @@ class Discovery(object):
 
 
 def iterator(zkclient, pattern, endpoint, watch):
-    """Returns app discovery iterator based on native zk discovery."""
+    """Returns app discovery iterator based on native zk discovery.
+    """
     app_discovery = Discovery(zkclient, pattern, endpoint)
     app_discovery.sync(watch)
     if not watch:

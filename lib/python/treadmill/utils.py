@@ -12,16 +12,15 @@ import errno
 import functools
 import hashlib
 import io
+import json
 import locale
 import logging
 import os
-import pkgutil
 import signal
 import stat
 import sys
 import tempfile
 import time
-import urllib
 
 # Pylint warning re string being deprecated
 #
@@ -34,10 +33,15 @@ if os.name != 'nt':
 else:
     # Pylint warning unable to import because it is on Windows only
     import win32api  # pylint: disable=E0401
+    import win32con  # pylint: disable=E0401
     import win32security  # pylint: disable=E0401
 
+# disable standard import "import ipaddress" comes before "import win32api"
+import ipaddress  # pylint: disable=C0411
 import jinja2
 import six
+
+from six.moves import urllib_parse
 
 if six.PY2 and os.name == 'posix':
     import subprocess32 as subprocess  # pylint: disable=import-error
@@ -93,13 +97,25 @@ def create_script(filename, templatename, mode=EXEC_MODE, **kwargs):
         key/value passed into the template.
     """
     filepath = os.path.dirname(filename)
-    with tempfile.NamedTemporaryFile(dir=filepath, delete=False) as f:
+    with tempfile.NamedTemporaryFile(dir=filepath,
+                                     delete=False,
+                                     mode='w') as f:
         for data in generate_template(templatename, **kwargs):
             f.write(data)
         if os.name == 'posix':
             # cast to int required in order for default EXEC_MODE to work
             os.fchmod(f.fileno(), int(mode))
-    os.rename(f.name, filename)
+    if sys.version_info[0] < 3:
+        # TODO: os.rename cannot replace on windows
+        # (use os.replace in python 3.4)
+        # copied from fs as utils cannot have this dependency
+        if os.name == 'nt':
+            win32api.MoveFileEx(f.name, filename,
+                                win32con.MOVEFILE_REPLACE_EXISTING)
+        else:
+            os.rename(f.name, filename)
+    else:
+        os.replace(f.name, filename)
 
 
 def ip2int(ip_addr):
@@ -130,7 +146,7 @@ def to_obj(value, name='struct'):
         return [to_obj(item) for item in value]
     elif isinstance(value, dict):
         return collections.namedtuple(name, value.keys())(
-            *[to_obj(v, k) for k, v in value.iteritems()])
+            *[to_obj(v, k) for k, v in six.iteritems(value)])
     else:
         return value
 
@@ -138,8 +154,11 @@ def to_obj(value, name='struct'):
 def get_iterable(obj):
     """Gets an iterable from either a list or a single value.
     """
-    if (isinstance(obj, collections.Iterable)
-            and not isinstance(obj, six.string_types)):
+    if obj is None:
+        return ()
+
+    if (isinstance(obj, collections.Iterable) and
+            not isinstance(obj, six.string_types)):
         return obj
     else:
         return (obj,)
@@ -178,13 +197,6 @@ def rootdir():
         return os.environ['TREADMILL']
     else:
         raise Exception('Must have TREADMILL env variable.')
-
-
-def distro():
-    """Returns root of the codebase."""
-    # TODO: can this replace rootdir() ?
-    return os.path.realpath(
-        os.path.join(os.path.dirname(__file__), '../../..'))
 
 
 def touch(filename):
@@ -248,9 +260,9 @@ def size_to_bytes(size):
 
         from treadmill.utils import size_to_bytes
 
-    >>> size_to_bytes("1KB")
+    >>> size_to_bytes('1KB')
     1000
-    >>> size_to_bytes("1K")
+    >>> size_to_bytes('1K')
     1024
     """
     if isinstance(size, six.string_types):
@@ -292,6 +304,17 @@ def kilobytes(value):
 def megabytes(value):
     """Converts values with M/K/G suffix info numeric in Mbytes"""
     return kilobytes(value) // 1024
+
+
+def reboot_schedule(value):
+    """Parse reboot schedule spec.
+
+    The reboot schedule format is list of weekdays when reboot can
+    happen. For example "sat,sun" would mean reboot on weekends.
+    """
+    days = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']
+
+    return [days.index(d) for d in value.lower().split(',')]
 
 
 def validate(struct, schema):
@@ -355,13 +378,13 @@ def bytes_to_readable(num, power='M'):
 def cpu_to_readable(num):
     """Converts CPU % into readable number."""
     locale.setlocale(locale.LC_ALL, ('en_US', sys.getdefaultencoding()))
-    return locale.format("%d", num, grouping=True)
+    return locale.format('%d', num, grouping=True)
 
 
 def cpu_to_cores_readable(num):
     """Converts CPU % into number of abstract cores."""
     locale.setlocale(locale.LC_ALL, ('en_US', sys.getdefaultencoding()))
-    return locale.format("%.2f", num / 100.0, grouping=True)
+    return locale.format('%.2f', num / 100.0, grouping=True)
 
 
 def ratio_to_readable(value):
@@ -389,7 +412,7 @@ def tail_stream(stream, nlines=10):
     # N lines.
     stream.seek(0, 2)
     fsize = stream.tell()
-    stream.seek(max(fsize-1024, 0), 0)
+    stream.seek(max(0, fsize - 1024), 0)
     lines = stream.readlines()
     return lines[-nlines:]
 
@@ -411,7 +434,7 @@ def datetime_utcnow():
 
 def strftime_utc(epoch):
     """Convert seconds from epoch into UTC time string."""
-    return time.strftime("%a, %d %b %Y %H:%M:%S+0000", time.gmtime(epoch))
+    return time.strftime('%a, %d %b %Y %H:%M:%S+0000', time.gmtime(epoch))
 
 
 def to_base_n(num, base=None, alphabet=None):
@@ -479,7 +502,7 @@ def report_ready():
         with io.open('notification-fd') as f:
             try:
                 fd = int(f.readline())
-                os.write(fd, 'ready\n')
+                os.write(fd, b'ready\n')
                 os.close(fd)
             except OSError:
                 _LOGGER.exception('Cannot read notification-fd')
@@ -529,6 +552,24 @@ _SIG2NAME = _setup_sigs()
 del _setup_sigs
 
 
+def cidr_range(start_ip, end_ip):
+    """
+    Generate cidr coverage of the ip range
+    :param start_ip: number or string or IPv4Address
+    :param end_ip: number or string or IPv4Address
+    """
+    if isinstance(start_ip, str):
+        start_ip = str(start_ip)
+    if isinstance(end_ip, str):
+        end_ip = str(end_ip)
+    return list(
+        ipaddress.summarize_address_range(
+            ipaddress.IPv4Address(start_ip),
+            ipaddress.IPv4Address(end_ip)
+        )
+    )
+
+
 def signal2name(num):
     """Convert signal number to signal name."""
     return _SIG2NAME.get(num, num)
@@ -563,21 +604,6 @@ def compose(*funcs):
     return lambda x: six.moves.reduce(lambda v, f: f(v), reversed(funcs), x)
 
 
-def modules_in_pkg(pkg):
-    """Get the modules in the provided package
-
-    :param pkg: the full package
-    :type pkg: module
-    """
-    modules = []
-    for _importer, modname, ispkg in pkgutil.walk_packages(pkg.__path__):
-        if ispkg:
-            continue
-        modules.append(modname)
-
-    return modules
-
-
 def equals_list2dict(equals_list):
     """Converts an array of key/values seperated by = to dict"""
     return dict(entry.split('=') for entry in equals_list)
@@ -585,7 +611,7 @@ def equals_list2dict(equals_list):
 
 def encode_uri_parts(path):
     """Encode URI path components"""
-    return '/'.join([urllib.quote(part) for part in path.split('/')])
+    return '/'.join([urllib_parse.quote(part) for part in path.split('/')])
 
 
 # R0912(too-many-branches): Too many branches (13/12)
@@ -599,7 +625,7 @@ def which(cmd, mode=os.F_OK | os.X_OK, path=None):
     file.
 
     `mode` defaults to os.F_OK | os.X_OK. `path` defaults to the result
-    of os.environ.get("PATH"), or can be overridden with a custom search
+    of os.environ.get('PATH'), or can be overridden with a custom search
     path.
 
     """
@@ -607,8 +633,9 @@ def which(cmd, mode=os.F_OK | os.X_OK, path=None):
     # Additionally check that `file` is not a directory, as on Windows
     # directories pass the os.access check.
     def _access_check(filename, mode):
-        return (os.path.exists(filename) and os.access(filename, mode)
-                and not os.path.isdir(filename))
+        return (os.path.exists(filename) and
+                os.access(filename, mode) and
+                not os.path.isdir(filename))
 
     # If we're given a path with a directory part, look it up directly rather
     # than referring to PATH directories. This includes checking relative to
@@ -619,18 +646,18 @@ def which(cmd, mode=os.F_OK | os.X_OK, path=None):
         return None
 
     if path is None:
-        path = os.environ.get("PATH", os.defpath)
+        path = os.environ.get('PATH', os.defpath)
     if not path:
         return None
     path = path.split(os.pathsep)
 
-    if sys.platform == "win32":
+    if sys.platform == 'win32':
         # The current directory takes precedence on Windows.
         if os.curdir not in path:
             path.insert(0, os.curdir)
 
         # PATHEXT is necessary to check on Windows.
-        pathext = os.environ.get("PATHEXT", "").split(os.pathsep)
+        pathext = os.environ.get('PATHEXT', '').split(os.pathsep)
         # See if the given file matches any of the expected path extensions.
         # This will allow us to short circuit when given "python.exe".
         # If it does match, only test that one, otherwise we have to try
@@ -678,8 +705,8 @@ if sys.platform == 'win32':
     _SIGNALS = {signal.SIGABRT, signal.SIGFPE, signal.SIGILL, signal.SIGINT,
                 signal.SIGSEGV, signal.SIGTERM, signal.SIGBREAK}
 else:
-    _SIGNALS = (set(range(1, signal.NSIG))
-                - {signal.SIGKILL, signal.SIGSTOP, 32, 33})
+    _SIGNALS = (set(range(1, signal.NSIG)) -
+                {signal.SIGKILL, signal.SIGSTOP, 32, 33})
 
 
 def sane_execvp(filename, args, close_fds=True, restore_signals=True):
@@ -715,3 +742,25 @@ def exit_on_unhandled(func):
             sys_exit(-1)
 
     return _wrap
+
+
+def json_genencode(obj, indent=None):
+    """JSON encoder that returns an UTF-8 JSON data generator.
+
+    :returns
+        ``generator`` - Generator of JSON unicode data chunks.
+    """
+    encoder = json.JSONEncoder(
+        skipkeys=False,
+        ensure_ascii=True,
+        check_circular=True,
+        allow_nan=True,
+        indent=indent,
+        separators=None,
+        default=None,
+    )
+
+    return (
+        six.text_type(chunk)
+        for chunk in encoder.iterencode(obj)
+    )

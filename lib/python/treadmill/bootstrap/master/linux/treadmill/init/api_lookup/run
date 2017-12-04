@@ -1,9 +1,12 @@
-#!/bin/sh
-#
-# Starts api_lookup.
-#
+#!{{ _alias.execlineb }} -P
 
-exec 2>&1
+{{ _alias.redirfd }} -r 0 /dev/null
+{{ _alias.fdmove }} -c 2 1
 
-exec {{ s6 }}/bin/s6-setuidgid {{ treadmillid }} \
-    {{ treadmill }}/bin/treadmill sproc restapi -m api-lookup -c '.*' -p 5800
+{{ _alias.s6_envdir }} -i -- /treadmill/env
+{{ _alias.s6_setuidgid }} {{ treadmillid }}
+{{ _alias.s6_envdir }} -i -- ./env
+
+# Change directory into the data directory and execute the app_start script
+{{ _alias.cd }} ./data
+/bin/sh -l ./app_start

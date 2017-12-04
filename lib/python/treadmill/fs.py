@@ -13,8 +13,10 @@ import logging
 import os
 import re
 import stat
+import sys
 import tarfile
 import tempfile
+import shutil
 
 import six
 
@@ -23,9 +25,13 @@ if six.PY2 and os.name == 'posix':
 else:
     import subprocess  # pylint: disable=wrong-import-order
 
+if os.name == 'nt':
+    # E0401: Unable to import windows only pakages
+    import win32api  # pylint: disable=E0401
+    import win32con  # pylint: disable=E0401
+
 from treadmill import exc
 from treadmill import osnoop
-from treadmill import utils
 from treadmill import subproc
 
 
@@ -45,6 +51,38 @@ def rm_safe(path):
             pass
         else:
             raise
+
+
+def rmtree_safe(path):
+    """Remove directory, ignoring if directory does not exist."""
+    try:
+        shutil.rmtree(path)
+    except OSError as err:
+        # If the file does not exists, it is not an error
+        if err.errno == errno.ENOENT:
+            pass
+        else:
+            raise
+
+
+def rm_children_safe(path):
+    """Remove directory contents."""
+    for f in glob.glob(os.path.join(path, '*')):
+        rm_safe(f)
+
+
+def replace(path_from, path_to):
+    """Temp replace/rename for windows."""
+    if sys.version_info[0] < 3:
+        # TODO: os.rename cannot replace on windows
+        # (use os.replace in python 3.4)
+        if os.name == 'nt':
+            win32api.MoveFileEx(path_from, path_to,
+                                win32con.MOVEFILE_REPLACE_EXISTING)
+        else:
+            os.rename(path_from, path_to)
+    else:
+        os.replace(path_from, path_to)
 
 
 def write_safe(filename, func, mode='wb', prefix='tmp', permission=None):
@@ -74,7 +112,7 @@ def write_safe(filename, func, mode='wb', prefix='tmp', permission=None):
         if permission is not None and os.name == 'posix':
             os.fchmod(tmpfile.fileno(), permission)
         func(tmpfile)
-    os.rename(tmpfile.name, filename)
+    replace(tmpfile.name, filename)
 
 
 def mkdir_safe(path, mode=0o777):
@@ -125,9 +163,9 @@ def norm_safe(path):
 def symlink_safe(link, target):
     """Create symlink to target. Atomically rename if link already exists.
     """
-    tmp_link = tempfile.mktemp(dir=os.path.dirname(link))
+    tmp_link = tempfile.mktemp(prefix='.tmp', dir=os.path.dirname(link))
     os.symlink(target, tmp_link)
-    os.rename(tmp_link, link)
+    replace(tmp_link, link)
 
 
 def create_excl(filename, size=0, mode=(stat.S_IRUSR | stat.S_IWUSR)):
@@ -195,7 +233,7 @@ def mount_filesystem(block_dev, target_dir):
 
 
 @osnoop.windows
-def mount_bind(newroot, mount, target=None, bind_opt=None):
+def mount_bind(newroot, mount, target=None, bind_opt=None, remount_opts=None):
     """Mounts directory in the new root.
 
     Call to mount should be done before chrooting into new root.
@@ -244,6 +282,19 @@ def mount_bind(newroot, mount, target=None, bind_opt=None):
             mount_fp
         ]
     )
+
+    if remount_opts:
+        subproc.check_call(
+            [
+                'mount',
+                '-n',
+                bind_opt,
+                '-o',
+                'remount,{}'.format(','.join(remount_opts)),
+                target,
+                mount_fp
+            ]
+        )
 
 
 @osnoop.windows
@@ -313,58 +364,6 @@ def test_filesystem(block_dev):
         ]
     )
     return bool(res == 0)
-
-
-@osnoop.windows
-def archive_filesystem(block_dev, rootdir, archive, files):
-    """Archive the filesystem of an application
-
-    :param block_dev:
-        Block device from where to archive the new filesystem
-    :type block_dev:
-        ``str``
-    :param rootdir:
-        Path to a directory where to mount the root device
-    :type rootdir:
-        ``str``
-    :param archive:
-        Path to the archive file to create
-    :type archive:
-        ``str``
-    :param files:
-        List of files and folders to include in the archive
-        relative to rootdir. This is input list of files to
-        tar.
-    :type list:
-        ``str``
-    """
-    if not files:
-        _LOGGER.info('Nothing to archive.')
-        return True
-
-    if not os.path.exists(rootdir):
-        _LOGGER.error('Root device directory does not exist: %s', rootdir)
-        return False
-
-    archive_cmd = '{tm_root}/sbin/archive_container.sh'.format(
-        tm_root=utils.rootdir()
-    )
-
-    arguments = ['unshare',
-                 '--mount',
-                 archive_cmd,
-                 block_dev,
-                 # rootdir
-                 os.path.realpath(rootdir),
-                 # archive
-                 os.path.realpath(archive)]
-
-    # Make sure files are relative path.
-    safe_files = [filename.lstrip('/') for filename in files]
-    arguments.extend(safe_files)
-
-    result = subproc.call(arguments)
-    return result == 0
 
 
 def tar(target, sources, compression=None):

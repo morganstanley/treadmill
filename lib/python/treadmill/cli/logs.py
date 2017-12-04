@@ -1,13 +1,16 @@
-"""Trace treadmill application events."""
+"""Trace treadmill application events.
+"""
+
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
 import logging
-import urllib
 
 import click
+
+from six.moves import urllib_parse
 
 from treadmill import cli
 from treadmill import context
@@ -30,7 +33,7 @@ def _find_endpoints(pattern, proto, endpoint, api=None):
 
     endpoints = restclient.get(apis, url).json()
     if not endpoints:
-        cli.bad_exit("Nodeinfo API couldn't be found")
+        cli.bad_exit('Nodeinfo API couldn\'t be found')
 
     return endpoints
 
@@ -39,6 +42,8 @@ def init():
     """Return top level command handler."""
 
     @click.command()
+    @click.option('--all', 'all_logs', is_flag=True, default=False,
+                  help='Download all logs (not just the latest) as a file.')
     @click.option('--api',
                   envvar='TREADMILL_STATEAPI',
                   help='State API url to use.',
@@ -59,8 +64,8 @@ def init():
                   required=False)
     @click.option('--uniq',
                   default='running',
-                  help="The container id. Specify this if you look for a "
-                       "not-running (terminated) application's log",
+                  help='The container id. Specify this if you look for a '
+                       'not-running (terminated) application\'s log',
                   required=False)
     @click.option('--ws-api',
                   help='Websocket API url to use.',
@@ -68,8 +73,8 @@ def init():
                   required=False)
     @cli.handle_exceptions(
         restclient.CLI_REST_EXCEPTIONS + wsclient.CLI_WS_EXCEPTIONS)
-    def logs(api, app_or_svc, host, service, uniq, ws_api):
-        """View application's service logs.
+    def logs(all_logs, api, app_or_svc, host, service, uniq, ws_api):
+        """View or download application's service logs.
 
         Arguments are expected to be specified a) either as one string or b)
         parts defined one-by-one ie.:
@@ -94,7 +99,7 @@ def init():
             app, uniq, logtype, logname = app_or_svc, uniq, 'service', service
 
         if logname is None:
-            cli.bad_exit("Please specify the 'service' parameter.")
+            cli.bad_exit('Please specify the "service" parameter.')
 
         if host is None:
             instance = None
@@ -114,23 +119,33 @@ def init():
             uniq = instance['uniq']
 
         try:
-            endpoint, = [ep
-                         for ep in _find_endpoints(
-                             urllib.quote('root.*'), 'tcp', 'nodeinfo', api)
-                         if ep['host'] == host]
+            (endpoint,) = [
+                ep
+                for ep in _find_endpoints(
+                    urllib_parse.quote('root.*'),
+                    'tcp',
+                    'nodeinfo',
+                    api
+                )
+                if ep['host'] == host
+            ]
         except ValueError as err:
             _LOGGER.exception(err)
             cli.bad_exit('No endpoint found on %s', host)
 
         api = 'http://{0}:{1}'.format(endpoint['host'], endpoint['port'])
-        logurl = '/local-app/%s/%s/%s/%s' % (
-            urllib.quote(app),
-            urllib.quote(uniq),
+        logurl = '/local-app/{}/{}/{}/{}'.format(
+            urllib_parse.quote(app),
+            urllib_parse.quote(uniq),
             logtype,
-            urllib.quote(logname)
+            urllib_parse.quote(logname)
         )
 
-        log = restclient.get(api, logurl)
-        click.echo(log.text)
+        if all_logs:
+            logurl += '?all=1'
+
+        resp = restclient.get(api, logurl)
+
+        click.echo(resp.text)
 
     return logs

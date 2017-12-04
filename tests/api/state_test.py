@@ -1,17 +1,32 @@
-"""State API tests."""
+"""State API tests.
+"""
+
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
 import unittest
+import json
+import zlib
 
 # Disable W0611: Unused import
 import tests.treadmill_test_deps  # pylint: disable=W0611
 
 import mock
 
+import treadmill.utils
 from treadmill.api import state
+from treadmill import yamlwrapper as yaml
+
+
+def _create_zkclient_mock(placement_data):
+    data_watch_mock = mock.Mock(
+        side_effect=lambda func: func(placement_data, None, None)
+    )
+    zkclient_mock = mock.Mock()
+    zkclient_mock.DataWatch.return_value = data_watch_mock
+    return zkclient_mock
 
 
 class ApiStateTest(unittest.TestCase):
@@ -50,9 +65,13 @@ class ApiStateTest(unittest.TestCase):
                 'when': '1234567890.7', 'state': 'aborted'
             }
         }
+        # Disable the exit on exception hack for tests
+        self.old_exit_on_unhandled = treadmill.utils.exit_on_unhandled
+        treadmill.utils.exit_on_unhandled = mock.Mock(side_effect=lambda x: x)
 
     def tearDown(self):
-        pass
+        # Restore the exit on exception hack for tests
+        treadmill.utils.exit_on_unhandled = self.old_exit_on_unhandled
 
     @mock.patch('treadmill.context.GLOBAL', mock.Mock())
     @mock.patch('treadmill.api.state.watch_running', mock.Mock())
@@ -161,6 +180,80 @@ class ApiStateTest(unittest.TestCase):
                 {'host': 'baz1', 'name': 'foo.bar#0000000004', 'oom': False,
                  'signal': 11, 'when': '1234567890.4', 'state': 'finished'}
             ]
+        )
+
+    def test_watch_placement(self):
+        """Test loading placement.
+        """
+        cell_state = state.CellState()
+        cell_state.running = ['foo.bar#0000000001']
+        zkclient_mock = _create_zkclient_mock(
+            zlib.compress(
+                json.dumps([
+                    [
+                        'foo.bar#0000000001',
+                        'baz', 12345.67890,
+                        'baz', 12345.67890
+                    ],
+                    [
+                        'foo.bar#0000000002',
+                        'baz', 12345.67890,
+                        'baz', 12345.67890
+                    ],
+                    [
+                        'foo.bar#0000000003',
+                        None, None,
+                        None, None
+                    ],
+                ]).encode()  # compress needs bytes
+            )
+        )
+
+        state.watch_placement(zkclient_mock, cell_state)
+
+        self.assertEqual(
+            cell_state.placement,
+            {
+                'foo.bar#0000000001': {
+                    'state': 'running', 'expires': 12345.6789, 'host': 'baz'
+                },
+                'foo.bar#0000000002': {
+                    'state': 'scheduled', 'expires': 12345.6789, 'host': 'baz'
+                },
+                'foo.bar#0000000003': {
+                    'state': 'pending', 'expires': None, 'host': None
+                },
+            }
+        )
+
+    def test_watch_placement_yaml(self):
+        """Test loading placement stored as yaml, for backward compatibility.
+        """
+        cell_state = state.CellState()
+        cell_state.running = ['foo.bar#0000000001']
+        zkclient_mock = _create_zkclient_mock(
+            yaml.dump([
+                ['foo.bar#0000000001', 'baz', 12345.67890, 'baz', 12345.67890],
+                ['foo.bar#0000000002', 'baz', 12345.67890, 'baz', 12345.67890],
+                ['foo.bar#0000000003', None, None, None, None],
+            ]).encode()
+        )
+
+        state.watch_placement(zkclient_mock, cell_state)
+
+        self.assertEqual(
+            cell_state.placement,
+            {
+                'foo.bar#0000000001': {
+                    'state': 'running', 'expires': 12345.6789, 'host': 'baz'
+                },
+                'foo.bar#0000000002': {
+                    'state': 'scheduled', 'expires': 12345.6789, 'host': 'baz'
+                },
+                'foo.bar#0000000003': {
+                    'state': 'pending', 'expires': None, 'host': None
+                },
+            }
         )
 
 

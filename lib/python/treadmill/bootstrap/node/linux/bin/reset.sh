@@ -10,7 +10,7 @@ $RM -vf {{ dir }}/bin/*
 # Reconfigure all scripts.
 $ECHO "########################################################################"
 $ECHO "Re-apply Treadmill template"
-{{ treadmill }}/bin/treadmill sproc \
+{{ treadmill }}/bin/treadmill34 sproc \
     --cell {{ cell }} \
     --zookeeper {{ zookeeper }} \
     --ldap {{ ldap }} \

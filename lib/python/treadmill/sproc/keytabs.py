@@ -1,5 +1,5 @@
-"""Runs Treadmill keytab locker service."""
-
+"""Runs Treadmill keytab locker service.
+"""
 
 from __future__ import absolute_import
 from __future__ import division

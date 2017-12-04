@@ -1,6 +1,6 @@
+"""Treadmill App REST api.
 """
-Treadmill App REST api.
-"""
+
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
@@ -9,15 +9,11 @@ from __future__ import unicode_literals
 import flask
 import flask_restplus as restplus
 
-# Disable E0611: No 'name' in module
-from treadmill import webutils  # pylint: disable=E0611
+from treadmill import webutils
 
 from treadmill.api.model import app as app_model
 
 
-# Old style classes, no init method.
-#
-# pylint: disable=W0232
 def init(api, cors, impl):
     """Configures REST handlers for app resource."""
 

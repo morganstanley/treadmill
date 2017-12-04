@@ -51,7 +51,7 @@ def _read_mounted_cgroups():
             raise
 
     if res is not None:
-        res = res.encode().strip()
+        res = res.strip()
 
     cgroups_info = {}
     for cginfo in res.split('\n'):
@@ -234,11 +234,11 @@ def init():
         mounted_cgroups = _read_mounted_cgroups()
 
         wanted_cgroups = {
-            'memory':   '/cgroup/memory',
-            'cpu':      '/cgroup/cpu',
-            'cpuacct':  '/cgroup/cpuacct',
-            'cpuset':   '/cgroup/cpuset',
-            'blkio':    '/cgroup/blkio',
+            'memory': '/cgroup/memory',
+            'cpu': '/cgroup/cpu',
+            'cpuacct': '/cgroup/cpuacct',
+            'cpuset': '/cgroup/cpuset',
+            'blkio': '/cgroup/blkio',
         }
 
         unwanted_cgroups = {

@@ -1,4 +1,6 @@
-"""Server REST api tests."""
+"""Server REST api tests.
+"""
+
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
@@ -19,9 +21,8 @@ from six.moves import http_client
 
 import treadmill
 from treadmill import webutils
-from treadmill.exc import LocalFileNotFoundError
-from treadmill.rest import error_handlers
-from treadmill.rest.api import server
+from treadmill.rest import error_handlers  # pylint: disable=no-name-in-module
+from treadmill.rest.api import server  # pylint: disable=no-name-in-module
 
 
 class ServerTest(unittest.TestCase):
@@ -51,7 +52,11 @@ class ServerTest(unittest.TestCase):
 
         resp = self.client.get('/server/')
 
-        self.assertEqual(''.join(resp.response), json.dumps(server_list))
+        resp_json = b''.join(resp.response)
+        self.assertEqual(
+            json.loads(resp_json.decode()),
+            server_list
+        )
         self.assertEqual(resp.status_code, http_client.OK)
         self.impl.list.assert_called_with(None, None)
 

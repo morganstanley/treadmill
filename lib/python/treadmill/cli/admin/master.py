@@ -12,8 +12,8 @@ import click
 
 from treadmill import cli
 from treadmill import context
-from treadmill import master
 from treadmill import yamlwrapper as yaml
+from treadmill.scheduler import masterapi
 
 
 def server_group(parent):
@@ -30,8 +30,8 @@ def server_group(parent):
     def list():  # pylint: disable=W0622
         """List servers"""
         servers = []
-        for name in master.list_servers(context.GLOBAL.zk.conn):
-            server = master.get_server(context.GLOBAL.zk.conn, name)
+        for name in masterapi.list_servers(context.GLOBAL.zk.conn):
+            server = masterapi.get_server(context.GLOBAL.zk.conn, name)
             server['name'] = name
             servers.append(server)
 
@@ -55,10 +55,10 @@ def server_group(parent):
             path = parent.split('/')
             bucket = None
             for bucket, parent in zip(path, [None] + path[:-1]):
-                master.create_bucket(context.GLOBAL.zk.conn, bucket, parent)
+                masterapi.create_bucket(context.GLOBAL.zk.conn, bucket, parent)
             assert bucket is not None, 'server topology missing.'
 
-            master.create_server(context.GLOBAL.zk.conn, server, bucket)
+            masterapi.create_server(context.GLOBAL.zk.conn, server, bucket)
 
         features = cli.combine(features)
         if features:
@@ -66,16 +66,16 @@ def server_group(parent):
             if features == ['-']:
                 features = []
 
-            master.update_server_features(context.GLOBAL.zk.conn,
-                                          server, features)
+            masterapi.update_server_features(context.GLOBAL.zk.conn,
+                                             server, features)
 
         if memory or cpu or disk:
-            master.update_server_capacity(context.GLOBAL.zk.conn, server,
-                                          memory=memory,
-                                          cpu=cpu,
-                                          disk=disk)
+            masterapi.update_server_capacity(context.GLOBAL.zk.conn, server,
+                                             memory=memory,
+                                             cpu=cpu,
+                                             disk=disk)
 
-        server_obj = master.get_server(context.GLOBAL.zk.conn, server)
+        server_obj = masterapi.get_server(context.GLOBAL.zk.conn, server)
         server_obj['name'] = server
 
         cli.out(formatter(server_obj))
@@ -85,11 +85,19 @@ def server_group(parent):
     @cli.admin.ON_EXCEPTIONS
     def delete(server):
         """Delete server configuration"""
-        master.delete_server(context.GLOBAL.zk.conn, server)
+        masterapi.delete_server(context.GLOBAL.zk.conn, server)
+
+    @server.command()
+    @click.argument('server')
+    @cli.admin.ON_EXCEPTIONS
+    def reboot(server):
+        """Trigger server reboot."""
+        masterapi.reboot_server(context.GLOBAL.zk.conn, server)
 
     del configure
     del list
     del delete
+    del reboot
 
 
 def app_group(parent):
@@ -105,7 +113,7 @@ def app_group(parent):
     @cli.admin.ON_EXCEPTIONS
     def list():  # pylint: disable=W0622
         """List apps"""
-        for appname in master.list_scheduled_apps(context.GLOBAL.zk.conn):
+        for appname in masterapi.list_scheduled_apps(context.GLOBAL.zk.conn):
             print(appname)
 
     @app.command()
@@ -132,8 +140,8 @@ def app_group(parent):
             data['affinity'] = '{0}.{1}'.format(*app.split('.'))
 
         data['proid'] = proid
-        scheduled = master.create_apps(context.GLOBAL.zk.conn,
-                                       app, data, count, 'admin')
+        scheduled = masterapi.create_apps(context.GLOBAL.zk.conn,
+                                          app, data, count, 'admin')
         for app_id in scheduled:
             print(app_id)
 
@@ -142,7 +150,7 @@ def app_group(parent):
     @cli.admin.ON_EXCEPTIONS
     def configure(instance):
         """View app instance configuration"""
-        scheduled = master.get_app(context.GLOBAL.zk.conn, instance)
+        scheduled = masterapi.get_app(context.GLOBAL.zk.conn, instance)
         cli.out(formatter(scheduled))
 
     @app.command()
@@ -150,7 +158,7 @@ def app_group(parent):
     @cli.admin.ON_EXCEPTIONS
     def delete(apps):
         """Deletes (unschedules) the app by pattern"""
-        master.delete_apps(context.GLOBAL.zk.conn, apps, 'admin')
+        masterapi.delete_apps(context.GLOBAL.zk.conn, apps, 'admin')
 
     del list
     del schedule
@@ -175,24 +183,24 @@ def monitor_group(parent):
         """Create, get or modify an app monitor configuration"""
         zkclient = context.GLOBAL.zk.conn
         if count is not None:
-            master.update_appmonitor(zkclient, app, count)
+            masterapi.update_appmonitor(zkclient, app, count)
 
-        cli.out(formatter(master.get_appmonitor(zkclient, app)))
+        cli.out(formatter(masterapi.get_appmonitor(zkclient, app)))
 
     @monitor.command()
     @click.argument('app')
     @cli.admin.ON_EXCEPTIONS
     def delete(app):
         """Deletes app monitor"""
-        master.delete_appmonitor(context.GLOBAL.zk.conn, app)
+        masterapi.delete_appmonitor(context.GLOBAL.zk.conn, app)
 
     @monitor.command(name='list')
     def _list():
         """List all configured monitors"""
         zkclient = context.GLOBAL.zk.conn
         monitors = [
-            master.get_appmonitor(zkclient, app)
-            for app in master.appmonitors(zkclient)
+            masterapi.get_appmonitor(zkclient, app)
+            for app in masterapi.appmonitors(zkclient)
         ]
 
         cli.out(formatter(monitors))
@@ -215,20 +223,20 @@ def cell_group(parent):
     @cli.admin.ON_EXCEPTIONS
     def insert(bucket):
         """Add top level bucket to the cell"""
-        master.cell_insert_bucket(context.GLOBAL.zk.conn, bucket)
+        masterapi.cell_insert_bucket(context.GLOBAL.zk.conn, bucket)
 
     @cell.command()
     @click.argument('bucket')
     @cli.admin.ON_EXCEPTIONS
     def remove(bucket):
         """Remove top level bucket to the cell"""
-        master.cell_remove_bucket(context.GLOBAL.zk.conn, bucket)
+        masterapi.cell_remove_bucket(context.GLOBAL.zk.conn, bucket)
 
     @cell.command()
     @cli.admin.ON_EXCEPTIONS
     def list():  # pylint: disable=W0622
         """List top level bucket in the cell"""
-        buckets = master.cell_buckets(context.GLOBAL.zk.conn)
+        buckets = masterapi.cell_buckets(context.GLOBAL.zk.conn)
         for bucket in buckets:
             print(bucket)
 
@@ -258,10 +266,10 @@ def bucket_group(parent):
             # This is special case - reset features to empty.
             if features == ['-']:
                 features = None
-            master.update_bucket_features(context.GLOBAL.zk.conn,
-                                          bucket, features)
+            masterapi.update_bucket_features(context.GLOBAL.zk.conn,
+                                             bucket, features)
 
-        data = master.get_bucket(context.GLOBAL.zk.conn, bucket)
+        data = masterapi.get_bucket(context.GLOBAL.zk.conn, bucket)
         data['name'] = bucket
 
         cli.out(formatter(data))
@@ -271,8 +279,8 @@ def bucket_group(parent):
     def list():  # pylint: disable=W0622
         """Delete bucket"""
         buckets = []
-        for name in master.cell_buckets(context.GLOBAL.zk.conn):
-            bucket = master.get_bucket(context.GLOBAL.zk.conn, name)
+        for name in masterapi.cell_buckets(context.GLOBAL.zk.conn):
+            bucket = masterapi.get_bucket(context.GLOBAL.zk.conn, name)
             bucket['name'] = name
             buckets.append(bucket)
 
@@ -283,7 +291,7 @@ def bucket_group(parent):
     @cli.admin.ON_EXCEPTIONS
     def delete(bucket):
         """Delete bucket"""
-        master.delete_bucket(context.GLOBAL.zk.conn, bucket)
+        masterapi.delete_bucket(context.GLOBAL.zk.conn, bucket)
 
     del configure
     del list
@@ -307,24 +315,24 @@ def identity_group_group(parent):
         """Create, get or modify identity group configuration"""
         zkclient = context.GLOBAL.zk.conn
         if count is not None:
-            master.update_identity_group(zkclient, group, count)
+            masterapi.update_identity_group(zkclient, group, count)
 
-        cli.out(formatter(master.get_identity_group(zkclient, group)))
+        cli.out(formatter(masterapi.get_identity_group(zkclient, group)))
 
     @identity_group.command()
     @click.argument('group')
     @cli.admin.ON_EXCEPTIONS
     def delete(group):
         """Deletes identity group"""
-        master.delete_identity_group(context.GLOBAL.zk.conn, group)
+        masterapi.delete_identity_group(context.GLOBAL.zk.conn, group)
 
     @identity_group.command(name='list')
     def _list():
         """List all configured identity groups"""
         zkclient = context.GLOBAL.zk.conn
         groups = [
-            master.get_identity_group(zkclient, group)
-            for group in master.identity_groups(zkclient)
+            masterapi.get_identity_group(zkclient, group)
+            for group in masterapi.identity_groups(zkclient)
         ]
 
         cli.out(formatter(groups))

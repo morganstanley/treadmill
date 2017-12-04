@@ -8,7 +8,6 @@ import fnmatch
 
 from treadmill import context
 from treadmill import schema
-from treadmill import authz
 from treadmill import admin
 
 
@@ -72,9 +71,3 @@ class API(object):
         self.update = update
         self.delete = delete
         self.list = _list
-
-
-def init(authorizer):
-    """Returns module API wrapped with authorizer function."""
-    api = API()
-    return authz.wrap(api, authorizer)

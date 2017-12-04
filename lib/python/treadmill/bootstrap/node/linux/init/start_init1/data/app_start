@@ -1,0 +1,10 @@
+#!/bin/sh
+#
+# Starts the svscan process for the init1 processes.
+# Runs as root
+
+exec \
+    {{ treadmill }}/bin/treadmill34 \
+    sproc --cgroup . \
+    exec -- \
+        {{ _alias.s6_svscan }} {{ dir }}/init1

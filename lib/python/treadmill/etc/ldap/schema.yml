@@ -120,6 +120,9 @@ attributeTypes:
   root:
     desc: Treadmill root
     type: str
+  reboot-schedule:
+    desc: Treadmill server reboot schedule
+    type: str
   server:
     desc: Treadmill server
     type: str
@@ -261,6 +264,7 @@ objectClasses:
     - memory
     - system
     - down-threshold
+    - reboot-schedule
   tmApp:
     desc: Treadmill Application
     must:
