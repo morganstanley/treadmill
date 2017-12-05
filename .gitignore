@@ -24,6 +24,8 @@ lint.log
 pep8.log
 doc/build
 doc/swagger.json
+
+wheels/
 build/
 dist/
 cover/

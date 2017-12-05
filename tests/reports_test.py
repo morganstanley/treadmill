@@ -6,6 +6,7 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
+import bz2
 import datetime
 import time
 import unittest
@@ -224,6 +225,60 @@ class ReportsTest(unittest.TestCase):
 
         df = reports.explain_placement(self.cell, app1, mode='servers')
         self.assertEqual(len(df), 4)
+
+    def test_serialize_dataframe(self):
+        """Test serializing a dataframe."""
+        df = pd.DataFrame([
+            [1, 2, 3],
+            [4, 5, 6]
+        ], columns=['a', 'b', 'c']).set_index('a')
+
+        result = reports.serialize_dataframe(df)
+        self.assertEqual(
+            bz2.decompress(result),
+            b'\n'.join(
+                [
+                    b'a,b,c',
+                    b'1,2,3',
+                    b'4,5,6',
+                    b''
+                ]
+            )
+        )
+
+    def test_deserialize_dataframe_bz2(self):
+        """Test deserializing a compressed dataframe."""
+        content = bz2.compress(
+            b'\n'.join(
+                [
+                    b'a,b,c',
+                    b'1,2,3',
+                    b'4,5,6'
+                ]
+            )
+        )
+
+        result = reports.deserialize_dataframe(content)
+        pd.util.testing.assert_frame_equal(
+            result,
+            pd.DataFrame([[1, 2, 3], [4, 5, 6]], columns=['a', 'b', 'c'])
+        )
+
+    def test_deserialize_dataframe(self):
+        """Test deserializing an uncompressed dataframe."""
+        content = b'\n'.join(
+            [
+                b'a,b,c',
+                b'1,2,3',
+                b'4,5,6'
+            ]
+        )
+
+        result = reports.deserialize_dataframe(content)
+        pd.util.testing.assert_frame_equal(
+            result,
+            pd.DataFrame([[1, 2, 3], [4, 5, 6]], columns=['a', 'b', 'c'])
+        )
 
 
 if __name__ == '__main__':

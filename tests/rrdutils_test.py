@@ -6,18 +6,13 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
-import getopt
-import logging
-import logging.config
 import os
 import shutil
-import sys
 import tempfile
 import unittest
 
 import mock
 
-import treadmill
 from treadmill import rrdutils
 
 # rrdtool is invalid constant name
@@ -69,12 +64,4 @@ class RrdUtilsTest(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    opts, _ = getopt.getopt(sys.argv[1:], 'l')
-
-    if opts and '-l' in opts[0]:
-        sys.argv[1:] = []
-        log_conf_file = os.path.join(treadmill.TREADMILL, 'lib', 'python',
-                                     'treadmill', 'logging', 'daemon.conf')
-        logging.config.fileConfig(log_conf_file)
-
     unittest.main()

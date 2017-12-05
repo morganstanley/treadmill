@@ -1,6 +1,6 @@
+"""Unit test for treadmill.api input validation.
 """
-Unit test for treadmill.api input validation.
-"""
+
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
@@ -108,8 +108,8 @@ class ApiSchemaTest(unittest.TestCase):
             'disk': '1G',
             'services': []
         }
-        _ok(api.create, 'foo.bla', good)
-        _ok(api.create, 'foo@treadmll-users.bla', good)
+        _fail(api.create, 'foo.bla', good)
+        _fail(api.create, 'foo@treadmll-users.bla', good)
 
         _fail(api.create, 'foo.bla', _patch(good, '/memory', 1))
         _fail(api.create, 'foo.bla', _patch(good, '/disk', 1))
@@ -121,6 +121,8 @@ class ApiSchemaTest(unittest.TestCase):
             {'name': 'sleep', 'command': '/bin/sleep 1'}
         ]})
         _ok(api.create, 'foo.bla', good)
+        _ok(api.create, 'foo@treadmll-users.bla', good)
+
         _fail(api.create, 'foo.bla',
               _patch(good, '/services/0/name', 1))
         _fail(api.create, 'foo.bla',

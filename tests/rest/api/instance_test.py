@@ -19,8 +19,8 @@ from six.moves import http_client
 
 from treadmill import exc
 from treadmill import webutils
-from treadmill.rest import error_handlers
-from treadmill.rest.api import instance
+from treadmill.rest import error_handlers  # pylint: disable=no-name-in-module
+from treadmill.rest.api import instance  # pylint: disable=no-name-in-module
 
 
 class InstanceTest(unittest.TestCase):
@@ -62,9 +62,10 @@ class InstanceTest(unittest.TestCase):
             data=json.dumps(rsrc),
             content_type='application/json'
         )
+        resp_json = b''.join(resp.response)
         self.assertEqual(
-            ''.join(resp.response),
-            '{"instances": ["proid.app#0000000001"]}'
+            json.loads(resp_json.decode()),
+            {'instances': ['proid.app#0000000001']}
         )
         self.assertEqual(resp.status_code, http_client.OK)
         self.impl.create.assert_called_once_with('proid.app', rsrc, 1, None)

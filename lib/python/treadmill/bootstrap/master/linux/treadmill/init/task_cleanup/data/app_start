@@ -1,0 +1,9 @@
+#!/bin/sh
+#
+# Starts syncronization between cell Zookeeper and configuration db.
+#
+
+exec \
+    {{ treadmill_bin }} \
+    sproc \
+    trace cleanup

@@ -9,6 +9,7 @@ from __future__ import unicode_literals
 import unittest
 
 import flask
+import mock
 
 from treadmill import webutils
 
@@ -47,6 +48,24 @@ class WebUtilsTest(unittest.TestCase):
                                                 'text/*; q=0.8, image/gif; '
                                                 'q=0.6, image/jpeg;')]):
             self.assertFalse(webutils.wants_json_resp(flask.request))
+
+    def test_namespace(self):
+        """Tests namespace()."""
+        m_api = mock.Mock()
+
+        # W0613: Unused argument 'kwargs'
+        # pylint: disable=W0613
+        def noop(*args, **kwargs):
+            """Simply return the positional arguments"""
+            return args
+
+        m_api.namespace = noop
+        (ns,) = webutils.namespace(m_api, 'treadmill.rest.api.state', 'foo')
+        self.assertEqual(ns, 'state')
+
+        (ns,) = webutils.namespace(
+            m_api, 'treadmill.ms.rest.api.allocation_group', 'foo')
+        self.assertEqual(ns, 'allocation-group')
 
 
 if __name__ == '__main__':

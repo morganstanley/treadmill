@@ -1,0 +1,24 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "message": {
+        "sub-id": {
+            "type": "string",
+            "pattern": "[0-9a-fA-F]{8}-([0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12}"
+        },
+        "topic": {
+            "type": "string",
+            "pattern": "^/[a-z\\-]+$"
+        },
+        "since": {
+            "type": "number"
+        },
+        "snapshot": {
+            "type": "boolean"
+        },
+        "filter": {
+            "type": "string",
+            "maxLength": 137,
+            "pattern": "^[\\w\\-\\.#@\\*\\[\\]\\?]+$"
+        }
+    }
+}

@@ -151,7 +151,7 @@ class VersionMgrTest(mockzk.MockZookeeperTestCase):
                 mock.call(b'/foo/bar -> ../common/foo/bar'),
                 mock.call(b'/otherdir -> /dir'),
             ],
-            any_order=True,
+            any_order=True
         )
         self.assertEqual(mock_checksum.update.call_count, 5)
 

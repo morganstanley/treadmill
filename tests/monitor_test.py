@@ -6,15 +6,22 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
+import collections
+import errno
 import io
 import json
 import os
 import shutil
 import tempfile
 import unittest
-import collections
 
 import mock
+import six
+
+if six.PY2 and os.name == 'posix':
+    import subprocess32 as subprocess  # pylint: disable=import-error
+else:
+    import subprocess  # pylint: disable=wrong-import-order
 
 import treadmill
 from treadmill import fs
@@ -42,8 +49,8 @@ class MonitorTest(unittest.TestCase):
         # Disable W0212(protected-access)
         # pylint: disable=W0212
         mon = monitor.Monitor(
-            services_dir=None,
-            service_dirs=(),
+            scan_dirs=None,
+            service_dirs=None,
             policy_impl=mock_policy,
             down_action=mock_down_action()
         )
@@ -75,16 +82,16 @@ class MonitorTest(unittest.TestCase):
         # Disable W0212(protected-access)
         # pylint: disable=W0212
         mon = monitor.Monitor(
-            services_dir='/some/dir',
-            service_dirs=(),
+            scan_dirs=('/some/dir', '/some/dir2'),
+            service_dirs=None,
             policy_impl=mock_policy,
             down_action=mock_down_action()
         )
 
-        mon._on_created('/some/dir/new')
+        mon._on_created('/some/dir2/new')
 
         treadmill.monitor.Monitor._add_service.assert_called_with(
-            '/some/dir/new'
+            '/some/dir2/new'
         )
 
     @mock.patch('treadmill.monitor.MonitorDownAction', spec_set=True)
@@ -97,8 +104,8 @@ class MonitorTest(unittest.TestCase):
         # Disable W0212(protected-access)
         # pylint: disable=W0212
         mon = monitor.Monitor(
-            services_dir='/some/dir',
-            service_dirs=(),
+            scan_dirs='/some/dir',
+            service_dirs=None,
             policy_impl=mock_policy,
             down_action=mock_down_action()
         )
@@ -123,25 +130,103 @@ class MonitorTest(unittest.TestCase):
 
     @mock.patch('treadmill.monitor.MonitorDownAction', spec_set=True)
     @mock.patch('treadmill.monitor.MonitorPolicy', spec_set=True)
-    def test__process_noop(self, mock_policy, mock_down_action):
-        """Test monitor noop event.
+    @mock.patch('treadmill.supervisor.wait_service',
+                mock.Mock(spec_set=True))
+    @mock.patch('treadmill.supervisor.control_service',
+                mock.Mock(spec_set=True))
+    def test__bring_up(self, mock_policy, mock_down_action):
+        """Test interface with supervisor bringing up services.
         """
-        # Disable W0212(protected-access)
-        # pylint: disable=W0212
+        # pylint: disable=protected-access
         mon = monitor.Monitor(
-            services_dir='/some/dir',
-            service_dirs=(),
+            scan_dirs='/some/dir',
+            service_dirs=None,
             policy_impl=mock_policy,
             down_action=mock_down_action()
         )
         mock_pol_inst = mock_policy.return_value
-        mock_pol_inst.check.return_value = \
-            monitor.MonitorRestartPolicyResult.NOOP
+        treadmill.supervisor.wait_service.side_effect = [
+            subprocess.CalledProcessError(supervisor.ERR_TIMEOUT, 's6-svwait'),
+            None,
+        ]
 
-        mon._process(mock_pol_inst)
+        mon._bring_up(mock_pol_inst.service)
 
-        self.assertTrue(mock_pol_inst.check.called)
-        self.assertEqual(len(mon._down_reasons), 0)
+        supervisor.wait_service.assert_has_calls(
+            [
+                mock.call(mock_pol_inst.service.directory,
+                          supervisor.ServiceWaitAction.up,
+                          timeout=100),
+                mock.call(mock_pol_inst.service.directory,
+                          supervisor.ServiceWaitAction.really_down,
+                          timeout=60 * 1000),
+            ]
+        )
+        treadmill.supervisor.control_service.assert_called_with(
+            mock_pol_inst.service.directory,
+            treadmill.supervisor.ServiceControlAction.up
+        )
+
+    @mock.patch('treadmill.monitor.MonitorDownAction', spec_set=True)
+    @mock.patch('treadmill.monitor.MonitorPolicy', spec_set=True)
+    @mock.patch('treadmill.supervisor.wait_service',
+                mock.Mock(spec_set=True))
+    @mock.patch('treadmill.supervisor.control_service',
+                mock.Mock(spec_set=True))
+    def test__bring_up_already_up(self, mock_policy, mock_down_action):
+        """Test interface with supervisor bringing up services.
+
+        Service already up.
+        """
+        # pylint: disable=protected-access
+        mon = monitor.Monitor(
+            scan_dirs='/some/dir',
+            service_dirs=None,
+            policy_impl=mock_policy,
+            down_action=mock_down_action()
+        )
+        mock_pol_inst = mock_policy.return_value
+
+        mon._bring_up(mock_pol_inst.service)
+
+        supervisor.wait_service.assert_called_with(
+            mock_pol_inst.service.directory,
+            supervisor.ServiceWaitAction.up,
+            timeout=100
+        )
+        treadmill.supervisor.control_service.assert_not_called()
+
+    @mock.patch('treadmill.monitor.MonitorDownAction', spec_set=True)
+    @mock.patch('treadmill.monitor.MonitorPolicy', spec_set=True)
+    @mock.patch('treadmill.supervisor.wait_service',
+                mock.Mock(spec_set=True))
+    @mock.patch('treadmill.supervisor.control_service',
+                mock.Mock(spec_set=True))
+    def test__bring_up_no_sup(self, mock_policy, mock_down_action):
+        """Test interface with supervisor bringing up services.
+
+        Service not supervised.
+        """
+        # pylint: disable=protected-access
+        mon = monitor.Monitor(
+            scan_dirs='/some/dir',
+            service_dirs=None,
+            policy_impl=mock_policy,
+            down_action=mock_down_action()
+        )
+        mock_pol_inst = mock_policy.return_value
+        treadmill.supervisor.wait_service.side_effect = (
+            subprocess.CalledProcessError(supervisor.ERR_NO_SUP, 's6-svwait')
+        )
+
+        mon._bring_up(mock_pol_inst.service)
+
+        supervisor.wait_service.assert_called_with(
+            mock_pol_inst.service.directory,
+            supervisor.ServiceWaitAction.up,
+            timeout=100
+        )
+        treadmill.supervisor.control_service.assert_not_called()
 
     @mock.patch('treadmill.supervisor.wait_service',
                 mock.Mock(spec_set=True))
@@ -150,16 +235,17 @@ class MonitorTest(unittest.TestCase):
     @mock.patch('treadmill.monitor.MonitorEventHook', spec_set=True)
     @mock.patch('treadmill.monitor.MonitorDownAction', spec_set=True)
     @mock.patch('treadmill.monitor.MonitorPolicy', spec_set=True)
-    def test_event_hook_success(self, mock_policy, mock_down_action,
-                                mock_event_hook):
-        """Test monitor noop event.
+    @mock.patch('treadmill.monitor.Monitor._bring_up', spec_set=True)
+    def test_event_hook_success(self, mock_bring_up, mock_policy,
+                                mock_down_action, mock_event_hook):
+        """Test monitor up/down event hook.
         """
         # Disable W0212(protected-access)
         # pylint: disable=W0212
         mock_event_hook_inst = mock_event_hook.return_value
         mon = monitor.Monitor(
-            services_dir='/some/dir',
-            service_dirs=(),
+            scan_dirs='/some/dir',
+            service_dirs=None,
             policy_impl=mock_policy,
             down_action=mock_down_action(),
             event_hook=mock_event_hook_inst
@@ -174,24 +260,37 @@ class MonitorTest(unittest.TestCase):
         self.assertEqual(len(mon._down_reasons), 0)
         self.assertTrue(mock_event_hook_inst.down.called)
         self.assertTrue(mock_event_hook_inst.up.called)
-
-        supervisor.wait_service.assert_called_with(
-            mock_pol_inst.service.directory,
-            supervisor.ServiceWaitAction.really_down
-        )
-
-        supervisor.control_service.assert_called_with(
-            mock_pol_inst.service.directory,
-            supervisor.ServiceControlAction.up
-        )
+        mock_bring_up.assert_called()
 
     @mock.patch('treadmill.monitor.MonitorDownAction', spec_set=True)
     @mock.patch('treadmill.monitor.MonitorPolicy', spec_set=True)
-    @mock.patch('treadmill.supervisor.wait_service',
-                mock.Mock(spec_set=True))
-    @mock.patch('treadmill.supervisor.control_service',
-                mock.Mock(spec_set=True))
-    def test__process_success(self, mock_policy, mock_down_action):
+    @mock.patch('treadmill.monitor.Monitor._bring_up', spec_set=True)
+    def test__process_noop(self, mock_bring_up, mock_policy, mock_down_action):
+        """Test monitor noop event.
+        """
+        # Disable W0212(protected-access)
+        # pylint: disable=W0212
+        mon = monitor.Monitor(
+            scan_dirs='/some/dir',
+            service_dirs=None,
+            policy_impl=mock_policy,
+            down_action=mock_down_action()
+        )
+        mock_pol_inst = mock_policy.return_value
+        mock_pol_inst.check.return_value = \
+            monitor.MonitorRestartPolicyResult.NOOP
+
+        mon._process(mock_pol_inst)
+
+        self.assertTrue(mock_pol_inst.check.called)
+        mock_bring_up.assert_not_called()
+        self.assertEqual(len(mon._down_reasons), 0)
+
+    @mock.patch('treadmill.monitor.MonitorDownAction', spec_set=True)
+    @mock.patch('treadmill.monitor.MonitorPolicy', spec_set=True)
+    @mock.patch('treadmill.monitor.Monitor._bring_up', spec_set=True)
+    def test__process_success(self, mock_bring_up, mock_policy,
+                              mock_down_action):
         """Test monitor success event.
         """
         # Disable W0212(protected-access)
@@ -199,8 +298,8 @@ class MonitorTest(unittest.TestCase):
         # Disable W0212(protected-access)
         # pylint: disable=W0212
         mon = monitor.Monitor(
-            services_dir='/some/dir',
-            service_dirs=(),
+            scan_dirs='/some/dir',
+            service_dirs=None,
             policy_impl=mock_policy,
             down_action=mock_down_action()
         )
@@ -208,29 +307,23 @@ class MonitorTest(unittest.TestCase):
             'MockSvc', ['name', 'directory']
         )
         mock_pol_inst = mock_policy.return_value
-        mock_pol_inst.check.return_value = \
+        mock_pol_inst.check.return_value = (
             monitor.MonitorRestartPolicyResult.RESTART
-        mock_pol_inst.service.return_value = \
+        )
+        mock_pol_inst.service.return_value = (
             mock_service_class('mock_service', 'some_dir')
+        )
 
         mon._process(mock_pol_inst)
 
         self.assertTrue(mock_pol_inst.check.called)
         self.assertEqual(len(mon._down_reasons), 0)
-
-        supervisor.wait_service.assert_called_with(
-            mock_pol_inst.service.directory,
-            supervisor.ServiceWaitAction.really_down
-        )
-
-        treadmill.supervisor.control_service.assert_called_with(
-            mock_pol_inst.service.directory,
-            treadmill.supervisor.ServiceControlAction.up
-        )
+        mock_bring_up.assert_called()
 
     @mock.patch('treadmill.monitor.MonitorDownAction', spec_set=True)
     @mock.patch('treadmill.monitor.MonitorPolicy', spec_set=True)
-    def test__process_fail(self, mock_policy, mock_down_action):
+    @mock.patch('treadmill.monitor.Monitor._bring_up', spec_set=True)
+    def test__process_fail(self, mock_policy, mock_down_action, mock_bring_up):
         """Test monitor fail event.
         """
         # Disable W0212(protected-access)
@@ -238,8 +331,8 @@ class MonitorTest(unittest.TestCase):
         # Disable W0212(protected-access)
         # pylint: disable=W0212
         mon = monitor.Monitor(
-            services_dir='/some/dir',
-            service_dirs=(),
+            scan_dirs='/some/dir',
+            service_dirs=None,
             policy_impl=mock_policy,
             down_action=mock_down_action()
         )
@@ -253,9 +346,11 @@ class MonitorTest(unittest.TestCase):
         mon._process(mock_pol_inst)
 
         self.assertTrue(mock_pol_inst.check.called)
+        mock_bring_up.assert_not_called()
         self.assertEqual(list(mon._down_reasons), [{'a': 'test'}])
 
-    @mock.patch('os.listdir', mock.Mock(spec_set=True, return_value=['baz']))
+    @mock.patch('os.listdir', mock.Mock(spec_set=True, side_effect=[
+        ['baz'], ['baz']]))
     @mock.patch('treadmill.supervisor.open_service', mock.Mock(spec_set=True))
     @mock.patch('treadmill.dirwatch.DirWatcher', spec_set=True)
     @mock.patch('treadmill.monitor.MonitorDownAction', spec_set=True)
@@ -268,7 +363,7 @@ class MonitorTest(unittest.TestCase):
         # Disable W0212(protected-access)
         # pylint: disable=W0212
         mon = monitor.Monitor(
-            services_dir='/some/dir',
+            scan_dirs=('/some/dir', '/some/dir2'),
             service_dirs=('foo', 'bar'),
             policy_impl=mock_policy,
             down_action=mock_down_action()
@@ -293,17 +388,22 @@ class MonitorTest(unittest.TestCase):
 
         mon.run()
 
-        mock_dirwatch_inst.add_dir.assert_called_with('/some/dir')
+        mock_dirwatch_inst.add_dir.assert_has_calls([
+            mock.call('/some/dir'),
+            mock.call('/some/dir2')
+        ], any_order=True)
         treadmill.monitor.Monitor._add_service.assert_has_calls(
             [
                 mock.call('foo'),
                 mock.call('bar'),
+                mock.call('/some/dir2/baz'),
                 mock.call('/some/dir/baz'),
-            ]
+            ],
+            any_order=True
         )
         self.assertEqual(
             treadmill.monitor.Monitor._add_service.call_count,
-            3
+            4
         )
         self.assertTrue(mock_dirwatch.called)
         self.assertTrue(mock_dirwatch_inst.wait_for_events.called)
@@ -329,7 +429,7 @@ class MonitorContainerCleanupTest(unittest.TestCase):
         if self.root and os.path.isdir(self.root):
             shutil.rmtree(self.root)
 
-    @mock.patch('os.rename', mock.Mock())
+    @mock.patch('os.replace', mock.Mock())
     @mock.patch('treadmill.supervisor.control_svscan', mock.Mock())
     @mock.patch('treadmill.appcfg.abort.flag_aborted', mock.Mock())
     def test_execute(self):
@@ -361,7 +461,7 @@ class MonitorContainerCleanupTest(unittest.TestCase):
         self.assertEqual(res, True)
 
         treadmill.appcfg.abort.flag_aborted.assert_not_called()
-        os.rename.assert_called()
+        os.replace.assert_called()
 
         supervisor.control_svscan.assert_called_with(
             os.path.join(self.root, 'running'), [
@@ -370,7 +470,7 @@ class MonitorContainerCleanupTest(unittest.TestCase):
             ]
         )
 
-    @mock.patch('os.rename', mock.Mock())
+    @mock.patch('os.replace', mock.Mock())
     @mock.patch('treadmill.supervisor.control_svscan', mock.Mock())
     @mock.patch('treadmill.appcfg.abort.flag_aborted', mock.Mock())
     def test_execute_pid1_aborted(self):
@@ -405,7 +505,7 @@ class MonitorContainerCleanupTest(unittest.TestCase):
             os.path.join(service_dir, 'data'),
             why=treadmill.appcfg.abort.AbortedReason.PID1
         )
-        os.rename.assert_called()
+        os.replace.assert_called()
 
         supervisor.control_svscan.assert_called_with(
             os.path.join(self.root, 'running'), [
@@ -429,7 +529,7 @@ class MonitorContainerDownTest(unittest.TestCase):
                 mock.Mock(spec_set=True))
     @mock.patch('treadmill.supervisor.control_service',
                 mock.Mock(spec_set=True))
-    @mock.patch('os.rename', mock.Mock())
+    @mock.patch('os.replace', mock.Mock())
     def test_execute(self):
         """Test shutting down of the container services.
         """
@@ -449,7 +549,7 @@ class MonitorContainerDownTest(unittest.TestCase):
         )
 
         self.assertEqual(res, False)
-        self.assertTrue(os.rename.called)
+        self.assertTrue(os.replace.called)
         self.assertTrue(treadmill.supervisor.control_service.called)
 
 
@@ -682,6 +782,30 @@ class MonitorRestartPolicyTest(unittest.TestCase):
             os.path.join(self.root, 'exits')
         )
 
+    @mock.patch('io.open', mock.mock_open())
+    @mock.patch('treadmill.fs.mkdir_safe', mock.Mock(spec_set=True))
+    def test_register_failure(self):
+        """Test policy / service registration failure (not policy).
+        """
+        mock_service_class = collections.namedtuple(
+            'MockSvc', ['name', 'data_dir']
+        )
+        mock_policy = monitor.MonitorRestartPolicy()
+        mock_service = mock_service_class(
+            name='mock_service',
+            data_dir=os.path.join(self.root)
+        )
+        io.open.side_effect = \
+            IOError(errno.ENOENT, 'No such file or directory.')
+
+        res = mock_policy.register(mock_service)
+
+        # Check policy.json was read
+        io.open.assert_called_with(os.path.join(self.root, 'policy.json'))
+        treadmill.fs.mkdir_safe.assert_not_called()
+        # Failed registration should return None
+        self.assertIsNone(res)
+
     def test_fail_reason(self):
         """Test failure reason extraction from the policy.
         """
@@ -703,6 +827,81 @@ class MonitorRestartPolicyTest(unittest.TestCase):
                 'timestamp': 42.123,
             }
         )
+
+    # Disable C0103(Invalid method name)
+    # pylint: disable=C0103
+    @mock.patch('os.unlink', mock.Mock(spec_set=True))
+    @mock.patch('os.path.islink', mock.Mock(spec_set=True))
+    def test__check_cleanup_policy_restart(self):
+        """Test cleanup policy evaluation when the cleanup file exits and the
+        service should be restarted.
+        """
+        # Disable W0212(protected-access)
+        # pylint: disable=W0212
+        mock_service_class = collections.namedtuple('MockSvc', ['name',
+                                                                'directory'])
+        mock_tmenv_class = collections.namedtuple('MockTmEnv', ['cleanup_dir'])
+        mock_tmenv = mock_tmenv_class(self.root)
+        mock_policy = monitor.CleanupMonitorRestartPolicy(mock_tmenv)
+        mock_policy._service_exits_log = self.root
+        mock_policy._service = mock_service_class('mock_service', self.root)
+        mock_policy._policy_interval = 30
+        mock_policy._policy_limit = 3
+
+        os.path.islink.side_effect = [True]
+
+        failure_ts = [1, 2, 3, 75.431, 100.403, 115.871, 130.35]
+        for ts in failure_ts:
+            exit_file = '%014.3f,001,000' % ts
+            with io.open(os.path.join(self.root, exit_file), 'a'):
+                pass
+
+        res = mock_policy.check()
+
+        self.assertEqual(res, monitor.MonitorRestartPolicyResult.RESTART)
+        self.assertEqual(mock_policy._last_timestamp, 130.35)
+        self.assertEqual(mock_policy._last_rc, 1)
+        self.assertEqual(mock_policy._last_signal, 0)
+        self.assertEqual(
+            os.unlink.call_count,
+            # We should remove extra exit records past 2 times the policy limit
+            len(failure_ts) - 2 * mock_policy._policy_limit)
+
+    @mock.patch('os.unlink', mock.Mock(spec_set=True))
+    @mock.patch('os.path.islink', mock.Mock(spec_set=True))
+    def test__check_cleanup_policy_noop(self):
+        """Test cleanup policy evaluation when the cleanup file does not exist.
+        """
+        # Disable W0212(protected-access)
+        # pylint: disable=W0212
+        mock_service_class = collections.namedtuple('MockSvc', ['name',
+                                                                'directory'])
+        mock_tmenv_class = collections.namedtuple('MockTmEnv', ['cleanup_dir'])
+        mock_tmenv = mock_tmenv_class(self.root)
+        mock_policy = monitor.CleanupMonitorRestartPolicy(mock_tmenv)
+        mock_policy._service_exits_log = self.root
+        mock_policy._service = mock_service_class('mock_service', self.root)
+        mock_policy._policy_interval = 30
+        mock_policy._policy_limit = 3
+
+        os.path.islink.side_effect = [True]
+
+        failure_ts = [1, 2, 3, 75.431, 100.403, 115.871, 130.35]
+        for ts in failure_ts:
+            exit_file = '%014.3f,001,000' % ts
+            with io.open(os.path.join(self.root, exit_file), 'a'):
+                pass
+
+        res = mock_policy.check()
+
+        self.assertEqual(res, monitor.MonitorRestartPolicyResult.RESTART)
+        self.assertEqual(mock_policy._last_timestamp, 130.35)
+        self.assertEqual(mock_policy._last_rc, 1)
+        self.assertEqual(mock_policy._last_signal, 0)
+        self.assertEqual(
+            os.unlink.call_count,
+            # We should remove extra exit records past 2 times the policy limit
+            len(failure_ts) - 2 * mock_policy._policy_limit)
 
 
 if __name__ == '__main__':

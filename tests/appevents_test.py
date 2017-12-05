@@ -104,8 +104,7 @@ class AppeventsTest(mockzk.MockZookeeperTestCase):
             ),
             mock.call(
                 '/finished/foo.bar#123',
-                "{data: test, host: baz, "
-                "state: aborted, when: '100'}\n",
+                b'{data: test, host: baz, state: aborted, when: \'100\'}\n',
                 makepath=True,
                 ephemeral=False,
                 acl=mock.ANY,
@@ -158,7 +157,7 @@ class AppeventsTest(mockzk.MockZookeeperTestCase):
                 why='test'
             )
         )
-        self.assertEqual(zkclient_mock.create.call_args_list, [
+        zkclient_mock.create.assert_has_calls([
             mock.call(
                 '/trace/007B/foo.bar#123,100,baz,aborted,test',
                 b'',
@@ -167,8 +166,7 @@ class AppeventsTest(mockzk.MockZookeeperTestCase):
             ),
             mock.call(
                 '/finished/foo.bar#123',
-                "{data: test, host: baz, "
-                "state: aborted, when: '100'}\n",
+                b'{data: test, host: baz, state: aborted, when: \'100\'}\n',
                 ephemeral=False, makepath=True, sequence=False,
                 acl=mock.ANY
             )

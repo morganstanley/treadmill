@@ -27,10 +27,12 @@ class AppCfgTest(unittest.TestCase):
 
     @staticmethod
     def _write_app_yaml(event, manifest_str):
-        """Helper method to create app.yaml file in the event directory."""
+        """Helper method to create app.yaml file in the event directory.
+        """
         fs.write_safe(
             event,
-            lambda f: f.write(manifest_str)
+            lambda f: f.write(manifest_str),
+            mode='w',
         )
 
     def test_gen_uniqueid(self):

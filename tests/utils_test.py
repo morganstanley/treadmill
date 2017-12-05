@@ -18,6 +18,7 @@ import unittest
 # Disable W0402: string deprecated
 # pylint: disable=W0402
 import string
+import ipaddress
 
 import mock
 import six
@@ -317,6 +318,18 @@ class UtilsTest(unittest.TestCase):
         os.close.assert_called_with(300)
 
         os.chdir(cwd)
+
+    def test_cidr_range(self):
+        """Test cidr range"""
+        result1 = utils.cidr_range(174472034, 174472038)
+        result2 = utils.cidr_range('10.102.59.98', '10.102.59.102')
+        expected = [
+            ipaddress.IPv4Network(u'10.102.59.98/31'),
+            ipaddress.IPv4Network(u'10.102.59.100/31'),
+            ipaddress.IPv4Network(u'10.102.59.102/32')
+        ]
+        self.assertEqual(result1, expected)
+        self.assertEqual(result2, expected)
 
     def test_signal_flag(self):
         """Tests signal flag."""

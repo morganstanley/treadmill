@@ -1,0 +1,12 @@
+#!/bin/sh
+#
+# Starts Treadmill running container monitor
+# Runs as root.
+#
+
+exec \
+    {{ treadmill_bin }} \
+    sproc --cgroup . \
+    monitor containers \
+        --approot {{ dir }} \
+        -S {{ dir }}/running

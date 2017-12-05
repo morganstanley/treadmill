@@ -51,17 +51,20 @@ class StateTest(unittest.TestCase):
 
         resp = self.client.get('/state/')
         resp_json = b''.join(resp.response)
-        self.assertEqual(json.loads(resp_json.decode()), [
-            {'name': 'foo.bar#0000000001', 'oom': None, 'signal': None,
-             'expires': None, 'when': None, 'host': 'baz1',
-             'state': 'running', 'exitcode': None},
-            {'name': 'foo.bar#0000000002', 'oom': False, 'signal': None,
-             'expires': None, 'when': 1234567890.1, 'host': 'baz2',
-             'state': 'finished', 'exitcode': 0},
-            {'name': 'foo.bar#0000000003', 'oom': False, 'signal': 11,
-             'expires': None, 'when': 1234567890.2, 'host': 'baz3',
-             'state': 'finished', 'exitcode': None}
-        ])
+        self.assertEqual(
+            json.loads(resp_json.decode()),
+            [
+                {'name': 'foo.bar#0000000001', 'oom': None, 'signal': None,
+                 'expires': None, 'when': None, 'host': 'baz1',
+                 'state': 'running', 'exitcode': None},
+                {'name': 'foo.bar#0000000002', 'oom': False, 'signal': None,
+                 'expires': None, 'when': 1234567890.1, 'host': 'baz2',
+                 'state': 'finished', 'exitcode': 0},
+                {'name': 'foo.bar#0000000003', 'oom': False, 'signal': 11,
+                 'expires': None, 'when': 1234567890.2, 'host': 'baz3',
+                 'state': 'finished', 'exitcode': None}
+            ]
+        )
         self.assertEqual(resp.status_code, http_client.OK)
         self.impl.list.assert_called_with(None, False, None)
 
@@ -96,14 +99,19 @@ class StateTest(unittest.TestCase):
 
         resp = self.client.get('/state/foo.bar#0000000001')
         resp_json = b''.join(resp.response)
-        self.assertEqual(json.loads(resp_json.decode()), {
-            'name': 'foo.bar#0000000001', 'oom': None, 'signal': None,
-            'expires': None, 'when': None, 'host': 'baz1',
-            'state': 'running', 'exitcode': None
-        })
+        self.assertEqual(
+            json.loads(resp_json.decode()),
+            {
+                'name': 'foo.bar#0000000001', 'oom': None, 'signal': None,
+                'expires': None, 'when': None, 'host': 'baz1',
+                'state': 'running', 'exitcode': None
+            }
+        )
         self.assertEqual(resp.status_code, http_client.OK)
         self.impl.get.assert_called_with('foo.bar#0000000001')
 
+    def test_get_state_notfound(self):
+        """Test getting an instance state (not found)."""
         self.impl.get.return_value = None
         resp = self.client.get('/state/foo.bar#0000000002')
         self.assertEqual(resp.status_code, http_client.NOT_FOUND)

@@ -158,6 +158,27 @@ class ReportTest(unittest.TestCase):
                 mock.Mock(return_value=mock.MagicMock(requests.Response)))
     @mock.patch('treadmill.context.Context.cell_api',
                 mock.Mock(return_value=['http://example.com']))
+    def test_partition_argument(self):
+        """Test behaviour of the --partition flag."""
+        restclient.get.return_value.json.return_value = {
+            'columns': ['name'],
+            'data': [['foo']]
+        }
+
+        result = self.runner.invoke(self.scheduler, [
+            '--cell', 'TEST', 'allocs', '--partition', '.*'
+        ])
+
+        self.assertEqual(result.exit_code, 0)
+        restclient.get.assert_called_with(
+            ['http://example.com'],
+            '/scheduler/allocations?partition=.%2A'
+        )
+
+    @mock.patch('treadmill.restclient.get',
+                mock.Mock(return_value=mock.MagicMock(requests.Response)))
+    @mock.patch('treadmill.context.Context.cell_api',
+                mock.Mock(return_value=['http://example.com']))
     def test_apps_report_condensed(self):
         """Test behaviour and output of the condensed apps report."""
         restclient.get.return_value.json.return_value = {

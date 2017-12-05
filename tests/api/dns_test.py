@@ -33,7 +33,7 @@ class ApiDNSTest(unittest.TestCase):
     @mock.patch('treadmill.context.AdminContext.conn',
                 mock.Mock(return_value=admin.Admin(None, None)))
     @mock.patch('treadmill.admin.DNS.get',
-                mock.Mock(return_value={"location": "as"}))
+                mock.Mock(return_value={'location': 'as'}))
     def test_get(self):
         """Dummy test for treadmill.api.cell.get()"""
         dns_admin = admin.DNS(None)

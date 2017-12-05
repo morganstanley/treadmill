@@ -147,36 +147,6 @@ class FsTest(unittest.TestCase):
             ]
         )
 
-    @mock.patch('treadmill.utils.rootdir', mock.Mock(return_value='tm_root'))
-    def test_archive_filesystem_empty(self):
-        """Test filesystem archiving"""
-        rootdir = os.path.join(self.root, 'apps', 'myapp.0', 'root')
-        fs.mkdir_safe(rootdir)
-        archive = os.path.join(self.root, 'arch.tar.bz2')
-
-        self.assertTrue(
-            treadmill.fs.archive_filesystem('/dev/myapp', rootdir, archive, [])
-        )
-
-    @mock.patch('treadmill.utils.rootdir', mock.Mock(return_value='tm_root'))
-    @mock.patch('treadmill.subproc.call', mock.Mock(return_value=0))
-    def test_archive_filesystem(self):
-        """Test filesystem archiving"""
-        rootdir = os.path.join(self.root, 'apps', 'myapp.0', 'root')
-        fs.mkdir_safe(rootdir)
-        archive = os.path.join(self.root, 'arch.tar.bz2')
-
-        treadmill.fs.archive_filesystem(
-            '/dev/myapp', rootdir, archive,
-            ['/var/tmp/archive1', '/var/tmp/archive2'])
-
-        treadmill.subproc.call.assert_called_with(
-            ['unshare', '--mount',
-             'tm_root/sbin/archive_container.sh',
-             '/dev/myapp', rootdir, archive,
-             'var/tmp/archive1', 'var/tmp/archive2']
-        )
-
     def test_rm_safe(self):
         """Test safe rm/unlink."""
         test_file = os.path.join(self.root, 'rmsafe_test')
@@ -188,6 +158,17 @@ class FsTest(unittest.TestCase):
         self.assertFalse(os.path.exists(test_file))
         fs.rm_safe(test_file)
         self.assertFalse(os.path.exists(test_file))
+
+    def test_rmtree_safe(self):
+        """Test safe rmtree."""
+        test_dir = os.path.join(self.root, 'rmsafe_test')
+        os.mkdir(test_dir)
+
+        self.assertTrue(os.path.isdir(test_dir))
+        fs.rmtree_safe(test_dir)
+        self.assertFalse(os.path.exists(test_dir))
+        fs.rmtree_safe(test_dir)
+        self.assertFalse(os.path.exists(test_dir))
 
     def test_tar_basic(self):
         """Tests the fs.tar function.
@@ -229,7 +210,7 @@ class FsTest(unittest.TestCase):
 
         self.assertEqual(
             fs.tar(archive, tardir, compression='gzip').name,
-            "%s.gz" % archive,
+            '%s.gz' % archive,
             'fs.tar with gzip runs successfully'
         )
         self.assertTrue(

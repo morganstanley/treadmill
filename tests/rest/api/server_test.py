@@ -46,7 +46,11 @@ class ServerTest(unittest.TestCase):
 
         resp = self.client.get('/server/')
 
-        self.assertEqual(''.join(resp.response), json.dumps(server_list))
+        resp_json = b''.join(resp.response)
+        self.assertEqual(
+            json.loads(resp_json.decode()),
+            server_list
+        )
         self.assertEqual(resp.status_code, http_client.OK)
         self.impl.list.assert_called_with(None, None)
 

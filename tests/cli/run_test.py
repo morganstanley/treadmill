@@ -103,7 +103,7 @@ class RunTest(unittest.TestCase):
     def test_run_withmanifest(self):
         """Test cli.run no manifest."""
 
-        with tempfile.NamedTemporaryFile(delete=False) as f:
+        with tempfile.NamedTemporaryFile(delete=False, mode='w') as f:
 
             manifest = {
                 'memory': '1G',

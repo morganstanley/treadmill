@@ -23,7 +23,6 @@ else:
 
 import treadmill
 from treadmill import supervisor
-from treadmill import subproc
 
 # Disable: C0103 because names are too long
 # pylint: disable=C0103
@@ -44,11 +43,7 @@ class SupervisorTest(unittest.TestCase):
     def setUpClass(cls):
         aliases_path = os.environ.get('TREADMILL_ALIASES_PATH')
         if aliases_path is None:
-            os.environ['TREADMILL_ALIASES_PATH'] = 'node:node.ms'
-
-        os.environ['PATH'] = ':'.join(os.environ['PATH'].split(':') + [
-            os.path.join(subproc.resolve('s6'), 'bin')
-        ])
+            os.environ['TREADMILL_ALIASES_PATH'] = 'node'
 
     def setUp(self):
         self.mock_pwrow = collections.namedtuple(
@@ -182,17 +177,73 @@ class SupervisorTest(unittest.TestCase):
             timeout=100,
         ))
         treadmill.subproc.check_call.assert_called_with(
-            ['s6_svc', '-wu', '-T100', '-u', self.root]
+            ['s6_svwait', '-t100', '-u', self.root]
         )
 
         treadmill.subproc.check_call.side_effect = \
             subprocess.CalledProcessError(1, 's6_svc')
-        self.assertFalse(supervisor.control_service(
-            self.root, supervisor.ServiceControlAction.down
-        ))
+        self.assertRaises(
+            subprocess.CalledProcessError,
+            supervisor.control_service,
+            self.root,
+            supervisor.ServiceControlAction.down
+        )
         treadmill.subproc.check_call.assert_called_with(
             ['s6_svc', '-d', self.root]
         )
+
+    @mock.patch('treadmill.subproc.check_call', mock.Mock(spec_set=True))
+    @mock.patch('treadmill.supervisor.wait_service', mock.Mock())
+    def test_control_service_wait(self):
+        """Tests controlling a service and wait"""
+        # shutdown supervised service
+        res = supervisor.control_service(
+            self.root, supervisor.ServiceControlAction.down,
+            wait=supervisor.ServiceWaitAction.down,
+            timeout=100,
+        )
+
+        treadmill.subproc.check_call.assert_called_with(
+            ['s6_svc', '-d', self.root]
+        )
+        treadmill.supervisor.wait_service.assert_called_with(
+            self.root,
+            treadmill.supervisor.ServiceWaitAction.down,
+            timeout=100
+        )
+        self.assertTrue(res)
+
+        # shutdown service timeouts
+        treadmill.subproc.check_call.reset_mock()
+        supervisor.wait_service.side_effect = \
+            subprocess.CalledProcessError(99, 's6_svwait')
+
+        res = supervisor.control_service(
+            self.root, supervisor.ServiceControlAction.down,
+            wait=supervisor.ServiceWaitAction.down,
+            timeout=100,
+        )
+        treadmill.subproc.check_call.assert_called_with(
+            ['s6_svc', '-d', self.root]
+        )
+        treadmill.supervisor.wait_service.assert_called_with(
+            self.root,
+            treadmill.supervisor.ServiceWaitAction.down,
+            timeout=100
+        )
+        self.assertFalse(res)
+
+        # shutdown unsupervised service
+        treadmill.subproc.check_call.reset_mock()
+        treadmill.subproc.check_call.side_effect = \
+            subprocess.CalledProcessError(100, 's6_svc')
+
+        with self.assertRaises(subprocess.CalledProcessError):
+            supervisor.control_service(
+                self.root, supervisor.ServiceControlAction.down,
+                wait=supervisor.ServiceWaitAction.down,
+                timeout=100,
+            )
 
     @mock.patch('treadmill.subproc.check_call', mock.Mock(spec_set=True))
     def test_control_svscan(self):
@@ -212,14 +263,15 @@ class SupervisorTest(unittest.TestCase):
     def test_wait_service(self):
         """Tests waiting on a service.
         """
-        self.assertTrue(supervisor.wait_service(
+        supervisor.wait_service(
             self.root, supervisor.ServiceWaitAction.down
-        ))
+        )
         treadmill.subproc.check_call.assert_called_with(
             ['s6_svwait', '-d', self.root]
         )
 
-        self.assertTrue(supervisor.wait_service(
+        treadmill.subproc.check_call.reset_mock()
+        supervisor.wait_service(
             (
                 os.path.join(self.root, 'a'),
                 os.path.join(self.root, 'b')
@@ -227,7 +279,7 @@ class SupervisorTest(unittest.TestCase):
             supervisor.ServiceWaitAction.really_up,
             all_services=False,
             timeout=100,
-        ))
+        )
         treadmill.subproc.check_call.assert_called_with(
             [
                 's6_svwait', '-t100', '-o', '-U',
@@ -236,11 +288,13 @@ class SupervisorTest(unittest.TestCase):
             ]
         )
 
+        treadmill.subproc.check_call.reset_mock()
         treadmill.subproc.check_call.side_effect = \
             subprocess.CalledProcessError(99, 's6_svwait')
-        self.assertFalse(supervisor.wait_service(
-            self.root, supervisor.ServiceWaitAction.really_down
-        ))
+        with self.assertRaises(subprocess.CalledProcessError):
+            supervisor.wait_service(
+                self.root, supervisor.ServiceWaitAction.really_down
+            )
         treadmill.subproc.check_call.assert_called_with(
             ['s6_svwait', '-D', self.root]
         )
@@ -275,9 +329,8 @@ class SupervisorTest(unittest.TestCase):
 
     @mock.patch('treadmill.supervisor.is_supervised', mock.Mock())
     @mock.patch('treadmill.supervisor.control_service', mock.Mock())
-    def test_ensure_not_supervised_kill_exit(self):
-        """Tests ensuring a service and its logs when the the service is up
-        and running.
+    def test_ensure_not_supervised_exit(self):
+        """Tests a supervisor was up and waiting to exit.
         """
         treadmill.supervisor.is_supervised.side_effect = (True, False)
         treadmill.supervisor.is_supervised.control_service.return_value = True
@@ -285,8 +338,7 @@ class SupervisorTest(unittest.TestCase):
         supervisor.ensure_not_supervised(self.root)
 
         treadmill.supervisor.control_service.assert_called_with(
-            self.root, (supervisor.ServiceControlAction.kill,
-                        supervisor.ServiceControlAction.exit),
+            self.root, supervisor.ServiceControlAction.exit,
             supervisor.ServiceWaitAction.really_down,
             timeout=1000
         )

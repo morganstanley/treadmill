@@ -40,6 +40,7 @@ class LocalDiskServiceTest(unittest.TestCase):
         """
         svc = localdisk_service.LocalDiskResourceService(
             block_dev='/dev/block',
+            vg_name='treadmill',
             read_bps='100M',
             write_bps='100M',
             read_iops=1000,
@@ -61,17 +62,25 @@ class LocalDiskServiceTest(unittest.TestCase):
 
         svc = localdisk_service.LocalDiskResourceService(
             block_dev='/dev/block',
+            vg_name='treadmill',
             read_bps='100M',
             write_bps='100M',
             read_iops=1000,
             write_iops=1000
         )
-        svc._vg_status = {'test': 'me'}
+        svc._vg_status = {
+            'extent_size': 4,
+            'extent_free': 512,
+            'extent_nb': 512,
+        }
 
         status = svc.report_status()
 
         self.assertEqual(status, {
-            'test': 'me',
+            'extent_size': 4,
+            'extent_free': 512,
+            'extent_nb': 512,
+            'size': 512 * 4,
             'read_bps': '100M',
             'write_bps': '100M',
             'read_iops': 1000,
@@ -93,6 +102,7 @@ class LocalDiskServiceTest(unittest.TestCase):
 
         svc = localdisk_service.LocalDiskResourceService(
             block_dev='/dev/block',
+            vg_name='treadmill',
             read_bps='100M',
             write_bps='100M',
             read_iops=1000,
@@ -111,15 +121,15 @@ class LocalDiskServiceTest(unittest.TestCase):
             'dev_major': 42,
             'dev_minor': 43,
             'extent_size': 10,
-            'name': 'ID1234',
+            'name': 'tm-ID1234',
         }
 
         localdisk = svc.on_create_request(request_id, request)
 
         treadmill.lvm.lvcreate.assert_called_with(
-            volume='ID1234',
+            volume='tm-ID1234',
             group='treadmill',
-            size_in_bytes=100 * 1024 * 1024,
+            size_in_bytes=100 * 1024**2,
         )
         self.assertTrue(
             treadmill.localdiskutils.refresh_vg_status.called
@@ -153,7 +163,7 @@ class LocalDiskServiceTest(unittest.TestCase):
                 'dev_major': 42,
                 'dev_minor': 43,
                 'extent_size': 10,
-                'name': 'ID1234',
+                'name': 'tm-ID1234',
             }
         )
 
@@ -173,6 +183,7 @@ class LocalDiskServiceTest(unittest.TestCase):
 
         svc = localdisk_service.LocalDiskResourceService(
             block_dev='/dev/block',
+            vg_name='treadmill',
             read_bps='100M',
             write_bps='100M',
             read_iops=1000,
@@ -187,7 +198,7 @@ class LocalDiskServiceTest(unittest.TestCase):
             'dev_major': 42,
             'dev_minor': 43,
             'extent_size': 10,
-            'name': 'ID1234',
+            'name': 'tm-ID1234',
         }
         request = {
             'size': '100M',
@@ -206,7 +217,7 @@ class LocalDiskServiceTest(unittest.TestCase):
             'dev_major': 24,
             'dev_minor': 34,
             'extent_size': 10,
-            'name': 'ID1234',
+            'name': 'tm-ID1234',
         }
         # Issue a second request
         localdisk = svc.on_create_request(request_id, request)
@@ -243,7 +254,7 @@ class LocalDiskServiceTest(unittest.TestCase):
                 'dev_major': 24,
                 'dev_minor': 34,
                 'extent_size': 10,
-                'name': 'ID1234',
+                'name': 'tm-ID1234',
             }
         )
 
@@ -259,6 +270,7 @@ class LocalDiskServiceTest(unittest.TestCase):
 
         svc = localdisk_service.LocalDiskResourceService(
             block_dev='/dev/block',
+            vg_name='treadmill',
             read_bps='100M',
             write_bps='100M',
             read_iops=1000,
@@ -268,9 +280,86 @@ class LocalDiskServiceTest(unittest.TestCase):
 
         svc.on_delete_request(request_id)
 
-        treadmill.lvm.lvremove.assert_called_with('ID1234', group='treadmill')
-        self.assertTrue(
-            treadmill.localdiskutils.refresh_vg_status.called
+        treadmill.lvm.lvdisplay.assert_called_with(
+            'tm-ID1234',
+            group='treadmill'
+        )
+        treadmill.lvm.lvremove.assert_called_with(
+            'tm-ID1234',
+            group='treadmill'
+        )
+        treadmill.localdiskutils.refresh_vg_status.assert_called()
+
+    @mock.patch('treadmill.lvm.lvdisplay', mock.Mock())
+    @mock.patch('treadmill.lvm.lvremove', mock.Mock())
+    @mock.patch('treadmill.localdiskutils.refresh_vg_status',
+                mock.Mock())
+    def test_on_delete_request_notexist(self):
+        """Test processing of a localdisk delete request.
+        """
+        # Access to a protected member
+        # pylint: disable=W0212
+
+        svc = localdisk_service.LocalDiskResourceService(
+            block_dev='/dev/block',
+            vg_name='treadmill',
+            read_bps='100M',
+            write_bps='100M',
+            read_iops=1000,
+            write_iops=1000
+        )
+        request_id = 'myproid.test-0-ID1234'
+        # trying to find the LV fails
+        treadmill.lvm.lvdisplay.side_effect = (
+            subprocess.CalledProcessError(returncode=5, cmd='lvm'),
+        )
+
+        svc.on_delete_request(request_id)
+
+        treadmill.lvm.lvdisplay.assert_called_with(
+            'tm-ID1234',
+            group='treadmill'
+        )
+        treadmill.lvm.lvremove.assert_not_called()
+        treadmill.localdiskutils.refresh_vg_status.assert_not_called()
+
+    @mock.patch('treadmill.lvm.lvdisplay', mock.Mock())
+    @mock.patch('treadmill.lvm.lvremove', mock.Mock())
+    @mock.patch('treadmill.localdiskutils.refresh_vg_status',
+                mock.Mock())
+    def test_on_delete_request_busy(self):
+        """Test processing of a localdisk delete request.
+        """
+        # Access to a protected member
+        # pylint: disable=W0212
+
+        svc = localdisk_service.LocalDiskResourceService(
+            block_dev='/dev/block',
+            vg_name='treadmill',
+            read_bps='100M',
+            write_bps='100M',
+            read_iops=1000,
+            write_iops=1000
+        )
+        request_id = 'myproid.test-0-ID1234'
+        # trying to lvremote fails
+        treadmill.lvm.lvremove.side_effect = (
+            subprocess.CalledProcessError(returncode=5, cmd='lvm'),
+        )
+
+        self.assertRaises(
+            subprocess.CalledProcessError,
+            svc.on_delete_request,
+            request_id
+        )
+
+        treadmill.lvm.lvdisplay.assert_called_with(
+            'tm-ID1234',
+            group='treadmill'
+        )
+        treadmill.lvm.lvremove.assert_called_with(
+            'tm-ID1234',
+            group='treadmill'
         )
 
     @mock.patch('treadmill.lvm.vgdisplay', mock.Mock())
@@ -310,7 +399,6 @@ class LocalDiskServiceTest(unittest.TestCase):
                 'extent_nb': 24,
                 'extent_size': 4194304,
                 'name': 'test',
-                'size': 100663296,
             }
         )
 
@@ -382,7 +470,7 @@ class LocalDiskServiceTest(unittest.TestCase):
         os.unlink.assert_called_with('/bar/foo')
         treadmill.fs.create_excl.assert_called_with(
             '/bar/foo',
-            (10 * 1024**3) - (2 * 1024**3),  # 10G free - 2G reserve
+            10 * 1024**3 - 2 * 1024**3,  # 10G free - 2G reserve
         )
 
 

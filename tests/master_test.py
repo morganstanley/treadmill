@@ -9,11 +9,13 @@ from __future__ import unicode_literals
 # Disable C0302: Too many lines in the module
 # pylint: disable=C0302
 
+import json
 import os
 import shutil
 import tempfile
 import time
 import unittest
+import zlib
 
 import kazoo
 import mock
@@ -21,8 +23,11 @@ import numpy as np
 
 import treadmill
 import treadmill.exc
-from treadmill import master
 from treadmill import scheduler
+from treadmill.scheduler import loader
+from treadmill.scheduler import master
+from treadmill.scheduler import masterapi
+from treadmill.scheduler import zkbackend
 
 from tests.testutils import mockzk
 
@@ -37,7 +42,8 @@ class MasterTest(mockzk.MockZookeeperTestCase):
 
         self.root = tempfile.mkdtemp()
         os.environ['TREADMILL_MASTER_ROOT'] = self.root
-        self.master = master.Master(kazoo.client.KazooClient(), 'test-cell')
+        backend = zkbackend.ZkBackend(kazoo.client.KazooClient())
+        self.master = master.Master(backend, 'test-cell')
         # Use 111 to assert on zkhandle value.
         # Disable the exit on exception hack for tests
         self.old_exit_on_unhandled = treadmill.utils.exit_on_unhandled
@@ -52,11 +58,11 @@ class MasterTest(mockzk.MockZookeeperTestCase):
 
     def test_resource_parsing(self):
         """Tests parsing resources."""
-        self.assertEqual([0, 0, 0], master.resources({}))
-        self.assertEqual([1, 0, 0], master.resources({'memory': '1M'}))
+        self.assertEqual([0, 0, 0], loader.resources({}))
+        self.assertEqual([1, 0, 0], loader.resources({'memory': '1M'}))
         self.assertEqual(
             [1, 10, 1024],
-            master.resources(
+            loader.resources(
                 {'memory': '1M',
                  'cpu': '10%',
                  'disk': '1G'}
@@ -157,11 +163,10 @@ class MasterTest(mockzk.MockZookeeperTestCase):
     @mock.patch('kazoo.client.KazooClient.create', mock.Mock())
     @mock.patch('kazoo.client.KazooClient.exists', mock.Mock())
     @mock.patch('time.time', mock.Mock(return_value=0))
-    def test_adjust_server_state(self):
-        """Tests load of server and bucket data."""
+    def test_set_server_presence(self):
+        """Test loading server, setting presence and state/valid_until."""
         zk_content = {
             'placement': {},
-            'server.presence': {},
             'buckets': {
                 'pod:pod1': {
                     'traits': None,
@@ -181,6 +186,109 @@ class MasterTest(mockzk.MockZookeeperTestCase):
                     'cpu': '400%',
                     'parent': 'rack:1234',
                 },
+                'test.yy.com': {
+                    'memory': '16G',
+                    'disk': '128G',
+                    'cpu': '400%',
+                    'parent': 'rack:1234',
+                },
+                'test.zz.com': {
+                    'memory': '16G',
+                    'disk': '128G',
+                    'cpu': '400%',
+                    'parent': 'rack:1234',
+                },
+            },
+            'server.presence': {
+                'test.yy.com#12345': {'seen': False},
+                'test.zz.com': {'seen': False},
+            },
+        }
+
+        time.time.return_value = 100
+        self.make_mock_zk(zk_content)
+        self.master.load_buckets()
+        self.master.load_servers()
+
+        self.assertEqual(
+            None,
+            self.master.servers['test.xx.com'].presence_id
+        )
+        self.assertEqual(
+            (scheduler.State.down, 100),
+            self.master.servers['test.xx.com'].get_state()
+        )
+        self.assertEqual(
+            0,
+            self.master.servers['test.xx.com'].valid_until
+        )
+
+        self.assertEqual(
+            '12345',
+            self.master.servers['test.yy.com'].presence_id
+        )
+        self.assertEqual(
+            (scheduler.State.up, 100),
+            self.master.servers['test.yy.com'].get_state()
+        )
+        self.assertTrue(self.master.servers['test.yy.com'].valid_until > 0)
+
+        self.assertEqual(
+            '-1',
+            self.master.servers['test.zz.com'].presence_id
+        )
+        self.assertEqual(
+            (scheduler.State.up, 100),
+            self.master.servers['test.zz.com'].get_state()
+        )
+        self.assertTrue(self.master.servers['test.zz.com'].valid_until > 0)
+
+    @mock.patch('kazoo.client.KazooClient.get', mock.Mock())
+    @mock.patch('kazoo.client.KazooClient.exists', mock.Mock())
+    @mock.patch('kazoo.client.KazooClient.get_children', mock.Mock())
+    @mock.patch('kazoo.client.KazooClient.set', mock.Mock())
+    @mock.patch('kazoo.client.KazooClient.create', mock.Mock())
+    @mock.patch('kazoo.client.KazooClient.exists', mock.Mock())
+    @mock.patch('time.time', mock.Mock(return_value=0))
+    def test_adjust_server_state(self):
+        """Tests load of server and bucket data."""
+        zk_content = {
+            'placement': {},
+            'buckets': {
+                'pod:pod1': {
+                    'traits': None,
+                },
+                'pod:pod2': {
+                    'traits': None,
+                },
+                'rack:1234': {
+                    'traits': None,
+                    'parent': 'pod:pod1',
+                },
+            },
+            'servers': {
+                'test.xx.com': {
+                    'memory': '16G',
+                    'disk': '128G',
+                    'cpu': '400%',
+                    'parent': 'rack:1234',
+                },
+                'test.yy.com': {
+                    'memory': '16G',
+                    'disk': '128G',
+                    'cpu': '400%',
+                    'parent': 'rack:1234',
+                },
+                'test.zz.com': {
+                    'memory': '16G',
+                    'disk': '128G',
+                    'cpu': '400%',
+                    'parent': 'rack:1234',
+                },
+            },
+            'server.presence': {
+                'test.yy.com#12345': {'seen': False},
+                'test.zz.com': {'seen': False},
             },
         }
 
@@ -193,15 +301,178 @@ class MasterTest(mockzk.MockZookeeperTestCase):
             (scheduler.State.down, 100),
             self.master.servers['test.xx.com'].get_state()
         )
+        self.assertEqual(
+            (scheduler.State.up, 100),
+            self.master.servers['test.yy.com'].get_state()
+        )
+        self.assertEqual(
+            (scheduler.State.up, 100),
+            self.master.servers['test.zz.com'].get_state()
+        )
 
-        zk_content['server.presence']['test.xx.com'] = {}
+    @mock.patch('kazoo.client.KazooClient.get', mock.Mock())
+    @mock.patch('kazoo.client.KazooClient.exists', mock.Mock())
+    @mock.patch('kazoo.client.KazooClient.get_children', mock.Mock())
+    @mock.patch('kazoo.client.KazooClient.set', mock.Mock())
+    @mock.patch('kazoo.client.KazooClient.create', mock.Mock())
+    @mock.patch('kazoo.client.KazooClient.exists', mock.Mock())
+    @mock.patch('time.time', mock.Mock(return_value=0))
+    def test_adjust_server_presence(self):
+        """Test adjusting server presence and state/valid_until."""
+        zk_content = {
+            'placement': {},
+            'buckets': {
+                'pod:pod1': {
+                    'traits': None,
+                },
+                'pod:pod2': {
+                    'traits': None,
+                },
+                'rack:1234': {
+                    'traits': None,
+                    'parent': 'pod:pod1',
+                },
+            },
+            'servers': {
+                'test.aa.com': {
+                    'memory': '16G',
+                    'disk': '128G',
+                    'cpu': '400%',
+                    'parent': 'rack:1234',
+                },
+                'test.bb.com': {
+                    'memory': '16G',
+                    'disk': '128G',
+                    'cpu': '400%',
+                    'parent': 'rack:1234',
+                },
+                'test.cc.com': {
+                    'memory': '16G',
+                    'disk': '128G',
+                    'cpu': '400%',
+                    'parent': 'rack:1234',
+                },
+                'test.dd.com': {
+                    'memory': '16G',
+                    'disk': '128G',
+                    'cpu': '400%',
+                    'parent': 'rack:1234',
+                },
+                'test.ee.com': {
+                    'memory': '16G',
+                    'disk': '128G',
+                    'cpu': '400%',
+                    'parent': 'rack:1234',
+                },
+                'test.ff.com': {
+                    'memory': '16G',
+                    'disk': '128G',
+                    'cpu': '400%',
+                    'parent': 'rack:1234',
+                },
+                'test.gg.com': {
+                    'memory': '16G',
+                    'disk': '128G',
+                    'cpu': '400%',
+                    'parent': 'rack:1234',
+                },
+                'test.hh.com': {
+                    'memory': '16G',
+                    'disk': '128G',
+                    'cpu': '400%',
+                    'parent': 'rack:1234',
+                },
+            },
+            'server.presence': {
+                'test.aa.com#0': {'seen': False},
+                'test.bb.com#1': {'seen': False},
+                'test.cc.com#2': {'seen': False},
+                'test.ee.com': {'seen': False},
+                'test.ff.com': {'seen': False},
+            },
+        }
 
+        time.time.return_value = 100
+        self.make_mock_zk(zk_content)
+        self.master.load_buckets()
+        self.master.load_servers()
+
+        # test.aa.com#3 - was up, now is up but with different sequence number
+        # test.bb.com#1 - was up, now is down
+        # test.cc.com#2 - was up, no change
+        # test.dd.com#4 - new server
+        # test.ee.com - was up, now is down
+        # test.ff.com - was up, no change
+        # test.gg.com - was down, no change
+        # test.hh.com - new server
         time.time.return_value = 200
-        self.master.adjust_server_state('test.xx.com')
+        zk_content['server.presence'] = {
+            'test.aa.com#3': {'seen': False},
+            'test.cc.com#2': {'seen': False},
+            'test.dd.com#4': {'seen': False},
+            'test.ff.com': {'seen': False},
+            'test.hh.com': {'seen': False},
+        }
+        self.master.adjust_server_presence([
+            'test.aa.com#3', 'test.cc.com#2', 'test.dd.com#4',
+            'test.ff.com', 'test.hh.com'
+        ])
+
+        self.assertEqual('3', self.master.servers['test.aa.com'].presence_id)
         self.assertEqual(
             (scheduler.State.up, 200),
-            self.master.servers['test.xx.com'].get_state()
+            self.master.servers['test.aa.com'].get_state()
         )
+        self.assertTrue(self.master.servers['test.aa.com'].valid_until > 0)
+
+        self.assertEqual(None, self.master.servers['test.bb.com'].presence_id)
+        self.assertEqual(
+            (scheduler.State.down, 200),
+            self.master.servers['test.bb.com'].get_state()
+        )
+        self.assertEqual(0, self.master.servers['test.bb.com'].valid_until)
+
+        self.assertEqual('2', self.master.servers['test.cc.com'].presence_id)
+        self.assertEqual(
+            (scheduler.State.up, 100),
+            self.master.servers['test.cc.com'].get_state()
+        )
+        self.assertTrue(self.master.servers['test.cc.com'].valid_until > 0)
+
+        self.assertEqual('4', self.master.servers['test.dd.com'].presence_id)
+        self.assertEqual(
+            (scheduler.State.up, 200),
+            self.master.servers['test.dd.com'].get_state()
+        )
+        self.assertTrue(self.master.servers['test.dd.com'].valid_until > 0)
+
+        self.assertEqual(None, self.master.servers['test.ee.com'].presence_id)
+        self.assertEqual(
+            (scheduler.State.down, 200),
+            self.master.servers['test.ee.com'].get_state()
+        )
+        self.assertEqual(0, self.master.servers['test.ee.com'].valid_until)
+
+        self.assertEqual('-1', self.master.servers['test.ff.com'].presence_id)
+        self.assertEqual(
+            (scheduler.State.up, 100),
+            self.master.servers['test.ff.com'].get_state()
+        )
+        self.assertTrue(self.master.servers['test.ff.com'].valid_until > 0)
+
+        self.assertEqual(None, self.master.servers['test.gg.com'].presence_id)
+        self.assertEqual(
+            (scheduler.State.down, 100),
+            self.master.servers['test.gg.com'].get_state()
+        )
+        self.assertEqual(0, self.master.servers['test.gg.com'].valid_until)
+
+        self.assertEqual('-1', self.master.servers['test.hh.com'].presence_id)
+        self.assertEqual(
+            (scheduler.State.up, 200),
+            self.master.servers['test.hh.com'].get_state()
+        )
+        self.assertTrue(self.master.servers['test.hh.com'].valid_until > 0)
 
     @mock.patch('kazoo.client.KazooClient.get', mock.Mock())
     def test_load_allocations(self):
@@ -274,6 +545,23 @@ class MasterTest(mockzk.MockZookeeperTestCase):
     @mock.patch('time.time', mock.Mock(return_value=500))
     def test_reschedule(self):
         """Tests application placement."""
+        zk_content = {
+            'servers': {
+                '1': {},
+                '2': {},
+                '3': {},
+                '4': {},
+            },
+            'placement': {
+                '1': {},
+                '2': {},
+                '3': {},
+                '4': {},
+            }
+        }
+
+        self.make_mock_zk(zk_content)
+
         srv_1 = scheduler.Server('1', [10, 10, 10],
                                  valid_until=1000, traits=0)
         srv_2 = scheduler.Server('2', [10, 10, 10],
@@ -301,11 +589,18 @@ class MasterTest(mockzk.MockZookeeperTestCase):
                       {'expires': 500, 'identity': None}, acl=mock.ANY),
             mock.call(mock.ANY, '/placement/2/app2',
                       {'expires': 500, 'identity': None}, acl=mock.ANY),
-        ])
+        ], any_order=True)
+
+        # Reflect placement in mock content.
+        zk_content['placement']['1']['app1'] = {'identity': None,
+                                                'expires': 500}
+        zk_content['placement']['2']['app2'] = {'identity': None,
+                                                'expires': 500}
 
         treadmill.zkutils.ensure_deleted.reset_mock()
         treadmill.zkutils.put.reset_mock()
         srv_1.state = scheduler.State.down
+
         self.master.reschedule()
 
         treadmill.zkutils.ensure_deleted.assert_has_calls([
@@ -317,6 +612,15 @@ class MasterTest(mockzk.MockZookeeperTestCase):
             mock.call(mock.ANY, '/placement', mock.ANY, acl=mock.ANY),
         ])
 
+        # Verify that placement data was properly saved as a compressed json.
+        args, _kwargs = treadmill.zkutils.put.call_args_list[1]
+        placement_data = args[2]
+        placement = json.loads(
+            zlib.decompress(placement_data).decode()
+        )
+        self.assertIn(['app1', '1', 500, '3', 500], placement)
+        self.assertIn(['app2', '2', 500, '2', 500], placement)
+
     @mock.patch('kazoo.client.KazooClient.get', mock.Mock())
     @mock.patch('kazoo.client.KazooClient.get_children', mock.Mock())
     @mock.patch('treadmill.zkutils.ensure_deleted', mock.Mock())
@@ -325,6 +629,23 @@ class MasterTest(mockzk.MockZookeeperTestCase):
     @mock.patch('time.time', mock.Mock(return_value=500))
     def test_reschedule_maxutil(self):
         """Tests application placement."""
+        zk_content = {
+            'servers': {
+                '1': {},
+                '2': {},
+                '3': {},
+                '4': {},
+            },
+            'placement': {
+                '1': {},
+                '2': {},
+                '3': {},
+                '4': {},
+            }
+        }
+
+        self.make_mock_zk(zk_content)
+
         srv_1 = scheduler.Server('1', [10, 10, 10],
                                  valid_until=1000, traits=0)
         srv_2 = scheduler.Server('2', [10, 10, 10],
@@ -351,7 +672,12 @@ class MasterTest(mockzk.MockZookeeperTestCase):
         treadmill.zkutils.put.assert_has_calls([
             mock.call(mock.ANY, '/placement/1/app1',
                       {'expires': 500, 'identity': None}, acl=mock.ANY),
+            mock.call(mock.ANY, '/placement',
+                      mock.ANY, acl=mock.ANY),
         ])
+
+        # reflect placement in mock content. data does not matter for test.
+        zk_content['placement']['1']['app1'] = {}
 
         app2.priority = 5
         self.master.reschedule()
@@ -372,6 +698,23 @@ class MasterTest(mockzk.MockZookeeperTestCase):
     @mock.patch('time.time', mock.Mock(return_value=500))
     def test_reschedule_once(self):
         """Tests application placement."""
+        zk_content = {
+            'servers': {
+                '1': {},
+                '2': {},
+                '3': {},
+                '4': {},
+            },
+            'placement': {
+                '1': {},
+                '2': {},
+                '3': {},
+                '4': {},
+            }
+        }
+
+        self.make_mock_zk(zk_content)
+
         srv_1 = scheduler.Server('1', [10, 10, 10],
                                  valid_until=1000, traits=0)
         srv_2 = scheduler.Server('2', [10, 10, 10],
@@ -400,7 +743,11 @@ class MasterTest(mockzk.MockZookeeperTestCase):
                       {'expires': 500, 'identity': None}, acl=mock.ANY),
             mock.call(mock.ANY, '/placement/2/app2',
                       {'expires': 500, 'identity': None}, acl=mock.ANY),
-        ])
+        ], any_order=True)
+
+        # reflect placement in mock content. data does not matter for test.
+        zk_content['placement']['1']['app1'] = {}
+        zk_content['placement']['2']['app2'] = {}
 
         srv_1.state = scheduler.State.down
         self.master.reschedule()
@@ -420,13 +767,13 @@ class MasterTest(mockzk.MockZookeeperTestCase):
         """Tests loading allocation."""
         zk_content = {
             'allocations': {
-                '.data': '''
+                '.data': """
                     - name: foo
                       partition: p
                       rank: 100
                       rank_adjustment: 10
                       max_utilization: 1.1
-                '''
+                """
             }
         }
 
@@ -445,6 +792,83 @@ class MasterTest(mockzk.MockZookeeperTestCase):
     @mock.patch('treadmill.zkutils.ensure_exists', mock.Mock())
     @mock.patch('treadmill.zkutils.ensure_deleted', mock.Mock())
     @mock.patch('treadmill.zkutils.put', mock.Mock())
+    def test_load_partition(self):
+        """Tests loading partition."""
+        # Access to protected member warning.
+        #
+        # pylint: disable=W0212
+        zk_content = {
+            'partitions': {
+                'test': {
+                    '.data': """
+                        partition: test
+                        cell: foo
+                        memory: 10G
+                        cpu: 300%
+                        disk: 10G
+                        reboot-schedule: [5, 6]
+                    """
+                }
+            }
+        }
+
+        self.make_mock_zk(zk_content)
+        self.master.load_partitions()
+
+        partition = self.master.cell.partitions['test']
+        # 2 days a week times 3 weeks plus one as a sentinel
+        self.assertEqual(len(partition._reboot_buckets), 2 * 3 + 1)
+
+        zk_content = {
+            'partitions': {
+                'test': {
+                    '.data': """
+                        partition: test
+                        cell: foo
+                        memory: 10G
+                        cpu: 300%
+                        disk: 10G
+                    """
+                }
+            }
+        }
+
+        self.make_mock_zk(zk_content)
+        self.master.load_partitions()
+
+        partition = self.master.cell.partitions['test']
+        # 7 days a week times 3 weeks plus one as a sentinel
+        self.assertEqual(len(partition._reboot_buckets), 7 * 3 + 1)
+
+        zk_content = {
+            'partitions': {
+                'test': {
+                    '.data': """
+                        partition: test
+                        cell: foo
+                        memory: 10G
+                        cpu: 300%
+                        disk: 10G
+                        reboot-schedule: [1]
+                    """
+                }
+            }
+        }
+
+        self.make_mock_zk(zk_content)
+        self.master.load_partitions()
+
+        partition = self.master.cell.partitions['test']
+        # 1 day a week times 3 weeks plus one as a sentinel
+        self.assertEqual(len(partition._reboot_buckets), 1 * 3 + 1)
+
+    @mock.patch('kazoo.client.KazooClient.get', mock.Mock())
+    @mock.patch('kazoo.client.KazooClient.exists', mock.Mock())
+    @mock.patch('kazoo.client.KazooClient.get_children', mock.Mock())
+    @mock.patch('treadmill.zkutils.ensure_exists', mock.Mock())
+    @mock.patch('treadmill.zkutils.ensure_deleted', mock.Mock())
+    @mock.patch('treadmill.zkutils.put', mock.Mock())
+    @mock.patch('treadmill.zkutils.update', mock.Mock())
     def test_restore_placement(self):
         """Tests application placement."""
         zk_content = {
@@ -514,9 +938,8 @@ class MasterTest(mockzk.MockZookeeperTestCase):
         self.master.load_cell()
         self.master.load_servers()
         self.master.load_apps()
-        self.master.restore_placements()
         self.master.load_identity_groups()
-        self.master.load_placement_data()
+        self.master.restore_placements()
 
         self.assertTrue(
             self.master.servers['test.xx.com'].state is scheduler.State.up)
@@ -538,100 +961,14 @@ class MasterTest(mockzk.MockZookeeperTestCase):
         )
 
     @mock.patch('kazoo.client.KazooClient.get', mock.Mock())
-    @mock.patch('kazoo.client.KazooClient.exists', mock.Mock())
     @mock.patch('kazoo.client.KazooClient.get_children', mock.Mock())
     @mock.patch('treadmill.zkutils.ensure_exists', mock.Mock())
     @mock.patch('treadmill.zkutils.ensure_deleted', mock.Mock())
     @mock.patch('treadmill.zkutils.put', mock.Mock())
-    def test_restore_with_integrity_err(self):
-        """Tests application placement."""
-        zk_content = {
-            'placement': {
-                'test1.xx.com': {
-                    '.data': """
-                        state: up
-                        since: 100
-                    """,
-                    'xxx.app1#1234': '',
-                    'xxx.app2#2345': '',
-                },
-                'test2.xx.com': {
-                    '.data': """
-                        state: up
-                        since: 100
-                    """,
-                    'xxx.app1#1234': '',
-                }
-            },
-            'server.presence': {
-                'test1.xx.com': {},
-                'test2.xx.com': {},
-            },
-            'cell': {
-                'pod:pod1': {},
-                'pod:pod2': {},
-            },
-            'buckets': {
-                'pod:pod1': {
-                    'traits': None,
-                },
-                'pod:pod2': {
-                    'traits': None,
-                },
-                'rack:1234': {
-                    'traits': None,
-                    'parent': 'pod:pod1',
-                },
-            },
-            'servers': {
-                'test1.xx.com': {
-                    'memory': '16G',
-                    'disk': '128G',
-                    'cpu': '400%',
-                    'parent': 'rack:1234',
-                },
-                'test2.xx.com': {
-                    'memory': '16G',
-                    'disk': '128G',
-                    'cpu': '400%',
-                    'parent': 'rack:1234',
-                },
-            },
-            'scheduled': {
-                'xxx.app1#1234': {
-                    'affinity': 'app1',
-                    'memory': '1G',
-                    'disk': '1G',
-                    'cpu': '100%',
-                },
-                'xxx.app2#2345': {
-                    'affinity': 'app2',
-                    'memory': '1G',
-                    'disk': '1G',
-                    'cpu': '100%',
-                },
-            }
-        }
-
-        self.make_mock_zk(zk_content)
-        self.master.load_buckets()
-        self.master.load_cell()
-        self.master.load_servers()
-        self.master.load_apps()
-        self.master.restore_placements()
-
-        self.assertIn('xxx.app2#2345',
-                      self.master.servers['test1.xx.com'].apps)
-        self.assertIsNone(self.master.cell.apps['xxx.app1#1234'].server)
-
-    @mock.patch('kazoo.client.KazooClient.get', mock.Mock())
-    @mock.patch('kazoo.client.KazooClient.get_children', mock.Mock())
-    @mock.patch('treadmill.zkutils.ensure_exists', mock.Mock())
-    @mock.patch('treadmill.zkutils.ensure_deleted', mock.Mock())
-    @mock.patch('treadmill.zkutils.put', mock.Mock())
-    @mock.patch('treadmill.master.Master.load_allocations', mock.Mock())
-    @mock.patch('treadmill.master.Master.load_apps', mock.Mock())
-    @mock.patch('treadmill.master.Master.load_app', mock.Mock())
+    @mock.patch('treadmill.scheduler.master.Master.load_allocations',
+                mock.Mock())
+    @mock.patch('treadmill.scheduler.master.Master.load_apps', mock.Mock())
+    @mock.patch('treadmill.scheduler.master.Master.load_app', mock.Mock())
     def test_app_events(self):
         """Tests application placement."""
         zk_content = {
@@ -655,9 +992,9 @@ class MasterTest(mockzk.MockZookeeperTestCase):
             except IndexError:
                 break
 
-        self.assertTrue(treadmill.master.Master.load_allocations.called)
-        self.assertTrue(treadmill.master.Master.load_apps.called)
-        treadmill.master.Master.load_app.assert_has_calls([
+        self.assertTrue(master.Master.load_allocations.called)
+        self.assertTrue(master.Master.load_apps.called)
+        master.Master.load_app.assert_has_calls([
             mock.call('xxx.app1#1234'),
             mock.call('xxx.app2#2345'),
         ])
@@ -667,9 +1004,10 @@ class MasterTest(mockzk.MockZookeeperTestCase):
     @mock.patch('treadmill.zkutils.ensure_exists', mock.Mock())
     @mock.patch('treadmill.zkutils.ensure_deleted', mock.Mock())
     @mock.patch('treadmill.zkutils.put', mock.Mock())
-    @mock.patch('treadmill.master.Master.load_allocations', mock.Mock())
-    @mock.patch('treadmill.master.Master.load_apps', mock.Mock())
-    @mock.patch('treadmill.master.Master.load_app', mock.Mock())
+    @mock.patch('treadmill.scheduler.master.Master.load_allocations',
+                mock.Mock())
+    @mock.patch('treadmill.scheduler.master.Master.load_apps', mock.Mock())
+    @mock.patch('treadmill.scheduler.master.Master.load_app', mock.Mock())
     def test_alloc_events(self):
         """Tests allocation events."""
         zk_content = {
@@ -687,8 +1025,8 @@ class MasterTest(mockzk.MockZookeeperTestCase):
             except IndexError:
                 break
 
-        self.assertTrue(treadmill.master.Master.load_allocations.called)
-        self.assertTrue(treadmill.master.Master.load_apps.called)
+        self.assertTrue(master.Master.load_allocations.called)
+        self.assertTrue(master.Master.load_apps.called)
 
     @mock.patch('kazoo.client.KazooClient.get', mock.Mock())
     @mock.patch('kazoo.client.KazooClient.create', mock.Mock())
@@ -699,7 +1037,7 @@ class MasterTest(mockzk.MockZookeeperTestCase):
         zkclient = kazoo.client.KazooClient()
         kazoo.client.KazooClient.create.return_value = '/scheduled/foo.bar#12'
 
-        master.create_apps(zkclient, 'foo.bar', {}, 2)
+        masterapi.create_apps(zkclient, 'foo.bar', {}, 2)
 
         kazoo.client.KazooClient.create.assert_has_calls([
             mock.call(
@@ -731,7 +1069,7 @@ class MasterTest(mockzk.MockZookeeperTestCase):
         ])
 
         kazoo.client.KazooClient.create.reset_mock()
-        master.create_apps(zkclient, 'foo.bar', {}, 1, 'monitor')
+        masterapi.create_apps(zkclient, 'foo.bar', {}, 1, 'monitor')
         kazoo.client.KazooClient.create.assert_has_calls([
             mock.call('/scheduled/foo.bar#',
                       b'{}\n',
@@ -757,7 +1095,7 @@ class MasterTest(mockzk.MockZookeeperTestCase):
         """Tests app api."""
         zkclient = kazoo.client.KazooClient()
 
-        master.delete_apps(zkclient, ['foo.bar#12', 'foo.bar#22'])
+        masterapi.delete_apps(zkclient, ['foo.bar#12', 'foo.bar#22'])
         kazoo.client.KazooClient.delete.assert_has_calls([
             mock.call('/scheduled/foo.bar#12'),
             mock.call('/scheduled/foo.bar#22')
@@ -779,7 +1117,7 @@ class MasterTest(mockzk.MockZookeeperTestCase):
 
         kazoo.client.KazooClient.delete.reset_mock()
         kazoo.client.KazooClient.create.reset_mock()
-        master.delete_apps(zkclient, ['foo.bar#12'], 'monitor')
+        masterapi.delete_apps(zkclient, ['foo.bar#12'], 'monitor')
         kazoo.client.KazooClient.delete.assert_has_calls([
             mock.call('/scheduled/foo.bar#12')
         ])
@@ -804,8 +1142,8 @@ class MasterTest(mockzk.MockZookeeperTestCase):
         zkclient = kazoo.client.KazooClient()
 
         kazoo.client.KazooClient.create.return_value = '/events/001-apps-1'
-        master.update_app_priorities(zkclient, {'foo.bar#1': 10,
-                                                'foo.bar#2': 20})
+        masterapi.update_app_priorities(zkclient, {'foo.bar#1': 10,
+                                                   'foo.bar#2': 20})
         kazoo.client.KazooClient.set.assert_has_calls(
             [
                 mock.call('/scheduled/foo.bar#1', b'{priority: 10}\n'),
@@ -823,14 +1161,15 @@ class MasterTest(mockzk.MockZookeeperTestCase):
     @mock.patch('kazoo.client.KazooClient.get', mock.Mock(
         return_value=('{}', None)))
     @mock.patch('treadmill.zkutils.update', mock.Mock(return_value=None))
-    @mock.patch('treadmill.master.create_event', mock.Mock(return_value=None))
+    @mock.patch('treadmill.scheduler.masterapi.create_event',
+                mock.Mock(return_value=None))
     def test_update_app_priority_noop(self):
         """Tests app api."""
         zkclient = kazoo.client.KazooClient()
 
         # kazoo.client.KazooClient.create.return_value = '/events/001-apps-1'
-        master.update_app_priorities(zkclient, {'foo.bar#1': 10,
-                                                'foo.bar#2': 20})
+        masterapi.update_app_priorities(zkclient, {'foo.bar#1': 10,
+                                                   'foo.bar#2': 20})
         treadmill.zkutils.update.assert_has_calls(
             [
                 mock.call(mock.ANY, '/scheduled/foo.bar#1', {'priority': 10},
@@ -842,7 +1181,7 @@ class MasterTest(mockzk.MockZookeeperTestCase):
         )
 
         # Verify that event is placed correctly.
-        self.assertFalse(treadmill.master.create_event.called)
+        self.assertFalse(treadmill.scheduler.masterapi.create_event.called)
 
     @mock.patch('kazoo.client.KazooClient.get', mock.Mock(
         return_value=('{}', None)))
@@ -854,7 +1193,7 @@ class MasterTest(mockzk.MockZookeeperTestCase):
         """Tests inserting bucket into cell."""
         zkclient = kazoo.client.KazooClient()
         kazoo.client.KazooClient.create.return_value = '/events/000-cell-1'
-        master.cell_insert_bucket(zkclient, 'pod:pod1')
+        masterapi.cell_insert_bucket(zkclient, 'pod:pod1')
 
         kazoo.client.KazooClient.create.assert_has_calls([
             mock.call('/cell/pod:pod1', b'',
@@ -907,6 +1246,7 @@ class MasterTest(mockzk.MockZookeeperTestCase):
     @mock.patch('treadmill.zkutils.ensure_exists', mock.Mock())
     @mock.patch('treadmill.zkutils.ensure_deleted', mock.Mock())
     @mock.patch('treadmill.zkutils.put', mock.Mock())
+    @mock.patch('treadmill.zkutils.update', mock.Mock())
     @mock.patch('time.time', mock.Mock())
     def test_check_reboot(self):
         """Tests reboot checks."""
@@ -970,7 +1310,7 @@ class MasterTest(mockzk.MockZookeeperTestCase):
                     'disk': '1G',
                     'cpu': '100%',
                 },
-            }
+            },
         }
 
         time.time.return_value = 500
@@ -979,14 +1319,7 @@ class MasterTest(mockzk.MockZookeeperTestCase):
         self.master.load_cell()
         self.master.load_servers()
         self.master.load_apps()
-        self.master.load_placement_data()
-        self.master.init_schedule()
-
-        # Valid until is rounded to the end of day - reboot time + 21
-        self.assertEqual(
-            self.master.servers['test1.xx.com'].valid_until,
-            self.master.servers['test2.xx.com'].valid_until
-        )
+        self.master.reschedule()
 
         expired_at = self.master.servers['test1.xx.com'].valid_until
         time.time.return_value = expired_at - 500
@@ -1006,50 +1339,19 @@ class MasterTest(mockzk.MockZookeeperTestCase):
         treadmill.zkutils.ensure_exists.assert_called_with(
             mock.ANY,
             '/reboots/' + free_server,
-            acl=[master._SERVERS_ACL_DEL]
+            acl=[zkbackend._SERVERS_ACL_DEL]
         )
 
-        # time is beyond app expiration, expect app server to be rebooted.
+        # Run check after app expires, shouldn't affect reboot of app server.
         time.time.return_value = expired_at - 400
         self.master.check_reboot()
 
-        treadmill.zkutils.ensure_exists.assert_has_calls([
-            mock.call(mock.ANY, '/reboots/' + free_server, acl=mock.ANY),
-            mock.call(mock.ANY, '/reboots/' + app_server, acl=mock.ANY),
-        ])
-
-    @mock.patch('kazoo.client.KazooClient.get', mock.Mock())
-    @mock.patch('kazoo.client.KazooClient.exists', mock.Mock())
-    @mock.patch('kazoo.client.KazooClient.get_children', mock.Mock())
-    @mock.patch('treadmill.zkutils.ensure_deleted', mock.Mock())
-    def test_placement_integrity(self):
-        """Tests placement integrity."""
-        zk_content = {
-            'placement': {
-                'test1.xx.com': {
-                    'xxx.app1#1234': '',
-                    'xxx.app2#2345': '',
-                },
-                'test2.xx.com': {
-                    'xxx.app1#1234': '',
-                }
-            },
-        }
-
-        self.master.cell.apps['xxx.app1#1234'] = scheduler.Application(
-            'xxx.app1#1234', 100, [1, 1, 1], 'app1')
-        self.master.cell.apps['xxx.app2#2345'] = scheduler.Application(
-            'xxx.app2#2345', 100, [1, 1, 1], 'app1')
-
-        self.master.cell.apps['xxx.app1#1234'].server = 'test1.xx.com'
-
-        self.make_mock_zk(zk_content)
-        self.master.check_placement_integrity()
-
-        treadmill.zkutils.ensure_deleted.assert_called_with(
-            mock.ANY,
-            '/placement/test2.xx.com/xxx.app1#1234'
-        )
+        for call in treadmill.zkutils.ensure_exists.call_args_list:
+            args, _kwargs = call
+            _zkclient, path = args
+            if '/reboots/' in path:
+                self.assertEqual(path, '/reboots/' + free_server)
+                self.assertNotEqual(path, '/reboots/' + app_server)
 
     @mock.patch('kazoo.client.KazooClient.get', mock.Mock(
         return_value=('{}', None)))
@@ -1060,14 +1362,14 @@ class MasterTest(mockzk.MockZookeeperTestCase):
         zkclient = kazoo.client.KazooClient()
         kazoo.client.KazooClient.create.return_value = '/events/000-servers-1'
 
-        master.update_server_features(zkclient, 'foo.ms.com', ['test'])
+        masterapi.update_server_features(zkclient, 'foo.ms.com', ['test'])
+
         kazoo.client.KazooClient.set.assert_has_calls(
             [
                 mock.call('/servers/foo.ms.com', b'features: [test]\n'),
             ],
             any_order=True
         )
-
         # Verify that event is placed correctly.
         kazoo.client.KazooClient.create.assert_called_with(
             '/events/000-servers-', mock.ANY,
@@ -1156,12 +1458,12 @@ class MasterTest(mockzk.MockZookeeperTestCase):
         time.time.return_value = 500
         self.make_mock_zk(zk_content)
         ro_master = master.Master(
-            kazoo.client.KazooClient(),
+            zkbackend.ZkReadonlyBackend(kazoo.client.KazooClient()),
             'test-cell',
-            readonly=True
+
         )
         ro_master.load_model()
-        ro_master.init_schedule()
+        ro_master.reschedule()
 
         self.assertFalse(treadmill.zkutils.ensure_deleted.called)
         self.assertFalse(treadmill.zkutils.ensure_exists.called)

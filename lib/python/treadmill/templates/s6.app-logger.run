@@ -1,0 +1,15 @@
+#!{{ _alias.execlineb }} -P
+
+{% if user and user != 'root' -%}
+{{ _alias.s6_setuidgid }} {{ user }}
+{% endif -%}
+
+{% if logdir != '.' -%}
+{{ _alias.if }} {
+    # XXX: Remove me. LaaS backward compat.
+    # {{ _alias.mkdir }} -p -- {{ logdir }}
+    {{ _alias.ln }} -vfns ../log/ {{ logdir }}
+}
+{% endif -%}
+
+{{ _alias.s6_log }} -b -p n20 s1000000 {{ logdir }}

@@ -215,7 +215,7 @@ power management: [8]
 
     @mock.patch('time.time', mock.Mock(return_value=50))
     @mock.patch('treadmill.cgroups.get_value',
-                mock.Mock(return_value=42 * 1024 ** 2))
+                mock.Mock(return_value=42 * 1024**2))
     @mock.patch('treadmill.cgroups.get_cpu_shares',
                 mock.Mock(return_value=2))
     @mock.patch('treadmill.sysinfo.BMIPS_PER_CPU', 1)
@@ -238,7 +238,7 @@ power management: [8]
             ),
         )
         mock_tm_env.svc_localdisk.status.return_value = {
-            'size': 100 * 1024 ** 2,
+            'size': 100 * 1024**2,
         }
 
         res = sysinfo.node_info(mock_tm_env, 'linux')

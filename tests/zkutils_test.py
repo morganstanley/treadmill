@@ -26,9 +26,12 @@ class ZkTest(unittest.TestCase):
     def test_sequence_watch(self):
         """Tests sequence watch."""
         events = []
-        callback = lambda path, data, stat: events.append(path)
+
+        def _callback(path, _data, _stat):
+            return events.append(path)
+
         watcher = zkutils.SequenceNodeWatch(kazoo.client.KazooClient(),
-                                            callback,
+                                            _callback,
                                             delim='-', pattern=None,
                                             include_data=False)
 
@@ -57,7 +60,7 @@ class ZkTest(unittest.TestCase):
 
         # Test that pattern is being filtered.
         watcher = zkutils.SequenceNodeWatch(kazoo.client.KazooClient(),
-                                            callback, delim='-',
+                                            _callback, delim='-',
                                             pattern='foo',
                                             include_data=False)
 
@@ -74,8 +77,11 @@ class ZkTest(unittest.TestCase):
         client = kazoo.client.KazooClient()
         zkutils.put(client, '/foo/bar')
         kazoo.client.KazooClient.create.assert_called_with(
-            '/foo/bar', b'', acl=mock.ANY, makepath=True,
-            sequence=False, ephemeral=False)
+            '/foo/bar',
+            b'',
+            acl=mock.ANY,
+            makepath=True, sequence=False, ephemeral=False
+        )
 
     @mock.patch('kazoo.client.KazooClient.create', mock.Mock())
     @mock.patch('kazoo.client.KazooClient.set', mock.Mock())
@@ -118,14 +124,20 @@ class ZkTest(unittest.TestCase):
         client = kazoo.client.KazooClient()
         zkutils.ensure_exists(client, '/foo/bar', data='foo')
         kazoo.client.KazooClient.create.assert_called_with(
-            '/foo/bar', b'foo', acl=mock.ANY, makepath=True,
-            sequence=False)
+            '/foo/bar',
+            b'foo',
+            acl=mock.ANY,
+            makepath=True, sequence=False
+        )
 
         # non-data
         zkutils.ensure_exists(client, '/foo/bar')
         kazoo.client.KazooClient.create.assert_called_with(
-            '/foo/bar', b'', acl=mock.ANY, makepath=True,
-            sequence=False)
+            '/foo/bar',
+            b'',
+            acl=mock.ANY,
+            makepath=True, sequence=False
+        )
 
     @mock.patch('kazoo.client.KazooClient.set', mock.Mock())
     @mock.patch('kazoo.client.KazooClient.create', mock.Mock())
@@ -156,11 +168,13 @@ class ZkTest(unittest.TestCase):
     def test_connect_chroot(self):
         """Test connecting with chroot."""
         zkutils.connect('zookeeper://me@xxx:123,yyy:123,zzz:123/a/b/c')
-        kazoo.client.KazooClient.create.assert_has_calls([
-            mock.call('/a', '', makepath=True, acl=mock.ANY),
-            mock.call('/a/b', '', makepath=True, acl=mock.ANY),
-            mock.call('/a/b/c', '', makepath=True, acl=mock.ANY),
-        ])
+        kazoo.client.KazooClient.create.assert_has_calls(
+            [
+                mock.call('/a', b'', makepath=True, acl=mock.ANY),
+                mock.call('/a/b', b'', makepath=True, acl=mock.ANY),
+                mock.call('/a/b/c', b'', makepath=True, acl=mock.ANY),
+            ]
+        )
 
     @mock.patch('kazoo.client.KazooClient.set', mock.Mock())
     @mock.patch('kazoo.client.KazooClient.set_acls', mock.Mock())
@@ -192,5 +206,5 @@ class ZkTest(unittest.TestCase):
         kazoo.client.KazooClient.set.assert_called_with('/a', b'bbb')
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     unittest.main()

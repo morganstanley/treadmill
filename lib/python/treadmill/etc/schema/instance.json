@@ -1,0 +1,30 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "resource_id": { "$ref": "common.json#/instance_id" },
+    "resource": { "$ref": "app.json#/resource" },
+    "verbs": {
+        "create": {
+            "required": []
+        },
+        "update": {
+            "type": "object",
+            "properties": {
+                "priority": { "$ref": "common.json#/priority" }
+            },
+            "required": ["priority"],
+            "additionalProperties": false
+        },
+        "schedule": {
+            "type": "object",
+            "allOf": [
+                { "required": [ "memory", "cpu", "disk" ] },
+                {
+                    "anyOf": [
+                        { "required": [ "services" ] },
+                        { "required": [ "image" ] }
+                    ]
+                }
+            ]
+        }
+    }
+}

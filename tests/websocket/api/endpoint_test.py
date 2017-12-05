@@ -2,10 +2,14 @@
 """
 
 from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import unittest
 
 import jsonschema
+import six
 
 from treadmill.websocket.api import endpoint
 
@@ -46,27 +50,30 @@ class WSEndpointAPITest(unittest.TestCase):
                            'endpoint': 'http'})
         )
 
-        with self.assertRaisesRegexp(  # pylint: disable=deprecated-method
+        with six.assertRaisesRegex(
+            self,
             jsonschema.exceptions.ValidationError,
-            "'foo!' does not match"
+            'u?\'foo!\' does not match'
         ):
             api.subscribe({'topic': '/endpoints',
                            'filter': 'foo!',
                            'proto': 'tcp',
                            'endpoint': 'http'})
 
-        with self.assertRaisesRegexp(  # pylint: disable=deprecated-method
+        with six.assertRaisesRegex(
+            self,
             jsonschema.exceptions.ValidationError,
-            "'endpoint_name' was unexpected"
+            '\'endpoint_name\' was unexpected'
         ):
             api.subscribe({'topic': '/endpoints',
                            'filter': 'foo.*',
                            'proto': 'tcp',
                            'endpoint_name': 'http'})
 
-        with self.assertRaisesRegexp(  # pylint: disable=deprecated-method
+        with six.assertRaisesRegex(
+            self,
             jsonschema.exceptions.ValidationError,
-            "None is not of type 'string'"
+            'None is not of type u?\'string\''
         ):
             api.subscribe({'topic': '/endpoints',
                            'filter': 'foo.*',

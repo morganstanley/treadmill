@@ -48,7 +48,7 @@ class ServiceTest(unittest.TestCase):
         """
         mock_svc_dir = os.path.join(self.root, 'my_svc')
         os.mkdir(mock_svc_dir)
-        with io.open(os.path.join(mock_svc_dir, 'type'), 'wb') as f:
+        with io.open(os.path.join(mock_svc_dir, 'type'), 'w') as f:
             f.write('longrun')
 
         mock_svc_data = _service_base.Service.read_dir(mock_svc_dir)
@@ -67,13 +67,13 @@ class ServiceTest(unittest.TestCase):
         """
         mock_svc_dir = os.path.join(self.root, 'my_svc')
         os.mkdir(mock_svc_dir)
-        with io.open(os.path.join(mock_svc_dir, 'type'), 'wb') as f:
+        with io.open(os.path.join(mock_svc_dir, 'type'), 'w') as f:
             f.write('longrun')
-        with io.open(os.path.join(mock_svc_dir, 'run'), 'wb') as f:
+        with io.open(os.path.join(mock_svc_dir, 'run'), 'w') as f:
             f.write('mock run script')
-        with io.open(os.path.join(mock_svc_dir, 'down'), 'wb') as f:
+        with io.open(os.path.join(mock_svc_dir, 'down'), 'w') as f:
             pass
-        with io.open(os.path.join(mock_svc_dir, 'notification-fd'), 'wb') as f:
+        with io.open(os.path.join(mock_svc_dir, 'notification-fd'), 'w') as f:
             f.write('42')
         os.mkdir(os.path.join(mock_svc_dir, 'data'))
         os.mkdir(os.path.join(mock_svc_dir, 'env'))
