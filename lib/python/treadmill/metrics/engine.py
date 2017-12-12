@@ -12,11 +12,11 @@ import os
 import threading
 import time
 
-
 from treadmill import appenv
 from treadmill import exc
-from treadmill import fs
 from treadmill import metrics
+
+from treadmill.fs import linux as fs_linux
 
 CORE_GROUPS = [
     'apps',
@@ -47,8 +47,12 @@ class CgroupReader(object):
         self._tm_env = appenv.AppEnvironment(root=approot)
         self._sys_svcs = _sys_svcs(approot)
         # TODO: sys_maj_min will be used changing treadmill.metrics.app_metrics
-        self._sys_maj_min = '{}:{}'.format(*fs.path_to_maj_min(approot))
-        self._sys_block_dev = fs.maj_min_to_blk(*fs.path_to_maj_min(approot))
+        self._sys_maj_min = '{}:{}'.format(
+            *fs_linux.maj_min_from_path(approot)
+        )
+        self._sys_block_dev = fs_linux.maj_min_to_blk(
+            *fs_linux.maj_min_from_path(approot)
+        )
 
         # if interval is zero, we just read one time
         if interval <= 0:

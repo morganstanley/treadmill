@@ -535,18 +535,39 @@ class Admin(object):
         if not self.ldap:
             raise  # pylint: disable=E0704
 
-    def search(self, search_base, search_filter, search_scope=ldap3.SUBTREE,
-               attributes=None):
-        """Call ldap search and return a list of dn, entry tuples."""
-        self.ldap.search(search_base=search_base,
-                         search_filter=search_filter,
-                         search_scope=search_scope,
-                         attributes=attributes,
-                         dereference_aliases=ldap3.DEREF_NEVER)
-
+    def search(self, search_base, search_filter,
+               search_scope=ldap3.SUBTREE, attributes=None):
+        """Call ldap search and return a generator of dn, entry tuples.
+        """
+        self.ldap.search(
+            search_base=search_base,
+            search_filter=search_filter,
+            search_scope=search_scope,
+            attributes=attributes,
+            dereference_aliases=ldap3.DEREF_NEVER
+        )
         self._test_raise_exceptions()
 
         for entry in self.ldap.response:
+            yield entry['dn'], _dict_normalize(entry['attributes'])
+
+    def paged_search(self, search_base, search_filter,
+                     search_scope=ldap3.SUBTREE, attributes=None):
+        """Call ldap paged search and return a generator of dn, entry tuples.
+        """
+        res_gen = self.ldap.extend.standard.paged_search(
+            search_base=search_base,
+            search_filter=search_filter,
+            search_scope=search_scope,
+            attributes=attributes,
+            dereference_aliases=ldap3.DEREF_NEVER,
+            paged_size=50,
+            paged_criticality=True,
+            generator=True
+        )
+        self._test_raise_exceptions()
+
+        for entry in res_gen:
             yield entry['dn'], _dict_normalize(entry['attributes'])
 
     def _test_raise_exceptions(self):
@@ -595,7 +616,10 @@ class Admin(object):
         """Lists all objects in the database."""
         if not root:
             root = self.root_ou
-        result = self.search(search_base=root, search_filter='(objectClass=*)')
+        result = self.paged_search(
+            search_base=root,
+            search_filter='(objectClass=*)'
+        )
         return [dn for dn, _ in result]
 
     def schema(self, abstract=True):
@@ -603,6 +627,8 @@ class Admin(object):
         # Disable too many branches warning.
         #
         # pylint: disable=R0912
+        #
+        # NOTE: cn=schema,cn=config does *NOT* support paged searches.
         result = self.search(search_base='cn=schema,cn=config',
                              search_filter='(cn={*}treadmill)',
                              search_scope=ldap3.LEVEL,
@@ -870,10 +896,10 @@ class Admin(object):
 
     def get(self, dn, query, attrs):
         """Gets LDAP object given dn."""
-        result = self.search(search_base=dn,
-                             search_filter=six.text_type(query),
-                             search_scope=ldap3.BASE,
-                             attributes=attrs)
+        result = self.paged_search(search_base=dn,
+                                   search_filter=six.text_type(query),
+                                   search_scope=ldap3.BASE,
+                                   attributes=attrs)
         for _dn, entry in result:
             return entry
 
@@ -990,10 +1016,10 @@ class LdapObject(object):
                 query(arg, attrs[obj_field])
 
         _LOGGER.debug('Query: %s', query.to_str())
-        result = self.admin.search(search_base=self.dn(),
-                                   search_filter=query.to_str(),
-                                   search_scope=ldap3.SUBTREE,
-                                   attributes=self.attrs())
+        result = self.admin.paged_search(search_base=self.dn(),
+                                         search_filter=query.to_str(),
+                                         search_scope=ldap3.SUBTREE,
+                                         attributes=self.attrs())
         return [self.from_entry(entry, dn) for dn, entry in result]
 
     def update(self, ident, attrs):
@@ -1024,7 +1050,7 @@ class LdapObject(object):
 
         children_admin = clazz(self.admin)
         attrs = [elem[0] for elem in children_admin.schema()]
-        search = self.admin.search(
+        search = self.admin.paged_search(
             search_base=dn,
             search_filter='(objectclass=%s)' % clazz.oc(),
             attributes=attrs
@@ -1424,7 +1450,7 @@ class Cell(LdapObject):
     def delete(self, ident):
         """Deletes LDAP record."""
         dn = self.dn(ident)
-        cell_partitions = self.admin.search(
+        cell_partitions = self.admin.paged_search(
             search_base=dn,
             search_filter='(objectclass=tmPartition)',
             attributes=[]
@@ -1642,7 +1668,7 @@ class Allocation(LdapObject):
         """Deletes LDAP record."""
         # TODO: need to delete cell allocations as well.
         dn = self.dn(ident)
-        cell_allocs_search = self.admin.search(
+        cell_allocs_search = self.admin.paged_search(
             search_base=dn,
             search_filter='(objectclass=tmCellAllocation)',
             attributes=[]

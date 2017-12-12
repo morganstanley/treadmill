@@ -22,6 +22,7 @@ from treadmill import exc
 from treadmill import fs
 from treadmill import restclient
 from treadmill import rrdutils
+from treadmill.fs import linux as fs_linux
 from treadmill.metrics import rrd
 
 #: Metric collection interval (every X seconds)
@@ -181,7 +182,7 @@ def init():
             if metric_name.endswith('.rrd')
         )
 
-        sys_maj_min = '{}:{}'.format(*fs.path_to_maj_min(approot))
+        sys_maj_min = '{}:{}'.format(*fs_linux.maj_min_from_path(approot))
         _LOGGER.info('Device sys maj:min = %s for approot: %s',
                      sys_maj_min, approot)
 

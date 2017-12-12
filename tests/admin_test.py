@@ -641,11 +641,11 @@ class AllocationTest(unittest.TestCase):
         }
         self.assertEqual(ldap_entry, self.alloc.to_entry(obj))
 
-    @mock.patch('treadmill.admin.Admin.search', mock.Mock())
+    @mock.patch('treadmill.admin.Admin.paged_search', mock.Mock())
     @mock.patch('treadmill.admin.LdapObject.get', mock.Mock(return_value={}))
     def test_get(self):
         """Tests loading cell allocations."""
-        treadmill.admin.Admin.search.return_value = [
+        treadmill.admin.Admin.paged_search.return_value = [
             ('cell=xxx,allocation=prod1,...',
              {'cell': ['xxx'],
               'memory': ['1G'],
@@ -659,7 +659,7 @@ class AllocationTest(unittest.TestCase):
               'pattern;tm-alloc-assignment-345': ['ppp.ddd']})
         ]
         obj = self.alloc.get('foo:bar/prod1')
-        treadmill.admin.Admin.search.assert_called_with(
+        treadmill.admin.Admin.paged_search.assert_called_with(
             attributes=mock.ANY,
             search_base='allocation=prod1,tenant=bar,tenant=foo,'
                         'ou=allocations,ou=treadmill,dc=xx,dc=com',

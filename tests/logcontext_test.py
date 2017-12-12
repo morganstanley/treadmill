@@ -74,5 +74,18 @@ class ContainerAdapterTest(unittest.TestCase):
             'proid.app-name#appid uniqid')
 
 
+class LogContextTest(unittest.TestCase):
+    """Unit test for the LogContext class
+    """
+
+    def test_nested_adapters(self):
+        """Test whether adapters can be "nested"."""
+        with lc.LogContext(logging.getLogger(__name__),
+                           'proid.app#123') as outer:
+            outer.info('foo')
+            with lc.LogContext(outer, 'some.ting#123') as inner:
+                inner.info('bar')
+
+
 if __name__ == '__main__':
     unittest.main()

@@ -84,7 +84,7 @@ class Ticket(object):
         return self.princ == other.princ and self.ticket == other.ticket
 
     def write(self, path=None):
-        """Writes the ticket to /var/spool/ticket/<princ>."""
+        """Writes the ticket to <path>/<princ>."""
         if path is None:
             path = self.tkt_path
 
@@ -101,6 +101,7 @@ class Ticket(object):
                                              prefix='.tmp' + self.princ,
                                              delete=False,
                                              mode='wb') as tkt_file:
+
                 # Write the file
                 tkt_file.write(self.ticket)
                 # Set the owner
@@ -146,6 +147,7 @@ class Ticket(object):
 
         except (IOError, OSError):
             _LOGGER.exception('Error copying ticket from %s to %s', src, dst)
+        finally:
             fs.rm_safe(tkt_dst_file.name)
 
     def renew(self):
@@ -360,7 +362,7 @@ def run_server(locker):
     reactor.run()
 
 
-def request_tickets(zkclient, appname):
+def request_tickets(zkclient, appname, tkt_spool_dir, principals):
     """Request tickets from the locker for the given app.
     """
     # Too many nested blocks.
@@ -369,8 +371,15 @@ def request_tickets(zkclient, appname):
     lockers = zkutils.with_retry(zkclient.get_children,
                                  z.TICKET_LOCKER)
     random.shuffle(lockers)
-    tickets = []
+
+    expected = set(principals)
+
     for locker in lockers:
+
+        if not expected:
+            _LOGGER.info('Done: all tickets retrieved.')
+            return
+
         host, port = locker.split(':')
         service = 'host@%s' % host
         _LOGGER.info('connecting: %s:%s, %s', host, port, service)
@@ -393,11 +402,12 @@ def request_tickets(zkclient, appname):
                         _LOGGER.info('got ticket %s:%s',
                                      princ,
                                      hashlib.sha1(encoded).hexdigest())
-                        tickets.append(Ticket(princ, ticket_data))
+                        store_ticket(Ticket(princ, ticket_data),
+                                     tkt_spool_dir)
+
+                        expected.discard(princ)
                     else:
                         _LOGGER.info('got ticket %s:None', princ)
-                        tickets.append(Ticket(princ, None))
-                break
             else:
                 _LOGGER.warning('Cannot connect to %s:%s, %s', host, port,
                                 service)
@@ -408,36 +418,33 @@ def request_tickets(zkclient, appname):
         finally:
             client.disconnect()
 
-    return tickets
 
-
-def store_tickets(reply, tkt_spool_dir):
-    """Store tickets received from ticket locker."""
-    _LOGGER.info('got tickets: %s', reply)
+def store_ticket(tkt, tkt_spool_dir):
+    """Store ticket received from ticket locker."""
+    _LOGGER.info('store ticket: %s', tkt.princ)
     # Check if locker was able to get all tickets or there are
     # some pending.
-    for tkt in reply:
-        if not tkt.ticket:
-            _LOGGER.info('Ticket pending for %r', tkt.princ)
-            continue
+    if not tkt.ticket:
+        _LOGGER.info('Ticket pending for %r', tkt.princ)
+        return False
 
-        _LOGGER.info('Refreshing ticket for %r', tkt.princ)
-        tkt.write()
-        tkt_spool_path = os.path.join(tkt_spool_dir, tkt.princ)
-        tkt.copy(tkt_spool_path)
+    _LOGGER.info('Refreshing ticket for %r', tkt.princ)
+    tkt.write()
+    tkt_spool_path = os.path.join(tkt_spool_dir, tkt.princ)
+    tkt.copy(tkt_spool_path)
 
-        # Tickets are stored as fully qualified princ
-        # files: foo@krbrealm.
-        #
-        # For backward compatablity, create "short"
-        # ticket link:
-        #
-        # foo -> foo@krbrealm
-        realm_sep = tkt_spool_path.rfind('@')
-        tkt_spool_link = tkt_spool_path[:realm_sep]
-        if realm_sep != -1:
-            # Create relative link without full path.
-            _LOGGER.info('Creating link: %s => %s',
-                         tkt_spool_link,
-                         os.path.basename(tkt_spool_path))
-            fs.symlink_safe(tkt_spool_link, os.path.basename(tkt_spool_path))
+    # Tickets are stored as fully qualified princ
+    # files: foo@krbrealm.
+    #
+    # For backward compatablity, create "short"
+    # ticket link:
+    #
+    # foo -> foo@krbrealm
+    realm_sep = tkt_spool_path.rfind('@')
+    tkt_spool_link = tkt_spool_path[:realm_sep]
+    if realm_sep != -1:
+        # Create relative link without full path.
+        _LOGGER.info('Creating link: %s => %s',
+                     tkt_spool_link,
+                     os.path.basename(tkt_spool_path))
+        fs.symlink_safe(tkt_spool_link, os.path.basename(tkt_spool_path))

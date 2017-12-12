@@ -9,6 +9,7 @@ from __future__ import unicode_literals
 import collections
 import os
 import shutil
+import sys
 import tempfile
 import unittest
 
@@ -28,6 +29,7 @@ from treadmill import localdiskutils
 from treadmill.services import localdisk_service
 
 
+@unittest.skipUnless(sys.platform.startswith('linux'), 'Requires Linux')
 class LocalDiskServiceTest(unittest.TestCase):
     """Unit tests for the local disk service implementation.
     """
@@ -92,7 +94,7 @@ class LocalDiskServiceTest(unittest.TestCase):
 
     @mock.patch('treadmill.cgroups.create', mock.Mock())
     @mock.patch('treadmill.cgroups.set_value', mock.Mock())
-    @mock.patch('treadmill.fs.create_filesystem', mock.Mock())
+    @mock.patch('treadmill.fs.linux.blk_fs_create', mock.Mock())
     @mock.patch('treadmill.lvm.lvcreate', mock.Mock())
     @mock.patch('treadmill.lvm.lvdisplay', mock.Mock())
     @mock.patch('treadmill.localdiskutils.refresh_vg_status',
@@ -172,7 +174,7 @@ class LocalDiskServiceTest(unittest.TestCase):
 
     @mock.patch('treadmill.cgroups.create', mock.Mock())
     @mock.patch('treadmill.cgroups.set_value', mock.Mock())
-    @mock.patch('treadmill.fs.create_filesystem', mock.Mock())
+    @mock.patch('treadmill.fs.linux.blk_fs_create', mock.Mock())
     @mock.patch('treadmill.lvm.lvcreate', mock.Mock())
     @mock.patch('treadmill.lvm.lvdisplay', mock.Mock())
     @mock.patch('treadmill.localdiskutils.refresh_vg_status',
@@ -211,7 +213,7 @@ class LocalDiskServiceTest(unittest.TestCase):
         # Reset all mocks
         treadmill.cgroups.create.reset_mock()
         treadmill.cgroups.set_value.reset_mock()
-        treadmill.fs.create_filesystem.reset_mock()
+        treadmill.fs.linux.blk_fs_create.reset_mock()
         treadmill.lvm.lvcreate.reset_mock()
         treadmill.lvm.lvdisplay.reset_mock()
         treadmill.localdiskutils.refresh_vg_status.reset_mock()

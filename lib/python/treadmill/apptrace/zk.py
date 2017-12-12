@@ -321,6 +321,8 @@ def cleanup_finished(zkclient, batch_size, expires_after):
     for finished in zkclient.get_children(z.FINISHED):
         node_path = z.path.finished(finished)
         data, metadata = zkclient.get(node_path)
+        if data is not None:
+            data = data.decode()
         if metadata.last_modified < time.time() - expires_after:
             expired.append((node_path, metadata.last_modified, data,
                             z.FINISHED, finished))

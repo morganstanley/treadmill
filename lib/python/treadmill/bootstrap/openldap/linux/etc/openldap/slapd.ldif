@@ -66,8 +66,8 @@ olcRequires: {{ r }}
 {%- endfor %}
 {%- endif %}
 {%- if masters %}
-olcLimits: dn.exact="{{ backend.rootdn }}" time.soft=unlimited time.hard=unlimited size.soft=unlimited size.hard=unlimited
-olcLimits: dn.base=uid={{ backend.owner }},cn=gssapi,cn=auth time.soft=unlimited time.hard=unlimited size.soft=unlimited size.hard=unlimited
+olcLimits: dn.exact="{{ backend.rootdn }}" time.soft=unlimited time.hard=unlimited size.soft=unlimited size.hard=unlimited size.pr=unlimited size.prtotal=unlimited
+olcLimits: dn.base=uid={{ backend.owner }},cn=gssapi,cn=auth time.soft=unlimited time.hard=unlimited size.soft=unlimited size.hard=unlimited size.pr=unlimited size.prtotal=unlimited
 {%- endif %}
 {%- for master in masters %}
 olcSyncRepl: rid={{ rid|length }} provider={{ master }} bindmethod=sasl
@@ -75,6 +75,8 @@ olcSyncRepl: rid={{ rid|length }} provider={{ master }} bindmethod=sasl
 {%- if rid.append('1') %}
 {%- endif %}
 {%- endfor %}
+olcSizeLimit: size.soft={{ backend.size_limit | default(500) }} size.hard={{ backend.size_limit | default(500) }} size.pr=unlimited size.prtotal=unlimited
+olcTimeLimit: {{ backend.time_limit | default(3600) }}
 {%- if masters %}
 {%- if uri in masters %}
 # master has mirroring enabled
@@ -88,8 +90,6 @@ olcUpdateref: {{ master }}
 {%- else %}
 # standalone has no extra config #
 {%- endif %}
-olcSizeLimit: {{ backend.size_limit | default(500) }}
-olcTimeLimit: {{ backend.time_limit | default(3600) }}
 {% if uri in masters %}
 dn: olcOverlay=syncprov,olcDatabase={{ backend.name }},cn=config
 objectClass: olcOverlayConfig

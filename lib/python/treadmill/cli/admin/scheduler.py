@@ -63,6 +63,8 @@ def view_group(parent):
                 print(output.to_csv())
             else:
                 pd.set_option('expand_frame_repr', False)
+                output.replace(True, ' ', inplace=True)
+                output.replace(False, 'X', inplace=True)
                 print(output)
 
     @parent.group()

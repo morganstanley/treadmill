@@ -41,6 +41,10 @@ class ManifestWatch(object):
         fs.mkdir_safe(self.paths.manifest_dir)
         os.chmod(self.paths.manifest_dir, 0o1777)
 
+        tmp_path = os.path.join(self.paths.manifest_dir, '.tmp')
+        fs.mkdir_safe(tmp_path)
+        os.chmod(tmp_path, 0o1777)
+
     def _check_path(self, path):
         """Checks if the path is valid."""
         if not os.path.exists(path):
