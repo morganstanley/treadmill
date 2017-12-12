@@ -62,11 +62,12 @@ class LinuxRuntimeRunTest(unittest.TestCase):
 
     @mock.patch('pwd.getpwnam', mock.Mock())
     @mock.patch('os.chown', mock.Mock())
-    @mock.patch('treadmill.fs.create_filesystem', mock.Mock())
-    @mock.patch('treadmill.fs.test_filesystem', mock.Mock(return_value=False))
+    @mock.patch('treadmill.fs.linux.blk_fs_create', mock.Mock())
+    @mock.patch('treadmill.fs.linux.blk_fs_test',
+                mock.Mock(return_value=False))
+    @mock.patch('treadmill.fs.linux.mount_bind', mock.Mock())
+    @mock.patch('treadmill.fs.linux.mount_filesystem', mock.Mock())
     @mock.patch('treadmill.fs.mkdir_safe', mock.Mock())
-    @mock.patch('treadmill.fs.mount_bind', mock.Mock())
-    @mock.patch('treadmill.fs.mount_filesystem', mock.Mock())
     @mock.patch('treadmill.subproc.check_call', mock.Mock())
     @mock.patch('treadmill.utils.rootdir',
                 mock.Mock(return_value='/test_treadmill'))
@@ -94,9 +95,9 @@ class LinuxRuntimeRunTest(unittest.TestCase):
         treadmill.runtime.linux._run._create_root_dir(container_dir,
                                                       localdisk)
 
-        treadmill.fs.create_filesystem.assert_called_with('/dev/foo')
+        treadmill.fs.linux.blk_fs_create.assert_called_with('/dev/foo')
         unshare.unshare.assert_called_with(unshare.CLONE_NEWNS)
-        treadmill.fs.mount_filesystem('/dev/foo', '/some/root_dir')
+        treadmill.fs.linux.mount_filesystem('/dev/foo', '/some/root_dir')
 
     @mock.patch('treadmill.cgroups.join', mock.Mock())
     def test_apply_cgroup_limits(self):
@@ -381,7 +382,7 @@ class LinuxRuntimeRunTest(unittest.TestCase):
     @mock.patch('treadmill.runtime.linux._run._unshare_network', mock.Mock())
     @mock.patch('treadmill.runtime.linux._run._apply_cgroup_limits',
                 mock.Mock())
-    @mock.patch('treadmill.fs.mount_bind', mock.Mock())
+    @mock.patch('treadmill.fs.linux.mount_bind', mock.Mock())
     @mock.patch('treadmill.runtime.linux.image.get_image_repo', mock.Mock())
     @mock.patch('treadmill.apphook.configure', mock.Mock())
     @mock.patch('treadmill.subproc.exec_pid1', mock.Mock())
@@ -543,7 +544,7 @@ class LinuxRuntimeRunTest(unittest.TestCase):
     @mock.patch('treadmill.runtime.linux._run._apply_cgroup_limits',
                 mock.Mock())
     @mock.patch('treadmill.runtime.linux.image.get_image_repo', mock.Mock())
-    @mock.patch('treadmill.fs.mount_bind', mock.Mock())
+    @mock.patch('treadmill.fs.linux.mount_bind', mock.Mock())
     @mock.patch('treadmill.apphook.configure', mock.Mock())
     @mock.patch('treadmill.subproc.exec_pid1', mock.Mock())
     @mock.patch('treadmill.subproc.check_call', mock.Mock())
@@ -632,7 +633,7 @@ class LinuxRuntimeRunTest(unittest.TestCase):
     @mock.patch('treadmill.runtime.linux._run._apply_cgroup_limits',
                 mock.Mock())
     @mock.patch('treadmill.runtime.linux.image.get_image_repo', mock.Mock())
-    @mock.patch('treadmill.fs.mount_bind', mock.Mock())
+    @mock.patch('treadmill.fs.linux.mount_bind', mock.Mock())
     @mock.patch('treadmill.apphook.configure', mock.Mock())
     @mock.patch('treadmill.subproc.exec_pid1', mock.Mock())
     @mock.patch('treadmill.subproc.check_call', mock.Mock())

@@ -41,7 +41,7 @@ def make_endpoint_watcher(zkclient, state, proid):
             try:
                 endpoint_node = z.join_zookeeper_path(proid_instances, name)
                 data, _metadata = zkclient.get(endpoint_node)
-                endpoints[name] = data
+                endpoints[name] = data.decode()
             except kazoo.client.NoNodeError:
                 pass
 

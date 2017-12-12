@@ -76,21 +76,22 @@ class TcpRestServer(RestServer):
     """TCP based REST Server."""
 
     def __init__(self, port, host='0.0.0.0', auth_type=None, protect=None,
-                 workers=0):
+                 workers=1, backlog=128):
         """Init methods
 
         :param int port: port number to listen on (required)
         :param str host: host IP to listen on, default is '0.0.0.0'
         :param str auth_type: the auth type, default is None
         :param str protect: which URLs to protect, default is None
-        :param int workers: the number of workers to be forked, defaults to 0,
-            which is 5 in tornado, I know, weird, but that is their defaults.
+        :param int workers: the number of workers to be forked, default is 1
+        :param int backlog: the connection backlog, default is 128
         """
         self.port = int(port)
         self.host = host
         self.auth_type = auth_type
         self.protect = protect
         self.workers = workers
+        self.backlog = backlog
 
     def _setup_auth(self):
         """Setup the http authentication."""
@@ -114,20 +115,19 @@ class TcpRestServer(RestServer):
 
     def _setup_endpoint(self, http_server):
         """Setup the http server endpoint."""
-        if self.workers:
-            http_server.bind(self.port)
-            http_server.start(self.workers)
-        else:
-            http_server.listen(self.port)
+        http_server.bind(self.port, backlog=self.backlog)
+        http_server.start(self.workers)
 
 
 class UdsRestServer(RestServer):
     """UNIX domain socket based REST Server."""
 
-    def __init__(self, socket, auth_type=None):
+    def __init__(self, socket, auth_type=None, workers=1, backlog=128):
         """Init method."""
         self.socket = socket
         self.auth_type = auth_type
+        self.workers = workers
+        self.backlog = backlog
 
     def _setup_auth(self):
         """Setup the http authentication."""
@@ -150,5 +150,9 @@ class UdsRestServer(RestServer):
 
     def _setup_endpoint(self, http_server):
         """Setup the http server endpoint."""
-        unix_socket = tornado.netutil.bind_unix_socket(self.socket)
+        unix_socket = tornado.netutil.bind_unix_socket(self.socket,
+                                                       backlog=self.backlog)
+        if self.workers != 1:
+            tornado.process.fork_processes(self.workers)
+
         http_server.add_socket(unix_socket)

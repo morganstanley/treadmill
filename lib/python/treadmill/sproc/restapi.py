@@ -35,11 +35,12 @@ def init():
                   required=True, type=cli.LIST)
     @click.option('-c', '--cors-origin', help='CORS origin REGEX',
                   required=True)
-    @click.option('--workers', help='Number of workers',
-                  default=5)
+    @click.option('--workers', help='Number of workers', default=1)
+    @click.option('--backlog', help='Maximum ', default=128)
     @click.option('-A', '--authz', help='Authoriztion argument',
                   required=False)
-    def top(port, socket, auth, title, modules, cors_origin, workers, authz):
+    def top(port, socket, auth, title, modules, cors_origin, workers, backlog,
+            authz):
         """Run Treadmill API server."""
         context.GLOBAL.zk.add_listener(zkutils.exit_on_lost)
 
@@ -49,10 +50,13 @@ def init():
         if port:
             rest_server = rest.TcpRestServer(port, auth_type=auth,
                                              protect=api_paths,
-                                             workers=workers)
+                                             workers=workers,
+                                             backlog=backlog)
         # TODO: need to rename that - conflicts with import socket.
         elif socket:
-            rest_server = rest.UdsRestServer(socket, auth_type=auth)
+            rest_server = rest.UdsRestServer(socket, auth_type=auth,
+                                             workers=workers,
+                                             backlog=backlog)
         else:
             click.echo('port or socket must be specified')
             sys.exit(1)

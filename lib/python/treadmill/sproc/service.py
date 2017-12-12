@@ -1,5 +1,5 @@
-"""Runs the Treadmill localdisk service."""
-
+"""Runs the Treadmill localdisk service.
+"""
 
 from __future__ import absolute_import
 from __future__ import division
@@ -13,8 +13,8 @@ import click
 
 from treadmill import appenv
 from treadmill import diskbenchmark
-from treadmill import fs
 from treadmill import localdiskutils
+from treadmill.fs import linux as fs_linux
 
 from .. import services
 
@@ -89,12 +89,16 @@ def init():
 
         # prepare block device
         if block_dev is not None:
-            underlying_device_uuid = fs.device_uuid(
+            underlying_device_uuid = fs_linux.device_uuid(
                 block_dev
             )
         else:
-            underlying_device_uuid = fs.device_uuid(
-                fs.maj_min_to_blk(*fs.path_to_maj_min(img_location))
+            underlying_device_uuid = fs_linux.blk_uuid(
+                fs_linux.maj_min_to_blk(
+                    *fs_linux.maj_min_from_path(
+                        img_location
+                    )
+                )
             )
             block_dev = localdiskutils.init_block_dev(
                 localdiskutils.TREADMILL_IMG,
