@@ -766,3 +766,24 @@ def json_genencode(obj, indent=None):
         six.text_type(chunk)
         for chunk in encoder.iterencode(obj)
     )
+
+
+def parse_mask(value, mask_enum):
+    """Parse a mask into indivitual mask values from enum.
+
+    :params ``int`` value:
+        (Combined) mask value.
+    :params ``enum.IntEnum`` mask_enum:
+        Enum of all possible mask values.
+    :returns:
+        ``list`` - List of enum values and optional remainder.
+    """
+    masks = []
+    for mask in mask_enum:
+        if value & mask:
+            masks.append(mask.name)
+            value ^= mask
+    if value:
+        masks.append(hex(value))
+
+    return masks

@@ -18,6 +18,7 @@ import os
 import sqlite3
 import threading
 import time
+import uuid
 
 import tornado.websocket
 
@@ -42,6 +43,7 @@ def make_handler(pubsub):
             tornado.websocket.WebSocketHandler.__init__(
                 self, application, request, **kwargs
             )
+            self._request_id = str(uuid.uuid4())
             self._subscriptions = set()
 
         def active(self, sub_id=None):
@@ -59,7 +61,17 @@ def make_handler(pubsub):
 
             Override if you want to do something else besides log the action.
             """
-            _LOGGER.info('Connection opened.')
+            _LOGGER.info('[%s] Connection opened, remote ip: %s',
+                         self._request_id, self.request.remote_ip)
+
+        def send_msg(self, msg):
+            """Send message."""
+            _LOGGER.info('[%s] Sending message: %r', self._request_id, msg)
+            try:
+                self.write_message(msg)
+            except Exception:  # pylint: disable=W0703
+                _LOGGER.exception('[%s] Error sending message: %r',
+                                  self._request_id, msg)
 
         def send_error_msg(self, error_str, sub_id=None, close_conn=True):
             """Convenience method for logging and returning errors.
@@ -70,22 +82,21 @@ def make_handler(pubsub):
             Note: this method will close the connection after sending back the
             error, unless close_conn=False.
             """
-            _LOGGER.info(error_str)
-
             error_msg = {'_error': error_str,
                          'when': time.time()}
             if sub_id is not None:
                 error_msg['sub-id'] = sub_id
-                _LOGGER.info('Removing subscription %s', sub_id)
+                _LOGGER.info('[%s] Removing subscription %s',
+                             self._request_id, sub_id)
                 try:
                     self._subscriptions.remove(sub_id)
                 except KeyError:
                     pass
 
-            self.write_message(error_msg)
+            self.send_msg(error_msg)
 
             if close_conn:
-                _LOGGER.info('Closing connection.')
+                _LOGGER.info('[%s] Closing connection.', self._request_id)
                 self.close()
 
         def on_close(self):
@@ -93,7 +104,7 @@ def make_handler(pubsub):
 
             Override if you want to do something else besides log the action.
             """
-            _LOGGER.info('Connection closed.')
+            _LOGGER.info('[%s] Connection closed.', self._request_id)
 
         def check_origin(self, origin):
             """Overriding check_origin method from base class.
@@ -110,17 +121,20 @@ def make_handler(pubsub):
                 _LOGGER.fatal('pubsub is not configured, ignore.')
                 self.send_error_msg('Fatal: unexpected error', close_conn=True)
 
+            _LOGGER.info('[%s] Received message: %s',
+                         self._request_id, jmessage)
+
             sub_id = None
             close_conn = True
             try:
                 message = json.loads(jmessage)
-                _LOGGER.debug('message: %r', message)
 
                 sub_id = message.get('sub-id')
                 close_conn = sub_id is None
 
                 if message.get('unsubscribe') is True:
-                    _LOGGER.info('Unsubscribing %s', sub_id)
+                    _LOGGER.info('[%s] Unsubscribing %s',
+                                 self._request_id, sub_id)
                     try:
                         self._subscriptions.remove(sub_id)
                     except KeyError:
@@ -151,12 +165,14 @@ def make_handler(pubsub):
                 snapshot = message.get('snapshot', False)
 
                 if sub_id and not snapshot:
-                    _LOGGER.info('Adding subscription %s', sub_id)
+                    _LOGGER.info('[%s] Adding subscription %s',
+                                 self._request_id, sub_id)
                     self._subscriptions.add(sub_id)
 
                 for watch, pattern in subscription:
                     pubsub.register(watch, pattern, self, impl, since, sub_id)
                 if snapshot and close_conn:
+                    _LOGGER.info('[%s] Closing connection.', self._request_id)
                     self.close()
 
             except Exception as err:  # pylint: disable=W0703
@@ -274,20 +290,19 @@ class DirWatchPubSub(object):
         """Notify interested handlers of the change."""
         root_len = len(self.root)
 
-        for pattern, handler, impl, sub_id in handlers:
+        for _pattern, handler, impl, sub_id in handlers:
             try:
                 payload = impl.on_event(path[root_len:],
                                         operation,
                                         content)
                 if payload is not None:
-                    _LOGGER.debug('notify: %s, %s (%s)',
-                                  path, operation, pattern)
                     payload['when'] = when
                     if sub_id is not None:
                         payload['sub-id'] = sub_id
-                    handler.write_message(payload)
+                    handler.send_msg(payload)
             except Exception as err:  # pylint: disable=broad-except
-                _LOGGER.exception('Error handling event')
+                _LOGGER.exception('Error handling event: %s, %s, %s, %s, %s',
+                                  path, operation, content, when, sub_id)
                 handler.send_error_msg(
                     '{cls}: {err}'.format(
                         cls=type(err).__name__,
@@ -299,8 +314,16 @@ class DirWatchPubSub(object):
 
     def _db_records(self, db_path, sow_table, watch, pattern, since):
         """Get matching records from db."""
-        _LOGGER.info('Using sow db: %s, sow table: %s, watch: %s, pattern: %s',
-                     db_path, sow_table, watch, pattern)
+        # if file does not exist, do not try to open it. Opening connection
+        # will create the file, there is no way to prevent this from
+        # happening until py3.
+        #
+        if not os.path.exists(db_path):
+            _LOGGER.info('Ignore deleted db: %s', db_path)
+            return (None, None)
+
+        # There is rare condition that the db file is deleted HERE. In this
+        # case connection will be open, but the tables will not be there.
         conn = sqlite3.connect(db_path)
 
         # Before Python 3.7 GLOB pattern must not be parametrized to use index.
@@ -312,7 +335,16 @@ class DirWatchPubSub(object):
 
         # Return open connection, as conn.execute is cursor iterator, not
         # materialized list.
-        return conn, conn.execute(select_stmt, (watch, since,))
+        try:
+            return conn, conn.execute(select_stmt, (watch, since,))
+        except sqlite3.OperationalError as db_err:
+            # Not sure if the file needs to be deleted at this point. As
+            # sow_table is a parameter, passing non-existing table can cause
+            # legit file to be deleted.
+            _LOGGER.info('Unable to execute: select from %s:%s ..., %s',
+                         db_path, sow_table, str(db_err))
+            conn.close()
+            return (None, None)
 
     def _sow(self, watch, pattern, since, handler, impl, sub_id=None):
         """Publish state of the world."""
@@ -327,8 +359,10 @@ class DirWatchPubSub(object):
                     payload['when'] = when
                     if sub_id is not None:
                         payload['sub-id'] = sub_id
-                    handler.write_message(payload)
+                    handler.send_msg(payload)
             except Exception as err:  # pylint: disable=W0703
+                _LOGGER.exception('Error handling sow event: %s, %s, %s, %s',
+                                  path, content, when, sub_id)
                 handler.send_error_msg(str(err), sub_id=sub_id)
 
         db_connections = []
@@ -347,9 +381,14 @@ class DirWatchPubSub(object):
                     conn, db_cursor = self._db_records(
                         db, sow_table, watch, pattern, since
                     )
-                    records.append(db_cursor)
+                    if db_cursor:
+                        records.append(db_cursor)
+
                     # FIXME: Figure out pylint use before assign
-                    db_connections.append(conn)  # pylint: disable=E0601
+                    #
+                    # pylint: disable=E0601
+                    if conn:
+                        db_connections.append(conn)
 
             records.append(fs_records)
             # Merge db and fs records, removing duplicates.

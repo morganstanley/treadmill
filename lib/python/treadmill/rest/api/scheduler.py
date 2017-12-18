@@ -40,13 +40,18 @@ def init(api, cors, impl):
         default=None,
     )
 
+    def report_to_dict(report):
+        """Transform the report to a dict and remove unnecessary attributes."""
+        dict_ = report.to_dict(orient='split')
+        del dict_['index']  # just a list of 0 to n, not useful
+        return dict_
+
     def fetch_report(report_type, match=None, partition=None):
         """Fetch the report from the impl and return it as json."""
         status = 200
         try:
             report = impl.get(report_type, match=match, partition=partition)
-            output = report.to_dict(orient='split')
-            del output['index']  # just a list of 0 to n, not useful
+            output = report_to_dict(report)
         except KeyError:
             output = {
                 'message': 'No such scheduler report: {}'.format(report_type),
@@ -105,3 +110,14 @@ def init(api, cors, impl):
             """Return the apps report."""
             args = arg_parser.parse_args()
             return fetch_report('apps', **args)
+
+    @namespace.route('/explain/<instance>')
+    class _ExplainResource(restplus.Resource):
+        """Explain resource."""
+
+        @webutils.raw_get_api(api, cors)
+        def get(self, instance):
+            """Return scheduler's response."""
+            output = report_to_dict(impl.explain.get(instance))
+            return flask.Response(flask.json.dumps(output),
+                                  mimetype='application/json')

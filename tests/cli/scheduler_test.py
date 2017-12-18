@@ -279,6 +279,50 @@ class ReportTest(unittest.TestCase):
         self.assertIn('1002', result.output)
         self.assertIn('1003', result.output)
 
+    @mock.patch('treadmill.restclient.get',
+                mock.Mock(return_value=mock.MagicMock(requests.Response)))
+    @mock.patch('treadmill.context.Context.cell_api',
+                mock.Mock(return_value=['http://example.com']))
+    def test_explain(self):
+        """Test behaviour and output of the 'explain' subverb."""
+        restclient.get.return_value.json.return_value = {
+            'columns': [
+                'partition', 'traits', 'affinity', 'state', 'lifetime',
+                'memory', 'cpu', 'disk', 'name'
+            ],
+            'data': [
+                [
+                    'True', 'True', 'True', 'False', 'True', 'False', 'True',
+                    'False', 'host_1.ms.com'
+                ], [
+                    'True', 'True', 'True', 'True', 'True', 'False', 'True',
+                    'False', 'host_2.ms.com'
+                ]
+            ]
+        }
+
+        result = self.runner.invoke(
+            self.scheduler, ['--cell', 'TEST', 'explain', 'proid.app#123']
+        )
+
+        self.assertEqual(result.exit_code, 0)
+        restclient.get.assert_called_with(
+            ['http://example.com'], '/scheduler/explain/proid.app%23123'
+        )
+
+        self.assertIn('host_1.ms.com', result.output)
+        self.assertIn('host_2.ms.com', result.output)
+        self.assertIn('X', result.output)
+
+        explain_mod = plugin_manager.load(
+            'treadmill.cli.scheduler',
+            'explain'
+        )
+        # W0212(protected-access)
+        # pylint: disable=W0212
+        auto_handled_excepts = [ex[0] for ex in explain_mod._EXCEPTIONS]
+        self.assertNotIn(restclient.AlreadyExistsError, auto_handled_excepts)
+
 
 if __name__ == '__main__':
     unittest.main()

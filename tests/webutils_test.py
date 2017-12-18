@@ -63,10 +63,6 @@ class WebUtilsTest(unittest.TestCase):
         (ns,) = webutils.namespace(m_api, 'treadmill.rest.api.state', 'foo')
         self.assertEqual(ns, 'state')
 
-        (ns,) = webutils.namespace(
-            m_api, 'treadmill.ms.rest.api.allocation_group', 'foo')
-        self.assertEqual(ns, 'allocation-group')
-
 
 if __name__ == '__main__':
     unittest.main()

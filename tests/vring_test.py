@@ -21,7 +21,7 @@ class VRingTest(unittest.TestCase):
     @mock.patch('treadmill.sysinfo.hostname', mock.Mock())
     @mock.patch('treadmill.rulefile.RuleMgr', mock.Mock(set_spec=True))
     @mock.patch('socket.gethostbyname', mock.Mock())
-    @mock.patch('treadmill.discovery.Discovery.items', mock.Mock())
+    @mock.patch('treadmill.discovery.Discovery.iteritems', mock.Mock())
     def test_run(self):
         """Test vring."""
         dns = {
@@ -34,7 +34,7 @@ class VRingTest(unittest.TestCase):
         treadmill.sysinfo.hostname.return_value = 'zzz.xx.com'
         mock_discovery = treadmill.discovery.Discovery(None, 'a.a', None)
         mock_rulemgr = treadmill.rulefile.RuleMgr('/test', '/owners')
-        treadmill.discovery.Discovery.items.return_value = [
+        treadmill.discovery.Discovery.iteritems.return_value = [
             ('proid.foo#123:tcp:tcp_ep', 'xxx.xx.com:12345'),
             ('proid.foo#123:udp:udp_ep', 'xxx.xx.com:23456'),
             ('proid.foo#123:tcp:other_tcp_ep', 'xxx.xx.com:34567'),
@@ -178,7 +178,7 @@ class VRingTest(unittest.TestCase):
 
         mock_rulemgr.create_rule.reset_mock()
         ############
-        treadmill.discovery.Discovery.items.return_value = [
+        treadmill.discovery.Discovery.iteritems.return_value = [
             ('proid.foo#123:tcp:tcp_ep', 'xxx.xx.com:12345'),
             ('proid.foo#123:udp:udp_ep', 'xxx.xx.com:23456'),
             ('proid.foo#123:tcp:other_tcp_ep', 'xxx.xx.com:34567'),

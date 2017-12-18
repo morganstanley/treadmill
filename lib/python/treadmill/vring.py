@@ -64,7 +64,7 @@ def run(routing, endpoints, discovery, rulemgr, ip_owner, rules_owner):
                             owner=rules_owner)
 
     vring_state = {}
-    for (app, hostport) in discovery.items():
+    for (app, hostport) in discovery.iteritems():
         # app is in the form appname:endpoint. We care only about endpoint
         # name.
         _name, proto, endpoint = app.split(':')

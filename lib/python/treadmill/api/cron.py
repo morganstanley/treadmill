@@ -44,7 +44,7 @@ class API(object):
                 if resource and fnmatch.fnmatch(job['resource'], resource):
                     filtered.append(job)
 
-            return sorted(filtered)
+            return sorted(filtered, key=lambda item: item['_id'])
 
         @schema.schema({'$ref': 'cron.json#/resource_id'})
         def get(rsrc_id):

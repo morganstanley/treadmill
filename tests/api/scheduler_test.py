@@ -135,6 +135,36 @@ class ApiReportTest(unittest.TestCase):
             )
         )
 
+    @mock.patch('treadmill.context.GLOBAL', mock.Mock(cell='test'))
+    @mock.patch('treadmill.context.ZkContext.conn', mock.Mock)
+    @mock.patch('treadmill.scheduler.loader.Loader')
+    @mock.patch('treadmill.scheduler.zkbackend', mock.Mock)
+    def test_get_readonly_scheduler(self, loader_mock):
+        """Test the get_readonly_scheduler() func."""
+        # W0212(protected-access): Access to a protected member
+        # pylint: disable=W0212
+        # first invocation, _RO_SCHEDULER_INSTANCE is not yet initialized
+        now = scheduler._CACHE_TIMEOUT - 1
+        with mock.patch('time.time', return_value=now):
+            scheduler.get_readonly_scheduler()
+            self.assertTrue(loader_mock.called)
+            self.assertEqual(scheduler._LAST_CACHE_UPDATE, now)
+
+        # more than _CACHE_TIMEOUT time elapsed since last run
+        loader_mock.reset_mock()
+        now = now + scheduler._CACHE_TIMEOUT + 1
+        with mock.patch('time.time', return_value=now):
+            scheduler.get_readonly_scheduler()
+            self.assertTrue(loader_mock.called)
+            self.assertEqual(scheduler._LAST_CACHE_UPDATE, now)
+
+        # less than _CACHE_TIMEOUT time elapsed since last run
+        loader_mock.reset_mock()
+        now = now + scheduler._CACHE_TIMEOUT - 1
+        with mock.patch('time.time', return_value=now):
+            scheduler.get_readonly_scheduler()
+            self.assertFalse(loader_mock.called)
+
 
 if __name__ == '__main__':
     unittest.main()

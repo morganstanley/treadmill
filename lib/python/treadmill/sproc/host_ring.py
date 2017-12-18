@@ -40,7 +40,7 @@ def init():
                   envvar='TREADMILL_WSAPI')
     @click.option('--aliases-dir', required=True,
                   help='Host aliases dir.',
-                  default='/var/run/host-aliases')
+                  default='/run/host-aliases')
     def host_ring(api, wsapi, aliases_dir):
         """Manage /etc/hosts file inside the container."""
         ctx['api'] = api

@@ -40,7 +40,7 @@ class AppEnvTest(unittest.TestCase):
         if self.root and os.path.isdir(self.root):
             shutil.rmtree(self.root)
 
-    @unittest.skipUnless(sys.platform == 'linux2', 'Requires Linux')
+    @unittest.skipUnless(sys.platform.startswith('linux'), 'Requires Linux')
     @mock.patch('treadmill.iptables.initialize', mock.Mock())
     @mock.patch('treadmill.rulefile.RuleMgr.initialize', mock.Mock())
     @mock.patch('treadmill.runtime.linux.image.fs.init_plugins', mock.Mock())

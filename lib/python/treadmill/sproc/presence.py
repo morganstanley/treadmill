@@ -67,16 +67,19 @@ def _start_service_sup(tm_env, manifest, container_dir):
 
 def _get_tickets(manifest, container_dir):
     """Get tickets."""
-    principals = manifest.get('tickets', [])
+    principals = set(manifest.get('tickets', []))
     if not principals:
         return False
 
     tkts_spool_dir = os.path.join(
         container_dir, 'root', 'var', 'spool', 'tickets')
 
-    reply = tickets.request_tickets(context.GLOBAL.zk.conn, manifest['name'])
-    if reply:
-        tickets.store_tickets(reply, tkts_spool_dir)
+    tickets.request_tickets(
+        context.GLOBAL.zk.conn,
+        manifest['name'],
+        tkts_spool_dir,
+        principals
+    )
 
     # Check that all requested tickets are valid.
     for princ in principals:
@@ -97,12 +100,11 @@ def _refresh_tickets(manifest, container_dir):
     tkts_spool_dir = os.path.join(container_dir, 'root', 'var', 'spool',
                                   'tickets')
 
-    reply = tickets.request_tickets(context.GLOBAL.zk.conn,
-                                    manifest['name'])
-    if reply:
-        tickets.store_tickets(reply, tkts_spool_dir)
-    else:
-        _LOGGER.error('Error requesting tickets.')
+    principals = set(manifest.get('tickets', []))
+    tickets.request_tickets(context.GLOBAL.zk.conn,
+                            manifest['name'],
+                            tkts_spool_dir,
+                            principals)
 
 
 def sigterm_handler(_signo, _stack_frame):

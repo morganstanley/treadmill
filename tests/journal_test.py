@@ -8,9 +8,6 @@ from __future__ import unicode_literals
 
 import unittest
 
-# Disable W0611: Unused import
-import tests.treadmill_test_deps  # pylint: disable=W0611
-
 from treadmill import journal
 from treadmill.journal import plugin as jplugin
 

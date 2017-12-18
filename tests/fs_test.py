@@ -9,6 +9,7 @@ from __future__ import unicode_literals
 import io
 import os
 import shutil
+import sys
 import tarfile
 import tempfile
 import unittest
@@ -22,14 +23,16 @@ else:
     import subprocess  # pylint: disable=wrong-import-order
 
 import treadmill
-from treadmill import fs
+import treadmill.fs
+
+if sys.platform.startswith('linux'):
+    import treadmill.fs.linux
 
 
-# Pylint complains about long names for test functions.
-# pylint: disable=C0103
-class FsTest(unittest.TestCase):
-    """Tests for teadmill.fs."""
-
+@unittest.skipUnless(sys.platform.startswith('linux'), 'Requires Linux')
+class FsLinuxTest(unittest.TestCase):
+    """Tests for teadmill.fs.linux.
+    """
     def setUp(self):
         self.root = tempfile.mkdtemp()
 
@@ -37,106 +40,262 @@ class FsTest(unittest.TestCase):
         if self.root and os.path.isdir(self.root):
             shutil.rmtree(self.root)
 
-    @mock.patch('treadmill.subproc.check_call', mock.Mock())
+    @mock.patch('treadmill.syscall.mount.unmount', mock.Mock(spec_set=True))
+    def test_umount_filesystem(self):
+        """Test umount call.
+        """
+        treadmill.fs.linux.umount_filesystem('/foo')
+
+        treadmill.syscall.mount.unmount.assert_called_with(target='/foo')
+
+    @mock.patch('treadmill.syscall.mount.mount', mock.Mock(spec_set=True))
+    def test_mount_filesystem(self):
+        """Test mounting a filesystem.
+        """
+        treadmill.fs.linux.mount_filesystem('/some/dev', '/some/mnt', 'type')
+
+        treadmill.syscall.mount.mount.assert_called_with(
+            source='/some/dev',
+            target='/some/mnt',
+            fs_type='type',
+            mnt_flags=mock.ANY
+        )
+
+    @mock.patch('treadmill.syscall.mount.mount', mock.Mock(spec_set=True))
     def test_mount_bind_dir(self):
-        """Tests fs.mount_bind directory binding behavior"""
-        # test binding directory in /
+        """Tests bind mounting directory binding behavior
+        """
         container_dir = os.path.join(self.root, 'container')
         os.makedirs(container_dir)
-
         foo_dir = os.path.join(self.root, 'foo')
         os.makedirs(foo_dir)
-        fs.mount_bind(container_dir, foo_dir)
-        treadmill.subproc.check_call.assert_called_with(
+
+        treadmill.fs.linux.mount_bind(container_dir, foo_dir)
+
+        container_foo_dir = os.path.join(container_dir, foo_dir[1:])
+        treadmill.syscall.mount.mount.assert_has_calls(
             [
-                'mount',
-                '-n',
-                '--rbind',
-                foo_dir,
-                os.path.join(container_dir, foo_dir[1:]),
+                mock.call(
+                    source=foo_dir,
+                    target=container_foo_dir,
+                    fs_type=None,
+                    mnt_flags=mock.ANY
+                ),
+                mock.call(
+                    source=None,
+                    target=container_foo_dir,
+                    fs_type=None,
+                    mnt_flags=mock.ANY
+                ),
             ]
         )
-        self.assertTrue(
-            os.path.isdir(os.path.join(container_dir, foo_dir[1:]))
+        self.assertCountEqual(
+            treadmill.syscall.mount.mount.call_args_list[0][1]['mnt_flags'],
+            (
+                treadmill.syscall.mount.MS_REC,
+                treadmill.syscall.mount.MS_BIND,
+            ),
+            'Validate flags passed to first mount call'
         )
-        treadmill.subproc.check_call.reset_mock()
+        self.assertCountEqual(
+            treadmill.syscall.mount.mount.call_args_list[1][1]['mnt_flags'],
+            (
+                treadmill.syscall.mount.MS_BIND,
+                treadmill.syscall.mount.MS_RDONLY,
+                treadmill.syscall.mount.MS_REMOUNT,
+            ),
+            'Validate flags passed to second mount call'
+        )
+        self.assertEqual(
+            treadmill.syscall.mount.mount.call_count, 2
+        )
         self.assertTrue(
-            os.path.isdir(
-                os.path.join(container_dir, foo_dir[1:])
-            )
+            os.path.isdir(container_foo_dir)
         )
 
-        # test binding directory with subdirs
-        bar_dir = os.path.join(self.root, 'bar')
-        os.makedirs(os.path.join(bar_dir, 'baz'))
-        fs.mount_bind(container_dir, bar_dir)
-        treadmill.subproc.check_call.assert_called_with(
-            [
-                'mount',
-                '-n',
-                '--rbind',
-                bar_dir,
-                os.path.join(container_dir, bar_dir[1:])
-            ]
-        )
-        self.assertTrue(
-            os.path.isdir(os.path.join(container_dir, bar_dir[1:]))
-        )
-        treadmill.subproc.check_call.reset_mock()
-
-    @mock.patch('treadmill.subproc.check_call', mock.Mock())
-    def test_mount_bind_file(self):
-        """Verifies correct mount options for files vs dirs."""
+    @mock.patch('treadmill.syscall.mount.mount', mock.Mock(spec_set=True))
+    def test_mount_bind_dir_readwrite(self):
+        """Tests bind mounting directory binding behavior (read/write)
+        """
         container_dir = os.path.join(self.root, 'container')
         os.makedirs(container_dir)
+        foo_dir = os.path.join(self.root, 'foo')
+        os.makedirs(foo_dir)
 
-        # test binding a file
+        treadmill.fs.linux.mount_bind(container_dir, foo_dir, read_only=False)
+
+        container_foo_dir = os.path.join(container_dir, foo_dir[1:])
+        treadmill.syscall.mount.mount.assert_has_calls(
+            [
+                mock.call(
+                    source=foo_dir,
+                    target=container_foo_dir,
+                    fs_type=None,
+                    mnt_flags=mock.ANY
+                ),
+            ]
+        )
+        self.assertCountEqual(
+            treadmill.syscall.mount.mount.call_args_list[0][1]['mnt_flags'],
+            (
+                treadmill.syscall.mount.MS_REC,
+                treadmill.syscall.mount.MS_BIND,
+            ),
+            'Validate flags passed to first mount call'
+        )
+        self.assertEqual(
+            treadmill.syscall.mount.mount.call_count, 1
+        )
+        self.assertTrue(
+            os.path.isdir(container_foo_dir)
+        )
+
+    @mock.patch('treadmill.syscall.mount.mount', mock.Mock(spec_set=True))
+    def test_mount_bind_file(self):
+        """Verifies correct mount options for files vs dirs.
+        """
+        container_dir = os.path.join(self.root, 'container')
+        os.makedirs(container_dir)
         foo_file = os.path.join(self.root, 'foo')
         with io.open(os.path.join(self.root, 'foo'), 'w'):
             pass
-        fs.mount_bind(container_dir, foo_file)
-        treadmill.subproc.check_call.assert_called_with(
+
+        treadmill.fs.linux.mount_bind(container_dir, foo_file)
+
+        container_foo_file = os.path.join(container_dir, foo_file[1:])
+        treadmill.syscall.mount.mount.assert_has_calls(
             [
-                'mount',
-                '-n',
-                '--bind',
-                foo_file,
-                os.path.join(container_dir, foo_file[1:])
+                mock.call(
+                    source=foo_file,
+                    target=container_foo_file,
+                    fs_type=None,
+                    mnt_flags=mock.ANY
+                ),
+                mock.call(
+                    source=None,
+                    target=container_foo_file,
+                    fs_type=None,
+                    mnt_flags=mock.ANY
+                ),
             ]
         )
-        self.assertTrue(
-            os.path.isfile(os.path.join(container_dir, foo_file[1:]))
+        self.assertCountEqual(
+            treadmill.syscall.mount.mount.call_args_list[0][1]['mnt_flags'],
+            (
+                treadmill.syscall.mount.MS_BIND,
+            ),
+            'Validate flags passed to first mount call'
         )
-        treadmill.subproc.check_call.reset_mock()
+        self.assertCountEqual(
+            treadmill.syscall.mount.mount.call_args_list[1][1]['mnt_flags'],
+            (
+                treadmill.syscall.mount.MS_BIND,
+                treadmill.syscall.mount.MS_RDONLY,
+                treadmill.syscall.mount.MS_REMOUNT,
+            ),
+            'Validate flags passed to second mount call'
+        )
+        self.assertEqual(
+            treadmill.syscall.mount.mount.call_count, 2
+        )
+        self.assertTrue(
+            os.path.isfile(container_foo_file)
+        )
 
-    @mock.patch('treadmill.subproc.check_call', mock.Mock())
+    @mock.patch('treadmill.syscall.mount.mount', mock.Mock(spec_set=True))
     def test_mount_bind_failures(self):
-        """Tests mount_bind behavior with invalid input."""
-        self.assertRaises(Exception, fs.mount_bind, 'no_such_root', '/bin')
-        self.assertRaises(Exception, fs.mount_bind, self.root, '/nosuchdir')
-        self.assertRaises(Exception, fs.mount_bind, self.root, './relative')
-        self.assertRaises(Exception, fs.mount_bind, self.root, 'relative')
+        """Tests mount_bind behavior with invalid input.
+        """
+        self.assertRaises(Exception,
+                          treadmill.fs.linux.mount_bind,
+                          'no_such_root', '/bin')
+        self.assertRaises(Exception,
+                          treadmill.fs.linux.mount_bind,
+                          self.root, '/nosuchdir')
+        self.assertRaises(Exception,
+                          treadmill.fs.linux.mount_bind,
+                          self.root, './relative')
+        self.assertRaises(Exception,
+                          treadmill.fs.linux.mount_bind,
+                          self.root, 'relative')
 
-    @mock.patch('treadmill.subproc.check_call', mock.Mock())
+    @mock.patch('treadmill.syscall.mount.mount', mock.Mock(spec_set=True))
+    def test_mount_proc(self):
+        """Test mounting of proc filesystem.
+        """
+        treadmill.fs.linux.mount_proc('/foo')
+
+        treadmill.syscall.mount.mount.assert_called_with(
+            source='proc',
+            target='/foo/proc',
+            fs_type='proc',
+        )
+
+    @mock.patch('treadmill.syscall.mount.mount', mock.Mock(spec_set=True))
+    def test_mount_sysfs(self):
+        """Test mounting of sysfs filesystem.
+        """
+        treadmill.fs.linux.mount_sysfs('/foo')
+
+        treadmill.syscall.mount.mount.assert_called_with(
+            source='sysfs',
+            target='/foo/sys',
+            fs_type='sysfs',
+            mnt_flags=mock.ANY
+        )
+        self.assertCountEqual(
+            treadmill.syscall.mount.mount.call_args_list[0][1]['mnt_flags'],
+            (
+                treadmill.syscall.mount.MS_RDONLY,
+            ),
+            'Validate flags passed to second mount call'
+        )
+
+    @mock.patch('treadmill.syscall.mount.mount', mock.Mock(spec_set=True))
     def test_mount_tmpfs(self):
-        """Tests behavior of mount_tmpfs."""
-        # Using absolute path to mount dir inside chroot
-        treadmill.fs.mount_tmpfs('/a/b', '/var/spool/tickets', '4M')
-        treadmill.subproc.check_call.assert_called_with(
-            ['mount', '-n', '-o', 'size=4M', '-t', 'tmpfs', 'tmpfs',
-             '/a/b/var/spool/tickets'])
+        """Tests behavior of mount tmpfs.
+        """
+        treadmill.fs.linux.mount_tmpfs('/foo', '/tmp', size='4M')
+        treadmill.syscall.mount.mount.assert_called_with(
+            source='tmpfs',
+            target='/foo/tmp',
+            fs_type='tmpfs',
+            mnt_flags=mock.ANY,
+            mnt_opts={'size': '4M'}
+        )
+        self.assertCountEqual(
+            treadmill.syscall.mount.mount.call_args_list[0][1]['mnt_flags'],
+            (
+                treadmill.syscall.mount.MS_NOATIME,
+                treadmill.syscall.mount.MS_NODIRATIME,
+            ),
+            'Validate flags passed to second mount call'
+        )
+        treadmill.syscall.mount.mount.reset_mock()
 
-        treadmill.subproc.check_call.reset()
-        # Using relative path to mount dir
-        treadmill.fs.mount_tmpfs('/a/b', 'var/spool/tickets', '2M')
-        treadmill.subproc.check_call.assert_called_with(
-            ['mount', '-n', '-o', 'size=2M', '-t', 'tmpfs', 'tmpfs',
-             '/a/b/var/spool/tickets'])
+        treadmill.fs.linux.mount_tmpfs('/foo', '/tmp2')
 
-    @mock.patch('treadmill.subproc.check_call', mock.Mock())
-    def test_create_filesystem(self):
-        """Test loopback filesystem creation"""
-        treadmill.fs.create_filesystem('/dev/myapp')
+        treadmill.syscall.mount.mount.assert_called_with(
+            source='tmpfs',
+            target='/foo/tmp2',
+            fs_type='tmpfs',
+            mnt_flags=mock.ANY,
+            mnt_opts={}
+        )
+        self.assertCountEqual(
+            treadmill.syscall.mount.mount.call_args_list[0][1]['mnt_flags'],
+            (
+                treadmill.syscall.mount.MS_NOATIME,
+                treadmill.syscall.mount.MS_NODIRATIME,
+            ),
+            'Validate flags passed to second mount call'
+        )
+
+    @mock.patch('treadmill.subproc.check_call', mock.Mock(spec_set=True))
+    def test_blk_fs_create(self):
+        """Test filesystem creation
+        """
+        treadmill.fs.linux.blk_fs_create('/dev/myapp')
         treadmill.subproc.check_call.assert_called_with(
             [
                 'mke2fs',
@@ -147,6 +306,74 @@ class FsTest(unittest.TestCase):
             ]
         )
 
+    @mock.patch('treadmill.subproc.check_output',
+                mock.Mock(spec_set=True,
+                          return_value="""
+Filesystem volume name:   /boot
+Last mounted on:          <not available>
+Filesystem UUID:          d19ecb0a-fa74-4be2-85f6-2e3a50901cd9
+Filesystem magic number:  0xEF53
+Filesystem revision #:    1 (dynamic)
+Filesystem OS type:       Linux
+Inode count:              65280
+Block count:              1
+Reserved block count:     2
+Free blocks:              3
+Block size:               1024
+Default directory hash:   half_md4
+Directory Hash Seed:      20c6af65-0208-4e71-99cb-d5532c02e3b8
+"""))
+    def test_blk_fs_info(self):
+        """Test fs.read_filesystem_info()."""
+        res = treadmill.fs.linux.blk_fs_info('/dev/treadmill/<uniq>')
+
+        self.assertEqual(res['block count'], '1')
+        self.assertEqual(res['reserved block count'], '2')
+        self.assertEqual(res['free blocks'], '3')
+        self.assertEqual(res['block size'], '1024')
+        treadmill.subproc.check_output.reset_mock()
+
+        treadmill.subproc.check_output.side_effect = (
+            subprocess.CalledProcessError(1, 'command', 'some error')
+        )
+
+        self.assertEqual(
+            treadmill.fs.linux.blk_fs_info('/dev/treadmill/<uniq>'),
+            {}
+        )
+
+    @mock.patch('glob.glob',
+                mock.Mock(spec_set=True,
+                          return_value=('/sys/class/block/sda2/dev',
+                                        '/sys/class/block/sda3/dev')))
+    @mock.patch('io.open', mock.mock_open())
+    def test_maj_min_to_blk(self):
+        """Tests fs.maj_min_to_blk()"""
+        io.open.return_value.read.side_effect = ['8:2\n', '8:3\n']
+
+        self.assertEqual(
+            treadmill.fs.linux.maj_min_to_blk(8, 3),
+            '/dev/sda3'
+        )
+        io.open.reset_mock()
+
+        io.open.return_value.read.side_effect = ['8:2\n', '8:3\n']
+
+        self.assertIsNone(
+            treadmill.fs.linux.maj_min_to_blk(1, 2)
+        )
+
+
+class FsTest(unittest.TestCase):
+    """Tests for teadmill.fs."""
+
+    def setUp(self):
+        self.root = tempfile.mkdtemp()
+
+    def tearDown(self):
+        if self.root and os.path.isdir(self.root):
+            shutil.rmtree(self.root)
+
     def test_rm_safe(self):
         """Test safe rm/unlink."""
         test_file = os.path.join(self.root, 'rmsafe_test')
@@ -154,9 +381,9 @@ class FsTest(unittest.TestCase):
             pass
 
         self.assertTrue(os.path.isfile(test_file))
-        fs.rm_safe(test_file)
+        treadmill.fs.rm_safe(test_file)
         self.assertFalse(os.path.exists(test_file))
-        fs.rm_safe(test_file)
+        treadmill.fs.rm_safe(test_file)
         self.assertFalse(os.path.exists(test_file))
 
     def test_rmtree_safe(self):
@@ -165,9 +392,9 @@ class FsTest(unittest.TestCase):
         os.mkdir(test_dir)
 
         self.assertTrue(os.path.isdir(test_dir))
-        fs.rmtree_safe(test_dir)
+        treadmill.fs.rmtree_safe(test_dir)
         self.assertFalse(os.path.exists(test_dir))
-        fs.rmtree_safe(test_dir)
+        treadmill.fs.rmtree_safe(test_dir)
         self.assertFalse(os.path.exists(test_dir))
 
     def test_tar_basic(self):
@@ -193,7 +420,7 @@ class FsTest(unittest.TestCase):
             pass
 
         self.assertEqual(
-            fs.tar(archive, tardir).name,
+            treadmill.fs.tar(archive, tardir).name,
             archive,
             'fs.tar runs successfully'
         )
@@ -203,13 +430,13 @@ class FsTest(unittest.TestCase):
         )
 
         self.assertEqual(
-            fs.tar(archive, tardir2).name,
+            treadmill.fs.tar(archive, tardir2).name,
             archive,
             'fs.tar will succeed if tarfile already exists'
         )
 
         self.assertEqual(
-            fs.tar(archive, tardir, compression='gzip').name,
+            treadmill.fs.tar(archive, tardir, compression='gzip').name,
             '%s.gz' % archive,
             'fs.tar with gzip runs successfully'
         )
@@ -242,7 +469,10 @@ class FsTest(unittest.TestCase):
             pass
 
         self.assertEqual(
-            fs.tar(archive, [tardir, tardir2], compression='gzip').name,
+            treadmill.fs.tar(
+                archive, [tardir, tardir2],
+                compression='gzip'
+            ).name,
             '%s.gz' % archive,
             'fs.tar runs successfully'
         )
@@ -271,8 +501,8 @@ class FsTest(unittest.TestCase):
             pass
 
         fileobj = tempfile.TemporaryFile()
-        fs.tar(target=fileobj, sources=[tardir, tardir2],
-               compression='gzip')
+        treadmill.fs.tar(target=fileobj, sources=[tardir, tardir2],
+                         compression='gzip')
 
         # seek fileobj and check content
         fileobj.seek(0)
@@ -281,56 +511,6 @@ class FsTest(unittest.TestCase):
         self.assertTrue(
             'subdir' in names and 'file' in names and 'file2' in names
         )
-
-    @mock.patch('treadmill.subproc.check_output',
-                mock.Mock(return_value="""
-Filesystem volume name:   /boot
-Last mounted on:          <not available>
-Filesystem UUID:          d19ecb0a-fa74-4be2-85f6-2e3a50901cd9
-Filesystem magic number:  0xEF53
-Filesystem revision #:    1 (dynamic)
-Filesystem OS type:       Linux
-Inode count:              65280
-Block count:              1
-Reserved block count:     2
-Free blocks:              3
-Block size:               1024
-Default directory hash:   half_md4
-Directory Hash Seed:      20c6af65-0208-4e71-99cb-d5532c02e3b8
-"""))
-    def test_read_filesystem_info(self):
-        """Test fs.read_filesystem_info()."""
-        res = fs.read_filesystem_info('/dev/treadmill/<uniq>')
-
-        self.assertEqual(res['block count'], '1')
-        self.assertEqual(res['reserved block count'], '2')
-        self.assertEqual(res['free blocks'], '3')
-        self.assertEqual(res['block size'], '1024')
-
-        with mock.patch('treadmill.subproc.check_output',
-                        side_effect=subprocess.CalledProcessError(
-                            1, 'command', 'some error')):
-
-            self.assertEqual(fs.read_filesystem_info('/dev/treadmill/<uniq>'),
-                             {})
-
-    @mock.patch('io.open', mock.mock_open())
-    @mock.patch('glob.glob',
-                mock.Mock(return_value=('/sys/class/block/sda2/dev',
-                                        '/sys/class/block/sda3/dev')))
-    def test_maj_min_to_blk(self):
-        """Tests fs.maj_min_to_blk()"""
-        io.open.return_value.read.side_effect = ['8:2\n', '8:3\n']
-
-        self.assertEqual(
-            fs.maj_min_to_blk(8, 3),
-            '/dev/sda3'
-        )
-
-        io.open.reset_mock()
-        io.open.return_value.read.side_effect = ['8:2\n', '8:3\n']
-
-        self.assertIsNone(fs.maj_min_to_blk(-1, -2))
 
 
 if __name__ == '__main__':

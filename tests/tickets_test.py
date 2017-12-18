@@ -38,8 +38,8 @@ class TicketLockerTest(unittest.TestCase):
                 mock.Mock())
     @mock.patch('treadmill.gssapiprotocol.GSSAPILineClient.write', mock.Mock())
     @mock.patch('treadmill.gssapiprotocol.GSSAPILineClient.read', mock.Mock())
-    @mock.patch('pwd.getpwnam', mock.Mock(
-        return_value=collections.namedtuple('pwnam', ['pw_uid'])(3)))
+    @mock.patch('treadmill.tickets.Ticket.copy', mock.Mock(spec_set=True))
+    @mock.patch('treadmill.tickets.Ticket.write', mock.Mock(spec_set=True))
     def test_request_tickets(self):
         """Test parsing output of request_tickets."""
         treadmill.zkutils.connect.return_value = kazoo.client.KazooClient()
@@ -51,9 +51,17 @@ class TicketLockerTest(unittest.TestCase):
         treadmill.gssapiprotocol.GSSAPILineClient.read.side_effect = (
             lambda: lines.pop(0))
 
-        reply = tickets.request_tickets(kazoo.client.KazooClient(), 'myapp')
+        tickets.request_tickets(
+            kazoo.client.KazooClient(),
+            'myapp',
+            self.tkt_dir,
+            set(['foo@bar'])
+        )
 
-        self.assertEqual([tickets.Ticket('foo@bar', b'abcd')], reply)
+        tickets.Ticket.write.assert_called_with()
+        tickets.Ticket.copy.assert_called_with(
+            os.path.join(self.tkt_dir, 'foo@bar')
+        )
 
     @mock.patch('kazoo.client.KazooClient.exists',
                 mock.Mock(return_value=True))
@@ -138,19 +146,64 @@ class TicketLockerTest(unittest.TestCase):
             os.path.join(self.tkt_dir, 'x@r1'))
         zkutils.ensure_deleted.assert_called_with(mock.ANY, '/tickets/x@r1/h')
 
-    @mock.patch('os.chown', mock.Mock())
-    @mock.patch('treadmill.tickets.krbcc_ok', mock.Mock())
-    def test_ticket_write(self):
-        """Tests writing ticket to the file system."""
+    @mock.patch('os.fchown', mock.Mock(spec_set=True))
+    @mock.patch('pwd.getpwnam', mock.Mock(
+        spec_set=True,
+        return_value=collections.namedtuple('pwnam', ['pw_uid'])(3)))
+    @mock.patch('treadmill.fs.rm_safe', mock.Mock(spec_set=True))
+    @mock.patch('treadmill.tickets.krbcc_ok', mock.Mock(spec_set=True))
+    def test_ticket_write_expired(self):
+        """Tests expiration checking of ticket before writing to the file
+        system.
+        """
         tkt = tickets.Ticket('uid@realm', b'content')
         tkt_path = os.path.join(self.tkt_dir, 'x')
         tickets.krbcc_ok.return_value = False
         tkt.write(tkt_path)
         self.assertFalse(os.path.exists(tkt_path))
+        treadmill.fs.rm_safe.assert_called_with(mock.ANY)
 
-        tickets.krbcc_ok.return_value = True
-        tkt.write(tkt_path)
-        self.assertTrue(os.path.exists(tkt_path))
+    @mock.patch('os.fchown', mock.Mock(spec_set=True))
+    @mock.patch('pwd.getpwnam', mock.Mock(
+        spec_set=True,
+        return_value=collections.namedtuple('pwnam', ['pw_uid'])(3)))
+    @mock.patch('treadmill.fs.rm_safe', mock.Mock(spec_set=True))
+    @mock.patch('treadmill.tickets.krbcc_ok',
+                mock.Mock(spec_set=True, return_value=True))
+    def test_ticket_write(self):
+        """Tests writing ticket to the file system.
+        """
+        tkt = tickets.Ticket('uid@realm', b'content')
+        test_tkt_path = '/tmp/krb5cc_%d' % 3
+
+        self.assertEqual(
+            tkt.tkt_path,
+            test_tkt_path
+        )
+        tkt.write()
+
+        self.assertTrue(os.path.exists(test_tkt_path))
+        treadmill.fs.rm_safe.assert_called_with(mock.ANY)
+
+    @mock.patch('os.fchown', mock.Mock(spec_set=True))
+    @mock.patch('pwd.getpwnam', mock.Mock(
+        spec_set=True,
+        return_value=collections.namedtuple('pwnam', ['pw_uid'])(3)))
+    @mock.patch('treadmill.fs.rm_safe', mock.Mock(spec_set=True))
+    def test_ticket_copy(self):
+        """Test copying tickets.
+        """
+        tkt = tickets.Ticket('uid@realm', b'content')
+        test_tkt_path = os.path.join(self.tkt_dir, 'foo')
+        # touch a ticket
+        with io.open(tkt.tkt_path, 'wb'):
+            pass
+
+        tkt.copy(dst=test_tkt_path)
+
+        self.assertTrue(os.path.exists(test_tkt_path))
+        os.fchown.assert_called_with(mock.ANY, 3, -1)
+        treadmill.fs.rm_safe.assert_called_with(mock.ANY)
 
 
 if __name__ == '__main__':

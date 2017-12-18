@@ -7,10 +7,6 @@ from __future__ import unicode_literals
 
 import unittest
 
-# Disable W0611: Unused import
-# pylint: disable=W0611
-import tests.treadmill_test_deps
-
 import mock
 
 import treadmill

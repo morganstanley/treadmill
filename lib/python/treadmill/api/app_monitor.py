@@ -38,7 +38,7 @@ class API(object):
                 if (monitor is not None and
                     fnmatch.fnmatch(monitor['_id'], match))
             ]
-            return sorted(filtered)
+            return sorted(filtered, key=lambda item: item['_id'])
 
         @schema.schema(
             {'$ref': 'appmonitor.json#/resource_id'},

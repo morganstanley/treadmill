@@ -69,7 +69,7 @@ def _renew_tickets(tkt_spool_dir):
         subproc.call(['klist', '-e', '-5', tkt])
 
 
-def _reforward_ticket(ticket_file, endpoint):
+def _reforward_ticket(ticket_file, tkt_final_dir, endpoint):
     """Forward ticket to self, potentially correcting ticket enc type."""
     _LOGGER.info('Reforwarding to: %s', endpoint)
     _LOGGER.info('Before loopback forward: %s', ticket_file)
@@ -81,8 +81,10 @@ def _reforward_ticket(ticket_file, endpoint):
                   '-p{}'.format(port)],
                  environ={'KRB5CCNAME': 'FILE:' + ticket_file})
 
-    _LOGGER.info('After loopback forward: %s', ticket_file)
-    subproc.call(['klist', '-e', '-5', ticket_file])
+    final_tkt_path = os.path.join(tkt_final_dir,
+                                  os.path.basename(ticket_file))
+    _LOGGER.info('After loopback forward: %s', final_tkt_path)
+    subproc.call(['klist', '-e', '-5', final_tkt_path])
 
 
 def init():
@@ -169,11 +171,16 @@ def init():
     @top.command()
     @click.option('--tkt-spool-dir',
                   help='Ticket spool directory.')
+    @click.option('--tkt-final-dir',
+                  help='Ticket final spool directory.')
     @click.option('--appname', help='Pseudo app name to use for discovery',
                   required=True)
     @click.option('--endpoint', required=True,
                   help='Forward tickets to endpoint after renew')
-    def reforward(tkt_spool_dir, appname, endpoint):
+    @click.option('--realms', required=False,
+                  type=cli.LIST,
+                  help='Valid ticket realms.')
+    def reforward(tkt_spool_dir, tkt_final_dir, appname, endpoint, realms):
         """Renew tickets in the locker."""
 
         endpoint_ref = {}
@@ -207,16 +214,70 @@ def init():
             if ticket_file.startswith('.'):
                 return
 
+            # TODO: this is for hotfix only. Ticker receiver creates temp
+            #       ticket file with random suffix, not with . prefix.
+            #
+            #       As result, thie core is invoked for tmp files, and not
+            #       only it generates too much traffic for ticket receiver,
+            #       but it also generates errors, because by the time we
+            #       forward cache is gone.
+            #
+            #       Proper soltution for ticket receiver to create temp files
+            #       starting with dot.
+            valid_realm = False
+            for realm in realms:
+                if ticket_file.endswith(realm):
+                    valid_realm = True
+                    break
+
+            if not valid_realm:
+                return
+
             _LOGGER.info('Got new ticket: %s', ticket_file)
 
             if endpoint_ref:
                 # invoke tkt-send with KRB5CCNAME pointing to the new ticket
                 # file.
-                _reforward_ticket(path, endpoint_ref['endpoint'])
+                _reforward_ticket(path,
+                                  tkt_final_dir,
+                                  endpoint_ref['endpoint'])
+            else:
+                _LOGGER.warning('No ticket endpoint found.')
 
         watcher = dirwatch.DirWatcher(tkt_spool_dir)
         watcher.on_created = _on_created
 
+        # Make sure to forward all tickets on startup
+        tickets_in_tmp_spool = set([
+            os.path.basename(path)
+            for path in glob.glob(os.path.join(tkt_spool_dir, '*'))
+        ])
+        tickets_in_dst_spool = set([
+            os.path.basename(path)
+            for path in glob.glob(os.path.join(tkt_final_dir, '*'))
+        ])
+
+        for common in tickets_in_tmp_spool & tickets_in_dst_spool:
+            dst_path = os.path.join(tkt_final_dir, common)
+            tmp_path = os.path.join(tkt_spool_dir, common)
+            try:
+                dst_ctime = os.stat(dst_path).st_ctime
+                tmp_ctime = os.stat(tmp_path).st_ctime
+
+                if tmp_ctime > dst_ctime:
+                    _LOGGER.info('Ticket in spool out of date: %s', common)
+                    _on_created(tmp_path)
+                else:
+                    _LOGGER.info('Ticket: %s is up to date.', common)
+
+            except OSError:
+                _on_created(tmp_path)
+
+        for missing in tickets_in_tmp_spool - tickets_in_dst_spool:
+            _LOGGER.info('Forwarding missing ticket: %s', missing)
+            _on_created(os.path.join(tkt_spool_dir, missing))
+
+        _LOGGER.info('Watching for events.')
         while True:
             if watcher.wait_for_events(timeout=60):
                 watcher.process_events(max_events=10)

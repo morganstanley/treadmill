@@ -37,7 +37,7 @@ class API(object):
                 group for group in groups
                 if group is not None and fnmatch.fnmatch(group['_id'], match)
             ]
-            return sorted(filtered)
+            return sorted(filtered, key=lambda item: item['_id'])
 
         @schema.schema(
             {'$ref': 'identity_group.json#/resource_id'},

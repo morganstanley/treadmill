@@ -1,4 +1,6 @@
-"""Implementation of treadmill admin node CLI plugin"""
+"""Implementation of treadmill admin node CLI plugin
+"""
+
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
@@ -10,9 +12,10 @@ import shutil
 import click
 
 from treadmill import diskbenchmark
-from treadmill import fs
 from treadmill import localdiskutils
 from treadmill import subproc
+
+from treadmill.fs import linux as fs_linux
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -116,7 +119,9 @@ def benchmark_group(parent):
             if underlying_device_name is not None:
                 # LVM is based on physical device,
                 # benchmark VG directly
-                underlying_device_uuid = fs.device_uuid(underlying_device_name)
+                underlying_device_uuid = fs_linux.blk_uuid(
+                    underlying_device_name
+                )
                 max_iops_result = diskbenchmark.benchmark_vg(
                     vg_name,
                     benchmark_volume,
@@ -138,9 +143,9 @@ def benchmark_group(parent):
             elif underlying_image_path is not None:
                 # LVM is based on loop device,
                 # benchmark underlying physical device of image file
-                underlying_device_uuid = fs.device_uuid(
-                    fs.maj_min_to_blk(
-                        *fs.path_to_maj_min(underlying_image_path)
+                underlying_device_uuid = fs_linux.blk_uuid(
+                    fs_linux.maj_min_to_blk(
+                        *fs_linux.maj_min_from_path(underlying_image_path)
                     )
                 )
                 benchmark_path = os.path.join(

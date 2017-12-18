@@ -389,10 +389,7 @@ def explain_placement(cell, app, mode):
         'partition', 'traits', 'affinity', 'state', 'lifetime',
         'memory', 'cpu', 'disk', 'name'
     ]
-    df = pd.DataFrame(result, columns=columns)
-    df.replace(True, '.', inplace=True)
-    df.replace(False, 'x', inplace=True)
-    return df
+    return pd.DataFrame(result, columns=columns)
 
 
 def serialize_dataframe(report, compressed=True):

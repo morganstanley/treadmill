@@ -57,7 +57,7 @@ class DiscoveryTest(mockzk.MockZookeeperTestCase):
         app_discovery.exit_loop()
 
         expected = {}
-        for (endpoint, hostport) in app_discovery.items():
+        for (endpoint, hostport) in app_discovery.iteritems():
             expected[endpoint] = hostport
 
         self.assertEqual(

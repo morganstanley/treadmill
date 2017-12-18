@@ -81,15 +81,14 @@ class NativeImageTest(unittest.TestCase):
         if self.container_dir and os.path.isdir(self.container_dir):
             shutil.rmtree(self.container_dir)
 
-    @mock.patch('pwd.getpwnam', mock.Mock(
-        return_value=collections.namedtuple('pwnam', 'pw_uid pw_gid')(42, 42)
-    ))
-    @mock.patch('os.chown', mock.Mock())
-    @mock.patch('treadmill.fs.mount_bind', mock.Mock())
-    @mock.patch('treadmill.fs.mount_tmpfs', mock.Mock())
+    @mock.patch('os.chown', mock.Mock(spec_set=True))
+    @mock.patch('treadmill.fs.linux.mount_bind', mock.Mock(spec_set=True))
+    @mock.patch('treadmill.fs.linux.mount_tmpfs', mock.Mock(spec_set=True))
+    @mock.patch('treadmill.fs.linux.mount_proc', mock.Mock(spec_set=True))
+    @mock.patch('treadmill.fs.linux.mount_sysfs', mock.Mock(spec_set=True))
     def test_make_fsroot(self):
         """Validates directory layout in chrooted environment."""
-        native.make_fsroot(self.root, 'myproid')
+        native.make_fsroot(self.root)
 
         def isdir(path):
             """Checks directory presence in chrooted environment."""
@@ -100,34 +99,30 @@ class NativeImageTest(unittest.TestCase):
             statinfo = os.stat(os.path.join(self.root, path))
             return statinfo.st_mode & stat.S_ISVTX
 
-        self.assertTrue(isdir('tmp'))
+        self.assertTrue(isdir('home'))
         self.assertTrue(isdir('opt'))
-        self.assertTrue(isdir('var/spool/keytabs'))
-        self.assertTrue(isdir('var/spool/tickets'))
-        self.assertTrue(isdir('var/spool/tokens'))
+        self.assertTrue(isdir('run'))
+        self.assertTrue(isdir('tmp'))
+        self.assertTrue(isdir('var/spool'))
         self.assertTrue(isdir('var/tmp'))
-        self.assertTrue(isdir('var/tmp/cores'))
-        # self.assertTrue(isdir('home'))
 
-        self.assertTrue(issticky('tmp'))
         self.assertTrue(issticky('opt'))
+        self.assertTrue(issticky('run'))
+        self.assertTrue(issticky('tmp'))
         self.assertTrue(issticky('var/tmp'))
-        self.assertTrue(issticky('var/tmp/cores'))
-        self.assertTrue(issticky('var/spool/tickets'))
 
-        treadmill.fs.mount_tmpfs.assert_has_calls([
-            mock.call(mock.ANY, '/var/spool/tickets', mock.ANY),
-            mock.call(mock.ANY, '/var/spool/keytabs', mock.ANY)
-        ])
+        treadmill.fs.linux.mount_tmpfs.assert_called_once_with(
+            mock.ANY, '/run'
+        )
 
-        treadmill.fs.mount_bind.assert_has_calls([
-            mock.call(mock.ANY, '/bin', remount_opts=['ro'])
+        treadmill.fs.linux.mount_bind.assert_has_calls([
+            mock.call(mock.ANY, '/bin', read_only=True, recursive=True)
         ])
 
     @mock.patch('treadmill.cgroups.makepath',
                 mock.Mock(return_value='/test/cgroup/path'))
     @mock.patch('treadmill.fs.mkdir_safe', mock.Mock())
-    @mock.patch('treadmill.fs.mount_bind', mock.Mock())
+    @mock.patch('treadmill.fs.linux.mount_bind', mock.Mock())
     def test__share_cgroup_info(self):
         """Test sharing of cgroup information with the container."""
         # Access protected module _share_cgroup_info
@@ -138,8 +133,10 @@ class NativeImageTest(unittest.TestCase):
         treadmill.fs.mkdir_safe.assert_has_calls([
             mock.call('/some/root_dir/cgroup/memory')
         ])
-        treadmill.fs.mount_bind.assert_has_calls([
-            mock.call('/some/root_dir', '/cgroup/memory', '/test/cgroup/path')
+        treadmill.fs.linux.mount_bind.assert_has_calls([
+            mock.call('/some/root_dir', '/cgroup/memory',
+                      source='/test/cgroup/path',
+                      read_only=False, recursive=True)
         ])
 
     @mock.patch('pwd.getpwnam', mock.Mock(
@@ -148,7 +145,7 @@ class NativeImageTest(unittest.TestCase):
             ['pw_uid', 'pw_dir', 'pw_shell']
         )(3, '/', '/bin/sh')))
     @mock.patch('treadmill.fs.mkdir_safe', mock.Mock())
-    @mock.patch('treadmill.fs.mount_bind', mock.Mock())
+    @mock.patch('treadmill.fs.linux.mount_bind', mock.Mock())
     @mock.patch('treadmill.supervisor.create_service', mock.Mock())
     @mock.patch('treadmill.supervisor.create_scan_dir', mock.Mock())
     @mock.patch('treadmill.utils.create_script', mock.Mock())
@@ -318,9 +315,10 @@ class NativeImageTest(unittest.TestCase):
 
         self.assertEqual(2, mock_service_dir.write.call_count)
 
-        treadmill.fs.mount_bind.assert_called_with(
+        treadmill.fs.linux.mount_bind.assert_called_with(
             '/test_treadmill', '/services',
-            bind_opt='--bind', target='/some/dir/services'
+            source='/some/dir/services',
+            read_only=False, recursive=False
         )
 
     @mock.patch('treadmill.subproc.resolve', mock.Mock())
@@ -334,9 +332,9 @@ class NativeImageTest(unittest.TestCase):
 
         native._prepare_ldpreload(self.container_dir, self.app)
 
-        newfile = io.open(os.path.join(
-            self.container_dir, 'overlay', 'etc', 'ld.so.preload'
-        )).readlines()
+        with io.open(os.path.join(self.container_dir,
+                                  'overlay', 'etc', 'ld.so.preload')) as f:
+            newfile = f.readlines()
         self.assertEqual('/foo/1.so\n', newfile[-1])
 
     @mock.patch('pwd.getpwnam', mock.Mock(
@@ -352,7 +350,7 @@ class NativeImageTest(unittest.TestCase):
         native._prepare_hosts(self.container_dir, self.app)
 
         etc_dir = os.path.join(self.container_dir, 'overlay', 'etc')
-        run_dir = os.path.join(self.container_dir, 'overlay', 'var', 'run')
+        run_dir = os.path.join(self.container_dir, 'overlay', 'run')
 
         shutil.copyfile.assert_has_calls(
             [
@@ -401,42 +399,42 @@ class NativeImageTest(unittest.TestCase):
                       os.path.join(etc_dir, 'resolv.conf'))
         ])
 
-    @mock.patch('treadmill.fs.mount_bind', mock.Mock())
-    def test__bind_etc_overlay(self):
-        """Test binding etc overlay."""
-        # access protected module _bind_etc_overlay
+    @mock.patch('treadmill.fs.linux.mount_bind', mock.Mock())
+    def test__bind_overlay(self):
+        """Test binding overlay."""
+        # access protected module _bind_overlay
         # pylint: disable=w0212
-        native._bind_etc_overlay(self.container_dir, self.root)
+        native._bind_overlay(self.container_dir, self.root)
 
         overlay_dir = os.path.join(self.container_dir, 'overlay')
 
-        treadmill.fs.mount_bind.assert_has_calls(
+        treadmill.fs.linux.mount_bind.assert_has_calls(
             [
                 mock.call(self.root, '/etc/hosts',
-                          target=os.path.join(overlay_dir, 'etc/hosts'),
-                          bind_opt='--bind'),
-                mock.call(self.root, '/var/run/host-aliases',
-                          target=os.path.join(
-                              overlay_dir, 'var/run/host-aliases'
+                          source=os.path.join(overlay_dir, 'etc', 'hosts'),
+                          read_only=True, recursive=False),
+                mock.call(self.root, '/run/host-aliases',
+                          source=os.path.join(
+                              overlay_dir, 'run', 'host-aliases'
                           ),
-                          bind_opt='--bind'),
+                          read_only=False, recursive=False),
                 mock.call(self.root, '/etc/ld.so.preload',
-                          target=os.path.join(
+                          source=os.path.join(
                               overlay_dir, 'etc/ld.so.preload'
                           ),
-                          bind_opt='--bind'),
+                          read_only=True, recursive=False),
                 mock.call(self.root, '/etc/pam.d/sshd',
-                          target=os.path.join(overlay_dir, 'etc/pam.d/sshd'),
-                          bind_opt='--bind'),
+                          source=os.path.join(overlay_dir, 'etc/pam.d/sshd'),
+                          read_only=True, recursive=False),
                 mock.call(self.root, '/etc/resolv.conf',
-                          target=os.path.join(overlay_dir, 'etc/resolv.conf'),
-                          bind_opt='--bind'),
+                          source=os.path.join(overlay_dir, 'etc/resolv.conf'),
+                          read_only=True, recursive=False),
                 mock.call(self.root, '/etc/krb5.keytab',
-                          target=os.path.join(overlay_dir, 'etc/krb5.keytab'),
-                          bind_opt='--bind'),
+                          source=os.path.join(overlay_dir, 'etc/krb5.keytab'),
+                          read_only=True, recursive=False),
                 mock.call('/', '/etc/resolv.conf',
-                          target=os.path.join(overlay_dir, 'etc/resolv.conf'),
-                          bind_opt='--bind')
+                          source=os.path.join(overlay_dir, 'etc/resolv.conf'),
+                          read_only=True, recursive=False)
             ],
             any_order=True
         )

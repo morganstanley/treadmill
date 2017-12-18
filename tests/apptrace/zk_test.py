@@ -250,6 +250,7 @@ class AppTraceZKTest(mockzk.MockZookeeperTestCase):
     def test_finished_cleanup(self):
         """Tests tasks cleanup.
         """
+        data = b"{data: '1.0', host: foo, state: finished, when: '123.45'}\n"
         zk_content = {
             'trace': {
                 '0001': {
@@ -258,13 +259,20 @@ class AppTraceZKTest(mockzk.MockZookeeperTestCase):
                 },
             },
             'finished': {
-                'app1#0001': {'.metadata': {'last_modified': 1000}},
-                'app1#0002': {'.metadata': {'last_modified': 1000}},
-                'app1#0003': {'.metadata': {'last_modified': 1000}},
-                'app1#0004': {'.metadata': {'last_modified': 1000}},
-                'app1#0005': {'.metadata': {'last_modified': 1000}},
-                'app1#0006': {'.metadata': {'last_modified': 1000}},
-                'app1#0007': {'.metadata': {'last_modified': 1000}},
+                'app1#0001': {'.metadata': {'last_modified': 1000},
+                              '.data': data},
+                'app1#0002': {'.metadata': {'last_modified': 1000},
+                              '.data': data},
+                'app1#0003': {'.metadata': {'last_modified': 1000},
+                              '.data': data},
+                'app1#0004': {'.metadata': {'last_modified': 1000},
+                              '.data': data},
+                'app1#0005': {'.metadata': {'last_modified': 1000},
+                              '.data': data},
+                'app1#0006': {'.metadata': {'last_modified': 1000},
+                              '.data': data},
+                'app1#0007': {'.metadata': {'last_modified': 1000},
+                              '.data': data},
             },
             'trace.history': {
             },
@@ -297,15 +305,20 @@ class AppTraceZKTest(mockzk.MockZookeeperTestCase):
             ) VALUES(?, ?, ?, ?, ?)
             """,
             [
-                ('/finished/app1#0001', 1000.0, '{}\n',
+                ('/finished/app1#0001', 1000.0,
+                 "{data: '1.0', host: foo, state: finished, when: '123.45'}\n",
                  '/finished', 'app1#0001'),
-                ('/finished/app1#0002', 1000.0, '{}\n',
+                ('/finished/app1#0002', 1000.0,
+                 "{data: '1.0', host: foo, state: finished, when: '123.45'}\n",
                  '/finished', 'app1#0002'),
-                ('/finished/app1#0003', 1000.0, '{}\n',
+                ('/finished/app1#0003', 1000.0,
+                 "{data: '1.0', host: foo, state: finished, when: '123.45'}\n",
                  '/finished', 'app1#0003'),
-                ('/finished/app1#0004', 1000.0, '{}\n',
+                ('/finished/app1#0004', 1000.0,
+                 "{data: '1.0', host: foo, state: finished, when: '123.45'}\n",
                  '/finished', 'app1#0004'),
-                ('/finished/app1#0005', 1000.0, '{}\n',
+                ('/finished/app1#0005', 1000.0,
+                 "{data: '1.0', host: foo, state: finished, when: '123.45'}\n",
                  '/finished', 'app1#0005')
             ]
         )

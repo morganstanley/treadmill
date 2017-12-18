@@ -11,7 +11,6 @@ import glob
 import io
 import logging
 import os
-import re
 import stat
 import sys
 import tarfile
@@ -31,13 +30,9 @@ if os.name == 'nt':
     import win32con  # pylint: disable=E0401
 
 from treadmill import exc
-from treadmill import osnoop
 from treadmill import subproc
 
-
 _LOGGER = logging.getLogger(__name__)
-
-_UUID_RE = re.compile(r'.*UUID="(.*?)".*')
 
 
 def rm_safe(path):
@@ -212,160 +207,6 @@ def create_excl(filename, size=0, mode=(stat.S_IRUSR | stat.S_IWUSR)):
     return False
 
 
-###############################################################################
-# mount
-
-@osnoop.windows
-def umount_filesystem(target_dir):
-    """umount filesystem on target directory.
-    """
-    subproc.check_call(['umount', '-n', '-f', target_dir])
-
-
-@osnoop.windows
-def mount_filesystem(block_dev, target_dir):
-    """Mount filesystem on target directory.
-
-    :param block_dev:
-        Block device to mount
-    """
-    subproc.check_call(['mount', '-n', block_dev, target_dir])
-
-
-@osnoop.windows
-def mount_bind(newroot, mount, target=None, bind_opt=None, remount_opts=None):
-    """Mounts directory in the new root.
-
-    Call to mount should be done before chrooting into new root.
-
-    Unless specified, the target directory will be mounted using --rbind.
-    """
-    # Ensure root directory exists
-    if not os.path.exists(newroot):
-        raise exc.ContainerSetupError('Path %s does not exist' % newroot)
-
-    if target is None:
-        target = mount
-
-    mount = norm_safe(mount)
-    target = norm_safe(target)
-
-    # Make sure target directory exists.
-    if not os.path.exists(target):
-        raise exc.ContainerSetupError('Target path %s does not exist' % target)
-
-    # If bind_opt is not explicit, use --rbind for directories and
-    # --bind for files.
-    if bind_opt is None:
-        if os.path.isdir(target):
-            bind_opt = '--rbind'
-        else:
-            bind_opt = '--bind'
-
-    # Strip leading /, ensure that mount is relative path.
-    while mount.startswith('/'):
-        mount = mount[1:]
-
-    # Create mount directory, make sure it does not exists.
-    mount_fp = os.path.join(newroot, mount)
-    if os.path.isdir(target):
-        mkdir_safe(mount_fp)
-    else:
-        mkfile_safe(mount_fp)
-
-    subproc.check_call(
-        [
-            'mount',
-            '-n',
-            bind_opt,
-            target,
-            mount_fp
-        ]
-    )
-
-    if remount_opts:
-        subproc.check_call(
-            [
-                'mount',
-                '-n',
-                bind_opt,
-                '-o',
-                'remount,{}'.format(','.join(remount_opts)),
-                target,
-                mount_fp
-            ]
-        )
-
-
-@osnoop.windows
-def mount_tmpfs(newroot, path, size):
-    """Mounts directory on tmpfs.
-    """
-    while path.startswith('/'):
-        path = path[1:]
-    subproc.check_call(['mount', '-n', '-o', 'size=%s' % size,
-                        '-t', 'tmpfs', 'tmpfs', os.path.join(newroot, path)])
-
-
-###############################################################################
-# Block device
-
-@osnoop.windows
-def dev_maj_min(block_dev):
-    """Returns major/minor device numbers for the given block device.
-    """
-    dev_stat = os.stat(os.path.realpath(block_dev))
-    return os.major(dev_stat.st_rdev), os.minor(dev_stat.st_rdev)
-
-
-###############################################################################
-# Filesystem management
-
-@osnoop.windows
-def create_filesystem(block_dev):
-    """Create a new filesystem for an application of a given size formatted as
-    ext3.
-
-    :param block_dev:
-        Block device where to create the new filesystem
-    :type block_dev:
-        ``str``
-    """
-    subproc.check_call(
-        [
-            'mke2fs',
-            '-F',
-            '-E', 'lazy_itable_init=1,nodiscard',
-            '-O', 'uninit_bg',
-            block_dev
-        ]
-    )
-
-
-@osnoop.windows
-def test_filesystem(block_dev):
-    """Test the existence of a filesystem on a given block device.
-
-    We essentially try to read the superblock and assume no filesystem if we
-    fail.
-
-    :param block_dev:
-        Block device where to create the new filesystem.
-    :type block_dev:
-        ``str``
-    :returns ``bool``:
-        True if the block device contains a filesystem.
-    """
-    res = subproc.call(
-        [
-            'tune2fs',
-            '-l',
-            block_dev
-        ]
-    )
-    return bool(res == 0)
-
-
 def tar(target, sources, compression=None):
     """This adds or creates a tarball with the provided folder.
 
@@ -431,81 +272,3 @@ def _tar_impl(sources, **args):
         raise
 
     return archive
-
-
-@osnoop.windows
-def read_filesystem_info(block_dev):
-    """Returns blocks group information for the filesystem present on
-    block_dev.
-
-    :param block_dev:
-        Block device for the filesystem info to query.
-    :type block_dev:
-        ``str``
-    :returns:
-        Blocks group information.
-    :rtype:
-        ``dict``
-    """
-    res = {}
-
-    # TODO: it might worth to convert the appropriate values to int, date etc.
-    #       in the result.
-    try:
-        output = subproc.check_output(['dumpe2fs', '-h', block_dev])
-    except subprocess.CalledProcessError:
-        return res
-
-    for line in output.split(os.linesep):
-        if not line.strip():
-            continue
-
-        key, val = line.split(':', 1)
-        res[key.lower()] = val.strip()
-
-    return res
-
-
-@osnoop.windows
-def device_uuid(block_dev):
-    """Get device uuid
-    """
-    output = subproc.check_output(['blkid', block_dev])
-    match_obj = _UUID_RE.match(output)
-    if match_obj is None:
-        raise ValueError('Invalid device: %s' % block_dev)
-    else:
-        return match_obj.group(1)
-
-
-@osnoop.windows
-def maj_min_to_blk(major, minor):
-    """Returns the block device name to the major:minor numbers in the param.
-
-    :param major:
-        The major number of the device
-    :param minor:
-        The minor number of the device
-    :returns:
-        Block device name.
-    :rtype:
-        ``str``
-    """
-    maj_min = '{}:{}'.format(major, minor)
-    block_dev = None
-    for sys_path in glob.glob(os.path.join(os.sep, 'sys', 'class', 'block',
-                                           '*', 'dev')):
-        with io.open(sys_path) as f:
-            if f.read().strip() == maj_min:
-                block_dev = '/dev/{}'.format(sys_path.split(os.sep)[-2])
-                break
-
-    return block_dev
-
-
-@osnoop.windows
-def path_to_maj_min(path):
-    """Returns major/minor device numbers for the given path.
-    """
-    dev_stat = os.stat(os.path.realpath(path))
-    return os.major(dev_stat.st_dev), os.minor(dev_stat.st_dev)

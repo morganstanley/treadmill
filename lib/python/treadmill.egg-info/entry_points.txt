@@ -190,9 +190,10 @@ reaper = treadmill.cli.supervise.reaper
 [treadmill.cli.krb]
 
 [treadmill.cli.scheduler]
-servers = treadmill.cli.scheduler.servers
-apps = treadmill.cli.scheduler.apps
 allocs = treadmill.cli.scheduler.allocs
+apps = treadmill.cli.scheduler.apps
+explain = treadmill.cli.scheduler.explain
+servers = treadmill.cli.scheduler.servers
 
 
 [treadmill.sproc]

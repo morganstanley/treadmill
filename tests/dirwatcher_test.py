@@ -67,7 +67,7 @@ class DirWatcherTest(unittest.TestCase):
             res,
         )
 
-    @unittest.skipUnless(sys.platform == 'linux2', 'Requires Linux')
+    @unittest.skipUnless(sys.platform.startswith('linux'), 'Requires Linux')
     @mock.patch('select.poll', mock.Mock())
     def test_signal(self):
         """Tests behavior when signalled during wait."""

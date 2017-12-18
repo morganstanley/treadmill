@@ -66,7 +66,7 @@ class API(object):
                 app_group for app_group in app_groups
                 if fnmatch.fnmatch(app_group['_id'], match)
             ]
-            return sorted(filtered)
+            return sorted(filtered, key=lambda item: item['_id'])
 
         self.get = get
         self.create = create

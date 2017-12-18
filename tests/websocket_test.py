@@ -121,20 +121,20 @@ class PubSubTest(unittest.TestCase):
 
         pubsub._sow('/', '*', 0, handler, impl)
 
-        handler.write_message.assert_called_with(
+        handler.send_msg.assert_called_with(
             {'echo': 1, 'when': modified},
         )
-        handler.write_message.reset_mock()
+        handler.send_msg.reset_mock()
 
         pubsub._sow('/', '*', time.time() + 1, handler, impl)
-        self.assertFalse(handler.write_message.called)
-        handler.write_message.reset_mock()
+        self.assertFalse(handler.send_msg.called)
+        handler.send_msg.reset_mock()
 
         pubsub._sow('/', '*', time.time() - 1, handler, impl)
-        handler.write_message.assert_called_with(
+        handler.send_msg.assert_called_with(
             {'echo': 2, 'when': modified},
         )
-        handler.write_message.reset_mock()
+        handler.send_msg.reset_mock()
 
     def test_sow_fs_and_db(self):
         """Tests sow from filesystem and database."""
@@ -198,7 +198,33 @@ class PubSubTest(unittest.TestCase):
                 mock.call('/xxx', None, ''),
             ]
         )
-        handler.write_message.assert_has_calls(
+        handler.send_msg.assert_has_calls(
+            [
+                mock.call({'when': 1, 'echo': 1}),
+                mock.call({'when': 2, 'echo': 2}),
+                mock.call({'when': 3, 'echo': 3}),
+                mock.call({'when': modified, 'echo': 4}),
+            ]
+        )
+
+        # Create empty sow database, this will simulate db removing database
+        # while constructing sow.
+        #
+        with tempfile.NamedTemporaryFile(dir=sow_dir,
+                                         delete=False,
+                                         prefix='trace.db-') as temp:
+            pass
+
+        pubsub._sow('/', '*', 0, handler, impl)
+        impl.on_event.assert_has_calls(
+            [
+                mock.call('/ccc', None, None),
+                mock.call('/bbb', None, None),
+                mock.call('/aaa', None, None),
+                mock.call('/xxx', None, ''),
+            ]
+        )
+        handler.send_msg.assert_has_calls(
             [
                 mock.call({'when': 1, 'echo': 1}),
                 mock.call({'when': 2, 'echo': 2}),

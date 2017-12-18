@@ -23,6 +23,8 @@ from treadmill import subproc
 from treadmill import supervisor
 from treadmill import utils
 
+from treadmill.fs import linux as fs_linux
+
 from . import fs as image_fs
 from . import _image_base
 from . import _repository_base
@@ -71,9 +73,11 @@ def create_environ_dir(container_dir, root_dir, app):
 
     # Bind the environ directory in the container volume
     fs.mkdir_safe(os.path.join(root_dir, _CONTAINER_ENV_DIR))
-    fs.mount_bind(root_dir, os.path.join('/', _CONTAINER_ENV_DIR),
-                  target=os.path.join(container_dir, _CONTAINER_ENV_DIR),
-                  bind_opt='--bind')
+    fs_linux.mount_bind(
+        root_dir, os.path.join(os.sep, _CONTAINER_ENV_DIR),
+        source=os.path.join(container_dir, _CONTAINER_ENV_DIR),
+        recursive=False, read_only=True
+    )
 
 
 def create_supervision_tree(container_dir, root_dir, app, cgroups_path):
@@ -150,71 +154,83 @@ def create_supervision_tree(container_dir, root_dir, app, cgroups_path):
 
     # Bind the service directory in the container volume
     fs.mkdir_safe(os.path.join(root_dir, 'services'))
-    fs.mount_bind(root_dir, '/services',
-                  target=os.path.join(container_dir, 'services'),
-                  bind_opt='--bind')
+    fs_linux.mount_bind(
+        root_dir, os.path.join(os.sep, 'services'),
+        source=os.path.join(container_dir, 'services'),
+        recursive=False, read_only=False
+    )
 
 
-def make_fsroot(root_dir, proid):
+def make_fsroot(root_dir):
     """Initializes directory structure for the container in a new root.
+
+    The container uses pretty much a blank a FHS 3 layout.
 
      - Bind directories in parent / (with exceptions - see below.)
      - Skip /tmp, create /tmp in the new root with correct permissions.
      - Selectively create / bind /var.
        - /var/tmp (new)
-       - /var/logs (new)
+       - /var/log (new)
        - /var/spool - create empty with dirs.
      - Bind everything in /var, skipping /spool/tickets
      """
     newroot_norm = fs.norm_safe(root_dir)
-    mounts = [
+
+    emptydirs = [
         '/bin',
-        '/common',
         '/dev',
         '/etc',
         '/home',
         '/lib',
         '/lib64',
-        '/mnt',
+        '/opt',
         '/proc',
+        '/run',
         '/sbin',
-        '/srv',
         '/sys',
         '/usr',
-        '/var/lib/sss',
-        '/var/tmp/treadmill/env',
-        '/var/tmp/treadmill/spool',
-    ]
-    # Add everything under /opt
-    mounts += glob.glob('/opt/*')
-
-    emptydirs = [
         '/tmp',
-        '/opt',
-        '/var/empty',
-        '/var/run',
-        '/var/spool/keytabs',
-        '/var/spool/tickets',
-        '/var/spool/tokens',
+        '/usr',
+        '/var/cache',
+        '/var/lib',
+        '/var/lock',
+        '/var/log',
+        '/var/opt',
+        '/var/spool',
         '/var/tmp',
-        '/var/tmp/cores',
+        # for sss
+        '/var/lib/sss',
+        # for sshd
+        '/var/empty',
     ]
 
     stickydirs = [
-        '/tmp',
         '/opt',
-        '/var/spool/keytabs',
-        '/var/spool/tickets',
-        '/var/spool/tokens',
+        '/run',
+        '/tmp',
+        '/var/cache',
+        '/var/lib',
+        '/var/lock',
+        '/var/log',
+        '/var/opt',
         '/var/tmp',
-        '/var/tmp/cores/',
     ]
 
     # these folders are shared with underlying host and other containers,
-    # make them readonly to container
-    for mount in mounts:
-        if os.path.exists(mount):
-            fs.mount_bind(newroot_norm, mount, remount_opts=['ro'])
+    mounts = [
+        '/bin',
+        '/etc',  # TODO: Add /etc/opt
+        '/lib',
+        '/lib64',
+        '/sbin',
+        '/usr',
+        # TODO: Remove below once PAM UDS is implemented
+        '/var/tmp/treadmill/env',
+        '/var/tmp/treadmill/spool',
+    ]
+
+    # Add everything under /opt
+    mounts += glob.glob('/opt/*')
 
     for directory in emptydirs:
         _LOGGER.debug('Creating empty dir: %s', directory)
@@ -223,17 +239,34 @@ def make_fsroot(root_dir, proid):
     for directory in stickydirs:
         os.chmod(newroot_norm + directory, 0o777 | stat.S_ISVTX)
 
-    # Mount .../tickets .../keytabs on tempfs, so that they will be cleaned
-    # up when the container exits.
-    #
-    # TODO: Do we need to have a single mount for all tmpfs dirs?
-    for tmpfsdir in ['/var/spool/tickets', '/var/spool/keytabs',
-                     '/var/spool/tokens']:
-        fs.mount_tmpfs(newroot_norm, tmpfsdir, '4M')
+    fs_linux.mount_proc(newroot_norm)
+    fs_linux.mount_sysfs(newroot_norm)
+    # TODO: For security, /dev/ should be minimal and separated to each
+    #       container.
+    fs_linux.mount_bind(
+        newroot_norm, '/dev',
+        recursive=True, read_only=False
+    )
+    # Per FHS3 /var/run should be a symlink to /run which should be tmpfs
+    fs.symlink_safe(
+        os.path.join(newroot_norm, 'var', 'run'),
+        '/run'
+    )
+    # We create an unbounded tmpfs mount so that runtime data can be written to
+    # it, counting against the memory limit of the container.
+    fs_linux.mount_tmpfs(newroot_norm, '/run')
+
+    # Make shared directories/files readonly to container
+    for mount in mounts:
+        if os.path.exists(mount):
+            fs_linux.mount_bind(
+                newroot_norm, mount,
+                recursive=True, read_only=True
+            )
 
 
-def create_etc_overlay(tm_env, container_dir, root_dir, app):
-    """Create overlay configuration (etc) files for the container.
+def create_overlay(tm_env, container_dir, root_dir, app):
+    """Create overlay configuration files for the container.
     """
     # ldpreloads
     _prepare_ldpreload(container_dir, app)
@@ -246,7 +279,7 @@ def create_etc_overlay(tm_env, container_dir, root_dir, app):
     # constructed keytab.
     _prepare_krb(tm_env, container_dir)
     # bind prepared inside container
-    _bind_etc_overlay(container_dir, root_dir)
+    _bind_overlay(container_dir, root_dir)
 
 
 def _prepare_krb(tm_env, container_dir):
@@ -305,12 +338,11 @@ def _prepare_hosts(container_dir, app):
     overlay/
         /etc/
             hosts           # hosts file to be bind mounted in container.
-        /var/run/
+        /run/
             /host-aliases/  # Directory to be bind mounted in container.
     """
     etc_dir = os.path.join(container_dir, 'overlay', 'etc')
-    ha_dir = os.path.join(container_dir, 'overlay',
-                          'var', 'run', 'host-aliases')
+    ha_dir = os.path.join(container_dir, 'overlay', 'run', 'host-aliases')
     fs.mkdir_safe(etc_dir)
     fs.mkdir_safe(ha_dir)
 
@@ -365,7 +397,7 @@ def _prepare_resolv_conf(tm_env, container_dir):
     )
 
 
-def _bind_etc_overlay(container_dir, root_dir):
+def _bind_overlay(container_dir, root_dir):
     """Create the overlay in the container."""
     # Overlay overrides container configs
     #   - /etc/resolv.conf, so that container always uses dnscache.
@@ -377,27 +409,36 @@ def _bind_etc_overlay(container_dir, root_dir):
                          'etc/krb5.keytab',
                          'etc/ld.so.preload',
                          'etc/pam.d/sshd',
-                         'etc/resolv.conf',
-                         'var/run/host-aliases']:
-        fs.mount_bind(root_dir, os.path.join('/', overlay_file),
-                      target=os.path.join(overlay_dir, overlay_file),
-                      bind_opt='--bind')
+                         'etc/resolv.conf']:
+        fs_linux.mount_bind(
+            root_dir, os.path.join(os.sep, overlay_file),
+            source=os.path.join(overlay_dir, overlay_file),
+            recursive=False, read_only=True)
+
+    # Mount host-aliases as read-write
+    fs_linux.mount_bind(
+        root_dir, os.path.join(os.sep, 'run', 'host-aliases'),
+        source=os.path.join(overlay_dir, 'run', 'host-aliases'),
+        recursive=False, read_only=False
+    )
 
     # Also override resolv.conf in the current mount namespace so that
     # system services have access to our resolver.
-    fs.mount_bind('/', '/etc/resolv.conf',
-                  target=os.path.join(overlay_dir, 'etc/resolv.conf'),
-                  bind_opt='--bind')
+    fs_linux.mount_bind(
+        '/', '/etc/resolv.conf',
+        source=os.path.join(overlay_dir, 'etc/resolv.conf'),
+        recursive=False, read_only=True
+    )
 
 
 def get_cgroup_path(app):
     """Gets the path of the cgroup."""
     unique_name = appcfg.app_unique_name(app)
     cgrp = os.path.join('treadmill', 'apps', unique_name)
-    return cgroups.makepath('memory', cgrp)
+    return cgrp
 
 
-def share_cgroup_info(root_dir, cgroup_path):
+def share_cgroup_info(root_dir, cgrp):
     """Shares subset of cgroup tree with the container."""
     # Bind /cgroup/memory inside chrooted environment to /cgroup/.../memory
     # of the container.
@@ -406,10 +447,14 @@ def share_cgroup_info(root_dir, cgroup_path):
     #        exposed (readonly). This is so that tools that
     #        (correctly) read /proc/self/cgroups can access cgroup
     #        data.
-    fs.mkdir_safe(os.path.join(root_dir, 'cgroup', 'memory'))
-    fs.mount_bind(root_dir,
-                  os.path.join('/cgroup', 'memory'),
-                  cgroup_path)
+    shared_subsystems = ['memory']
+    for subsystem in shared_subsystems:
+        fs.mkdir_safe(os.path.join(root_dir, 'cgroup', subsystem))
+        fs_linux.mount_bind(
+            root_dir, os.path.join(os.sep, 'cgroup', subsystem),
+            source=cgroups.makepath(subsystem, cgrp),
+            recursive=True, read_only=False
+        )
 
 
 class NativeImage(_image_base.Image):
@@ -422,7 +467,7 @@ class NativeImage(_image_base.Image):
         self.tm_env = tm_env
 
     def unpack(self, container_dir, root_dir, app):
-        make_fsroot(root_dir, app.proid)
+        make_fsroot(root_dir)
 
         image_fs.configure_plugins(self.tm_env, container_dir, app)
 
@@ -432,13 +477,14 @@ class NativeImage(_image_base.Image):
         shutil.copy(os.path.join(container_dir, runtime.STATE_JSON),
                     os.path.join(root_dir, appcfg.APP_JSON))
 
-        cgroups_path = get_cgroup_path(app)
+        cgrp = get_cgroup_path(app)
 
         create_environ_dir(container_dir, root_dir, app)
-        create_supervision_tree(container_dir, root_dir, app, cgroups_path)
-        create_etc_overlay(self.tm_env, container_dir, root_dir, app)
+        create_supervision_tree(container_dir, root_dir, app,
+                                cgroups_path=cgroups.makepath('memory', cgrp))
+        create_overlay(self.tm_env, container_dir, root_dir, app)
 
-        share_cgroup_info(root_dir, cgroups_path)
+        share_cgroup_info(root_dir, cgrp)
 
 
 class NativeImageRepository(_repository_base.ImageRepository):

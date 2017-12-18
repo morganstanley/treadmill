@@ -12,6 +12,7 @@ WHEELS_DIR=$(realpath "${BASE_DIR}/wheels/")
 CAN_BUILD_WHEELS="
     aniso8601
     backports.ssl_match_hostname
+    blinker
     dateutils
     flask
     flask-restfull
@@ -26,6 +27,7 @@ CAN_BUILD_WHEELS="
     prettytable
     psutil
     pure-sasl
+    pycparser
     pykerberos
     pyyaml
     requests-unixsocket
@@ -40,7 +42,7 @@ CAN_BUILD_WHEELS=$(echo ${CAN_BUILD_WHEELS} | sed 's/[ ]\+/,/g')
 
 echo "Caching all the wheels..."
 mkdir -vp "${WHEELS_DIR}"
-pip wheel \
+pip ${PIP_OPTIONS} wheel \
     -r "${BASE_DIR}/requirements.txt" \
     -r "${BASE_DIR}/test-requirements.txt" \
     -w "${WHEELS_DIR}" \

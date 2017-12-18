@@ -148,7 +148,7 @@ class MetricsTest(unittest.TestCase):
              'memory.soft_limit_in_bytes': 2,
              'memory.usage_in_bytes': 2})
 
-    @mock.patch('treadmill.fs.read_filesystem_info',
+    @mock.patch('treadmill.fs.linux.blk_fs_info',
                 mock.Mock(return_value={'block count': '2000',
                                         'free blocks': '1000',
                                         'block size': '1024'}))

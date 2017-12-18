@@ -21,6 +21,7 @@ from treadmill import plugin_manager
 from treadmill import runtime
 from treadmill import subproc
 
+from treadmill.fs import linux as fs_linux
 from treadmill.syscall import unshare
 
 from . import image
@@ -271,10 +272,10 @@ def _create_root_dir(container_dir, localdisk):
     # container_dir/<subdir>
     root_dir = os.path.join(container_dir, 'root')
 
-    already_initialized = fs.test_filesystem(localdisk['block_dev'])
+    already_initialized = fs_linux.blk_fs_test(localdisk['block_dev'])
     if not already_initialized:
         # Format the block device
-        fs.create_filesystem(localdisk['block_dev'])
+        fs_linux.blk_fs_create(localdisk['block_dev'])
 
     _LOGGER.info('Creating container root directory: %s', root_dir)
     # Creates directory that will serve as new root.
@@ -282,6 +283,6 @@ def _create_root_dir(container_dir, localdisk):
     # Unshare the mount namespace
     unshare.unshare(unshare.CLONE_NEWNS)
     # Mount the container root volume
-    fs.mount_filesystem(localdisk['block_dev'], root_dir)
+    fs_linux.mount_filesystem(localdisk['block_dev'], root_dir)
 
     return root_dir

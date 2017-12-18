@@ -295,7 +295,7 @@ def _add_linux_system_services(tm_env, manifest):
     manifest['system_services'].append(register_presence)
 
     # Create container /etc/hosts manager service
-    run_overlay = os.path.join(container_data_dir, 'overlay', 'var', 'run')
+    run_overlay = os.path.join(container_data_dir, 'overlay', 'run')
     etc_overlay = os.path.join(container_data_dir, 'overlay', 'etc')
     hostaliases = {
         'name': 'hostaliases',

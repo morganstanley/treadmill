@@ -50,6 +50,13 @@ class Adapter(logging.LoggerAdapter):
         """Format the 'extra' content as it will be represented in the logs."""
         return extra
 
+    def isEnabledFor(self, level):
+        """Is this logger enabled for level 'level'?
+
+        Monkey patched so Adapters can be passed to LogContext below.
+        """
+        return self.logger.isEnabledFor(level)
+
 
 class ContainerAdapter(Adapter):
     """

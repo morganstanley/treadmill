@@ -27,6 +27,8 @@ from treadmill import lvm
 from treadmill import subproc
 from treadmill import utils
 
+from treadmill.fs import linux as fs_linux
+
 _LOGGER = logging.getLogger(__name__)
 
 
@@ -230,27 +232,30 @@ def benchmark_vg(vg_name,
     )
 
     def check_available_volume():
-        """Check if we have enough space for benchmark"""
+        """Check if we have enough space for benchmark.
+        """
         vg_status = localdiskutils.refresh_vg_status(vg_name)
         available_volume = vg_status['extent_size'] * \
             vg_status['extent_free']
         return available_volume > utils.size_to_bytes(total_volume)
 
     def setup_benchmark_env():
-        """Prepare environment for benchmark"""
+        """Prepare environment for benchmark.
+        """
         lvm.lvcreate(
             volume=benchmark_lv,
             group=vg_name,
             size_in_bytes=utils.size_to_bytes(total_volume)
         )
-        fs.create_filesystem(device)
-        fs.mount_filesystem(device, base_path)
+        fs_linux.blk_fs_create(device)
+        fs_linux.mount_filesystem(device, base_path)
 
     def cleanup_benchmark_env():
-        """Cleanup environment for benchmark"""
+        """Cleanup environment after benchmark.
+        """
         try:
-            fs.umount_filesystem(base_path)
-        except subprocess.CalledProcessError:
+            fs_linux.umount_filesystem(base_path)
+        except OSError:
             _LOGGER.exception('umount error')
         if is_temp_base and os.path.isdir(base_path):
             shutil.rmtree(base_path)

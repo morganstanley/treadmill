@@ -81,6 +81,15 @@ class ReportTest(unittest.TestCase):
             'servers', match=None, partition='part1'
         )
 
+    def test_get_explain(self):
+        """Test GET on /scheduler/explain path."""
+        self.impl.explain.get.return_value = pd.DataFrame(
+            [['host.ms.com', True, True, False]],
+            columns=['name', 'disk', 'cpu', 'mem']
+        )
+        self.client.get('/scheduler/explain/proid.app#123')
+        self.impl.explain.get.assert_called_with('proid.app#123')
+
 
 if __name__ == '__main__':
     unittest.main()

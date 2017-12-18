@@ -19,6 +19,7 @@ from treadmill import cgutils
 from treadmill import fs
 from treadmill import psmem
 
+from treadmill.fs import linux as fs_linux
 
 NANOSECS_PER_10MILLI = 10000000
 
@@ -191,7 +192,7 @@ def get_fs_usage(block_dev):
     if block_dev is None:
         return {}
 
-    fs_info = fs.read_filesystem_info(block_dev)
+    fs_info = fs_linux.blk_fs_info(block_dev)
     return {'fs.used_bytes': calc_fs_usage(fs_info)}
 
 
