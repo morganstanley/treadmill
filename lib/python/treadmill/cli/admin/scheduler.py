@@ -24,6 +24,14 @@ from treadmill.scheduler import zkbackend
 _LOGGER = logging.getLogger(__name__)
 
 
+def _print(frame, formatter):
+    """Print data frame based on cli options."""
+    if cli.OUTPUT_FORMAT == 'csv':
+        cli.out(frame.to_csv())
+    else:
+        cli.out(formatter(frame.to_dict(orient='records')))
+
+
 def make_readonly_master(run_scheduler=False):
     """Prepare a readonly master."""
     treadmill_sched.DIMENSION_COUNT = 3
@@ -55,17 +63,10 @@ def view_group(parent):
         'run_scheduler': False
     }
 
-    def _print_frame(output):
-        """Print dataframe."""
-        pd.set_option('display.max_rows', None)
-        if output is not None and len(output):
-            if cli.OUTPUT_FORMAT == 'csv':
-                print(output.to_csv())
-            else:
-                pd.set_option('expand_frame_repr', False)
-                output.replace(True, ' ', inplace=True)
-                output.replace(False, 'X', inplace=True)
-                print(output)
+    servers_formatter = cli.make_formatter('sched-view-servers')
+    apps_formatter = cli.make_formatter('sched-view-apps')
+    allocs_formatter = cli.make_formatter('sched-view-allocs')
+    reboots_formatter = cli.make_formatter('sched-view-reboots')
 
     @parent.group()
     @click.option('--reschedule', is_flag=True, default=False)
@@ -75,18 +76,13 @@ def view_group(parent):
         ctx['run_scheduler'] = reschedule
 
     @view.command()
-    @click.option('--features/--no-features', is_flag=True, default=False)
     @on_exceptions
-    def servers(features):
+    def servers():
         """View servers report"""
         cell_master = make_readonly_master(ctx['run_scheduler'])
         output = reports.servers(cell_master.cell)
         output['valid_until'] = pd.to_datetime(output['valid_until'], unit='s')
-        if features:
-            feature_report = reports.node_features(cell_master.cell)
-            _print_frame(pd.concat([output, feature_report], axis=1))
-        else:
-            _print_frame(output)
+        _print(output, servers_formatter)
 
     @view.command()
     @on_exceptions
@@ -103,7 +99,7 @@ def view_group(parent):
         # Convert to timedeltas
         for col in ['lease', 'data_retention']:
             output[col] = pd.to_timedelta(output[col], unit='s')
-        _print_frame(output.fillna(''))
+        _print(output, apps_formatter)
 
     @view.command()
     @on_exceptions
@@ -111,16 +107,7 @@ def view_group(parent):
         """View allocation report"""
         cell_master = make_readonly_master(ctx['run_scheduler'])
         allocs = reports.allocations(cell_master.cell)
-        _print_frame(allocs)
-
-    @view.command()
-    @on_exceptions
-    def queue():
-        """View utilization queue"""
-        cell_master = make_readonly_master(ctx['run_scheduler'])
-        apps = reports.apps(cell_master.cell)
-        output = reports.utilization(None, apps)
-        _print_frame(output)
+        _print(allocs, allocs_formatter)
 
     @view.command()
     @click.option('--histogram', is_flag=True, default=False,
@@ -131,27 +118,21 @@ def view_group(parent):
         cell_master = make_readonly_master(ctx['run_scheduler'])
         reboots = reports.reboots(cell_master.cell)
         if histogram:
-            print(reboots['valid-until'].value_counts().to_string())
+            cli.out(reboots['valid-until'].value_counts().to_string())
         else:
-            _print_frame(reboots)
+            _print(reboots, reboots_formatter)
 
     del apps
     del servers
     del allocs
-    del queue
     del reboots
 
 
 def explain_group(parent):
     """Scheduler explain CLI group."""
 
-    def _print_frame(df):
-        """Prints dataframe."""
-        if not df.empty:
-            pd.set_option('display.max_rows', None)
-            pd.set_option('float_format', lambda f: '%f' % f)
-            pd.set_option('expand_frame_repr', False)
-            print(df.to_string(index=False))
+    queue_formatter = cli.make_formatter('alloc-queue')
+    placement_formatter = cli.make_formatter('placement')
 
     @parent.group()
     def explain():
@@ -168,7 +149,7 @@ def explain_group(parent):
         frame = reports.explain_queue(cell_master.cell,
                                       partition,
                                       pattern=instance)
-        _print_frame(frame)
+        _print(frame, queue_formatter)
 
     @explain.command()
     @click.argument('instance')
@@ -187,7 +168,7 @@ def explain_group(parent):
             cli.bad_exit('Instace already placed on %s' % app.server)
 
         frame = reports.explain_placement(cell_master.cell, app, mode)
-        _print_frame(frame)
+        _print(frame, placement_formatter)
 
     del queue
     del placement

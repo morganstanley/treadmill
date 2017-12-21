@@ -9,6 +9,7 @@ from __future__ import unicode_literals
 import collections
 import json
 import logging
+import os
 import re
 import time
 import zlib
@@ -121,11 +122,10 @@ class Master(loader.Loader):
     @utils.exit_on_unhandled
     def process(self, event):
         """Process state change event."""
-        path, = event
+        path, children = event
         _LOGGER.info('processing: %r', event)
 
         assert path in self.event_handlers
-        children = self.backend.list(path)
         self.event_handlers[path](children)
 
         _LOGGER.info('waiting for completion.')
@@ -166,10 +166,9 @@ class Master(loader.Loader):
         for appname in target - current:
             self.load_app(appname)
 
-    def process_server_presence(self, _server_presence):
+    def process_server_presence(self, servers):
         """Callback invoked when server presence is modified."""
-        server_presence = self.backend.list(z.SERVER_PRESENCE)
-        self.adjust_server_presence(server_presence)
+        self.adjust_presence(set(servers))
 
     def process_events(self, events):
         """Callback invoked on state change/admin event."""
@@ -228,7 +227,7 @@ class Master(loader.Loader):
 
         @self.backend.zkclient.ChildrenWatch(path)
         @utils.exit_on_unhandled
-        def _watch(_children):
+        def _watch(children):
             """Watch children events."""
             _LOGGER.debug('watcher begin: %s', path)
             # On first invocation, we create event and do not wait on it,
@@ -239,7 +238,7 @@ class Master(loader.Loader):
             if path in self.process_complete:
                 self.process_complete[path].clear()
 
-            self.queue.append((path,))
+            self.queue.append((path, children))
 
             if path in self.process_complete:
                 _LOGGER.debug('watcher waiting for completion: %s', path)
@@ -261,10 +260,9 @@ class Master(loader.Loader):
     def run_loop(self):
         """Run the master loop."""
         self.create_rootns()
-        self.attach_watchers()
-
         self.load_model()
-        self.reschedule()
+        self.init_schedule()
+        self.attach_watchers()
 
         last_sched_time = time.time()
         last_integrity_check = 0
@@ -287,6 +285,7 @@ class Master(loader.Loader):
                 last_sched_time = time.time()
                 if not self.up_to_date:
                     self.reschedule()
+                    self.check_placement_integrity()
 
             if _time_past(last_state_report + _STATE_REPORT_INTERVAL):
                 last_state_report = time.time()
@@ -354,36 +353,45 @@ class Master(loader.Loader):
             'expires': self.cell.apps[app].placement_expiry
         }
 
-    def _update_placement(self, placement):
-        """Delete all extra app nodes from all servers."""
-        # Construct mapping of server to apps list.
-
-        correct = collections.defaultdict(set)
-        for app, _before, _exp_before, after, _exp_after in placement:
-            correct[after].add(app)
-
-        for server in self.backend.list(z.SERVERS):
-            current = set(self.backend.list(z.path.placement(server)))
-            for extra in current - correct[server]:
-                placement_node = z.path.placement(server, extra)
-                _LOGGER.info('Delete placement: %s', placement_node)
-                self.backend.delete(placement_node)
-
-            for app in correct[server]:
-                placement_data = self._placement_data(app)
-                placement_node = z.path.placement(server, app)
-
-                # Update only if placement changed.
-                if placement_data != self.backend.get_default(placement_node):
-                    _LOGGER.info('Create placement: %s', placement_node)
-                    self.backend.put(placement_node, placement_data)
-
-        placement_json = json.dumps(placement)
-        placement_zdata = zlib.compress(placement_json.encode())
+    def _save_placement(self, placement):
+        """Store latest placement as reference."""
+        placement_data = json.dumps(placement)
+        placement_zdata = zlib.compress(placement_data.encode())
         self.backend.put(z.path.placement(), placement_zdata)
 
-    def _gen_events(self, placement):
-        """Generate placement changed events."""
+    def init_schedule(self):
+        """Run scheduler first time and update scheduled data."""
+        placement = self.cell.schedule()
+
+        for servername, server in six.iteritems(self.cell.members()):
+            placement_node = z.path.placement(servername)
+            self.backend.ensure_exists(placement_node)
+
+            current = set(self.backend.list(placement_node))
+            correct = set(server.apps.keys())
+
+            for app in current - correct:
+                _LOGGER.info('Unscheduling: %s - %s', servername, app)
+                self.backend.delete(os.path.join(placement_node, app))
+            for app in correct - current:
+                _LOGGER.info('Scheduling: %s - %s,%s',
+                             servername, app, self.cell.apps[app].identity)
+
+                placement_data = self._placement_data(app)
+                self.backend.put(
+                    os.path.join(placement_node, app),
+                    placement_data
+                )
+
+                self._update_task(app, servername, why=None)
+
+        self._save_placement(placement)
+        self.up_to_date = True
+
+    def reschedule(self):
+        """Run scheduler and adjust placement."""
+        placement = self.cell.schedule()
+
         # Filter out placement records where nothing changed.
         changed_placement = [
             (app, before, exp_before, after, exp_after)
@@ -391,7 +399,18 @@ class Master(loader.Loader):
             if before != after or exp_before != exp_after
         ]
 
+        # We run two loops. First - remove all old placement, before creating
+        # any new ones. This ensures that in the event of loop interruption
+        # for anyreason (like Zookeeper connection lost or master restart)
+        # there are no duplicate placements.
+        for app, before, _exp_before, after, _exp_after in changed_placement:
+            if before and before != after:
+                _LOGGER.info('Unscheduling: %s - %s', before, app)
+                self.backend.delete(z.path.placement(before, app))
+
         for app, before, _exp_before, after, exp_after in changed_placement:
+            placement_data = self._placement_data(app)
+
             why = ''
             if before is not None:
                 if (before not in self.servers or
@@ -409,18 +428,18 @@ class Master(loader.Loader):
                              app,
                              self.cell.apps[app].identity,
                              exp_after)
+
+                self.backend.put(
+                    z.path.placement(after, app),
+                    placement_data
+                )
                 self._update_task(app, after, why=why)
             else:
                 self._update_task(app, None, why=why)
 
-    def reschedule(self):
-        """Run scheduler and adjust placement."""
-        placement = self.cell.schedule()
-
-        self._update_placement(placement)
         self._unschedule_evicted()
-        self._gen_events(placement)
 
+        self._save_placement(placement)
         self.up_to_date = True
 
     def _unschedule_evicted(self):

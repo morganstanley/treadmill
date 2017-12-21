@@ -13,16 +13,62 @@ import os
 
 import six
 
-from . import subproc
+from treadmill import subproc
 
+# simply use directory /sys/fs/cgroup to check whether in new mode
+# this will make treadmill working on debian/ubuntu potentially as well
+# TODO: remove this line after deco redhat 6
+if os.path.isdir('/sys/fs/cgroup'):
+    from treadmill.cgroups import modern as cgmodule
+else:
+    from treadmill.cgroups import antique as cgmodule
 
-_LOGGER = logging.getLogger(__name__)
-
-CGROOT = '/cgroup'
+CGROOT = cgmodule.CGROOT
 PROCCGROUPS = '/proc/cgroups'
 PROCMOUNTS = '/proc/mounts'
 
 _SUBSYSTEMS2MOUNTS = None
+
+_LOGGER = logging.getLogger(__name__)
+
+
+def read_mounted_cgroups():
+    """Read all the currently mounted cgroups and their mount points."""
+    availables = available_subsystems()
+
+    subsystems2mounts = {}
+    with io.open(PROCMOUNTS, 'r') as mounts:
+        for mountline in mounts:
+            try:
+                (_fs_spec, fs_file, fs_vfstype,
+                 fs_mntops, _fs_freq, _fs_passno) = mountline.split()
+                if fs_vfstype != 'cgroup':
+                    continue
+
+                for op in fs_mntops.split(','):
+                    if op in availables:
+                        subsystems2mounts.setdefault(op, []).append(fs_file)
+
+            except:  # pylint: disable=W0702
+                pass
+
+    return subsystems2mounts
+
+
+def wanted_cgroups():
+    """Get wanted cgroups based on module
+    returns:
+        dict
+    """
+    return cgmodule.wanted_cgroups()
+
+
+def unwanted_cgroups():
+    """Get unwanted cgroups based on module
+    returns:
+        set
+    """
+    return cgmodule.UNWANTED_GROUPS
 
 
 def _mkdir_p(path):
@@ -213,10 +259,16 @@ def mounted_subsystems():
             try:
                 (_fs_spec, fs_file, fs_vfstype,
                  fs_mntops, _fs_freq, _fs_passno) = mountline.split()
-                if fs_vfstype == 'cgroup':
-                    for op in fs_mntops.split(','):
-                        if op in subsystems:
-                            _SUBSYSTEMS2MOUNTS[op] = fs_file
+                if fs_vfstype != 'cgroup':
+                    continue
+
+                # we ignore duplicated cgroup mounts not start with cgroup root
+                if not fs_file.startswith(CGROOT):
+                    continue
+
+                for op in fs_mntops.split(','):
+                    if op in subsystems:
+                        _SUBSYSTEMS2MOUNTS[op] = fs_file
             except:  # pylint: disable=W0702
                 pass
 
