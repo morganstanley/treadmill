@@ -12,8 +12,9 @@ import logging
 import re
 import time
 
+import six
+
 from treadmill import admin
-from treadmill import presence
 from treadmill import reports
 from treadmill import scheduler
 from treadmill import utils
@@ -89,8 +90,9 @@ class Loader(object):
         self.load_allocations()
         self.load_strategies()
         self.load_apps()
-        self.load_identity_groups()
         self.restore_placements()
+        self.load_identity_groups()
+        self.load_placement_data()
 
     def load_cell(self):
         """Construct cell from top level buckets."""
@@ -157,29 +159,10 @@ class Loader(object):
         servers = self.backend.list(z.SERVERS)
         for servername in servers:
             self.load_server(servername)
-
-    def create_server(self, servername, data):
-        """Create a new server object from server data."""
-        label = data.get('partition')
-        if not label:
-            # TODO: it will be better to have separate module for constants
-            #       and avoid unnecessary cross imports.
-            label = admin.DEFAULT_PARTITION
-        up_since = data.get('up_since', int(time.time()))
-
-        server = scheduler.Server(
-            servername,
-            resources(data),
-            up_since=up_since,
-            label=label,
-            traits=data.get('traits', 0)
-        )
-        return server
+            self.set_server_valid_until(servername)
 
     def load_server(self, servername):
         """Load individual server."""
-        _LOGGER.info('Loading server: %s', servername)
-
         try:
             data = self.backend.get(z.path.server(servername))
             if not data:
@@ -188,11 +171,23 @@ class Loader(object):
                              z.path.server(servername))
                 return
 
-            server = self.create_server(servername, data)
-
-            # Add server to appropriate parent bucket.
             assert 'parent' in data
             parentname = data['parent']
+            label = data.get('partition')
+            if not label:
+                # TODO: it will be better to have separate module for constants
+                #       and avoid unnecessary cross imports.
+                label = admin.DEFAULT_PARTITION
+            up_since = data.get('up_since', int(time.time()))
+
+            server = scheduler.Server(
+                servername,
+                resources(data),
+                up_since=up_since,
+                label=label,
+                traits=data.get('traits', 0)
+            )
+
             parent = self.buckets.get(parentname)
             if not parent:
                 _LOGGER.warning('Server parent does not exist: %s/%s',
@@ -200,11 +195,11 @@ class Loader(object):
                 return
 
             self.buckets[parentname].add_node(server)
+            self.servers[servername] = server
             assert server.parent == self.buckets[parentname]
 
-            self.set_server_presence(server)
-            self.servers[servername] = server
             self.backend.ensure_exists(z.path.placement(servername))
+            self.adjust_server_state(servername)
 
         except be.ObjectNotFoundError:
             _LOGGER.warning('Server node not found: %s', servername)
@@ -230,30 +225,38 @@ class Loader(object):
 
     def reload_server(self, servername):
         """Reload individual server."""
-        _LOGGER.info('Reloading server: %s', servername)
-
+        _LOGGER.info('reloading server: %s', servername)
         if servername not in self.servers:
             # This server was never loaded.
             self.load_server(servername)
             return
 
         current_server = self.servers[servername]
-
         # Check if server is same
         try:
             data = self.backend.get(z.path.server(servername))
             if not data:
                 # The server is configured, but never reported it's capacity.
-                _LOGGER.info('No capacity detected: %s, removing server.',
-                             z.path.server(servername))
                 self.remove_server(servername)
                 return
-
-            server = self.create_server(servername, data)
 
             # TODO: need better error handling.
             assert 'parent' in data
             assert data['parent'] in self.buckets
+
+            # TODO: seems like this is cut/paste code from load_server.
+            label = data.get('partition')
+            if not label:
+                label = admin.DEFAULT_PARTITION
+            up_since = data.get('up_since', time.time())
+
+            server = scheduler.Server(
+                servername,
+                resources(data),
+                up_since=up_since,
+                label=label,
+                traits=data.get('traits', 0)
+            )
 
             parent = self.buckets[data['parent']]
             # TODO: assume that bucket topology is constant, e.g.
@@ -266,7 +269,8 @@ class Loader(object):
                 _LOGGER.info('server is same, keeping old.')
                 current_server.up_since = server.up_since
             else:
-                # Something changed, replace server (remove and load as new).
+                # Something changed - clear everything and re-register server
+                # as new.
                 _LOGGER.info('server modified, replacing.')
                 self.remove_server(servername)
                 self.load_server(servername)
@@ -275,29 +279,36 @@ class Loader(object):
             self.remove_server(servername)
             _LOGGER.warning('Server node not found: %s', servername)
 
-    def set_server_presence(self, server):
-        """Set server presence, update state and valid_until accordingly."""
-        server.presence_id = None
-        for node in sorted(self.backend.list(z.SERVER_PRESENCE), reverse=True):
-            servername, presence_id = presence.parse_server(node)
-            if server.name == servername:
-                server.presence_id = presence_id
-                break
+    def set_server_valid_until(self, servername):
+        """Set server valid_until"""
+        presence_node = z.path.server_presence(servername)
 
-        if server.presence_id:
-            _LOGGER.info('Server is up: %s (presence id: %s)',
-                         server.name, server.presence_id)
-        else:
-            _LOGGER.info('Server is down: %s', server.name)
+        try:
+            data = self.backend.get(presence_node)
+            if not data:
+                data = {}
 
-        self.adjust_server_state(server)
-        self.adjust_server_valid_until(server)
+            valid_until = data.get('valid_until')
 
-    def adjust_server_state(self, server):
+            server = self.servers[servername]
+            for label in server.labels:
+                self.cell.partitions[label].add(server, valid_until)
+
+            data = {'valid_until': server.valid_until}
+            self.backend.update(presence_node, data, check_content=True)
+        except be.ObjectNotFoundError:
+            # server not up, skip
+            pass
+
+    def adjust_server_state(self, servername):
         """Set server state."""
-        is_up = bool(server.presence_id)
+        server = self.servers.get(servername)
+        if not server:
+            return
 
-        placement_node = z.path.placement(server.name)
+        is_up = self.backend.exists(z.path.server_presence(servername))
+
+        placement_node = z.path.placement(servername)
 
         # Restore state as it was stored in server placement node.
         state_since = self.backend.get_default(placement_node)
@@ -319,36 +330,6 @@ class Loader(object):
         state, since = server.get_state()
         self.backend.put(
             placement_node, {'state': state.value, 'since': since})
-
-    def adjust_server_valid_until(self, server):
-        """Set server valid_until."""
-        if not server.presence_id:
-            if server.valid_until:
-                # Remove server from reboot buckets and reset valid_until to 0.
-                for label in server.labels:
-                    self.cell.partitions[label].remove(server)
-                server.valid_until = 0
-            return
-
-        server_presence_path = z.path.server_presence(
-            presence.server_node(server.name, server.presence_id)
-        )
-
-        try:
-            data = self.backend.get(server_presence_path)
-            if not data:
-                data = {}
-
-            valid_until = data.get('valid_until')
-
-            for label in server.labels:
-                self.cell.partitions[label].add(server, valid_until)
-
-            data = {'valid_until': server.valid_until}
-            self.backend.update(server_presence_path, data, check_content=True)
-        except be.ObjectNotFoundError:
-            # Server presence changed, it will be adjusted.
-            pass
 
     def load_allocations(self):
         """Load allocations and assignments map."""
@@ -473,8 +454,9 @@ class Loader(object):
 
     def restore_placements(self):
         """Restore placements after reload."""
-        for servername in self.servers:
+        integrity = collections.defaultdict(list)
 
+        for servername in self.servers:
             try:
                 placement_node = z.path.placement(servername)
                 placed_apps = self.backend.list(placement_node)
@@ -484,64 +466,136 @@ class Loader(object):
             server = self.servers[servername]
             server.remove_all()
 
-            # Try to restore placement, if failed (e.g capacity of the
-            # servername changed - remove.
-            #
-            # The servername does not need to be active at the time,
-            # for applications will be moved from servers in DOWN state
-            # on subsequent reschedule.
             for appname in placed_apps:
+                appnode = z.path.placement(servername, appname)
                 if appname not in self.cell.apps:
+                    # Stale app - safely ignored.
+                    self.backend.delete(appnode)
                     continue
 
+                # Try to restore placement, if failed (e.g capacity of the
+                # servername changed - remove.
+                #
+                # The servername does not need to be active at the time,
+                # for applications will be moved from servers in DOWN state
+                # on subsequent reschedule.
                 app = self.cell.apps[appname]
-
-                placement_data = self.backend.get_default(
-                    z.path.placement(servername, appname)
-                )
+                integrity[appname].append(servername)
 
                 # Placement is restored and assumed to be correct, so
                 # force placement be specifying the server label.
-                if placement_data is not None:
-                    app.force_set_identity(placement_data.get('identity'))
-                    app.placement_expiry = placement_data.get('expires', 0)
-
                 assert app.allocation is not None
                 _LOGGER.info('Restore placement %s => %s', appname, servername)
                 if not server.put(app):
                     _LOGGER.info('Failed to restore placement %s => %s',
                                  appname, servername)
-                    app.evicted = True
+                    self.backend.delete(appnode)
+                    # Check if app is marked to be scheduled once. If it is
+                    # remove the app.
+                    if app.schedule_once:
+                        _LOGGER.info('Removing scheduled once app: %s',
+                                     appname)
+                        self.cell.remove_app(appname)
+                        self.backend.delete(z.path.scheduled(appname))
 
-    def adjust_server_presence(self, server_presence):
-        """Adjust server presence, update state and valid_until accordingly."""
-        servers = dict(presence.parse_server(node)
-                       for node in sorted(server_presence))
+        for appname, servers in six.iteritems(integrity):
+            if len(servers) <= 1:
+                continue
 
-        for servername, server in self.servers.items():
-            presence_id = servers.get(servername)
-            if server.presence_id and server.presence_id != presence_id:
-                # Server had presence and doesn't have now or presence changed.
-                # If server presence changed, handle it as down first, then up.
-                _LOGGER.info('Server is down: %s (old presence id: %s)',
-                             servername, server.presence_id)
-                server.presence_id = None
-                self.adjust_server_state(server)
-                self.adjust_server_valid_until(server)
+            _LOGGER.warning(
+                'Integrity error: %s placed on %r', appname, servers
+            )
+            for servername in servers:
+                self.servers[servername].remove(appname)
+                self.backend.delete(z.path.placement(servername, appname))
 
-        for servername, presence_id in servers.items():
-            server = self.servers.get(servername)
-            if not server or server.presence_id != presence_id:
-                # Server is new or its presence changed.
-                _LOGGER.info('Server is up: %s (new presence id: %s)',
-                             servername, presence_id)
-                self.reload_server(servername)
-                # Adjust only if reload didn't remove server or load it as new.
-                if (servername in self.servers and
-                        server == self.servers[servername]):
-                    server.presence_id = presence_id
-                    self.adjust_server_state(server)
-                    self.adjust_server_valid_until(server)
+    def load_placement_data(self):
+        """Restore app identities."""
+        for appname, app in six.iteritems(self.cell.apps):
+            if not app.server:
+                continue
+
+            placement_data = self.backend.get_default(
+                z.path.placement(app.server, appname)
+            )
+
+            if placement_data is not None:
+                app.force_set_identity(placement_data.get('identity'))
+                app.placement_expiry = placement_data.get('expires', 0)
+
+    def adjust_presence(self, servers):
+        """Given current presence set, adjust status."""
+        down_servers = set([
+            servername for servername in self.servers
+            if self.servers[servername].state is scheduler.State.down])
+        up_servers = set(self.servers.keys()) - down_servers
+
+        # Server was up, but now is down.
+        for servername in up_servers - servers:
+            _LOGGER.info('Server is down: %s', servername)
+            self.adjust_server_state(servername)
+
+            server = self.servers[servername]
+            for label in server.labels:
+                self.cell.partitions[label].remove(server)
+
+        # Server was down, and now is up.
+        for servername in down_servers & servers:
+            # Make sure that new server capacity and traits are up to
+            # date.
+            _LOGGER.info('Server is up: %s', servername)
+            self.reload_server(servername)
+            self.adjust_server_state(servername)
+            self.set_server_valid_until(servername)
+
+    def check_placement_integrity(self):
+        """Check integrity of app placement."""
+        app2server = dict()
+        servers = self.backend.list(z.PLACEMENT)
+        for server in servers:
+            apps = self.backend.list(z.path.placement(server))
+            for app in apps:
+                if app not in app2server:
+                    app2server[app] = server
+                    continue
+
+                _LOGGER.critical('Duplicate placement: %s: (%s, %s)',
+                                 app, app2server[app], server)
+
+                # Check the cell datamodel.
+                correct_placement = self.cell.apps[app].server
+                _LOGGER.critical('Correct placement: %s', correct_placement)
+
+                # If correct placement is neither, something is seriously
+                # corrupted, no repair possible.
+                assert correct_placement in [app2server[app], server]
+
+                if server != correct_placement:
+                    _LOGGER.critical('Removing incorrect placement: %s/%s',
+                                     server, app)
+                    self.backend.delete(z.path.placement(server, app))
+
+                if app2server[app] != correct_placement:
+                    _LOGGER.critical('Removing incorrect placement: %s/%s',
+                                     app2server[app], app)
+                    self.backend.delete(z.path.placement(app2server[app], app))
+
+        # Cross check that all apps in the model are recorded in placement.
+        success = True
+        for appname, app in six.iteritems(self.cell.apps):
+            if app.server:
+                if appname not in app2server:
+                    _LOGGER.critical('app missing from placement: %s', appname)
+                    success = False
+                else:
+                    if app.server != app2server[appname]:
+                        _LOGGER.critical(
+                            'corrupted placement %s: expected: %s, actual: %s',
+                            appname, app.server, app2server[appname]
+                        )
+                        success = False
+
+        assert success, 'Placement integrity failed.'
 
     def check_integrity(self):
         """Checks integrity of scheduler state vs. real."""

@@ -37,16 +37,18 @@ class RuntimeBase(object):
         ``str``
     """
     __slots__ = (
-        'tm_env',
-        'container_dir',
+        '_tm_env',
+        '_service',
+        '_param',
     )
 
-    def __init__(self, tm_env, container_dir):
-        self.tm_env = tm_env
-        if os.path.islink(container_dir):
-            self.container_dir = os.readlink(container_dir)
-        else:
-            self.container_dir = container_dir
+    def __init__(self, tm_env, container_dir, param=None):
+        self._tm_env = tm_env
+        self._param = {} if param is None else param
+        self._service = supervisor.open_service(
+            os.path.realpath(container_dir),
+            existing=True
+        )
 
     @abc.abstractmethod
     def _can_run(self, manifest):
@@ -73,7 +75,7 @@ class RuntimeBase(object):
         :returns:
             This function never returns
         """
-        manifest_file = os.path.join(self.container_dir, appcfg.APP_JSON)
+        manifest_file = os.path.join(self._service.data_dir, appcfg.APP_JSON)
         manifest = app_manifest.read(manifest_file)
         if not self._can_run(manifest):
             raise exc.ContainerSetupError('invalid_type',
@@ -90,12 +92,12 @@ class RuntimeBase(object):
         """Frees allocated resources and mark then as available."""
         # Required because on windows log files are archived and deleted
         # which cannot happen when the supervisor/log is still running.
-        supervisor.ensure_not_supervised(self.container_dir)
+        supervisor.ensure_not_supervised(self._service.directory)
 
         self._finish()
 
-        shutil.rmtree(self.container_dir)
-        _LOGGER.info('Finished cleanup: %s', self.container_dir)
+        shutil.rmtree(self._service.directory)
+        _LOGGER.info('Finished cleanup: %s', self._service.directory)
 
     @abc.abstractmethod
     def kill(self):

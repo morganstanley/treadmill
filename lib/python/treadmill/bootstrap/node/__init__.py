@@ -37,6 +37,7 @@ DEFAULTS = {
     'localdisk_default_read_iops': None,
     'localdisk_default_write_bps': None,
     'localdisk_default_write_iops': None,
+    'docker_network': 'nat',
 }
 
 ALIASES = aliases.ALIASES

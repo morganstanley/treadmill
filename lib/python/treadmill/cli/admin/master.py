@@ -31,7 +31,9 @@ def server_group(parent):
         """List servers"""
         servers = []
         for name in masterapi.list_servers(context.GLOBAL.zk.conn):
-            server = masterapi.get_server(context.GLOBAL.zk.conn, name)
+            server = masterapi.get_server(context.GLOBAL.zk.conn,
+                                          name,
+                                          placement=True)
             server['name'] = name
             servers.append(server)
 
@@ -94,10 +96,41 @@ def server_group(parent):
         """Trigger server reboot."""
         masterapi.reboot_server(context.GLOBAL.zk.conn, server)
 
+    @server.command()
+    @click.argument('server')
+    @cli.admin.ON_EXCEPTIONS
+    def up(server):  # pylint: disable=C0103
+        """Mark server up."""
+        masterapi.update_server_state(context.GLOBAL.zk.conn, server, 'up')
+
+    @server.command()
+    @click.argument('server')
+    @cli.admin.ON_EXCEPTIONS
+    def down(server):
+        """Mark server down."""
+        masterapi.update_server_state(context.GLOBAL.zk.conn, server, 'down')
+
+    @server.command()
+    @click.option('-u', '--unschedule', type=cli.LIST,
+                  help='List of apps to unschedule.')
+    @click.argument('server')
+    @cli.admin.ON_EXCEPTIONS
+    def freeze(unschedule, server):
+        """Freeze server, optionally unscheduling apps."""
+        masterapi.update_server_state(
+            context.GLOBAL.zk.conn,
+            server,
+            'frozen',
+            unschedule
+        )
+
     del configure
     del list
     del delete
     del reboot
+    del freeze
+    del down
+    del up
 
 
 def app_group(parent):

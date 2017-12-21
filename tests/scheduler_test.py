@@ -86,10 +86,15 @@ class AllocationTest(unittest.TestCase):
         self.assertEqual(100, util_q[1][0])
         self.assertEqual(100, util_q[2][0])
 
-        # Second elememt is utilization.
-        self.assertEqual(-9 / (10. + 20), util_q[0][1])
-        self.assertEqual(-7 / (10. + 20), util_q[1][1])
-        self.assertEqual(-4 / (10. + 20), util_q[2][1])
+        # Second and third elememts is before / after utilization.
+        self.assertEqual(-10 / (10. + 20), util_q[0][1])
+        self.assertEqual(-9 / (10. + 20), util_q[0][2])
+
+        self.assertEqual(-7 / (10. + 20), util_q[1][2])
+        self.assertEqual(-9 / (10. + 20), util_q[1][1])
+
+        self.assertEqual(-4 / (10. + 20), util_q[2][2])
+        self.assertEqual(-7 / (10. + 20), util_q[2][1])
 
         # Applications are sorted by priority.
         alloc = scheduler.Allocation([10, 10])
@@ -98,9 +103,14 @@ class AllocationTest(unittest.TestCase):
         alloc.add(scheduler.Application('app3', 100, [3, 3], 'app1'))
 
         util_q = list(alloc.utilization_queue([20., 20.]))
-        self.assertEqual(-7 / (10. + 20), util_q[0][1])
-        self.assertEqual(-5 / (10. + 20), util_q[1][1])
-        self.assertEqual(-4 / (10. + 20), util_q[2][1])
+        self.assertEqual(-10 / (10. + 20), util_q[0][1])
+        self.assertEqual(-7 / (10. + 20), util_q[0][2])
+
+        self.assertEqual(-7 / (10. + 20), util_q[1][1])
+        self.assertEqual(-5 / (10. + 20), util_q[1][2])
+
+        self.assertEqual(-5 / (10. + 20), util_q[2][1])
+        self.assertEqual(-4 / (10. + 20), util_q[2][2])
 
     def test_running_order(self):
         """Test apps are ordered by status (running first) for same prio."""
@@ -186,7 +196,8 @@ class AllocationTest(unittest.TestCase):
         alloc = scheduler.Allocation(None)
         alloc.add(scheduler.Application('app1', 1, [1., 1.], 'app1'))
         queue = list(alloc.utilization_queue(np.array([10., 10.])))
-        self.assertEqual(1 / 10, queue[0][1])
+        self.assertEqual(0 / 10, queue[0][1])
+        self.assertEqual(1 / 10, queue[0][2])
 
     def test_duplicate(self):
         """Checks behavior when adding duplicate app."""
@@ -213,9 +224,9 @@ class AllocationTest(unittest.TestCase):
         sub_alloc_a.add(scheduler.Application('3a', 1, [5, 5], 'app1'))
 
         queue = list(alloc.utilization_queue([20., 20.]))
-        _rank, util, _pending, _order, app = queue[0]
+        _rank, _util_b, util_a, _pending, _order, app = queue[0]
         self.assertEqual('1a', app.name)
-        self.assertEqual((2 - (5 + 3)) / (20 + (5 + 3)), util)
+        self.assertEqual((2 - (5 + 3)) / (20 + (5 + 3)), util_a)
 
         sub_alloc_b = scheduler.Allocation([10, 10])
         alloc.add_sub_alloc('a1/b', sub_alloc_b)
@@ -231,9 +242,9 @@ class AllocationTest(unittest.TestCase):
         # For each sub-alloc (and self) the least utilized app is 1.
         # The sub_allloc_b is largest, so utilization smallest, 1b will be
         # first.
-        _rank, util, _pending, _order, app = queue[0]
+        _rank, _util_b, util_a, _pending, _order, app = queue[0]
         self.assertEqual('1b', app.name)
-        self.assertEqual((2 - 18) / (20 + 18), util)
+        self.assertEqual((2 - 18) / (20 + 18), util_a)
 
         # Add prio 0 app to each, make sure they all end up last.
         alloc.add(scheduler.Application('1-zero', 0, [2, 2], 'app1'))
@@ -248,8 +259,12 @@ class AllocationTest(unittest.TestCase):
         # Check that utilization of prio 0 apps is always max float.
         self.assertEqual(
             [float('inf')] * 3,
-            [util
-             for (_rank, util, _pending, _order, _app) in queue[-3:]]
+            [util_b for (_rank,
+                         util_b,
+                         _util_a,
+                         _pending,
+                         _order,
+                         _app) in queue[-3:]]
         )
 
     def test_sub_alloc_reservation(self):

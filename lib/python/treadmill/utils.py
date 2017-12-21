@@ -30,6 +30,7 @@ import string
 if os.name != 'nt':
     import fcntl
     import pwd
+    import resource
 else:
     # Pylint warning unable to import because it is on Windows only
     import win32api  # pylint: disable=E0401
@@ -42,12 +43,6 @@ import jinja2
 import six
 
 from six.moves import urllib_parse
-
-if six.PY2 and os.name == 'posix':
-    import subprocess32 as subprocess  # pylint: disable=import-error
-else:
-    import subprocess  # pylint: disable=wrong-import-order
-
 
 from treadmill import exc
 from treadmill import osnoop
@@ -709,6 +704,21 @@ else:
                 {signal.SIGKILL, signal.SIGSTOP, 32, 33})
 
 
+@osnoop.windows
+def closefrom(firstfd=3):
+    """Close all file descriptors from `firstfd` on.
+    """
+    try:
+        # Look in proc for all open filedescriptors
+        maxfd = int(os.listdir('/proc/self/fd')[-1])
+    except (OSError, IndexError):
+        # fallback to the hardlimit to max filedescriptors.
+        maxfd = resource.getrlimit(resource.RLIMIT_NOFILE)[1]
+
+    os.closerange(firstfd, maxfd)
+
+
+@osnoop.windows
 def sane_execvp(filename, args, close_fds=True, restore_signals=True):
     """Execute a new program with sanitized environment.
     """
@@ -718,13 +728,8 @@ def sane_execvp(filename, args, close_fds=True, restore_signals=True):
         for i in _SIGNALS:
             signal.signal(i, signal.SIG_DFL)
 
-    def _close_fds():
-        """Close all file descriptors except 0, 1, 2.
-        """
-        os.closerange(3, subprocess.MAXFD)
-
     if close_fds:
-        _close_fds()
+        closefrom(3)
     if restore_signals:
         _restore_signals()
     os.execvp(filename, args)

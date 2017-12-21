@@ -9,6 +9,8 @@ from __future__ import unicode_literals
 import click
 
 from treadmill import cleanup
+from treadmill import cli
+from treadmill import utils
 
 
 def init():
@@ -30,12 +32,15 @@ def init():
     @click.option('--approot', type=click.Path(exists=True),
                   envvar='TREADMILL_APPROOT', required=True)
     @click.option('--runtime', envvar='TREADMILL_RUNTIME', required=True)
+    @click.option('--runtime-param', type=cli.LIST, required=False)
     @click.argument('instance', nargs=1)
-    def cleanup_instance(approot, runtime, instance):
+    def cleanup_instance(approot, runtime, instance, runtime_param):
         """Actually do the cleanup of the instance.
         """
+        param = utils.equals_list2dict(runtime_param or [])
+
         cleaner = cleanup.Cleanup(approot)
-        cleaner.invoke(runtime, instance)
+        cleaner.invoke(runtime, instance, param)
 
     del cleanup_watcher
     del cleanup_instance

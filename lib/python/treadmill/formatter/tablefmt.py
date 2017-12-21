@@ -4,11 +4,23 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
+import time
+
 import prettytable
 
 import six
 
 from treadmill import yamlwrapper as yaml
+
+
+def fmt_time(timestamp):
+    """Return ISO formatted time from seconds from epoch."""
+    return time.strftime('%Y-%M-%dT%H:%m:%S', time.localtime(timestamp))
+
+
+def fmt_utilization(util):
+    """Format utilization."""
+    return '{0:.4f}'.format(util)
 
 
 def wrap_words(words, length, sep=',', newline='\n'):
@@ -38,11 +50,14 @@ def make_wrap_words(length, sep=','):
     return lambda words: wrap_words(words, length, sep)
 
 
-def _make_table(columns, header=False):
+def _make_table(columns, header=False, align=None):
     """Make a table object for output."""
+    if not align:
+        align = {}
+
     table = prettytable.PrettyTable(columns)
     for col in columns:
-        table.align[col] = 'l'
+        table.align[col] = align.get(col, 'l')
 
     table.set_style(prettytable.PLAIN_COLUMNS)
     # For some reason, headers must be disable after set_style.
@@ -103,10 +118,10 @@ def make_dict_to_table(schema):
     return lambda item: dict_to_table(item, schema)
 
 
-def list_to_table(items, schema, header=True):
+def list_to_table(items, schema, header=True, align=None):
     """Display  list of items as table."""
     columns = [column for column, _, _ in schema]
-    table = _make_table(columns, header=header)
+    table = _make_table(columns, header=header, align=align)
     if items is None:
         items = []
     for item in items:
@@ -118,9 +133,9 @@ def list_to_table(items, schema, header=True):
     return table
 
 
-def make_list_to_table(schema, header=True):
+def make_list_to_table(schema, header=True, align=None):
     """Return list to table function given schema."""
-    return lambda items: list_to_table(items, schema, header)
+    return lambda items: list_to_table(items, schema, header, align)
 
 
 class AppPrettyFormatter(object):
@@ -281,7 +296,9 @@ class ServerNodePrettyFormatter(object):
                   ('disk', None, None),
                   ('partition', None, None),
                   ('parent', None, None),
-                  ('traits', None, None)]
+                  ('traits', None, None),
+                  ('state', None, None),
+                  ('since', None, fmt_time)]
 
         format_item = make_dict_to_table(schema)
         format_list = make_list_to_table(schema)
@@ -611,6 +628,180 @@ class CronPrettyFormatter(object):
             ('expression', None, None),
             ('next_run_time', None, None),
             ('timezone', None, None),
+        ]
+
+        format_item = make_dict_to_table(schema)
+        format_list = make_list_to_table(schema)
+
+        if isinstance(item, list):
+            return format_list(item)
+        else:
+            return format_item(item)
+
+
+class AllocationQueuePrettyFormatter(object):
+    """Pretty table formatter for allocation queue."""
+
+    @staticmethod
+    def format(item):
+        """Return pretty-formatted item."""
+        schema = [
+            ('pos', None, None),
+            ('allocation', 'alloc', None),
+            ('name', None, None),
+            ('rank', None, None),
+            ('util0', None, fmt_utilization),
+            ('util1', None, fmt_utilization),
+        ]
+
+        format_item = make_dict_to_table(schema)
+        format_list = make_list_to_table(schema, align={'util0': 'r',
+                                                        'util1': 'r'})
+
+        if isinstance(item, list):
+            return format_list(item)
+        else:
+            return format_item(item)
+
+
+class PlacementPrettyFormatter(object):
+    """Pretty table formatter for explain-placement."""
+
+    @staticmethod
+    def format(item):
+        """Return pretty-formatted item."""
+        def _status(value):
+            """Return formatted bool."""
+            return '.' if value else 'x'
+
+        def _up_down(value):
+            """Return boolean as up/down."""
+            return 'up' if value else 'down'
+
+        schema = [
+            ('name', None, None),
+            ('server', None, _status),
+            ('state', None, _up_down),
+            ('partition', None, _status),
+            ('traits', 'traits', _status),
+            ('affinity', None, _status),
+            ('lifetime', None, _status),
+            ('memory', None, _status),
+            ('cpu', None, _status),
+            ('disk', None, _status),
+        ]
+
+        format_item = make_dict_to_table(schema)
+        format_list = make_list_to_table(schema)
+
+        if isinstance(item, list):
+            return format_list(item)
+        else:
+            return format_item(item)
+
+
+class SchedulerServersPrettyFormatter(object):
+    """Pretty table formatter for scheduler view servers."""
+
+    @staticmethod
+    def format(item):
+        """Return pretty-formatted item."""
+        schema = [
+            ('name', None, None),
+            ('location', None, None),
+            ('partition', None, None),
+            ('state', None, None),
+            ('valid_until', None, None),
+            ('traits', None, None),
+            ('mem', None, None),
+            ('cpu', None, None),
+            ('disk', None, None),
+            ('mem_free', None, None),
+            ('cpu_free', None, None),
+            ('disk_free', None, None),
+        ]
+
+        format_item = make_dict_to_table(schema)
+        format_list = make_list_to_table(schema)
+
+        if isinstance(item, list):
+            return format_list(item)
+        else:
+            return format_item(item)
+
+
+class SchedulerAppsPrettyFormatter(object):
+    """Pretty table formatter for scheduler view apps."""
+
+    @staticmethod
+    def format(item):
+        """Return pretty-formatted item."""
+        schema = [
+            ('instance', None, None),
+            ('partition', None, None),
+            ('allocation', None, None),
+            ('rank', None, None),
+            ('util0', None, fmt_utilization),
+            ('util1', None, fmt_utilization),
+            ('affinity', None, None),
+            ('identity_group', None, None),
+            ('identity', None, None),
+            ('lease', None, None),
+            ('expires', None, None),
+            ('data_retention', None, None),
+            ('mem', None, None),
+            ('cpu', None, None),
+            ('disk', None, None),
+            ('server', None, None),
+        ]
+
+        format_item = make_dict_to_table(schema)
+        format_list = make_list_to_table(schema, align={'util0': 'r',
+                                                        'util1': 'r'})
+
+        if isinstance(item, list):
+            return format_list(item)
+        else:
+            return format_item(item)
+
+
+class SchedulerAllocsPrettyFormatter(object):
+    """Pretty table formatter for scheduler view allocs."""
+
+    @staticmethod
+    def format(item):
+        """Return pretty-formatted item."""
+        schema = [
+            ('name', None, None),
+            ('partition', None, None),
+            ('rank', None, None),
+            ('rank_adj', None, None),
+            ('mem', None, None),
+            ('cpu', None, None),
+            ('disk', None, None),
+            ('traits', None, None),
+            ('max_util', None, None),
+        ]
+
+        format_item = make_dict_to_table(schema)
+        format_list = make_list_to_table(schema)
+
+        if isinstance(item, list):
+            return format_list(item)
+        else:
+            return format_item(item)
+
+
+class SchedulerRebootsPrettyFormatter(object):
+    """Pretty table formatter for scheduler view reboots."""
+
+    @staticmethod
+    def format(item):
+        """Return pretty-formatted item."""
+        schema = [
+            ('server', None, None),
+            ('valid-until', None, None),
+            ('days-left', None, None),
         ]
 
         format_item = make_dict_to_table(schema)

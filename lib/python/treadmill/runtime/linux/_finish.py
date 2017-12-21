@@ -7,35 +7,29 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import errno
-import glob
 import io
 import json
 import logging
 import os
 import shutil
 import socket
-import tarfile
 
 from treadmill import appevents
 from treadmill import appcfg
 from treadmill import apphook
 from treadmill import firewall
-from treadmill import fs
 from treadmill import iptables
 from treadmill import logcontext as lc
 from treadmill import plugin_manager
 from treadmill import runtime
 from treadmill import rrdutils
 from treadmill import services
-from treadmill import utils
 
 from treadmill.appcfg import abort as app_abort
 from treadmill.apptrace import events
 
 
 _LOGGER = logging.getLogger(__name__)
-
-_ARCHIVE_LIMIT = utils.size_to_bytes('1G')
 
 
 def finish(tm_env, container_dir):
@@ -201,7 +195,8 @@ def _cleanup(tm_env, container_dir, app):
             raise
 
     try:
-        _archive_logs(tm_env, appcfg.app_unique_name(app), container_dir)
+        runtime.archive_logs(tm_env, appcfg.app_unique_name(app),
+                             container_dir)
     except Exception:  # pylint: disable=W0703
         _LOGGER.exception('Unexpected exception storing local logs.')
 
@@ -355,71 +350,3 @@ def _copy_metrics(metrics_file, container_dir):
             _LOGGER.info('metrics file not found: %s.', metrics_file)
         else:
             raise
-
-
-def _cleanup_archive_dir(tm_env):
-    """Delete old files from archive directory if space exceeds the threshold.
-    """
-    archives = glob.glob(os.path.join(tm_env.archives_dir, '*'))
-    infos = []
-    dir_size = 0
-    for archive in archives:
-        stat = os.stat(archive)
-        dir_size += stat.st_size
-        infos.append((stat.st_mtime, stat.st_size, archive))
-
-    if dir_size <= _ARCHIVE_LIMIT:
-        _LOGGER.info('Archive directory below threshold: %s', dir_size)
-        return
-
-    _LOGGER.info('Archive directory above threshold: %s gt %s',
-                 dir_size, _ARCHIVE_LIMIT)
-    infos.sort()
-    while dir_size > _ARCHIVE_LIMIT:
-        ctime, size, archive = infos.pop(0)
-        dir_size -= size
-        _LOGGER.info('Unlink old archive %s: ctime: %s, size: %s',
-                     archive, ctime, size)
-        fs.rm_safe(archive)
-
-
-def _archive_logs(tm_env, name, container_dir):
-    """Archive latest sys and services logs."""
-    _cleanup_archive_dir(tm_env)
-
-    sys_archive_name = os.path.join(tm_env.archives_dir, name + '.sys.tar.gz')
-    app_archive_name = os.path.join(tm_env.archives_dir, name + '.app.tar.gz')
-
-    def _add(archive, filename):
-        """Safely add file to archive."""
-        try:
-            archive.add(filename, filename[len(container_dir) + 1:])
-        except OSError as err:
-            if err.errno == errno.ENOENT:
-                _LOGGER.warning('File not found: %s', filename)
-            else:
-                raise
-
-    with tarfile.open(sys_archive_name, 'w:gz') as f:
-        logs = glob.glob(
-            os.path.join(container_dir, 'sys', '*', 'data', 'log', 'current'))
-        for log in logs:
-            _add(f, log)
-
-        metrics = glob.glob(os.path.join(container_dir, '*.rrd'))
-        for metric in metrics:
-            _add(f, metric)
-
-        yml_cfgs = glob.glob(os.path.join(container_dir, '*.yml'))
-        json_cfgs = glob.glob(os.path.join(container_dir, '*.json'))
-        for cfg in yml_cfgs + json_cfgs:
-            _add(f, cfg)
-
-        _add(f, os.path.join(container_dir, 'log', 'current'))
-
-    with tarfile.open(app_archive_name, 'w:gz') as f:
-        logs = glob.glob(
-            os.path.join(container_dir, 'services', '*', 'data', 'log',
-                         'current'))
-        for log in logs:
-            _add(f, log)

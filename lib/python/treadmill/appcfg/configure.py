@@ -70,11 +70,11 @@ def configure(tm_env, event, runtime):
     # Write the actual container start script
     if os.name == 'nt':
         run_script = ' '.join([
-            sys.executable, '-m', 'treadmill.ms', 'sproc', 'run', 'data'
+            sys.executable, '-m', 'treadmill.ms', 'sproc', 'run', '.'
         ])
     else:
         run_script = ' '.join([
-            'exec', dist.TREADMILL_BIN, 'sproc', 'run', '.'
+            'exec', dist.TREADMILL_BIN, 'sproc', 'run', '../'
         ])
 
     # Create the service for that container

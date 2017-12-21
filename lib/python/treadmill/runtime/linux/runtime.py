@@ -29,8 +29,10 @@ _LOGGER = logging.getLogger(__name__)
 class LinuxRuntime(runtime_base.RuntimeBase):
     """Linux Treadmill runtime."""
 
-    def __init__(self, tm_env, container_dir):
-        super(LinuxRuntime, self).__init__(tm_env, container_dir)
+    def __init__(self, tm_env, container_dir, param=None):
+        super(LinuxRuntime, self).__init__(
+            tm_env, container_dir, param
+        )
 
     def _can_run(self, manifest):
         try:
@@ -43,13 +45,13 @@ class LinuxRuntime(runtime_base.RuntimeBase):
             return False
 
     def _run(self, manifest):
-        app_run.run(self.tm_env, self.container_dir, manifest)
+        app_run.run(self._tm_env, self._service.data_dir, manifest)
 
     def _finish(self):
-        app_finish.finish(self.tm_env, self.container_dir)
+        app_finish.finish(self._tm_env, self._service.directory)
 
     def kill(self):
-        services_dir = os.path.join(self.container_dir, 'data', 'sys',
+        services_dir = os.path.join(self._service.data_dir, 'sys',
                                     'start_container')
         try:
             supervisor.control_service(services_dir,

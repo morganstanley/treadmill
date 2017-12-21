@@ -1143,31 +1143,38 @@ class Allocation(object):
             return (-app.priority, 0 if app.server else 1,
                     app.global_order, app.name)
 
-        acc_demand = zero_capacity()
         prio_queue = sorted(six.viewvalues(self.apps), key=_app_key)
 
+        acc_demand = zero_capacity()
         available = self.reserved + np.finfo(float).eps
+        util_before = utilization(acc_demand, self.reserved, available)
+
         for app in prio_queue:
             acc_demand = acc_demand + app.demand
-            util = utilization(acc_demand, self.reserved, available)
+            util_after = utilization(acc_demand, self.reserved, available)
             # Priority 0 apps are treated specially - utilization is set to
             # max float.
             #
             # This ensures that they are at the end of the all queues.
             if app.priority == 0:
-                util = _MAX_UTILIZATION
+                util_before = _MAX_UTILIZATION
+                util_after = _MAX_UTILIZATION
 
             # All things equal, already scheduled applications have priority
             # over pending.
             pending = 0 if app.server else 1
-            if util <= self.max_utilization - 1:
+            if util_after <= self.max_utilization - 1:
                 rank = self.rank
-                if util <= 0:
+                if util_before < 0:
                     rank -= self.rank_adjustment
             else:
                 rank = _UNPLACED_RANK
 
-            yield (rank, util, pending, app.global_order, app)
+            entry = (rank, util_before, util_after, pending, app.global_order,
+                     app)
+
+            util_before = util_after
+            yield entry
 
     def utilization_queue(self, free_capacity, visitor=None):
         """Returns utilization queue including the sub-allocs.
@@ -1189,21 +1196,26 @@ class Allocation(object):
 
         acc_demand = zero_capacity()
         available = total_reserved + free_capacity + np.finfo(float).eps
+        util_before = utilization(acc_demand, total_reserved, available)
 
         for item in heapq.merge(*queues):
-            rank, _util, pending, order, app = item
+            rank, _u_before, _u_after, pending, order, app = item
             acc_demand = acc_demand + app.demand
-            util = utilization(acc_demand, total_reserved, available)
+            util_after = utilization(acc_demand, total_reserved, available)
             if app.priority == 0:
-                util = _MAX_UTILIZATION
+                util_before = _MAX_UTILIZATION
+                util_after = _MAX_UTILIZATION
+
             # - lower rank allocations take precedence.
             # - for same rank, utilization takes precedence
             # - False < True, so for apps with same utilization we prefer
             #   those that already running (False == not pending)
             # - Global order
-            entry = (rank, util, pending, order, app)
+            entry = (rank, util_before, util_after, pending, order, app)
             if visitor:
                 visitor(self, entry)
+
+            util_before = util_after
             yield entry
 
     def total_reserved(self):

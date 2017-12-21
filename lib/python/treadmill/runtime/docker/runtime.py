@@ -23,6 +23,7 @@ from treadmill import exc
 from treadmill import logcontext as lc
 from treadmill import presence
 from treadmill import runtime
+from treadmill import zkutils
 
 from treadmill.appcfg import abort as app_abort
 from treadmill.apptrace import events
@@ -99,7 +100,7 @@ def _get_gmsa(tm_env, client, app, container_args):
     container_args['hostname'] = app.proid
 
 
-def _create_container(tm_env, client, app):
+def _create_container(tm_env, conf, client, app):
     """Create docker container from given app.
     """
     ports = {}
@@ -122,7 +123,7 @@ def _create_container(tm_env, client, app):
         'detach': True,
         'tty': True,
         'ports': ports,
-        'network': 'nat',
+        'network': conf.get('network', 'nat'),
         # 1024 is max number of shares for docker
         'cpu_shares': int(
             (app.cpu / (multiprocessing.cpu_count() * 100.0)) * 1024),
@@ -167,12 +168,14 @@ class DockerRuntime(runtime_base.RuntimeBase):
     """
 
     __slots__ = (
-        'client'
+        '_client',
+        '_config'
     )
 
-    def __init__(self, tm_env, container_dir):
-        super(DockerRuntime, self).__init__(tm_env, container_dir)
-        self.client = None
+    def __init__(self, tm_env, container_dir, param=None):
+        super(DockerRuntime, self).__init__(tm_env, container_dir, param)
+        self._client = None
+        self._config = None
 
     def _can_run(self, manifest):
         try:
@@ -180,38 +183,63 @@ class DockerRuntime(runtime_base.RuntimeBase):
         except ValueError:
             return False
 
+    def _get_config(self):
+        """Gets the docker client.
+        """
+        if self._config is not None:
+            return self._config
+
+        docker_conf = os.path.join(self._tm_env.configs_dir, 'docker.json')
+        try:
+            with io.open(docker_conf) as f:
+                self._config = json.load(f)
+
+        except IOError:
+            _LOGGER.error('docker config file does not exist: %r', docker_conf)
+            self._config = {}
+
+        return self._config
+
     def _get_client(self):
         """Gets the docker client.
         """
-        if self.client is not None:
-            return self.client
+        if self._client is not None:
+            return self._client
 
-        self.client = docker.from_env()
-        return self.client
+        self._client = docker.from_env(**self._param)
+        return self._client
 
     def _run(self, manifest):
-        with lc.LogContext(_LOGGER, os.path.basename(self.container_dir),
+        context.GLOBAL.zk.conn.add_listener(zkutils.exit_on_lost)
+
+        with lc.LogContext(_LOGGER, self._service.name,
                            lc.ContainerAdapter) as log:
-            log.info('Running %r', self.container_dir)
+            log.info('Running %r', self._service.directory)
 
             _sockets = runtime.allocate_network_ports(
                 '0.0.0.0', manifest
             )
 
-            app = runtime.save_app(manifest, self.container_dir)
+            app = runtime.save_app(manifest, self._service.data_dir)
 
             app_presence = presence.EndpointPresence(
                 context.GLOBAL.zk.conn,
                 manifest
             )
 
-            app_presence.register()
+            app_presence.register_identity()
+            app_presence.register_running()
 
             try:
                 client = self._get_client()
 
                 try:
-                    container = _create_container(self.tm_env, client, app)
+                    container = _create_container(
+                        self._tm_env,
+                        self._get_config(),
+                        client,
+                        app
+                    )
                 except docker.errors.ImageNotFound:
                     raise exc.ContainerSetupError(
                         'Image {0} was not found'.format(app.image),
@@ -222,8 +250,9 @@ class DockerRuntime(runtime_base.RuntimeBase):
                 container.reload()
 
                 _LOGGER.info('Container is running.')
+                app_presence.register_endpoints()
                 appevents.post(
-                    self.tm_env.app_events_dir,
+                    self._tm_env.app_events_dir,
                     events.ServiceRunningTraceEvent(
                         instanceid=app.name,
                         uniqueid=app.uniqueid,
@@ -239,8 +268,7 @@ class DockerRuntime(runtime_base.RuntimeBase):
                 context.GLOBAL.zk.conn.stop()
 
     def _finish(self):
-        data_dir = os.path.join(self.container_dir, 'data')
-        app = runtime.load_app(data_dir, runtime.STATE_JSON)
+        app = runtime.load_app(self._service.data_dir, runtime.STATE_JSON)
 
         if app:
             client = self._get_client()
@@ -258,9 +286,9 @@ class DockerRuntime(runtime_base.RuntimeBase):
                 except docker.errors.APIError:
                     _LOGGER.error('Failed to remove %s', container.id)
 
-            aborted = _check_aborted(data_dir)
+            aborted = _check_aborted(self._service.data_dir)
             if aborted is not None:
-                app_abort.report_aborted(self.tm_env, app.name,
+                app_abort.report_aborted(self._tm_env, app.name,
                                          why=aborted.get('why'),
                                          payload=aborted.get('payload'))
 
@@ -278,15 +306,25 @@ class DockerRuntime(runtime_base.RuntimeBase):
                         payload=state
                     )
 
-                appevents.post(self.tm_env.app_events_dir, event)
+                appevents.post(self._tm_env.app_events_dir, event)
 
             if os.name == 'nt':
                 credential_spec.cleanup(name, client)
 
+            try:
+                runtime.archive_logs(self._tm_env, name,
+                                     self._service.data_dir)
+            except Exception:  # pylint: disable=W0703
+                _LOGGER.exception('Unexpected exception storing local logs.')
+
     def kill(self):
-        client = self._get_client()
-        name = os.path.basename(self.container_dir)
+        app = runtime.load_app(self._service.data_dir, runtime.STATE_JSON)
+        if not app:
+            return
+
+        name = appcfg.app_unique_name(app)
         try:
+            client = self._get_client()
             container = client.containers.get(name)
             container.kill()
         except docker.errors.NotFound:
