@@ -2,9 +2,9 @@
 """
 
 from __future__ import division
-from __future__ import print_function
 from __future__ import unicode_literals
 from __future__ import absolute_import
+from __future__ import print_function
 
 import bz2
 import datetime
@@ -63,10 +63,8 @@ def servers(cell):
 
         return row
 
-    frame = pd.DataFrame.from_dict([
-        _server_row(server)
-        for server in cell.members().values()
-    ]).astype({
+    rows = [_server_row(server) for server in cell.members().values()]
+    frame = pd.DataFrame.from_dict(rows).astype({
         'mem': 'int',
         'cpu': 'int',
         'disk': 'int',
@@ -78,7 +76,8 @@ def servers(cell):
     if frame.empty:
         frame = pd.DataFrame(columns=columns)
 
-    return frame[columns].set_index('name').sort_index()
+    return frame[columns].sort_values(
+        by=['partition', 'name']).reset_index(drop=True)
 
 
 def iterate_allocations(path, alloc):
@@ -145,7 +144,7 @@ def allocations(cell):
         'mem': 'int',
         'cpu': 'int',
         'disk': 'int'
-    }).set_index(['partition', 'name']).sort_index()
+    }).sort_values(by=['partition', 'name']).reset_index(drop=True)
 
 
 def apps(cell):
@@ -156,20 +155,21 @@ def apps(cell):
         'instance', 'allocation', 'rank', 'affinity', 'partition',
         'identity_group', 'identity',
         'order', 'lease', 'expires', 'data_retention',
-        'pending', 'server', 'util',
+        'pending', 'server', 'util0', 'util1',
         'mem', 'cpu', 'disk'
     ]
 
     def _app_row(item):
         """Transform app into a DataFrame-ready dict."""
-        rank, util, pending, order, app = item
+        rank, util0, util1, pending, order, app = item
         return {
             'instance': app.name,
             'affinity': app.affinity.name,
             'allocation': app.allocation.name,
             'rank': rank,
             'partition': app.allocation.label or '-',
-            'util': util,
+            'util0': util0,
+            'util1': util1,
             'pending': pending,
             'order': order,
             'identity_group': app.identity_group,
@@ -204,7 +204,12 @@ def apps(cell):
         'expires': 'int',
         'data_retention': 'int',
         'identity': 'int'
-    }).set_index('instance').sort_index()
+    }).sort_values(by=['partition',
+                       'rank',
+                       'util0',
+                       'util1',
+                       'pending',
+                       'order']).reset_index(drop=True)
 
 
 def utilization(prev_utilization, apps_df):
@@ -224,7 +229,8 @@ def utilization(prev_utilization, apps_df):
                                    'mem': np.sum,
                                    'disk': np.sum,
                                    'count': np.sum,
-                                   'util': np.max})
+                                   'util0': np.max,
+                                   'util1': np.max})
     row = row.stack()
     dt_now = datetime.datetime.fromtimestamp(time.time())
     current = pd.DataFrame([row], index=pd.DatetimeIndex([dt_now]))
@@ -258,7 +264,7 @@ def reboots(cell):
         for server in cell.members().values()
     ])
 
-    return frame[columns].set_index('server').sort_index()
+    return frame[columns]
 
 
 class ExplainVisitor(object):
@@ -270,23 +276,25 @@ class ExplainVisitor(object):
 
     def add(self, alloc, entry):
         """Add new row to result"""
-        rank, util, _pending, _order, app = entry
+        rank, util_before, util_after, _pending, _order, app = entry
 
-        alloc_name = '/'.join(alloc.path)
-        server = app.server if app.server else '-'
-
+        alloc_name = ':'.join(alloc.path)
         self.result.append({
+            'partition': alloc.label,
             'alloc': alloc_name,
             'rank': rank,
-            'util': util if alloc_name else '',
+            'util0': util_before,
+            'util1': util_after,
             'name': app.name,
-            'server': server if not alloc_name else '',
         })
 
     def finish(self):
         """Post-process result array"""
         def _sort_order(entry):
-            return (entry['alloc'], entry['util'])
+            return (entry['partition'],
+                    entry['alloc'],
+                    entry['util0'],
+                    entry['util1'])
 
         result = sorted(self.result, key=_sort_order)
 
@@ -326,7 +334,7 @@ def explain_queue(cell, partition, pattern=None):
         visitor.filter(pattern)
 
     # set columns explicitly to control order
-    columns = ['pos', 'alloc', 'name', 'rank', 'util', 'server']
+    columns = ['pos', 'alloc', 'name', 'rank', 'util0', 'util1']
     return pd.DataFrame(visitor.result, columns=columns)
 
 
@@ -366,13 +374,16 @@ def explain_placement(cell, app, mode):
     """Explain placement for app"""
     result = []
     for node in WALKS[mode](cell, app):
+        is_server = False
         if isinstance(node, scheduler.Server):
+            is_server = True
             lifetime = node.check_app_lifetime(app)
         else:
             lifetime = True
         capacity = node.free_capacity > app.demand
         result.append({
             'name': node.name,
+            'server': is_server,
             'affinity': node.check_app_affinity_limit(app),
             'traits': node.traits.has(app.traits),
             'partition': app.allocation.label in node.labels,
@@ -387,7 +398,7 @@ def explain_placement(cell, app, mode):
     # Hard-code order of columns
     columns = [
         'partition', 'traits', 'affinity', 'state', 'lifetime',
-        'memory', 'cpu', 'disk', 'name'
+        'memory', 'cpu', 'disk', 'name', 'server'
     ]
     return pd.DataFrame(result, columns=columns)
 

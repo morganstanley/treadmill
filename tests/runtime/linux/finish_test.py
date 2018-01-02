@@ -10,9 +10,7 @@ import datetime
 import io
 import os
 import shutil
-import tarfile
 import tempfile
-import time
 import unittest
 
 import mock
@@ -71,6 +69,7 @@ class LinuxRuntimeFinishTest(unittest.TestCase):
     @mock.patch('treadmill.iptables.rm_ip_set', mock.Mock())
     @mock.patch('treadmill.iptables.flush_cnt_conntrack_table', mock.Mock())
     @mock.patch('treadmill.rrdutils.flush_noexc', mock.Mock())
+    @mock.patch('treadmill.runtime.archive_logs', mock.Mock())
     @mock.patch('treadmill.subproc.check_call', mock.Mock())
     @mock.patch('treadmill.iptables.rm_ip_set', mock.Mock())
     @mock.patch('treadmill.zkutils.get',
@@ -282,6 +281,8 @@ class LinuxRuntimeFinishTest(unittest.TestCase):
             os.path.join(data_dir, 'metrics.rrd')
         )
 
+        treadmill.runtime.archive_logs.assert_called()
+
     @mock.patch('shutil.copy', mock.Mock())
     @mock.patch('treadmill.appevents.post', mock.Mock())
     @mock.patch('treadmill.apphook.cleanup', mock.Mock())
@@ -296,6 +297,7 @@ class LinuxRuntimeFinishTest(unittest.TestCase):
     @mock.patch('treadmill.supervisor.control_service', mock.Mock())
     @mock.patch('treadmill.zkutils.get', mock.Mock(return_value=None))
     @mock.patch('treadmill.rrdutils.flush_noexc', mock.Mock())
+    @mock.patch('treadmill.runtime.archive_logs', mock.Mock())
     def test_finish_error(self):
         """Tests container finish procedure when app is improperly finished."""
         manifest = {
@@ -391,6 +393,8 @@ class LinuxRuntimeFinishTest(unittest.TestCase):
             os.path.join(data_dir, 'metrics.rrd')
         )
 
+        treadmill.runtime.archive_logs.assert_called()
+
     @mock.patch('shutil.copy', mock.Mock())
     @mock.patch('treadmill.appevents.post', mock.Mock())
     @mock.patch('treadmill.appcfg.manifest.read', mock.Mock())
@@ -398,6 +402,7 @@ class LinuxRuntimeFinishTest(unittest.TestCase):
     @mock.patch('treadmill.sysinfo.hostname',
                 mock.Mock(return_value='hostname'))
     @mock.patch('treadmill.rulefile.RuleMgr.unlink_rule', mock.Mock())
+    @mock.patch('treadmill.runtime.archive_logs', mock.Mock())
     @mock.patch('treadmill.subproc.check_call', mock.Mock())
     @mock.patch('treadmill.iptables.rm_ip_set', mock.Mock())
     @mock.patch('treadmill.zkutils.get', mock.Mock(return_value=None))
@@ -507,6 +512,8 @@ class LinuxRuntimeFinishTest(unittest.TestCase):
             )
         )
 
+        treadmill.runtime.archive_logs.assert_called()
+
     @mock.patch('treadmill.subproc.check_call', mock.Mock(return_value=0))
     def test_finish_no_manifest(self):
         """Test app finish on directory with no app.json.
@@ -523,6 +530,7 @@ class LinuxRuntimeFinishTest(unittest.TestCase):
                 mock.Mock(return_value='xxx.ms.com'))
     @mock.patch('treadmill.iptables.rm_ip_set', mock.Mock())
     @mock.patch('treadmill.rrdutils.flush_noexc', mock.Mock())
+    @mock.patch('treadmill.runtime.archive_logs', mock.Mock())
     @mock.patch('treadmill.subproc.check_call', mock.Mock())
     @mock.patch('treadmill.iptables.rm_ip_set', mock.Mock())
     @mock.patch('treadmill.zkutils.get',
@@ -643,6 +651,8 @@ class LinuxRuntimeFinishTest(unittest.TestCase):
             os.path.join(data_dir, 'metrics.rrd')
         )
 
+        treadmill.runtime.archive_logs.assert_called()
+
     def test__copy_metrics(self):
         """Test that metrics are copied safely.
         """
@@ -660,92 +670,6 @@ class LinuxRuntimeFinishTest(unittest.TestCase):
                                  self.root)
         self.assertFalse(
             os.path.exists(os.path.join(self.root, 'metrics.rrd')))
-
-    def test__archive_logs(self):
-        """Tests archiving local logs."""
-        # Access protected module _archive_logs
-        #
-        # pylint: disable=W0212
-        data_dir = os.path.join(self.root, 'xxx.yyy-1234-qwerty', 'data')
-        fs.mkdir_safe(data_dir)
-        archives_dir = os.path.join(self.root, 'archives')
-        fs.mkdir_safe(archives_dir)
-        sys_archive = os.path.join(archives_dir,
-                                   'xxx.yyy-1234-qwerty.sys.tar.gz')
-        app_archive = os.path.join(archives_dir,
-                                   'xxx.yyy-1234-qwerty.app.tar.gz')
-        app_finish._archive_logs(self.tm_env, 'xxx.yyy-1234-qwerty', data_dir)
-
-        self.assertTrue(os.path.exists(sys_archive))
-        self.assertTrue(os.path.exists(app_archive))
-        os.unlink(sys_archive)
-        os.unlink(app_archive)
-
-        def _touch_file(path):
-            """Touch file, appending path to container_dir."""
-            fpath = os.path.join(data_dir, path)
-            fs.mkdir_safe(os.path.dirname(fpath))
-            io.open(fpath, 'w').close()
-
-        _touch_file('sys/foo/data/log/current')
-        _touch_file('sys/bla/data/log/current')
-        _touch_file('sys/bla/data/log/xxx')
-        _touch_file('services/xxx/data/log/current')
-        _touch_file('services/xxx/data/log/whatever')
-        _touch_file('a.json')
-        _touch_file('a.rrd')
-        _touch_file('log/current')
-        _touch_file('whatever')
-
-        app_finish._archive_logs(self.tm_env, 'xxx.yyy-1234-qwerty', data_dir)
-
-        tar = tarfile.open(sys_archive)
-        files = sorted([member.name for member in tar.getmembers()])
-        self.assertEqual(
-            files,
-            ['a.json', 'a.rrd', 'log/current',
-             'sys/bla/data/log/current', 'sys/foo/data/log/current']
-        )
-        tar.close()
-
-        tar = tarfile.open(app_archive)
-        files = sorted([member.name for member in tar.getmembers()])
-        self.assertEqual(
-            files,
-            ['services/xxx/data/log/current']
-        )
-        tar.close()
-
-    def test__archive_cleanup(self):
-        """Tests cleanup of local logs."""
-        # Access protected module _ARCHIVE_LIMIT, _cleanup_archive_dir
-        #
-        # pylint: disable=W0212
-        fs.mkdir_safe(self.tm_env.archives_dir)
-
-        # Cleanup does not care about file extensions, it will cleanup
-        # oldest file if threshold is exceeded.
-        app_finish._ARCHIVE_LIMIT = 20
-        file1 = os.path.join(self.tm_env.archives_dir, '1')
-        with io.open(file1, 'w') as f:
-            f.write('x' * 10)
-
-        app_finish._cleanup_archive_dir(self.tm_env)
-        self.assertTrue(os.path.exists(file1))
-
-        os.utime(file1, (time.time() - 1, time.time() - 1))
-        file2 = os.path.join(self.tm_env.archives_dir, '2')
-        with io.open(file2, 'w') as f:
-            f.write('x' * 10)
-
-        app_finish._cleanup_archive_dir(self.tm_env)
-        self.assertTrue(os.path.exists(file1))
-
-        with io.open(os.path.join(self.tm_env.archives_dir, '2'), 'w') as f:
-            f.write('x' * 15)
-        app_finish._cleanup_archive_dir(self.tm_env)
-        self.assertFalse(os.path.exists(file1))
-        self.assertTrue(os.path.exists(file2))
 
 
 if __name__ == '__main__':

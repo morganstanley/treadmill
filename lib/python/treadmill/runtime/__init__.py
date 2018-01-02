@@ -7,12 +7,13 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import errno
-import json
+import glob
 import logging
 import os
 import random
 import socket
 import stat
+import tarfile
 
 import six
 
@@ -29,6 +30,7 @@ STATE_JSON = 'state.json'
 
 _LOGGER = logging.getLogger(__name__)
 
+_ARCHIVE_LIMIT = utils.size_to_bytes('1G')
 _RUNTIME_NAMESPACE = 'treadmill.runtime'
 
 
@@ -48,11 +50,11 @@ else:
     NONPROD_PORT_HIGH = NONPROD_PORT_LOW + PORT_SPAN - 1
 
 
-def get_runtime(runtime_name, tm_env, container_dir):
+def get_runtime(runtime_name, tm_env, container_dir, param=None):
     """Gets the runtime implementation with the given name."""
     try:
         runtime_cls = plugin_manager.load(_RUNTIME_NAMESPACE, runtime_name)
-        return runtime_cls(tm_env, container_dir)
+        return runtime_cls(tm_env, container_dir, param)
     except KeyError:
         _LOGGER.error('Runtime not supported: %s', runtime_name)
 
@@ -187,3 +189,71 @@ def allocate_network_ports(host_ip, manifest):
                                                 'udp',
                                                 socket.SOCK_DGRAM)
     return tcp_sockets + udp_sockets
+
+
+def _cleanup_archive_dir(tm_env):
+    """Delete old files from archive directory if space exceeds the threshold.
+    """
+    archives = glob.glob(os.path.join(tm_env.archives_dir, '*'))
+    infos = []
+    dir_size = 0
+    for archive in archives:
+        archive_stat = os.stat(archive)
+        dir_size += archive_stat.st_size
+        infos.append((archive_stat.st_mtime, archive_stat.st_size, archive))
+
+    if dir_size <= _ARCHIVE_LIMIT:
+        _LOGGER.info('Archive directory below threshold: %s', dir_size)
+        return
+
+    _LOGGER.info('Archive directory above threshold: %s gt %s',
+                 dir_size, _ARCHIVE_LIMIT)
+    infos.sort()
+    while dir_size > _ARCHIVE_LIMIT:
+        ctime, size, archive = infos.pop(0)
+        dir_size -= size
+        _LOGGER.info('Unlink old archive %s: ctime: %s, size: %s',
+                     archive, ctime, size)
+        fs.rm_safe(archive)
+
+
+def archive_logs(tm_env, name, container_dir):
+    """Archive latest sys and services logs."""
+    _cleanup_archive_dir(tm_env)
+
+    sys_archive_name = os.path.join(tm_env.archives_dir, name + '.sys.tar.gz')
+    app_archive_name = os.path.join(tm_env.archives_dir, name + '.app.tar.gz')
+
+    def _add(archive, filename):
+        """Safely add file to archive."""
+        try:
+            archive.add(filename, filename[len(container_dir) + 1:])
+        except OSError as err:
+            if err.errno == errno.ENOENT:
+                _LOGGER.warning('File not found: %s', filename)
+            else:
+                raise
+
+    with tarfile.open(sys_archive_name, 'w:gz') as f:
+        logs = glob.glob(
+            os.path.join(container_dir, 'sys', '*', 'data', 'log', 'current'))
+        for log in logs:
+            _add(f, log)
+
+        metrics = glob.glob(os.path.join(container_dir, '*.rrd'))
+        for metric in metrics:
+            _add(f, metric)
+
+        yml_cfgs = glob.glob(os.path.join(container_dir, '*.yml'))
+        json_cfgs = glob.glob(os.path.join(container_dir, '*.json'))
+        for cfg in yml_cfgs + json_cfgs:
+            _add(f, cfg)
+
+        _add(f, os.path.join(container_dir, 'log', 'current'))
+
+    with tarfile.open(app_archive_name, 'w:gz') as f:
+        logs = glob.glob(
+            os.path.join(container_dir, 'services', '*', 'data', 'log',
+                         'current'))
+        for log in logs:
+            _add(f, log)

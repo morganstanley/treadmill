@@ -13,11 +13,6 @@ import os
 import click
 import six
 
-if six.PY2 and os.name == 'posix':
-    import subprocess32 as subprocess  # pylint: disable=import-error
-else:
-    import subprocess  # pylint: disable=wrong-import-order
-
 from treadmill import cgroups
 from treadmill import cgutils
 from treadmill import cli
@@ -37,32 +32,6 @@ def _transfer_processes(subsystem, fromgroup, togroup):
         except IOError as ioe:  # pylint: disable=W0702
             if ioe.errno not in [errno.EINVAL, errno.ESRCH]:
                 raise
-
-
-def _read_mounted_cgroups():
-    """Read all the currently mounted cgroups and their mount points."""
-    try:
-        res = subproc.check_output(['lssubsys', '-M'])
-    except subprocess.CalledProcessError as err:
-        if err.returncode == 255:
-            _LOGGER.warning('old version of lssubsys.')
-            res = subproc.check_output(['lssubsys', '-m'])
-        else:
-            raise
-
-    if res is not None:
-        res = res.strip()
-
-    cgroups_info = {}
-    for cginfo in res.split('\n'):
-        cgname, cgmount = cginfo.split(' ', 1)
-        if ',' in cgname:
-            for tied_cg in cgname.split(','):
-                cgroups_info.setdefault(tied_cg, []).append(cgmount)
-        else:
-            cgroups_info.setdefault(cgname, []).append(cgmount)
-
-    return cgroups_info
 
 
 def _unmount_cgroup(name, mounts):
@@ -212,7 +181,8 @@ def init():
                   help='Clean core group.')
     def cgcleanup(delete, apps, core):
         """Kill stale apps in cgroups."""
-        subsystems = ['cpu', 'cpuacct', 'cpuset', 'memory', 'blkio']
+        subsystems = cgroups.wanted_cgroups().keys()
+
         cgrps = []
         if core:
             cgrps.append('treadmill/core/*')
@@ -231,21 +201,11 @@ def init():
     @top.command(name='mount')
     def cgmount():
         """Mount cgroups."""
-        mounted_cgroups = _read_mounted_cgroups()
+        mounted_cgroups = cgroups.read_mounted_cgroups()
+        wanted_cgroups = cgroups.wanted_cgroups()
+        unwanted_cgroups = cgroups.unwanted_cgroups()
 
-        wanted_cgroups = {
-            'memory': '/cgroup/memory',
-            'cpu': '/cgroup/cpu',
-            'cpuacct': '/cgroup/cpuacct',
-            'cpuset': '/cgroup/cpuset',
-            'blkio': '/cgroup/blkio',
-        }
-
-        unwanted_cgroups = {
-            'ns',
-        }
-
-        for cgname, cgmounts in mounted_cgroups.items():
+        for cgname, cgmounts in six.iteritems(mounted_cgroups):
             _LOGGER.debug('Mounted cgroup %r(%r)', cgname, cgmounts)
 
             if cgname in unwanted_cgroups:

@@ -241,14 +241,27 @@ def delete_server(zkclient, server_id):
     create_event(zkclient, 0, 'servers', [server_id])
 
 
-def get_server(zkclient, server_id):
+def update_server_state(zkclient, server_id, state, apps=None):
+    """Freeze server."""
+    create_event(zkclient, 0, 'server_state', [server_id, state, apps])
+
+
+def get_server(zkclient, server_id, placement=False):
     """Return server object."""
-    return zkutils.get(zkclient, z.path.server(server_id))
+    data = zkutils.get(zkclient, z.path.server(server_id))
+    if placement:
+        placement_data = zkutils.get_default(zkclient,
+                                             z.path.placement(server_id),
+                                             {})
+        data.update(placement_data)
+
+    return data
 
 
 def reboot_server(zkclient, server_id):
     """Create server reboot event."""
-    zkutils.ensure_exists(zkclient, z.path.reboot(server_id))
+    zkutils.ensure_exists(zkclient, z.path.reboot(server_id),
+                          acl=[_SERVERS_ACL_DEL])
 
 
 def cell_insert_bucket(zkclient, bucket_id):

@@ -193,7 +193,7 @@ class WindowsDirWatcher(dirwatch_base.DirWatcher):
                     'Failed to get directory changes for \'%s\': %s',
                     info.path, exc)
 
-                if exc[0] == winerror.ERROR_ACCESS_DENIED:
+                if exc.winerror == winerror.ERROR_ACCESS_DENIED:
                     self._preempt_watch(info, result)
                 continue
 

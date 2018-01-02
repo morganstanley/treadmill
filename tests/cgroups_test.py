@@ -32,6 +32,24 @@ blkio   1       1       0
 perf_event      11      1       0
 net_prio        9       1       0"""
 
+PROCMOUNTS_RH6 = """rootfs / rootfs rw 0 0
+proc /proc proc rw,relatime 0 0
+blkio /cgroup/blkio cgroup rw,relatime,blkio 0 0
+cpu /cgroup/cpu cgroup rw,relatime,cpu 0 0
+cpuacct /cgroup/cpuacct cgroup rw,relatime,cpuacct 0 0
+cpuset /cgroup/cpuset cgroup rw,relatime,cpuset 0 0
+devices /cgroup/devices cgroup rw,relatime,devices 0 0
+"""
+
+PROCMOUNTS_RH7 = """sysfs /sys sysfs rw,nosuid,nodev,noexec,relatime 0 0
+proc /proc proc rw,nosuid,nodev,noexec,relatime 0 0
+cgroup /sys/fs/cgroup/systemd cgroup rw,nosuid,nodev,noexec,relatime,xattr 0 0
+pstore /sys/fs/pstore pstore rw,nosuid,nodev,noexec,relatime 0 0
+cgroup /sys/fs/cgroup/cpu,cpuacct cgroup rw,nosuid,nodev,nonexe,cpuacct,cpu 0 0
+cgroup /sys/fs/cgroup/cpuset cgroup rw,nosuid,nodev,noexec,relatime,cpuset 0 0
+cpuset /cgroup/cpuset cgroup rw,relatime,cpuset 0 0
+"""
+
 
 class CGroupsTest(unittest.TestCase):
     """Tests for teadmill.cgroups."""
@@ -42,6 +60,43 @@ class CGroupsTest(unittest.TestCase):
     def tearDown(self):
         if self.root and os.path.isdir(self.root):
             shutil.rmtree(self.root)
+
+    @mock.patch('treadmill.cgroups.available_subsystems',
+                mock.Mock(return_value=[
+                    'cpu', 'cpuacct', 'cpuset', 'memory', 'blkio'
+                ]))
+    @mock.patch('io.open', mock.Mock(return_value=io.StringIO(PROCMOUNTS_RH6)))
+    def test_read_mounted_cgroups_rh6(self):
+        """Test get mounted point from rh6
+        """
+        subsystems2mounts = cgroups.read_mounted_cgroups()
+        self.assertEqual(
+            subsystems2mounts,
+            {
+                'blkio': ['/cgroup/blkio'],
+                'cpu': ['/cgroup/cpu'],
+                'cpuacct': ['/cgroup/cpuacct'],
+                'cpuset': ['/cgroup/cpuset'],
+            }
+        )
+
+    @mock.patch('treadmill.cgroups.available_subsystems',
+                mock.Mock(return_value=[
+                    'cpu', 'cpuacct', 'cpuset', 'memory', 'blkio'
+                ]))
+    @mock.patch('io.open', mock.Mock(return_value=io.StringIO(PROCMOUNTS_RH7)))
+    def test_read_mounted_cgroups_rh7(self):
+        """Test get mounted point from rh7
+        """
+        subsystems2mounts = cgroups.read_mounted_cgroups()
+        self.assertEqual(
+            subsystems2mounts,
+            {
+                'cpu': ['/sys/fs/cgroup/cpu,cpuacct'],
+                'cpuacct': ['/sys/fs/cgroup/cpu,cpuacct'],
+                'cpuset': ['/sys/fs/cgroup/cpuset', '/cgroup/cpuset']
+            }
+        )
 
     @mock.patch('treadmill.cgroups.get_data',
                 mock.Mock(side_effect=['2', '1\n2', '-1', '']))

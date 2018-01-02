@@ -70,18 +70,18 @@ class ReportsTest(unittest.TestCase):
         """Tests servers report."""
         report = reports.servers(self.cell)
         pd.util.testing.assert_frame_equal(report, pd.DataFrame([
-            ['srv1', 'top/rack:rack1', 'part', 3, 'up', 1000,
-             10, 20, 30, 10, 20, 30],
-            ['srv2', 'top/rack:rack1', 'part', 7, 'up', 2000,
-             10, 20, 30, 10, 20, 30],
             ['srv3', 'top/rack:rack2', '_default', 0, 'up', 3000,
              10, 20, 30, 10, 20, 30],
             ['srv4', 'top/rack:rack2', '_default', 0, 'up', 4000,
              10, 20, 30, 10, 20, 30],
+            ['srv1', 'top/rack:rack1', 'part', 3, 'up', 1000,
+             10, 20, 30, 10, 20, 30],
+            ['srv2', 'top/rack:rack1', 'part', 7, 'up', 2000,
+             10, 20, 30, 10, 20, 30],
         ], columns=[
             'name', 'location', 'partition', 'traits', 'state', 'valid_until',
             'mem', 'cpu', 'disk', 'mem_free', 'cpu_free', 'disk_free'
-        ]).set_index('name'))
+        ]))
 
     def test_allocations(self):
         """Tests allocations report."""
@@ -92,7 +92,7 @@ class ReportsTest(unittest.TestCase):
         ], columns=[
             'partition', 'name', 'mem', 'cpu', 'disk',
             'rank', 'rank_adj', 'traits', 'max_util'
-        ]).set_index(['partition', 'name']))
+        ]).sort_values(by=['partition', 'name']))
 
         # TODO: not implemented.
         # df_traits = reports.allocation_traits(self.cell)
@@ -134,26 +134,32 @@ class ReportsTest(unittest.TestCase):
             [
                 'bla.xxx#3', 't2/a1', 100, 'bla.xxx', 'part',
                 None, -1, 3, 0, 100,
-                0, 0, 'srv1', -0.128571, 1, 1, 1
+                0, 0, 'srv1', -0.142857142857, -0.128571, 1, 1, 1
             ],
             [
                 'foo.xxx#1', 't1/t3/a2', 100, 'foo.xxx', '_default',
                 None, -1, 1, 0, 100,
-                0, 0, 'srv3', -0.128571, 1, 1, 1
+                0, 0, 'srv3', -0.142857142857, -0.128571, 1, 1, 1
             ],
             [
                 'foo.xxx#2', 't1/t3/a2', 100, 'foo.xxx', '_default',
                 None, -1, 2, 0, 100,
-                0, 0, 'srv4', -0.114286, 1, 1, 1
+                0, 0, 'srv4', -0.128571428571, -0.114286, 1, 1, 1
             ],
         ], columns=[
             'instance', 'allocation', 'rank', 'affinity', 'partition',
             'identity_group', 'identity', 'order', 'lease', 'expires',
-            'data_retention', 'pending', 'server', 'util', 'mem', 'cpu', 'disk'
-        ]).set_index('instance'))
+            'data_retention', 'pending', 'server', 'util0', 'util1',
+            'mem', 'cpu', 'disk'
+        ]).sort_values(by=['partition',
+                           'rank',
+                           'util0',
+                           'util1',
+                           'pending',
+                           'order']).reset_index(drop=True))
 
         time.time.return_value = 100
-        self.assertEqual(apps_df.ix['foo.xxx#2']['cpu'], 1)
+        self.assertEqual(apps_df.ix[2]['cpu'], 1)
         util0 = reports.utilization(None, apps_df)
         time.time.return_value = 101
         util1 = reports.utilization(util0, apps_df)

@@ -167,7 +167,7 @@ class Cleanup(object):
         _LOGGER.debug('Removing app directory %s', app_path)
         fs.rmtree_safe(app_path)
 
-    def invoke(self, runtime, instance):
+    def invoke(self, runtime, instance, runtime_param=None):
         """Actually do the cleanup of the instance.
         """
         cleanup_link = os.path.join(self.tm_env.cleanup_dir, instance)
@@ -177,8 +177,9 @@ class Cleanup(object):
             with lc.LogContext(_LOGGER, os.path.basename(container_dir),
                                lc.ContainerAdapter) as log:
                 try:
-                    app_runtime.get_runtime(runtime, self.tm_env,
-                                            container_dir).finish()
+                    app_runtime.get_runtime(
+                        runtime, self.tm_env, container_dir, runtime_param
+                    ).finish()
                 except Exception:  # pylint: disable=W0703
                     if not os.path.exists(container_dir):
                         log.info('Container dir does not exist: %s',

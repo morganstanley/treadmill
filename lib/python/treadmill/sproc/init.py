@@ -22,7 +22,6 @@ import kazoo
 from treadmill import appenv
 from treadmill import context
 from treadmill import postmortem
-from treadmill import presence
 from treadmill import supervisor
 from treadmill import sysinfo
 from treadmill import utils
@@ -62,9 +61,9 @@ def init():
 
         hostname = sysinfo.hostname()
 
-        zk_server_path = z.path.server(hostname)
         zk_blackout_path = z.path.blackedout_server(hostname)
-        zk_presence_path = None
+        zk_server_path = z.path.server(hostname)
+        zk_presence_path = z.path.server_presence(hostname)
 
         while not zkclient.exists(zk_server_path):
             _LOGGER.warning('server %s not defined in the cell.', hostname)
@@ -75,7 +74,8 @@ def init():
 
         if not blacklisted:
             # Node startup.
-            zk_presence_path = _node_start(tm_env, runtime, zkclient, hostname)
+            _node_start(tm_env, runtime, zkclient, hostname, zk_server_path,
+                        zk_presence_path)
 
             utils.report_ready()
             _init_network()
@@ -170,41 +170,52 @@ def _cleanup_network():
     netdev.dev_conf_forwarding_set('tm0', False)
 
 
-def _node_start(tm_env, runtime, zkclient, hostname):
+def _node_start(tm_env, runtime, zkclient, hostname,
+                zk_server_path, zk_presence_path):
     """Node startup. Try to re-establish old session or start fresh.
     """
     old_session_ok = False
-    old_presence_path = presence.find_server(zkclient, hostname)
-    if old_presence_path:
-        try:
-            _data, metadata = zkclient.get(old_presence_path)
-            if metadata.owner_session_id == zkclient.client_id[0]:
-                _LOGGER.info('Reconnecting with previous session: %s',
-                             metadata.owner_session_id)
-                old_session_ok = True
-            else:
-                _LOGGER.info('Session id does not match, new session.')
-                zkclient.delete(old_presence_path)
-        except kazoo.client.NoNodeError:
-            _LOGGER.info('%s does not exist.', old_presence_path)
+    try:
+        _data, metadata = zkclient.get(zk_presence_path)
+        if metadata.owner_session_id == zkclient.client_id[0]:
+            _LOGGER.info('Reconnecting with previous session: %s',
+                         metadata.owner_session_id)
+            old_session_ok = True
+        else:
+            _LOGGER.info('Session id does not match, new session.')
+            zkclient.delete(zk_presence_path)
+    except kazoo.client.NoNodeError:
+        _LOGGER.info('%s does not exist.', zk_presence_path)
 
-    if old_session_ok:
-        return old_presence_path
-    return _node_initialize(tm_env, runtime, zkclient, hostname)
+    if not old_session_ok:
+        _node_initialize(tm_env, runtime,
+                         zkclient, hostname,
+                         zk_server_path, zk_presence_path)
 
 
-def _node_initialize(tm_env, runtime, zkclient, hostname):
+def _node_initialize(tm_env, runtime, zkclient, hostname,
+                     zk_server_path, zk_presence_path):
     """Node initialization. Should only be done on a cold start.
     """
     try:
-        node_info = sysinfo.node_info(tm_env, runtime)
-        node_presence_path = presence.register_server(
-            zkclient, hostname, node_info
-        )
+        new_node_info = sysinfo.node_info(tm_env, runtime)
+
+        # Merging scheduler data with node_info data
+        node_info = zkutils.get(zkclient, zk_server_path)
+        node_info.update(new_node_info)
+        _LOGGER.info('Registering node: %s: %s, %r',
+                     zk_server_path, hostname, node_info)
+
+        zkutils.update(zkclient, zk_server_path, node_info)
+        host_acl = zkutils.make_host_acl(hostname, 'rwcda')
+        _LOGGER.debug('host_acl: %r', host_acl)
+        zkutils.put(zkclient,
+                    zk_presence_path, {'seen': False},
+                    acl=[host_acl],
+                    ephemeral=True)
 
         # Invoke the local node initialization
         tm_env.initialize(node_info)
-        return node_presence_path
 
     except Exception:  # pylint: disable=W0703
         _LOGGER.exception('Node initialization failed')

@@ -69,7 +69,6 @@ class TreadmillSchedulerTest(unittest.TestCase):
         check_help(self, ['--cell', '-', 'view', 'allocs'])
         check_help(self, ['--cell', '-', 'view', 'servers'])
         check_help(self, ['--cell', '-', 'view', 'apps'])
-        check_help(self, ['--cell', '-', 'view', 'queue'])
 
     @mock.patch('kazoo.client.KazooClient.get_children', mock.Mock())
     def test_action(self):
