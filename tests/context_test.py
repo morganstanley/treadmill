@@ -8,8 +8,8 @@ from __future__ import unicode_literals
 
 import unittest
 
-import ldap3
 import mock
+from ldap3.core import exceptions as ldap_exceptions
 
 import treadmill
 from treadmill import context
@@ -47,7 +47,8 @@ class ContextTest(unittest.TestCase):
         ctx2.cell = 'somecell'
         ctx2.ldap_suffix = 'dc=test'
         ctx2.ldap.url = 'ldap://foo:1234'
-        treadmill.admin.Cell.get.side_effect = ldap3.LDAPNoSuchObjectResult
+        treadmill.admin.Cell.get.side_effect =\
+            ldap_exceptions.LDAPNoSuchObjectResult
 
         self.assertIsNone(ctx2.get('zk_url'))
 

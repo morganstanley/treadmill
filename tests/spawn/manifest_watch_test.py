@@ -54,13 +54,15 @@ class ManifestWatchTest(unittest.TestCase):
 
         watch._create_instance('test.yml')
 
-        self.assertEqual(3, treadmill.fs.mkdir_safe.call_count)
+        self.assertEqual(4, treadmill.fs.mkdir_safe.call_count)
         self.assertEqual(2, treadmill.utils.create_script.call_count)
         self.assertEqual(1, treadmill.fs.symlink_safe.call_count)
         io.open.assert_has_calls(
             [
-                mock.call('/does/not/exist/apps/jobs/test/data/manifest', 'w'),
-                mock.call('/does/not/exist/apps/jobs/test/timeout-finish', 'w')
+                mock.call(
+                    '/does/not/exist/apps/jobs/test/data/manifest', 'w'),
+                mock.call(
+                    '/does/not/exist/apps/jobs/test/timeout-finish', 'w')
             ],
             any_order=True
         )

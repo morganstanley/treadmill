@@ -1,9 +1,11 @@
-import os, pkgutil
-import treadmill.cli
-import click.testing
-from click.core import Group
 import importlib
+import os
+import pkgutil
 
+import click.testing
+from click import core
+
+import treadmill.cli
 
 os.environ.update({
     'TREADMILL_DNS_DOMAIN': 'treadmill.org',
@@ -30,7 +32,7 @@ def click_echo(_output):
         click.echo("\t\t" + "\t\t".join(_output.splitlines(True)))
 
 def loop_groups(cli):
-    if type(cli) is Group:
+    if type(cli) is core.Group:
         _commands = cli.commands
         click.echo("\n")
         _command_names = sorted(_commands.keys())

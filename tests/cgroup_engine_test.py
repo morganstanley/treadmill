@@ -34,7 +34,7 @@ class CgroupReaderTest(unittest.TestCase):
         'treadmill.cgroups.get_mountpoint',
         mock.Mock(return_value='/cgroups'))
     @mock.patch(
-        'treadmill.fs.maj_min_to_blk',
+        'treadmill.fs.linux.maj_min_to_blk',
         mock.Mock(return_value='/dev/sda3'))
     @mock.patch(
         'treadmill.metrics.engine.CgroupReader._get_block_dev_version',

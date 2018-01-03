@@ -36,11 +36,16 @@ class DockerRuntimeTest(unittest.TestCase):
         self.container_dir = os.path.join(self.root, 'apps', 'test')
         self.data_dir = os.path.join(self.container_dir, 'data')
         fs.mkdir_safe(self.data_dir)
+        with io.open(os.path.join(self.container_dir, 'type'), 'w') as f:
+            f.write('longrun')
         self.events_dir = os.path.join(self.root, 'appevents')
         os.mkdir(self.events_dir)
+        self.configs_dir = os.path.join(self.root, 'configs')
+        os.mkdir(self.configs_dir)
         self.tm_env = mock.Mock(
             root=self.root,
             app_events_dir=self.events_dir,
+            configs_dir=self.configs_dir,
             svc_cgroup=mock.Mock(
                 spec_set=services._base_service.ResourceService,
             ),
@@ -117,7 +122,8 @@ class DockerRuntimeTest(unittest.TestCase):
         """Tests creating a docker container using the api."""
         # Access to a protected member
         # pylint: disable=W0212
-        runtime._create_container(client, self.app)
+        runtime._create_container(self.tm_env, {'network': 'nat2'}, client,
+                                  self.app)
 
         client.images.pull.assert_called_with(
             'test'
@@ -131,7 +137,7 @@ class DockerRuntimeTest(unittest.TestCase):
             detach=True,
             tty=True,
             ports={'80/tcp': '12345'},
-            network='nat',
+            network='nat2',
             cpu_shares=128,
             mem_limit='512M',
             storage_opt={
@@ -167,7 +173,9 @@ class DockerRuntimeTest(unittest.TestCase):
         """Tests docker runtime run."""
         # Access to a protected member
         # pylint: disable=W0212
-        docker_runtime = runtime.DockerRuntime(self.tm_env, self.data_dir)
+        docker_runtime = runtime.DockerRuntime(
+            self.tm_env, self.container_dir, {'version': '1.24'}
+        )
 
         container = mock.Mock()
         treadmill.runtime.docker.runtime._create_container.return_value = \
@@ -205,7 +213,7 @@ class DockerRuntimeTest(unittest.TestCase):
         """Tests docker runtime run when app has been aborted."""
         # Access to a protected member
         # pylint: disable=W0212
-        docker_runtime = runtime.DockerRuntime(self.tm_env, self.data_dir)
+        docker_runtime = runtime.DockerRuntime(self.tm_env, self.container_dir)
 
         treadmill.runtime.docker.runtime._create_container.side_effect = \
             docker.errors.ImageNotFound('test')
@@ -231,6 +239,7 @@ class DockerRuntimeTest(unittest.TestCase):
     @mock.patch('treadmill.runtime.allocate_network_ports', mock.Mock())
     @mock.patch('treadmill.runtime.docker.runtime._create_container',
                 mock.Mock())
+    @mock.patch('treadmill.runtime.archive_logs', mock.Mock())
     @mock.patch('treadmill.presence.EndpointPresence',
                 mock.Mock(set_spec=True))
     @mock.patch('treadmill.context.GLOBAL.zk', mock.Mock())
@@ -255,7 +264,9 @@ class DockerRuntimeTest(unittest.TestCase):
             }
         })
 
-        docker_runtime = runtime.DockerRuntime(self.tm_env, self.container_dir)
+        docker_runtime = runtime.DockerRuntime(
+            self.tm_env, self.container_dir, {'version': '1.24'}
+        )
 
         docker_runtime._finish()
 
@@ -287,9 +298,12 @@ class DockerRuntimeTest(unittest.TestCase):
             )
         )
 
+        treadmill.runtime.archive_logs.assert_called()
+
     @mock.patch('treadmill.runtime.allocate_network_ports', mock.Mock())
     @mock.patch('treadmill.runtime.docker.runtime._create_container',
                 mock.Mock())
+    @mock.patch('treadmill.runtime.archive_logs', mock.Mock())
     @mock.patch('treadmill.presence.EndpointPresence',
                 mock.Mock(set_spec=True))
     @mock.patch('treadmill.context.GLOBAL.zk', mock.Mock())
@@ -310,7 +324,9 @@ class DockerRuntimeTest(unittest.TestCase):
         with io.open(os.path.join(self.data_dir, 'aborted'), 'w') as aborted:
             aborted.write('{"why": "reason", "payload": "test"}')
 
-        docker_runtime = runtime.DockerRuntime(self.tm_env, self.container_dir)
+        docker_runtime = runtime.DockerRuntime(
+            self.tm_env, self.container_dir, {'version': '1.24'}
+        )
 
         docker_runtime._finish()
 
@@ -320,9 +336,12 @@ class DockerRuntimeTest(unittest.TestCase):
             payload='test'
         )
 
+        treadmill.runtime.archive_logs.assert_called()
+
     @mock.patch('treadmill.runtime.allocate_network_ports', mock.Mock())
     @mock.patch('treadmill.runtime.docker.runtime._create_container',
                 mock.Mock())
+    @mock.patch('treadmill.runtime.archive_logs', mock.Mock())
     @mock.patch('treadmill.presence.EndpointPresence',
                 mock.Mock(set_spec=True))
     @mock.patch('treadmill.context.GLOBAL.zk', mock.Mock())
@@ -344,10 +363,14 @@ class DockerRuntimeTest(unittest.TestCase):
             'State': None
         })
 
-        docker_runtime = runtime.DockerRuntime(self.tm_env, self.container_dir)
+        docker_runtime = runtime.DockerRuntime(
+            self.tm_env, self.container_dir, {'version': '1.24'}
+        )
 
         # Should not throw any exception
         docker_runtime._finish()
+
+        treadmill.runtime.archive_logs.assert_called()
 
 
 if __name__ == '__main__':

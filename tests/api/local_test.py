@@ -6,12 +6,18 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
+import functools
+import io
 import os
+import shutil
+import tarfile
+import tempfile
 import unittest
 
 import mock
 
 import six
+from six.moves import _thread
 
 from treadmill.api import local
 # pylint: disable=W0622
@@ -39,14 +45,14 @@ class MetricsAPITest(unittest.TestCase):
 
         self.met = local.mk_metrics_api(tm_env_func)()
 
-    def test_metrics_fpath(self):
+    def test_abs_met_path(self):
         """Test the path for application and service rrd metrics"""
         self.assertEqual(
-            self.met._metrics_fpath(app='proid.app#00123',
-                                    uniq='asdf'),
+            self.met._abs_met_path(app='proid.app#00123',
+                                   uniq='asdf'),
             '{}/apps/proid.app-00123-asdf.rrd'.format(METRICS_DIR))
         self.assertEqual(
-            self.met._metrics_fpath(service='test'),
+            self.met._abs_met_path(service='test'),
             '{}/core/test.rrd'.format(METRICS_DIR))
 
     def test_unpack_id(self):
@@ -84,22 +90,33 @@ class LogAPITest(unittest.TestCase):
 
         self.log = local.mk_logapi(tm_env_func)()
 
-    # Don't complain about unused parameters
-    # pylint: disable=W0613
-    @mock.patch('io.open', mock.mock_open())
-    @mock.patch('treadmill.api.local._fragment',
-                mock.Mock(spec_set=True, return_value='invoked'))
-    @mock.patch('treadmill.api.local._get_file',
-                mock.Mock(spec_set=True))
     def test_get(self):
         """Test the _LogAPI.get() method."""
-        with self.assertRaises(InvalidInputError):
-            self.log.get('no/such/log/exists', start=-1)
+        with mock.patch('treadmill.api.local._get_file'):
+            with mock.patch('io.open', mock.mock_open()):
+                with self.assertRaises(InvalidInputError):
+                    self.log.get('no/such/log/exists', start=-1)
+                with mock.patch(
+                    'treadmill.api.local._fragment',
+                    mock.Mock(spec_set=True, return_value='invoked')
+                ):
 
-        self.assertEqual(
-            self.log.get('no/such/log/exists',
-                         start=0, limit=3),
-            'invoked')
+                    self.assertEqual(
+                        self.log.get('no/such/log/exists', start=0, limit=3),
+                        'invoked'
+                    )
+
+        # make sure that things don't break if the log file contains some
+        # binary data with ord num > 128 (eg. \xc5 below) ie. not ascii
+        # decodeable
+        with tempfile.NamedTemporaryFile(mode='wb') as temp:
+            temp.write(b'\x00\x01\xc5\x0a')
+            temp.seek(0)
+
+            with mock.patch(
+                'treadmill.api.local._get_file', return_value=temp.name
+            ):
+                self.assertTrue(''.join(self.log.get('no/such/log/exists')))
 
     @mock.patch('treadmill.api.local._get_file')
     def test_get_logfile_new(self, _get_file_mock):
@@ -108,9 +125,9 @@ class LogAPITest(unittest.TestCase):
         self.log._get_logfile_new('proid.app#123', 'uniq', 'service', 'foo')
         _get_file_mock.assert_called_once_with(
             '.../apps/proid.app-123-uniq/data/services/foo/data/log/current',
-            arch_fname='.../archives/proid.app-123-uniq.service.tar.gz',
+            arch='.../archives/proid.app-123-uniq.service.tar.gz',
             arch_extract=True,
-            arch_extract_fname='services/foo/data/log/current')
+            arch_extract_filter=mock.ANY)
 
         _get_file_mock.reset_mock()
 
@@ -118,9 +135,9 @@ class LogAPITest(unittest.TestCase):
         self.log._get_logfile_new('proid.app#123', 'running', 'service', 'foo')
         _get_file_mock.assert_called_once_with(
             '.../running/proid.app#123/data/services/foo/data/log/current',
-            arch_fname='.../archives/proid.app-123-running.service.tar.gz',
+            arch='.../archives/proid.app-123-running.service.tar.gz',
             arch_extract=False,
-            arch_extract_fname='services/foo/data/log/current')
+            arch_extract_filter=mock.ANY)
 
     @mock.patch('treadmill.api.local._get_file')
     def test_get_logfile_old(self, _get_file_mock):
@@ -129,9 +146,9 @@ class LogAPITest(unittest.TestCase):
         self.log._get_logfile_old('app#123', 'uniq', 'service', 'foo')
         _get_file_mock.assert_called_once_with(
             '.../apps/app-123-uniq/services/foo/log/current',
-            arch_fname='.../archives/app-123-uniq.service.tar.gz',
+            arch='.../archives/app-123-uniq.service.tar.gz',
             arch_extract=True,
-            arch_extract_fname='services/foo/log/current')
+            arch_extract_filter=mock.ANY)
 
         _get_file_mock.reset_mock()
 
@@ -139,30 +156,111 @@ class LogAPITest(unittest.TestCase):
         self.log._get_logfile_old('proid.app#123', 'running', 'service', 'foo')
         _get_file_mock.assert_called_once_with(
             '.../running/proid.app#123/services/foo/log/current',
-            arch_fname='.../archives/proid.app-123-running.service.tar.gz',
+            arch='.../archives/proid.app-123-running.service.tar.gz',
             arch_extract=False,
-            arch_extract_fname='services/foo/log/current')
+            arch_extract_filter=mock.ANY)
 
 
 class HelperFuncTests(unittest.TestCase):
     """treadmill.api.local top level function tests."""
 
-    @mock.patch('threading.get_ident', mock.Mock(return_value='123'))
-    def test_temp_file_name(self):
-        """Dummy test of _temp_file_name()."""
-        self.assertEqual(local._temp_file_name(), '/tmp/local-123.temp')
+    def setUp(self):
+        self.tm_env = mock.Mock()
+        self.tm_env.apps_dir = APPS_DIR
+        self.tm_env.archives_dir = ARCHIVES_DIR
+        self.tm_env.running_dir = RUNNING_DIR
 
-    def test_get_file(self):
-        """Test the _get_file() func."""
-        self.assertEqual(local._get_file(__file__), __file__)
+        self.tm_env_func = mock.Mock()
+        self.tm_env_func.return_value = self.tm_env
 
+    @mock.patch('_thread.get_ident', mock.Mock(return_value='123'))
+    def test_temp_dir(self):
+        """Dummy test of _temp_dir()."""
+        self.assertEqual(local._temp_dir(), '/var/tmp/local-123.temp')
+        shutil.copy(__file__, '/var/tmp/local-123.temp')
+        self.assertEqual(len(os.listdir('/var/tmp/local-123.temp')), 1)
+        # subsequent invocations should delete the temp dir content
+        self.assertEqual(os.listdir(local._temp_dir()), [])
+
+    def test_extract_archive(self):
+        """Test the _extract_archive() func."""
         with self.assertRaises(LocalFileNotFoundError):
-            local._get_file('no_such_file', arch_extract=False)
+            local._extract_archive('no_such_file')
 
-        with self.assertRaises(LocalFileNotFoundError):
-            local._get_file(fname='no_such_file',
-                            arch_fname='no_such_archive',
-                            arch_extract=True)
+        temp_dir = os.path.join(os.path.sep, 'tmp', 'tm-unittest')
+        temp_subdir = os.path.join(temp_dir, 'foo')
+
+        shutil.rmtree(temp_dir, True)
+        os.mkdir(temp_dir)
+        os.mkdir(temp_subdir)
+        shutil.copy(__file__, os.path.join(temp_subdir, 'current'))
+        shutil.copy(__file__, os.path.join(temp_subdir, '@4000zzzz.s'))
+
+        with tarfile.open(os.path.join(temp_dir, 'f.tar'), mode='w') as tar:
+            orig_cwd = os.getcwd()
+            os.chdir(temp_dir)
+            # this creates 3 entries because the subdir is separate entry...
+            tar.add('foo')
+            os.chdir(orig_cwd)
+
+        self.assertEqual(
+            len(local._extract_archive(os.path.join(temp_dir, 'f.tar'))),
+            3)
+        self.assertEqual(
+            len(local._extract_archive(os.path.join(temp_dir, 'f.tar'),
+                                       extract_filter=functools.partial(
+                                           local._arch_log_filter,
+                                           rel_log_dir='foo'))),
+            2)
+        shutil.rmtree(temp_dir)
+
+    def test_concat_files(self):
+        """Test the _concat_files() func."""
+        ident = _thread.get_ident()
+        file_lst = []
+        for i in six.moves.range(3):
+            file_lst.append(os.path.join(os.path.sep, 'tmp',
+                                         '{}.{}'.format(ident, i)))
+            with io.open(file_lst[-1], 'wb') as logs:
+                logs.write(bytearray('{}\n'.format(i), 'ascii'))
+
+        result = local._concat_files(file_lst)
+        self.assertTrue(isinstance(result, io.TextIOWrapper))
+        self.assertEqual(result.read(), u'0\n1\n2\n')
+
+        # check that _concat_files() catches IOError for non existing file
+        file_lst.append('no_such_file')
+        local._concat_files(file_lst)
+
+        for f in file_lst[:-1]:
+            os.remove(f)
+
+        # make sure that things don't break if the log file contains some
+        # binary data with ord num > 128 (eg. \xc5 below) ie. not ascii
+        # decodeable
+        with tempfile.NamedTemporaryFile(mode='wb') as temp:
+            temp.write(b'\x42\x00\x01\xc5\x45\x0a')
+            temp.seek(0)
+
+            self.assertTrue(''.join(local._concat_files([temp.name])))
+
+    def test_rel_log_dir_path(self):
+        """Test the rel_log_dir_path() func."""
+        self.assertEqual(local._rel_log_dir_path('sys', 'foo'),
+                         'sys/foo/data/log')
+        self.assertEqual(local._rel_log_dir_path('app', 'foo'),
+                         'services/foo/data/log')
+
+    def test_abs_log_dir_path(self):
+        """Test the abs_log_dir_path() func."""
+        self.assertEqual(
+            local._abs_log_dir_path(self.tm_env_func, 'proid.app-123',
+                                    'running', '...'),
+            '.../running/proid.app-123/data/...')
+        self.assertEqual(
+            local._abs_log_dir_path(self.tm_env_func, 'proid.app-123',
+                                    'xyz', '...'),
+            '.../apps/proid.app-123-xyz/data/...')
 
     def test_fragment_file(self):
         """Test the _fragment() func."""
@@ -253,11 +351,8 @@ class HelperFuncTests(unittest.TestCase):
 
     def test_archive_path(self):
         """Test the _archive_paths() func."""
-        tm_env = mock.Mock()
-        tm_env.archives_dir = ARCHIVES_DIR
-
         self.assertEqual(
-            local._archive_path(tm_env, 'app', 'app#123', 'uniq'),
+            local._archive_path(self.tm_env_func, 'app', 'app#123', 'uniq'),
             '{}/app-123-uniq.app.tar.gz'.format(ARCHIVES_DIR))
 
 

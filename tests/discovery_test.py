@@ -45,7 +45,7 @@ class DiscoveryTest(mockzk.MockZookeeperTestCase):
             'bar.1#0:tcp:http'
         ]
 
-        kazoo.client.KazooClient.get.return_value = ('xxx:123', None)
+        kazoo.client.KazooClient.get.return_value = (b'xxx:123', None)
 
         # Need to call sync first, then put 'exit' on the queue to terminate
         # the loop.
@@ -57,7 +57,7 @@ class DiscoveryTest(mockzk.MockZookeeperTestCase):
         app_discovery.exit_loop()
 
         expected = {}
-        for (endpoint, hostport) in app_discovery.items():
+        for (endpoint, hostport) in app_discovery.iteritems():
             expected[endpoint] = hostport
 
         self.assertEqual(

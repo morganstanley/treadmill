@@ -15,9 +15,9 @@ import six
 
 from treadmill import admin
 from treadmill import exc
-from treadmill import master
 from treadmill import yamlwrapper as yaml
 from treadmill.api import instance
+from treadmill.scheduler import masterapi
 
 
 def _create_apps(_zkclient, _app_id, app, _count, _created_by):
@@ -33,7 +33,7 @@ class ApiInstanceTest(unittest.TestCase):
     @mock.patch('treadmill.context.AdminContext.conn',
                 mock.Mock(return_value=admin.Admin(None, None)))
     @mock.patch('treadmill.context.ZkContext.conn', mock.Mock())
-    @mock.patch('treadmill.master.create_apps', mock.Mock())
+    @mock.patch('treadmill.scheduler.masterapi.create_apps', mock.Mock())
     @mock.patch('treadmill.api.instance._check_required_attributes',
                 mock.Mock())
     def test_normalize_run_once(self):
@@ -49,19 +49,19 @@ class ApiInstanceTest(unittest.TestCase):
         disk: 100M
         """
 
-        master.create_apps.side_effect = _create_apps
+        masterapi.create_apps.side_effect = _create_apps
 
         new_doc = self.instance.create('proid.app', yaml.load(doc))
 
         # Disable E1126: Sequence index is not an int, slice, or instance
         # pylint: disable=E1126
         self.assertEqual(new_doc['services'][0]['restart']['interval'], 60)
-        self.assertTrue(master.create_apps.called)
+        self.assertTrue(masterapi.create_apps.called)
 
     @mock.patch('treadmill.context.AdminContext.conn',
                 mock.Mock(return_value=admin.Admin(None, None)))
     @mock.patch('treadmill.context.ZkContext.conn', mock.Mock())
-    @mock.patch('treadmill.master.create_apps', mock.Mock())
+    @mock.patch('treadmill.scheduler.masterapi.create_apps', mock.Mock())
     def test_run_once_small_memory(self):
         """Testing too small memory definition for container."""
         doc = """
@@ -75,7 +75,7 @@ class ApiInstanceTest(unittest.TestCase):
         disk: 100M
         """
 
-        master.create_apps.side_effect = _create_apps
+        masterapi.create_apps.side_effect = _create_apps
         with self.assertRaises(exc.TreadmillError):
             self.instance.create('proid.app', yaml.load(doc))
 
@@ -102,7 +102,7 @@ class ApiInstanceTest(unittest.TestCase):
                     'environ': [],
                     'affinity_limits': {}
                 }))
-    @mock.patch('treadmill.master.create_apps')
+    @mock.patch('treadmill.scheduler.masterapi.create_apps')
     @mock.patch('treadmill.api.instance._check_required_attributes',
                 mock.Mock())
     @mock.patch('treadmill.api.instance._set_defaults',
@@ -150,26 +150,26 @@ class ApiInstanceTest(unittest.TestCase):
 
         with six.assertRaisesRegex(
             self, jsonschema.exceptions.ValidationError,
-            "'invalid!' is not valid"
+            'u?\'invalid!\' is not valid'
         ):
             self.instance.create('proid.app', {}, created_by='invalid!')
 
         with six.assertRaisesRegex(
             self, jsonschema.exceptions.ValidationError,
-            "0 is less than the minimum of 1"
+            '0 is less than the minimum of 1'
         ):
             self.instance.create('proid.app', {}, count=0)
 
         with six.assertRaisesRegex(
             self, jsonschema.exceptions.ValidationError,
-            "1001 is greater than the maximum of 1000"
+            '1001 is greater than the maximum of 1000'
         ):
             self.instance.create('proid.app', {}, count=1001)
 
     @mock.patch('treadmill.context.AdminContext.conn',
                 mock.Mock(return_value=admin.Admin(None, None)))
     @mock.patch('treadmill.context.ZkContext.conn', mock.Mock())
-    @mock.patch('treadmill.master.delete_apps')
+    @mock.patch('treadmill.scheduler.masterapi.delete_apps')
     def test_instance_delete(self, delete_apps_mock):
         """Test deleting an instance."""
         delete_apps_mock.return_value = None
@@ -193,9 +193,125 @@ class ApiInstanceTest(unittest.TestCase):
 
         with six.assertRaisesRegex(
             self, jsonschema.exceptions.ValidationError,
-            "'invalid!' is not valid"
+            'u?\'invalid!\' is not valid'
         ):
             self.instance.delete('proid.app#0000000001', deleted_by='invalid!')
+
+    @mock.patch('treadmill.context.AdminContext.conn',
+                mock.Mock(return_value=admin.Admin(None, None)))
+    @mock.patch('treadmill.context.ZkContext.conn', mock.Mock())
+    @mock.patch('treadmill.admin.Application.get',
+                mock.Mock(return_value={
+                    '_id': 'proid.app',
+                    'cpu': '10%',
+                    'memory': '100M',
+                    'disk': '100M',
+                    'image': 'docker://foo',
+                }))
+    @mock.patch('treadmill.scheduler.masterapi.create_apps')
+    @mock.patch('treadmill.api.instance._check_required_attributes',
+                mock.Mock())
+    @mock.patch('treadmill.api.instance._set_defaults', mock.Mock())
+    def test_inst_create_cfg_docker(self, create_apps_mock):
+        """Test creating configured docker instance.
+        """
+        create_apps_mock.side_effect = _create_apps
+
+        app = {
+            'cpu': '10%',
+            'memory': '100M',
+            'disk': '100M',
+            'image': 'docker://foo',
+        }
+
+        self.instance.create('proid.app', {})
+
+        create_apps_mock.assert_called_once_with(
+            mock.ANY, 'proid.app', app, 1, None
+        )
+
+        create_apps_mock.reset_mock()
+        self.instance.create('proid.app', {}, created_by='monitor')
+        create_apps_mock.assert_called_once_with(
+            mock.ANY, 'proid.app', app, 1, 'monitor'
+        )
+
+        create_apps_mock.reset_mock()
+
+        with six.assertRaisesRegex(
+            self, jsonschema.exceptions.ValidationError,
+            'u?\'invalid!\' is not valid'
+        ):
+            self.instance.create('proid.app', {}, created_by='invalid!')
+
+        with six.assertRaisesRegex(
+            self, jsonschema.exceptions.ValidationError,
+            '0 is less than the minimum of 1'
+        ):
+            self.instance.create('proid.app', {}, count=0)
+
+        with six.assertRaisesRegex(
+            self, jsonschema.exceptions.ValidationError,
+            '1001 is greater than the maximum of 1000'
+        ):
+            self.instance.create('proid.app', {}, count=1001)
+
+    @mock.patch('treadmill.context.AdminContext.conn',
+                mock.Mock(return_value=admin.Admin(None, None)))
+    @mock.patch('treadmill.context.ZkContext.conn', mock.Mock())
+    @mock.patch('treadmill.scheduler.masterapi.create_apps')
+    @mock.patch('treadmill.api.instance._check_required_attributes',
+                mock.Mock())
+    @mock.patch('treadmill.api.instance._set_defaults',
+                mock.Mock())
+    def test_inst_create_eph_docker(self, create_apps_mock):
+        """Test creating ephemeral docker instance.
+        """
+        create_apps_mock.side_effect = _create_apps
+
+        ephemeral_app = {
+            'cpu': '10%',
+            'memory': '100M',
+            'disk': '100M',
+            'image': 'docker://foo',
+        }
+        resulting_app = {
+            'cpu': '10%',
+            'memory': '100M',
+            'disk': '100M',
+            'image': 'docker://foo',
+            'tickets': [],
+            'endpoints': [],
+            'features': [],
+            'ephemeral_ports': {},
+            'passthrough': [],
+            'args': [],
+            'environ': [],
+            'affinity_limits': {},
+        }
+
+        self.instance.create('proid.app', ephemeral_app)
+        create_apps_mock.assert_called_once_with(
+            mock.ANY, 'proid.app', resulting_app, 1, None
+        )
+
+        with six.assertRaisesRegex(
+            self, jsonschema.exceptions.ValidationError,
+            'u?\'invalid!\' is not valid'
+        ):
+            self.instance.create('proid.app', {}, created_by='invalid!')
+
+        with six.assertRaisesRegex(
+            self, jsonschema.exceptions.ValidationError,
+            '0 is less than the minimum of 1'
+        ):
+            self.instance.create('proid.app', {}, count=0)
+
+        with six.assertRaisesRegex(
+            self, jsonschema.exceptions.ValidationError,
+            '1001 is greater than the maximum of 1000'
+        ):
+            self.instance.create('proid.app', {}, count=1001)
 
 
 if __name__ == '__main__':

@@ -646,12 +646,12 @@ class IptablesTest(unittest.TestCase):
         )
 
     @mock.patch('treadmill.subproc.check_call', mock.Mock(autospec=True))
-    def test_flush_conntrack_table(self):
-        """Test flushing on conntrack tules.
+    def test_flush_cnt_conntrack_table(self):
+        """Test flushing container conntrack rules.
         """
         treadmill.subproc.check_call.return_value = 0
 
-        treadmill.iptables.flush_conntrack_table('5.5.5.5')
+        treadmill.iptables.flush_cnt_conntrack_table('5.5.5.5')
 
         treadmill.subproc.check_call.assert_called_with(
             ['conntrack', '-D', '-g', '5.5.5.5']
@@ -662,10 +662,33 @@ class IptablesTest(unittest.TestCase):
         treadmill.subproc.check_call.side_effect = \
             subprocess.CalledProcessError(returncode=1, cmd='failed conntrack')
 
-        treadmill.iptables.flush_conntrack_table('4.4.4.4')
+        treadmill.iptables.flush_cnt_conntrack_table('4.4.4.4')
 
         treadmill.subproc.check_call.assert_called_with(
             ['conntrack', '-D', '-g', '4.4.4.4']
+        )
+
+    @mock.patch('treadmill.subproc.check_call', mock.Mock(autospec=True))
+    def test_flush_pt_conntrack_table(self):
+        """Test flushing Passthrough conntrack rules.
+        """
+        treadmill.subproc.check_call.return_value = 0
+
+        treadmill.iptables.flush_pt_conntrack_table('5.5.5.5')
+
+        treadmill.subproc.check_call.assert_called_with(
+            ['conntrack', '-D', '-s', '5.5.5.5']
+        )
+
+        treadmill.subproc.check_call.reset_mock()
+        treadmill.subproc.check_call.return_value = 1
+        treadmill.subproc.check_call.side_effect = \
+            subprocess.CalledProcessError(returncode=1, cmd='failed conntrack')
+
+        treadmill.iptables.flush_pt_conntrack_table('4.4.4.4')
+
+        treadmill.subproc.check_call.assert_called_with(
+            ['conntrack', '-D', '-s', '4.4.4.4']
         )
 
     @mock.patch('treadmill.subproc.check_output', mock.Mock())
@@ -752,7 +775,7 @@ class IptablesTest(unittest.TestCase):
         # Disable protected-access: Test access protected members .
         # pylint: disable=protected-access
 
-        treadmill.subproc.invoke.return_value = (123, "test data")
+        treadmill.subproc.invoke.return_value = (123, 'test data')
 
         res = iptables._ipset('foo', 'bar', cmd_input='test')
 
@@ -764,7 +787,7 @@ class IptablesTest(unittest.TestCase):
         )
         self.assertEqual(
             res,
-            (123, "test data")
+            (123, 'test data')
         )
 
     @mock.patch('treadmill.iptables._ipset', mock.Mock())
@@ -819,7 +842,7 @@ class IptablesTest(unittest.TestCase):
         """Test testing of IP in a given set"""
         # Disable protected-access: Test access protected members .
         # pylint: disable=protected-access
-        iptables._ipset.return_value = (42, "foo")
+        iptables._ipset.return_value = (42, 'foo')
 
         res = iptables.test_ip_set('foo', '1.2.3.4')
 
@@ -829,7 +852,7 @@ class IptablesTest(unittest.TestCase):
         self.assertFalse(res)
         # Try with success now
         iptables._ipset.reset_mock()
-        iptables._ipset.return_value = (0, "bar")
+        iptables._ipset.return_value = (0, 'bar')
 
         res = iptables.test_ip_set('foo', '1.2.3.4')
         self.assertTrue(res)

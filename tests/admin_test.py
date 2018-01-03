@@ -6,16 +6,18 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
-
 # Disable C0302: Too many lines in the module
 # pylint: disable=C0302
 
 import hashlib
-import unittest
 import io
+import unittest
 
-import mock
+import tests.treadmill_ldap_patch
+tests.treadmill_ldap_patch.monkey_patch()
+
 import ldap3
+import mock
 
 import treadmill
 from treadmill import admin
@@ -71,45 +73,85 @@ class AdminTest(unittest.TestCase):
             ('b', 'b', [str]),
             ('c', 'C', int),
             ('d', 'd', dict),
+            ('e', 'e', bool),
+            ('f', 'f', bool),
         ]
 
         self.assertEqual(
-            {'a': '1', 'b': ['x'], 'C': 1},
-            admin._entry_2_dict(
-                {'a': ['1'], 'b': ['x'], 'c': ['1']}, schema
-            )
-        )
-        self.assertEqual(
-            {'a': '1', 'b': ['x'], 'd': {'x': 1}},
             admin._entry_2_dict(
                 {
                     'a': ['1'],
                     'b': ['x'],
-                    'd': ['{"x": 1}']
+                    'c': ['1'],
+                    'e': [True],
+                    'f': [False],
                 },
                 schema
-            )
+            ),
+            {
+                'a': '1',
+                'b': ['x'],
+                'C': 1,
+                'e': True,
+                'f': False
+            },
         )
         self.assertEqual(
-            {'a': ['1'], 'b': ['x'], 'c': ['1']},
+            admin._entry_2_dict(
+                {
+                    'a': ['1'],
+                    'b': ['x'],
+                    'd': ['{"x": 1}'],
+                    # XXX: This is necessary until previous bad entries are
+                    #      cleaned up.
+                    'e': ['True'],
+                    'f': ['1'],
+                },
+                schema
+            ),
+            {
+                'a': '1',
+                'b': ['x'],
+                'd': {
+                    'x': 1
+                },
+                'e': True,
+                'f': True,
+            }
+        )
+        self.assertEqual(
             admin._dict_2_entry(
                 {
                     'a': '1',
                     'b': ['x'],
-                    'C': 1
+                    'C': 1,
+                    'e': False,
+                    'f': True
                 },
                 schema
-            )
+            ),
+            {
+                'a': ['1'],
+                'b': ['x'],
+                'c': ['1'],
+                'e': [False],
+                'f': [True],
+            }
         )
         self.assertEqual(
-            {'a': ['1'], 'd': ['{"x": 1}']},
             admin._dict_2_entry(
                 {
                     'a': '1',
-                    'd': {'x': 1}
+                    'd': {
+                        'x': 1
+                    }
                 },
                 schema
-            )
+            ),
+            {
+                'a': ['1'],
+                'd': ['{"x": 1}']
+            }
         )
 
     def test_group_by_opt(self):
@@ -117,16 +159,22 @@ class AdminTest(unittest.TestCase):
         # Disable W0212: Test access protected members of admin module.
         # pylint: disable=W0212
         self.assertEqual(
-            sorted(
+            admin._group_entry_by_opt(
                 {
-                    'a': [('xxx', 'a', ['1']), ('yyy', 'a', ['2'])],
-                    'b': [('xxx', 'b', ['3'])]}
+                    'xxx;a': ['1'],
+                    'xxx;b': ['3'],
+                    'yyy;a': ['2'],
+                }
             ),
-            sorted(
-                admin._group_entry_by_opt(
-                    {'xxx;a': ['1'], 'xxx;b': ['3'], 'yyy;a': ['2']}
-                )
-            )
+            {
+                'a': [
+                    ('xxx', 'a', ['1']),
+                    ('yyy', 'a', ['2']),
+                ],
+                'b': [
+                    ('xxx', 'b', ['3']),
+                ],
+            },
         )
 
     def test_grouped_to_list_of_dict(self):
@@ -134,16 +182,30 @@ class AdminTest(unittest.TestCase):
         # Disable W0212: Test access protected members of admin module.
         # pylint: disable=W0212
         self.assertEqual(
-            [{'name': 'http', 'port': 80}, {'name': 'tcp', 'port': 1000}],
             admin._grouped_to_list_of_dict(
-                {'tm-ep-1': [('name', 'tm-ep-1', ['http']),
-                             ('port', 'tm-ep-1', ['80']),
-                             ('service-name', 'tm-s-1', ['x'])],
-                 'tm-ep-2': [('name', 'tm-ep-2', ['tcp']),
-                             ('port', 'tm-ep-2', ['1000']),
-                             ('service-name', 'tm-s-2', ['x'])]},
+                {
+                    'tm-ep-1': [
+                        ('name', 'tm-ep-1', ['http']),
+                        ('port', 'tm-ep-1', ['80']),
+                        ('service-name', 'tm-s-1', ['x'])
+                    ],
+                    'tm-ep-2': [
+                        ('name', 'tm-ep-2', ['tcp']),
+                        ('port', 'tm-ep-2', ['1000']),
+                        ('service-name', 'tm-s-2', ['x'])
+                    ],
+                },
                 'tm-ep-',
-                [('name', 'name', str), ('port', 'port', int)]))
+                [
+                    ('name', 'name', str),
+                    ('port', 'port', int)
+                ]
+            ),
+            [
+                {'name': 'http', 'port': 80},
+                {'name': 'tcp', 'port': 1000}
+            ],
+        )
 
     def test_remove_empty(self):
         """Test removal of empty values from entry."""
@@ -242,8 +304,8 @@ class AdminTest(unittest.TestCase):
             'affinity-limit;tm-affinity-' + md5_rack: ['2'],
             'ephemeral-ports-tcp': ['5'],
             'ephemeral-ports-udp': ['10'],
-            'shared-ip': ['TRUE'],
-            'shared-network': ['TRUE']
+            'shared-ip': [True],
+            'shared-network': [True]
         }
 
         self.assertEqual(ldap_entry, admin.Application(None).to_entry(app))
@@ -379,8 +441,14 @@ class AdminTest(unittest.TestCase):
             'data': ['{"a": "1", "b": "2"}'],
         }
 
-        self.assertEqual(ldap_entry, admin.Server(None).to_entry(srv))
-        self.assertEqual(srv, admin.Server(None).from_entry(ldap_entry))
+        self.assertEqual(
+            admin.Server(None).to_entry(srv),
+            ldap_entry
+        )
+        self.assertEqual(
+            admin.Server(None).from_entry(ldap_entry),
+            srv
+        )
 
     def test_cell_to_entry(self):
         """Tests conversion of cell to ldap entry."""
@@ -408,6 +476,65 @@ class AdminTest(unittest.TestCase):
             cell,
             cell_admin.from_entry(cell_admin.to_entry(cell))
         )
+
+    @mock.patch('treadmill.admin._TREADMILL_ATTR_OID_PREFIX', '1.2.3.')
+    def test_attrtype_to_str(self):
+        """Tests conversion of attribute type to LDIF string."""
+        # pylint: disable=protected-access
+        result = admin._attrtype_2_str({
+            'idx': 4,
+            'name': 'name',
+            'desc': 'desc',
+            'syntax': 'syntax',
+            'equality': 'foo',
+            'substr': 'substr',
+            'ordering': 'ordering',
+            'single_value': True
+        })
+        self.assertEqual(result, (
+            '( 1.2.3.4 '
+            'NAME \'name\' '
+            'DESC \'desc\' '
+            'SYNTAX syntax '
+            'EQUALITY foo '
+            'SUBSTR substr '
+            'ORDERING ordering '
+            'SINGLE-VALUE '
+            ')'
+        ))
+
+    @mock.patch('treadmill.admin._TREADMILL_OBJCLS_OID_PREFIX', '1.2.3.')
+    def test_objcls_to_str(self):
+        """Tests conversion of object class to LDIF string."""
+        # pylint: disable=protected-access
+        result = admin._objcls_2_str('name', {
+            'idx': 4,
+            'desc': 'desc',
+            'must': ['one', 'two', 'three'],
+            'may': ['four', 'five']
+        })
+        self.assertEqual(result, (
+            '( 1.2.3.4 '
+            'NAME \'name\' '
+            'DESC \'desc\' '
+            'SUP top STRUCTURAL '
+            'MUST ( one $ two $ three ) '
+            'MAY ( four $ five ) '
+            ')'
+        ))
+        result = admin._objcls_2_str('name', {
+            'idx': 4,
+            'desc': 'desc',
+            'must': ['foo']
+        })
+        self.assertEqual(result, (
+            '( 1.2.3.4 '
+            'NAME \'name\' '
+            'DESC \'desc\' '
+            'SUP top STRUCTURAL '
+            'MUST ( foo ) '
+            ')'
+        ))
 
     def test_schema(self):
         """Test schema parsing."""
@@ -497,13 +624,18 @@ class AdminTest(unittest.TestCase):
 
         admin_obj.connect()
 
-        ldap3.Connection.assert_called_with({},
-                                            user="cn=admin,dc=tm,dc=treadmill",
-                                            password="secret",
-                                            authentication='SIMPLE',
-                                            client_strategy='RESTARTABLE',
-                                            sasl_mechanism=None,
-                                            auto_bind=True)
+        ldap3.Connection.assert_called_with(
+            {},
+            user="cn=admin,dc=tm,dc=treadmill",
+            password="secret",
+            authentication='SIMPLE',
+            client_strategy='RESTARTABLE',
+            sasl_mechanism=None,
+            auto_bind=True,
+            auto_encode=True,
+            auto_escape=True,
+            return_empty_attributes=False
+        )
 
     @mock.patch('ldap3.Connection', mock.Mock())
     @mock.patch('builtins.open', mock.Mock(
@@ -515,11 +647,16 @@ class AdminTest(unittest.TestCase):
 
         admin_obj.connect()
 
-        ldap3.Connection.assert_called_with({},
-                                            authentication='SASL',
-                                            client_strategy='RESTARTABLE',
-                                            sasl_mechanism='GSSAPI',
-                                            auto_bind=True)
+        ldap3.Connection.assert_called_with(
+            {},
+            authentication='SASL',
+            client_strategy='RESTARTABLE',
+            sasl_mechanism='GSSAPI',
+            auto_bind=True,
+            auto_encode=True,
+            auto_escape=True,
+            return_empty_attributes=False
+        )
 
 
 class TenantTest(unittest.TestCase):
@@ -547,7 +684,7 @@ class TenantTest(unittest.TestCase):
         self.assertEqual(tenant, self.tnt.from_entry(ldap_entry))
         self.assertTrue(
             self.tnt.dn('foo:bar').startswith(
-                b'tenant=bar,tenant=foo,ou=allocations,'))
+                'tenant=bar,tenant=foo,ou=allocations,'))
 
 
 class AllocationTest(unittest.TestCase):
@@ -561,7 +698,9 @@ class AllocationTest(unittest.TestCase):
         """Tests allocation identity to dn mapping."""
         self.assertTrue(
             self.alloc.dn('foo:bar/prod1').startswith(
-                b'allocation=prod1,tenant=bar,tenant=foo,ou=allocations,'))
+                'allocation=prod1,tenant=bar,tenant=foo,ou=allocations,'
+            )
+        )
 
     def test_to_entry(self):
         """Tests conversion of allocation to LDAP entry."""
@@ -571,11 +710,11 @@ class AllocationTest(unittest.TestCase):
         }
         self.assertEqual(ldap_entry, self.alloc.to_entry(obj))
 
-    @mock.patch('treadmill.admin.Admin.search', mock.Mock())
+    @mock.patch('treadmill.admin.Admin.paged_search', mock.Mock())
     @mock.patch('treadmill.admin.LdapObject.get', mock.Mock(return_value={}))
     def test_get(self):
         """Tests loading cell allocations."""
-        treadmill.admin.Admin.search.return_value = [
+        treadmill.admin.Admin.paged_search.return_value = [
             ('cell=xxx,allocation=prod1,...',
              {'cell': ['xxx'],
               'memory': ['1G'],
@@ -589,7 +728,7 @@ class AllocationTest(unittest.TestCase):
               'pattern;tm-alloc-assignment-345': ['ppp.ddd']})
         ]
         obj = self.alloc.get('foo:bar/prod1')
-        treadmill.admin.Admin.search.assert_called_with(
+        treadmill.admin.Admin.paged_search.assert_called_with(
             attributes=mock.ANY,
             search_base='allocation=prod1,tenant=bar,tenant=foo,'
                         'ou=allocations,ou=treadmill,dc=xx,dc=com',
@@ -661,7 +800,7 @@ class PartitionTest(unittest.TestCase):
         """Test partition identity to dn mapping."""
         self.assertTrue(
             self.part.dn(['foo', 'bar']).startswith(
-                'partition=foo,cell=bar,ou=cells,'.encode('utf-8')
+                'partition=foo,cell=bar,ou=cells,'
             )
         )
 

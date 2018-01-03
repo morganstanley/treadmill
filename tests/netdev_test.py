@@ -66,7 +66,7 @@ class NetDevTest(unittest.TestCase):
         self.assertEqual(res, 'foo alias')
 
     @mock.patch('io.open', mock.mock_open())
-    def test_dev_state(self):
+    def test_dev_state_up(self):
         """Test device state read.
         """
         mock_handle = io.open.return_value
@@ -76,6 +76,18 @@ class NetDevTest(unittest.TestCase):
 
         io.open.assert_called_with('/sys/class/net/foo/operstate')
         self.assertEqual(res, netdev.DevState.UP)
+
+    @mock.patch('io.open', mock.mock_open())
+    def test_dev_state_lldown(self):
+        """Test device state read.
+        """
+        mock_handle = io.open.return_value
+        mock_handle.read.return_value = 'lowerlayerdown\n'
+
+        res = netdev.dev_state('foo')
+
+        io.open.assert_called_with('/sys/class/net/foo/operstate')
+        self.assertEqual(res, netdev.DevState.LOWER_LAYER_DOWN)
 
     @mock.patch('io.open', mock.mock_open())
     def test_dev_speed(self):

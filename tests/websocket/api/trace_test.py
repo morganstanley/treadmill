@@ -8,8 +8,9 @@ from __future__ import unicode_literals
 
 import unittest
 
-import mock
 import jsonschema
+import mock
+import six
 
 from treadmill.apptrace import events
 from treadmill.websocket.api import trace
@@ -47,12 +48,59 @@ class WSRunningAPITest(unittest.TestCase):
             [('/trace/*', 'foo.*#*,*')]
         )
 
-        with self.assertRaisesRegexp(  # pylint: disable=deprecated-method
+        with six.assertRaisesRegex(
+            self,
             jsonschema.exceptions.ValidationError,
-            "'*' does not match"
+            r"'\*' is not valid"
         ):
             self.api.subscribe({'topic': '/trace',
                                 'filter': '*'})
+
+        self.assertEqual(
+            self.api.subscribe({'topic': '/trace',
+                                'filter': '*@foo.*'}),
+            [('/trace/*', '*@foo.*#*,*')]
+        )
+
+        self.assertEqual(
+            self.api.subscribe({'topic': '/trace',
+                                'filter': 'foo@bar.baz#1234'}),
+            [('/trace/*', 'foo@bar.baz#1234,*')]
+        )
+
+        with six.assertRaisesRegex(
+            self,
+            jsonschema.exceptions.ValidationError,
+            r"'\*@\*' is not valid"
+        ):
+            self.api.subscribe({'topic': '/trace',
+                                'filter': '*@*'})
+
+        with six.assertRaisesRegex(
+            self,
+            jsonschema.exceptions.ValidationError,
+            r"'\*@\*\.\*' is not valid"
+        ):
+            self.api.subscribe({'topic': '/trace',
+                                'filter': '*@*.*'})
+
+        self.assertEqual(
+            self.api.subscribe({
+                'sub-id': 'aae32dcf-4fbd-4831-b7c7-49d5afac57fa',
+                'topic': '/trace',
+                'filter': 'foo.bar#1234'
+            }),
+            [('/trace/*', 'foo.bar#1234,*')]
+        )
+
+        with six.assertRaisesRegex(
+            self,
+            jsonschema.exceptions.ValidationError,
+            "'invalid' does not match"
+        ):
+            self.api.subscribe({'sub-id': 'invalid',
+                                'topic': '/trace',
+                                'filter': 'foo.bar#1234'})
 
     @mock.patch('treadmill.apptrace.events.AppTraceEvent',
                 mock.Mock(set_spec=True))

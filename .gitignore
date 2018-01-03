@@ -3,8 +3,6 @@ __pycache__
 *.pyc
 .*
 
-# Ignore perltidy backup files
-*.bak
 
 # Ensure that .gitignore files are included
 !.gitignore
@@ -12,18 +10,12 @@ __pycache__
 # Keep track of .keepme files
 !.keepme
 
-#lint configs should be included
-!.pylintrc
-
-# Keep s6 files from templaces
+# Keep s6 files from templates
 !.s6-svscan
 
-# Ignore generated files
-Treadmill.egg-info
-lint.log
-pep8.log
+# Ignore generated files/dir
 doc/build
-doc/swagger.json
+wheels/
 build/
 dist/
 cover/

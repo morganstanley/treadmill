@@ -1,9 +1,0 @@
-#!/bin/sh
-#
-# Starts Treadmill reboot monitor.
-# Runs as root.
-#
-
-exec {{ treadmill_bin }} \
-    sproc --cgroup . \
-    reboot-monitor -- {{ dir }}/bin/reboot.sh

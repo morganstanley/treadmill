@@ -1,0 +1,49 @@
+#!{{ _alias.execlineb }} -P
+
+{{ _alias.redirfd }} -r 0 /dev/null
+{{ _alias.fdmove }} -c 2 1
+
+{{ _alias.foreground }} {
+    {{ _alias.echo }} "Waiting for all services to really finish"
+}
+
+{{ _alias.foreground }} {
+    {{ _alias.elglob }} -v SVC_DIRS * {{ _alias.s6_svwait }} -aD -t {{ timeout }} $SVC_DIRS
+}
+
+{% if wait_cgroups -%}
+# First try to remove all sub-cgroups
+{{ _alias.foreground }} {
+    {{ _alias.loopwhilex }} -o 1 -x 0
+    {{ _alias.if }} -nt {
+        {{ _alias.find }} {{ wait_cgroups }} -mindepth 1 -depth -type d -ls -delete
+    }
+    {{ _alias.foreground }} {
+        {{ _alias.sleep }} 1s
+    }
+    {{ _alias.exit }} 1
+}
+# Now wait on tasks clearing
+{{ _alias.foreground }} {
+    {{ _alias.loopwhilex }} -o 1 -x 0
+    {{ _alias.if }} -nt {
+        {{ _alias.backtick }} TASKS_COUNT {
+            {{ _alias.pipeline }} {
+                {{ _alias.wc }} -l {{ wait_cgroups }}/tasks
+            }
+            {{ _alias.awk }} "{print \$1}"
+        }
+        {{ _alias.importas }} -nu TASKS_COUNT TASKS_COUNT
+        # There will should be a total of 6 tasks for this finish script
+        {{ _alias.expr }} $TASKS_COUNT <= 6
+    }
+    {{ _alias.foreground }} {
+        {{ _alias.sleep }} 1s
+    }
+    {{ _alias.exit }} 1
+}
+{%- endif %}
+
+{{ _alias.foreground }} {
+    {{ _alias.echo }} "All services are finished"
+}

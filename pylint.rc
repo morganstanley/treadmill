@@ -1,0 +1,17 @@
+[BASIC]
+good-names=_,i,j,k,f,setUp,tearDown
+variable-rgx=[a-z_][a-z0-9_]{1,30}$
+attr-rgx=[a-z_][a-z0-9_]{1,30}$
+
+[VARIABLES]
+dummy-variables-rgx=_[a-z0-9_]{0,30}$
+
+[MESSAGES CONTROL]
+disable=E1101,E1103,I0011,R0201,R0204,R0902,R0903,R0904,R0913,R0914,W0141,W0511,R0801
+
+[REPORTS]
+output-format=parseable
+reports=no
+
+[MISCELLANEOUS]
+nodes=FIXME,TODO,XXX

@@ -2,7 +2,8 @@ language: python
 
 env:
 - TOXENV=py34
-- TOXENV=flake8
+- TOXENV=pep8
+- TOXENV=pylint
 
 install:
 - sudo touch /etc/ld.so.preload
@@ -21,7 +22,8 @@ notifications:
 # Don't fail on trunk versions.
 matrix:
   allow_failures:
-    - env: TOX_ENV=py34
+    - env: TOX_ENV=pep8
+    - env: TOX_ENV=pylint
 
 notifications:
   email: false

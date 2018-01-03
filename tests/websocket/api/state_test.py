@@ -9,6 +9,7 @@ from __future__ import unicode_literals
 import unittest
 
 import jsonschema
+import six
 
 from treadmill.websocket.api import state
 
@@ -75,9 +76,10 @@ class WSScheduledAPITest(unittest.TestCase):
                            'filter': '*'})
         )
 
-        with self.assertRaisesRegexp(  # pylint: disable=deprecated-method
+        with six.assertRaisesRegex(
+            self,
             jsonschema.exceptions.ValidationError,
-            "'foo!' does not match"
+            'u?\'foo!\' does not match'
         ):
             api.subscribe({'topic': '/scheduled',
                            'filter': 'foo!'})

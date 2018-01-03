@@ -39,22 +39,6 @@ def get_log_success(*args, **kwargs):
         yield line
 
 
-# W0613: Don't complain about unused parameters
-# W0101: Don't complain about unreachable code
-# pylint: disable=W0613,W0101
-def get_log_failure(*args, **kwargs):
-    """Generator w/ exception."""
-    raise LocalFileNotFoundError('Something went wrong')
-    for line in LOG_CONTENT:
-        return line
-        # yield line
-
-
-def err(*args, **kwargs):
-    """Raise LocalFileNotFoundError."""
-    raise LocalFileNotFoundError('File not found')
-
-
 class LocalTest(unittest.TestCase):
     """Test the logic corresponding to the /local-app and /archive namespace"""
 
@@ -82,25 +66,35 @@ class LocalTest(unittest.TestCase):
             '/local-app/proid.app/uniq/service/service_name'
         )
 
-        self.assertEqual(''.join(resp.response),
-                         '{"start": 0, "limit": -1, "order": "asc"}')
+        resp_json = b''.join(resp.response)
+        self.assertEqual(
+            json.loads(resp_json.decode()),
+            {'start': 0, 'limit': -1, 'order': 'asc'}
+        )
         self.assertEqual(resp.status_code, http_client.OK)
 
         resp = self.client.get(
             '/local-app/proid.app/uniq/service/service_name?start=0&limit=5')
 
-        self.assertEqual(''.join(resp.response),
-                         '{"start": 0, "limit": 5, "order": "asc"}')
+        resp_json = b''.join(resp.response)
+        self.assertEqual(
+            json.loads(resp_json.decode()),
+            {'start': 0, 'limit': 5, 'order': 'asc'}
+        )
         self.assertEqual(resp.status_code, http_client.OK)
 
         resp = self.client.get(
             '/local-app/proid.app/uniq/sys/component'
             '?start=3&limit=9&order=desc'
         )
-        self.assertEqual(''.join(resp.response),
-                         '{"start": 3, "limit": 9, "order": "desc"}')
+        resp_json = b''.join(resp.response)
+        self.assertEqual(
+            json.loads(resp_json.decode()),
+            {'start': 3, 'limit': 9, 'order': 'desc'}
+        )
         self.assertEqual(resp.status_code, http_client.OK)
 
+    @mock.patch('flask.send_file', mock.Mock(return_value=flask.Response()))
     def test_app_log_success(self):
         """Dummy tests for returning application logs."""
         self.impl.log.get.side_effect = get_log_success
@@ -115,10 +109,30 @@ class LocalTest(unittest.TestCase):
         self.assertEqual(list(resp.response), LOG_CONTENT)
         self.assertEqual(resp.status_code, http_client.OK)
 
-    @unittest.skip('BROKEN: Flask exception handling')
+        # check that get_all() is called if 'all' in query string is not 0
+        self.client.get(
+            '/local-app/proid.app/uniq/service/service_name?all=0'
+        )
+        self.assertFalse(self.impl.log.get_all.called)
+        self.client.get(
+            '/local-app/proid.app/uniq/service/service_name?all=1'
+        )
+        self.assertTrue(self.impl.log.get_all.called)
+
+        self.impl.log.reset_mock()
+        self.client.get(
+            '/local-app/proid.app/uniq/sys/component?all=0'
+        )
+        self.assertFalse(self.impl.log.get_all.called)
+        self.client.get(
+            '/local-app/proid.app/uniq/sys/component?all=1'
+        )
+        self.assertTrue(self.impl.log.get_all.called)
+
+    @unittest.skip('Flask exception handling is broken')
     def test_app_log_failure(self):
         """Dummy tests for the case when logs cannot be found."""
-        self.impl.log.get.side_effect = get_log_failure
+        self.impl.log.get.side_effect = LocalFileNotFoundError('foo')
 
         resp = self.client.get(
             '/local-app/proid.app/uniq/service/service_name'
@@ -128,15 +142,20 @@ class LocalTest(unittest.TestCase):
         resp = self.client.get('/local-app/proid.app/uniq/sys/component')
         self.assertEqual(resp.status_code, http_client.NOT_FOUND)
 
-    @unittest.skip('BROKEN: Flask exception handling')
+    @unittest.skip('__file__ hack does not work')
     def test_arch_get(self):
-        """Dummy tests for returning application archives."""
+        """Dummy tests for returning application archives.
+        """
         self.impl.archive.get.return_value = __file__
 
         resp = self.client.get('/archive/<app>/<uniq>/app')
         self.assertEqual(resp.status_code, http_client.OK)
 
-        self.impl.archive.get.side_effect = err
+    def test_arch_get_err(self):
+        """Dummy tests for returning application archives (not found)
+        """
+        self.impl.archive.get.return_value = __file__
+        self.impl.archive.get.side_effect = LocalFileNotFoundError('foo')
 
         resp = self.client.get('/archive/<app>/<uniq>/app')
         self.assertEqual(resp.status_code, http_client.NOT_FOUND)

@@ -1,3 +1,0 @@
-#!{{ _alias.execlineb }} -P
-
-{{ _alias.echo }} "Container supervisor exited"

@@ -10,7 +10,6 @@ import io
 import os
 import shutil
 import tempfile
-import time
 import unittest
 
 import mock
@@ -50,7 +49,7 @@ class AppCfgMgrTest(unittest.TestCase):
 
     @mock.patch('treadmill.appcfg.configure.configure',
                 mock.Mock(return_value='/test/foo'))
-    @mock.patch('treadmill.appcfg.configure.schedule', mock.Mock())
+    @mock.patch('treadmill.fs.symlink_safe', mock.Mock())
     def test__configure(self):
         """Tests application configuration event.
         """
@@ -64,9 +63,9 @@ class AppCfgMgrTest(unittest.TestCase):
             os.path.join(self.cache, 'foo#1'),
             'linux'
         )
-        treadmill.appcfg.configure.schedule.assert_called_with(
-            '/test/foo',
+        treadmill.fs.symlink_safe.assert_called_with(
             os.path.join(self.running, 'foo#1'),
+            '/test/foo',
         )
         self.assertTrue(res)
 
@@ -122,9 +121,9 @@ class AppCfgMgrTest(unittest.TestCase):
         # Access to a protected member _terminate of a client class
         # pylint: disable=W0212
 
-        fs.mkdir_safe(os.path.join(self.apps, 'proid.app-0_1234'))
+        fs.mkdir_safe(os.path.join(self.apps, 'proid.app-0-1234'))
         os.symlink(
-            os.path.join(self.apps, 'proid.app-0_1234'),
+            os.path.join(self.apps, 'proid.app-0-1234'),
             os.path.join(self.running, 'proid.app#0'),
         )
 
@@ -134,8 +133,8 @@ class AppCfgMgrTest(unittest.TestCase):
             os.path.exists(os.path.join(self.running, 'proid.app#0'))
         )
         self.assertEqual(
-            os.readlink(os.path.join(self.cleanup, 'proid.app-0_1234')),
-            os.path.join(self.apps, 'proid.app-0_1234')
+            os.readlink(os.path.join(self.cleanup, 'proid.app-0-1234')),
+            os.path.join(self.apps, 'proid.app-0-1234')
         )
 
     @mock.patch('treadmill.appcfgmgr.AppCfgMgr._configure', mock.Mock())
@@ -153,7 +152,7 @@ class AppCfgMgrTest(unittest.TestCase):
             """
             uniquename = os.path.basename(name)
             uniquename = uniquename.replace('#', '-')
-            uniquename += '_1234'
+            uniquename += '-1234'
             return uniquename
         treadmill.appcfg.eventfile_unique_name.side_effect = _fake_unique_name
         for app in ('proid.app#0', 'proid.app#1', 'proid.app#2'):
@@ -163,13 +162,10 @@ class AppCfgMgrTest(unittest.TestCase):
             # Create app/ dir
             uniquename = _fake_unique_name(app)
             os.mkdir(os.path.join(self.apps, uniquename))
-            # Create running/ symlink
-            os.symlink(os.path.join(self.apps, uniquename),
-                       os.path.join(self.running, app))
 
         self.appcfgmgr._synchronize()
 
-        self.assertFalse(treadmill.appcfgmgr.AppCfgMgr._terminate.called)
+        treadmill.appcfgmgr.AppCfgMgr._terminate.assert_not_called()
         # We always configure
         treadmill.appcfgmgr.AppCfgMgr._configure.assert_has_calls(
             [
@@ -179,9 +175,7 @@ class AppCfgMgrTest(unittest.TestCase):
             ],
             any_order=True
         )
-        treadmill.appcfgmgr.AppCfgMgr._refresh_supervisor.assert_called_with(
-            instance_names=set(['proid.app#0', 'proid.app#1', 'proid.app#2'])
-        )
+        treadmill.appcfgmgr.AppCfgMgr._refresh_supervisor.assert_called()
 
     @mock.patch('treadmill.appcfgmgr.AppCfgMgr._configure', mock.Mock())
     @mock.patch('treadmill.appcfgmgr.AppCfgMgr._refresh_supervisor',
@@ -199,7 +193,7 @@ class AppCfgMgrTest(unittest.TestCase):
             """
             uniquename = os.path.basename(name)
             uniquename = uniquename.replace('#', '-')
-            uniquename += '_1234'
+            uniquename += '-1234'
             return uniquename
         treadmill.appcfg.eventfile_unique_name.side_effect = _fake_unique_name
         for app in ('proid.app#0', 'proid.app#1', 'proid.app#2'):
@@ -219,11 +213,10 @@ class AppCfgMgrTest(unittest.TestCase):
             ],
             any_order=True,
         )
-        self.assertFalse(treadmill.appcfgmgr.AppCfgMgr._terminate.called)
-        treadmill.appcfgmgr.AppCfgMgr._refresh_supervisor.assert_called_with(
-            instance_names=set(['proid.app#0', 'proid.app#1', 'proid.app#2'])
-        )
+        treadmill.appcfgmgr.AppCfgMgr._terminate.assert_not_called()
+        treadmill.appcfgmgr.AppCfgMgr._refresh_supervisor.assert_called()
 
+    @mock.patch('treadmill.fs.symlink_safe', mock.Mock())
     @mock.patch('treadmill.appcfgmgr.AppCfgMgr._configure', mock.Mock())
     @mock.patch('treadmill.appcfgmgr.AppCfgMgr._terminate', mock.Mock())
     @mock.patch('treadmill.appcfgmgr.AppCfgMgr._refresh_supervisor',
@@ -240,31 +233,42 @@ class AppCfgMgrTest(unittest.TestCase):
             """
             uniquename = os.path.basename(name)
             uniquename = uniquename.replace('#', '-')
-            uniquename += '_1234'
+            uniquename += '-1234'
             return uniquename
         treadmill.appcfg.eventfile_unique_name.side_effect = _fake_unique_name
         for app in ('proid.app#0', 'proid.app#1', 'proid.app#2'):
             # Create app/ dir
             uniquename = _fake_unique_name(app)
-            os.mkdir(os.path.join(self.apps, uniquename))
-            # Create running/ symlink
-            os.symlink(os.path.join(self.apps, uniquename),
-                       os.path.join(self.running, app))
+            app_dir = os.path.join(self.apps, uniquename)
+            os.mkdir(app_dir)
+            # Create cleanup file in data dir
+            data_dir = os.path.join(app_dir, 'data')
+            os.mkdir(data_dir)
+            with io.open(os.path.join(data_dir, 'cleanup'), 'w') as _f:
+                pass
 
         self.appcfgmgr._synchronize()
 
-        self.assertFalse(treadmill.appcfgmgr.AppCfgMgr._configure.called)
-        treadmill.appcfgmgr.AppCfgMgr._terminate.assert_has_calls(
+        treadmill.appcfgmgr.AppCfgMgr._configure.assert_not_called()
+        treadmill.appcfgmgr.AppCfgMgr._terminate.assert_not_called()
+        treadmill.fs.symlink_safe.assert_has_calls(
             [
-                mock.call('proid.app#0'),
-                mock.call('proid.app#1'),
-                mock.call('proid.app#2')
+                mock.call(
+                    os.path.join(self.cleanup, 'proid.app#0'),
+                    os.path.join(self.apps, _fake_unique_name('proid.app#0')),
+                ),
+                mock.call(
+                    os.path.join(self.cleanup, 'proid.app#1'),
+                    os.path.join(self.apps, _fake_unique_name('proid.app#1')),
+                ),
+                mock.call(
+                    os.path.join(self.cleanup, 'proid.app#2'),
+                    os.path.join(self.apps, _fake_unique_name('proid.app#2')),
+                ),
             ],
             any_order=True,
         )
-        treadmill.appcfgmgr.AppCfgMgr._refresh_supervisor.assert_called_with(
-            instance_names=set([])
-        )
+        treadmill.appcfgmgr.AppCfgMgr._refresh_supervisor.assert_called()
 
     @mock.patch('treadmill.appcfgmgr.AppCfgMgr._configure', mock.Mock())
     @mock.patch('treadmill.appcfgmgr.AppCfgMgr._refresh_supervisor',
@@ -284,11 +288,9 @@ class AppCfgMgrTest(unittest.TestCase):
 
         # xxx shouldn't have been touched.
         self.assertTrue(os.path.exists(os.path.join(self.running, 'xxx')))
-        self.assertFalse(treadmill.appcfgmgr.AppCfgMgr._terminate.called)
-        self.assertFalse(treadmill.appcfgmgr.AppCfgMgr._configure.called)
-        treadmill.appcfgmgr.AppCfgMgr._refresh_supervisor.assert_called_with(
-            instance_names=set([])
-        )
+        treadmill.appcfgmgr.AppCfgMgr._terminate.assert_not_called()
+        treadmill.appcfgmgr.AppCfgMgr._configure.assert_not_called()
+        treadmill.appcfgmgr.AppCfgMgr._refresh_supervisor.assert_called()
 
     @mock.patch('treadmill.appcfgmgr.AppCfgMgr._configure', mock.Mock())
     @mock.patch('treadmill.appcfgmgr.AppCfgMgr._refresh_supervisor',
@@ -306,74 +308,154 @@ class AppCfgMgrTest(unittest.TestCase):
             """
             uniquename = os.path.basename(name)
             uniquename = uniquename.replace('#', '-')
-            uniquename += '_1234'
+            uniquename += '-1234'
             return uniquename
         treadmill.appcfg.eventfile_unique_name.side_effect = _fake_unique_name
         # Create cache/ entry
         with io.open(os.path.join(self.cache, 'foo#1'), 'w'):
             pass
         # Create a broken running/ symlink
-        os.symlink(os.path.join(self.apps, 'foo-1_1234'),
+        os.symlink(os.path.join(self.apps, 'foo-1-1234'),
                    os.path.join(self.running, 'foo#1'))
 
         self.appcfgmgr._synchronize()
 
-        self.assertFalse(treadmill.appcfgmgr.AppCfgMgr._terminate.called)
+        treadmill.appcfgmgr.AppCfgMgr._terminate.assert_not_called()
         treadmill.appcfgmgr.AppCfgMgr._configure.assert_called_with(
             'foo#1'
         )
-        treadmill.appcfgmgr.AppCfgMgr._refresh_supervisor.assert_called_with(
-            instance_names=set(['foo#1'])
-        )
+        treadmill.appcfgmgr.AppCfgMgr._refresh_supervisor.assert_called()
 
-    @mock.patch('time.sleep', mock.Mock())
-    @mock.patch('treadmill.supervisor.is_supervised',
-                mock.Mock(side_effect=[False, False, True, False, True]))
+    @mock.patch('treadmill.appcfgmgr.AppCfgMgr._configure', mock.Mock())
+    @mock.patch('treadmill.appcfgmgr.AppCfgMgr._refresh_supervisor',
+                mock.Mock())
+    @mock.patch('treadmill.appcfgmgr.AppCfgMgr._terminate', mock.Mock())
+    @mock.patch('treadmill.appcfg.eventfile_unique_name', mock.Mock())
+    def test__synchronize_running_link(self):
+        """Tests that sync ignores configured apps that are running.
+        """
+        # Access to a protected member _synchronize of a client class
+        # pylint: disable=W0212
+
+        def _fake_unique_name(name):
+            """Fake container unique name function.
+            """
+            uniquename = os.path.basename(name)
+            uniquename = uniquename.replace('#', '-')
+            uniquename += '-1234'
+            return uniquename
+        treadmill.appcfg.eventfile_unique_name.side_effect = _fake_unique_name
+
+        # Create app name
+        uniquename = _fake_unique_name('proid.foo#1')
+        app_dir = os.path.join(self.apps, uniquename)
+        os.mkdir(app_dir)
+
+        # Create cache/ entry
+        with io.open(os.path.join(self.cache, 'proid.foo#1'), 'w') as _f:
+            pass
+
+        # Create a running/ symlink
+        os.symlink(os.path.join(self.apps, 'proid.foo-1-1234'),
+                   os.path.join(self.running, 'proid.foo#1'))
+
+        self.appcfgmgr._synchronize()
+
+        treadmill.appcfgmgr.AppCfgMgr._terminate.assert_not_called()
+        treadmill.appcfgmgr.AppCfgMgr._configure.assert_not_called()
+        treadmill.appcfgmgr.AppCfgMgr._refresh_supervisor.assert_called()
+
+    # Disable C0103(invalid-name)
+    # pylint: disable=C0103
+    @mock.patch('treadmill.appcfgmgr.AppCfgMgr._configure', mock.Mock())
+    @mock.patch('treadmill.appcfgmgr.AppCfgMgr._refresh_supervisor',
+                mock.Mock())
+    @mock.patch('treadmill.appcfgmgr.AppCfgMgr._terminate', mock.Mock())
+    @mock.patch('treadmill.appcfg.eventfile_unique_name', mock.Mock())
+    def test__synchronize_running_no_cache_link(self):
+        """Tests that sync terminates running apps that are not in cache.
+        """
+        # Access to a protected member _synchronize of a client class
+        # pylint: disable=W0212
+
+        def _fake_unique_name(name):
+            """Fake container unique name function.
+            """
+            uniquename = os.path.basename(name)
+            uniquename = uniquename.replace('#', '-')
+            uniquename += '-1234'
+            return uniquename
+        treadmill.appcfg.eventfile_unique_name.side_effect = _fake_unique_name
+
+        # Create app name
+        uniquename = _fake_unique_name('proid.foo#1')
+        app_dir = os.path.join(self.apps, uniquename)
+        os.mkdir(app_dir)
+
+        # Create a running/ symlink
+        os.symlink(os.path.join(self.apps, 'proid.foo-1-1234'),
+                   os.path.join(self.running, 'proid.foo#1'))
+
+        self.appcfgmgr._synchronize()
+
+        treadmill.appcfgmgr.AppCfgMgr._terminate.assert_called_with(
+            'proid.foo#1')
+        treadmill.appcfgmgr.AppCfgMgr._configure.assert_not_called()
+        treadmill.appcfgmgr.AppCfgMgr._refresh_supervisor.assert_called()
+
+    @mock.patch('treadmill.appcfgmgr.AppCfgMgr._configure', mock.Mock())
+    @mock.patch('treadmill.appcfgmgr.AppCfgMgr._refresh_supervisor',
+                mock.Mock())
+    @mock.patch('treadmill.appcfgmgr.AppCfgMgr._terminate', mock.Mock())
+    @mock.patch('treadmill.appcfg.eventfile_unique_name', mock.Mock())
+    def test__synchronize_cleanup_link(self):
+        """Tests that sync ignores configured apps that are being cleaned up.
+        """
+        # Access to a protected member _synchronize of a client class
+        # pylint: disable=W0212
+
+        def _fake_unique_name(name):
+            """Fake container unique name function.
+            """
+            uniquename = os.path.basename(name)
+            uniquename = uniquename.replace('#', '-')
+            uniquename += '-1234'
+            return uniquename
+        treadmill.appcfg.eventfile_unique_name.side_effect = _fake_unique_name
+
+        # Create app name
+        uniquename = _fake_unique_name('proid.foo#1')
+        app_dir = os.path.join(self.apps, uniquename)
+        os.mkdir(app_dir)
+
+        # Create cache/ entry
+        with io.open(os.path.join(self.cache, 'proid.foo#1'), 'w') as _f:
+            pass
+
+        # Create a running/ symlink
+        os.symlink(os.path.join(self.apps, 'proid.foo-1-1234'),
+                   os.path.join(self.cleanup, 'proid.foo#1'))
+
+        self.appcfgmgr._synchronize()
+
+        treadmill.appcfgmgr.AppCfgMgr._terminate.assert_not_called()
+        treadmill.appcfgmgr.AppCfgMgr._configure.assert_not_called()
+        treadmill.appcfgmgr.AppCfgMgr._refresh_supervisor.assert_called()
+
     @mock.patch('treadmill.supervisor.control_svscan', mock.Mock())
-    @mock.patch('treadmill.supervisor.control_service', mock.Mock())
     def test__refresh_supervisor(self):
-        """Check how the supervisor is beeing refreshed.
+        """Check how the supervisor is being refreshed.
         """
         # Access to a protected member _refresh_supervisor of a client class
         # pylint: disable=W0212
 
-        self.appcfgmgr._refresh_supervisor(
-            instance_names=['foo#1', 'bar#2']
-        )
+        self.appcfgmgr._refresh_supervisor()
 
         treadmill.supervisor.control_svscan.assert_called_with(
             self.running, (
                 treadmill.supervisor.SvscanControlAction.alarm,
                 treadmill.supervisor.SvscanControlAction.nuke
             )
-        )
-
-        treadmill.supervisor.control_service.assert_has_calls(
-            [
-                mock.call(
-                    os.path.join(self.running, 'foo#1'),
-                    treadmill.supervisor.ServiceControlAction.once
-                ),
-                mock.call(
-                    os.path.join(self.running, 'bar#2'),
-                    treadmill.supervisor.ServiceControlAction.once
-                ),
-            ],
-            any_order=True
-        )
-        # Make sure we did the right amount of retries
-        treadmill.supervisor.is_supervised.assert_has_calls(
-            [
-                mock.call(os.path.join(self.running, 'foo#1')),
-                mock.call(os.path.join(self.running, 'foo#1')),
-                mock.call(os.path.join(self.running, 'foo#1')),
-                mock.call(os.path.join(self.running, 'bar#2')),
-                mock.call(os.path.join(self.running, 'bar#2')),
-            ]
-        )
-        self.assertEqual(
-            time.sleep.call_count,
-            3
         )
 
 

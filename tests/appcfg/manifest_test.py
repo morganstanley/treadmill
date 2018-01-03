@@ -106,23 +106,23 @@ class AppCfgManifestTest(unittest.TestCase):
         )
 
         self.assertTrue(
-            any(x['name'] == "sshd" for x in app0['services'])
+            any(x['name'] == 'sshd' for x in app0['services'])
         )
 
         self.assertTrue(
-            any(x['name'] == "register" for x in app0['system_services'])
+            any(x['name'] == 'register' for x in app0['system_services'])
         )
 
         self.assertTrue(
-            any(x['name'] == "hostaliases" for x in app0['system_services'])
+            any(x['name'] == 'hostaliases' for x in app0['system_services'])
         )
 
         self.assertTrue(
-            any(x['name'] == "monitor" for x in app0['system_services'])
+            any(x['name'] == 'monitor' for x in app0['system_services'])
         )
 
         self.assertTrue(
-            any(x['name'] == "start_container"
+            any(x['name'] == 'start_container'
                 for x in app0['system_services'])
         )
 

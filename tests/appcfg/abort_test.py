@@ -55,7 +55,7 @@ class AppCfgAbortTest(unittest.TestCase):
 
         treadmill.supervisor.control_service.assert_called_with(
             os.path.join(self.root, 'apps', 'proid.myapp#001'),
-            treadmill.supervisor.ServiceControlAction.kill
+            treadmill.supervisor.ServiceControlAction.down
         )
 
     def test_flag_aborted(self):

@@ -1,0 +1,11 @@
+#!/bin/sh
+#
+# Starts Treadmill master scheduler process.
+# Runs as {{ treadmillid }} proid
+#
+
+exec \
+    {{ treadmill_bin }} \
+    sproc \
+    scheduler \
+        /treadmill/appevents

@@ -19,7 +19,8 @@ from treadmill import watchdog
 
 
 class WatchdogTest(unittest.TestCase):
-    """Tests for teadmill.watchdog."""
+    """Tests for teadmill.watchdog.
+    """
 
     def setUp(self):
         self.root = tempfile.mkdtemp()
@@ -42,7 +43,8 @@ class WatchdogTest(unittest.TestCase):
     @mock.patch('os.unlink', mock.Mock())
     @mock.patch('os.chmod', mock.Mock())
     def test_initialize(self):
-        """Test the watchdog dir initialization."""
+        """Test the watchdog dir initialization.
+        """
         self.watchdog.initialize()
 
         os.unlink.assert_has_calls(
@@ -58,13 +60,15 @@ class WatchdogTest(unittest.TestCase):
 
     @mock.patch('time.time', mock.Mock(return_value=0))
     def test_check_success(self):
-        """Check the return value when all watchdog are alive."""
+        """Check the return value when all watchdog are alive.
+        """
         result = self.watchdog.check()
         self.assertEqual(result, [])
 
     @mock.patch('time.time', mock.Mock(return_value=100))
     def test_check_failed_all(self):
-        """Check the return value when all watchdog died."""
+        """Check the return value when all watchdog died.
+        """
         result = self.watchdog.check()
         self.assertEqual(
             sorted(result),
@@ -75,7 +79,8 @@ class WatchdogTest(unittest.TestCase):
 
     @mock.patch('time.time', mock.Mock(return_value=10))
     def test_check_failed_1(self):
-        """Check the return value when one watchdog died."""
+        """Check the return value when one watchdog died.
+        """
         result = self.watchdog.check()
         self.assertEqual(
             result,
@@ -84,7 +89,8 @@ class WatchdogTest(unittest.TestCase):
 
     @mock.patch('time.time', mock.Mock(return_value=15))
     def test_check_failed_2(self):
-        """Check the return value when two watchdog died."""
+        """Check the return value when two watchdog died.
+        """
         result = self.watchdog.check()
         self.assertEqual(
             sorted(result),
@@ -94,7 +100,8 @@ class WatchdogTest(unittest.TestCase):
 
     @mock.patch('time.time', mock.Mock(return_value=0))
     def test_create(self):
-        """Test the watchdog heartbeat function."""
+        """Test the watchdog heartbeat function.
+        """
         l1 = self.watchdog.create('test1', '30s')
         self.assertTrue(os.path.isfile(os.path.join(self.root, 'test1')))
         self.assertEqual(
@@ -123,7 +130,8 @@ class WatchdogTest(unittest.TestCase):
 
     @mock.patch('os.unlink', mock.Mock())
     def test_remove(self):
-        """Test the watchdog removal function."""
+        """Test the watchdog removal function.
+        """
         l1 = self.watchdog.create('test')
 
         l1.remove()
@@ -167,7 +175,8 @@ class WatchdogTest(unittest.TestCase):
         self.assertTrue(watchdog.Watchdog.Lease._write.called)
 
     def test_names(self):
-        """Tests watchdog name patterns."""
+        """Tests watchdog name patterns.
+        """
         self.watchdog.create('test', '5s', 'test')
         self.watchdog.create('app_run-test', '5s', 'test')
         self.watchdog.create('app_run-foo.bar#1234567890', '5s', 'test')

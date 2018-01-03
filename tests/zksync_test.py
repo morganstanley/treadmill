@@ -130,6 +130,7 @@ class ZkSyncTest(mockzk.MockZookeeperTestCase):
         self.assertSequenceEqual(['y', 'x', 'z'], add)
         self.assertSequenceEqual(['a', 'b'], rm)
 
+    @mock.patch('treadmill.utils.sys_exit', mock.Mock())
     @mock.patch('kazoo.client.KazooClient.get', mock.Mock())
     @mock.patch('kazoo.client.KazooClient.exists', mock.Mock())
     @mock.patch('kazoo.client.KazooClient.get_children', mock.Mock())
@@ -190,7 +191,7 @@ class ZkSyncTest(mockzk.MockZookeeperTestCase):
 
         event = kazoo.protocol.states.WatchedEvent(
             'DELETED', 'CONNECTED', '/a/x')
-        zk2fs_sync._data_watch('/a/x', 'aaa', mock_stat, event)
+        zk2fs_sync._data_watch('/a/x', b'aaa', mock_stat, event)
         self.assertFalse(os.path.exists(os.path.join(self.root, 'a/x')))
 
         event = kazoo.protocol.states.WatchedEvent(

@@ -1,1 +1,18 @@
-recursive-include treadmill/logging *
+# bootstrap files
+recursive-include lib/python/treadmill/bootstrap/haproxy/linux *
+recursive-include lib/python/treadmill/bootstrap/master/linux *
+recursive-include lib/python/treadmill/bootstrap/node/linux *
+recursive-include lib/python/treadmill/bootstrap/node/windows *
+recursive-include lib/python/treadmill/bootstrap/openldap/linux *
+recursive-include lib/python/treadmill/bootstrap/spawn/linux *
+recursive-include lib/python/treadmill/bootstrap/zookeeper/linux *
+# Treadmill resources
+recursive-include lib/python/treadmill/etc/ldap *
+recursive-include lib/python/treadmill/etc/schema *
+recursive-include lib/python/treadmill/logging *.conf
+recursive-include lib/python/treadmill/templates *
+# Treadmill cloud infra confs
+recursive-include lib/python/treadmill/infra/manifests *
+recursive-include lib/python/treadmill/infra/rpm_specs *
+recursive-include lib/python/treadmill/infra/setup/scripts *
+include lib/python/treadmill/VERSION.txt

@@ -6,8 +6,10 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
+import errno
 import io
 import os
+import resource
 import shutil
 import signal
 import stat
@@ -18,14 +20,10 @@ import unittest
 # Disable W0402: string deprecated
 # pylint: disable=W0402
 import string
+import ipaddress
 
 import mock
 import six
-
-if six.PY2 and os.name == 'posix':
-    import subprocess32 as subprocess  # pylint: disable=import-error
-else:
-    import subprocess  # pylint: disable=wrong-import-order
 
 from treadmill import exc
 from treadmill import utils
@@ -318,6 +316,18 @@ class UtilsTest(unittest.TestCase):
 
         os.chdir(cwd)
 
+    def test_cidr_range(self):
+        """Test cidr range"""
+        result1 = utils.cidr_range(174472034, 174472038)
+        result2 = utils.cidr_range('10.102.59.98', '10.102.59.102')
+        expected = [
+            ipaddress.IPv4Network(u'10.102.59.98/31'),
+            ipaddress.IPv4Network(u'10.102.59.100/31'),
+            ipaddress.IPv4Network(u'10.102.59.102/32')
+        ]
+        self.assertEqual(result1, expected)
+        self.assertEqual(result2, expected)
+
     def test_signal_flag(self):
         """Tests signal flag."""
         signalled = utils.make_signal_flag(signal.SIGHUP, signal.SIGTERM)
@@ -340,9 +350,31 @@ class UtilsTest(unittest.TestCase):
 
         self.assertEqual(yaml.dump(obj), u'{xxx: abcd}\n')
 
-    @mock.patch('signal.signal', mock.Mock(spec_set=True))
     @mock.patch('os.closerange', mock.Mock(spec_set=True))
+    @mock.patch('os.listdir', mock.Mock(spec_set=True))
+    @mock.patch('resource.getrlimit', mock.Mock(spec_set=True))
+    def test_closefrom(self):
+        """Tests sane execvp wrapper.
+        """
+        os.listdir.return_value = ['0', '1', '6', '7']
+
+        utils.closefrom(4)
+
+        os.closerange.assert_called_with(4, 7)
+        resource.getrlimit.assert_not_called()
+        os.closerange.reset_mock()
+        resource.getrlimit.reset_mock()
+
+        os.listdir.side_effect = OSError('No such file or dir', errno.ENOENT)
+        resource.getrlimit.return_value = (100, 1024**2)
+
+        utils.closefrom(4)
+
+        os.closerange.assert_called_with(4, 1024**2)
+
+    @mock.patch('signal.signal', mock.Mock(spec_set=True))
     @mock.patch('os.execvp', mock.Mock(spec_set=True))
+    @mock.patch('treadmill.utils.closefrom', mock.Mock(spec_set=True))
     def test_sane_execvp(self):
         """Tests sane execvp wrapper.
         """
@@ -351,7 +383,7 @@ class UtilsTest(unittest.TestCase):
 
         utils.sane_execvp('/bin/sleep', ['sleep', '30'])
 
-        os.closerange.assert_called_with(3, subprocess.MAXFD)
+        utils.closefrom.assert_called_with(3)
         signal.signal.assert_has_calls(
             [
                 mock.call(i, signal.SIG_DFL)

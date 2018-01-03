@@ -55,6 +55,7 @@ class PubSubTest(unittest.TestCase):
         if self.root and os.path.isdir(self.root):
             shutil.rmtree(self.root)
 
+    @mock.patch('treadmill.utils.sys_exit', mock.Mock())
     def test_pubsub(self):
         """Tests subscription."""
         pubsub = websocket.DirWatchPubSub(self.root)
@@ -120,20 +121,20 @@ class PubSubTest(unittest.TestCase):
 
         pubsub._sow('/', '*', 0, handler, impl)
 
-        handler.write_message.assert_called_with(
+        handler.send_msg.assert_called_with(
             {'echo': 1, 'when': modified},
         )
-        handler.write_message.reset_mock()
+        handler.send_msg.reset_mock()
 
         pubsub._sow('/', '*', time.time() + 1, handler, impl)
-        self.assertFalse(handler.write_message.called)
-        handler.write_message.reset_mock()
+        self.assertFalse(handler.send_msg.called)
+        handler.send_msg.reset_mock()
 
         pubsub._sow('/', '*', time.time() - 1, handler, impl)
-        handler.write_message.assert_called_with(
+        handler.send_msg.assert_called_with(
             {'echo': 2, 'when': modified},
         )
-        handler.write_message.reset_mock()
+        handler.send_msg.reset_mock()
 
     def test_sow_fs_and_db(self):
         """Tests sow from filesystem and database."""
@@ -197,7 +198,33 @@ class PubSubTest(unittest.TestCase):
                 mock.call('/xxx', None, ''),
             ]
         )
-        handler.write_message.assert_has_calls(
+        handler.send_msg.assert_has_calls(
+            [
+                mock.call({'when': 1, 'echo': 1}),
+                mock.call({'when': 2, 'echo': 2}),
+                mock.call({'when': 3, 'echo': 3}),
+                mock.call({'when': modified, 'echo': 4}),
+            ]
+        )
+
+        # Create empty sow database, this will simulate db removing database
+        # while constructing sow.
+        #
+        with tempfile.NamedTemporaryFile(dir=sow_dir,
+                                         delete=False,
+                                         prefix='trace.db-') as temp:
+            pass
+
+        pubsub._sow('/', '*', 0, handler, impl)
+        impl.on_event.assert_has_calls(
+            [
+                mock.call('/ccc', None, None),
+                mock.call('/bbb', None, None),
+                mock.call('/aaa', None, None),
+                mock.call('/xxx', None, ''),
+            ]
+        )
+        handler.send_msg.assert_has_calls(
             [
                 mock.call({'when': 1, 'echo': 1}),
                 mock.call({'when': 2, 'echo': 2}),
@@ -325,6 +352,154 @@ class WebSocketTest(AsyncHTTPTestCase):
 
         response = yield ws.read_message()
         self.assertIsNone(response)
+
+    @gen_test
+    def test_sub_id(self):
+        """Test subscribing/unsubscribing with sub-id."""
+        io.open(os.path.join(self.root, 'xxx'), 'w').close()
+
+        echo_impl = mock.Mock()
+        echo_impl.sow = None
+        echo_impl.subscribe.return_value = [('/', '*')]
+        echo_impl.on_event.side_effect = lambda filename, operation, _: {
+            'filename': filename,
+            'operation': operation
+        }
+        self.pubsub.impl['echo'] = echo_impl
+
+        ws = yield self.ws_connect('/')
+
+        # Register subscriptions, the first one has snapshot=True, all get sow.
+        ws.write_message(json.dumps({
+            'sub-id': '05a2f1cd-21ed-41cf-b602-c833dc183383', 'topic': 'echo',
+            'snapshot': True
+        }))
+        ws.write_message(json.dumps({
+            'sub-id': 'adc4bfce-f3e3-412b-9b55-3d190f70093d', 'topic': 'echo'
+        }))
+        ws.write_message(json.dumps({
+            'sub-id': 'f619f5dd-30c1-43ad-9d3c-2fcc64360db8', 'topic': 'echo',
+        }))
+
+        for sub_id in ['05a2f1cd-21ed-41cf-b602-c833dc183383',
+                       'adc4bfce-f3e3-412b-9b55-3d190f70093d',
+                       'f619f5dd-30c1-43ad-9d3c-2fcc64360db8']:
+            response = json.loads((yield ws.read_message()))
+            self.assertEqual(response['sub-id'], sub_id)
+            self.assertEqual(response['filename'], '/xxx')
+            self.assertEqual(response['operation'], None)
+
+        # File created, notify active subscriptions (the last two).
+        io.open(os.path.join(self.root, 'yyy'), 'w').close()
+        self.pubsub.run(once=True)
+
+        for sub_id in ['adc4bfce-f3e3-412b-9b55-3d190f70093d',
+                       'f619f5dd-30c1-43ad-9d3c-2fcc64360db8']:
+            response = json.loads((yield ws.read_message()))
+            self.assertEqual(response['sub-id'], sub_id)
+            self.assertEqual(response['filename'], '/yyy')
+            self.assertEqual(response['operation'], 'c')
+
+        # Unsubscribe one subscription and register a new one (gets a new sow).
+        ws.write_message(json.dumps({
+            'sub-id': 'adc4bfce-f3e3-412b-9b55-3d190f70093d',
+            'unsubscribe': True
+        }))
+        ws.write_message(json.dumps({
+            'sub-id': '6ae24aa1-8fa7-4cc1-a681-5bbcfd9ea7b7', 'topic': 'echo'
+        }))
+        for filename in ['/xxx', '/yyy']:
+            response = json.loads((yield ws.read_message()))
+            self.assertEqual(
+                response['sub-id'],
+                '6ae24aa1-8fa7-4cc1-a681-5bbcfd9ea7b7'
+            )
+            self.assertEqual(response['filename'], filename)
+            self.assertEqual(response['operation'], None)
+
+        # File created, notify active subscriptions (the last one and new one).
+        io.open(os.path.join(self.root, 'zzz'), 'w').close()
+        self.pubsub.run(once=True)
+
+        for sub_id in ['f619f5dd-30c1-43ad-9d3c-2fcc64360db8',
+                       '6ae24aa1-8fa7-4cc1-a681-5bbcfd9ea7b7']:
+            response = json.loads((yield ws.read_message()))
+            self.assertEqual(response['sub-id'], sub_id)
+            self.assertEqual(response['filename'], '/zzz')
+            self.assertEqual(response['operation'], 'c')
+
+    @gen_test
+    def test_sub_id_error_handling(self):
+        """Test error handling when subscribing/unsubscribing with sub-id."""
+        io.open(os.path.join(self.root, 'xxx'), 'w').close()
+
+        echo_impl = mock.Mock()
+        echo_impl.sow = None
+        echo_impl.subscribe.return_value = [('/', '*')]
+        echo_impl.on_event.return_value = {'echo': 1}
+        self.pubsub.impl['echo'] = echo_impl
+
+        error_impl = mock.Mock()
+        error_impl.subscribe.side_effect = Exception('error')
+        self.pubsub.impl['error'] = error_impl
+
+        ws = yield self.ws_connect('/')
+
+        # Register subscriptions, the first one will fail.
+        ws.write_message(json.dumps({
+            'sub-id': '05a2f1cd-21ed-41cf-b602-c833dc183383', 'topic': 'error'
+        }))
+        ws.write_message(json.dumps({
+            'sub-id': 'adc4bfce-f3e3-412b-9b55-3d190f70093d', 'topic': 'echo'
+        }))
+
+        response = json.loads((yield ws.read_message()))
+        self.assertEqual(
+            response['sub-id'],
+            '05a2f1cd-21ed-41cf-b602-c833dc183383'
+        )
+        self.assertEqual(response['_error'], 'error')
+
+        response = json.loads((yield ws.read_message()))
+        self.assertEqual(
+            response['sub-id'],
+            'adc4bfce-f3e3-412b-9b55-3d190f70093d'
+        )
+        self.assertEqual(response['echo'], 1)
+
+        # File created, notify active subscriptions (only the second one).
+        io.open(os.path.join(self.root, 'yyy'), 'w').close()
+        self.pubsub.run(once=True)
+
+        response = json.loads((yield ws.read_message()))
+        self.assertEqual(
+            response['sub-id'],
+            'adc4bfce-f3e3-412b-9b55-3d190f70093d'
+        )
+        self.assertEqual(response['echo'], 1)
+
+        # Subscription already exists.
+        ws.write_message(json.dumps({
+            'sub-id': 'adc4bfce-f3e3-412b-9b55-3d190f70093d', 'topic': 'echo'
+        }))
+
+        response = json.loads((yield ws.read_message()))
+        self.assertEqual(
+            response['_error'],
+            'Subscription already exists: adc4bfce-f3e3-412b-9b55-3d190f70093d'
+        )
+
+        # Invalid subscription, trying to unsubscribe nonexistent subscription.
+        ws.write_message(json.dumps({
+            'sub-id': '05a2f1cd-21ed-41cf-b602-c833dc183383',
+            'unsubscribe': True
+        }))
+
+        response = json.loads((yield ws.read_message()))
+        self.assertEqual(
+            response['_error'],
+            'Invalid subscription: 05a2f1cd-21ed-41cf-b602-c833dc183383'
+        )
 
 
 if __name__ == '__main__':

@@ -45,6 +45,22 @@ def app_list(count, name, *args, **kwargs):
             for idx in range(0, count)]
 
 
+class OpsTest(unittest.TestCase):
+    """Test comparison operators."""
+    # Disable warning accessing protected members.
+    #
+    # pylint: disable=W0212
+
+    def test_ops(self):
+        """Test comparison operators."""
+        self.assertTrue(scheduler._all_gt([3, 3], [2, 2]))
+        self.assertTrue(scheduler._any_gt([3, 2], [2, 2]))
+
+        self.assertFalse(scheduler._all_gt([3, 2], [2, 2]))
+
+        self.assertTrue(scheduler._all_lt([2, 2], [3, 3]))
+
+
 class AllocationTest(unittest.TestCase):
     """treadmill.scheduler.Allocation tests."""
 
@@ -66,10 +82,15 @@ class AllocationTest(unittest.TestCase):
         self.assertEqual(100, util_q[1][0])
         self.assertEqual(100, util_q[2][0])
 
-        # Second elememt is utilization.
-        self.assertEqual(-9. / (10. + 20), util_q[0][1])
-        self.assertEqual(-7. / (10. + 20), util_q[1][1])
-        self.assertEqual(-4. / (10. + 20), util_q[2][1])
+        # Second and third elememts is before / after utilization.
+        self.assertEqual(-10 / (10. + 20), util_q[0][1])
+        self.assertEqual(-9 / (10. + 20), util_q[0][2])
+
+        self.assertEqual(-7 / (10. + 20), util_q[1][2])
+        self.assertEqual(-9 / (10. + 20), util_q[1][1])
+
+        self.assertEqual(-4 / (10. + 20), util_q[2][2])
+        self.assertEqual(-7 / (10. + 20), util_q[2][1])
 
         # Applications are sorted by priority.
         alloc = scheduler.Allocation([10, 10])
@@ -78,9 +99,14 @@ class AllocationTest(unittest.TestCase):
         alloc.add(scheduler.Application('app3', 100, [3, 3], 'app1'))
 
         util_q = list(alloc.utilization_queue([20., 20.]))
-        self.assertEqual(-7. / (10. + 20), util_q[0][1])
-        self.assertEqual(-5. / (10. + 20), util_q[1][1])
-        self.assertEqual(-4. / (10. + 20), util_q[2][1])
+        self.assertEqual(-10 / (10. + 20), util_q[0][1])
+        self.assertEqual(-7 / (10. + 20), util_q[0][2])
+
+        self.assertEqual(-7 / (10. + 20), util_q[1][1])
+        self.assertEqual(-5 / (10. + 20), util_q[1][2])
+
+        self.assertEqual(-5 / (10. + 20), util_q[2][1])
+        self.assertEqual(-4 / (10. + 20), util_q[2][2])
 
     def test_running_order(self):
         """Test apps are ordered by status (running first) for same prio."""
@@ -133,7 +159,10 @@ class AllocationTest(unittest.TestCase):
         alloc.set_max_utilization(100)
         # setting max_utilization will cut off prio 0 apps
         queue = alloc.utilization_queue([20., 20.])
-        self.assertEqual([100, sys.maxsize], [item[0] for item in queue])
+        self.assertEqual(
+            [100, sys.maxsize],
+            [item[0] for item in queue]
+        )
 
     def test_rank_adjustment(self):
         """Test rank adjustment"""
@@ -163,7 +192,8 @@ class AllocationTest(unittest.TestCase):
         alloc = scheduler.Allocation(None)
         alloc.add(scheduler.Application('app1', 1, [1., 1.], 'app1'))
         queue = list(alloc.utilization_queue(np.array([10., 10.])))
-        self.assertEqual(1. / (10), queue[0][1])
+        self.assertEqual(0 / 10, queue[0][1])
+        self.assertEqual(1 / 10, queue[0][2])
 
     def test_duplicate(self):
         """Checks behavior when adding duplicate app."""
@@ -190,9 +220,9 @@ class AllocationTest(unittest.TestCase):
         sub_alloc_a.add(scheduler.Application('3a', 1, [5, 5], 'app1'))
 
         queue = list(alloc.utilization_queue([20., 20.]))
-        _rank, util, _pending, _order, app = queue[0]
+        _rank, _util_b, util_a, _pending, _order, app = queue[0]
         self.assertEqual('1a', app.name)
-        self.assertEqual((2 - (5 + 3)) / (20. + (5 + 3)), util)
+        self.assertEqual((2 - (5 + 3)) / (20 + (5 + 3)), util_a)
 
         sub_alloc_b = scheduler.Allocation([10, 10])
         alloc.add_sub_alloc('a1/b', sub_alloc_b)
@@ -208,9 +238,9 @@ class AllocationTest(unittest.TestCase):
         # For each sub-alloc (and self) the least utilized app is 1.
         # The sub_allloc_b is largest, so utilization smallest, 1b will be
         # first.
-        _rank, util, _pending, _order, app = queue[0]
+        _rank, _util_b, util_a, _pending, _order, app = queue[0]
         self.assertEqual('1b', app.name)
-        self.assertEqual((2. - 18) / (20. + 18), util)
+        self.assertEqual((2 - 18) / (20 + 18), util_a)
 
         # Add prio 0 app to each, make sure they all end up last.
         alloc.add(scheduler.Application('1-zero', 0, [2, 2], 'app1'))
@@ -226,12 +256,13 @@ class AllocationTest(unittest.TestCase):
         self.assertEqual(
             [float('inf')] * 3,
             [
-                util
+                util_b
                 for (_rank,
-                     util,
+                     util_b,
+                     _util_a,
                      _pending,
                      _order,
-                     _app) in queue[-3:]  # noqa: F812,E501
+                     _app) in queue[-3:]
             ]
         )
 
@@ -617,21 +648,29 @@ class NodeTest(unittest.TestCase):
         self.assertTrue(top.put(apps_nothing[1]))
 
         self.assertTrue(
-            (apps_nothing[0].server in ['a', 'b'] and
-             apps_nothing[1].server in ['y', 'z']) or
-
-            (apps_nothing[0].server in ['y', 'z'] and
-             apps_nothing[1].server in ['a', 'b']))
+            (
+                apps_nothing[0].server in ['a', 'b'] and
+                apps_nothing[1].server in ['y', 'z']
+            ) or
+            (
+                apps_nothing[0].server in ['y', 'z'] and
+                apps_nothing[1].server in ['a', 'b']
+            )
+        )
 
         self.assertTrue(top.put(apps_nothing[2]))
         self.assertTrue(top.put(apps_nothing[3]))
 
         self.assertTrue(
-            (apps_nothing[2].server in ['a', 'b'] and
-             apps_nothing[3].server in ['y', 'z']) or
-
-            (apps_nothing[2].server in ['y', 'z'] and
-             apps_nothing[3].server in ['a', 'b']))
+            (
+                apps_nothing[2].server in ['a', 'b'] and
+                apps_nothing[3].server in ['y', 'z']
+            ) or
+            (
+                apps_nothing[2].server in ['y', 'z'] and
+                apps_nothing[3].server in ['a', 'b']
+            )
+        )
 
     def test_size_and_members(self):
         """Tests recursive size calculation."""
@@ -1313,6 +1352,94 @@ class CellTest(unittest.TestCase):
         # Renew flag is not cleared, as new placement was not found.
         self.assertTrue(apps[0].renew)
 
+    def test_partition_server_down(self):
+        """Test placement when server in the partition goes down."""
+        cell = scheduler.Cell('top')
+        srv_x1 = scheduler.Server('s_x1', [10, 10], valid_until=500, label='x')
+        srv_x2 = scheduler.Server('s_x2', [10, 10], valid_until=500, label='x')
+        srv_y1 = scheduler.Server('s_y1', [10, 10], valid_until=500, label='y')
+        srv_y2 = scheduler.Server('s_y2', [10, 10], valid_until=500, label='y')
+
+        cell.add_node(srv_x1)
+        cell.add_node(srv_x2)
+        cell.add_node(srv_y1)
+        cell.add_node(srv_y2)
+
+        app_x1 = scheduler.Application('a_x1', 1, [1, 1], 'app')
+        app_x2 = scheduler.Application('a_x2', 1, [1, 1], 'app')
+        app_y1 = scheduler.Application('a_y1', 1, [1, 1], 'app')
+        app_y2 = scheduler.Application('a_y2', 1, [1, 1], 'app')
+
+        cell.partitions['x'].allocation.add(app_x1)
+        cell.partitions['x'].allocation.add(app_x2)
+        cell.partitions['y'].allocation.add(app_y1)
+        cell.partitions['y'].allocation.add(app_y2)
+
+        placement = cell.schedule()
+        self.assertEqual(len(placement), 4)
+
+        # Default strategy will distribute two apps on each of the servers
+        # in the partition.
+        #
+        # For future test it is important that each server has an app, so
+        # we assert on that.
+        self.assertEqual(len(srv_x1.apps), 1)
+        self.assertEqual(len(srv_x2.apps), 1)
+        self.assertEqual(len(srv_y1.apps), 1)
+        self.assertEqual(len(srv_y2.apps), 1)
+
+        # Verify that all apps are placed in the returned placement.
+        for (_app, before, _exp_before, after, _exp_after) in placement:
+            self.assertIsNone(before)
+            self.assertIsNotNone(after)
+
+        # Bring server down in each partition.
+        srv_x1.state = scheduler.State.down
+        srv_y1.state = scheduler.State.down
+
+        placement = cell.schedule()
+        self.assertEqual(len(placement), 4)
+
+        # Check that in the updated placement before and after are not None.
+        for (_app, before, _exp_before, after, _exp_after) in placement:
+            self.assertIsNotNone(before)
+            self.assertIsNotNone(after)
+
+    def test_placement_shortcut(self):
+        """Test no placement tracker."""
+        cell = scheduler.Cell('top')
+        srv_1 = scheduler.Server('s1', [10, 10], valid_until=500, label='x')
+        srv_2 = scheduler.Server('s2', [10, 10], valid_until=500, label='x')
+
+        cell.add_node(srv_1)
+        cell.add_node(srv_2)
+
+        app_large_dim1 = scheduler.Application('large-1', 100, [7, 1], 'app')
+        app_large_dim2 = scheduler.Application('large-2', 100, [1, 7], 'app')
+
+        cell.partitions['x'].allocation.add(app_large_dim1)
+        cell.partitions['x'].allocation.add(app_large_dim2)
+
+        cell.schedule()
+
+        self.assertIsNotNone(app_large_dim1.server)
+        self.assertIsNotNone(app_large_dim2.server)
+
+        # Add lower priority apps - can't be scheduled.
+        #
+        # As free size of top level node is 9x9, placement attempt will be
+        # made.
+        medium_apps = []
+        for appid in range(1, 10):
+            app_med = scheduler.Application(
+                'medium-%s' % appid, 90, [4, 4], 'app')
+            cell.partitions['x'].allocation.add(app_med)
+            medium_apps.append(app_med)
+
+        cell.schedule()
+        for app in medium_apps:
+            self.assertIsNone(app.server)
+
 
 class IdentityGroupTest(unittest.TestCase):
     """scheduler IdentityGroup test."""
@@ -1339,6 +1466,139 @@ class IdentityGroupTest(unittest.TestCase):
         ident_group.adjust(3)
         self.assertEqual(set([1]), ident_group.available)
 
+    def test_adjust_relese(self):
+        """Test releasing identity when identity exceeds the count."""
+        ident_group = scheduler.IdentityGroup(1)
+        self.assertEqual(0, ident_group.acquire())
+        self.assertEqual(len(ident_group.available), 0)
+
+        ident_group.adjust(0)
+        ident_group.release(0)
+        self.assertEqual(len(ident_group.available), 0)
+
+
+def _time(string):
+    """Convert a formatted datetime to a timestamp."""
+    return time.mktime(time.strptime(string, '%Y-%m-%d %H:%M:%S'))
+
+
+class RebootSchedulerTest(unittest.TestCase):
+    """reboot scheduler test."""
+
+    def test_bucket(self):
+        """Test RebootBucket."""
+        bucket = scheduler.RebootBucket(_time('2000-01-03 00:00:00'))
+
+        # cost of inserting into empty bucket is zero
+        server1 = scheduler.Server('s1', [10, 10],
+                                   up_since=_time('2000-01-01 00:00:00'))
+        self.assertEqual(0, bucket.cost(server1))
+
+        # cost of inserting into non-empty bucket is size of bucket
+        bucket.add(server1)
+        server2 = scheduler.Server('s2', [10, 10],
+                                   up_since=_time('2000-01-01 00:00:00'))
+        self.assertEqual(1, bucket.cost(server2))
+
+        # when server would be too old, cost is prohibitive
+        server3 = scheduler.Server('s3', [10, 10],
+                                   up_since=_time('1999-01-01 00:00:00'))
+        self.assertEqual(float('inf'), bucket.cost(server3))
+
+        # when server is too close to reboot date, cost is prohibitive
+        server4 = scheduler.Server('s1', [10, 10],
+                                   up_since=_time('2000-01-02 10:00:00'))
+        self.assertEqual(float('inf'), bucket.cost(server4))
+
+    def test_reboots(self):
+        """Test RebootScheduler."""
+        partition = scheduler.Partition(now=_time('2000-01-01 00:00:00'))
+
+        server1 = scheduler.Server('s1', [10, 10],
+                                   up_since=_time('2000-01-01 00:00:00'))
+        server2 = scheduler.Server('s2', [10, 10],
+                                   up_since=_time('2000-01-01 00:00:00'))
+        server3 = scheduler.Server('s3', [10, 10],
+                                   up_since=_time('2000-01-01 00:00:00'))
+        server4 = scheduler.Server('s4', [10, 10],
+                                   up_since=_time('1999-12-24 00:00:00'))
+
+        # adding to existing bucket
+        # pylint: disable=W0212
+        timestamp = partition._reboot_buckets[0].timestamp
+        partition.add(server1, timestamp)
+        self.assertEqual(timestamp,
+                         server1.valid_until)
+
+        # adding to non-existsing bucket, results in finding a more
+        # appropriate bucket
+        partition.add(server2, timestamp + 600)
+        self.assertNotEqual(timestamp + 600,
+                            server2.valid_until)
+
+        # will get into different bucket than server2, so bucket sizes
+        # stay low
+        partition.add(server3)
+        self.assertNotEqual(server2.valid_until,
+                            server3.valid_until)
+
+        # server max_lifetime is respected
+        partition.add(server4)
+        self.assertTrue(
+            server4.valid_until <
+            server4.up_since + scheduler.DEFAULT_SERVER_UPTIME
+        )
+
+
+class ShapeTest(unittest.TestCase):
+    """App shape test cases."""
+
+    def test_affinity_constraints(self):
+        """Test affinity constraints."""
+        aff = scheduler.Affinity('foo', {})
+        self.assertEqual(('foo',), aff.constraints)
+
+        aff = scheduler.Affinity('foo', {'server': 1})
+        self.assertEqual(('foo', 1,), aff.constraints)
+
+    def test_app_shape(self):
+        """Test application shape."""
+        app = scheduler.Application('foo', 11, [1, 1, 1], 'bar')
+        self.assertEqual(('bar', 0,), app.shape()[0])
+
+        app.lease = 5
+        self.assertEqual(('bar', 5,), app.shape()[0])
+
+        app = scheduler.Application('foo', 11, [1, 1, 1], 'bar',
+                                    affinity_limits={'server': 1, 'rack': 2})
+
+        # Values of the dict return ordered by key, (rack, server).
+        self.assertEqual(('bar', 1, 2, 0,), app.shape()[0])
+
+        app.lease = 5
+        self.assertEqual(('bar', 1, 2, 5,), app.shape()[0])
+
+    def test_placement_tracker(self):
+        """Tests placement tracker."""
+        app = scheduler.Application('foo', 11, [2, 2, 2], 'bar')
+
+        placement_tracker = scheduler.PlacementFeasibilityTracker()
+        placement_tracker.adjust(app)
+
+        # Same app.
+        self.assertFalse(placement_tracker.feasible(app))
+
+        # Larger app, same shape.
+        app = scheduler.Application('foo', 11, [3, 3, 3], 'bar')
+        self.assertFalse(placement_tracker.feasible(app))
+
+        # Smaller app, same shape.
+        app = scheduler.Application('foo', 11, [1, 1, 1], 'bar')
+        self.assertTrue(placement_tracker.feasible(app))
+
+        # Different affinity.
+        app = scheduler.Application('foo', 11, [5, 5, 5], 'bar1')
+        self.assertTrue(placement_tracker.feasible(app))
 
 if __name__ == '__main__':
     unittest.main()

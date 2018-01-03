@@ -42,7 +42,8 @@ class AppMonitorTest(unittest.TestCase):
                     'rate': 1.0,
                     'last_update': 100,
                 },
-            }
+            },
+            'delayed': {},
         }
 
         time.time.return_value = 101
@@ -121,6 +122,61 @@ class AppMonitorTest(unittest.TestCase):
         )
         self.assertEqual(0.0, state['monitors']['foo.bar']['available'])
 
+    @mock.patch('time.time', mock.Mock())
+    @mock.patch('treadmill.restclient.post', mock.Mock())
+    def test_reevaluate_notfound(self):
+        """Test state reevaluation."""
+
+        state = {
+            'scheduled': {
+                'foo.bar': [],
+            },
+            'monitors': {
+                'foo.bar': {
+                    'count': 1,
+                    'available': 0,
+                    'rate': 1.0,
+                    'last_update': 100,
+                },
+            },
+            'delayed': {},
+        }
+
+        time.time.return_value = 101
+
+        restclient.post.side_effect = restclient.NotFoundError('xxx')
+
+        appmonitor.reevaluate('/cellapi.sock', state)
+        self.assertTrue(restclient.post.called)
+        self.assertIn('foo.bar', state['delayed'])
+        self.assertEqual(state['delayed']['foo.bar'], float(101 + 300))
+
+        restclient.post.reset_mock()
+        time.time.return_value = 102
+        appmonitor.reevaluate('/cellapi.sock', state)
+        self.assertFalse(restclient.post.called)
+        self.assertIn('foo.bar', state['delayed'])
+        # Delay did not increase
+        self.assertEqual(state['delayed']['foo.bar'], float(101 + 300))
+
+        # After time reached, call will happen, fail, and delay will be
+        # extended.
+        restclient.post.reset_mock()
+        time.time.return_value = 500
+        appmonitor.reevaluate('/cellapi.sock', state)
+        self.assertTrue(restclient.post.called)
+        self.assertIn('foo.bar', state['delayed'])
+        self.assertEqual(state['delayed']['foo.bar'], float(500 + 300))
+
+        # More time pass, and this time call will succeed - application will
+        # be removed from delay dict.
+        restclient.post.reset_mock()
+        restclient.post.return_value = ()
+        restclient.post.side_effect = None
+        time.time.return_value = 500 + 300 + 1
+        appmonitor.reevaluate('/cellapi.sock', state)
+        self.assertTrue(restclient.post.called)
+        self.assertNotIn('foo.bar', state['delayed'])
 
 if __name__ == '__main__':
     unittest.main()

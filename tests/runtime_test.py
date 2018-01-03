@@ -7,7 +7,13 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import errno
+import io
+import os
+import shutil
 import socket
+import tarfile
+import tempfile
+import time
 import unittest
 
 import mock
@@ -15,12 +21,42 @@ import mock
 import treadmill
 import treadmill.rulefile
 import treadmill.runtime
+import treadmill.services
 
 from treadmill import exc
+from treadmill import fs
 
 
 class RuntimeTest(unittest.TestCase):
     """Tests for treadmill.runtime."""
+
+    def setUp(self):
+        # Access protected module _base_service
+        # pylint: disable=W0212
+        self.root = tempfile.mkdtemp()
+        self.tm_env = mock.Mock(
+            root=self.root,
+            # nfs_dir=os.path.join(self.root, 'mnt', 'nfs'),
+            apps_dir=os.path.join(self.root, 'apps'),
+            archives_dir=os.path.join(self.root, 'archives'),
+            metrics_dir=os.path.join(self.root, 'metrics'),
+            svc_cgroup=mock.Mock(
+                spec_set=treadmill.services._base_service.ResourceService,
+            ),
+            svc_localdisk=mock.Mock(
+                spec_set=treadmill.services._base_service.ResourceService,
+            ),
+            svc_network=mock.Mock(
+                spec_set=treadmill.services._base_service.ResourceService,
+            ),
+            rules=mock.Mock(
+                spec_set=treadmill.rulefile.RuleMgr,
+            )
+        )
+
+    def tearDown(self):
+        if self.root and os.path.isdir(self.root):
+            shutil.rmtree(self.root)
 
     @mock.patch('socket.socket.bind', mock.Mock())
     def test__allocate_sockets(self):
@@ -145,6 +181,93 @@ class RuntimeTest(unittest.TestCase):
             manifest['ephemeral_ports']['tcp']
         )
 
+    def test__archive_logs(self):
+        """Tests archiving local logs."""
+        # Access protected module _archive_logs
+        #
+        # pylint: disable=W0212
+        data_dir = os.path.join(self.root, 'xxx.yyy-1234-qwerty', 'data')
+        fs.mkdir_safe(data_dir)
+        archives_dir = os.path.join(self.root, 'archives')
+        fs.mkdir_safe(archives_dir)
+        sys_archive = os.path.join(archives_dir,
+                                   'xxx.yyy-1234-qwerty.sys.tar.gz')
+        app_archive = os.path.join(archives_dir,
+                                   'xxx.yyy-1234-qwerty.app.tar.gz')
+        treadmill.runtime.archive_logs(self.tm_env, 'xxx.yyy-1234-qwerty',
+                                       data_dir)
+
+        self.assertTrue(os.path.exists(sys_archive))
+        self.assertTrue(os.path.exists(app_archive))
+        os.unlink(sys_archive)
+        os.unlink(app_archive)
+
+        def _touch_file(path):
+            """Touch file, appending path to container_dir."""
+            fpath = os.path.join(data_dir, path)
+            fs.mkdir_safe(os.path.dirname(fpath))
+            io.open(fpath, 'w').close()
+
+        _touch_file('sys/foo/data/log/current')
+        _touch_file('sys/bla/data/log/current')
+        _touch_file('sys/bla/data/log/xxx')
+        _touch_file('services/xxx/data/log/current')
+        _touch_file('services/xxx/data/log/whatever')
+        _touch_file('a.json')
+        _touch_file('a.rrd')
+        _touch_file('log/current')
+        _touch_file('whatever')
+
+        treadmill.runtime.archive_logs(self.tm_env, 'xxx.yyy-1234-qwerty',
+                                       data_dir)
+
+        tar = tarfile.open(sys_archive)
+        files = sorted([member.name for member in tar.getmembers()])
+        self.assertEqual(
+            files,
+            ['a.json', 'a.rrd', 'log/current',
+             'sys/bla/data/log/current', 'sys/foo/data/log/current']
+        )
+        tar.close()
+
+        tar = tarfile.open(app_archive)
+        files = sorted([member.name for member in tar.getmembers()])
+        self.assertEqual(
+            files,
+            ['services/xxx/data/log/current']
+        )
+        tar.close()
+
+    def test__archive_cleanup(self):
+        """Tests cleanup of local logs."""
+        # Access protected module _ARCHIVE_LIMIT, _cleanup_archive_dir
+        #
+        # pylint: disable=W0212
+        fs.mkdir_safe(self.tm_env.archives_dir)
+
+        # Cleanup does not care about file extensions, it will cleanup
+        # oldest file if threshold is exceeded.
+        treadmill.runtime._ARCHIVE_LIMIT = 20
+        file1 = os.path.join(self.tm_env.archives_dir, '1')
+        with io.open(file1, 'w') as f:
+            f.write('x' * 10)
+
+        treadmill.runtime._cleanup_archive_dir(self.tm_env)
+        self.assertTrue(os.path.exists(file1))
+
+        os.utime(file1, (time.time() - 1, time.time() - 1))
+        file2 = os.path.join(self.tm_env.archives_dir, '2')
+        with io.open(file2, 'w') as f:
+            f.write('x' * 10)
+
+        treadmill.runtime._cleanup_archive_dir(self.tm_env)
+        self.assertTrue(os.path.exists(file1))
+
+        with io.open(os.path.join(self.tm_env.archives_dir, '2'), 'w') as f:
+            f.write('x' * 15)
+        treadmill.runtime._cleanup_archive_dir(self.tm_env)
+        self.assertFalse(os.path.exists(file1))
+        self.assertTrue(os.path.exists(file2))
 
 if __name__ == '__main__':
     unittest.main()
