@@ -129,7 +129,8 @@ def get_job(scheduler, job_id):
 
 
 def create_job(scheduler, job_id, job_name, func, func_kwargs, trigger_args):
-    """Create a new job/model"""
+    """Create a new job/model.
+    """
     _LOGGER.debug(
         'job_id: %s, job_name: %s, func: %s, func_kwargs: %r, trigger_args: '
         '%r', job_id, job_name, func, func_kwargs, trigger_args
@@ -153,8 +154,18 @@ def create_job(scheduler, job_id, job_name, func, func_kwargs, trigger_args):
     return job
 
 
+def _is_paused(job):
+    """Determine if the supplied job is paused.
+    """
+    if hasattr(job, 'next_run_time') and job.next_run_time:
+        return False
+
+    return True
+
+
 def update_job(scheduler, job_id, job_name, func, func_kwargs, trigger_args):
-    """Update an existing job/model"""
+    """Update an existing job/model.
+    """
     _LOGGER.debug(
         'job_id: %s, job_name: %s, func: %s, func_kwargs: %r, trigger_args: '
         '%r', job_id, job_name, func, func_kwargs, trigger_args
@@ -163,6 +174,8 @@ def update_job(scheduler, job_id, job_name, func, func_kwargs, trigger_args):
     job = get_job(scheduler, job_id)
     if not job:
         raise exc.NotFoundError('{} does not exist'.format(job_id))
+
+    is_paused = _is_paused(job)
 
     _LOGGER.info('Updating job %s', job_id)
     job = scheduler.add_job(
@@ -175,5 +188,8 @@ def update_job(scheduler, job_id, job_name, func, func_kwargs, trigger_args):
         kwargs=func_kwargs,
         **trigger_args
     )
+
+    if is_paused:
+        job.pause()
 
     return job

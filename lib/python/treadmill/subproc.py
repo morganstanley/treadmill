@@ -281,7 +281,7 @@ def exec_pid1(cmd, ipc=True, mount=True, proc=True,
     _LOGGER.debug('exec_pid1: %r', args)
     utils.sane_execvp(args[0], args,
                       close_fds=close_fds,
-                      restore_signals=restore_signals)
+                      signals=restore_signals)
 
 
 def safe_exec(cmd):

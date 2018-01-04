@@ -88,7 +88,9 @@ class ResourceServiceError(exc.TreadmillError):
 class ResourceServiceRequestError(ResourceServiceError):
     """Resource Service Request error.
     """
-    __slots__ = ('request')
+    __slots__ = (
+        'request',
+    )
 
     def __init__(self, message, request):
         super(ResourceServiceRequestError, self).__init__(message)

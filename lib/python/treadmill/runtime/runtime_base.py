@@ -45,10 +45,7 @@ class RuntimeBase(object):
     def __init__(self, tm_env, container_dir, param=None):
         self._tm_env = tm_env
         self._param = {} if param is None else param
-        self._service = supervisor.open_service(
-            os.path.realpath(container_dir),
-            existing=True
-        )
+        self._service = supervisor.open_service(container_dir)
 
     @abc.abstractmethod
     def _can_run(self, manifest):

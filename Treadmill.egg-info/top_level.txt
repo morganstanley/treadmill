@@ -1,4 +1,0 @@
-deploy
-etc
-local
-treadmill
