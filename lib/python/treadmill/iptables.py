@@ -12,6 +12,7 @@ from __future__ import unicode_literals
 import logging
 import os
 import re
+import time
 
 try:
     import xml.etree.cElementTree as etree
@@ -187,14 +188,6 @@ _PASSTHROUGH_RULE_RE = re.compile((
     ) +
     r'$'
 ))
-
-#: Container environment to ipset set.
-SET_BY_ENVIRONMENT = {
-    'dev': SET_NONPROD_CONTAINERS,
-    'qa': SET_NONPROD_CONTAINERS,
-    'uat': SET_NONPROD_CONTAINERS,
-    'prod': SET_PROD_CONTAINERS,
-}
 
 
 def initialize(external_ip):
@@ -814,45 +807,6 @@ def delete_rule(rule, chain=None):
         raise ValueError('Unknown rule type %r' % (type(rule)))
 
 
-def add_mark_rule(src_ip, environment):
-    """Add an environment mark for all traffic coming from an IP.
-
-    :param ``str`` src_ip:
-        Source IP to be marked
-    :param ``str`` environment:
-        Environment to use for the mark
-    """
-    assert environment in SET_BY_ENVIRONMENT, \
-        'Unknown environment: %r' % environment
-
-    target_set = SET_BY_ENVIRONMENT[environment]
-    add_ip_set(target_set, src_ip)
-
-    # Check that the IP is not marked in any other environment
-    other_env_sets = {
-        env_set for env_set in six.viewvalues(SET_BY_ENVIRONMENT)
-        if env_set != target_set
-    }
-    for other_set in other_env_sets:
-        if test_ip_set(other_set, src_ip) is True:
-            raise Exception('%r is already in %r', src_ip, other_set)
-
-
-def delete_mark_rule(src_ip, environment):
-    """Remove an environment mark from a source IP.
-
-    :param ``str`` src_ip:
-        Source IP on which the mark is set.
-    :param ``str`` environment:
-        Environment to use for the mark
-    """
-    assert environment in SET_BY_ENVIRONMENT, \
-        'Unknown environment: %r' % environment
-
-    target_set = SET_BY_ENVIRONMENT[environment]
-    rm_ip_set(target_set, src_ip)
-
-
 def create_set(new_set, set_type='hash:ip', **set_options):
     """Create a new IPSet set"""
     _ipset(
@@ -894,6 +848,49 @@ def flush_set(target_set):
         Name of the IPSet set to flush.
     """
     _ipset('flush', target_set)
+
+
+def atomic_set(target_set, content, set_type='hash:ip', **set_options):
+    """Atomically set an IPSet to a provided content.
+
+    :param ``str`` target_set:
+        Name of the IPSet set
+    :param ``iterator`` content:
+        Iterator containing the content to load in the set.
+    :param ``str`` set_type:
+        Type of the IPSet set
+    :param set_options:
+        Extra options for the set creation
+    """
+    # TODO: Read the target_set options directly instead of requiring user to
+    # provide them to this function.
+    new_set = '{ipset}-{ts}'.format(
+        ipset=target_set,
+        ts=int(time.time() * 100)
+    )
+    _LOGGER.debug('Temporary IPSet: %r', new_set)
+    try:
+        # Create a new empty IPSet set
+        init_set(
+            new_set,
+            set_type,
+            **set_options
+        )
+        # Add all the data at once using a restore script
+        ipset_dump = [
+            'add {tmp_set} {data}'.format(
+                tmp_set=new_set,
+                data=data)
+            for data in content
+        ]
+        ipset_restore('\n'.join(ipset_dump))
+        # All synchronized, now replace the old IPSet with the new one
+        swap_set(target_set, new_set)
+        _LOGGER.info('IPSet %r reset.', target_set)
+
+    finally:
+        # Destroy the temporary IPSet set
+        destroy_set(new_set)
 
 
 def list_set(target_set):

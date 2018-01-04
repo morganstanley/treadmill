@@ -718,20 +718,21 @@ def closefrom(firstfd=3):
     os.closerange(firstfd, maxfd)
 
 
+def restore_signals():
+    """Reset the default behavior to all signals.
+    """
+    for i in _SIGNALS:
+        signal.signal(i, signal.SIG_DFL)
+
+
 @osnoop.windows
-def sane_execvp(filename, args, close_fds=True, restore_signals=True):
+def sane_execvp(filename, args, close_fds=True, signals=True):
     """Execute a new program with sanitized environment.
     """
-    def _restore_signals():
-        """Reset the default behavior to all signals.
-        """
-        for i in _SIGNALS:
-            signal.signal(i, signal.SIG_DFL)
-
     if close_fds:
         closefrom(3)
-    if restore_signals:
-        _restore_signals()
+    if signals:
+        restore_signals()
     os.execvp(filename, args)
 
 

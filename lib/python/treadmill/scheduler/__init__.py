@@ -1677,6 +1677,10 @@ class Cell(Bucket):
                     assert evicted_app.server in servers
                     evicted_app_server = servers[evicted_app.server]
 
+                    # Do not consider servers that are not up.
+                    if evicted_app_server.state is not State.up:
+                        continue
+
                     evicted[evicted_app] = (evicted_app_server,
                                             evicted_app.placement_expiry)
                     evicted_app_server.remove(evicted_app.name)
