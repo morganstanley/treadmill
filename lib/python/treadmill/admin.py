@@ -539,6 +539,7 @@ class Admin(object):
                search_scope=ldap3.SUBTREE, attributes=None):
         """Call ldap search and return a generator of dn, entry tuples.
         """
+        self.ldap.result = None
         self.ldap.search(
             search_base=search_base,
             search_filter=search_filter,
@@ -555,6 +556,7 @@ class Admin(object):
                      search_scope=ldap3.SUBTREE, attributes=None):
         """Call ldap paged search and return a generator of dn, entry tuples.
         """
+        self.ldap.result = None
         res_gen = self.ldap.extend.standard.paged_search(
             search_base=search_base,
             search_filter=search_filter,

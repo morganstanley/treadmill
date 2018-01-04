@@ -1,0 +1,48 @@
+memory: 1G
+cpu: 50%
+disk: 8G
+services:
+- command: |
+    exec {{ treadmill }}/bin/treadmill34 \
+      sproc \
+        --logging-conf daemon_container.conf \
+      zk2fs \
+        --root /var/tmp/zk2fs \
+        --appgroups \
+        --endpoints \
+        --servers \
+        --running \
+        --scheduled \
+        --trace \
+        --identity-groups
+  name: zk2fs
+  restart:
+    limit: 5
+    interval: 60
+- command: |
+    exec {{ treadmill }}/bin/treadmill34 \
+      sproc \
+        --logging-conf daemon_container.conf \
+      websocket \
+        --fs-root /var/tmp/zk2fs \
+        -m endpoint,state,trace,identity-group
+  name: websocket
+  restart:
+    limit: 5
+    interval: 60
+- command: /ms/dist/esm/PROJ/laas-log-cli/prod/bin/tm3-wrapper --splunk y
+  name: laas
+  restart:
+    limit: 5
+    interval: 60
+endpoints:
+- name: ws
+  port: 8080
+  type: infra
+tickets:
+- {{ proid }}@{{ realm }}
+environ:
+- name: KRB5CCNAME
+  value: /var/spool/tickets/{{ proid }}
+affinity_limits:
+  server: 1

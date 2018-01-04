@@ -1,0 +1,3 @@
+{{ treadmillid }}@is1.morgan
+{% for master in masters %}host/{{ master.hostname }}@is1.morgan
+{% endfor %}

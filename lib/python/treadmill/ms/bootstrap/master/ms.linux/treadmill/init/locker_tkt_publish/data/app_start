@@ -1,0 +1,12 @@
+#!/bin/sh
+#
+# Starts treadmill locker publisher.
+# Runs as root with host principal creds.
+#
+
+# Pick up new environment.
+exec \
+    {{ treadmill }}/bin/treadmill27 \
+    sproc tickets publish \
+    --tkt-spool-dir /treadmill/spool/tickets \
+    --realms @is1.morgan,@MSAD.MS.COM

@@ -1,0 +1,11 @@
+---
+{{ proid }}.adminapi.{{ cell }}: 3
+{{ proid }}.cellapi.{{ cell }}: 3
+{{ proid }}.wsapi.{{ cell }}: 3
+{{ proid }}.stateapi.{{ cell }}: 3
+{{ proid }}.app-dns.{{ cell }}: 2
+{{ proid }}.lbvirtual.{{ cell }}: 0
+{{ proid }}.lbvirtual-checkout.{{ cell }}: 1
+{{ proid }}.export-reports.{{ cell }}: 1
+{{ proid }}.app-event.{{ cell }}: 2
+{{ proid }}.prodperim.{{ cell }}: 1

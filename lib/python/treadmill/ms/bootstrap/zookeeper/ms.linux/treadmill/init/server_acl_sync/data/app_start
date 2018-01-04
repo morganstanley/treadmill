@@ -1,0 +1,13 @@
+#!/bin/sh
+#
+# Starts sync between roles/servers and /servers node in Zookeeper.
+# Runs as root with host principal creds.
+#
+
+# FIXME: This service could run as cell proid.
+
+# This service needs host tickets
+
+exec {{ treadmill }}/bin/treadmill34 sproc srvacl \
+    --zookeeper {{ zookeeper }} \
+    /treadmill/roles/servers

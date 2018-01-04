@@ -1,0 +1,11 @@
+#!/bin/sh
+
+# Script that provides prodperim exception rules for proid.
+# Runs as root
+#
+
+exec \
+    {{ treadmill }}/bin/treadmill34 \
+    sproc --cgroup . \
+    prodperim exception_service \
+    --root-dir {{ dir }}

@@ -1,0 +1,13 @@
+#!/bin/sh
+#
+# Starts treadmill locker ticket acceptor (v2).
+# Runs as root with host principal creds.
+#
+
+exec \
+    {{ treadmill }}/bin/treadmill27 \
+    sproc tickets accept \
+    --use-v2 \
+    --appname {{ treadmillid }}.tickets-v2#000000000{{ me.idx }} \
+    --endpoint tickets \
+    --tkt-spool-dir /treadmill/spool/tickets.tmp

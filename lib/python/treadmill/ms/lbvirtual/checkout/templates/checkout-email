@@ -1,0 +1,14 @@
+{% for lbendpoint, virtuals in errors %}
+    <h3>{{ lbendpoint }}</h3>
+    <ul>
+    {% for virtual, members in virtuals %}
+        <li><a href="https://lbadmin.ms.com/webinfra/lbAdmin/webapp/#virtualMarker?virtualname={{ virtual }}">{{ virtual }}</a></li>
+        <ul>
+        {% for (endpoint, hostport), state in members.items() %}
+            {% set instance, proto_endpoint = endpoint.split(':', 1) %}
+            <li><a href="http://treadmill-web.ms.com/#/dashboard/instance?cell={{ cell }}&inst={{ instance }}">{{ instance }}</a>:{{ proto_endpoint }} {{ hostport }} {{ state }}</li>
+        {% endfor %}
+        </ul>
+    {% endfor %}
+    </ul>
+{% endfor %}

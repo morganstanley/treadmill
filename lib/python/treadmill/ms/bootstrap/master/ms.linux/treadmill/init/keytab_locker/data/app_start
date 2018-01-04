@@ -1,0 +1,11 @@
+#!/bin/sh
+#
+# Starts treadmill keytab locker.
+
+# This service needs host tickets
+
+# Pick up new environment.
+exec \
+    {{ treadmill }}/bin/treadmill27 \
+    sproc keytabs locker \
+    --kt-spool-dir /treadmill/spool/keytabs

@@ -9,7 +9,6 @@ from __future__ import unicode_literals
 import io
 import json
 import logging
-import signal
 import sys
 
 import click
@@ -94,11 +93,7 @@ def init():
             # thread for Zk connection.
             #
             # TODO: should this be done as part of ZK connect?
-            for sig in range(1, signal.NSIG):
-                try:
-                    signal.signal(sig, signal.SIG_DFL)
-                except RuntimeError:
-                    pass
+            utils.restore_signals()
 
             vring.run(
                 routing,

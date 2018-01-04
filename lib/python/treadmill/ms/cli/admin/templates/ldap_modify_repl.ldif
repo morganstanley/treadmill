@@ -1,0 +1,4 @@
+dn: olcDatabase={1}mdb,cn=config
+changetype: modify
+{{ action }}: olcSyncrepl
+olcSyncrepl: rid={{ rid }} provider=ldap://{{ server }}:{{ port }} bindmethod=sasl searchbase="dc=ms,dc=com" type=refreshAndPersist retry="5 5 300 5" timeout=1

@@ -1,0 +1,9 @@
+#!{{ _alias.execlineb }} -P
+
+{{ _alias.if }} {
+    # XXX: Remove me. LaaS backward compat.
+    # {{ _alias.mkdir }} -p -- ../data/log
+    {{ _alias.ln }} -vfns ../log/ ../data/log
+}
+
+{{ _alias.s6_log }} -b -p T n20 s1000000 ../data/log

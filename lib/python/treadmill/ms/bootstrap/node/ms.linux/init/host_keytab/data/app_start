@@ -1,0 +1,11 @@
+#!/bin/sh
+
+# Script that keeps ProdPerim rules in sync on the Treadmill nodes.
+# Runs as root
+#
+
+exec \
+    {{ treadmill }}/bin/treadmill34 \
+    sproc --cgroup . \
+    keytabs make \
+    --kt-spool-dir {{ dir }}/spool

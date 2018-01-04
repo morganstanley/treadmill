@@ -1,0 +1,40 @@
+---
+memory: 1G
+cpu: 50%
+disk: 5G
+services:
+- command: |
+    exec {{ treadmill }}/bin/treadmill34 \
+      sproc \
+        --logging-conf daemon_container.conf \
+      zk2fs \
+        --root /var/tmp/zk2fs \
+        --appgroups \
+        --trace
+  name: zk2fs
+  restart:
+    limit: 5
+    interval: 60
+- command: |
+    exec {{ treadmill }}/bin/treadmill34 \
+      sproc \
+        --logging-conf daemon_container.conf \
+      app-event \
+        --fs-root /var/tmp/zk2fs
+  name: app-event
+  restart:
+    limit: 5
+    interval: 60
+- command: |
+    exec {{ treadmill }}/sbin/run_watchtower
+  name: wt-forward
+  restart:
+    limit: 5
+    interval: 60
+tickets:
+- {{ proid }}@{{ realm }}
+environ:
+- name: KRB5CCNAME
+  value: /var/spool/tickets/{{ proid }}
+affinity_limits:
+  server: 1

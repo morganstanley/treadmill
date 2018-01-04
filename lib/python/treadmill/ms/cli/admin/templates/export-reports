@@ -1,0 +1,28 @@
+---
+memory: 256M
+cpu: 50%
+disk: 256M
+services:
+- command: >-
+    exec {{ treadmill }}/bin/treadmill34 \
+      sproc \
+        --logging-conf daemon_container.conf \
+      export-reports \
+        --out-dir /v/region/local/appl/cloud/treadmill/data/${TREADMILL_ENV}/state_reports/{{ cell }} \
+        --interval 60
+  name: export-reports
+  restart:
+    limit: 5
+    interval: 60
+- command: /ms/dist/esm/PROJ/laas-log-cli/prod/bin/tm3-wrapper --splunk y
+  name: laas
+  restart:
+    limit: 5
+    interval: 60
+tickets:
+- {{ proid }}@{{ realm }}
+environ:
+- name: KRB5CCNAME
+  value: /var/spool/tickets/{{ proid }}
+affinity_limits:
+  server: 1

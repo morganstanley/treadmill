@@ -1,0 +1,50 @@
+---
+memory: 1G
+cpu: 50%
+disk: 1G
+services:
+- command: |
+    export TZ=$(/usr/bin/awk -F= '/ZONE/ {print $2}' /etc/sysconfig/clock) ;
+    exec {{ treadmill}}/bin/treadmill34 \
+      sproc \
+        --logging-conf daemon_container.conf \
+      restapi \
+        -p 8000 \
+        --auth spnego \
+        --title 'Treadmill_Cell_API' \
+        -m cron,instance,app-monitor,identity-group,nodeinfo,scheduler \
+        -A http+unix://%2Ftmp%2Fpge.sock \
+        --workers 5 \
+        --cors-origin='(?i).*\.ms\.com'
+  name: rest-api
+  restart:
+    limit: 5
+    interval: 60
+- command: |
+    exec {{ treadmill }}/bin/treadmill34 \
+      sproc \
+        --logging-conf daemon_container.conf \
+      pge \
+        -l unix:/tmp/pge.sock
+  name: pge-service
+  restart:
+    limit: 5
+    interval: 60
+- command: /ms/dist/esm/PROJ/laas-log-cli/prod/bin/tm3-wrapper --splunk y
+  name: laas
+  restart:
+    limit: 5
+    interval: 60
+features:
+- webauthd
+tickets:
+- {{ proid }}@{{ realm }}
+endpoints:
+- name: http
+  port: 8000
+  type: infra
+environ:
+- name: KRB5CCNAME
+  value: /var/spool/tickets/{{ proid }}
+affinity_limits:
+  server: 1

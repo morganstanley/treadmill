@@ -1,0 +1,19 @@
+#!/bin/sh
+#
+# Takes broken nodes out of rotation.
+#
+
+OUTDIR="/treadmill/data/checkout"
+
+{{ _alias.mkdir }} -p ${OUTDIR}
+{{ _alias.chown }} -R nobody ${OUTDIR}
+
+# XXX: This shouldn't be running as root
+
+exec \
+    {{ treadmill }}/bin/treadmill27 \
+    sproc checkout \
+        --outdir ${OUTDIR} \
+        --port 0 \
+        --processor ms-email \
+        api zk sysapps ldap dns cell-version
