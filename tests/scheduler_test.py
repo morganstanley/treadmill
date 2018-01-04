@@ -1270,6 +1270,43 @@ class CellTest(unittest.TestCase):
         self.assertEqual(len([app for app in large_apps if app.server]), 9)
 
     @mock.patch('time.time', mock.Mock(return_value=100))
+    def test_eviction_server_down(self):
+        """Tests app restore."""
+        cell = scheduler.Cell('top')
+        large_server = scheduler.Server('large', [10, 10], traits=0,
+                                        valid_until=10000)
+        cell.add_node(large_server)
+
+        small_server = scheduler.Server('small', [3, 3], traits=0,
+                                        valid_until=10000)
+        cell.add_node(small_server)
+
+        # Create two apps one with retention other without. Set priority
+        # so that app with retention is on the right of the queue, when
+        # placement not found for app without retention, it will try to
+        # evict app with retention.
+        app_no_retention = scheduler.Application('a1', 100, [4, 4], 'app')
+        app_with_retention = scheduler.Application('a2', 1, [4, 4], 'app',
+                                                   data_retention_timeout=3000)
+
+        cell.add_app(cell.partitions[None].allocation, app_no_retention)
+        cell.add_app(cell.partitions[None].allocation, app_with_retention)
+
+        cell.schedule()
+
+        # At this point, both apps are on large server, as small server does
+        # not have capacity.
+        self.assertEqual('large', app_no_retention.server)
+        self.assertEqual('large', app_with_retention.server)
+
+        # Mark large server down. App with retention will remain on the server.
+        # App without retention should be pending.
+        large_server.state = scheduler.State.down
+        cell.schedule()
+        self.assertEqual(None, app_no_retention.server)
+        self.assertEqual('large', app_with_retention.server)
+
+    @mock.patch('time.time', mock.Mock(return_value=100))
     def test_restore(self):
         """Tests app restore."""
         cell = scheduler.Cell('top')

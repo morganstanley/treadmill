@@ -87,23 +87,29 @@ trace = treadmill.websocket.api.trace
 [treadmill.formatters]
 json = treadmill.formatter.jsonfmt
 yaml = treadmill.formatter.yamlfmt
-app = treadmill.formatter.tablefmt:AppPrettyFormatter
-cron = treadmill.formatter.tablefmt:CronPrettyFormatter
-server = treadmill.formatter.tablefmt:ServerPrettyFormatter
-dns = treadmill.formatter.tablefmt:DNSPrettyFormatter
-appgroup = treadmill.formatter.tablefmt:AppGroupPrettyFormatter
-ldap-schema = treadmill.formatter.tablefmt:LdapSchemaPrettyFormatter
-cell = treadmill.formatter.tablefmt:CellPrettyFormatter
-tenant = treadmill.formatter.tablefmt:TenantPrettyFormatter
+alloc-queue = treadmill.formatter.tablefmt:AllocationQueuePrettyFormatter
 allocation = treadmill.formatter.tablefmt:AllocationPrettyFormatter
-partition = treadmill.formatter.tablefmt:PartitionPrettyFormatter
-server-node = treadmill.formatter.tablefmt:ServerNodePrettyFormatter
+app = treadmill.formatter.tablefmt:AppPrettyFormatter
 app-monitor = treadmill.formatter.tablefmt:AppMonitorPrettyFormatter
+appgroup = treadmill.formatter.tablefmt:AppGroupPrettyFormatter
 bucket = treadmill.formatter.tablefmt:BucketPrettyFormatter
-identity-group = treadmill.formatter.tablefmt:IdentityGroupPrettyFormatter
-instance-state = treadmill.formatter.tablefmt:InstanceStatePrettyFormatter
+cell = treadmill.formatter.tablefmt:CellPrettyFormatter
+cron = treadmill.formatter.tablefmt:CronPrettyFormatter
+dns = treadmill.formatter.tablefmt:DNSPrettyFormatter
 endpoint = treadmill.formatter.tablefmt:EndpointPrettyFormatter
 haproxy = treadmill.formatter.tablefmt:HAProxyPrettyFormatter
+identity-group = treadmill.formatter.tablefmt:IdentityGroupPrettyFormatter
+instance-state = treadmill.formatter.tablefmt:InstanceStatePrettyFormatter
+ldap-schema = treadmill.formatter.tablefmt:LdapSchemaPrettyFormatter
+partition = treadmill.formatter.tablefmt:PartitionPrettyFormatter
+placement = treadmill.formatter.tablefmt:PlacementPrettyFormatter
+sched-view-allocs = treadmill.formatter.tablefmt:SchedulerAllocsPrettyFormatter
+sched-view-apps = treadmill.formatter.tablefmt:SchedulerAppsPrettyFormatter
+sched-view-reboots = treadmill.formatter.tablefmt:SchedulerRebootsPrettyFormatter
+sched-view-servers = treadmill.formatter.tablefmt:SchedulerServersPrettyFormatter
+server = treadmill.formatter.tablefmt:ServerPrettyFormatter
+server-node = treadmill.formatter.tablefmt:ServerNodePrettyFormatter
+tenant = treadmill.formatter.tablefmt:TenantPrettyFormatter
 
 
 [treadmill.cli]

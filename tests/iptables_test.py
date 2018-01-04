@@ -84,6 +84,24 @@ class IptablesTest(unittest.TestCase):
                                      dst_ip='192.168.2.2'),
         ])
 
+        with io.open(self.IPTABLES_STATE) as f:
+            self.iptables_state = f.read()
+
+        with io.open(self.IPTABLES_EMPTY_STATE) as f:
+            self.iptables_empty_state = f.read()
+
+        with io.open(self.IPTABLES_FILTER_STATE) as f:
+            self.iptables_filter_state = f.read()
+
+        with io.open(self.IPTABLES_FILTER_DROP_STATE) as f:
+            self.iptables_filter_drop_state = f.read()
+
+        with io.open(self.IPSET_STATE) as f:
+            self.ipset_state = f.read()
+
+        with io.open(self.NAT_TABLE_SAVE) as f:
+            self.nat_table_save = f.read()
+
     @mock.patch('treadmill.iptables.ipset_restore', mock.Mock())
     @mock.patch('treadmill.iptables._iptables_restore', mock.Mock())
     def test_initialize(self):
@@ -100,14 +118,14 @@ class IptablesTest(unittest.TestCase):
         iptables.initialize('1.2.3.4')
 
         treadmill.iptables.ipset_restore.assert_called_with(
-            io.open(self.IPSET_STATE).read(),
+            self.ipset_state
         )
 
         treadmill.iptables._iptables_restore.assert_has_calls([
-            mock.call(io.open(self.IPTABLES_STATE).read()),
-            mock.call(io.open(self.IPTABLES_FILTER_STATE).read(),
+            mock.call(self.iptables_state),
+            mock.call(self.iptables_filter_state,
                       noflush=True),
-            mock.call(io.open(self.IPTABLES_FILTER_DROP_STATE).read(),
+            mock.call(self.iptables_filter_drop_state,
                       noflush=True),
         ])
 
@@ -131,7 +149,7 @@ class IptablesTest(unittest.TestCase):
 
         treadmill.subproc.invoke.assert_called_with(
             ['iptables_restore'],
-            cmd_input=io.open(self.IPTABLES_EMPTY_STATE).read(),
+            cmd_input=self.iptables_empty_state,
             use_except=True,
         )
 
@@ -265,67 +283,6 @@ class IptablesTest(unittest.TestCase):
              ' -j SNAT --to-source 2.2.2.2:345')
         )
 
-    @mock.patch('treadmill.iptables.add_ip_set', mock.Mock())
-    @mock.patch('treadmill.iptables.test_ip_set',
-                mock.Mock(return_value=False))
-    def test_add_mark_rule(self):
-        """Test mark rule addition"""
-        # Disable protected-access: Test access protected members .
-        # pylint: disable=protected-access
-        # Called with the NONPROD interface
-        iptables.add_mark_rule('2.2.2.2', 'dev')
-
-        treadmill.iptables.add_ip_set.assert_called_with(
-            iptables.SET_NONPROD_CONTAINERS, '2.2.2.2'
-        )
-        treadmill.iptables.test_ip_set.assert_called_with(
-            iptables.SET_PROD_CONTAINERS, '2.2.2.2'
-        )
-
-        treadmill.iptables.add_ip_set.reset_mock()
-        treadmill.iptables.test_ip_set.reset_mock()
-        # Called with the PROD interface
-        iptables.add_mark_rule('3.3.3.3', 'prod')
-
-        treadmill.iptables.add_ip_set.assert_called_with(
-            iptables.SET_PROD_CONTAINERS, '3.3.3.3'
-        )
-        treadmill.iptables.test_ip_set.assert_called_with(
-            iptables.SET_NONPROD_CONTAINERS, '3.3.3.3'
-        )
-
-    @mock.patch('treadmill.iptables.add_ip_set', mock.Mock())
-    @mock.patch('treadmill.iptables.test_ip_set',
-                mock.Mock(return_value=True))
-    def test_add_mark_rule_dup(self):
-        """Test mark rule addition (integrity error)"""
-        self.assertRaises(
-            Exception,
-            iptables.add_mark_rule,
-            '2.2.2.2', 'dev'
-        )
-
-    @mock.patch('treadmill.iptables.rm_ip_set', mock.Mock())
-    def test_delete_mark_rule(self):
-        """Test mark rule deletion."""
-        # Disable protected-access: Test access protected members .
-        # pylint: disable=protected-access
-
-        # Called with the NONPROD interface
-        iptables.delete_mark_rule('2.2.2.2', 'dev')
-
-        treadmill.iptables.rm_ip_set.assert_called_with(
-            iptables.SET_NONPROD_CONTAINERS, '2.2.2.2'
-        )
-        treadmill.iptables.rm_ip_set.reset_mock()
-
-        # Called with the PROD interface
-        iptables.delete_mark_rule('4.4.4.4', 'prod')
-
-        treadmill.iptables.rm_ip_set.assert_called_with(
-            iptables.SET_PROD_CONTAINERS, '4.4.4.4'
-        )
-
     @mock.patch('treadmill.iptables.add_dnat_rule', mock.Mock())
     @mock.patch('treadmill.iptables.delete_dnat_rule', mock.Mock())
     @mock.patch('treadmill.iptables._get_current_dnat_rules', mock.Mock())
@@ -415,7 +372,7 @@ class IptablesTest(unittest.TestCase):
         # Disable protected-access: Test access protected members.
         # pylint: disable=protected-access
         treadmill.subproc.check_output.return_value = \
-            io.open(self.NAT_TABLE_SAVE).read()
+            self.nat_table_save
 
         rules = iptables._get_current_dnat_rules(iptables.PREROUTING_DNAT)
 
@@ -515,7 +472,7 @@ class IptablesTest(unittest.TestCase):
         # Disable protected-access: Test access protected members.
         # pylint: disable=protected-access
         treadmill.subproc.check_output.return_value = \
-            io.open(self.NAT_TABLE_SAVE).read()
+            self.nat_table_save
 
         rules = iptables._get_current_snat_rules(iptables.POSTROUTING_SNAT)
 
@@ -697,7 +654,7 @@ class IptablesTest(unittest.TestCase):
         # Disable protected-access: Test access protected members.
         # pylint: disable=protected-access
         treadmill.subproc.check_output.return_value = \
-            io.open(self.NAT_TABLE_SAVE).read()
+            self.nat_table_save
 
         rules = iptables._get_current_passthrough_rules(
             iptables.PREROUTING_PASSTHROUGH
@@ -880,6 +837,18 @@ class IptablesTest(unittest.TestCase):
         )
 
     @mock.patch('treadmill.iptables._ipset', mock.Mock())
+    def test_swap_set(self):
+        """Test swapping of two IPSets.
+        """
+        # Disable protected-access: Test access protected members .
+        # pylint: disable=protected-access
+        iptables.swap_set('from', 'to')
+
+        treadmill.iptables._ipset.assert_called_with(
+            'swap', 'from', 'to'
+        )
+
+    @mock.patch('treadmill.iptables._ipset', mock.Mock())
     def test_ipset_restore(self):
         """Test the state restore functionality of IPSet"""
         # Disable protected-access: Test access protected members .
@@ -888,6 +857,40 @@ class IptablesTest(unittest.TestCase):
 
         treadmill.iptables._ipset.assert_called_with(
             '-exist', 'restore', cmd_input='Initial IPSet state'
+        )
+
+    @mock.patch('treadmill.iptables.create_set', mock.Mock())
+    @mock.patch('treadmill.iptables.destroy_set', mock.Mock())
+    @mock.patch('treadmill.iptables.flush_set', mock.Mock())
+    @mock.patch('treadmill.iptables.ipset_restore', mock.Mock())
+    @mock.patch('treadmill.iptables.swap_set', mock.Mock())
+    def test_atomic_set(self):
+        """Test atomic replacement of IPSet content.
+        """
+        test_content = (x for x in ['a', 'b', 'c'])
+        iptables.atomic_set('target', test_content,
+                            'some:type', foo='bar')
+
+        iptables.create_set.assert_called_with(
+            mock.ANY, set_type='some:type', foo='bar'
+        )
+        tmp_set = iptables.create_set.call_args[0][0]
+
+        iptables.flush_set.assert_called_with(
+            tmp_set
+        )
+        iptables.ipset_restore.assert_called_with(
+            (
+                "add {tmp_set} a\n"
+                "add {tmp_set} b\n"
+                "add {tmp_set} c"
+            ).format(tmp_set=tmp_set)
+        )
+        iptables.swap_set.assert_called_with(
+            'target', tmp_set
+        )
+        iptables.destroy_set.assert_called_with(
+            tmp_set
         )
 
 
