@@ -14,16 +14,11 @@ import unittest
 import tests.treadmill_test_deps  # pylint: disable=W0611
 
 import mock
-import six
-
-if six.PY2 and os.name == 'posix':
-    import subprocess32 as subprocess  # pylint: disable=import-error
-else:
-    import subprocess  # pylint: disable=wrong-import-order
 
 import treadmill
 from treadmill import firewall
 from treadmill import iptables
+from treadmill import subproc
 
 
 class IptablesTest(unittest.TestCase):
@@ -113,7 +108,7 @@ class IptablesTest(unittest.TestCase):
         # pylint: disable=protected-access
         treadmill.iptables._iptables_restore.side_effect = [
             None,
-            subprocess.CalledProcessError(2, 'failed'),
+            subproc.CalledProcessError(2, 'failed'),
             None,
         ]
 
@@ -237,7 +232,7 @@ class IptablesTest(unittest.TestCase):
     def test_delete_dnat_rule_nonexist(self):
         """Test dnat rule deleting when the rule does not exist."""
         treadmill.subproc.check_call.side_effect = \
-            subprocess.CalledProcessError(returncode=1, output='', cmd='')
+            subproc.CalledProcessError(returncode=1, output='', cmd='')
 
         iptables.delete_dnat_rule(
             firewall.DNATRule(proto='tcp',
@@ -620,7 +615,7 @@ class IptablesTest(unittest.TestCase):
         treadmill.subproc.check_call.reset_mock()
         treadmill.subproc.check_call.return_value = 1
         treadmill.subproc.check_call.side_effect = \
-            subprocess.CalledProcessError(returncode=1, cmd='failed conntrack')
+            subproc.CalledProcessError(returncode=1, cmd='failed conntrack')
 
         treadmill.iptables.flush_cnt_conntrack_table('4.4.4.4')
 
@@ -643,7 +638,7 @@ class IptablesTest(unittest.TestCase):
         treadmill.subproc.check_call.reset_mock()
         treadmill.subproc.check_call.return_value = 1
         treadmill.subproc.check_call.side_effect = \
-            subprocess.CalledProcessError(returncode=1, cmd='failed conntrack')
+            subproc.CalledProcessError(returncode=1, cmd='failed conntrack')
 
         treadmill.iptables.flush_pt_conntrack_table('4.4.4.4')
 

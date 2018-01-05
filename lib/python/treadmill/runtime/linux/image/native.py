@@ -441,8 +441,9 @@ def share_cgroup_info(root_dir, cgrp):
 
 class NativeImage(_image_base.Image):
     """Represents a native image."""
+
     __slots__ = (
-        'tm_env'
+        'tm_env',
     )
 
     def __init__(self, tm_env):
@@ -471,9 +472,6 @@ class NativeImage(_image_base.Image):
 
 class NativeImageRepository(_repository_base.ImageRepository):
     """A collection of native images."""
-
-    def __init__(self, tm_env):
-        super(NativeImageRepository, self).__init__(tm_env)
 
     def get(self, url):
         return NativeImage(self.tm_env)

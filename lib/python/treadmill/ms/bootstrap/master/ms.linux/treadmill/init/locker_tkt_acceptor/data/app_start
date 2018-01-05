@@ -1,0 +1,18 @@
+#!/bin/sh
+#
+# Starts treadmill locker ticket acceptor.
+# Runs as root with host principal creds.
+#
+
+# Run ticket acceptor using public endpoint (tickets) which is discoverable
+# by all the clients.
+#
+# It will store tickets in /tmp.
+#
+# Once stored, they will be reforwarded to private endpoint - priv.tickets
+exec \
+    {{ treadmill }}/bin/treadmill27 \
+    sproc tickets accept \
+    --appname {{ treadmillid }}.tickets#000000000{{ me.idx }} \
+    --endpoint tickets \
+    --tkt-spool-dir /treadmill/spool/tickets.tmp

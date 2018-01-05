@@ -457,5 +457,6 @@ class ApiSchemaTest(unittest.TestCase):
         _fail(api.create, 'foo.bla', _patch(good, '/count', 1001))
         _fail(api.create, 'foo.bla', _patch(good, '/count', '1'))
 
+
 if __name__ == '__main__':
     unittest.main()

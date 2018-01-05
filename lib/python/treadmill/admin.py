@@ -429,7 +429,7 @@ def _diff_entries(old_entry, new_entry):
 
     # Remove all attributes of old_entry which are not present
     # in new_entry at all
-    for attr in attrtype_lower_map.keys():
+    for attr in attrtype_lower_map:
         attrtype = attrtype_lower_map[attr]
         diff.setdefault(attrtype, []).append((ldap3.MODIFY_DELETE, []))
 
@@ -724,13 +724,6 @@ class Admin(object):
                 obj_classes.append(obj_cls)
 
         if abstract:
-            # Pylint complains about redefiniton of attr_types and obj_classes
-            # to dict from list.
-            #
-            # TODO: need to investigate why this is done, this is
-            #                indeed not right...
-            #
-            # pylint: disable=R0204
             attr_types = dict([_attrtype_2_abstract(a) for a in attr_types])
             obj_classes = dict([_objcls_2_abstract(o) for o in obj_classes])
 
@@ -896,12 +889,18 @@ class Admin(object):
             except ldap_exceptions.LDAPEntryAlreadyExistsResult:
                 _LOGGER.debug('%s already exists.', dn)
 
-    def get(self, dn, query, attrs):
+    def get(self, dn, query, attrs, paged_search=True):
         """Gets LDAP object given dn."""
-        result = self.paged_search(search_base=dn,
-                                   search_filter=six.text_type(query),
-                                   search_scope=ldap3.BASE,
-                                   attributes=attrs)
+        if paged_search:
+            search_func = self.paged_search
+        else:
+            search_func = self.search
+
+        result = search_func(search_base=dn,
+                             search_filter=six.text_type(query),
+                             search_scope=ldap3.BASE,
+                             attributes=attrs)
+
         for _dn, entry in result:
             return entry
 
@@ -932,14 +931,17 @@ class Admin(object):
         self.modify(dn, to_be_removed)
 
     def get_repls(self):
-        """Get all the replication servers in config"""
-        entry = self.get(
-            'olcDatabase={1}mdb,cn=config',
-            '(objectclass=olcMdbConfig)',
-            ['olcSyncrepl']
+        """Get replication information."""
+        # TODO: for some reason paged_search does not work here, so using
+        #       low level search instead of higher level wrappers.
+        result = self.search(
+            search_base='olcDatabase={1}mdb,cn=config',
+            search_filter='(objectclass=olcMdbConfig)',
+            attributes=['olcSyncrepl'],
+            search_scope=ldap3.BASE,
         )
-
-        return entry.get('olcSyncrepl')
+        for _dn, entry in result:
+            return entry.get('olcSyncrepl')
 
 
 class LdapObject(object):
@@ -1085,11 +1087,11 @@ class Server(LdapObject):
 
         return obj
 
-# pylint: disable=W0212
-Server.schema = staticmethod(lambda: Server._schema)
-Server.oc = staticmethod(lambda: Server._oc)
-Server.ou = staticmethod(lambda: Server._ou)
-Server.entity = staticmethod(lambda: Server._entity)
+
+Server.schema = staticmethod(lambda: Server._schema)  # pylint: disable=W0212
+Server.oc = staticmethod(lambda: Server._oc)  # pylint: disable=W0212
+Server.ou = staticmethod(lambda: Server._ou)  # pylint: disable=W0212
+Server.entity = staticmethod(lambda: Server._entity)  # pylint: disable=W0212
 
 
 class DNS(LdapObject):
@@ -1108,10 +1110,11 @@ class DNS(LdapObject):
     _ou = 'dns-servers'
     _entity = 'dns'
 
-DNS.schema = staticmethod(lambda: DNS._schema)
-DNS.oc = staticmethod(lambda: DNS._oc)
-DNS.ou = staticmethod(lambda: DNS._ou)
-DNS.entity = staticmethod(lambda: DNS._entity)
+
+DNS.schema = staticmethod(lambda: DNS._schema)  # pylint: disable=W0212
+DNS.oc = staticmethod(lambda: DNS._oc)  # pylint: disable=W0212
+DNS.ou = staticmethod(lambda: DNS._ou)  # pylint: disable=W0212
+DNS.entity = staticmethod(lambda: DNS._entity)  # pylint: disable=W0212
 
 
 class AppGroup(LdapObject):
@@ -1145,10 +1148,14 @@ class AppGroup(LdapObject):
         return entries[0]
 
 
-AppGroup.schema = staticmethod(lambda: AppGroup._schema)
-AppGroup.oc = staticmethod(lambda: AppGroup._oc)
-AppGroup.ou = staticmethod(lambda: AppGroup._ou)
-AppGroup.entity = staticmethod(lambda: AppGroup._entity)
+AppGroup.schema = staticmethod(
+    lambda: AppGroup._schema  # pylint: disable=W0212
+)
+AppGroup.oc = staticmethod(lambda: AppGroup._oc)  # pylint: disable=W0212
+AppGroup.ou = staticmethod(lambda: AppGroup._ou)  # pylint: disable=W0212
+AppGroup.entity = staticmethod(
+    lambda: AppGroup._entity  # pylint: disable=W0212
+)
 
 
 class Application(LdapObject):
@@ -1369,9 +1376,11 @@ class Application(LdapObject):
         return entry
 
 
-Application.oc = staticmethod(lambda: Application._oc)
-Application.ou = staticmethod(lambda: Application._ou)
-Application.entity = staticmethod(lambda: Application._entity)
+Application.oc = staticmethod(lambda: Application._oc)  # pylint: disable=W0212
+Application.ou = staticmethod(lambda: Application._ou)  # pylint: disable=W0212
+Application.entity = staticmethod(
+    lambda: Application._entity  # pylint: disable=W0212
+)
 
 
 class Cell(LdapObject):
@@ -1463,9 +1472,10 @@ class Cell(LdapObject):
 
         return super(Cell, self).delete(ident)
 
-Cell.oc = staticmethod(lambda: Cell._oc)
-Cell.ou = staticmethod(lambda: Cell._ou)
-Cell.entity = staticmethod(lambda: Cell._entity)
+
+Cell.oc = staticmethod(lambda: Cell._oc)  # pylint: disable=W0212
+Cell.ou = staticmethod(lambda: Cell._ou)  # pylint: disable=W0212
+Cell.entity = staticmethod(lambda: Cell._entity)  # pylint: disable=W0212
 
 
 class Tenant(LdapObject):
@@ -1511,9 +1521,9 @@ class Tenant(LdapObject):
         return self.children(ident, CellAllocation)
 
 
-Tenant.oc = staticmethod(lambda: Tenant._oc)
-Tenant.ou = staticmethod(lambda: Tenant._ou)
-Tenant.entity = staticmethod(lambda: Tenant._entity)
+Tenant.oc = staticmethod(lambda: Tenant._oc)  # pylint: disable=W0212
+Tenant.ou = staticmethod(lambda: Tenant._ou)  # pylint: disable=W0212
+Tenant.entity = staticmethod(lambda: Tenant._entity)  # pylint: disable=W0212
 
 
 def _allocation_dn_parts(ident):
@@ -1631,9 +1641,16 @@ class CellAllocation(LdapObject):
 
         return entry
 
-CellAllocation.oc = staticmethod(lambda: CellAllocation._oc)
-CellAllocation.ou = staticmethod(lambda: CellAllocation._ou)
-CellAllocation.entity = staticmethod(lambda: CellAllocation._entity)
+
+CellAllocation.oc = staticmethod(
+    lambda: CellAllocation._oc  # pylint: disable=W0212
+)
+CellAllocation.ou = staticmethod(
+    lambda: CellAllocation._ou  # pylint: disable=W0212
+)
+CellAllocation.entity = staticmethod(
+    lambda: CellAllocation._entity  # pylint: disable=W0212
+)
 
 
 class Allocation(LdapObject):
@@ -1686,9 +1703,11 @@ class Allocation(LdapObject):
         return self.children(ident, CellAllocation)
 
 
-Allocation.oc = staticmethod(lambda: Allocation._oc)
-Allocation.ou = staticmethod(lambda: Allocation._ou)
-Allocation.entity = staticmethod(lambda: Allocation._entity)
+Allocation.oc = staticmethod(lambda: Allocation._oc)  # pylint: disable=W0212
+Allocation.ou = staticmethod(lambda: Allocation._ou)  # pylint: disable=W0212
+Allocation.entity = staticmethod(
+    lambda: Allocation._entity  # pylint: disable=W0212
+)
 
 
 def _dn2partition_id(dn):  # pylint: disable=invalid-name
@@ -1752,10 +1771,18 @@ class Partition(LdapObject):
         return obj
 
 
-Partition.schema = staticmethod(lambda: Partition._schema)
-Partition.oc = staticmethod(lambda: Partition._oc)
-Partition.ou = staticmethod(lambda: Partition._ou)
-Partition.entity = staticmethod(lambda: Partition._entity)
+Partition.schema = staticmethod(
+    lambda: Partition._schema  # pylint: disable=W0212
+)
+Partition.oc = staticmethod(
+    lambda: Partition._oc  # pylint: disable=W0212
+)
+Partition.ou = staticmethod(
+    lambda: Partition._ou  # pylint: disable=W0212
+)
+Partition.entity = staticmethod(
+    lambda: Partition._entity  # pylint: disable=W0212
+)
 
 
 class HAProxy(LdapObject):
@@ -1770,8 +1797,8 @@ class HAProxy(LdapObject):
     _ou = 'haproxies'
     _entity = 'server'
 
-# pylint: disable=W0212
-HAProxy.schema = staticmethod(lambda: HAProxy._schema)
-HAProxy.oc = staticmethod(lambda: HAProxy._oc)
-HAProxy.ou = staticmethod(lambda: HAProxy._ou)
-HAProxy.entity = staticmethod(lambda: HAProxy._entity)
+
+HAProxy.schema = staticmethod(lambda: HAProxy._schema)  # pylint: disable=W0212
+HAProxy.oc = staticmethod(lambda: HAProxy._oc)  # pylint: disable=W0212
+HAProxy.ou = staticmethod(lambda: HAProxy._ou)  # pylint: disable=W0212
+HAProxy.entity = staticmethod(lambda: HAProxy._entity)  # pylint: disable=W0212

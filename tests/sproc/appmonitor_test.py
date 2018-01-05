@@ -181,5 +181,6 @@ class AppMonitorTest(unittest.TestCase):
         self.assertTrue(restclient.post.called)
         self.assertNotIn('foo.bar', state['delayed'])
 
+
 if __name__ == '__main__':
     unittest.main()

@@ -1,0 +1,8 @@
+#!/bin/sh
+#
+# Takes broken nodes out of rotation.
+#
+
+exec \
+    {{ treadmill }}/bin/treadmill34 \
+    sproc node-monitor

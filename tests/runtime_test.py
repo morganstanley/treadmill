@@ -272,5 +272,6 @@ class RuntimeTest(unittest.TestCase):
         self.assertFalse(os.path.exists(file1))
         self.assertTrue(os.path.exists(file2))
 
+
 if __name__ == '__main__':
     unittest.main()

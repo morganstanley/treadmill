@@ -1,0 +1,10 @@
+#!/bin/sh
+#
+# Starts treadmill locker.
+# Runs as root with host principal creds.
+#
+
+exec \
+    {{ treadmill }}/bin/treadmill27 \
+    sproc tickets locker \
+    --tkt-spool-dir /treadmill/spool/tickets

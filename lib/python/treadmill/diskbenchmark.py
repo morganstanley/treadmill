@@ -13,13 +13,9 @@ import shutil
 import tempfile
 
 import enum
+
 import six
 from six.moves import configparser
-
-if six.PY2 and os.name == 'posix':
-    import subprocess32 as subprocess  # pylint: disable=import-error
-else:
-    import subprocess  # pylint: disable=wrong-import-order
 
 from treadmill import fs
 from treadmill import localdiskutils
@@ -261,7 +257,7 @@ def benchmark_vg(vg_name,
             shutil.rmtree(base_path)
         try:
             lvm.lvremove(benchmark_lv, group=vg_name)
-        except subprocess.CalledProcessError:
+        except subproc.CalledProcessError:
             _LOGGER.exception('lvremove error')
 
     if not check_available_volume():

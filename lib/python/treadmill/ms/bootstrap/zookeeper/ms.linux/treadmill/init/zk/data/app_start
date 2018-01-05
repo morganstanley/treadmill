@@ -1,0 +1,30 @@
+#!/bin/sh
+#
+# Starts zookeeper.
+# Runs as {{ treadmillid }} proid.
+# Needs to run with Kerberos tickets (for server to server communications)
+
+SCRIPT_NAME=${0##*/}
+SCRIPT_DIR=${0%/$SCRIPT_NAME}
+
+KUULA={{ _alias.kuula }}
+ECHO={{ _alias.echo }}
+
+# Fix kuula bug.
+#
+# Kuula cleanup_environment sets SIDE to empty on Zephyr/aq hosts, which is
+# invalid value.
+#
+# Unsetting SIDE fixes the problem.
+unset SIDE
+
+set -x
+set -e
+
+${KUULA} rebuild ${SCRIPT_DIR}/zk.yml
+
+# XXX: setuid is only done here because kuula expects to be able to create the
+#      install directory above during rebuild.
+exec \
+    {{ _alias.s6_setuidgid }} {{ treadmillid }} \
+    ${KUULA} start ${SCRIPT_DIR}/zk.yml

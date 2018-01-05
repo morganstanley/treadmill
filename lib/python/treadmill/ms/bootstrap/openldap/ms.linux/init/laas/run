@@ -1,0 +1,24 @@
+#!/bin/ksh
+
+. /ms/dist/aurora/lib/ksh.functions
+init_environ
+
+exec 2>&1
+
+DIR={{ dir }}
+PROID={{ treadmillid }}
+HOSTNAME={{ hostname }}
+MODULECMD={{ modulecmd }}
+
+eval $($MODULECMD ksh load laf/logwatch)
+
+echo "Creating OpenLDAP LaaS app ${PROID}.openldap.$($HOSTNAME)"
+
+# This is ok to create everytime, LAF lone simply returns "already exists!"
+laas_log_setup create --app ${PROID}.openldap.$($HOSTNAME) --host $($HOSTNAME) \
+    --proid ${PROID} --file ${DIR}/init/openldap/log/current --splunk y
+
+# This is required by the below script
+export USER=$PROID
+
+exec /ms/dist/esm/PROJ/laas-log-agent/prod/laas-agent-launcher.sh

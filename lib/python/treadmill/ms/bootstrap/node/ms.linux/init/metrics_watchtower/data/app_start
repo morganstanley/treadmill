@@ -1,0 +1,11 @@
+#!/bin/sh
+#
+# Forward sys service and container metrics to watchtower
+#
+
+exec \
+    {{ treadmill }}/bin/treadmill34 \
+    sproc --cgroup . \
+    metrics-watchtower \
+    --step 60 \
+    --socket {{ dir }}/var/run/cgroup.sock

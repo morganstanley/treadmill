@@ -1,0 +1,9 @@
+#!/bin/sh
+#
+# Starts Treadmill ticket forwarder
+#
+
+exec {{ treadmill }}/bin/treadmill34 \
+    sproc \
+        --cell - \
+    tktfwd

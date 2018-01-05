@@ -106,7 +106,7 @@ class TcpRestServer(RestServer):
             except KeyError:
                 _LOGGER.error('Unsupported auth type: %s', self.auth_type)
                 raise
-            except:
+            except Exception:
                 _LOGGER.exception('Unable to load auth plugin.')
                 raise
         else:
@@ -141,7 +141,7 @@ class UdsRestServer(RestServer):
             except KeyError:
                 _LOGGER.error('Unsupported auth type: %s', self.auth_type)
                 raise
-            except:
+            except Exception:
                 _LOGGER.exception('Unable to load auth plugin.')
                 raise
 

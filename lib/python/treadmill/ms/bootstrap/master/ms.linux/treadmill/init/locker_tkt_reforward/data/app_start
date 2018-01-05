@@ -1,0 +1,15 @@
+#!/bin/sh
+#
+# Starts treadmill locker ticket reforwarder.
+# Runs as root with host principal creds.
+#
+
+# Pick up new environment.
+exec \
+    {{ treadmill }}/bin/treadmill27 \
+    sproc tickets reforward \
+    --appname {{ treadmillid }}.tickets#000000000{{ me.idx }} \
+    --endpoint priv-tickets \
+    --tkt-spool-dir /treadmill/spool/tickets.tmp \
+    --tkt-final-dir /treadmill/spool/tickets \
+    --realms @is1.morgan,@MSAD.MS.COM

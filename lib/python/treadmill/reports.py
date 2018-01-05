@@ -1,4 +1,5 @@
-"""Handles reports over scheduler data."""
+"""Handles reports over scheduler data.
+"""
 
 from __future__ import division
 from __future__ import unicode_literals

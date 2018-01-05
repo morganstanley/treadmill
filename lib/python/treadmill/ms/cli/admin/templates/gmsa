@@ -1,0 +1,42 @@
+---
+memory: 1G
+cpu: 50%
+disk: 1G
+services:
+- command: |
+    exec {{ treadmill }}/bin/treadmill34 \
+      sproc \
+        --logging-conf daemon_container.conf \
+      zk2fs \
+        --root /var/run/zk2fs \
+        --placement --servers-data
+  name: zk2fs
+  restart:
+    limit: 5
+    interval: 60
+- command: |
+    exec {{ treadmill }}/bin/treadmill34 \
+      sproc \
+        --logging-conf daemon_container.conf \
+      ad \
+      gmsa \
+        --fs-root /var/run/zk2fs \
+        --partition '{{ data.nt_partition }}' \
+        --group-ou '{{ data.nt_group_ou }}' \
+        --group-pattern '{{ data.nt_group_pattern }}'
+  name: gmsa
+  restart:
+    limit: 5
+    interval: 60
+- command: /ms/dist/esm/PROJ/laas-log-cli/prod/bin/tm3-wrapper --splunk y
+  name: laas
+  restart:
+    limit: 5
+    interval: 60
+tickets:
+- {{ proid }}@{{ realm }}
+environ:
+- name: KRB5CCNAME
+  value: /var/spool/tickets/{{ proid }}
+affinity_limits:
+  server: 1

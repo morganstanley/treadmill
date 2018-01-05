@@ -73,10 +73,18 @@ class CgroupReader(object):
     def list(self):
         """Get all cgroups item name in a  list"""
         return (
-            ['treadmill.{}'.format(cgrp)
-             for cgrp in self.cache['treadmill'].keys()] +
-            ['core.{}'.format(cgrp) for cgrp in self.cache['core'].keys()] +
-            ['app.{}'.format(cgrp) for cgrp in self.cache['app'].keys()]
+            [
+                'treadmill.{}'.format(cgrp)
+                for cgrp in self.cache['treadmill']
+            ] +
+            [
+                'core.{}'.format(cgrp)
+                for cgrp in self.cache['core']
+            ] +
+            [
+                'app.{}'.format(cgrp)
+                for cgrp in self.cache['app']
+            ]
         )
 
     def _loop(self):

@@ -1261,5 +1261,6 @@ class MasterTest(mockzk.MockZookeeperTestCase):
         self.assertFalse(treadmill.zkutils.ensure_exists.called)
         self.assertFalse(treadmill.zkutils.put.called)
 
+
 if __name__ == '__main__':
     unittest.main()

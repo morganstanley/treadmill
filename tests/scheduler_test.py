@@ -1638,5 +1638,6 @@ class ShapeTest(unittest.TestCase):
         app = scheduler.Application('foo', 11, [5, 5, 5], 'bar1')
         self.assertTrue(placement_tracker.feasible(app))
 
+
 if __name__ == '__main__':
     unittest.main()

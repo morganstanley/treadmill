@@ -1,4 +1,6 @@
-"""Manage Treadmill allocations."""
+"""Manage Treadmill allocations.
+"""
+
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
@@ -7,13 +9,12 @@ from __future__ import unicode_literals
 import logging
 
 import click
-
 import six
 
-from .. import cli
-from treadmill import restclient
-from treadmill import context
 from treadmill import admin
+from treadmill import cli
+from treadmill import context
+from treadmill import restclient
 
 
 _DEFAULT_PRIORITY = 1

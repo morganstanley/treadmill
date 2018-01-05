@@ -543,6 +543,7 @@ def _setup_sigs():
         for sigval, signames in sigs.items()
     }
 
+
 _SIG2NAME = _setup_sigs()
 del _setup_sigs
 
@@ -583,7 +584,7 @@ def make_signal_flag(*signals):
     _LOGGER.info('Configuring signal flag: %r', signals)
     signalled = set()
 
-    def _handler(signum, frame_unused):
+    def _handler(signum, _frame):
         """Signal handler."""
         signalled.add(signum)
 
@@ -694,6 +695,7 @@ def get_current_username():
         return win32api.GetUserName()
     else:
         return pwd.getpwuid(os.getuid()).pw_name
+
 
 # List of signals that can be manipulated
 if sys.platform == 'win32':

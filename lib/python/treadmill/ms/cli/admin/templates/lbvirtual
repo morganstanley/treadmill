@@ -1,0 +1,46 @@
+---
+memory: 2G
+cpu: 50%
+disk: 1G
+identity_group: {{ proid }}.lbvirtual.{{ cell }}.group
+services:
+{% for location_cell in location_cells %}
+- command: |
+    unset TREADMILL_ZOOKEEPER && exec {{ treadmill }}/bin/treadmill34 \
+      sproc \
+        --logging-conf daemon_container.conf \
+        --cell {{ location_cell }} \
+      zk2fs \
+        --root /var/run/zk2fs/{{ location_cell }} \
+        --appgroups \
+        --endpoints
+  name: zk2fs_{{ location_cell }}
+  restart:
+    limit: 5
+    interval: 60
+{% endfor %}
+- command: |
+    exec {{ treadmill }}/bin/treadmill34 \
+      sproc \
+        --logging-conf daemon_container.conf \
+      lbvirtual \
+        --fs-root /var/run/zk2fs \
+        --total-partitions 5 \
+        --watch-cells {{ location_cells | join(',') }} \
+        --watch-groups lbendpoint,lbendpoint-tm2
+  name: lbvirtual
+  restart:
+    limit: 5
+    interval: 60
+- command: /ms/dist/esm/PROJ/laas-log-cli/prod/bin/tm3-wrapper --splunk y
+  name: laas
+  restart:
+    limit: 5
+    interval: 60
+tickets:
+- {{ proid }}@{{ realm }}
+environ:
+- name: KRB5CCNAME
+  value: /var/spool/tickets/{{ proid }}
+affinity_limits:
+  server: 1

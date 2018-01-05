@@ -1,0 +1,14 @@
+#!/bin/sh
+#
+# Starts treadmill locker acceptor (loopback).
+# Runs as root with host principal creds.
+#
+
+# Run tickets acceptor on private endpoint.
+exec \
+    {{ treadmill }}/bin/treadmill27 \
+    sproc tickets accept \
+    --use-v2 \
+    --appname {{ treadmillid }}.tickets#000000000{{ me.idx }} \
+    --endpoint priv-tickets \
+    --tkt-spool-dir /treadmill/spool/tickets

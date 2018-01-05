@@ -1,0 +1,48 @@
+#!/bin/ksh
+
+DIR="{{ dir }}"
+HOSTNAME=$("{{ _alias.hostname }}")
+LS="{{ _alias.ls }}"
+PROID="{{ treadmillid }}"
+SLEEP="{{ _alias.sleep }}"
+MYID="{{ me.idx }}"
+MODULECMD="{{ _alias.modulecmd }}"
+
+. /ms/dist/aurora/lib/ksh.functions
+init_environ
+
+eval $(${MODULECMD} ksh load laf/logwatch)
+
+# Let master startup, then go and setup LaaS
+${SLEEP} 1m
+
+INIT_DIR="$DIR/treadmill/init"
+for APP in $($LS $INIT_DIR)
+do
+    if [ ${APP} == 'laas' ]
+    then
+        continue
+    fi
+
+    APP_NAME="${PROID}.${TREADMILL_CELL}.master.${MYID}.${APP}"
+    echo "Creating LaaS app ${APP_NAME}"
+
+    # This is ok to create everytime, LAF lone simply returns "already exists!"
+    laas_log_setup create \
+        --app ${APP_NAME} \
+        --host ${HOSTNAME} \
+        --proid ${PROID} \
+        --file ${INIT_DIR}/${APP}/log/current \
+        --splunk y
+done
+
+# This is required by the below script
+export USER=${TREADMILL_ID}
+export PATH=$PATH:{{ s6 }}/bin
+
+# XXX: This is running as root but it shouldn't. That means we need to run the
+#      LaaS registration as TREADMILL_ID.
+
+exec \
+    {{ _alias.s6_setuidgid }} ${TREADMILL_ID} \
+    /ms/dist/esm/PROJ/laas-log-agent/prod/laas-agent-launcher.sh

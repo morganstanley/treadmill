@@ -1,0 +1,11 @@
+#!/bin/sh
+#
+# Starts treadmill locker ticket renewer.
+# Runs as root with host principal creds.
+#
+
+# Pick up new environment.
+exec \
+    {{ treadmill }}/bin/treadmill27 \
+    sproc tickets renew \
+    --tkt-spool-dir /treadmill/spool/tickets

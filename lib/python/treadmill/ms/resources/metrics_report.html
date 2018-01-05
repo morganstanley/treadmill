@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <script src='//toolkits.ms.com/ria/webaurora/2017.06.19-1/core2.js'></script>
+        <script>
+            Promise.all([
+                Module.load("ria", "mathjax", "2.7.0", "TeX-AMS_CHTML")
+            ])
+        </script>
+        <style>
+            .container {
+                width: 1280px;
+                margin: 0 auto;
+            }
+
+            .column {
+                float: left;
+                width: 624px;
+            }
+
+            .left-column {
+                padding-right: 16px;
+            }
+
+            .right-column {
+                padding-left: 16px;
+            }
+
+            .diagram {
+                border-bottom: 1px solid lightgray;
+                margin-bottom: 16px;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="column left-column">
+                <div class="diagram">
+                    <img src="memory.svg" width="624">
+                    <p>$$G \Leftrightarrow 10^{9}, M \Leftrightarrow 10^{6},
+                         k \Leftrightarrow 10^{3}, m \Leftrightarrow 10^{-3},
+                         u \Leftrightarrow 10^{-6}$$
+                    </p>
+                </div>
+            </div>
+            <div class="column right-column">
+                <div class="diagram">
+                    <img src="fs_usg.svg" width="624">
+                </div>
+            </div>
+            <div style="clear: left"></div>
+
+            <div class="column left-column">
+                <div class="diagram">
+                    <img src="cpu_usage.svg" width="624">
+                    <p>
+                        $$\textrm{CPU Usage} = \frac{\textrm{used cpu  time since last measurement}
+                          * \textrm{host's total bogomips}}{\Delta t
+                          * \textrm{bogomips of a "virtual CPU"} * \textrm{number of cpus on the host}}
+                          \ast 100$$
+                        $$\textrm{100%} = \textrm{1 virtual CPU}$$
+                    </p>
+                </div>
+            </div>
+            <div class="column right-column">
+                <div class="diagram">
+                    <img src="cpu_ratio.svg" width="624">
+                    <p>
+                        $$\textrm{CPU Ratio} = \frac{\textrm{used cpu  time since last measurement}
+                          * \textrm{host's total bogomips}}{\Delta t * \textrm{cpu shares}
+                          * \textrm{number of cpus on the host}}$$
+                    </p>
+                </div>
+            </div>
+            <div style="clear: left"></div>
+
+            <div class="column left-column">
+                <div class="diagram">
+                    <img src="blk_iops.svg" width="624">
+                </div>
+            </div>
+            <div class="column right-column">
+                <div class="diagram">
+                    <img src="blk_bps.svg" width="624">
+                </div>
+            </div>
+            <div style="clear: left"></div>
+        </div>
+    </body>
+</html>

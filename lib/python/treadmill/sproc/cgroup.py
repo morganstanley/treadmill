@@ -169,7 +169,7 @@ def init():
         for subsystem in subsystems:
             try:
                 _transfer_processes(subsystem, group_from, group_to)
-            except:  # pylint: disable=W0702
+            except Exception:  # pylint: disable=W0703
                 pass
 
     @top.command(name='cleanup')

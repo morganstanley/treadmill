@@ -1,0 +1,43 @@
+---
+{{ proid }}.dns.adminapi:
+    pattern: {{ proid }}.adminapi.*
+    group-type: dns
+    endpoints: [http]
+    data:
+        - alias=adminapi
+        - scope=region
+{{ proid }}.dns.cellapi:
+    pattern: {{ proid }}.cellapi.*
+    group-type: dns
+    endpoints: [http]
+    data:
+        - alias=cellapi
+        - scope=cell
+{{ proid }}.dns.stateapi:
+    pattern: {{ proid }}.stateapi.*
+    group-type: dns
+    endpoints: [http]
+    data:
+        - alias=stateapi
+        - scope=cell
+{{ proid }}.dns.wsapi:
+    pattern: {{ proid }}.wsapi.*
+    group-type: dns
+    endpoints: [ws]
+    data:
+        - alias=wsapi
+        - scope=cell
+{{ proid }}.dns.tickets:
+    pattern: {{ proid }}.tickets
+    group-type: dns
+    endpoints: [tickets]
+    data:
+        - alias=tickets
+        - scope=cell
+{{ proid }}.dns.tickets-v2:
+    pattern: {{ proid }}.tickets-v2
+    group-type: dns
+    endpoints: [tickets]
+    data:
+        - alias=tickets-v2
+        - scope=cell

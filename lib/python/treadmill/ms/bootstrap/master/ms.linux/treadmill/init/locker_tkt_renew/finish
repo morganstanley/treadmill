@@ -1,0 +1,27 @@
+#!{{ _alias.execlineb }}
+
+{{ _alias.umask }} 0022
+{{ _alias.redirfd }} -r 0 /dev/null
+{{ _alias.redirfd }} -a 1 data/finish.log
+
+{{ _alias.if }} {
+    {{ _alias.mkdir }} -vp -- data/exits
+}
+
+# Unix time
+{{ _alias.backtick }} -n NOW {
+    {{ _alias.date }} "+%s.%3N"
+}
+{{ _alias.importas }} -u -i NOW NOW
+
+{{ _alias.importas }} -u -i EXIT 1
+# The second argument is undefined when the prog was not killed by signal
+{{ _alias.importas }} -u -D0 SIGNAL 2
+
+{{ _alias.emptyenv }} -P
+{{ _alias.backtick }} -n EXITFILE {
+    {{ _alias.printf }} "%014.3f,%03d,%03d" ${NOW} ${EXIT} ${SIGNAL}
+}
+{{ _alias.importas }} -u -i EXITFILE EXITFILE
+
+{{ _alias.touch }} data/exits/${EXITFILE}

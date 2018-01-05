@@ -1,4 +1,6 @@
-"""List Treadmill cells."""
+"""List Treadmill cells.
+"""
+
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
@@ -8,10 +10,9 @@ import logging
 
 import click
 
-from .. import cli
-from treadmill import restclient
+from treadmill import cli
 from treadmill import context
-
+from treadmill import restclient
 
 _LOGGER = logging.getLogger(__name__)
 

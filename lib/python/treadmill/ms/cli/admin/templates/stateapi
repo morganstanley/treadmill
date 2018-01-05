@@ -1,0 +1,35 @@
+---
+memory: 3G
+cpu: 50%
+disk: 1G
+services:
+- command: |
+    exec {{ treadmill }}/bin/treadmill34 \
+      sproc \
+        --logging-conf daemon_container.conf \
+      restapi \
+        -p 8000 \
+        --title 'Treadmill_Query_API' \
+        -m state,endpoint \
+        --workers 1 \
+        --cors-origin='(?i).*\.ms\.com'
+  name: state-api
+  restart:
+    limit: 5
+    interval: 60
+- command: /ms/dist/esm/PROJ/laas-log-cli/prod/bin/tm3-wrapper --splunk y
+  name: laas
+  restart:
+    limit: 5
+    interval: 60
+tickets:
+- {{ proid }}@{{ realm }}
+endpoints:
+- name: http
+  port: 8000
+  type: infra
+environ:
+- name: KRB5CCNAME
+  value: /var/spool/tickets/{{ proid }}
+affinity_limits:
+  server: 1

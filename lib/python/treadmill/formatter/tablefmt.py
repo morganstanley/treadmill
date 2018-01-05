@@ -1,4 +1,6 @@
-"""Table CLI formatter."""
+"""Table CLI formatter.
+"""
+
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
@@ -7,7 +9,6 @@ from __future__ import unicode_literals
 import time
 
 import prettytable
-
 import six
 
 from treadmill import yamlwrapper as yaml
@@ -79,9 +80,9 @@ def _cell(item, column, key, fmt):
         keys = key
 
     raw_value = None
-    for key in keys:
-        if key in item and item[key] is not None:
-            raw_value = item[key]
+    for k in keys:
+        if k in item and item[k] is not None:
+            raw_value = item[k]
             break
 
     if callable(fmt):

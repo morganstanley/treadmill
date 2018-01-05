@@ -1,0 +1,95 @@
+#!/bin/sh
+
+exec 2>&1
+
+MKDIR={{ mkdir }}
+RM={{ rm }}
+MV={{ mv }}
+ECHO={{ echo }}
+GZIP={{ gzip }}
+KRB5_KEYTAB={{ krb5_keytab }}
+
+# configure only if [[ ! -d {{ dir_config }}/cn=config ]] ?
+if [[ ! -d '{{ dir_config}}/cn=config' ]]
+then
+
+    #
+    # don't want these in git repo
+    #
+    $MKDIR -p {{ dir }}/run
+    $MKDIR -p {{ dir }}/openldap-data
+
+    #
+    # create ldap configuration
+    #
+    {{ slapadd }} -F {{ dir_config }} \
+        -n 0 -l {{ dir_config }}/slapd.ldif -d -1
+
+    {% if first_time -%}
+    # Only add Treadmill schema if this is the first time, else this is
+    # retrieved from replication.
+    {{ slapadd }} -F {{ dir_config }} \
+        -n 0 -l {{ dir_config }}/schema/treadmill.ldif -d -1
+    {% endif %}
+
+    if [[ "$?" != 0 ]]
+    then
+        $RM -rf '{{ dir_config }}/cn=config'
+        $ECHO ERROR - slapadd failed. exiting ....
+        exit 1
+    fi
+
+fi
+
+$KRB5_KEYTAB ldap
+
+export KRB5_KTNAME=/var/spool/keytabs/{{ treadmillid }}
+export KRB5CCNAME=/var/spool/tickets/{{ treadmillid }}
+
+function logrotate {
+    logfile=$1
+    $ECHO "logfile: $logfile"
+
+    # Deletes old log file
+    if [ -f $logfile ]
+    then
+        CNT=5
+        P_CNT=`expr "$CNT" - 1`
+        if [ -f ${logfile}.5 ]
+        then
+            $RM -v ${logfile}.5.gz
+        fi
+
+        # Renames logs .1 trough .4
+        while [[ $CNT -ne 1 ]]
+        do
+            $ECHO "logfile: $logfile.${P_CNT}.gz"
+            if [ -f ${logfile}.${P_CNT}.gz ]
+            then
+                $MV -v ${logfile}.${P_CNT}.gz ${logfile}.${CNT}.gz
+            fi
+            CNT=`expr "$CNT" - 1`
+            P_CNT=`expr "$P_CNT" - 1`
+        done
+
+        # Renames current log to .1
+        $MV -v $logfile ${logfile}.1
+        $GZIP -v ${logfile}.1
+    fi
+}
+
+# Manually rotate logs
+$ECHO "{{ dir }}"
+LOG="{{ dir }}/run/slapd.log"
+if [ -s "$LOG" ]
+then
+    $ECHO "Rotating log '$LOG'..."
+    logrotate $LOG
+    $ECHO "Finished rotating log '$LOG'"
+fi
+
+exec {{ slapd }} \
+    -h {{ uri }} -F {{ dir_config }} \
+{%- for log_level in log_levels %}
+    -d {{ log_level }}
+{%- endfor %}

@@ -1,0 +1,31 @@
+#!/bin/sh
+#
+# Starts webauthd inside the Treadmill sandbox.
+# Runs as webauthd proid
+#
+
+CHMOD={{ _alias.chmod }}
+CHOWN={{ _alias.chown }}
+WEBAUTHD={{ _alias.webauthd }}
+MKDIR={{ _alias.mkdir }}
+
+CONF="/ms/dist/webinfra/PROJ/webauthd/incr/etc/webauthd.conf"
+
+export KRB5_KTNAME="/var/spool/keytabs/webauthd"
+export NETMAPPATH="/ms/dist/aurora/PROJ/dsdbfiles/incr"
+export RUN_DIR="{{ dir }}/var/run/webauthd"
+
+${MKDIR} -p ${RUN_DIR}
+${CHOWN} webauthd ${RUN_DIR}
+${CHMOD} a=rx,u+w ${RUN_DIR}
+
+exec \
+    {{ treadmill }}/bin/treadmill34 \
+    sproc --cgroup . \
+    exec -- \
+    ${WEBAUTHD} \
+        --foreground \
+        --config ${CONF} \
+        --pidfile {{ dir }}/var/run/webauthd/pid \
+        --socket {{ dir }}/var/run/webauthd/sock \
+        --port 0
