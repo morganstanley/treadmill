@@ -1,11 +1,10 @@
-"""DNS Context."""
+"""DNS Context.
+"""
 
-
+from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
-
-from __future__ import absolute_import
 
 import logging
 import random
@@ -99,9 +98,9 @@ def _admin_api(ctx, scope=None):
         return _lookup(ctx, scope)
 
     else:
-        for scope in ctx.get('api_scope', []):
+        for api_scope in ctx.get('api_scope', []):
             try:
-                result = _lookup(ctx, scope)
+                result = _lookup(ctx, api_scope)
                 if result:
                     return result
             except context.ContextError:

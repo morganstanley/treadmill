@@ -47,6 +47,7 @@ class CgroupResourceService(BaseResourceServiceImpl):
         # NOTE(boysson): We assume cgroup initialization is done by cginit
         #                during node startup. Otherwise it would need to be
         #                done here.
+        _LOGGER.info('Cgroup service initialized')
 
     def synchronize(self):
         # NOTE(boysson): We assume cgroup initialization is done by cginit

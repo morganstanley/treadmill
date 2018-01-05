@@ -10,16 +10,10 @@ import logging
 import os
 import shutil
 
-import six
-
-if six.PY2 and os.name == 'posix':
-    import subprocess32 as subprocess  # pylint: disable=import-error
-else:
-    import subprocess  # pylint: disable=wrong-import-order
-
-from treadmill import spawn
-from treadmill import fs
 from treadmill import dirwatch
+from treadmill import fs
+from treadmill import spawn
+from treadmill import subproc
 from treadmill import supervisor
 from treadmill.spawn import utils as spawn_utils
 
@@ -30,7 +24,7 @@ class Cleanup(object):
     """Treadmill spawn cleanup."""
 
     __slots__ = (
-        'paths'
+        'paths',
     )
 
     def __init__(self, root, buckets=spawn.BUCKETS):
@@ -45,7 +39,7 @@ class Cleanup(object):
                 supervisor.SvscanControlAction.alarm,
                 supervisor.SvscanControlAction.nuke
             ))
-        except subprocess.CalledProcessError as ex:
+        except subproc.CalledProcessError as ex:
             _LOGGER.warning(ex)
 
     def _on_created(self, path):

@@ -12,9 +12,9 @@ import select
 
 import six
 
-from . import dirwatch_base
-
 from treadmill.syscall import inotify
+
+from . import dirwatch_base
 
 _LOGGER = logging.getLogger(__name__)
 

@@ -63,9 +63,7 @@ def sigprocmask(how, sigset, save_mask=True):
     if save_mask:
         old_set = SigSet()
     else:
-        # pylint - Redefinition of old_set type from
-        #          treadmill.syscall._sigsetops.SigSet to int
-        old_set = 0  # pylint: disable=R0204
+        old_set = 0
 
     new_set_p = ctypes.pointer(new_set)
     old_set_p = ctypes.pointer(old_set)
@@ -96,6 +94,7 @@ class SigProcMaskHow(enum.IntEnum):
     SIG_BLOCK = 0
     SIG_UNBLOCK = 1
     SIG_SETMASK = 2
+
 
 #: Block signals.
 SIG_BLOCK = SigProcMaskHow.SIG_BLOCK

@@ -132,7 +132,7 @@ def make_safe_create(zkclient):
     """Makes a wrapper for kazoo.client.create enforcing default acl."""
     _create = zkclient.create
 
-    def safe_create(self_unused, path, value='', acl=None, ephemeral=False,
+    def safe_create(_self, path, value='', acl=None, ephemeral=False,
                     sequence=False, makepath=False):
         """Safe wrapper around kazoo.client.create"""
         return _create(path, value=value, acl=make_default_acl(acl),
@@ -146,7 +146,7 @@ def make_safe_ensure_path(zkclient):
     """Makes a wrapper for kazoo.client.ensure_path enforcing default acl."""
     ensure_path = zkclient.ensure_path
 
-    def safe_ensure_path(self_unused, path, acl=None):
+    def safe_ensure_path(_self, path, acl=None):
         """Safe wrapper around kazoo.client.ensure_path"""
         return ensure_path(path, acl=make_default_acl(acl))
 
@@ -157,7 +157,7 @@ def make_safe_set_acls(zkclient):
     """Makes a wrapper for kazoo.client.set_acls enforcing default acl."""
     set_acls = zkclient.set_acls
 
-    def safe_set_acls(self_unused, path, acls, version=-1):
+    def safe_set_acls(_self, path, acls, version=-1):
         """Safe wrapper around kazoo.client.set_acls"""
         return set_acls(path, make_default_acl(acls), version=version)
 
@@ -333,8 +333,7 @@ class SequenceNodeWatch(object):
             if self.include_data:
                 data, stat = self.zkclient.get(fullpath)
             self.func(fullpath, data, stat)
-        # pylint: disable=W0702
-        except:
+        except Exception:  # pylint: disable=W0703
             _LOGGER.critical('Unexpected error: %s', sys.exc_info()[0])
 
     def on_child(self, event):

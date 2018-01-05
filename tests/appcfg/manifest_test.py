@@ -414,5 +414,6 @@ class AppCfgManifestTest(unittest.TestCase):
         with self.assertRaises(exc.InvalidInputError):
             app_manifest.load(self.tm_env, event_filename0, 'linux')
 
+
 if __name__ == '__main__':
     unittest.main()

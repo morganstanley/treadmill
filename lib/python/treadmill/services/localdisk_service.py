@@ -13,16 +13,12 @@ import os
 
 import six
 
-if six.PY2 and os.name == 'posix':
-    import subprocess32 as subprocess  # pylint: disable=import-error
-else:
-    import subprocess  # pylint: disable=wrong-import-order
-
 from treadmill import cgroups
 from treadmill import cgutils
 from treadmill import localdiskutils
 from treadmill import logcontext as lc
 from treadmill import lvm
+from treadmill import subproc
 from treadmill import utils
 
 from ._base_service import BaseResourceServiceImpl
@@ -289,7 +285,7 @@ class LocalDiskResourceService(BaseResourceServiceImpl):
         self._volumes.pop(uniqueid, None)
         try:
             lvm.lvdisplay(uniqueid, group=self._vg_name)
-        except subprocess.CalledProcessError:
+        except subproc.CalledProcessError:
             _LOGGER.warning('Ignoring unknow volume %r', uniqueid)
             return False
 

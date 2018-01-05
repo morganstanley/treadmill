@@ -28,11 +28,6 @@ from twisted.internet import protocol
 
 import six
 
-if six.PY2 and os.name == 'posix':
-    import subprocess32 as subprocess  # pylint: disable=import-error
-else:
-    import subprocess  # pylint: disable=wrong-import-order
-
 from treadmill import fs
 from treadmill import dirwatch
 from treadmill import gssapiprotocol
@@ -164,7 +159,7 @@ class Ticket(object):
                 runas=ticket_owner
             )
             _LOGGER.info('Tickets renewed successfully.')
-        except subprocess.CalledProcessError as err:
+        except subproc.CalledProcessError as err:
             _LOGGER.info('Tickets not renewable, kinit rc: %s',
                          err.returncode)
 
@@ -183,7 +178,7 @@ def krbcc_ok(tkt_path):
     try:
         subproc.check_call(['klist', '-5', '-s', tkt_path])
         return True
-    except subprocess.CalledProcessError:
+    except subproc.CalledProcessError:
         _LOGGER.warning('Ticket cache invalid: %s', tkt_path)
         return False
 
@@ -231,7 +226,7 @@ class TicketLocker(object):
                             tkt_node,
                             tkt_details,
                             ephemeral=True)
-            except subprocess.CalledProcessError:
+            except subproc.CalledProcessError:
                 _LOGGER.exception('Unable to get tickets details.')
 
         for tkt_file in glob.glob(os.path.join(self.tkt_spool_dir, '*')):
@@ -330,9 +325,13 @@ def run_server(locker):
         """Ticket locker server."""
 
         @utils.exit_on_unhandled
-        def got_line(self, line):
-            """Callback on received line."""
-            appname = line.decode()
+        def got_line(self, data):
+            """Invoked after authentication is done, with decrypted data as arg.
+
+            :param ``bytes`` data:
+                Data received from the client.
+            """
+            appname = data.decode()
             tkts = locker.process_request(self.peer(), appname)
             if tkts:
                 _LOGGER.info('Sending tickets for: %r', tkts.keys())

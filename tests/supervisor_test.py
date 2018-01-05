@@ -17,18 +17,10 @@ import unittest
 import tests.treadmill_test_deps  # pylint: disable=W0611
 
 import mock
-import six
-
-if six.PY2 and os.name == 'posix':
-    import subprocess32 as subprocess  # pylint: disable=import-error
-else:
-    import subprocess  # pylint: disable=wrong-import-order
 
 import treadmill
 from treadmill import supervisor
-
-# Disable: C0103 because names are too long
-# pylint: disable=C0103
+from treadmill import subproc
 
 
 def _strip(content):
@@ -148,7 +140,7 @@ class SupervisorTest(unittest.TestCase):
         treadmill.subproc.check_call.assert_called_with(['s6_svok', self.root])
 
         treadmill.subproc.check_call.side_effect = \
-            subprocess.CalledProcessError(1, 's6_svok')
+            subproc.CalledProcessError(1, 's6_svok')
         self.assertFalse(supervisor.is_supervised(self.root))
         treadmill.subproc.check_call.assert_called_with(['s6_svok', self.root])
 
@@ -184,9 +176,9 @@ class SupervisorTest(unittest.TestCase):
         )
 
         treadmill.subproc.check_call.side_effect = \
-            subprocess.CalledProcessError(1, 's6_svc')
+            subproc.CalledProcessError(1, 's6_svc')
         self.assertRaises(
-            subprocess.CalledProcessError,
+            subproc.CalledProcessError,
             supervisor.control_service,
             self.root,
             supervisor.ServiceControlAction.down
@@ -219,7 +211,7 @@ class SupervisorTest(unittest.TestCase):
         # shutdown service timeouts
         treadmill.subproc.check_call.reset_mock()
         supervisor.wait_service.side_effect = \
-            subprocess.CalledProcessError(99, 's6_svwait')
+            subproc.CalledProcessError(99, 's6_svwait')
 
         res = supervisor.control_service(
             self.root, supervisor.ServiceControlAction.down,
@@ -239,9 +231,9 @@ class SupervisorTest(unittest.TestCase):
         # shutdown unsupervised service
         treadmill.subproc.check_call.reset_mock()
         treadmill.subproc.check_call.side_effect = \
-            subprocess.CalledProcessError(100, 's6_svc')
+            subproc.CalledProcessError(100, 's6_svc')
 
-        with self.assertRaises(subprocess.CalledProcessError):
+        with self.assertRaises(subproc.CalledProcessError):
             supervisor.control_service(
                 self.root, supervisor.ServiceControlAction.down,
                 wait=supervisor.ServiceWaitAction.down,
@@ -293,8 +285,8 @@ class SupervisorTest(unittest.TestCase):
 
         treadmill.subproc.check_call.reset_mock()
         treadmill.subproc.check_call.side_effect = \
-            subprocess.CalledProcessError(99, 's6_svwait')
-        with self.assertRaises(subprocess.CalledProcessError):
+            subproc.CalledProcessError(99, 's6_svwait')
+        with self.assertRaises(subproc.CalledProcessError):
             supervisor.wait_service(
                 self.root, supervisor.ServiceWaitAction.really_down
             )
@@ -302,8 +294,9 @@ class SupervisorTest(unittest.TestCase):
             ['s6_svwait', '-D', self.root]
         )
 
+    # Disable: C0103 because names are too long
     @mock.patch('treadmill.supervisor.is_supervised', mock.Mock())
-    def test_ensure_not_supervised_not_running(self):
+    def test_ensure_not_supervised_not_running(self):  # pylint: disable=C0103
         """Tests ensuring a service and its logs are down when they already
         are not supervised.
         """
@@ -348,15 +341,16 @@ class SupervisorTest(unittest.TestCase):
 
         self.assertEqual(2, treadmill.supervisor.is_supervised.call_count)
 
+    # Disable: C0103 because names are too long
     @mock.patch('treadmill.supervisor.is_supervised', mock.Mock())
     @mock.patch('treadmill.supervisor.control_service', mock.Mock())
     @mock.patch('time.sleep', mock.Mock())
-    def test_ensure_not_supervised_failed(self):
+    def test_ensure_not_supervised_failed(self):  # pylint: disable=C0103
         """Tests when a service fails to be brought down.
         """
         treadmill.supervisor.is_supervised.return_value = True
         treadmill.supervisor.control_service.side_effect = \
-            subprocess.CalledProcessError(1, '')
+            subproc.CalledProcessError(1, '')
 
         with self.assertRaises(Exception):
             supervisor.ensure_not_supervised(self.root)

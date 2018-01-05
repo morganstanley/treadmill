@@ -279,7 +279,7 @@ class GSSAPILineServer(basic.LineReceiver):  # pylint: disable=C0103
 
     @abc.abstractmethod
     def got_line(self, data):
-        """Invoked after authentication is done, with decrypted line as arg.
+        """Invoked after authentication is done, with decrypted data as arg.
 
         :param ``bytes`` data:
             Data received from the client.

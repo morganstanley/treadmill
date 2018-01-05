@@ -19,16 +19,11 @@ import unittest
 import tests.treadmill_test_deps  # pylint: disable=W0611
 
 import mock
-import six
-
-if six.PY2 and os.name == 'posix':
-    import subprocess32 as subprocess  # pylint: disable=import-error
-else:
-    import subprocess  # pylint: disable=wrong-import-order
 
 import treadmill
 from treadmill import fs
 from treadmill import monitor
+from treadmill import subproc
 from treadmill import supervisor
 
 
@@ -149,7 +144,7 @@ class MonitorTest(unittest.TestCase):
         )
         mock_pol_inst = mock_policy.return_value
         treadmill.supervisor.wait_service.side_effect = [
-            subprocess.CalledProcessError(supervisor.ERR_TIMEOUT, 's6-svwait'),
+            subproc.CalledProcessError(supervisor.ERR_TIMEOUT, 's6-svwait'),
             None,
         ]
 
@@ -219,7 +214,7 @@ class MonitorTest(unittest.TestCase):
         )
         mock_pol_inst = mock_policy.return_value
         treadmill.supervisor.wait_service.side_effect = (
-            subprocess.CalledProcessError(supervisor.ERR_NO_SUP, 's6-svwait')
+            subproc.CalledProcessError(supervisor.ERR_NO_SUP, 's6-svwait')
         )
 
         mon._bring_up(mock_pol_inst.service)

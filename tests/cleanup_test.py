@@ -291,5 +291,6 @@ class CleanupTest(unittest.TestCase):
             mock.call('proid.app#0000000000001')
         ])
 
+
 if __name__ == '__main__':
     unittest.main()
