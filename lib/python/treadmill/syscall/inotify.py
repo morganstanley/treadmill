@@ -130,6 +130,7 @@ class INAddWatchFlags(enum.IntEnum):
     #: Only watch the path if it's a directory.
     ONLYDIR = 0x01000000
 
+
 #: Don't dereference pathname if it is a symbolic link.
 #: (since Linux 2.6.15)
 IN_DONT_FOLLOW = INAddWatchFlags.DONT_FOLLOW
@@ -200,8 +201,7 @@ def _parse_buffer(event_buffer):
         event_buffer = event_buffer[INOTIFY_EVENT_HDRSIZE + length:]
         yield wd, mask, cookie, name
 
-    assert len(event_buffer) == 0, ('Unparsed bytes left in buffer: %r' %
-                                    event_buffer)
+    assert not event_buffer, 'Unparsed bytes left in buffer: %r' % event_buffer
 
 
 ###############################################################################
@@ -235,6 +235,7 @@ class INEvent(enum.IntEnum):
     ISDIR = 0x40000000
     Q_OVERFLOW = 0x00004000
     UNMOUNT = 0x00002000
+
 
 #: File was accessed (read).
 IN_ACCESS = INEvent.ACCESS

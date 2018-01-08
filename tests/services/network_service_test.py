@@ -15,14 +15,9 @@ import unittest
 import tests.treadmill_test_deps  # pylint: disable=W0611
 
 import mock
-import six
-
-if six.PY2 and os.name == 'posix':
-    import subprocess32 as subprocess  # pylint: disable=import-error
-else:
-    import subprocess  # pylint: disable=wrong-import-order
 
 import treadmill
+from treadmill import subproc
 from treadmill.services import network_service
 
 
@@ -239,7 +234,7 @@ class NetworkServiceTest(unittest.TestCase):
         treadmill.services.network_service._device_info.side_effect = \
             lambda dev: {'alias': 'reqid_%s' % dev}
         treadmill.netdev.link_set_up.side_effect = [
-            subprocess.CalledProcessError('any', 'how'),
+            subproc.CalledProcessError('any', 'how'),
             None,
         ]
         mock_vipmgr_inst = mock_vipmgr.return_value

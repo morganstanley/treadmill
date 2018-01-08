@@ -20,12 +20,6 @@ import io
 import time
 
 import click
-import six
-
-if six.PY2 and os.name == 'posix':
-    import subprocess32 as subprocess  # pylint: disable=import-error
-else:
-    import subprocess  # pylint: disable=wrong-import-order
 
 from treadmill import appenv
 from treadmill import context
@@ -126,7 +120,7 @@ def init():
                     try:
                         subproc.check_call(cli_cmd)
                         # Record successful upgrade.
-                    except subprocess.CalledProcessError:
+                    except subproc.CalledProcessError:
                         _LOGGER.exception('Upgrade failed.')
                         # Immediately trigger a watchdog timeout
                         watchdogs.create(

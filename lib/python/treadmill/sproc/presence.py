@@ -14,22 +14,17 @@ import time
 import traceback
 
 import click
-import six
-
-if six.PY2 and os.name == 'posix':
-    import subprocess32 as subprocess  # pylint: disable=import-error
-else:
-    import subprocess  # pylint: disable=wrong-import-order
 
 from treadmill import appenv
 from treadmill import appevents
-from treadmill import exc
 from treadmill import context
+from treadmill import exc
 from treadmill import presence
+from treadmill import subproc
 from treadmill import supervisor
 from treadmill import tickets
-from treadmill import zkutils
 from treadmill import utils
+from treadmill import zkutils
 
 from treadmill.appcfg import abort as app_abort
 from treadmill.appcfg import manifest as app_manifest
@@ -61,7 +56,7 @@ def _start_service_sup(tm_env, manifest, container_dir):
             os.path.join(container_dir, 'sys', 'start_container'),
             supervisor.ServiceControlAction.once
         )
-    except subprocess.CalledProcessError:
+    except subproc.CalledProcessError:
         raise exc.ContainerSetupError('start_container')
 
 

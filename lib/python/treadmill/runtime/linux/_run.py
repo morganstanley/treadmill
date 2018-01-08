@@ -123,6 +123,7 @@ def run(tm_env, container_dir, manifest):
             '-s',
             os.path.join(container_dir, 'sys')
         ],
+        propagation='slave',
         # We need to keep our mapped ports open
         close_fds=False
     )
@@ -250,7 +251,7 @@ def _unshare_network(tm_env, container_dir, app):
             'treadmill.firewall.plugins', 'firewall'
         )
         firewall_plugin.apply_exception_rules(tm_env, container_dir, app)
-    except:  # pylint: disable=W0702
+    except Exception:  # pylint: disable=W0703
         _LOGGER.exception(
             'Error in firewall plugin, skip applying firewall exception rules.'
         )

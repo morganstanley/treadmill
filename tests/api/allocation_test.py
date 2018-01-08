@@ -65,5 +65,6 @@ class ApiAllocationTest(unittest.TestCase):
              'memory': '1G'},
         )
 
+
 if __name__ == '__main__':
     unittest.main()

@@ -58,5 +58,6 @@ class CleanupTest(unittest.TestCase):
         treadmill.spawn.cleanup.Cleanup._on_created \
                  .assert_called_with('/does/not/exist/cleanup/job1')
 
+
 if __name__ == '__main__':
     unittest.main()

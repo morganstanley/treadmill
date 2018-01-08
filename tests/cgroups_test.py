@@ -354,5 +354,6 @@ class CGroupsTest(unittest.TestCase):
 
         self.assertEqual(res, ['a'])
 
+
 if __name__ == '__main__':
     unittest.main()

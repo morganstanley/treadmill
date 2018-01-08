@@ -12,11 +12,6 @@ import os
 
 import six
 
-if six.PY2 and os.name == 'posix':
-    import subprocess32 as subprocess  # pylint: disable=import-error
-else:
-    import subprocess  # pylint: disable=wrong-import-order
-
 from treadmill import spawn
 from treadmill import fs
 from treadmill import dirwatch
@@ -33,7 +28,7 @@ class ManifestWatch(object):
     """Treadmill spawn manifest watch."""
 
     __slots__ = (
-        'paths'
+        'paths',
     )
 
     def __init__(self, root, buckets=spawn.BUCKETS):
@@ -65,7 +60,7 @@ class ManifestWatch(object):
         try:
             supervisor.control_svscan(scan_dir,
                                       supervisor.SvscanControlAction.alarm)
-        except subprocess.CalledProcessError as ex:
+        except subproc.CalledProcessError as ex:
             _LOGGER.warning(ex)
 
     def _create_instance(self, path):

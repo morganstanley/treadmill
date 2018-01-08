@@ -10,7 +10,6 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import logging
-import os
 import re
 import time
 
@@ -20,15 +19,9 @@ except ImportError:
     import xml.etree.ElementTree as etree
 
 import jinja2
-import six
 
-if six.PY2 and os.name == 'posix':
-    import subprocess32 as subprocess  # pylint: disable=import-error
-else:
-    import subprocess  # pylint: disable=wrong-import-order
-
-from . import firewall
-from . import subproc
+from treadmill import firewall
+from treadmill import subproc
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -240,7 +233,7 @@ def initialize(external_ip):
     try:
         filter_table_set(None, None)
 
-    except subprocess.CalledProcessError:
+    except subproc.CalledProcessError:
         # We were not able to load without a NONPROD rule (filtering not setup
         # yet?).
         # Insert a default rule that drop all non-prod traffic by default until
@@ -320,7 +313,7 @@ def delete_raw_rule(table, chain, rule):
 
     try:
         subproc.check_call(del_cmd)
-    except subprocess.CalledProcessError as exc:
+    except subproc.CalledProcessError as exc:
         if exc.returncode == 1:
             # iptables exit with rc 1 if rule is not found, not fatal when
             # deleting.
@@ -728,7 +721,7 @@ def flush_cnt_conntrack_table(vip):
     # works correctly.
     try:
         subproc.check_call(['conntrack', '-D', '-g', vip])
-    except subprocess.CalledProcessError as exc:
+    except subproc.CalledProcessError as exc:
         # return code is 0 if entries were deleted, 1 if no matching
         # entries were found.
         if exc.returncode in (0, 1):
@@ -755,7 +748,7 @@ def flush_pt_conntrack_table(passthrough_ip):
     # works correctly.
     try:
         subproc.check_call(['conntrack', '-D', '-s', passthrough_ip])
-    except subprocess.CalledProcessError as exc:
+    except subproc.CalledProcessError as exc:
         # return code is 0 if entries were deleted, 1 if no matching
         # entries were found.
         if exc.returncode in (0, 1):
@@ -864,10 +857,12 @@ def atomic_set(target_set, content, set_type='hash:ip', **set_options):
     """
     # TODO: Read the target_set options directly instead of requiring user to
     # provide them to this function.
-    new_set = '{ipset}-{ts}'.format(
-        ipset=target_set,
-        ts=int(time.time() * 100)
+
+    # Temporary set is microsecond timestamped
+    new_set = 'tmp-{ts}'.format(
+        ts=int(time.time() * 10**7)
     )
+    assert len(new_set) <= 32, 'Temporary set name too long'
     _LOGGER.debug('Temporary IPSet: %r', new_set)
     try:
         # Create a new empty IPSet set

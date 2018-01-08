@@ -102,7 +102,7 @@ def collect(approot, archive_filename):
         _LOGGER.info('node info archive file: %s', archive_filename)
         shutil.rmtree(destroot)
         return archive_filename
-    except:  # pylint: disable=W0702
+    except Exception:  # pylint: disable=W0703
         # if tar bar is not generated successfully, we keep destroot
         # we can find destroot path in log to check the files
         _LOGGER.exception('Failed to generate node info archive')

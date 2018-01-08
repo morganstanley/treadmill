@@ -1,4 +1,6 @@
-"""Manage Treadmill app manifest."""
+"""Stop Treadmill instances.
+"""
+
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
@@ -6,9 +8,9 @@ from __future__ import unicode_literals
 
 import click
 
-from .. import cli
-from treadmill import restclient
+from treadmill import cli
 from treadmill import context
+from treadmill import restclient
 
 
 def init():

@@ -44,5 +44,6 @@ class TreeTest(unittest.TestCase):
         self.assertEqual(6, utils.create_script.call_count)
         self.assertEqual(2, shutil.rmtree.call_count)
 
+
 if __name__ == '__main__':
     unittest.main()

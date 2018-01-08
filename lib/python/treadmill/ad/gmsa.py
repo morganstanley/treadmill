@@ -15,16 +15,16 @@ import os
 import ldap3
 import parse
 
-from . import _servers as servers
-
-from treadmill import dirwatch
-from treadmill import utils
-
 if os.name == 'nt':
     # Pylint warning unable to import because it is on Windows only
     import win32api  # pylint: disable=E0401
     import win32con  # pylint: disable=E0401
     import win32security  # pylint: disable=E0401
+
+from treadmill import dirwatch
+from treadmill import utils
+
+from . import _servers as servers
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -292,7 +292,7 @@ class HostGroupWatch(object):
             server_dir = os.path.join(self._placement_path,
                                       server_info['hostname'])
             self._dirwatcher.remove_dir(server_dir)
-            for proid in self._proids.keys():
+            for proid in self._proids:
                 server_dn_set = self._proids[proid]
                 if dn in server_dn_set:
                     self._remove_placement(server_info, proid)
@@ -379,7 +379,7 @@ class HostGroupWatch(object):
 
             all_proids[match] = members
 
-        for proid in all_proids.keys():
+        for proid in all_proids:
             server_dn_set = set(
                 k for (k, v) in self._get_server_dn_set(proid).items()
             )

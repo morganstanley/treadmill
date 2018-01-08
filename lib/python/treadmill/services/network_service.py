@@ -13,15 +13,11 @@ import os
 import netifaces
 import six
 
-if six.PY2 and os.name == 'posix':
-    import subprocess32 as subprocess  # pylint: disable=import-error
-else:
-    import subprocess  # pylint: disable=wrong-import-order
-
+from treadmill import iptables
 from treadmill import logcontext as lc
 from treadmill import netdev
+from treadmill import subproc
 from treadmill import vipfile
-from treadmill import iptables
 
 from ._base_service import BaseResourceServiceImpl
 
@@ -101,7 +97,7 @@ class NetworkResourceService(BaseResourceServiceImpl):
             netdev.link_set_up(self._TM_DEV1)
             netdev.link_set_up(self._TMBR_DEV)
 
-        except subprocess.CalledProcessError:
+        except subproc.CalledProcessError:
             need_init = True
 
         if need_init:
@@ -292,19 +288,19 @@ class NetworkResourceService(BaseResourceServiceImpl):
             #                 bridge.
             netdev.link_set_down(self._TM_DEV0)
             netdev.bridge_delete(self._TM_DEV0)
-        except subprocess.CalledProcessError:
+        except subproc.CalledProcessError:
             pass
 
         try:
             netdev.link_set_down(self._TM_DEV0)
             netdev.link_del_veth(self._TM_DEV0)
-        except subprocess.CalledProcessError:
+        except subproc.CalledProcessError:
             pass
 
         try:
             netdev.link_set_down(self._TMBR_DEV)
             netdev.bridge_delete(self._TMBR_DEV)
-        except subprocess.CalledProcessError:
+        except subproc.CalledProcessError:
             pass
 
         netdev.bridge_create(self._TMBR_DEV)

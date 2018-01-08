@@ -88,8 +88,6 @@ class NotFoundError(Exception):
     Attributes:
     message -- message to return
     """
-    def __init__(self, msg):
-        super(NotFoundError, self).__init__(msg)
 
 
 class AlreadyExistsError(Exception):
@@ -98,8 +96,6 @@ class AlreadyExistsError(Exception):
     Attributes:
     message -- message to return
     """
-    def __init__(self, msg):
-        super(AlreadyExistsError, self).__init__(msg)
 
 
 class MaxRequestRetriesError(Exception):
