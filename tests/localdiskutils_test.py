@@ -6,19 +6,16 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
-import os
 import unittest
 
-import mock
-import six
+# Disable W0611: Unused import
+import tests.treadmill_test_skip_windows  # pylint: disable=W0611
 
-if six.PY2 and os.name == 'posix':
-    import subprocess32 as subprocess  # pylint: disable=import-error
-else:
-    import subprocess  # pylint: disable=wrong-import-order
+import mock
 
 import treadmill
 from treadmill import localdiskutils
+from treadmill import subproc
 
 
 class LocalDiskTest(unittest.TestCase):
@@ -94,7 +91,7 @@ class LocalDiskTest(unittest.TestCase):
         img_size = 42
 
         treadmill.lvm.vgactivate.side_effect = \
-            subprocess.CalledProcessError(returncode=5, cmd='lvm')
+            subproc.CalledProcessError(returncode=5, cmd='lvm')
         mock_init_blkdev = treadmill.localdiskutils.init_block_dev
         mock_init_blkdev.return_value = '/dev/test'
         treadmill.lvm.lvsdisplay.return_value = []
@@ -127,7 +124,7 @@ class LocalDiskTest(unittest.TestCase):
         block_dev = '/dev/test'
 
         treadmill.lvm.vgactivate.side_effect = \
-            subprocess.CalledProcessError(returncode=5, cmd='lvm')
+            subproc.CalledProcessError(returncode=5, cmd='lvm')
         treadmill.lvm.lvsdisplay.return_value = []
 
         localdiskutils.setup_device_lvm(block_dev)

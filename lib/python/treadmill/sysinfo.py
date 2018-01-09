@@ -1,4 +1,5 @@
-"""Helper module to get system related information."""
+"""Helper module to get system related information.
+"""
 
 from __future__ import absolute_import
 from __future__ import division
@@ -105,7 +106,7 @@ def _proc_info_windows(pid):
     """Returns process exe filename and start time."""
     try:
         process = psutil.Process(pid)
-    except:
+    except Exception:
         raise exc.InvalidInputError('proc', 'pid is undefined.')
 
     return namedtuple('proc', 'filename ppid starttime')(process.name(),

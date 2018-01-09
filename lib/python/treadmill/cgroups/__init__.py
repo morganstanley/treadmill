@@ -49,7 +49,7 @@ def read_mounted_cgroups():
                     if op in availables:
                         subsystems2mounts.setdefault(op, []).append(fs_file)
 
-            except:  # pylint: disable=W0702
+            except Exception:  # pylint: disable=W0703
                 pass
 
     return subsystems2mounts
@@ -237,7 +237,7 @@ def available_subsystems():
                  _num_cgroups, enabled) = cgroup.split()
                 if subsys_name[0] != '#' and enabled == '1':
                     subsystems.append(subsys_name)
-            except:  # pylint: disable=W0702
+            except Exception:  # pylint: disable=W0703
                 pass
 
     return subsystems
@@ -269,7 +269,7 @@ def mounted_subsystems():
                 for op in fs_mntops.split(','):
                     if op in subsystems:
                         _SUBSYSTEMS2MOUNTS[op] = fs_file
-            except:  # pylint: disable=W0702
+            except Exception:  # pylint: disable=W0703
                 pass
 
     return _SUBSYSTEMS2MOUNTS

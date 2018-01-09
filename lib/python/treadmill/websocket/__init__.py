@@ -56,7 +56,7 @@ def make_handler(pubsub):
                 return False
             return sub_id is None or sub_id in self._subscriptions
 
-        def open(self):
+        def open(self, *args, **kwargs):
             """Called when connection is opened.
 
             Override if you want to do something else besides log the action.
@@ -115,24 +115,24 @@ def make_handler(pubsub):
             _LOGGER.debug('parsed_origin: %r', parsed_origin)
             return True
 
-        def on_message(self, jmessage):
+        def on_message(self, message):
             """Manage event subscriptions."""
             if not pubsub:
                 _LOGGER.fatal('pubsub is not configured, ignore.')
                 self.send_error_msg('Fatal: unexpected error', close_conn=True)
 
             _LOGGER.info('[%s] Received message: %s',
-                         self._request_id, jmessage)
+                         self._request_id, message)
 
             sub_id = None
             close_conn = True
             try:
-                message = json.loads(jmessage)
+                sub_msg = json.loads(message)
 
-                sub_id = message.get('sub-id')
+                sub_id = sub_msg.get('sub-id')
                 close_conn = sub_id is None
 
-                if message.get('unsubscribe') is True:
+                if sub_msg.get('unsubscribe') is True:
                     _LOGGER.info('[%s] Unsubscribing %s',
                                  self._request_id, sub_id)
                     try:
@@ -151,7 +151,7 @@ def make_handler(pubsub):
                     )
                     return
 
-                topic = message.get('topic')
+                topic = sub_msg.get('topic')
                 impl = pubsub.impl.get(topic)
                 if not impl:
                     self.send_error_msg(
@@ -160,9 +160,9 @@ def make_handler(pubsub):
                     )
                     return
 
-                subscription = impl.subscribe(message)
-                since = message.get('since', 0)
-                snapshot = message.get('snapshot', False)
+                subscription = impl.subscribe(sub_msg)
+                since = sub_msg.get('since', 0)
+                snapshot = sub_msg.get('snapshot', False)
 
                 if sub_id and not snapshot:
                     _LOGGER.info('[%s] Adding subscription %s',
@@ -179,7 +179,7 @@ def make_handler(pubsub):
                 self.send_error_msg(str(err),
                                     sub_id=sub_id, close_conn=close_conn)
 
-        def data_received(self, message):
+        def data_received(self, chunk):
             """Passthrough of abstract method data_received"""
             pass
 

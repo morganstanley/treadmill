@@ -38,7 +38,6 @@ from treadmill import restclient
 from botocore import exceptions
 
 EXIT_CODE_DEFAULT = 1
-IPA_PASSWORD_RE = re.compile('.{8,}')
 
 # Disable unicode_literals click warning.
 click.disable_unicode_literals_warning = True
@@ -59,7 +58,7 @@ def init_logger(name):
     try:
         logging.config.fileConfig(log_conf_file)
     except configparser.Error:
-        with tempfile.NamedTemporaryFile(delete=False) as f:
+        with tempfile.NamedTemporaryFile(delete=False, mode='w') as f:
             traceback.print_exc(file=f)
             click.echo('Error parsing log conf: {name}'.format(name=name),
                        err=True)
@@ -85,16 +84,18 @@ def make_multi_command(module_name, **click_args):
             )
             return sorted([cmd.replace('_', '-') for cmd in commands])
 
-        def get_command(self, ctx, name):
+        def get_command(self, ctx, cmd_name):
             try:
-                full_name = '.'.join([module_name, name.replace('-', '_')])
+                full_name = '.'.join([module_name, cmd_name.replace('-', '_')])
                 mod = importlib.import_module(full_name)
                 return mod.init()
             except Exception:  # pylint: disable=W0703
                 with tempfile.NamedTemporaryFile(delete=False, mode='w') as f:
                     traceback.print_exc(file=f)
                     click.echo(
-                        'Unable to load plugin: %s [ %s ]' % (name, f.name),
+                        'Unable to load plugin: %s [ %s ]' % (
+                            cmd_name, f.name
+                        ),
                         err=True)
                 return
 
@@ -117,11 +118,11 @@ def make_commands(section, **click_args):
             """Return list of commands in section."""
             return sorted(plugin_manager.names(section))
 
-        def get_command(self, ctx, name):
+        def get_command(self, ctx, cmd_name):
             try:
-                return plugin_manager.load(section, name).init()
+                return plugin_manager.load(section, cmd_name).init()
             except KeyError:
-                raise click.UsageError('Invalid command: %s' % name)
+                raise click.UsageError('Invalid command: %s' % cmd_name)
 
     return MCommand
 

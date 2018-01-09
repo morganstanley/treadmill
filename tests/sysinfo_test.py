@@ -19,7 +19,8 @@ import treadmill.appenv
 from treadmill import sysinfo
 
 
-class SysinfoTest(unittest.TestCase):
+@unittest.skipUnless(sys.platform.startswith('linux'), 'Requires Linux')
+class LinuxSysinfoTest(unittest.TestCase):
     """treadmill.sysinfo test."""
 
     PROC_MEMINFO = """
@@ -156,18 +157,6 @@ power management: [8]
     def test_proc_info(self):
         """Proc info test."""
         proc_info = sysinfo.proc_info(os.getpid())
-        # Handle running python with options, as in:
-        # sys.argv[0] == 'python -m unittest'
-        expected = os.path.basename(sys.argv[0].split()[0])
-
-        # TODO: When running coverage, script is execed under python.
-        #                but sys.argv[0] reports as setup.py
-        #
-        # train starts subprocess for the test with altnose.py
-        # this makes this assert unusable
-        expected_progs = ['setup.py', 'altnose.py', 'sysinfo_test.py']
-        if expected not in expected_progs:
-            self.assertEqual(expected, proc_info.filename)
         self.assertEqual(os.getppid(), proc_info.ppid)
 
         # We do not check the starttime, but just verify that calling

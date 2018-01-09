@@ -25,12 +25,11 @@ else:
     _TREADMILL_SCRIPT = 'treadmill'
 
 #: Main Treadmill binary location of this Treadmill distribution
-TREADMILL_BIN = os.path.join(TREADMILL, 'bin', _TREADMILL_SCRIPT)
-
 # XXX: looks like another hack. Ideally we need to remove dependency
 #      on this.
 TREADMILL = os.environ.get('TREADMILL', '/opt/treadmill')
 TREADMILL_BIN = os.path.join(TREADMILL, 'bin', _TREADMILL_SCRIPT)
+
 
 __all__ = [
     'TREADMILL',

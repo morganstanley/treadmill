@@ -7,22 +7,20 @@ from __future__ import unicode_literals
 
 import collections
 import os
-import pwd
 import re
 import shutil
+import sys
 import tempfile
 import unittest
 
 import mock
-import six
-
-if six.PY2 and os.name == 'posix':
-    import subprocess32 as subprocess  # pylint: disable=import-error
-else:
-    import subprocess  # pylint: disable=wrong-import-order
 
 import treadmill
 from treadmill import supervisor
+from treadmill import subproc
+
+if sys.platform.startswith('linux'):
+    import pwd
 
 # Disable: C0103 because names are too long
 # pylint: disable=C0103
@@ -55,9 +53,12 @@ class SupervisorTest(unittest.TestCase):
     def tearDown(self):
         if self.root and os.path.isdir(self.root):
             shutil.rmtree(self.root)
-        os.system('pgrep s6-svscan | xargs kill 2> /dev/null')
-        os.system('pgrep s6-supervise | xargs kill 2> /dev/null')
 
+        if sys.platform.startswith('linux'):
+            os.system('pgrep s6-svscan | xargs kill 2> /dev/null')
+            os.system('pgrep s6-supervise | xargs kill 2> /dev/null')
+
+    @unittest.skipUnless(sys.platform.startswith('linux'), 'Requires Linux')
     @mock.patch('pwd.getpwnam', mock.Mock(auto_spec=True))
     def test_create_service(self):
         """Checks various options when creating the service.
@@ -90,6 +91,7 @@ class SupervisorTest(unittest.TestCase):
         service_dir = os.path.join(self.root, 'bar')
         self.assertFalse(os.path.exists(os.path.join(service_dir, 'down')))
 
+    @unittest.skipUnless(sys.platform.startswith('linux'), 'Requires Linux')
     @mock.patch('pwd.getpwnam', mock.Mock(auto_spec=True))
     def test_create_service_optional(self):
         """Checks optional components of create service.
@@ -122,6 +124,7 @@ class SupervisorTest(unittest.TestCase):
         self.assertTrue(os.path.isfile(os.path.join(service_dir, 'finish')))
         self.assertTrue(os.path.isfile(os.path.join(service_dir, 'env/b')))
 
+    @unittest.skipUnless(sys.platform.startswith('linux'), 'Requires Linux')
     def test_create_service_bad_userid(self):
         """Tests creating a service with a bad userid.
         """
@@ -141,23 +144,31 @@ class SupervisorTest(unittest.TestCase):
     def test_is_supervised(self):
         """Tests that checking if a service directory is supervised.
         """
+        # Disable W0212(protected-access)
+        # pylint: disable=W0212
         self.assertTrue(supervisor.is_supervised(self.root))
-        treadmill.subproc.check_call.assert_called_with(['s6_svok', self.root])
+        treadmill.subproc.check_call.assert_called_with(
+            [supervisor._get_cmd('svok'), self.root]
+        )
 
         treadmill.subproc.check_call.side_effect = \
-            subprocess.CalledProcessError(1, 's6_svok')
+            subproc.CalledProcessError(1, supervisor._get_cmd('svok'))
         self.assertFalse(supervisor.is_supervised(self.root))
-        treadmill.subproc.check_call.assert_called_with(['s6_svok', self.root])
+        treadmill.subproc.check_call.assert_called_with(
+            [supervisor._get_cmd('svok'), self.root]
+        )
 
     @mock.patch('treadmill.subproc.check_call', mock.Mock(spec_set=True))
     def test_control_service(self):
         """Tests controlling a service.
         """
+        # Disable W0212(protected-access)
+        # pylint: disable=W0212
         self.assertTrue(supervisor.control_service(
             self.root, supervisor.ServiceControlAction.down
         ))
         treadmill.subproc.check_call.assert_called_with(
-            ['s6_svc', '-d', self.root]
+            [supervisor._get_cmd('svc'), '-d', self.root]
         )
 
         self.assertTrue(supervisor.control_service(
@@ -168,7 +179,7 @@ class SupervisorTest(unittest.TestCase):
             timeout=100,  # Should not be used
         ))
         treadmill.subproc.check_call.assert_called_with(
-            ['s6_svc', '-uO', self.root]
+            [supervisor._get_cmd('svc'), '-uO', self.root]
         )
 
         self.assertTrue(supervisor.control_service(
@@ -177,25 +188,28 @@ class SupervisorTest(unittest.TestCase):
             timeout=100,
         ))
         treadmill.subproc.check_call.assert_called_with(
-            ['s6_svwait', '-t100', '-u', self.root]
+            [supervisor._get_cmd('svwait'), '-t100', '-u', self.root]
         )
 
         treadmill.subproc.check_call.side_effect = \
-            subprocess.CalledProcessError(1, 's6_svc')
+            subproc.CalledProcessError(1, supervisor._get_cmd('svc'))
         self.assertRaises(
-            subprocess.CalledProcessError,
+            subproc.CalledProcessError,
             supervisor.control_service,
             self.root,
             supervisor.ServiceControlAction.down
         )
         treadmill.subproc.check_call.assert_called_with(
-            ['s6_svc', '-d', self.root]
+            [supervisor._get_cmd('svc'), '-d', self.root]
         )
 
     @mock.patch('treadmill.subproc.check_call', mock.Mock(spec_set=True))
     @mock.patch('treadmill.supervisor.wait_service', mock.Mock())
     def test_control_service_wait(self):
         """Tests controlling a service and wait"""
+        # Disable W0212(protected-access)
+        # pylint: disable=W0212
+
         # shutdown supervised service
         res = supervisor.control_service(
             self.root, supervisor.ServiceControlAction.down,
@@ -204,7 +218,7 @@ class SupervisorTest(unittest.TestCase):
         )
 
         treadmill.subproc.check_call.assert_called_with(
-            ['s6_svc', '-d', self.root]
+            [supervisor._get_cmd('svc'), '-d', self.root]
         )
         treadmill.supervisor.wait_service.assert_called_with(
             self.root,
@@ -216,7 +230,7 @@ class SupervisorTest(unittest.TestCase):
         # shutdown service timeouts
         treadmill.subproc.check_call.reset_mock()
         supervisor.wait_service.side_effect = \
-            subprocess.CalledProcessError(99, 's6_svwait')
+            subproc.CalledProcessError(99, supervisor._get_cmd('svwait'))
 
         res = supervisor.control_service(
             self.root, supervisor.ServiceControlAction.down,
@@ -224,7 +238,7 @@ class SupervisorTest(unittest.TestCase):
             timeout=100,
         )
         treadmill.subproc.check_call.assert_called_with(
-            ['s6_svc', '-d', self.root]
+            [supervisor._get_cmd('svc'), '-d', self.root]
         )
         treadmill.supervisor.wait_service.assert_called_with(
             self.root,
@@ -236,9 +250,9 @@ class SupervisorTest(unittest.TestCase):
         # shutdown unsupervised service
         treadmill.subproc.check_call.reset_mock()
         treadmill.subproc.check_call.side_effect = \
-            subprocess.CalledProcessError(100, 's6_svc')
+            subproc.CalledProcessError(100, supervisor._get_cmd('svc'))
 
-        with self.assertRaises(subprocess.CalledProcessError):
+        with self.assertRaises(subproc.CalledProcessError):
             supervisor.control_service(
                 self.root, supervisor.ServiceControlAction.down,
                 wait=supervisor.ServiceWaitAction.down,
@@ -249,6 +263,8 @@ class SupervisorTest(unittest.TestCase):
     def test_control_svscan(self):
         """Tests controlling an svscan instance.
         """
+        # Disable W0212(protected-access)
+        # pylint: disable=W0212
         supervisor.control_svscan(
             self.root, (
                 supervisor.SvscanControlAction.alarm,
@@ -256,18 +272,20 @@ class SupervisorTest(unittest.TestCase):
             )
         )
         treadmill.subproc.check_call.assert_called_with(
-            ['s6_svscanctl', '-an', self.root]
+            [supervisor._get_cmd('svscanctl'), '-an', self.root]
         )
 
     @mock.patch('treadmill.subproc.check_call', mock.Mock(spec_set=True))
     def test_wait_service(self):
         """Tests waiting on a service.
         """
+        # Disable W0212(protected-access)
+        # pylint: disable=W0212
         supervisor.wait_service(
             self.root, supervisor.ServiceWaitAction.down
         )
         treadmill.subproc.check_call.assert_called_with(
-            ['s6_svwait', '-d', self.root]
+            [supervisor._get_cmd('svwait'), '-d', self.root]
         )
 
         treadmill.subproc.check_call.reset_mock()
@@ -276,13 +294,14 @@ class SupervisorTest(unittest.TestCase):
                 os.path.join(self.root, 'a'),
                 os.path.join(self.root, 'b')
             ),
-            supervisor.ServiceWaitAction.really_up,
+            supervisor.ServiceWaitAction.up,
             all_services=False,
             timeout=100,
         )
+
         treadmill.subproc.check_call.assert_called_with(
             [
-                's6_svwait', '-t100', '-o', '-U',
+                supervisor._get_cmd('svwait'), '-t100', '-o', '-u',
                 os.path.join(self.root, 'a'),
                 os.path.join(self.root, 'b')
             ]
@@ -290,17 +309,18 @@ class SupervisorTest(unittest.TestCase):
 
         treadmill.subproc.check_call.reset_mock()
         treadmill.subproc.check_call.side_effect = \
-            subprocess.CalledProcessError(99, 's6_svwait')
-        with self.assertRaises(subprocess.CalledProcessError):
+            subproc.CalledProcessError(99, supervisor._get_cmd('svwait'))
+        with self.assertRaises(subproc.CalledProcessError):
             supervisor.wait_service(
                 self.root, supervisor.ServiceWaitAction.really_down
             )
         treadmill.subproc.check_call.assert_called_with(
-            ['s6_svwait', '-D', self.root]
+            [supervisor._get_cmd('svwait'), '-D', self.root]
         )
 
+    # Disable: C0103 because names are too long
     @mock.patch('treadmill.supervisor.is_supervised', mock.Mock())
-    def test_ensure_not_supervised_not_running(self):
+    def test_ensure_not_supervised_not_running(self):  # pylint: disable=C0103
         """Tests ensuring a service and its logs are down when they already
         are not supervised.
         """
@@ -345,15 +365,16 @@ class SupervisorTest(unittest.TestCase):
 
         self.assertEqual(2, treadmill.supervisor.is_supervised.call_count)
 
+    # Disable: C0103 because names are too long
     @mock.patch('treadmill.supervisor.is_supervised', mock.Mock())
     @mock.patch('treadmill.supervisor.control_service', mock.Mock())
     @mock.patch('time.sleep', mock.Mock())
-    def test_ensure_not_supervised_failed(self):
+    def test_ensure_not_supervised_failed(self):  # pylint: disable=C0103
         """Tests when a service fails to be brought down.
         """
         treadmill.supervisor.is_supervised.return_value = True
         treadmill.supervisor.control_service.side_effect = \
-            subprocess.CalledProcessError(1, '')
+            subproc.CalledProcessError(1, '')
 
         with self.assertRaises(Exception):
             supervisor.ensure_not_supervised(self.root)

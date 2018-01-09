@@ -94,7 +94,7 @@ class IPA(base_provision.BaseProvision):
 
         try:
             self.vpc.delete_dhcp_options()
-        except:
+        except Exception:
             pass
 
         self.vpc.associate_dhcp_options([

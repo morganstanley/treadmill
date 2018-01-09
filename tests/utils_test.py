@@ -9,10 +9,10 @@ from __future__ import unicode_literals
 import errno
 import io
 import os
-import resource
 import shutil
 import signal
 import stat
+import sys
 import tempfile
 import time
 import unittest
@@ -29,6 +29,9 @@ from treadmill import exc
 from treadmill import utils
 from treadmill import yamlwrapper as yaml
 
+if sys.platform.startswith('linux'):
+    import resource
+
 
 class UtilsTest(unittest.TestCase):
     """This contains the treadmill.utils tests."""
@@ -40,8 +43,9 @@ class UtilsTest(unittest.TestCase):
         if self.root and os.path.isdir(self.root):
             shutil.rmtree(self.root)
 
+    @unittest.skipUnless(sys.platform.startswith('linux'), 'Requires Linux')
     @mock.patch('treadmill.subproc.get_aliases', mock.Mock(return_value={}))
-    def test_create_script(self):
+    def test_create_script_linux(self):
         """this tests the create_script function.
 
         the function creates executable scripts from templates that exist
@@ -71,8 +75,9 @@ class UtilsTest(unittest.TestCase):
         # Validate that the file is +x
         self.assertEqual(utils.os.stat(script_file).st_mode, 33261)
 
+    @unittest.skipUnless(sys.platform.startswith('linux'), 'Requires Linux')
     @mock.patch('treadmill.subproc.get_aliases', mock.Mock(return_value={}))
-    def test_create_script_perms(self):
+    def test_create_script_perms_linux(self):
         """this tests the create_script function (permissions).
         """
         script_file = os.path.join(self.root, 'script')
@@ -228,13 +233,15 @@ class UtilsTest(unittest.TestCase):
         # xxxx is not in path
         self.assertEqual('xxxx', utils.find_in_path('xxxx'))
 
-        os.environ['PATH'] = os.environ['PATH'] + ':' + temp_dir
+        os.environ['PATH'] = os.environ['PATH'] + os.pathsep + temp_dir
 
         io.open(os.path.join(temp_dir, 'xxxx'), 'w').close()
-        # xxxx is in path, but not executable.
-        self.assertEqual('xxxx', utils.find_in_path('xxxx'))
 
-        os.chmod(os.path.join(temp_dir, 'xxxx'), int(utils.EXEC_MODE))
+        if os.name == 'posix':
+            # xxxx is in path, but not executable.
+            self.assertEqual('xxxx', utils.find_in_path('xxxx'))
+            os.chmod(os.path.join(temp_dir, 'xxxx'), int(utils.EXEC_MODE))
+
         self.assertEqual(
             os.path.join(temp_dir, 'xxxx'),
             utils.find_in_path('xxxx')
@@ -287,6 +294,7 @@ class UtilsTest(unittest.TestCase):
 
         self.assertEqual([], utils.tail('/no/such/thing'))
 
+    @unittest.skipUnless(sys.platform.startswith('linux'), 'Requires Linux')
     @mock.patch('os.write', mock.Mock())
     @mock.patch('os.close', mock.Mock())
     def test_report_ready(self):
@@ -328,6 +336,7 @@ class UtilsTest(unittest.TestCase):
         self.assertEqual(result1, expected)
         self.assertEqual(result2, expected)
 
+    @unittest.skipUnless(sys.platform.startswith('linux'), 'Requires Linux')
     def test_signal_flag(self):
         """Tests signal flag."""
         signalled = utils.make_signal_flag(signal.SIGHUP, signal.SIGTERM)
@@ -350,6 +359,7 @@ class UtilsTest(unittest.TestCase):
 
         self.assertEqual(yaml.dump(obj), u'{xxx: abcd}\n')
 
+    @unittest.skipUnless(sys.platform.startswith('linux'), 'Requires Linux')
     @mock.patch('os.closerange', mock.Mock(spec_set=True))
     @mock.patch('os.listdir', mock.Mock(spec_set=True))
     @mock.patch('resource.getrlimit', mock.Mock(spec_set=True))
@@ -372,6 +382,7 @@ class UtilsTest(unittest.TestCase):
 
         os.closerange.assert_called_with(4, 1024**2)
 
+    @unittest.skipUnless(sys.platform.startswith('linux'), 'Requires Linux')
     @mock.patch('signal.signal', mock.Mock(spec_set=True))
     @mock.patch('os.execvp', mock.Mock(spec_set=True))
     @mock.patch('treadmill.utils.closefrom', mock.Mock(spec_set=True))

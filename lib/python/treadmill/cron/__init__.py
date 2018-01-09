@@ -53,21 +53,22 @@ def cron_to_dict(cron):
     _LOGGER.debug('cexpression: %r', cexpression)
 
     trigger_args = {}
-    if len(cexpression) > 0:
+    nargs = len(cexpression)
+    if nargs > 0:
         trigger_args['second'] = cexpression[0]
-    if len(cexpression) > 1:
+    if nargs > 1:
         trigger_args['minute'] = cexpression[1]
-    if len(cexpression) > 2:
+    if nargs > 2:
         trigger_args['hour'] = cexpression[2]
-    if len(cexpression) > 3:
+    if nargs > 3:
         trigger_args['day'] = cexpression[3]
-    if len(cexpression) > 4:
+    if nargs > 4:
         trigger_args['month'] = cexpression[4]
-    if len(cexpression) > 5:
+    if nargs > 5:
         trigger_args['day_of_week'] = cexpression[5]
-    if len(cexpression) > 6:
+    if nargs > 6:
         trigger_args['year'] = cexpression[6]
-    if len(cexpression) > 7:
+    if nargs > 7:
         value = cexpression[7]
         if value == '*':
             raise exc.InvalidInputError(
@@ -129,7 +130,8 @@ def get_job(scheduler, job_id):
 
 
 def create_job(scheduler, job_id, job_name, func, func_kwargs, trigger_args):
-    """Create a new job/model"""
+    """Create a new job/model.
+    """
     _LOGGER.debug(
         'job_id: %s, job_name: %s, func: %s, func_kwargs: %r, trigger_args: '
         '%r', job_id, job_name, func, func_kwargs, trigger_args
@@ -153,8 +155,18 @@ def create_job(scheduler, job_id, job_name, func, func_kwargs, trigger_args):
     return job
 
 
+def _is_paused(job):
+    """Determine if the supplied job is paused.
+    """
+    if hasattr(job, 'next_run_time') and job.next_run_time:
+        return False
+
+    return True
+
+
 def update_job(scheduler, job_id, job_name, func, func_kwargs, trigger_args):
-    """Update an existing job/model"""
+    """Update an existing job/model.
+    """
     _LOGGER.debug(
         'job_id: %s, job_name: %s, func: %s, func_kwargs: %r, trigger_args: '
         '%r', job_id, job_name, func, func_kwargs, trigger_args
@@ -163,6 +175,8 @@ def update_job(scheduler, job_id, job_name, func, func_kwargs, trigger_args):
     job = get_job(scheduler, job_id)
     if not job:
         raise exc.NotFoundError('{} does not exist'.format(job_id))
+
+    is_paused = _is_paused(job)
 
     _LOGGER.info('Updating job %s', job_id)
     job = scheduler.add_job(
@@ -175,5 +189,8 @@ def update_job(scheduler, job_id, job_name, func, func_kwargs, trigger_args):
         kwargs=func_kwargs,
         **trigger_args
     )
+
+    if is_paused:
+        job.pause()
 
     return job

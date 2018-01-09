@@ -29,6 +29,7 @@ click.disable_unicode_literals_warning = True
               is_eager=True,
               expose_value=False)
 @click.option('--ldap', required=False, envvar='TREADMILL_LDAP',
+              type=cli.LIST,
               callback=cli.handle_context_opt,
               is_eager=True,
               expose_value=False)
@@ -50,7 +51,7 @@ click.disable_unicode_literals_warning = True
               callback=cli.handle_context_opt,
               is_eager=True,
               expose_value=False)
-@click.option('--outfmt', type=click.Choice(['json', 'yaml']))
+@click.option('--outfmt', type=click.Choice(['json', 'yaml', 'csv']))
 @click.option('--debug/--no-debug',
               help='Sets logging level to debug',
               is_flag=True, default=False)

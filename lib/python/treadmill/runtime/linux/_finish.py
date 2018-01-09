@@ -332,7 +332,7 @@ def _cleanup_exception_rules(tm_env, container_dir, app):
             'treadmill.firewall.plugins', 'firewall'
         )
         firewall_plugin.cleanup_exception_rules(tm_env, container_dir, app)
-    except:  # pylint: disable=W0702
+    except Exception:  # pylint: disable=W0703
         _LOGGER.exception(
             'Error in firewall plugin, skip cleaning firewall exception rules.'
         )

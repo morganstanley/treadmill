@@ -188,7 +188,6 @@ def make_fsroot(root_dir):
         '/run',
         '/sbin',
         '/sys',
-        '/usr',
         '/tmp',
         '/usr',
         '/var/cache',
@@ -198,7 +197,7 @@ def make_fsroot(root_dir):
         '/var/opt',
         '/var/spool',
         '/var/tmp',
-        # for sss
+        # for SSS
         '/var/lib/sss',
         # for sshd
         '/var/empty',
@@ -224,6 +223,8 @@ def make_fsroot(root_dir):
         '/lib64',
         '/sbin',
         '/usr',
+        # for SSS
+        '/var/lib/sss',
         # TODO: Remove below once PAM UDS is implemented
         '/var/tmp/treadmill/env',
         '/var/tmp/treadmill/spool',
@@ -233,7 +234,6 @@ def make_fsroot(root_dir):
     mounts += glob.glob('/opt/*')
 
     for directory in emptydirs:
-        _LOGGER.debug('Creating empty dir: %s', directory)
         fs.mkdir_safe(newroot_norm + directory)
 
     for directory in stickydirs:
@@ -364,12 +364,15 @@ def _prepare_pam_sshd(tm_env, container_dir, app):
 
     if app.shared_network:
         template_pam_sshd = os.path.join(
-            tm_env.root, 'etc', 'pam.d', 'sshd.shared_network')
+            tm_env.root, 'etc', 'pam.d', 'sshd.shared_network'
+        )
     else:
         template_pam_sshd = os.path.join(
-            tm_env.root, 'etc', 'pam.d', 'sshd')
+            tm_env.root, 'etc', 'pam.d', 'sshd'
+        )
 
     if not os.path.exists(template_pam_sshd):
+        _LOGGER.warning('Falling back to local PAM sshd config.')
         template_pam_sshd = '/etc/pam.d/sshd'
 
     shutil.copyfile(
@@ -389,6 +392,7 @@ def _prepare_resolv_conf(tm_env, container_dir):
     #                for other resolver options
     template_resolv_conf = os.path.join(tm_env.root, 'etc', 'resolv.conf')
     if not os.path.exists(template_resolv_conf):
+        _LOGGER.warning('Falling back to local resolver config.')
         template_resolv_conf = '/etc/resolv.conf'
 
     shutil.copyfile(
@@ -459,8 +463,9 @@ def share_cgroup_info(root_dir, cgrp):
 
 class NativeImage(_image_base.Image):
     """Represents a native image."""
+
     __slots__ = (
-        'tm_env'
+        'tm_env',
     )
 
     def __init__(self, tm_env):
@@ -489,9 +494,6 @@ class NativeImage(_image_base.Image):
 
 class NativeImageRepository(_repository_base.ImageRepository):
     """A collection of native images."""
-
-    def __init__(self, tm_env):
-        super(NativeImageRepository, self).__init__(tm_env)
 
     def get(self, url):
         return NativeImage(self.tm_env)

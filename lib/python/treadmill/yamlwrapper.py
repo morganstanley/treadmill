@@ -50,7 +50,7 @@ def _repr_tuple(dumper, data):
 yaml.add_representer(tuple, _repr_tuple)
 
 
-def _repr_none(dumper, data_unused):
+def _repr_none(dumper, _data):
     """Fix yaml None representation (use ~).
     """
     return dumper.represent_scalar(u'tag:yaml.org,2002:null', '~')

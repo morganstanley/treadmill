@@ -11,11 +11,10 @@ import logging
 
 import click
 
-from .. import cli
-from treadmill import restclient
+from treadmill import cli
 from treadmill import context
+from treadmill import restclient
 from treadmill import yamlwrapper as yaml
-
 
 _LOGGER = logging.getLogger(__name__)
 

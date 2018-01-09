@@ -81,14 +81,13 @@ class ResourceServiceError(exc.TreadmillError):
     """
     __slots__ = ()
 
-    def __init__(self, message):
-        super(ResourceServiceError, self).__init__(message)
-
 
 class ResourceServiceRequestError(ResourceServiceError):
     """Resource Service Request error.
     """
-    __slots__ = ('request')
+    __slots__ = (
+        'request',
+    )
 
     def __init__(self, message, request):
         super(ResourceServiceRequestError, self).__init__(message)
@@ -99,9 +98,6 @@ class ResourceServiceTimeoutError(ResourceServiceError, socket.timeout):
     """Resource Service timeout.
     """
     __slots__ = ()
-
-    def __init__(self, message):
-        super(ResourceServiceTimeoutError, self).__init__(message)
 
 
 class ResourceServiceClient(object):
@@ -186,7 +182,7 @@ class ResourceServiceClient(object):
                     svc_req_uuid = f.read().strip()
             except IOError as err:
                 if err.errno == errno.ENOENT:
-                    log.logger.warning('Resource %r does not exist', rsrc_id)
+                    log.warning('Resource %r does not exist', rsrc_id)
                     return
                 raise
             self._serviceinst.clt_del_request(svc_req_uuid)

@@ -38,19 +38,13 @@ def fetch_report(cell_api, report_type, match=None, partition=None):
     return pd.DataFrame(response['data'], columns=response['columns'])
 
 
-def frame_to_dict(frame):
-    """Transform the dataframe to dict and remove unnecessary attributes."""
-    dict_ = frame.to_dict(orient='split')
-    del dict_['index']
-    return dict_
-
-
 def print_report(frame):
     """Pretty-print the report."""
     if cli.OUTPUT_FORMAT is None:
         frame.replace(True, ' ', inplace=True)
         frame.replace(False, 'X', inplace=True)
-        dict_ = frame_to_dict(frame)
+        dict_ = frame.to_dict(orient='split')
+        del dict_['index']
 
         cli.out(
             tabulate.tabulate(
@@ -61,9 +55,13 @@ def print_report(frame):
                        'the instance on the given server')
     elif cli.OUTPUT_FORMAT == 'yaml':
         fmt = plugin_manager.load('treadmill.formatters', 'yaml')
-        cli.out(fmt.format(frame_to_dict(frame)))
+        cli.out(fmt.format(frame.to_dict(orient='records')))
+    elif cli.OUTPUT_FORMAT == 'json':
+        cli.out(frame.to_json(orient='records'))
+    elif cli.OUTPUT_FORMAT == 'csv':
+        cli.out(frame.to_csv(index=False))
     else:
-        cli.out(frame.to_json())
+        cli.out(tabulate.tabulate(frame, frame.columns, tablefmt='simple'))
 
 
 def init():

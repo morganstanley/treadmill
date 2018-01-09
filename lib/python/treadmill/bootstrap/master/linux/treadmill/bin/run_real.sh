@@ -11,7 +11,6 @@ MKDIR={{ _alias.mkdir }}
 MOUNT={{ _alias.mount }}
 RM={{ _alias.rm }}
 
-# Look at ALL directories
 unset KRB5CCNAME
 unset KRB5_KTNAME
 

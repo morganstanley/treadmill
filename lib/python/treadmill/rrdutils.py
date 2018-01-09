@@ -66,6 +66,7 @@ class RRDClient(object):
 
         if not line.startswith('UPDATE'):
             _LOGGER.info('rrd command: %s', line)
+
         self.rrd.write(line + '\n')
         self.rrd.flush()
 

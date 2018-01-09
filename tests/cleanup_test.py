@@ -15,6 +15,7 @@ import unittest
 import mock
 
 import treadmill
+import treadmill.runtime.runtime_base
 from treadmill import cleanup
 
 
@@ -287,6 +288,7 @@ class CleanupTest(unittest.TestCase):
         treadmill.cleanup.Cleanup._remove_cleanup_app.assert_has_calls([
             mock.call('proid.app#0000000000001')
         ])
+
 
 if __name__ == '__main__':
     unittest.main()

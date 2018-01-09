@@ -1,5 +1,4 @@
-"""
-Treadmill IPA REST api.
+"""Treadmill IPA REST api.
 """
 
 import flask

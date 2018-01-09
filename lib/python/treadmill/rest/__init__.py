@@ -99,14 +99,14 @@ class TcpRestServer(RestServer):
             _LOGGER.info('Starting REST server: %s:%s, auth: %s, protect: %r',
                          self.host, self.port, self.auth_type, self.protect)
             try:
-                auth = plugin_manager.load('treadmill.rest.auth',
+                auth = plugin_manager.load('treadmill.rest.authentication',
                                            self.auth_type)
                 FLASK_APP.wsgi_app = auth.wrap(FLASK_APP.wsgi_app,
                                                self.protect)
             except KeyError:
                 _LOGGER.error('Unsupported auth type: %s', self.auth_type)
                 raise
-            except:
+            except Exception:
                 _LOGGER.exception('Unable to load auth plugin.')
                 raise
         else:
@@ -135,13 +135,13 @@ class UdsRestServer(RestServer):
             _LOGGER.info('Starting REST server: %s, auth: %s',
                          self.socket, self.auth_type)
             try:
-                auth = plugin_manager.load('treadmill.rest.auth',
+                auth = plugin_manager.load('treadmill.rest.authentication',
                                            self.auth_type)
                 FLASK_APP.wsgi_app = auth.wrap(FLASK_APP.wsgi_app)
             except KeyError:
                 _LOGGER.error('Unsupported auth type: %s', self.auth_type)
                 raise
-            except:
+            except Exception:
                 _LOGGER.exception('Unable to load auth plugin.')
                 raise
 

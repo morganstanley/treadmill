@@ -116,8 +116,8 @@ def init():
         app_discovery.sync()
 
         # TODO: not sure how to handle mutliple instances.
-        for (app, hostport) in app_discovery.iteritems():
-            _LOGGER.info('%s :: %s', app, hostport)
+        for (endpoint, hostport) in app_discovery.iteritems():
+            _LOGGER.info('%s :: %s', endpoint, hostport)
             if hostport:
                 host, port = hostport.split(b':')
                 run_ssh(host, port, ssh, list(command))

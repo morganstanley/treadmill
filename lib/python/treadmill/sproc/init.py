@@ -21,6 +21,7 @@ import kazoo
 
 from treadmill import appenv
 from treadmill import context
+from treadmill import netdev
 from treadmill import postmortem
 from treadmill import supervisor
 from treadmill import sysinfo
@@ -28,11 +29,7 @@ from treadmill import utils
 from treadmill import zknamespace as z
 from treadmill import zkutils
 
-if os.name == 'posix':
-    from .. import netdev
-
 _LOGGER = logging.getLogger(__name__)
-
 
 _WATCHDOG_CHECK_INTERVAL = 30
 _KERNEL_WATCHDOG = None

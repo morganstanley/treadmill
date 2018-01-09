@@ -20,12 +20,6 @@ import socket
 import time
 
 import click
-import six
-
-if six.PY2 and os.name == 'posix':
-    import subprocess32 as subprocess  # pylint: disable=import-error
-else:
-    import subprocess  # pylint: disable=wrong-import-order
 
 from treadmill import tickets
 from treadmill import context
@@ -60,7 +54,7 @@ def _renew_tickets(tkt_spool_dir):
                 environ={'KRB5CCNAME': 'FILE:' + tkt},
             )
             _LOGGER.info('Tickets renewed successfully.')
-        except subprocess.CalledProcessError as err:
+        except subproc.CalledProcessError as err:
             _LOGGER.info('Tickets not renewable, kinit rc: %s',
                          err.returncode)
         except OSError as os_err:

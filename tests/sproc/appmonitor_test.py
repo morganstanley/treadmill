@@ -9,6 +9,9 @@ from __future__ import unicode_literals
 import time
 import unittest
 
+# Disable W0611: Unused import
+import tests.treadmill_test_skip_windows  # pylint: disable=W0611
+
 import mock
 
 from treadmill import restclient
@@ -177,6 +180,7 @@ class AppMonitorTest(unittest.TestCase):
         appmonitor.reevaluate('/cellapi.sock', state)
         self.assertTrue(restclient.post.called)
         self.assertNotIn('foo.bar', state['delayed'])
+
 
 if __name__ == '__main__':
     unittest.main()

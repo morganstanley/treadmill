@@ -1,4 +1,4 @@
-"""Implementation of treadmill-admin CLI plugin.
+"""Implementation of treadmill admin CLI API invocation.
 """
 
 from __future__ import absolute_import
@@ -9,9 +9,8 @@ from __future__ import unicode_literals
 import inspect
 import io
 
-import decorator
 import click
-
+import decorator
 import jsonschema
 
 from treadmill import authz as authz_mod
@@ -67,7 +66,7 @@ def make_command(parent, name, func):
 
         if defarg == ():
             # redefinition of the type from tuple to list.
-            argtype = cli.LIST  # pylint: disable=R0204
+            argtype = cli.LIST
             defarg = None
 
         click.option('--' + arg, default=defarg, type=argtype)(command)

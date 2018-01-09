@@ -18,7 +18,9 @@ class ApiIPATest(unittest.TestCase):
         pass
 
     def test_add_host(self):
-        _ipa_result_mock = b'foo\n bar\n goo\n tao\n random password: tao-pass-goo-foo' # noqa :E501
+        _ipa_result_mock = (
+            b'foo\n bar\n goo\n tao\n random password: tao-pass-goo-foo'
+        )
         subprocess.check_output = mock.Mock(return_value=_ipa_result_mock)
 
         self.assertEqual(
@@ -35,7 +37,11 @@ class ApiIPATest(unittest.TestCase):
         ])
 
     def test_delete_host(self):
-        _ipa_result_mock = b'------------------\nDeleted host "some-host"\n------------------\n' # noqa :E501
+        _ipa_result_mock = (
+            b'------------------\n'
+            b'Deleted host "some-host"\n'
+            b'------------------\n'
+        )
         subprocess.check_output = mock.Mock(return_value=_ipa_result_mock)
 
         self.ipa.delete_host(hostname='some-host')
@@ -47,7 +53,11 @@ class ApiIPATest(unittest.TestCase):
         ])
 
     def test_delete_host_failure(self):
-        _ipa_result_mock = b'------------------\nCould not Delete host "some-host"\n------------------\n' # noqa :E501
+        _ipa_result_mock = (
+            b'------------------\n'
+            b'Could not Delete host "some-host"\n'
+            b'------------------\n'
+        )
         subprocess.check_output = mock.Mock(return_value=_ipa_result_mock)
 
         with self.assertRaises(AssertionError):
@@ -60,7 +70,11 @@ class ApiIPATest(unittest.TestCase):
         ])
 
     def test_service_add(self):
-        _ipa_result_mock = b'------------------\nmembers added 1\n------------------\n' # noqa :E501
+        _ipa_result_mock = (
+            b'------------------\n'
+            b'members added 1\n'
+            b'------------------\n'
+        )
         subprocess.check_output = mock.Mock(return_value=_ipa_result_mock)
 
         self.ipa.service_add(

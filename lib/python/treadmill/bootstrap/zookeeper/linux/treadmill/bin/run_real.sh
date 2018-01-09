@@ -2,13 +2,13 @@
 
 # This script is not in chroot yet, so need to resolve local directory.
 
-CHROOT={{ chroot }}
-ECHO={{ echo }}
-GREP={{ grep }}
-LS={{ ls }}
-MKDIR={{ mkdir }}
-MOUNT={{ mount }}
-RM={{ rm }}
+CHROOT={{ _alias.chroot }}
+ECHO={{ _alias.echo }}
+GREP={{ _alias.grep }}
+LS={{ _alias.ls }}
+MKDIR={{ _alias.mkdir }}
+MOUNT={{ _alias.mount }}
+RM={{ _alias.rm }}
 
 unset KRB5CCNAME
 unset KRB5_KTNAME
@@ -30,10 +30,14 @@ for DIR in $(ls -a /); do
     fi
 done
 
+# Cleanup all service exits information.
+$RM -vf {{ dir }}/treadmill/init/*/data/exits/*
+
 cd {{ dir }}
 
 # Starting svscan
 export PATH={{ s6 }}/bin:$PATH
-exec $CHROOT {{ dir }}                       \
-    {{ s6 }}/bin/s6-envdir /treadmill/env    \
-    {{ s6 }}/bin/s6-svscan /treadmill/init
+exec \
+    ${CHROOT} {{ dir }} \
+    {{ _alias.s6_envdir }} /treadmill/env \
+    {{ _alias.s6_svscan }} /treadmill/init

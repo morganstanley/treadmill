@@ -40,7 +40,7 @@ class LDAPTest(unittest.TestCase):
 
         self.assertEqual(
             err.exception.message,
-            'IPAServerNotFound: Please check if IPA Server is up and running.'
+            'Please check if IPA Server is up and running.'
         )
 
     @mock.patch('time.time', mock.Mock(return_value=1000))

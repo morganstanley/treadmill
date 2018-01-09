@@ -13,16 +13,14 @@ import sys
 import tempfile
 import unittest
 
-import mock
-import six
+# Disable W0611: Unused import
+import tests.treadmill_test_skip_windows  # pylint: disable=W0611
 
-if six.PY2 and os.name == 'posix':
-    import subprocess32 as subprocess  # pylint: disable=import-error
-else:
-    import subprocess  # pylint: disable=wrong-import-order
+import mock
 
 import treadmill
 from treadmill import localdiskutils
+from treadmill import subproc
 from treadmill.services import localdisk_service
 
 
@@ -313,7 +311,7 @@ class LocalDiskServiceTest(unittest.TestCase):
         request_id = 'myproid.test-0-ID1234'
         # trying to find the LV fails
         treadmill.lvm.lvdisplay.side_effect = (
-            subprocess.CalledProcessError(returncode=5, cmd='lvm'),
+            subproc.CalledProcessError(returncode=5, cmd='lvm'),
         )
 
         svc.on_delete_request(request_id)
@@ -346,11 +344,11 @@ class LocalDiskServiceTest(unittest.TestCase):
         request_id = 'myproid.test-0-ID1234'
         # trying to lvremote fails
         treadmill.lvm.lvremove.side_effect = (
-            subprocess.CalledProcessError(returncode=5, cmd='lvm'),
+            subproc.CalledProcessError(returncode=5, cmd='lvm'),
         )
 
         self.assertRaises(
-            subprocess.CalledProcessError,
+            subproc.CalledProcessError,
             svc.on_delete_request,
             request_id
         )
@@ -413,7 +411,7 @@ class LocalDiskServiceTest(unittest.TestCase):
         # pylint: disable=W0212
 
         treadmill.lvm.vgactivate.side_effect = [
-            subprocess.CalledProcessError(returncode=5, cmd='lvm'),
+            subproc.CalledProcessError(returncode=5, cmd='lvm'),
             0,
         ]
 
@@ -439,7 +437,7 @@ class LocalDiskServiceTest(unittest.TestCase):
         # pylint: disable=W0212
 
         localdiskutils.loop_dev_for.side_effect = [
-            subprocess.CalledProcessError(returncode=1, cmd='losetup'),
+            subproc.CalledProcessError(returncode=1, cmd='losetup'),
             '/dev/test'
         ]
 

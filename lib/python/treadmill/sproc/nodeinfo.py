@@ -1,5 +1,5 @@
-"""Node info sproc module."""
-
+"""Node info sproc module.
+"""
 
 from __future__ import absolute_import
 from __future__ import division
@@ -14,13 +14,13 @@ import click
 
 from treadmill import cli
 from treadmill import context
+from treadmill import rest
 from treadmill import sysinfo
 from treadmill import utils
-from treadmill import zkutils
 from treadmill import zknamespace as z
-from treadmill import rest
+from treadmill import zkutils
 from treadmill.rest import api
-from treadmill.rest import error_handlers  # noqa: F401
+from treadmill.rest import error_handlers  # pylint: disable=W0611
 
 
 _LOGGER = logging.getLogger(__name__)

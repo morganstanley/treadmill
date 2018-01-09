@@ -6,9 +6,17 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
-from ._base_service import (  # noqa: F401
+from ._base_service import (
     ResourceService,
     ResourceServiceError,
     ResourceServiceRequestError,
     ResourceServiceTimeoutError,
 )
+
+
+__all__ = [
+    'ResourceService',
+    'ResourceServiceError',
+    'ResourceServiceRequestError',
+    'ResourceServiceTimeoutError',
+]

@@ -59,7 +59,7 @@ class BundleService(_service_base.Service):
         if not self._contents and not os.path.exists(self._contents_file):
             raise ValueError('Invalid Bundle: No content')
         elif self._contents is not None:
-            if not len(self._contents):
+            if not self._contents:
                 raise ValueError('Invalid Bundle: empty')
             _utils.set_list_write(self._contents_file, self._contents)
 

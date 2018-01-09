@@ -8,7 +8,10 @@ from __future__ import unicode_literals
 
 import timeit
 
-# XXX(boysson): Test needs update to new Scheduler API
+# Disable W0611: Unused import
+import tests.treadmill_test_skip_windows  # pylint: disable=W0611
+
+# XXX: Test needs update to new Scheduler API
 # XXX: from treadmill import scheduler
 
 
@@ -31,7 +34,7 @@ def schedule(sched):
     print('time  :', interval)
 
 
-# XXX(boysson): Test needs update to new Scheduler API
+# XXX: Test needs update to new Scheduler API
 # XXX:
 # XXX: def test_reschedule(nodes_count, app_count, attempts, affinity):
 # XXX:     """Add high priority apps on top of low priority with full capacity.
@@ -62,7 +65,7 @@ def schedule(sched):
 # XXX:         schedule(sched)
 
 
-# XXX(boysson): Test needs update to new Scheduler API
+# XXX: Test needs update to new Scheduler API
 # XXX:
 # XXX: def test_affinity(nodes_count, app_count, affinity_limit):
 # XXX:     """Add more apps than nodes count to test affinity limit algo."""

@@ -4,7 +4,7 @@
 # pylint: disable=E0611
 from treadmill import admin
 from treadmill import context
-from treadmill import master
+from treadmill.scheduler import masterapi
 
 
 def sync_servers():
@@ -21,12 +21,12 @@ def sync_servers():
         traits = []
         partition = None
 
-        master.create_bucket(context.GLOBAL.zk.conn, building, None)
-        master.cell_insert_bucket(context.GLOBAL.zk.conn, building)
-        master.create_bucket(context.GLOBAL.zk.conn, rack, building)
-        master.create_server(context.GLOBAL.zk.conn, servername, rack)
-        master.update_server_attrs(context.GLOBAL.zk.conn, servername,
-                                   traits=traits, partition=partition)
+        masterapi.create_bucket(context.GLOBAL.zk.conn, building, None)
+        masterapi.cell_insert_bucket(context.GLOBAL.zk.conn, building)
+        masterapi.create_bucket(context.GLOBAL.zk.conn, rack, building)
+        masterapi.create_server(context.GLOBAL.zk.conn, servername, rack)
+        masterapi.update_server_attrs(context.GLOBAL.zk.conn, servername,
+                                      traits=traits, partition=partition)
 
 
 def init():

@@ -69,12 +69,12 @@ def make_manage_multi_command(module_name, **click_args):
                 utils.sane_execvp(module_path,
                                   [os.path.basename(module_path)] + ctx.args)
 
-        def get_command(self, ctx, name):
+        def get_command(self, ctx, cmd_name):
             try:
-                return self.new_multi.get_command(ctx, name)
+                return self.new_multi.get_command(ctx, cmd_name)
             except click.UsageError:
                 pass
-            return self.old_multi.get_command(ctx, name)
+            return self.old_multi.get_command(ctx, cmd_name)
 
         def format_commands(self, ctx, formatter):
             rows = []
@@ -82,7 +82,7 @@ def make_manage_multi_command(module_name, **click_args):
                 entry_points = list(pkg_resources.iter_entry_points(
                     module_name, subcommand))
                 # Try get the help with importlib if entry_point not found
-                if len(entry_points) == 0:
+                if not entry_points:
                     cmd = self.old_multi.get_command(ctx, subcommand)
                     if cmd is None:
                         continue

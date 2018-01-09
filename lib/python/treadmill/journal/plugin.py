@@ -33,9 +33,10 @@ class BaseJournaler(object):
         pk = None
         payload = {}
 
-        if len(args) > 0:
+        nargs = len(args)
+        if nargs > 0:
             pk = str(args[0])
-        if len(args) > 1:
+        if nargs > 1:
             payload = args[1]
 
         user = self._user_clbk()
@@ -53,7 +54,8 @@ class BaseJournaler(object):
         """ log end step of the journal after API is called"""
         pk = None
 
-        if len(args) > 0:
+        nargs = len(args)
+        if nargs > 0:
             pk = str(args[0])
 
         user = self._user_clbk()
@@ -71,7 +73,8 @@ class BaseJournaler(object):
         """ log abort step of the journal in case API is aborted"""
         pk = None
 
-        if len(args) > 0:
+        nargs = len(args)
+        if nargs > 0:
             pk = str(args[0])
 
         payload = {'error': str(exception)}

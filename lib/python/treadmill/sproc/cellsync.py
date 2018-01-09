@@ -137,11 +137,11 @@ def _run_sync():
         # from the plugin.
         try:
             servers_plugin = importlib.import_module(
-                'treadmill.ms.plugins.sproc.servers')
+                'treadmill.plugins.sproc.servers')
             servers_plugin.init()
         except ImportError as err:
             _LOGGER.warning(
-                'Unable to load treadmill.ms.plugins.sproc.servers: %s',
+                'Unable to load treadmill.plugins.sproc.servers: %s',
                 err
             )
 

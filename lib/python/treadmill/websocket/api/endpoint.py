@@ -6,7 +6,6 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
-import os
 import logging
 
 from treadmill import schema
@@ -33,7 +32,7 @@ class EndpointAPI(object):
             endpoint = message.get('endpoint', '*')
 
             full_pattern = ':'.join([pattern, proto, endpoint])
-            return [(os.path.join('/endpoints', proid), full_pattern)]
+            return [('/'.join(['/endpoints', proid]), full_pattern)]
 
         def on_event(filename, operation, content):
             """Event handler."""

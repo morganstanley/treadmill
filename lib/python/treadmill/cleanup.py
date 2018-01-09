@@ -26,19 +26,13 @@ import os
 import sys
 import time
 
-import six
-
-if six.PY2 and os.name == 'posix':
-    import subprocess32 as subprocess  # pylint: disable=import-error
-else:
-    import subprocess  # pylint: disable=wrong-import-order
-
 from treadmill import appenv
 from treadmill import dirwatch
 from treadmill import dist
 from treadmill import fs
 from treadmill import logcontext as lc
 from treadmill import runtime as app_runtime
+from treadmill import subproc
 from treadmill import supervisor
 
 
@@ -234,7 +228,7 @@ class Cleanup(object):
                 self._refresh_supervisor()
                 _LOGGER.info('svscan is running.')
                 break
-            except subprocess.CalledProcessError:
+            except subproc.CalledProcessError:
                 _LOGGER.info('Waiting on svscan running.')
                 time.sleep(0.2)
 

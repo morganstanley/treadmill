@@ -13,11 +13,6 @@ import re
 
 import six
 
-if six.PY2 and os.name == 'posix':
-    import subprocess32 as subprocess  # pylint: disable=import-error
-else:
-    import subprocess  # pylint: disable=wrong-import-order
-
 from treadmill import exc
 from treadmill import fs
 from treadmill import lvm
@@ -77,7 +72,7 @@ def init_vg(group, block_dev):
         lvm.vgactivate(group)
         return
 
-    except subprocess.CalledProcessError:
+    except subproc.CalledProcessError:
         # The Volume group doesn't exist, more work to do
         pass
 
@@ -108,7 +103,7 @@ def loop_dev_for(filename):
     :returns:
         Name of the loop device or None if not found
     :raises:
-        subprocess.CalledProcessError if the file doesn't exist
+        subproc.CalledProcessError if the file doesn't exist
     """
     filename = os.path.realpath(filename)
     loop_dev = subproc.check_output(
@@ -201,7 +196,9 @@ def init_block_dev(img_name, img_location, img_size='-2G'):
 
     try:
         loop_dev = loop_dev_for(filename)
-    except subprocess.CalledProcessError:
+
+    except subproc.CalledProcessError:
+        # The file doesn't exist.
         loop_dev = None
 
     # Assign a loop device (if not already assigned)
@@ -219,7 +216,7 @@ def init_block_dev(img_name, img_location, img_size='-2G'):
         )
         loop_dev = loop_dev_for(filename)
 
-    if loop_dev is None:
+    if not loop_dev:
         raise exc.NodeSetupError('Unable to find /dev/loop device')
 
     _LOGGER.info('Using %r as backing for the physical volume group', loop_dev)
@@ -275,7 +272,7 @@ def activate_vg(vg_name):
     try:
         lvm.vgactivate(group=vg_name)
         return True
-    except subprocess.CalledProcessError:
+    except subproc.CalledProcessError:
         return False
 
 

@@ -85,5 +85,5 @@ exec $IONICE -c2 -n0 {{ _alias.s6_envdir }} {{ dir }}/env                  \
         exec --into cpu:/treadmill/core                                    \
              --into memory:/treadmill/core                                 \
              --into cpuset:/treadmill --                                   \
-        {{ _alias.pid1 }} -m -p                                            \
+        {{ _alias.pid1 }} -m -p --propagation slave                        \
         {{ _alias.s6_svscan }}  -s {{ dir }}/init

@@ -48,36 +48,22 @@ def _update_nodes_change(data):
     updated."""
     servers = yaml.load(data)
 
-    now = int(time.time())
-    new_set = '%s-%d' % (iptables.SET_TM_NODES, now)
-    _LOGGER.debug('Temporary IPSet: %r', new_set)
+    server_ips = []
+    for server in servers:
+        try:
+            server_ip = socket.gethostbyname(server)
+            server_ips.append(server_ip)
 
-    try:
-        # Create a new empty IPSet set
-        iptables.init_set(new_set)
+        except socket.gaierror:
+            _LOGGER.warning('Unable to resolve %r', server)
+            continue
 
-        # TODO: why not update ipset once using restore, as in
-        #                `_update_prodip` function.
-        for server in servers:
-            try:
-                server_ip = socket.gethostbyname(server)
-            except socket.gaierror:
-                _LOGGER.warning('Unable to resolve %r', server)
-                continue
-
-            iptables.add_ip_set(new_set, server_ip)
-
-        # Replace the old IPSet with the new one
-        _LOGGER.info('IPSet %r refreshed', iptables.SET_TM_NODES)
-        iptables.swap_set(iptables.SET_TM_NODES, new_set)
-
-    except Exception:
-        _LOGGER.exception('Error synchronizing Treadmill node data')
-        raise
-
-    finally:
-        # Destroy the temporary IPSet set
-        iptables.destroy_set(new_set)
+    iptables.atomic_set(
+        iptables.SET_TM_NODES,
+        content=server_ips,
+        set_type='hash:ip',
+        family='inet'
+    )
 
 
 def _init_rules():

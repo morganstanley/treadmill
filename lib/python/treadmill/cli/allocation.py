@@ -11,10 +11,10 @@ import logging
 import click
 import six
 
-from treadmill import cli
-from treadmill import restclient
-from treadmill import context
 from treadmill import admin
+from treadmill import cli
+from treadmill import context
+from treadmill import restclient
 
 
 _DEFAULT_PRIORITY = 1
@@ -103,10 +103,13 @@ def init():
         cli.out(alloc_formatter(response.json()))
 
     @allocation_grp.command()
+    @click.option('--set', 'set_', help='If specified then the allocation\'s'
+                  ' system id(s) will be replaced instead of updated',
+                  is_flag=True, default=False)
     @click.option('-s', '--systems', help='System ID', type=cli.LIST)
     @click.argument('allocation', required=True)
     @cli.handle_exceptions(restclient.CLI_REST_EXCEPTIONS)
-    def configure(allocation, systems):
+    def configure(allocation, systems, set_):
         """Configure allocation.
 
         Allocation name is global, and is associated with list of systems.
@@ -116,14 +119,16 @@ def init():
 
         if systems:
 
-            # If tenant exists, update it with new systems. If update fails
-            # with resource does not exist error, try creating tenants from
-            # parent to child, those that do not exist will be created with
-            # provided systems.
+            # If tenant exists, update or replace it with new systems.
+            # If update fails with resource does not exist error, try creating
+            # tenants from parent to child, those that do not exist will be
+            # created with provided systems.
             try:
                 existing = restclient.get(restapi, url).json()
-                all_systems = set(existing['systems'])
-                all_systems.update(six.moves.map(int, systems))
+                all_systems = set(six.moves.map(int, systems))
+                # if the system ids have to be extended instead of replaced
+                if not set_:
+                    all_systems.update(existing['systems'])
                 restclient.put(
                     restapi,
                     url,

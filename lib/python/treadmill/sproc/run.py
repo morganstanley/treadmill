@@ -16,6 +16,7 @@ from treadmill import appenv
 from treadmill import cli
 from treadmill import exc
 from treadmill import runtime as app_runtime
+from treadmill import supervisor
 from treadmill import utils
 
 from treadmill.appcfg import abort as app_abort
@@ -36,6 +37,7 @@ def init():
         """Runs container given a container dir."""
         # Make sure container_dir is a fully resolved path.
         container_dir = os.path.realpath(container_dir)
+        service = supervisor.open_service(container_dir)
 
         _LOGGER.info('run %r %r', approot, container_dir)
 
@@ -43,15 +45,16 @@ def init():
         param = utils.equals_list2dict(runtime_param or [])
         try:
             app_runtime.get_runtime(
-                runtime, tm_env, container_dir, param
+                runtime, tm_env, service, param
             ).run()
         except exc.ContainerSetupError as err:
             _LOGGER.exception('Failed to start, app will be aborted.')
-            app_abort.flag_aborted(container_dir, why=err.reason,
+            app_abort.flag_aborted(service.data_dir,
+                                   why=err.reason,
                                    payload=traceback.format_exc())
         except Exception as err:  # pylint: disable=W0703
             _LOGGER.exception('Failed to start, app will be aborted.')
-            app_abort.flag_aborted(container_dir,
+            app_abort.flag_aborted(service.data_dir,
                                    why=app_abort.AbortedReason.UNKNOWN,
                                    payload=traceback.format_exc())
 

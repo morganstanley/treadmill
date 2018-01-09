@@ -96,7 +96,7 @@ class VipMgr(object):
         )
         for link in allocated:
             try:
-                _link_st = os.stat(link)  # noqa: F841
+                _link_st = os.stat(link)
             except OSError as err:
                 if err.errno == errno.ENOENT:
                     _LOGGER.warning('Reclaimed: %r', link)

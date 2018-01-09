@@ -144,10 +144,13 @@ def run_server(locker):
             )
 
         @utils.exit_on_unhandled
-        def got_line(self, line):
-            """Callback on received line.
+        def got_line(self, data):
+            """Invoked after authentication is done, with decrypted data as arg.
+
+            :param ``bytes`` data:
+                Data received from the client.
             """
-            items = line.split()
+            items = data.split()
             action = items[0]
 
             if action == b'get':

@@ -1,4 +1,4 @@
-"""Implementation of AppGroup API
+"""Implementation of AppGroup API.
 """
 
 from __future__ import absolute_import
