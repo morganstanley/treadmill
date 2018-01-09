@@ -12,6 +12,7 @@ import tempfile
 import unittest
 
 # Disable W0611: Unused import
+import tests.treadmill_test_skip_windows  # pylint: disable=W0611
 import tests.treadmill_test_deps  # pylint: disable=W0611
 
 import mock
@@ -213,6 +214,7 @@ class LVMTest(unittest.TestCase):
             [
                 'lvm', 'lvcreate',
                 '--autobackup', 'n',
+                '--wipesignatures', 'y',
                 '--size', '1024B',
                 '--name', 'some_volume',
                 'some_group',

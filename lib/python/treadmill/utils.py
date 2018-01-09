@@ -372,13 +372,23 @@ def bytes_to_readable(num, power='M'):
 
 def cpu_to_readable(num):
     """Converts CPU % into readable number."""
-    locale.setlocale(locale.LC_ALL, ('en_US', sys.getdefaultencoding()))
+    # TODO: Move this to CLI initialization
+    if os.name == 'posix':
+        locale.setlocale(locale.LC_ALL, ('en_US', sys.getdefaultencoding()))
+    else:
+        locale.setlocale(locale.LC_ALL, '')
+
     return locale.format('%d', num, grouping=True)
 
 
 def cpu_to_cores_readable(num):
     """Converts CPU % into number of abstract cores."""
-    locale.setlocale(locale.LC_ALL, ('en_US', sys.getdefaultencoding()))
+    # TODO: Move this to CLI initialization
+    if os.name == 'posix':
+        locale.setlocale(locale.LC_ALL, ('en_US', sys.getdefaultencoding()))
+    else:
+        locale.setlocale(locale.LC_ALL, '')
+
     return locale.format('%.2f', num / 100.0, grouping=True)
 
 
@@ -392,7 +402,7 @@ def find_in_path(prog):
     if os.path.isabs(prog):
         return prog
 
-    for path in os.environ.get('PATH', '').split(':'):
+    for path in os.environ.get('PATH', '').split(os.pathsep):
         fullpath = os.path.join(path, prog)
         if os.path.exists(fullpath) and os.access(fullpath, os.X_OK):
             return fullpath

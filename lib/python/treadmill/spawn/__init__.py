@@ -1,4 +1,5 @@
-"""Treadmill spawn extension."""
+"""Treadmill spawn extension.
+"""
 
 from __future__ import absolute_import
 from __future__ import division

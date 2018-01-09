@@ -15,18 +15,18 @@ admin = treadmill.adminctx
 zookeeper = treadmill.zkctx
 dns = treadmill.dnsctx
 
+
 [treadmill.features]
+
 
 [treadmill.image.native.fs]
 
+
 [treadmill.image.tar.fs]
+
 
 [treadmill.apphooks]
 
-[treadmill.rest.authentication]
-trusted = treadmill.rest.auth.trusted
-
-[treadmill.rest.error_handlers]
 
 [treadmill.rest.api]
 allocation = treadmill.rest.api.allocation
@@ -47,6 +47,11 @@ server = treadmill.rest.api.server
 state = treadmill.rest.api.state
 tenant = treadmill.rest.api.tenant
 
+[treadmill.rest.authentication]
+trusted = treadmill.rest.auth.trusted
+
+[treadmill.rest.error_handlers]
+
 [treadmill.api]
 allocation = treadmill.api.allocation
 api-lookup = treadmill.api.api_lookup
@@ -66,11 +71,16 @@ server = treadmill.api.server
 state = treadmill.api.state
 tenant = treadmill.api.tenant
 
+[treadmill.api.instance.plugins]
+
+[treadmill.api.allocation.plugins]
+
 [treadmill.websocket.api]
 endpoint = treadmill.websocket.api.endpoint
 identity-group = treadmill.websocket.api.identity_group
 state = treadmill.websocket.api.state
 trace = treadmill.websocket.api.trace
+
 
 [treadmill.formatters]
 json = treadmill.formatter.jsonfmt
@@ -98,6 +108,7 @@ sched-view-servers = treadmill.formatter.tablefmt:SchedulerServersPrettyFormatte
 sched-view-apps = treadmill.formatter.tablefmt:SchedulerAppsPrettyFormatter
 sched-view-allocs = treadmill.formatter.tablefmt:SchedulerAllocsPrettyFormatter
 sched-view-reboots = treadmill.formatter.tablefmt:SchedulerRebootsPrettyFormatter
+
 
 [treadmill.cli]
 admin = treadmill.cli.admin
@@ -150,6 +161,7 @@ master = treadmill.cli.admin.install.master
 node = treadmill.cli.admin.install.node
 openldap = treadmill.cli.admin.install.openldap
 spawn = treadmill.cli.admin.install.spawn
+tkt-fwd = treadmill.cli.admin.install.tkt_fwd
 zookeeper = treadmill.cli.admin.install.zookeeper
 
 [treadmill.cli.admin.checkout]
@@ -185,6 +197,7 @@ servers = treadmill.cli.scheduler.servers
 apps = treadmill.cli.scheduler.apps
 allocs = treadmill.cli.scheduler.allocs
 explain = treadmill.cli.scheduler.explain
+
 
 [treadmill.sproc]
 ad = treadmill.sproc.ad
@@ -226,26 +239,24 @@ websocket = treadmill.sproc.websocket
 zk2fs = treadmill.sproc.zk2fs
 export-reports = treadmill.sproc.export_reports
 
+
 [treadmill.cron]
 app = treadmill.cron.model.app
 monitor = treadmill.cron.model.monitor
 
-[treadmill.api.instance.plugins]
-
-[treadmill.api.allocation.plugins]
 
 [treadmill.firewall.plugins]
 
 [treadmill.bootstrap]
+aliases = treadmill.bootstrap.aliases
 cli = treadmill.bootstrap.cli
-master = treadmill.bootstrap.master
 haproxy = treadmill.bootstrap.haproxy
+master = treadmill.bootstrap.master
 node = treadmill.bootstrap.node
 openldap = treadmill.bootstrap.openldap
 spawn = treadmill.bootstrap.spawn
+tkt-fwd = treadmill.bootstrap.tkt_fwd
 zookeeper = treadmill.bootstrap.zookeeper
-aliases = treadmill.bootstrap.aliases
+
 
 [treadmill.checkout.processors]
-
-[treadmill.lbvirtual.checkout.processors]

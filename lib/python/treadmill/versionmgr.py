@@ -1,5 +1,5 @@
-"""Helper tools to manage Treadmill versions."""
-
+"""Helper tools to manage Treadmill versions.
+"""
 
 from __future__ import absolute_import
 from __future__ import division

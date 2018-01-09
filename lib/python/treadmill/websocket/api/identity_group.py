@@ -6,7 +6,6 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
-import os
 import logging
 
 from treadmill import schema
@@ -27,7 +26,7 @@ class IdentityGroupAPI(object):
             """
             identity_group = message.get('identity-group', '*')
 
-            return [(os.path.join('/identity-groups', identity_group), '*')]
+            return [('/'.join(['/identity-groups', identity_group]), '*')]
 
         def on_event(filename, operation, content):
             """Event handler.

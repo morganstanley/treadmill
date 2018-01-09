@@ -27,7 +27,6 @@ from treadmill import fs
 from treadmill import plugin_manager
 from treadmill import utils
 
-
 _LOGGER = logging.getLogger(__name__)
 
 if os.name == 'nt':
@@ -230,12 +229,11 @@ def install(package, dst_dir, params, run=None, profile=None):
         defaults.update(getattr(extension_module, 'DEFAULTS', {}))
         aliases.update(getattr(extension_module, 'ALIASES', {}))
 
-    defaults.update(params)
-
     # TODO: this is ugly, error prone and should go away.
     #       aliases should be in default scope, everything else in _args.
     defaults['_alias'] = aliases
     defaults.update(aliases)
+    defaults.update(params)
 
     defaults['aliases_path'] = ':'.join(aliases_path)
 

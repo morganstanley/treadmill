@@ -35,7 +35,6 @@ from treadmill import utils
 from treadmill import context
 from treadmill import plugin_manager
 
-
 EXIT_CODE_DEFAULT = 1
 
 # Disable unicode_literals click warning.
@@ -48,16 +47,19 @@ def init_logger(name):
     # Logging configuration must be unicode file
     utf8_reader = codecs.getreader('utf8')
     log_conf_file = utf8_reader(
-        pkg_resources.resource_stream('treadmill', '/logging/%s' % name)
+        pkg_resources.resource_stream(
+            'treadmill',
+            '/logging/{name}'.format(name=name)
+        )
     )
 
     try:
         logging.config.fileConfig(log_conf_file)
     except configparser.Error:
-        with tempfile.NamedTemporaryFile(delete=False) as f:
+        with tempfile.NamedTemporaryFile(delete=False, mode='w') as f:
             traceback.print_exc(file=f)
-            click.echo('Error parsing log conf: %s' %
-                       log_conf_file, err=True)
+            click.echo('Error parsing log conf: {name}'.format(name=name),
+                       err=True)
 
 
 def make_multi_command(module_name, **click_args):
@@ -86,7 +88,7 @@ def make_multi_command(module_name, **click_args):
                 mod = importlib.import_module(full_name)
                 return mod.init()
             except Exception:  # pylint: disable=W0703
-                with tempfile.NamedTemporaryFile(delete=False) as f:
+                with tempfile.NamedTemporaryFile(delete=False, mode='w') as f:
                     traceback.print_exc(file=f)
                     click.echo(
                         'Unable to load plugin: %s [ %s ]' % (

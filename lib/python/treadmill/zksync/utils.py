@@ -36,7 +36,8 @@ def write_data(fpath, data, modified, raise_err=True, tmp_dir=None):
                                      prefix='.tmp') as temp:
         if data:
             temp.write(data)
-        os.fchmod(temp.fileno(), 0o644)
+        if os.name == 'posix':
+            os.fchmod(temp.fileno(), 0o644)
     os.utime(temp.name, (modified, modified))
     try:
         os.rename(temp.name, fpath)

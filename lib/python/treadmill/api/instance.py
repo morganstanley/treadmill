@@ -1,4 +1,6 @@
-"""Implementation of instance API."""
+"""Implementation of instance API.
+"""
+
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function

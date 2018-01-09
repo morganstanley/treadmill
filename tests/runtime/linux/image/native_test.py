@@ -17,6 +17,7 @@ import collections
 from collections import namedtuple
 
 # Disable W0611: Unused import
+import tests.treadmill_test_skip_windows   # pylint: disable=W0611
 import tests.treadmill_test_deps  # pylint: disable=W0611
 
 import mock
@@ -367,6 +368,7 @@ class NativeImageTest(unittest.TestCase):
             42, 42
         )
 
+    @mock.patch('os.path.exists', mock.Mock(return_value=True))
     @mock.patch('shutil.copyfile', mock.Mock())
     @mock.patch('treadmill.fs.mkdir_safe', mock.Mock())
     def test__prepare_pam_sshd(self):
@@ -377,11 +379,15 @@ class NativeImageTest(unittest.TestCase):
 
         etc_dir = os.path.join(self.container_dir, 'overlay', 'etc')
 
+        os.path.exists.assert_called_once_with(
+            os.path.join(self.tm_env.root, 'etc', 'pam.d', 'sshd')
+        )
         shutil.copyfile.assert_has_calls([
             mock.call(os.path.join(self.tm_env.root, 'etc', 'pam.d', 'sshd'),
                       os.path.join(etc_dir, 'pam.d', 'sshd'))
         ])
 
+    @mock.patch('os.path.exists', mock.Mock(return_value=True))
     @mock.patch('shutil.copyfile', mock.Mock())
     @mock.patch('treadmill.fs.mkdir_safe', mock.Mock())
     def test__prepare_resolv_conf(self):
@@ -392,6 +398,9 @@ class NativeImageTest(unittest.TestCase):
 
         etc_dir = os.path.join(self.container_dir, 'overlay', 'etc')
 
+        os.path.exists.assert_called_once_with(
+            os.path.join(self.tm_env.root, 'etc', 'resolv.conf')
+        )
         shutil.copyfile.assert_has_calls([
             mock.call(os.path.join(self.tm_env.root, 'etc', 'resolv.conf'),
                       os.path.join(etc_dir, 'resolv.conf'))

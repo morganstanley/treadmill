@@ -651,12 +651,20 @@ class AllocationQueuePrettyFormatter(object):
             ('allocation', 'alloc', None),
             ('name', None, None),
             ('rank', None, None),
+            ('memory', None, None),
+            ('cpu', None, None),
+            ('disk', None, None),
             ('util0', None, fmt_utilization),
             ('util1', None, fmt_utilization),
         ]
 
         format_item = make_dict_to_table(schema)
-        format_list = make_list_to_table(schema, align={'util0': 'r',
+        format_list = make_list_to_table(schema, align={'pos': 'r',
+                                                        'rank': 'r',
+                                                        'memory': 'r',
+                                                        'cpu': 'r',
+                                                        'disk': 'r',
+                                                        'util0': 'r',
                                                         'util1': 'r'})
 
         if isinstance(item, list):

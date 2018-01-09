@@ -121,7 +121,9 @@ class CgroupResourceService(BaseResourceServiceImpl):
             app_bogomips = app_cpu_pcnt * sysinfo.BMIPS_PER_CPU
             app_cpu_shares = int(app_bogomips)
 
-            log.info('created in cpu:%s with %s shares', cgrp, app_cpu_shares)
+            log.info(
+                'created in cpu:%s with %s shares', cgrp, app_cpu_shares
+            )
             cgroups.set_cpu_shares(cgrp, app_cpu_shares)
 
         return {

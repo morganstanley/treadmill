@@ -1,5 +1,5 @@
-"""Implements directory watcher using ReadDirectoryChangesW."""
-
+"""Implements directory watcher using ReadDirectoryChangesW.
+"""
 
 from __future__ import absolute_import
 from __future__ import division

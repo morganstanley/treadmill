@@ -202,7 +202,7 @@ def init_block_dev(img_name, img_location, img_size='-2G'):
         loop_dev = None
 
     # Assign a loop device (if not already assigned)
-    if loop_dev is None:
+    if not loop_dev:
         # Create image
         if not os.path.isfile(filename):
             create_image(img_name, img_location, img_size)
@@ -216,7 +216,7 @@ def init_block_dev(img_name, img_location, img_size='-2G'):
         )
         loop_dev = loop_dev_for(filename)
 
-    if loop_dev is None:
+    if not loop_dev:
         raise exc.NodeSetupError('Unable to find /dev/loop device')
 
     _LOGGER.info('Using %r as backing for the physical volume group', loop_dev)

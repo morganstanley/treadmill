@@ -66,10 +66,10 @@ $RM -vf {{ dir }}/cleaning/*
 
 # Starting svscan
 exec $IONICE -c2 -n0 {{ _alias.s6_envdir }} {{ dir }}/env                  \
-    {{ treadmill }}/bin/treadmill34 sproc --cell - cgroup                    \
+    {{ treadmill }}/bin/treadmill34 sproc --cell - cgroup                  \
         cleanup --delete --apps --core                                     \
         mount                                                              \
-        init --cpu {{ treadmill_cpu}}                                      \
+        init --cpu {{ treadmill_cpu }}                                     \
              --mem {{ treadmill_mem }}                                     \
              --mem-core {{ treadmill_core_mem }}                           \
              --cpu-cores {{ treadmill_cpu_cores }}                         \

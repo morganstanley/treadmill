@@ -1,0 +1,1 @@
+{{ _alias.powershell }} -File {{ dir }}\bin\sigterm.ps1

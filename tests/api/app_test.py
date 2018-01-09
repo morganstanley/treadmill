@@ -1,4 +1,6 @@
-"""Cell API tests."""
+"""Cell API tests.
+"""
+
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
@@ -9,9 +11,8 @@ import unittest
 # Disable W0611: Unused import
 import tests.treadmill_test_deps  # pylint: disable=W0611
 
-from jsonschema import exceptions as jexceptions
-
 import mock
+from jsonschema import exceptions as jexceptions
 
 from treadmill import admin
 from treadmill.api import app
@@ -58,7 +59,7 @@ class ApiAppTest(unittest.TestCase):
             'cpu': '100%',
             'memory': '1G',
             'disk': '1G',
-            'tickets': [u'a@realm1', u'b@realm2'],
+            'tickets': ['a@realm1', 'b@realm2'],
             'features': [],
             'services': [
                 {

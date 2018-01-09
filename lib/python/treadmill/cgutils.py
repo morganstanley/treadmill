@@ -326,7 +326,7 @@ def reset_memory_limit_in_bytes():
         try:
             set_memory_hardlimit(cgrp, hard_limit)
 
-        except TreadmillCgroupError as _err:
+        except TreadmillCgroupError:
             # Unable to resize group, add it to the expunged groups.
             expunged.append(f)
 

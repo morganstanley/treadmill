@@ -1,6 +1,6 @@
+"""Collect node information post crash.
 """
-Collect node information post crash.
-"""
+
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function

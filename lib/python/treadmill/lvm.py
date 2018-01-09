@@ -242,6 +242,7 @@ def lvcreate(volume, size_in_bytes, group):
         'lvm',
         'lvcreate',
         '--autobackup', 'n',
+        '--wipesignatures', 'y',
         '--size', '{size}B'.format(size=size_in_bytes),
         '--name', volume,
         group,

@@ -110,7 +110,7 @@ def init():
 
         if app.find('#') == -1:
             # Instance is not specified, list matching and exit.
-            raise click.BadParameter('Speficy full instance name: xxx#nnn')
+            raise click.BadParameter('Specify full instance name: xxx#nnn')
 
         app_discovery = discovery.Discovery(context.GLOBAL.zk.conn, app, 'ssh')
         app_discovery.sync()
@@ -119,7 +119,7 @@ def init():
         for (endpoint, hostport) in app_discovery.iteritems():
             _LOGGER.info('%s :: %s', endpoint, hostport)
             if hostport:
-                host, port = hostport.split(':')
+                host, port = hostport.split(b':')
                 run_ssh(host, port, ssh, list(command))
 
     return ssh

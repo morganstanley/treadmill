@@ -18,7 +18,6 @@ from treadmill import cgroups
 from treadmill import cgutils
 from treadmill import fs
 from treadmill import psmem
-from treadmill import yamlwrapper as yaml
 
 from treadmill.fs import linux as fs_linux
 

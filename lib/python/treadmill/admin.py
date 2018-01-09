@@ -502,7 +502,6 @@ class Admin(object):
                 ldap3.Server._is_ipv6 = lambda x, y: False
                 server = ldap3.Server(uri, mode=ldap3.IP_V4_ONLY)
                 if self.user and self.password:
-
                     self.ldap = ldap3.Connection(
                         server,
                         user=self.user,
@@ -927,13 +926,15 @@ class Admin(object):
 
     def remove(self, dn, entry):
         """Removes attributes from the record."""
-        to_be_removed = {k: [(ldap3.MODIFY_DELETE, [])] for k in entry.keys()}
+        to_be_removed = {
+            k: [(ldap3.MODIFY_DELETE, [])] for k in entry.keys()
+        }
         self.modify(dn, to_be_removed)
 
     def get_repls(self):
         """Get replication information."""
-        # TODO: for some reason paged_search does not work here, so using
-        #       low level search instead of higher level wrappers.
+        # paged_search does not work with config backend, so using low level
+        # search instead of higher level wrappers.
         result = self.search(
             search_base='olcDatabase={1}mdb,cn=config',
             search_filter='(objectclass=olcMdbConfig)',
@@ -1059,8 +1060,10 @@ class LdapObject(object):
             search_filter='(objectclass=%s)' % clazz.oc(),
             attributes=attrs
         )
-        return [children_admin.from_entry(entry, dn)
-                for dn, entry in search]
+        return [
+            children_admin.from_entry(entry, child_dn)
+            for child_dn, entry in search
+        ]
 
 
 class Server(LdapObject):

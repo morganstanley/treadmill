@@ -353,15 +353,22 @@ def _prepare_pam_sshd(tm_env, container_dir, app):
     new_pam_sshd = os.path.join(pamd_dir, 'sshd')
 
     if app.shared_network:
-        shutil.copyfile(
-            os.path.join(tm_env.root, 'etc', 'pam.d', 'sshd.shared_network'),
-            new_pam_sshd
+        template_pam_sshd = os.path.join(
+            tm_env.root, 'etc', 'pam.d', 'sshd.shared_network'
         )
     else:
-        shutil.copyfile(
-            os.path.join(tm_env.root, 'etc', 'pam.d', 'sshd'),
-            new_pam_sshd
+        template_pam_sshd = os.path.join(
+            tm_env.root, 'etc', 'pam.d', 'sshd'
         )
+
+    if not os.path.exists(template_pam_sshd):
+        _LOGGER.warning('Falling back to local PAM sshd config.')
+        template_pam_sshd = '/etc/pam.d/sshd'
+
+    shutil.copyfile(
+        template_pam_sshd,
+        new_pam_sshd
+    )
 
 
 def _prepare_resolv_conf(tm_env, container_dir):
@@ -373,8 +380,13 @@ def _prepare_resolv_conf(tm_env, container_dir):
 
     # TODO(boysson): This should probably be based instead on /etc/resolv.conf
     #                for other resolver options
+    template_resolv_conf = os.path.join(tm_env.root, 'etc', 'resolv.conf')
+    if not os.path.exists(template_resolv_conf):
+        _LOGGER.warning('Falling back to local resolver config.')
+        template_resolv_conf = '/etc/resolv.conf'
+
     shutil.copyfile(
-        os.path.join(tm_env.root, 'etc', 'resolv.conf'),
+        template_resolv_conf,
         new_resolv_conf
     )
 

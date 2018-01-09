@@ -1,4 +1,4 @@
-"""Treadmill REST APIs
+"""Treadmill REST APIs.
 """
 
 from __future__ import absolute_import
@@ -6,7 +6,6 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
-import os
 import logging
 
 import flask
@@ -16,7 +15,6 @@ from treadmill import api as api_mod
 from treadmill import authz
 from treadmill import plugin_manager
 from treadmill import rest
-from treadmill import utils
 from treadmill import webutils
 from treadmill.rest import error_handlers
 
