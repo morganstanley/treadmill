@@ -1,17 +1,18 @@
-"""Installs and configures Treadmill locally."""
+"""Installs and configures Zookeeper locally.
+"""
+
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
-import os
 import logging
+import os
 
 import click
 
 from treadmill import bootstrap
 from treadmill import context
-
 
 _LOGGER = logging.getLogger(__name__)
 

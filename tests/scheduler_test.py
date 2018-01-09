@@ -15,6 +15,7 @@ import sys
 # pylint: disable=C0302
 
 # Disable W0611: Unused import
+import tests.treadmill_test_skip_windows  # pylint: disable=W0611
 import tests.treadmill_test_deps  # pylint: disable=W0611
 
 import mock
@@ -300,8 +301,12 @@ class AllocationTest(unittest.TestCase):
         alloc.add_sub_alloc('b', sub_alloc_b)
 
         result = []
+
+        def _visitor(_alloc, entry, _acc_demand):
+            result.append(entry)
+
         list(alloc.utilization_queue([20., 20.],
-                                     visitor=lambda _, x: result.append(x)))
+                                     visitor=_visitor))
         self.assertEqual(6, len(result))
 
 

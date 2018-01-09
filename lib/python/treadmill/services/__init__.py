@@ -12,3 +12,11 @@ from ._base_service import (
     ResourceServiceRequestError,
     ResourceServiceTimeoutError,
 )
+
+
+__all__ = [
+    'ResourceService',
+    'ResourceServiceError',
+    'ResourceServiceRequestError',
+    'ResourceServiceTimeoutError',
+]

@@ -18,6 +18,7 @@ import os
 import re
 import shutil
 import tarfile
+import tempfile
 
 import six
 from six.moves import _thread
@@ -44,7 +45,7 @@ def _archive_path(tm_env, archive_type, instance, uniq):
 
 def _temp_dir():
     """Construct an empty temporary dir for each thread and return the path."""
-    dirname = os.path.join(os.path.sep, 'var', 'tmp',
+    dirname = os.path.join(tempfile.gettempdir(),
                            'local-{}.temp'.format(_thread.get_ident()))
 
     shutil.rmtree(dirname, True)

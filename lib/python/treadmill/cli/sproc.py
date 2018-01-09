@@ -1,4 +1,6 @@
-"""Implementation of treadmill-admin CLI plugin."""
+"""Treadmill system processes launcher.
+"""
+
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function

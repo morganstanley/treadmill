@@ -29,9 +29,7 @@ from treadmill import utils
 from treadmill import zknamespace as z
 from treadmill import zkutils
 
-
 _LOGGER = logging.getLogger(__name__)
-
 
 _WATCHDOG_CHECK_INTERVAL = 30
 _KERNEL_WATCHDOG = None

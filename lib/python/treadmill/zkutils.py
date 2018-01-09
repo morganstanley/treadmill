@@ -25,6 +25,7 @@ import six
 from treadmill import utils
 from treadmill import sysinfo
 from treadmill import yamlwrapper as yaml
+from treadmill import zknamespace as z
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -327,7 +328,7 @@ class SequenceNodeWatch(object):
     def invoke_callback(self, path, node):
         """Invokes callback for each new node."""
         try:
-            fullpath = os.path.join(path, node)
+            fullpath = z.join_zookeeper_path(path, node)
             data = None
             stat = None
             if self.include_data:
@@ -527,7 +528,7 @@ def ensure_deleted(zkclient, path, recursive=True):
         _LOGGER.debug('Deleting %s', path)
         if recursive:
             for child in zkclient.get_children(path):
-                ensure_deleted(zkclient, os.path.join(path, child))
+                ensure_deleted(zkclient, z.join_zookeeper_path(path, child))
 
         zkclient.delete(path)
     except kazoo.client.NoNodeError:

@@ -1,4 +1,6 @@
-"""Instance API tests."""
+"""Instance API tests.
+"""
+
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
@@ -15,9 +17,9 @@ import six
 
 from treadmill import admin
 from treadmill import exc
-from treadmill.scheduler import masterapi
-from treadmill.api import instance
 from treadmill import yamlwrapper as yaml
+from treadmill.api import instance
+from treadmill.scheduler import masterapi
 
 
 def _create_apps(_zkclient, _app_id, app, _count, _created_by):

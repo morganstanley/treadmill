@@ -93,8 +93,6 @@ def reevaluate(api_url, state):
                 continue
 
             try:
-                # TODO: 'created_by': monitor is lost, need to add option
-                #       to pass it to rest api.
                 _scheduled = restclient.post(
                     [api_url],
                     '/instance/{}?count={}'.format(name, allowed),
@@ -118,7 +116,6 @@ def reevaluate(api_url, state):
         elif count < current_count:
             extra = grouped[name][:current_count - count]
             try:
-                # TODO: deleted_by: monitor is lost.
                 response = restclient.post(
                     [api_url], '/instance/_bulk/delete',
                     payload=dict(instances=list(extra)),

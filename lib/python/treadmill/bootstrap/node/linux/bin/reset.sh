@@ -16,8 +16,7 @@ $ECHO "Re-apply Treadmill template"
     --ldap {{ ldap }} \
     --ldap-suffix {{ ldap_suffix }} \
         install \
-            --config $SCRIPTDIR/etc/linux.exe.config \
-            --config $SCRIPTDIR/etc/linux.ms.exe.config \
+            --config $SCRIPTDIR/etc/linux.aliases \
             --config $SCRIPTDIR/../local/node.config.yml \
             node --install-dir {{ dir }}
 

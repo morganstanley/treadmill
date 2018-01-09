@@ -1213,7 +1213,7 @@ class Allocation(object):
             # - Global order
             entry = (rank, util_before, util_after, pending, order, app)
             if visitor:
-                visitor(self, entry)
+                visitor(self, entry, acc_demand)
 
             util_before = util_after
             yield entry

@@ -18,6 +18,7 @@ import tests.treadmill_test_deps  # pylint: disable=W0611
 import mock
 
 import treadmill
+import treadmill.runtime.runtime_base
 from treadmill import cleanup
 
 

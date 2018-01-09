@@ -146,7 +146,7 @@ def init():
                   type=int, envvar='TREADMILL_IDENTITY',
                   required=True)
     @click.option('--launcher',
-                  help='Kafka launcher name, see etc/linux.exe.config',
+                  help='Kafka launcher name, see etc/linux.aliases',
                   default=DEFAULT_KAFKA_LAUNCHER)
     @click.option('--template-dir', help='Kafka template dir',
                   default=DEFAULT_KAFKA_TEMPLATE_DIR)

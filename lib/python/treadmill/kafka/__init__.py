@@ -1,4 +1,4 @@
-"""Treadmill Kafka API
+"""Treadmill Kafka API.
 """
 
 from __future__ import absolute_import
@@ -6,7 +6,6 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
-import fnmatch
 import logging
 import os
 import re
@@ -17,8 +16,6 @@ from .. import context
 from .. import dnsutils
 from .. import discovery
 from .. import fs
-from .. import zkutils
-
 
 _LOGGER = logging.getLogger(__name__)
 

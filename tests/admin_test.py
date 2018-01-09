@@ -6,10 +6,6 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
-
-# Disable C0302: Too many lines in the module
-# pylint: disable=C0302
-
 import hashlib
 import unittest
 
@@ -17,7 +13,6 @@ import unittest
 import tests.treadmill_test_deps  # pylint: disable=W0611
 import tests.treadmill_ldap_patch
 tests.treadmill_ldap_patch.monkey_patch()
-
 
 import ldap3
 import mock
@@ -69,7 +64,6 @@ class AdminTest(unittest.TestCase):
                 'f': False
             },
         )
-
         self.assertEqual(
             admin._entry_2_dict(
                 {
@@ -93,7 +87,6 @@ class AdminTest(unittest.TestCase):
                 'f': True,
             }
         )
-
         self.assertEqual(
             admin._dict_2_entry(
                 {
@@ -113,7 +106,6 @@ class AdminTest(unittest.TestCase):
                 'f': [True],
             }
         )
-
         self.assertEqual(
             admin._dict_2_entry(
                 {
@@ -200,7 +192,7 @@ class AdminTest(unittest.TestCase):
             'cpu': '100%',
             'memory': '1G',
             'disk': '1G',
-            'tickets': [u'a', None, 'b'],
+            'tickets': ['a', None, 'b'],
             'features': [],
             'args': [],
             'environ': [{'name': 'a', 'value': 'b'}],
@@ -731,7 +723,9 @@ class PartitionTest(unittest.TestCase):
         """Test partition identity to dn mapping."""
         self.assertTrue(
             self.part.dn(['foo', 'bar']).startswith(
-                'partition=foo,cell=bar,ou=cells,'))
+                'partition=foo,cell=bar,ou=cells,'
+            )
+        )
 
     def test_to_entry(self):
         """Tests conversion of partition to LDAP entry."""

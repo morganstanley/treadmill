@@ -1,4 +1,5 @@
-"""Explain why an application instance is in pending state."""
+"""Explain why an application instance is in pending state.
+"""
 
 from __future__ import absolute_import
 from __future__ import division

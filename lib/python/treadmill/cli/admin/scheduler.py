@@ -1,6 +1,6 @@
-# pylint: disable=C0103
+"""Master CLI plugin.
+"""
 
-"""Master CLI plugin."""
 from __future__ import absolute_import
 from __future__ import print_function
 from __future__ import division
@@ -179,8 +179,8 @@ def init():
 
     @click.group()
     @click.option('--zookeeper', required=False,
-                  callback=cli.handle_context_opt,
                   envvar='TREADMILL_ZOOKEEPER',
+                  callback=cli.handle_context_opt,
                   expose_value=False)
     @click.option('--cell', required=True,
                   envvar='TREADMILL_CELL',

@@ -1,13 +1,14 @@
-"""Trace treadmill application events."""
+"""Trace treadmill application events.
+"""
+
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
-import sys
-
 import logging
 import socket
+import sys
 
 import click
 
@@ -30,14 +31,14 @@ def _iterate(discovery_iter, check_state, sep):
                 sock.settimeout(1)
 
                 try:
-                    host, port = hostport.split(':')
+                    host, port = hostport.split(b':')
                     sock.connect((host, int(port)))
                     sock.close()
                     state = 'up'
                 except socket.error:
                     state = 'down'
 
-            record = [app, hostport]
+            record = [app, hostport.decode()]
             if state:
                 record.append(state)
             output = sep.join(record)
@@ -54,6 +55,10 @@ def init():
     @click.command()
     @click.option('--cell', required=True,
                   envvar='TREADMILL_CELL',
+                  callback=cli.handle_context_opt,
+                  expose_value=False)
+    @click.option('--zookeeper', required=False,
+                  envvar='TREADMILL_ZOOKEEPER',
                   callback=cli.handle_context_opt,
                   expose_value=False)
     @click.option('--watch', is_flag=True, default=False)

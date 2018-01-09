@@ -6,14 +6,12 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
-import unittest
 import socket
 import logging
 import telnetlib
 import functools
 import hashlib
 
-import decorator
 import websocket as ws_client
 import six
 

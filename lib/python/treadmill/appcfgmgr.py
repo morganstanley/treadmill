@@ -48,7 +48,6 @@ from treadmill import supervisor
 from treadmill.appcfg import configure as app_cfg
 from treadmill.appcfg import abort as app_abort
 
-
 _LOGGER = lc.Adapter(logging.getLogger(__name__))
 
 _HEARTBEAT_SEC = 30
