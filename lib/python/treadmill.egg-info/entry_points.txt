@@ -17,10 +17,12 @@ admin = treadmill.adminctx
 zookeeper = treadmill.zkctx
 dns = treadmill.dnsctx
 
+
 [treadmill.features]
 
 
 [treadmill.image.native.fs]
+
 
 [treadmill.image.tar.fs]
 
@@ -48,6 +50,11 @@ server = treadmill.rest.api.server
 state = treadmill.rest.api.state
 tenant = treadmill.rest.api.tenant
 
+[treadmill.rest.authentication]
+trusted = treadmill.rest.auth.trusted
+
+[treadmill.rest.error_handlers]
+
 [treadmill.api]
 allocation = treadmill.api.allocation
 api-lookup = treadmill.api.api_lookup
@@ -72,11 +79,6 @@ tenant = treadmill.api.tenant
 
 [treadmill.api.allocation.plugins]
 
-[treadmill.rest.authentication]
-trusted = treadmill.rest.auth.trusted
-
-[treadmill.rest.error_handlers]
-
 [treadmill.websocket.api]
 endpoint = treadmill.websocket.api.endpoint
 identity-group = treadmill.websocket.api.identity_group
@@ -87,23 +89,29 @@ trace = treadmill.websocket.api.trace
 [treadmill.formatters]
 json = treadmill.formatter.jsonfmt
 yaml = treadmill.formatter.yamlfmt
-app = treadmill.formatter.tablefmt:AppPrettyFormatter
-cron = treadmill.formatter.tablefmt:CronPrettyFormatter
-server = treadmill.formatter.tablefmt:ServerPrettyFormatter
-dns = treadmill.formatter.tablefmt:DNSPrettyFormatter
-appgroup = treadmill.formatter.tablefmt:AppGroupPrettyFormatter
-ldap-schema = treadmill.formatter.tablefmt:LdapSchemaPrettyFormatter
-cell = treadmill.formatter.tablefmt:CellPrettyFormatter
-tenant = treadmill.formatter.tablefmt:TenantPrettyFormatter
+alloc-queue = treadmill.formatter.tablefmt:AllocationQueuePrettyFormatter
 allocation = treadmill.formatter.tablefmt:AllocationPrettyFormatter
-partition = treadmill.formatter.tablefmt:PartitionPrettyFormatter
-server-node = treadmill.formatter.tablefmt:ServerNodePrettyFormatter
+app = treadmill.formatter.tablefmt:AppPrettyFormatter
 app-monitor = treadmill.formatter.tablefmt:AppMonitorPrettyFormatter
+appgroup = treadmill.formatter.tablefmt:AppGroupPrettyFormatter
 bucket = treadmill.formatter.tablefmt:BucketPrettyFormatter
-identity-group = treadmill.formatter.tablefmt:IdentityGroupPrettyFormatter
-instance-state = treadmill.formatter.tablefmt:InstanceStatePrettyFormatter
+cell = treadmill.formatter.tablefmt:CellPrettyFormatter
+cron = treadmill.formatter.tablefmt:CronPrettyFormatter
+dns = treadmill.formatter.tablefmt:DNSPrettyFormatter
 endpoint = treadmill.formatter.tablefmt:EndpointPrettyFormatter
 haproxy = treadmill.formatter.tablefmt:HAProxyPrettyFormatter
+identity-group = treadmill.formatter.tablefmt:IdentityGroupPrettyFormatter
+instance-state = treadmill.formatter.tablefmt:InstanceStatePrettyFormatter
+ldap-schema = treadmill.formatter.tablefmt:LdapSchemaPrettyFormatter
+partition = treadmill.formatter.tablefmt:PartitionPrettyFormatter
+placement = treadmill.formatter.tablefmt:PlacementPrettyFormatter
+sched-view-allocs = treadmill.formatter.tablefmt:SchedulerAllocsPrettyFormatter
+sched-view-apps = treadmill.formatter.tablefmt:SchedulerAppsPrettyFormatter
+sched-view-reboots = treadmill.formatter.tablefmt:SchedulerRebootsPrettyFormatter
+sched-view-servers = treadmill.formatter.tablefmt:SchedulerServersPrettyFormatter
+server = treadmill.formatter.tablefmt:ServerPrettyFormatter
+server-node = treadmill.formatter.tablefmt:ServerNodePrettyFormatter
+tenant = treadmill.formatter.tablefmt:TenantPrettyFormatter
 
 
 [treadmill.cli]
@@ -159,6 +167,7 @@ master = treadmill.cli.admin.install.master
 node = treadmill.cli.admin.install.node
 openldap = treadmill.cli.admin.install.openldap
 spawn = treadmill.cli.admin.install.spawn
+tkt-fwd = treadmill.cli.admin.install.tkt_fwd
 zookeeper = treadmill.cli.admin.install.zookeeper
 
 [treadmill.cli.admin.checkout]
@@ -201,15 +210,16 @@ ad = treadmill.sproc.ad
 appcfgmgr = treadmill.sproc.appcfgmgr
 appevents = treadmill.sproc.appevents
 appmonitor = treadmill.sproc.appmonitor
-checkout = treadmill.sproc.checkout
 cellsync = treadmill.sproc.cellsync
 cgroup = treadmill.sproc.cgroup
 cgroup-server = treadmill.sproc.cgroup_server
+checkout = treadmill.sproc.checkout
 cleanup = treadmill.sproc.cleanup
 configure = treadmill.sproc.configure
 cron = treadmill.sproc.cron
 eventdaemon = treadmill.sproc.eventdaemon
 exec = treadmill.sproc.exec
+export-reports = treadmill.sproc.export_reports
 finish = treadmill.sproc.finish
 firewall = treadmill.sproc.firewall
 haproxy = treadmill.sproc.haproxy
@@ -234,7 +244,6 @@ version-monitor = treadmill.sproc.version_monitor
 vring = treadmill.sproc.vring
 websocket = treadmill.sproc.websocket
 zk2fs = treadmill.sproc.zk2fs
-export-reports = treadmill.sproc.export_reports
 
 
 [treadmill.cron]
@@ -246,28 +255,29 @@ monitor = treadmill.cron.model.monitor
 
 
 [treadmill.bootstrap]
+aliases = treadmill.bootstrap.aliases
 cli = treadmill.bootstrap.cli
-master = treadmill.bootstrap.master
 haproxy = treadmill.bootstrap.haproxy
+master = treadmill.bootstrap.master
 node = treadmill.bootstrap.node
 openldap = treadmill.bootstrap.openldap
 spawn = treadmill.bootstrap.spawn
+tkt-fwd = treadmill.bootstrap.tkt_fwd
 zookeeper = treadmill.bootstrap.zookeeper
-aliases = treadmill.bootstrap.aliases
 
 
 [treadmill.checkout.processors]
 
 
 [treadmill.infra]
-setup = treadmill.infra.setup
-utils = treadmill.infra.utils
 configuration = treadmill.infra.configuration
 connection = treadmill.infra.connection
 constants = treadmill.infra.constants
 ec2object = treadmill.infra.ec2object
 instances = treadmill.infra.instances
+setup = treadmill.infra.setup
 subnet = treadmill.infra.subnet
+utils = treadmill.infra.utils
 vpc = treadmill.infra.vpc
 
 [treadmill.infra.setup]

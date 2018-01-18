@@ -8,13 +8,13 @@ from __future__ import unicode_literals
 
 import os
 import shutil
+import sys
 import tempfile
 import unittest
 
 import mock
 
 import treadmill
-import treadmill.services
 
 from treadmill.appcfg import configure as app_cfg
 from treadmill.apptrace import events
@@ -29,22 +29,14 @@ class AppCfgConfigureTest(unittest.TestCase):
         self.root = tempfile.mkdtemp()
         self.tm_env = mock.Mock(
             apps_dir=os.path.join(self.root, 'apps'),
-            cleanup_dir=os.path.join(self.root, 'cleanup'),
-            svc_cgroup=mock.Mock(
-                spec_set=treadmill.services._base_service.ResourceService,
-            ),
-            svc_localdisk=mock.Mock(
-                spec_set=treadmill.services._base_service.ResourceService,
-            ),
-            svc_network=mock.Mock(
-                spec_set=treadmill.services._base_service.ResourceService,
-            ),
+            cleanup_dir=os.path.join(self.root, 'cleanup')
         )
 
     def tearDown(self):
         if self.root and os.path.isdir(self.root):
             shutil.rmtree(self.root)
 
+    @unittest.skipUnless(sys.platform.startswith('linux'), 'Requires Linux')
     @mock.patch('pwd.getpwnam', mock.Mock(auto_spec=True))
     @mock.patch('shutil.copyfile', mock.Mock(auto_spec=True))
     @mock.patch('treadmill.appcfg.manifest.load', auto_spec=True)
@@ -54,7 +46,7 @@ class AppCfgConfigureTest(unittest.TestCase):
     @mock.patch('treadmill.supervisor.create_service', auto_spec=True)
     @mock.patch('treadmill.utils.rootdir',
                 mock.Mock(return_value='/treadmill'))
-    def test_configure(self, mock_create_svc, mock_load):
+    def test_configure_linux(self, mock_create_svc, mock_load):
         """Tests that appcfg.configure creates necessary s6 layout."""
         manifest = {
             'proid': 'foo',

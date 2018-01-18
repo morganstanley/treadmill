@@ -1,5 +1,4 @@
-"""
-Verifies system apps are running.
+"""Verifies system apps are running.
 """
 
 from __future__ import absolute_import

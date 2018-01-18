@@ -372,13 +372,23 @@ def bytes_to_readable(num, power='M'):
 
 def cpu_to_readable(num):
     """Converts CPU % into readable number."""
-    locale.setlocale(locale.LC_ALL, ('en_US', sys.getdefaultencoding()))
+    # TODO: Move this to CLI initialization
+    if os.name == 'posix':
+        locale.setlocale(locale.LC_ALL, ('en_US', sys.getdefaultencoding()))
+    else:
+        locale.setlocale(locale.LC_ALL, '')
+
     return locale.format('%d', num, grouping=True)
 
 
 def cpu_to_cores_readable(num):
     """Converts CPU % into number of abstract cores."""
-    locale.setlocale(locale.LC_ALL, ('en_US', sys.getdefaultencoding()))
+    # TODO: Move this to CLI initialization
+    if os.name == 'posix':
+        locale.setlocale(locale.LC_ALL, ('en_US', sys.getdefaultencoding()))
+    else:
+        locale.setlocale(locale.LC_ALL, '')
+
     return locale.format('%.2f', num / 100.0, grouping=True)
 
 
@@ -392,7 +402,7 @@ def find_in_path(prog):
     if os.path.isabs(prog):
         return prog
 
-    for path in os.environ.get('PATH', '').split(':'):
+    for path in os.environ.get('PATH', '').split(os.pathsep):
         fullpath = os.path.join(path, prog)
         if os.path.exists(fullpath) and os.access(fullpath, os.X_OK):
             return fullpath
@@ -584,7 +594,7 @@ def make_signal_flag(*signals):
     _LOGGER.info('Configuring signal flag: %r', signals)
     signalled = set()
 
-    def _handler(signum, frame_unused):
+    def _handler(signum, _frame):
         """Signal handler."""
         signalled.add(signum)
 
@@ -720,20 +730,21 @@ def closefrom(firstfd=3):
     os.closerange(firstfd, maxfd)
 
 
+def restore_signals():
+    """Reset the default behavior to all signals.
+    """
+    for i in _SIGNALS:
+        signal.signal(i, signal.SIG_DFL)
+
+
 @osnoop.windows
-def sane_execvp(filename, args, close_fds=True, restore_signals=True):
+def sane_execvp(filename, args, close_fds=True, signals=True):
     """Execute a new program with sanitized environment.
     """
-    def _restore_signals():
-        """Reset the default behavior to all signals.
-        """
-        for i in _SIGNALS:
-            signal.signal(i, signal.SIG_DFL)
-
     if close_fds:
         closefrom(3)
-    if restore_signals:
-        _restore_signals()
+    if signals:
+        restore_signals()
     os.execvp(filename, args)
 
 

@@ -33,16 +33,18 @@ class DirWatcherTest(unittest.TestCase):
             shutil.rmtree(self.root)
 
     def test_watcher(self):
-        """Tests created/deleted callbackes."""
-        created = []
-        modified = []
-        deleted = []
+        """Tests created/deleted callbacks."""
+        created = set()
+        modified = set()
+        deleted = set()
         test_file = os.path.join(self.root, 'a')
 
         watcher = dirwatch.DirWatcher(self.root)
-        watcher.on_created = lambda x: created.append(x) or 'one'
-        watcher.on_modified = lambda x: modified.append(x) or 'two'
-        watcher.on_deleted = lambda x: deleted.append(x) or 'three'
+        watcher.on_created = lambda x: created.add(x) or 'one'
+        watcher.on_modified = lambda x: modified.add(x) or 'two'
+        watcher.on_deleted = lambda x: deleted.add(x) or 'three'
+
+        self.assertFalse(watcher.wait_for_events(0))
 
         with io.open(test_file, 'w') as f:
             f.write('hello')
@@ -52,20 +54,38 @@ class DirWatcherTest(unittest.TestCase):
         with io.open(test_file, 'w') as f:
             f.write('hello again')
 
-        res = watcher.process_events(max_events=3)
+        if sys.platform.startswith('linux'):
+            res = watcher.process_events(max_events=3)
+        else:
+            self.assertTrue(watcher.wait_for_events(0))
+            self.assertTrue(watcher.wait_for_events(0))
+            res = watcher.process_events(max_events=4)
 
-        self.assertEqual([test_file], created)
-        self.assertEqual([test_file], modified)
-        self.assertEqual([test_file], deleted)
-        self.assertEqual(
-            [
-                (dirwatch.DirWatcherEvent.CREATED, test_file, 'one'),
-                (dirwatch.DirWatcherEvent.MODIFIED, test_file, 'two'),
-                (dirwatch.DirWatcherEvent.DELETED, test_file, 'three'),
-                (dirwatch.DirWatcherEvent.MORE_PENDING, None, None),
-            ],
-            res,
-        )
+        self.assertEqual({test_file}, created)
+        self.assertEqual({test_file}, modified)
+        self.assertEqual({test_file}, deleted)
+
+        if sys.platform.startswith('linux'):
+            self.assertEqual(
+                [
+                    (dirwatch.DirWatcherEvent.CREATED, test_file, 'one'),
+                    (dirwatch.DirWatcherEvent.MODIFIED, test_file, 'two'),
+                    (dirwatch.DirWatcherEvent.DELETED, test_file, 'three'),
+                    (dirwatch.DirWatcherEvent.MORE_PENDING, None, None),
+                ],
+                res,
+            )
+        else:
+            self.assertEqual(
+                [
+                    (dirwatch.DirWatcherEvent.CREATED, test_file, 'one'),
+                    (dirwatch.DirWatcherEvent.MODIFIED, test_file, 'two'),
+                    (dirwatch.DirWatcherEvent.MODIFIED, test_file, 'two'),
+                    (dirwatch.DirWatcherEvent.DELETED, test_file, 'three'),
+                    (dirwatch.DirWatcherEvent.MORE_PENDING, None, None),
+                ],
+                res,
+            )
 
     @unittest.skipUnless(sys.platform.startswith('linux'), 'Requires Linux')
     @mock.patch('select.poll', mock.Mock())

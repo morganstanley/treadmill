@@ -78,7 +78,7 @@ def schema(*schemas, **kwschemas):
             if kw_value != kw_default:
                 kwargs[kw_name] = kw_value
 
-        if len(defaults):
+        if defaults:
             args = list(args)[:-len(defaults)]
         else:
             args = list(args)

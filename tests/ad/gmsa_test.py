@@ -12,6 +12,9 @@ import shutil
 import tempfile
 import unittest
 
+# Disable W0611: Unused import
+import tests.treadmill_test_skip_windows  # pylint: disable=W0611
+
 import ldap3
 import mock
 import yaml
@@ -24,7 +27,6 @@ from treadmill.ad import _servers as servers
 class HostGroupWatchTest(unittest.TestCase):
     """Mock test for treadmill.ad.gmsa.HostGroupWatch.
     """
-
     def setUp(self):
         self.root = tempfile.mkdtemp()
         self.placement_dir = os.path.join(self.root, 'placement')

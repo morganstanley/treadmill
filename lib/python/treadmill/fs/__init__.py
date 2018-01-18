@@ -19,11 +19,6 @@ import shutil
 
 import six
 
-if six.PY2 and os.name == 'posix':
-    import subprocess32 as subprocess  # pylint: disable=import-error
-else:
-    import subprocess  # pylint: disable=wrong-import-order
-
 if os.name == 'nt':
     # E0401: Unable to import windows only pakages
     import win32api  # pylint: disable=E0401
@@ -267,7 +262,7 @@ def _tar_impl(sources, **args):
             else:
                 archive.add(sources.rstrip('/'), '/')
 
-    except:  # pylint: disable=W0702
+    except Exception:  # pylint: disable=W0703
         _LOGGER.exception('Error taring up files')
         raise
 

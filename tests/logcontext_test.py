@@ -71,7 +71,7 @@ class ContainerAdapterTest(unittest.TestCase):
             self.ca._fmt('proid.app-name-appid-uniqid'),
             'proid.app-name#appid uniqid')
 
-# FIXME
+
 @unittest.skip('No you cannot nest them')
 class LogContextTest(unittest.TestCase):
     """Unit test for the LogContext class

@@ -41,7 +41,6 @@ def _iterate(discovery_iter, check_state, sep):
             record = [app, hostport.decode()]
             if state:
                 record.append(state)
-
             output = sep.join(record)
         else:
             output = app

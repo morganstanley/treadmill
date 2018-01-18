@@ -12,14 +12,6 @@ import logging
 import os
 import re
 
-import six
-
-if six.PY2 and os.name == 'posix':
-    import subprocess32 as subprocess  # pylint: disable=import-error
-else:
-    import subprocess  # pylint: disable=wrong-import-order
-
-
 from treadmill import exc
 from treadmill import fs
 from treadmill import subproc
@@ -222,7 +214,7 @@ def blk_fs_info(block_dev):
     #       in the result.
     try:
         output = subproc.check_output(['dumpe2fs', '-h', block_dev])
-    except subprocess.CalledProcessError:
+    except subproc.CalledProcessError:
         return res
 
     for line in output.split(os.linesep):

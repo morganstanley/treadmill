@@ -60,9 +60,10 @@ def create_release_url(ctx, param, value):
     if value and _URL_RE.match(value):
         return value
 
-    _build_url = lambda version: '{}/{}/treadmill'.format(
-        constants.TREADMILL_DEFAULT_URL, version,
-    )
+    def _build_url(version):
+        return '{}/{}/treadmill'.format(
+            constants.TREADMILL_DEFAULT_URL, version,
+        )
 
     if value:
         return _build_url(value)

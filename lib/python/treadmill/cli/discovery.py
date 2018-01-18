@@ -55,7 +55,7 @@ def init():
             port = result['port']
             hostport = '%s:%s' % (host, port)
             if host is not None:
-                record = [instance, hostport.decode()]
+                record = [instance, hostport]
                 if check_state:
                     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                     sock.settimeout(1)

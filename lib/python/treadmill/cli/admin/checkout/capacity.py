@@ -1,4 +1,4 @@
-"""Checkout Zookeeper ensemble.
+"""Checkout cell capacity.
 """
 
 from __future__ import absolute_import

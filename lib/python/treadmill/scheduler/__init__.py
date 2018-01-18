@@ -1213,7 +1213,7 @@ class Allocation(object):
             # - Global order
             entry = (rank, util_before, util_after, pending, order, app)
             if visitor:
-                visitor(self, entry)
+                visitor(self, entry, acc_demand)
 
             util_before = util_after
             yield entry
@@ -1676,6 +1676,10 @@ class Cell(Bucket):
 
                     assert evicted_app.server in servers
                     evicted_app_server = servers[evicted_app.server]
+
+                    # Do not consider servers that are not up.
+                    if evicted_app_server.state is not State.up:
+                        continue
 
                     evicted[evicted_app] = (evicted_app_server,
                                             evicted_app.placement_expiry)

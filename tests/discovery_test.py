@@ -20,12 +20,6 @@ from treadmill import discovery
 class DiscoveryTest(mockzk.MockZookeeperTestCase):
     """Mock test for treadmill.appwatch."""
 
-    def setUp(self):
-        super(DiscoveryTest, self).setUp()
-
-    def tearDown(self):
-        super(DiscoveryTest, self).tearDown()
-
     @mock.patch('treadmill.zkutils.connect', mock.Mock(
         return_value=kazoo.client.KazooClient()))
     @mock.patch('kazoo.client.KazooClient.get', mock.Mock(

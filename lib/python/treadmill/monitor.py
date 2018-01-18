@@ -17,14 +17,10 @@ import os
 import enum
 import six
 
-if six.PY2 and os.name == 'posix':
-    import subprocess32 as subprocess  # pylint: disable=import-error
-else:
-    import subprocess  # pylint: disable=wrong-import-order
-
 from treadmill import appevents
 from treadmill import dirwatch
 from treadmill import fs
+from treadmill import subproc
 from treadmill import supervisor
 from treadmill import utils
 
@@ -193,7 +189,7 @@ class Monitor(object):
             # Service is up, nothing to do.
             return
 
-        except subprocess.CalledProcessError as err:
+        except subproc.CalledProcessError as err:
             if err.returncode == supervisor.ERR_NO_SUP:
                 # Watching a directory without supervisor, nothing to do.
                 return
@@ -354,7 +350,7 @@ class MonitorContainerCleanup(MonitorDownAction):
                 supervisor.SvscanControlAction.alarm,
                 supervisor.SvscanControlAction.nuke
             ])
-        except subprocess.CalledProcessError as err:
+        except subproc.CalledProcessError as err:
             _LOGGER.warning('Failed to nuke svscan: %r', self._running_dir)
 
         return True
@@ -658,7 +654,7 @@ class CleanupMonitorRestartPolicy(MonitorRestartPolicy):
     """
 
     __slots__ = (
-        '_tm_env'
+        '_tm_env',
     )
 
     def __init__(self, tm_env):

@@ -9,14 +9,8 @@ from __future__ import unicode_literals
 import logging
 import os
 
-import six
-
-if six.PY2 and os.name == 'posix':
-    import subprocess32 as subprocess  # pylint: disable=import-error
-else:
-    import subprocess  # pylint: disable=wrong-import-order
-
 from treadmill import appcfg
+from treadmill import subproc
 from treadmill import supervisor
 from treadmill.runtime import runtime_base
 
@@ -28,11 +22,6 @@ _LOGGER = logging.getLogger(__name__)
 
 class LinuxRuntime(runtime_base.RuntimeBase):
     """Linux Treadmill runtime."""
-
-    def __init__(self, tm_env, container_dir, param=None):
-        super(LinuxRuntime, self).__init__(
-            tm_env, container_dir, param
-        )
 
     def _can_run(self, manifest):
         try:
@@ -56,7 +45,7 @@ class LinuxRuntime(runtime_base.RuntimeBase):
         try:
             supervisor.control_service(services_dir,
                                        supervisor.ServiceControlAction.kill)
-        except subprocess.CalledProcessError as err:
+        except subproc.CalledProcessError as err:
             if err.returncode in (supervisor.ERR_COMMAND,
                                   supervisor.ERR_NO_SUP):
                 # Ignore the error if there is no supervisor

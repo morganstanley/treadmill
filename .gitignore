@@ -3,19 +3,26 @@ __pycache__
 *.pyc
 .*
 
+# Keep s6 files from templates
+!.s6-svscan
+!.winss-svscan
 
-# Ensure that .gitignore files are included
+
+# Ensure that .git* files are included
 !.gitignore
+!.gitattributes
 
 # Keep track of .keepme files
 !.keepme
 
-# Keep s6 files from templates
-!.s6-svscan
+# Preserve tmpwatch files
+!.tmpwatch.exclude
 
 # Ignore generated files/dir
+lib/python/treadmill.egg-info/*
 doc/build
 wheels/
 build/
 dist/
 cover/
+

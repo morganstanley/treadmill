@@ -23,10 +23,10 @@ from treadmill.api import local
 # pylint: disable=W0622
 from treadmill.exc import (LocalFileNotFoundError, InvalidInputError)
 
-APPS_DIR = '.../apps'
-ARCHIVES_DIR = '.../archives'
-METRICS_DIR = '.../metrics'
-RUNNING_DIR = '.../running'
+APPS_DIR = os.path.join('...', 'apps')
+ARCHIVES_DIR = os.path.join('...', 'archives')
+METRICS_DIR = os.path.join('...', 'metrics')
+RUNNING_DIR = os.path.join('...', 'running')
 
 # do not complain about accessing protected member
 # pylint: disable=W0212
@@ -50,10 +50,12 @@ class MetricsAPITest(unittest.TestCase):
         self.assertEqual(
             self.met._abs_met_path(app='proid.app#00123',
                                    uniq='asdf'),
-            '{}/apps/proid.app-00123-asdf.rrd'.format(METRICS_DIR))
+            os.path.join(METRICS_DIR, 'apps', 'proid.app-00123-asdf.rrd')
+        )
         self.assertEqual(
             self.met._abs_met_path(service='test'),
-            '{}/core/test.rrd'.format(METRICS_DIR))
+            os.path.join(METRICS_DIR, 'core', 'test.rrd')
+        )
 
     def test_unpack_id(self):
         """Test the unpack_id() method."""
@@ -66,7 +68,8 @@ class MetricsAPITest(unittest.TestCase):
         """Test the publicly accessable file_path() method"""
         self.assertEqual(
             self.met.file_path('proid.app#00123/asdf'),
-            '{}/apps/proid.app-00123-asdf.rrd'.format(METRICS_DIR))
+            os.path.join(METRICS_DIR, 'apps', 'proid.app-00123-asdf.rrd')
+        )
 
     @mock.patch('treadmill.rrdutils.get_json_metrics')
     def test_get(self, mock_):
@@ -96,11 +99,9 @@ class LogAPITest(unittest.TestCase):
             with mock.patch('io.open', mock.mock_open()):
                 with self.assertRaises(InvalidInputError):
                     self.log.get('no/such/log/exists', start=-1)
-                with mock.patch(
-                    'treadmill.api.local._fragment',
-                    mock.Mock(spec_set=True, return_value='invoked')
-                ):
-
+                with mock.patch('treadmill.api.local._fragment',
+                                mock.Mock(spec_set=True,
+                                          return_value='invoked')):
                     self.assertEqual(
                         self.log.get('no/such/log/exists', start=0, limit=3),
                         'invoked'
@@ -109,14 +110,14 @@ class LogAPITest(unittest.TestCase):
         # make sure that things don't break if the log file contains some
         # binary data with ord num > 128 (eg. \xc5 below) ie. not ascii
         # decodeable
-        with tempfile.NamedTemporaryFile(mode='wb') as temp:
+
+        with tempfile.NamedTemporaryFile(mode='wb', delete=False) as temp:
             temp.write(b'\x00\x01\xc5\x0a')
             temp.seek(0)
 
-            with mock.patch(
-                'treadmill.api.local._get_file', return_value=temp.name
-            ):
-                self.assertTrue(''.join(self.log.get('no/such/log/exists')))
+        with mock.patch('treadmill.api.local._get_file',
+                        return_value=temp.name):
+            self.assertTrue(''.join(self.log.get('no/such/log/exists')))
 
     @mock.patch('treadmill.api.local._get_file')
     def test_get_logfile_new(self, _get_file_mock):
@@ -124,8 +125,10 @@ class LogAPITest(unittest.TestCase):
         # ARCHIVED
         self.log._get_logfile_new('proid.app#123', 'uniq', 'service', 'foo')
         _get_file_mock.assert_called_once_with(
-            '.../apps/proid.app-123-uniq/data/services/foo/data/log/current',
-            arch='.../archives/proid.app-123-uniq.service.tar.gz',
+            os.path.join('...', 'apps', 'proid.app-123-uniq', 'data',
+                         'services', 'foo', 'data', 'log', 'current'),
+            arch=os.path.join('...', 'archives',
+                              'proid.app-123-uniq.service.tar.gz'),
             arch_extract=True,
             arch_extract_filter=mock.ANY)
 
@@ -134,8 +137,10 @@ class LogAPITest(unittest.TestCase):
         # RUNNING
         self.log._get_logfile_new('proid.app#123', 'running', 'service', 'foo')
         _get_file_mock.assert_called_once_with(
-            '.../running/proid.app#123/data/services/foo/data/log/current',
-            arch='.../archives/proid.app-123-running.service.tar.gz',
+            os.path.join('...', 'running', 'proid.app#123', 'data',
+                         'services', 'foo', 'data', 'log', 'current'),
+            arch=os.path.join('...', 'archives',
+                              'proid.app-123-running.service.tar.gz'),
             arch_extract=False,
             arch_extract_filter=mock.ANY)
 
@@ -145,8 +150,10 @@ class LogAPITest(unittest.TestCase):
         # ARCHIVED
         self.log._get_logfile_old('app#123', 'uniq', 'service', 'foo')
         _get_file_mock.assert_called_once_with(
-            '.../apps/app-123-uniq/services/foo/log/current',
-            arch='.../archives/app-123-uniq.service.tar.gz',
+            os.path.join('...', 'apps', 'app-123-uniq', 'services', 'foo',
+                         'log', 'current'),
+            arch=os.path.join('...', 'archives',
+                              'app-123-uniq.service.tar.gz'),
             arch_extract=True,
             arch_extract_filter=mock.ANY)
 
@@ -155,8 +162,10 @@ class LogAPITest(unittest.TestCase):
         # RUNNING
         self.log._get_logfile_old('proid.app#123', 'running', 'service', 'foo')
         _get_file_mock.assert_called_once_with(
-            '.../running/proid.app#123/services/foo/log/current',
-            arch='.../archives/proid.app-123-running.service.tar.gz',
+            os.path.join('...', 'running', 'proid.app#123', 'services', 'foo',
+                         'log', 'current'),
+            arch=os.path.join('...', 'archives',
+                              'proid.app-123-running.service.tar.gz'),
             arch_extract=False,
             arch_extract_filter=mock.ANY)
 
@@ -176,9 +185,12 @@ class HelperFuncTests(unittest.TestCase):
     @mock.patch('_thread.get_ident', mock.Mock(return_value='123'))
     def test_temp_dir(self):
         """Dummy test of _temp_dir()."""
-        self.assertEqual(local._temp_dir(), '/var/tmp/local-123.temp')
-        shutil.copy(__file__, '/var/tmp/local-123.temp')
-        self.assertEqual(len(os.listdir('/var/tmp/local-123.temp')), 1)
+        self.assertEqual(local._temp_dir(),
+                         os.path.join(tempfile.gettempdir(), 'local-123.temp'))
+        shutil.copy(__file__,
+                    os.path.join(tempfile.gettempdir(), 'local-123.temp'))
+        self.assertEqual(len(os.listdir(
+            os.path.join(tempfile.gettempdir(), 'local-123.temp'))), 1)
         # subsequent invocations should delete the temp dir content
         self.assertEqual(os.listdir(local._temp_dir()), [])
 
@@ -187,7 +199,7 @@ class HelperFuncTests(unittest.TestCase):
         with self.assertRaises(LocalFileNotFoundError):
             local._extract_archive('no_such_file')
 
-        temp_dir = os.path.join(os.path.sep, 'tmp', 'tm-unittest')
+        temp_dir = os.path.join(tempfile.gettempdir(), 'tm-unittest')
         temp_subdir = os.path.join(temp_dir, 'foo')
 
         shutil.rmtree(temp_dir, True)
@@ -219,7 +231,7 @@ class HelperFuncTests(unittest.TestCase):
         ident = _thread.get_ident()
         file_lst = []
         for i in six.moves.range(3):
-            file_lst.append(os.path.join(os.path.sep, 'tmp',
+            file_lst.append(os.path.join(tempfile.gettempdir(),
                                          '{}.{}'.format(ident, i)))
             with io.open(file_lst[-1], 'wb') as logs:
                 logs.write(bytearray('{}\n'.format(i), 'ascii'))
@@ -238,29 +250,29 @@ class HelperFuncTests(unittest.TestCase):
         # make sure that things don't break if the log file contains some
         # binary data with ord num > 128 (eg. \xc5 below) ie. not ascii
         # decodeable
-        with tempfile.NamedTemporaryFile(mode='wb') as temp:
+        with tempfile.NamedTemporaryFile(mode='wb', delete=False) as temp:
             temp.write(b'\x42\x00\x01\xc5\x45\x0a')
             temp.seek(0)
 
-            self.assertTrue(''.join(local._concat_files([temp.name])))
+        self.assertTrue(''.join(local._concat_files([temp.name])))
 
     def test_rel_log_dir_path(self):
         """Test the rel_log_dir_path() func."""
         self.assertEqual(local._rel_log_dir_path('sys', 'foo'),
-                         'sys/foo/data/log')
+                         os.path.join('sys', 'foo', 'data', 'log'))
         self.assertEqual(local._rel_log_dir_path('app', 'foo'),
-                         'services/foo/data/log')
+                         os.path.join('services', 'foo', 'data', 'log'))
 
     def test_abs_log_dir_path(self):
         """Test the abs_log_dir_path() func."""
         self.assertEqual(
             local._abs_log_dir_path(self.tm_env_func, 'proid.app-123',
                                     'running', '...'),
-            '.../running/proid.app-123/data/...')
+            os.path.join('...', 'running', 'proid.app-123', 'data', '...'))
         self.assertEqual(
             local._abs_log_dir_path(self.tm_env_func, 'proid.app-123',
                                     'xyz', '...'),
-            '.../apps/proid.app-123-xyz/data/...')
+            os.path.join('...', 'apps', 'proid.app-123-xyz', 'data', '...'))
 
     def test_fragment_file(self):
         """Test the _fragment() func."""
@@ -353,7 +365,8 @@ class HelperFuncTests(unittest.TestCase):
         """Test the _archive_paths() func."""
         self.assertEqual(
             local._archive_path(self.tm_env_func, 'app', 'app#123', 'uniq'),
-            '{}/app-123-uniq.app.tar.gz'.format(ARCHIVES_DIR))
+            os.path.join(ARCHIVES_DIR, 'app-123-uniq.app.tar.gz')
+        )
 
 
 class APITest(unittest.TestCase):

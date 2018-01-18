@@ -16,6 +16,9 @@ import unittest
 import collections
 from collections import namedtuple
 
+# Disable W0611: Unused import
+import tests.treadmill_test_skip_windows   # pylint: disable=W0611
+
 import mock
 
 import treadmill
@@ -378,6 +381,9 @@ class NativeImageTest(unittest.TestCase):
 
         etc_dir = os.path.join(self.container_dir, 'overlay', 'etc')
 
+        os.path.exists.assert_called_once_with(
+            os.path.join(self.tm_env.root, 'etc', 'pam.d', 'sshd')
+        )
         shutil.copyfile.assert_has_calls([
             mock.call('/etc/pam.d/sshd',
                       os.path.join(etc_dir, 'pam.d', 'sshd'))
@@ -394,6 +400,9 @@ class NativeImageTest(unittest.TestCase):
 
         etc_dir = os.path.join(self.container_dir, 'overlay', 'etc')
 
+        os.path.exists.assert_called_once_with(
+            os.path.join(self.tm_env.root, 'etc', 'resolv.conf')
+        )
         shutil.copyfile.assert_has_calls([
             mock.call('/etc/resolv.conf',
                       os.path.join(etc_dir, 'resolv.conf'))

@@ -54,9 +54,10 @@ class ClientAuthorizer(object):
         url = '/%s/%s/%s' % (user, action, resource)
         data = {}
 
-        if len(args) > 0:
+        nargs = len(args)
+        if nargs > 0:
             data['pk'] = str(args[0])
-        if len(args) > 1:
+        if nargs > 1:
             data['payload'] = args[1]
 
         # POST http://auth_server/user/action/resource

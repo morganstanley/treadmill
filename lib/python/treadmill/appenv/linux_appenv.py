@@ -1,5 +1,5 @@
-"""Linux application environment."""
-
+"""Linux application environment.
+"""
 
 from __future__ import absolute_import
 from __future__ import division
@@ -9,8 +9,6 @@ from __future__ import unicode_literals
 import logging
 import os
 
-from . import appenv
-
 from treadmill import apphook
 from treadmill import fs
 from treadmill import iptables
@@ -18,6 +16,7 @@ from treadmill import rulefile
 from treadmill import services
 from treadmill.runtime.linux.image import fs as image_fs
 
+from . import appenv
 
 _LOGGER = logging.getLogger(__name__)
 

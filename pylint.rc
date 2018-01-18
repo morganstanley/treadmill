@@ -1,5 +1,6 @@
 [BASIC]
-good-names=_,i,j,k,f,setUp,tearDown
+good-names=i,j,k,f,setUp,tearDown,_
+# Regular expression which should only match correct variable names
 variable-rgx=[a-z_][a-z0-9_]{1,30}$
 attr-rgx=[a-z_][a-z0-9_]{1,30}$
 
@@ -7,11 +8,32 @@ attr-rgx=[a-z_][a-z0-9_]{1,30}$
 dummy-variables-rgx=_[a-z0-9_]{0,30}$
 
 [MESSAGES CONTROL]
-disable=E1101,E1103,I0011,R0201,R0204,R0902,R0903,R0904,R0913,R0914,W0141,W0511,R0801
+# E1101 - Has no member (false positive in mock tests.)
+# E1103 - Instance has no member (false positives in mock tests.)
+# I0011 - Locally disabling XXX
+# R0201 - Method could be a function
+# R0204 - Redefined variable type (false positive with enums)
+# R0801 - Similar lines in 2 files
+# R0902 - Too many instance attributes
+# R0903 - Not enough public methods
+# R0904 - Too many public methods
+# R0913 - Too many function arguments
+# R0914 - Too many local variables
+# W0141 - Used builtin functions (filter, map)
+# W0511 - TODOs
+# R0801 - similar lines in too files, false positive with running on multiple
+#         files.
+# R1705 - No else-return reduces nesting but less readable
+# C0413 - Wrong import position doesn't handle if <cond>:\n import until
+#         pylint 2.0. Disabling for now as it causes pain with os specific
+#         imports.
+disable=E1101,E1103,I0011,R0201,R0204,R0902,R0903,R0904,R0913,R0914,
+    W0141,W0511,R0801,R1705,C0413
 
 [REPORTS]
 output-format=parseable
 reports=no
 
 [MISCELLANEOUS]
+# List of note tags to take in consideration, separated by a comma.
 nodes=FIXME,TODO,XXX

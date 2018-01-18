@@ -19,12 +19,11 @@ import requests_kerberos
 
 from six.moves import urllib_parse
 
+from treadmill import fs
+
 from . import _image_base
 from . import _repository_base
 from . import native
-
-from treadmill import fs
-
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -65,9 +64,10 @@ def _sha256sum(path):
 
 class TarImage(_image_base.Image):
     """Represents a TAR image."""
+
     __slots__ = (
-        'tm_env'
-        'image_path'
+        'tm_env',
+        'image_path',
     )
 
     def __init__(self, tm_env, image_path):
@@ -88,9 +88,6 @@ class TarImage(_image_base.Image):
 
 class TarImageRepository(_repository_base.ImageRepository):
     """A collection of TAR images."""
-
-    def __init__(self, tm_env):
-        super(TarImageRepository, self).__init__(tm_env)
 
     def get(self, url):
         images_dir = os.path.join(self.tm_env.images_dir, TAR_DIR)

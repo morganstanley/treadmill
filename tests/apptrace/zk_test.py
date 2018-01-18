@@ -23,12 +23,6 @@ class AppTraceZKTest(mockzk.MockZookeeperTestCase):
     """Mock test for treadmill.apptrace.
     """
 
-    def setUp(self):
-        super(AppTraceZKTest, self).setUp()
-
-    def tearDown(self):
-        super(AppTraceZKTest, self).tearDown()
-
     @mock.patch('kazoo.client.KazooClient.delete', mock.Mock())
     @mock.patch('kazoo.client.KazooClient.create', mock.Mock())
     @mock.patch('kazoo.client.KazooClient.exists', mock.Mock())

@@ -55,12 +55,6 @@ import time
 import enum
 
 import jinja2
-import six
-
-if six.PY2 and os.name == 'posix':
-    import subprocess32 as subprocess  # pylint: disable=import-error
-else:
-    import subprocess  # pylint: disable=wrong-import-order
 
 from treadmill import fs
 from treadmill import utils
@@ -488,7 +482,7 @@ def is_supervised(service_dir):
     try:
         subproc.check_call([_get_cmd('svok'), service_dir])
         return True
-    except subprocess.CalledProcessError as err:
+    except subproc.CalledProcessError as err:
         # svok returns 1 when the service directory is not supervised.
         if err.returncode == 1:
             return False
@@ -502,7 +496,7 @@ def control_service(service_dir, actions, wait=None, timeout=0):
     :returns:
         ``True`` - Command was successuful.
         ``False`` - Command timedout (only if `wait` was provided).
-    :raises ``subprocess.CalledProcessError``:
+    :raises ``subproc.CalledProcessError``:
         With `returncode` set to `ERR_NO_SUP` if the service is not supervised.
         With `returncode` set to `ERR_COMMAND` if there is a problem
         communicating with the supervisor.
@@ -530,7 +524,7 @@ def control_service(service_dir, actions, wait=None, timeout=0):
         if wait is not None:
             wait_service(service_dir, wait, timeout=timeout)
 
-    except subprocess.CalledProcessError as err:
+    except subproc.CalledProcessError as err:
         if err.returncode == ERR_TIMEOUT:
             return False
         else:
@@ -582,7 +576,7 @@ def ensure_not_supervised(service_dir):
             control_service(service, ServiceControlAction.exit,
                             ServiceWaitAction.really_down,
                             timeout=1000)
-        except subprocess.CalledProcessError:
+        except subproc.CalledProcessError:
             # Ignore this as supervisor may be down
             pass
 

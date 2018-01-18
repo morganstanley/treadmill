@@ -201,8 +201,7 @@ def _parse_buffer(event_buffer):
         event_buffer = event_buffer[INOTIFY_EVENT_HDRSIZE + length:]
         yield wd, mask, cookie, name
 
-    assert len(event_buffer) == 0, ('Unparsed bytes left in buffer: %r' %
-                                    event_buffer)
+    assert not event_buffer, 'Unparsed bytes left in buffer: %r' % event_buffer
 
 
 ###############################################################################

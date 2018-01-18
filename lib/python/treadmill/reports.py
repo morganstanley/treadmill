@@ -274,25 +274,26 @@ class ExplainVisitor(object):
         """Initialize result"""
         self.result = []
 
-    def add(self, alloc, entry):
+    def add(self, alloc, entry, acc_demand):
         """Add new row to result"""
         rank, util_before, util_after, _pending, _order, app = entry
 
         alloc_name = ':'.join(alloc.path)
         self.result.append({
-            'partition': alloc.label,
             'alloc': alloc_name,
             'rank': rank,
             'util0': util_before,
             'util1': util_after,
+            'memory': int(acc_demand[0]),
+            'cpu': int(acc_demand[1]),
+            'disk': int(acc_demand[2]),
             'name': app.name,
         })
 
     def finish(self):
         """Post-process result array"""
         def _sort_order(entry):
-            return (entry['partition'],
-                    entry['alloc'],
+            return (entry['alloc'],
                     entry['util0'],
                     entry['util1'])
 
@@ -333,9 +334,7 @@ def explain_queue(cell, partition, pattern=None):
     if pattern:
         visitor.filter(pattern)
 
-    # set columns explicitly to control order
-    columns = ['pos', 'alloc', 'name', 'rank', 'util0', 'util1']
-    return pd.DataFrame(visitor.result, columns=columns)
+    return pd.DataFrame(visitor.result)
 
 
 def _preorder_walk(node, _app=None):

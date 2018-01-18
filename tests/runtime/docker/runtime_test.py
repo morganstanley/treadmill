@@ -19,7 +19,6 @@ import treadmill
 from treadmill import exc
 from treadmill import fs
 from treadmill import rulefile
-from treadmill import services
 from treadmill import utils
 from treadmill.appcfg import abort as app_abort
 from treadmill.apptrace import events
@@ -46,15 +45,6 @@ class DockerRuntimeTest(unittest.TestCase):
             root=self.root,
             app_events_dir=self.events_dir,
             configs_dir=self.configs_dir,
-            svc_cgroup=mock.Mock(
-                spec_set=services._base_service.ResourceService,
-            ),
-            svc_localdisk=mock.Mock(
-                spec_set=services._base_service.ResourceService,
-            ),
-            svc_network=mock.Mock(
-                spec_set=services._base_service.ResourceService,
-            ),
             rules=mock.Mock(
                 spec_set=rulefile.RuleMgr,
             ),
@@ -118,6 +108,7 @@ class DockerRuntimeTest(unittest.TestCase):
 
     @mock.patch('docker.DockerClient', autospec=True)
     @mock.patch('multiprocessing.cpu_count', mock.Mock(return_value=4))
+    @mock.patch('treadmill.runtime.docker.runtime._get_gmsa', mock.Mock())
     def test__create_container(self, client):
         """Tests creating a docker container using the api."""
         # Access to a protected member
@@ -249,6 +240,9 @@ class DockerRuntimeTest(unittest.TestCase):
         """Tests docker runtime finish."""
         # Access to a protected member
         # pylint: disable=W0212
+        if os.name == 'nt':
+            treadmill.ad.credential_spec.cleanup = mock.Mock()
+
         treadmill.runtime.save_app(self.manifest, self.data_dir)
 
         client = mock.MagicMock()
@@ -313,6 +307,9 @@ class DockerRuntimeTest(unittest.TestCase):
         """Tests docker runtime finish when aborted."""
         # Access to a protected member
         # pylint: disable=W0212
+        if os.name == 'nt':
+            treadmill.ad.credential_spec.cleanup = mock.Mock()
+
         treadmill.runtime.save_app(self.manifest, self.data_dir)
 
         client = mock.MagicMock()
@@ -351,6 +348,9 @@ class DockerRuntimeTest(unittest.TestCase):
         """Tests docker runtime finish when not aborted or exited."""
         # Access to a protected member
         # pylint: disable=W0212
+        if os.name == 'nt':
+            treadmill.ad.credential_spec.cleanup = mock.Mock()
+
         treadmill.runtime.save_app(self.manifest, self.data_dir)
 
         client = mock.MagicMock()

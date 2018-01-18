@@ -10,9 +10,8 @@ import time
 import unittest
 import sys
 
-# Disable too many lines in module warning.
-#
-# pylint: disable=C0302
+# Disable W0611: Unused import
+import tests.treadmill_test_skip_windows  # pylint: disable=W0611
 
 import mock
 import numpy as np
@@ -135,7 +134,7 @@ class AllocationTest(unittest.TestCase):
 
         # Now set max_utilization to 1
         alloc.max_utilization = 1
-        # XXX(boysson: Broken test. Needs upgrade to V3
+        # XXX: Broken test. Needs upgrade to V3
         # XXX:
         # XXX: self.assertEqual(
         # XXX:     2,
@@ -299,8 +298,12 @@ class AllocationTest(unittest.TestCase):
         alloc.add_sub_alloc('b', sub_alloc_b)
 
         result = []
+
+        def _visitor(_alloc, entry, _acc_demand):
+            result.append(entry)
+
         list(alloc.utilization_queue([20., 20.],
-                                     visitor=lambda _, x: result.append(x)))
+                                     visitor=_visitor))
         self.assertEqual(6, len(result))
 
 
@@ -1270,6 +1273,43 @@ class CellTest(unittest.TestCase):
         self.assertEqual(len([app for app in large_apps if app.server]), 9)
 
     @mock.patch('time.time', mock.Mock(return_value=100))
+    def test_eviction_server_down(self):
+        """Tests app restore."""
+        cell = scheduler.Cell('top')
+        large_server = scheduler.Server('large', [10, 10], traits=0,
+                                        valid_until=10000)
+        cell.add_node(large_server)
+
+        small_server = scheduler.Server('small', [3, 3], traits=0,
+                                        valid_until=10000)
+        cell.add_node(small_server)
+
+        # Create two apps one with retention other without. Set priority
+        # so that app with retention is on the right of the queue, when
+        # placement not found for app without retention, it will try to
+        # evict app with retention.
+        app_no_retention = scheduler.Application('a1', 100, [4, 4], 'app')
+        app_with_retention = scheduler.Application('a2', 1, [4, 4], 'app',
+                                                   data_retention_timeout=3000)
+
+        cell.add_app(cell.partitions[None].allocation, app_no_retention)
+        cell.add_app(cell.partitions[None].allocation, app_with_retention)
+
+        cell.schedule()
+
+        # At this point, both apps are on large server, as small server does
+        # not have capacity.
+        self.assertEqual('large', app_no_retention.server)
+        self.assertEqual('large', app_with_retention.server)
+
+        # Mark large server down. App with retention will remain on the server.
+        # App without retention should be pending.
+        large_server.state = scheduler.State.down
+        cell.schedule()
+        self.assertEqual(None, app_no_retention.server)
+        self.assertEqual('large', app_with_retention.server)
+
+    @mock.patch('time.time', mock.Mock(return_value=100))
     def test_restore(self):
         """Tests app restore."""
         cell = scheduler.Cell('top')
@@ -1599,6 +1639,7 @@ class ShapeTest(unittest.TestCase):
         # Different affinity.
         app = scheduler.Application('foo', 11, [5, 5, 5], 'bar1')
         self.assertTrue(placement_tracker.feasible(app))
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -1,4 +1,5 @@
-"""Treadmill Kafka API"""
+"""Treadmill Kafka API.
+"""
 
 from __future__ import absolute_import
 from __future__ import division
@@ -216,9 +217,6 @@ def get_brokers(cellname, domain, zkclient, app_pattern=None,
         return brokers
 
     if app_pattern:
-        # TODO: pylint complains about:
-        #                Redefinition of brokers type from list to set
-        # pylint: disable=R0204
         brokers = _get_kafka_endpoint(zkclient, app_pattern, endpoint,
                                       watcher_cb=watcher_cb)
 

@@ -43,7 +43,7 @@ def get_bucket_for_name(name, buckets_nb):
     :params ``int`` buckets_nb:
         Number of buckets
     """
-    return format_bucket(zlib.crc32(name.encode('utf-8')) % buckets_nb)
+    return format_bucket(zlib.crc32(name.encode()) % buckets_nb)
 
 
 def get_instance_path(path, spawn_paths):

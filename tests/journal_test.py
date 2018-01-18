@@ -46,13 +46,14 @@ class ListJournaler(jplugin.BaseJournaler):
         self.journals = []
 
     def _log_exec(self, step, transaction_id,
-                  resource, action, pk, payload,
+                  resource, action, rsrc_id, payload,
                   user, timestamp):
 
         self.journals.append(
             (
                 '%s,%s,%s,%s,%s,%s,%0.2f' % (
-                    step, transaction_id, resource, action, pk, user, timestamp
+                    step, transaction_id, resource, action,
+                    rsrc_id, user, timestamp
                 ),
                 payload
             )

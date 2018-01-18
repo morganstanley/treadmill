@@ -1,4 +1,6 @@
-"""Table CLI formatter."""
+"""Table CLI formatter.
+"""
+
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
@@ -7,7 +9,6 @@ from __future__ import unicode_literals
 import time
 
 import prettytable
-
 import six
 
 from treadmill import yamlwrapper as yaml
@@ -79,9 +80,9 @@ def _cell(item, column, key, fmt):
         keys = key
 
     raw_value = None
-    for key in keys:
-        if key in item and item[key] is not None:
-            raw_value = item[key]
+    for k in keys:
+        if k in item and item[k] is not None:
+            raw_value = item[k]
             break
 
     if callable(fmt):
@@ -650,12 +651,20 @@ class AllocationQueuePrettyFormatter(object):
             ('allocation', 'alloc', None),
             ('name', None, None),
             ('rank', None, None),
+            ('memory', None, None),
+            ('cpu', None, None),
+            ('disk', None, None),
             ('util0', None, fmt_utilization),
             ('util1', None, fmt_utilization),
         ]
 
         format_item = make_dict_to_table(schema)
-        format_list = make_list_to_table(schema, align={'util0': 'r',
+        format_list = make_list_to_table(schema, align={'pos': 'r',
+                                                        'rank': 'r',
+                                                        'memory': 'r',
+                                                        'cpu': 'r',
+                                                        'disk': 'r',
+                                                        'util0': 'r',
                                                         'util1': 'r'})
 
         if isinstance(item, list):

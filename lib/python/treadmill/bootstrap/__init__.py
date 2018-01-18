@@ -138,7 +138,7 @@ def _install(package, src_dir, dst_dir, params, prefix_len=None, rec=None):
 
             if rec:
                 rec.write('%s\n' % dst_path)
-            _update(dst_path, _render(resource_str.decode('utf-8'), params))
+            _update(dst_path, _render(resource_str.decode('utf8'), params))
 
 
 def _interpolate_dict(value, params):

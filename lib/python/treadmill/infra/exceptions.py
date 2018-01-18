@@ -1,18 +1,39 @@
-class LDAPNotFound(Exception):
-    """When LDAP server is not provisioned."""
+"""Infra code exceptions.
+"""
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
+
+class InfraBaseException(Exception):
+    """Base exception for all infrastructure errors.
+    """
+
+    __slot__ = (
+        'message',
+    )
+
+    def __init__(self, message):
+        self.message = message
+
+
+class LDAPNotFound(InfraBaseException):
+    """When LDAP server is not provisioned.
+    """
 
     def __init__(self):
-        self.message = 'LDAPNotFound: Please check if LDAP Server is up and running.' # noqa
+        super(LDAPNotFound, self).__init__(
+            'Please check if LDAP Server is up and running.'
+        )
 
-    def __str__(self):
-        return self.message
 
-
-class IPAServerNotFound(Exception):
-    """When IPA server is not provisioned"""
+class IPAServerNotFound(InfraBaseException):
+    """When IPA server is not provisioned.
+    """
 
     def __init__(self):
-        self.message = 'IPAServerNotFound: Please check if IPA Server is up and running.' # noqa
-
-    def __str__(self):
-        return self.message
+        super(IPAServerNotFound, self).__init__(
+            'Please check if IPA Server is up and running.'
+        )

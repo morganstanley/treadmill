@@ -1,4 +1,4 @@
-"""Installs and configures Treadmill locally.
+"""Installs and configures Zookeeper locally.
 """
 
 from __future__ import absolute_import
@@ -13,7 +13,6 @@ import click
 
 from treadmill import bootstrap
 from treadmill import context
-
 
 _LOGGER = logging.getLogger(__name__)
 

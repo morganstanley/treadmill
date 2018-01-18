@@ -16,6 +16,9 @@ if six.PY2 and os.name == 'posix':
 else:
     import subprocess  # pylint: disable=wrong-import-order
 
+# pylint: disable=wrong-import-position
+from subprocess import CalledProcessError  # pylint: disable=wrong-import-order
+
 from treadmill import dist
 from treadmill import plugin_manager
 from treadmill import utils
@@ -139,7 +142,7 @@ def check_call(cmdline, environ=(), runas=None, **kwargs):
                                    **kwargs)
         _LOGGER.debug('Finished, rc: %d', rc)
         return rc
-    except subprocess.CalledProcessError as exc:
+    except CalledProcessError as exc:
         _LOGGER.warning('Error, rc: %d, %s', exc.returncode, exc.output)
         raise
 
@@ -170,7 +173,7 @@ def check_output(cmdline, environ=(), **kwargs):
                                       **kwargs)
 
         _LOGGER.debug('Finished.')
-    except subprocess.CalledProcessError as exc:
+    except CalledProcessError as exc:
         _LOGGER.warning(exc.output)
         raise
 
@@ -226,7 +229,7 @@ def invoke(cmd, cmd_input=None, use_except=False, **environ):
     :returns:
         (``(int, str)``) -- Return code and output from executed process
     :raises:
-        :class:`subprocess.CalledProcessError`
+        :class:`CalledProcessError`
     """
     _LOGGER.debug('invoke: %r', cmd)
     args = _alias_command(cmd)
@@ -246,10 +249,7 @@ def invoke(cmd, cmd_input=None, use_except=False, **environ):
                                 stdout=subprocess.PIPE,
                                 stderr=subprocess.STDOUT,
                                 env=cmd_environ)
-        if cmd_input:
-            (out, _err) = proc.communicate(cmd_input.encode())
-        else:
-            (out, _err) = proc.communicate()
+        (out, _err) = proc.communicate(cmd_input)
         retcode = proc.returncode
 
     except Exception:
@@ -260,15 +260,16 @@ def invoke(cmd, cmd_input=None, use_except=False, **environ):
     out = out.decode()
 
     if retcode != 0 and use_except:
-        raise subprocess.CalledProcessError(cmd=args,
-                                            returncode=retcode,
-                                            output=out)
+        raise CalledProcessError(cmd=args,
+                                 returncode=retcode,
+                                 output=out)
 
     return (retcode, out)
 
 
 def exec_pid1(cmd, ipc=True, mount=True, proc=True,
-              close_fds=True, restore_signals=True):
+              close_fds=True, restore_signals=True,
+              propagation=None):
     """Exec command line under pid1.
     """
     pid1 = resolve('pid1')
@@ -280,11 +281,15 @@ def exec_pid1(cmd, ipc=True, mount=True, proc=True,
         args.append('-m')
     if proc:
         args.append('-p')
+    if propagation is not None:
+        args.append('--propagation')
+        args.append(propagation)
+
     args.extend(safe_cmd)
     _LOGGER.debug('exec_pid1: %r', args)
     utils.sane_execvp(args[0], args,
                       close_fds=close_fds,
-                      restore_signals=restore_signals)
+                      signals=restore_signals)
 
 
 def safe_exec(cmd):
@@ -293,3 +298,16 @@ def safe_exec(cmd):
     _LOGGER.debug('safe_exec: %r', safe_cmd)
 
     utils.sane_execvp(safe_cmd[0], safe_cmd)
+
+
+__all__ = [
+    'call',
+    'CalledProcessError',
+    'check_call',
+    'check_output',
+    'exec_pid1',
+    'get_aliases',
+    'invoke',
+    'resolve',
+    'safe_exec',
+]

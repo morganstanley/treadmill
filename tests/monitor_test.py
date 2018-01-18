@@ -16,16 +16,11 @@ import tempfile
 import unittest
 
 import mock
-import six
-
-if six.PY2 and os.name == 'posix':
-    import subprocess32 as subprocess  # pylint: disable=import-error
-else:
-    import subprocess  # pylint: disable=wrong-import-order
 
 import treadmill
 from treadmill import fs
 from treadmill import monitor
+from treadmill import subproc
 from treadmill import supervisor
 
 
@@ -146,7 +141,7 @@ class MonitorTest(unittest.TestCase):
         )
         mock_pol_inst = mock_policy.return_value
         treadmill.supervisor.wait_service.side_effect = [
-            subprocess.CalledProcessError(supervisor.ERR_TIMEOUT, 's6-svwait'),
+            subproc.CalledProcessError(supervisor.ERR_TIMEOUT, 's6-svwait'),
             None,
         ]
 
@@ -216,7 +211,7 @@ class MonitorTest(unittest.TestCase):
         )
         mock_pol_inst = mock_policy.return_value
         treadmill.supervisor.wait_service.side_effect = (
-            subprocess.CalledProcessError(supervisor.ERR_NO_SUP, 's6-svwait')
+            subproc.CalledProcessError(supervisor.ERR_NO_SUP, 's6-svwait')
         )
 
         mon._bring_up(mock_pol_inst.service)
@@ -363,7 +358,10 @@ class MonitorTest(unittest.TestCase):
         # Disable W0212(protected-access)
         # pylint: disable=W0212
         mon = monitor.Monitor(
-            scan_dirs=('/some/dir', '/some/dir2'),
+            scan_dirs=(
+                os.path.join(os.sep, 'some', 'dir'),
+                os.path.join(os.sep, 'some', 'dir2')
+            ),
             service_dirs=('foo', 'bar'),
             policy_impl=mock_policy,
             down_action=mock_down_action()
@@ -389,15 +387,15 @@ class MonitorTest(unittest.TestCase):
         mon.run()
 
         mock_dirwatch_inst.add_dir.assert_has_calls([
-            mock.call('/some/dir'),
-            mock.call('/some/dir2')
+            mock.call(os.path.join(os.sep, 'some', 'dir')),
+            mock.call(os.path.join(os.sep, 'some', 'dir2'))
         ], any_order=True)
         treadmill.monitor.Monitor._add_service.assert_has_calls(
             [
                 mock.call('foo'),
                 mock.call('bar'),
-                mock.call('/some/dir2/baz'),
-                mock.call('/some/dir/baz'),
+                mock.call(os.path.join(os.sep, 'some', 'dir2', 'baz')),
+                mock.call(os.path.join(os.sep, 'some', 'dir', 'baz')),
             ],
             any_order=True
         )

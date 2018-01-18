@@ -49,7 +49,7 @@ olcDbDirectory: {{ dir }}/openldap-data
 olcSuffix: {{ backend.suffix }}
 {%- endif %}
 olcRootDN: {{ backend.rootdn }}
-{%- if rootpw  and backend.objectclass != "olcMdbConfig" %}
+{%- if rootpw and backend.objectclass != "olcMdbConfig" %}
 olcRootPW: {{ rootpw }}
 {%- endif %}
 {%- if gssapi %}
@@ -71,7 +71,7 @@ olcLimits: dn.base=uid={{ backend.owner }},cn=gssapi,cn=auth time.soft=unlimited
 {%- endif %}
 {%- for master in masters %}
 olcSyncRepl: rid={{ rid|length }} provider={{ master }} bindmethod=sasl
-  searchbase="{{ backend.suffix}}" type=refreshAndPersist retry="5 5 300 5" timeout=1
+  searchbase="{{ backend.suffix}}" type=refreshAndPersist retry="5 5 60 +" timeout=1
 {%- if rid.append('1') %}
 {%- endif %}
 {%- endfor %}

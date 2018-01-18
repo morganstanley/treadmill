@@ -63,7 +63,7 @@ _MEMORY_TYPE = [
 def cgrp_meminfo(cgrp, *pseudofiles):
     """Grab the cgrp mem limits"""
 
-    if pseudofiles is None or len(pseudofiles) == 0:
+    if pseudofiles is None or not pseudofiles:
         pseudofiles = _MEMORY_TYPE
 
     metrics = {}
@@ -102,7 +102,7 @@ _BLKIO_INFO_TYPE = [
 def read_blkio_info_stats(cgrp, *pseudofiles):
     """Read bklio statistics for the given Treadmill app.
     """
-    if pseudofiles is None or len(pseudofiles) == 0:
+    if pseudofiles is None or not pseudofiles:
         pseudofiles = _BLKIO_INFO_TYPE
 
     metrics = {}
@@ -123,7 +123,7 @@ _BLKIO_VALUE_TYPE = [
 def read_blkio_value_stats(cgrp, *pseudofiles):
     """ read blkio value based cgroup pseudofiles
     """
-    if pseudofiles is None or len(pseudofiles) == 0:
+    if pseudofiles is None or not pseudofiles:
         pseudofiles = _BLKIO_VALUE_TYPE
 
     metrics = {}

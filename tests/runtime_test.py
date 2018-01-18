@@ -21,7 +21,6 @@ import mock
 import treadmill
 import treadmill.rulefile
 import treadmill.runtime
-import treadmill.services
 
 from treadmill import exc
 from treadmill import fs
@@ -40,15 +39,6 @@ class RuntimeTest(unittest.TestCase):
             apps_dir=os.path.join(self.root, 'apps'),
             archives_dir=os.path.join(self.root, 'archives'),
             metrics_dir=os.path.join(self.root, 'metrics'),
-            svc_cgroup=mock.Mock(
-                spec_set=treadmill.services._base_service.ResourceService,
-            ),
-            svc_localdisk=mock.Mock(
-                spec_set=treadmill.services._base_service.ResourceService,
-            ),
-            svc_network=mock.Mock(
-                spec_set=treadmill.services._base_service.ResourceService,
-            ),
             rules=mock.Mock(
                 spec_set=treadmill.rulefile.RuleMgr,
             )
@@ -59,6 +49,7 @@ class RuntimeTest(unittest.TestCase):
             shutil.rmtree(self.root)
 
     @mock.patch('socket.socket.bind', mock.Mock())
+    @mock.patch('socket.socket.listen', mock.Mock())
     def test__allocate_sockets(self):
         """Test allocating sockets.
         """
@@ -268,6 +259,7 @@ class RuntimeTest(unittest.TestCase):
         treadmill.runtime._cleanup_archive_dir(self.tm_env)
         self.assertFalse(os.path.exists(file1))
         self.assertTrue(os.path.exists(file2))
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -174,6 +174,7 @@ def get_memory_usage(pids, verbose=False, exclude=None, use_pss=True):
         thread_id = int(get_thread_id(pid))
         if not pid or thread_id != pid:
             continue
+
         try:
             cmd = get_cmd_name(pid, verbose)
         except LookupError:

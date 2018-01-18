@@ -76,7 +76,7 @@ def _ws_check(url):
         ws_connection = ws_client.create_connection(url, timeout=5)
         ws_connection.close()
         return True
-    except:  # pylint: disable=W0702
+    except Exception:  # pylint: disable=W0703
         return False
 
 

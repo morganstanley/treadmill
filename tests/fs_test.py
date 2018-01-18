@@ -15,15 +15,10 @@ import tempfile
 import unittest
 
 import mock
-import six
-
-if six.PY2 and os.name == 'posix':
-    import subprocess32 as subprocess  # pylint: disable=import-error
-else:
-    import subprocess  # pylint: disable=wrong-import-order
 
 import treadmill
 import treadmill.fs
+import treadmill.subproc
 
 if sys.platform.startswith('linux'):
     import treadmill.fs.linux
@@ -334,7 +329,7 @@ Directory Hash Seed:      20c6af65-0208-4e71-99cb-d5532c02e3b8
         treadmill.subproc.check_output.reset_mock()
 
         treadmill.subproc.check_output.side_effect = (
-            subprocess.CalledProcessError(1, 'command', 'some error')
+            treadmill.subproc.CalledProcessError(1, 'command', 'some error')
         )
 
         self.assertEqual(

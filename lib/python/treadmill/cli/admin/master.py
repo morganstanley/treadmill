@@ -56,8 +56,12 @@ def server_group(parent):
         if parent:
             path = parent.split('/')
             bucket = None
-            for bucket, parent in zip(path, [None] + path[:-1]):
-                masterapi.create_bucket(context.GLOBAL.zk.conn, bucket, parent)
+            for bucket, bucket_parent in zip(path, [None] + path[:-1]):
+                masterapi.create_bucket(
+                    context.GLOBAL.zk.conn,
+                    bucket,
+                    bucket_parent
+                )
             assert bucket is not None, 'server topology missing.'
 
             masterapi.create_server(context.GLOBAL.zk.conn, server, bucket)

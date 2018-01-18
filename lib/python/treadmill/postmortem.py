@@ -102,7 +102,7 @@ def collect(approot, archive_filename):
         _LOGGER.info('node info archive file: %s', archive_filename)
         shutil.rmtree(destroot)
         return archive_filename
-    except:  # pylint: disable=W0702
+    except Exception:  # pylint: disable=W0703
         # if tar bar is not generated successfully, we keep destroot
         # we can find destroot path in log to check the files
         _LOGGER.exception('Failed to generate node info archive')
@@ -111,7 +111,7 @@ def collect(approot, archive_filename):
 
 def collect_init_services(approot, destroot):
     """Get treadmill init services information in node."""
-    pattern = '%s/init*/*/log/current' % approot
+    pattern = os.path.join(approot, 'init*', '*', 'log', 'current')
 
     for current in glob.glob(pattern):
         path = os.path.splitdrive(current)[1]
@@ -121,14 +121,15 @@ def collect_init_services(approot, destroot):
 
 def collect_running_app(approot, destroot):
     """Get treadmill running application information in node."""
-    pattern = '%s/running/*/run.*' % approot
+    pattern = os.path.join(approot, 'running', '*', 'run.*')
 
     for current in glob.glob(pattern):
         path = os.path.splitdrive(current)[1]
         target = '%s%s' % (destroot, path)
         _safe_copy(current, target)
 
-    pattern = '%s/running/*/data/sys/*/data/log/current' % approot
+    pattern = os.path.join(approot, 'running', '*', 'data', 'sys', '*', 'data',
+                           'log', 'current')
 
     for current in glob.glob(pattern):
         path = os.path.splitdrive(current)[1]

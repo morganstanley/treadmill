@@ -5,6 +5,9 @@ from __future__ import absolute_import
 
 import unittest
 
+# Disable W0611: Unused import
+import tests.treadmill_test_skip_windows  # pylint: disable=W0611
+
 import mock
 
 from treadmill.sproc import cellsync
