@@ -27,11 +27,11 @@ def _configure_core_cgroups(service_name):
         service_name = os.path.basename(os.path.realpath(service_name))
 
     group = os.path.join('treadmill/core', service_name)
+
     # create group directory
-    for subsystem in ['memory', 'cpu', 'cpuacct', 'blkio']:
-        _LOGGER.info('creating and joining: %s/%s', subsystem, group)
+    for subsystem in ['memory', 'cpu', 'cpuacct', 'cpuset', 'blkio']:
+        _LOGGER.info('creating : %s/%s', subsystem, group)
         cgutils.create(subsystem, group)
-        cgroups.join(subsystem, group)
 
     # set memory usage limits
     memlimits = ['memory.limit_in_bytes',
@@ -48,6 +48,15 @@ def _configure_core_cgroups(service_name):
         parent_limit = cgroups.get_value('cpu', 'treadmill/core', limit)
         _LOGGER.info('setting %s: %s', limit, parent_limit)
         cgroups.set_value('cpu', group, limit, parent_limit)
+
+    # set cpuset
+    cgroups.inherit_value('cpuset', group, 'cpuset.cpus')
+    cgroups.inherit_value('cpuset', group, 'cpuset.mems')
+
+    # join cgroup
+    for subsystem in ['memory', 'cpu', 'cpuacct', 'cpuset', 'blkio']:
+        _LOGGER.info('joining: %s/%s', subsystem, group)
+        cgroups.join(subsystem, group)
 
 
 def init():

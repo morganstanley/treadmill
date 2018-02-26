@@ -11,6 +11,7 @@ from __future__ import absolute_import
 import logging
 
 import click
+from six.moves import urllib_parse
 
 from treadmill import cli
 from treadmill import context
@@ -67,11 +68,17 @@ def init():  # pylint: disable=R0912
         cli.out(formatter(monitor_entry.json()))
 
     @monitor_group.command(name='list')
+    @click.option('--match', help='Monitor name pattern match')
     @_ON_EXCEPTIONS
-    def _list():
+    def _list(match):
         """List configured app monitors"""
         restapi = context.GLOBAL.cell_api(ctx['api'])
-        response = restclient.get(restapi, _REST_PATH)
+        url = _REST_PATH
+        if match:
+            query = {'match': match}
+            url += '?' + urllib_parse.urlencode(query)
+
+        response = restclient.get(restapi, url)
         cli.out(formatter(response.json()))
 
     @monitor_group.command()

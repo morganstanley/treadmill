@@ -1,0 +1,18 @@
+#!/bin/ksh
+
+# load getting higher
+LOAD_THRESHOLD_ARR=(1000 800 500)
+
+high_load=0
+load_arr=(`cat /proc/loadavg`)
+for i in {0..2}; do
+    if [ ${load_arr[$i]} -ge ${LOAD_THRESHOLD_ARR[$i]} ]; then
+        high_load=$((high_load + 1))
+    fi
+done
+
+if [ $high_load -eq 3 ]; then
+    exit 1
+else
+    exit 0
+fi

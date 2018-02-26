@@ -22,6 +22,7 @@ from . import subproc
 
 if os.name == 'posix':
     from . import cgroups
+    from . import cgutils
 else:
     # Pylint warning unable to import because it is on Windows only
     import win32api  # pylint: disable=E0401
@@ -121,7 +122,7 @@ def cpu_count():
 
 def _available_cpu_count_linux():
     """Return number of CPUs available for treadmill."""
-    cores = cgroups.get_cpuset_cores('treadmill')
+    cores = cgutils.get_cpuset_cores('treadmill')
     return len(cores)
 
 
@@ -142,7 +143,7 @@ def _bogomips_linux(cores):
 
 def _total_bogomips_linux():
     """Return sum of bogomips value for all CPUs."""
-    cores = cgroups.get_cpuset_cores('treadmill')
+    cores = cgutils.get_cpuset_cores('treadmill')
     return _bogomips_linux(cores)
 
 
@@ -255,7 +256,8 @@ def _node_info_linux(tm_env, runtime):
         'up_since': up_since(),
     }
 
-    if runtime == 'linux':
+    # TODO: docker2 is same as linux in terms of capacity calculation now
+    if runtime == 'linux' or runtime == 'docker2':
         # Request status information from services (this may wait for the
         # services to be up).
         localdisk_status = tm_env.svc_localdisk.status(timeout=30)
@@ -267,7 +269,7 @@ def _node_info_linux(tm_env, runtime):
         # We normalize bogomips into logical "cores", each core == 5000 bmips.
         # Each virtual "core" is then equated to 100 units.
         # The formula is bmips / BMIPS_PER_CPU * 100
-        app_bogomips = cgroups.get_cpu_shares('treadmill/apps')
+        app_bogomips = cgutils.get_cpu_shares('treadmill/apps')
         cpucapacity = (app_bogomips * 100) // BMIPS_PER_CPU
         memcapacity = cgroups.get_value(
             'memory',

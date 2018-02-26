@@ -91,12 +91,12 @@ class Ticket(object):
         # If the ticket is not valid, destination file is not touched.
         #
         # It is not clear if it is a good fit for fs.write_safe.
-        try:
-            with tempfile.NamedTemporaryFile(dir=os.path.dirname(path),
-                                             prefix='.tmp' + self.princ,
-                                             delete=False,
-                                             mode='wb') as tkt_file:
+        with tempfile.NamedTemporaryFile(dir=os.path.dirname(path),
+                                         prefix='.tmp' + self.princ,
+                                         delete=False,
+                                         mode='wb') as tkt_file:
 
+            try:
                 # Write the file
                 tkt_file.write(self.ticket)
                 # Set the owner
@@ -105,15 +105,16 @@ class Ticket(object):
                 # TODO: Should we enforce the mode too?
                 tkt_file.flush()
 
-            # Only write valid tickets.
-            if krbcc_ok(tkt_file.name):
-                os.rename(tkt_file.name, path)
-            else:
-                _LOGGER.warning('Invalid or expired ticket: %s', tkt_file.name)
-        except (IOError, OSError):
-            _LOGGER.exception('Error writing ticket file: %s', path)
-        finally:
-            fs.rm_safe(tkt_file.name)
+                # Only write valid tickets.
+                if krbcc_ok(tkt_file.name):
+                    os.rename(tkt_file.name, path)
+                else:
+                    _LOGGER.warning('Invalid or expired ticket: %s',
+                                    tkt_file.name)
+            except (IOError, OSError):
+                _LOGGER.exception('Error writing ticket file: %s', path)
+            finally:
+                fs.rm_safe(tkt_file.name)
 
     def copy(self, dst, src=None):
         """Atomically copy tickets to destination."""
@@ -121,13 +122,13 @@ class Ticket(object):
             src = self.tkt_path
 
         dst_dir = os.path.dirname(dst)
-        try:
-            with io.open(src, 'rb') as tkt_src_file:
-                # TODO; rewrite as fs.write_safe.
-                with tempfile.NamedTemporaryFile(dir=dst_dir,
-                                                 prefix='.tmp' + self.princ,
-                                                 delete=False,
-                                                 mode='wb') as tkt_dst_file:
+        with io.open(src, 'rb') as tkt_src_file:
+            # TODO; rewrite as fs.write_safe.
+            with tempfile.NamedTemporaryFile(dir=dst_dir,
+                                             prefix='.tmp' + self.princ,
+                                             delete=False,
+                                             mode='wb') as tkt_dst_file:
+                try:
                     # Copy binary from source to dest
                     shutil.copyfileobj(tkt_src_file, tkt_dst_file)
                     # Set the owner
@@ -138,12 +139,13 @@ class Ticket(object):
                     os.fchmod(tkt_dst_file.fileno(),
                               stat.S_IMODE(src_stat.st_mode))
                     tkt_dst_file.flush()
-                os.rename(tkt_dst_file.name, dst)
+                    os.rename(tkt_dst_file.name, dst)
 
-        except (IOError, OSError):
-            _LOGGER.exception('Error copying ticket from %s to %s', src, dst)
-        finally:
-            fs.rm_safe(tkt_dst_file.name)
+                except (IOError, OSError):
+                    _LOGGER.exception('Error copying ticket from %s to %s',
+                                      src, dst)
+                finally:
+                    fs.rm_safe(tkt_dst_file.name)
 
     def renew(self):
         """Runs kinit -R against the existing CCNAME."""
@@ -179,7 +181,7 @@ def krbcc_ok(tkt_path):
         subproc.check_call(['klist', '-5', '-s', tkt_path])
         return True
     except subproc.CalledProcessError:
-        _LOGGER.warning('Ticket cache invalid: %s', tkt_path)
+        _LOGGER.exception('Ticket cache invalid: %s', tkt_path)
         return False
 
 
@@ -410,10 +412,6 @@ def request_tickets(zkclient, appname, tkt_spool_dir, principals):
             else:
                 _LOGGER.warning('Cannot connect to %s:%s, %s', host, port,
                                 service)
-        except Exception:
-            _LOGGER.exception('Exception processing tickets.')
-            raise
-
         finally:
             client.disconnect()
 

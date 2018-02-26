@@ -10,6 +10,7 @@ import logging
 
 import flask
 import flask_restplus as restplus
+import pkg_resources
 
 from treadmill import api as api_mod
 from treadmill import authz
@@ -39,6 +40,21 @@ def base_api(title=None, cors_origin=None):
     def _swagger_ui():
         """Swagger documentation route"""
         return restplus.apidoc.ui_for(api)
+
+    # Need to create our own Apidoc, as the restplus one uses relative path to
+    # their module to serve up the content for the Swagger UI.
+    tmpl_dir = pkg_resources.resource_filename('flask_restplus', 'templates')
+    static_dir = pkg_resources.resource_filename('flask_restplus', 'static')
+
+    # This is a hack that overrides all templates and static folders for our
+    # Flask app, but as it stands, only flask-restplus is using
+    # render_template, so this is fine for now.
+    # The main problem is that restplus.Api() internally refers to it's
+    # restplus.apidoc.apidoc and that is created on load time, which all kinds
+    # of Flask rule and defering going on. Ideally restplus should allow
+    # creating your own Apidoc and sending that in the above Api() constructor.
+    rest.FLASK_APP.template_folder = tmpl_dir
+    rest.FLASK_APP.static_folder = static_dir
 
     rest.FLASK_APP.register_blueprint(blueprint)
     rest.FLASK_APP.register_blueprint(restplus.apidoc.apidoc)

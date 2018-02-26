@@ -1,14 +1,12 @@
 param (
     [Parameter(ValueFromRemainingArguments=$true)]
-    [string[]]$services = @('monitor')
+    [string[]]$monitor_service = $null
 )
 
 Write-Host 'Received SIGTERM'
 
-foreach ($service in $services) {
-    if (Test-Path -Path monitor) {
-        {{ _alias.winss_svc }} -k -wD monitor
-    }
+if ($monitor_servicee) {
+    {{ _alias.winss_svc }} -k -wD $monitor_service
 }
 
 # SIGTERM : acts as if a winss-svscanctl -q command had been received.

@@ -93,8 +93,7 @@ def init(api, cors, impl):
             """Bulk deletes list of instances."""
             user = flask.g.get('user')
             instance_ids = flask.request.json['instances']
-            for instance_id in instance_ids:
-                impl.delete(instance_id, user)
+            impl.bulk_delete(instance_ids, user)
 
     @namespace.route(
         '/_bulk/update',
@@ -108,32 +107,33 @@ def init(api, cors, impl):
         def post(self):
             """Bulk updates list of instances."""
             deltas = flask.request.json['instances']
-            if not isinstance(deltas, list):
-                raise exc.InvalidInputError(
-                    __name__,
-                    'deltas is not a list: {}'.format(deltas)
-                )
-            result = []
-            for delta in deltas:
-                if not isinstance(delta, dict):
-                    raise exc.InvalidInputError(
-                        __name__,
-                        'delta is not a dict: {}'.format(deltas)
-                    )
-                if '_id' not in delta:
-                    raise exc.InvalidInputError(
-                        __name__,
-                        'delta is missing _id attribute: {}'.format(deltas)
-                    )
+            # if not isinstance(deltas, list):
+            #     raise exc.InvalidInputError(
+            #         __name__,
+            #         'deltas is not a list: {}'.format(deltas)
+            #     )
+            # result = []
+            # for delta in deltas:
+            #     if not isinstance(delta, dict):
+            #         raise exc.InvalidInputError(
+            #             __name__,
+            #             'delta is not a dict: {}'.format(deltas)
+            #         )
+            #     if '_id' not in delta:
+            #         raise exc.InvalidInputError(
+            #             __name__,
+            #             'delta is missing _id attribute: {}'.format(deltas)
+            #         )
 
-                # rest of validation is done in API.
-                rsrc_id = delta.get('_id')
-                del delta['_id']
-                try:
-                    result.append(impl.update(rsrc_id, delta))
-                except Exception as err:  # pylint: disable=W0703
-                    result.append({'_error': {'_id': rsrc_id,
-                                              'why': str(err)}})
+            #     # rest of validation is done in API.
+            #     rsrc_id = delta.get('_id')
+            #     del delta['_id']
+            #     try:
+            #         result.append(impl.update(rsrc_id, delta))
+            #     except Exception as err:  # pylint: disable=W0703
+            #         result.append({'_error': {'_id': rsrc_id,
+            #                                   'why': str(err)}})
+            result = impl.bulk_update(deltas)
             return {'instances': result}
 
     @namespace.route('/<instance_id>')

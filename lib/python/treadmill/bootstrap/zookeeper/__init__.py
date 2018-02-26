@@ -1,4 +1,4 @@
-"""Treadmill zookeeper bootstrap.
+"""Treadmill Zookeeper bootstrap.
 """
 
 from __future__ import absolute_import

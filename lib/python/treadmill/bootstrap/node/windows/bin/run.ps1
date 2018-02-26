@@ -24,14 +24,16 @@ Get-ChildItem "{{ dir }}\running\*" | Where-Object {!$_.Name.StartsWith('.')} | 
 
 Get-ChildItem "{{ dir }}\cleanup\*" | Where-Object {!$_.Name.StartsWith('.')} | foreach ($_) {
     Write-Host "Removing cleanup symlink: $($_.FullName)"
-    echo $null >> "$($_.FullName)\data\cleanup"
     & cmd /c rmdir $_.FullName
 }
 
 Get-ChildItem "{{ dir }}\cleaning\*" | Where-Object {!$_.Name.StartsWith('.')} | foreach ($_) {
     Write-Host "Removing cleaning symlink: $($_.FullName)"
-    echo $null >> "$($_.FullName)\data\cleanup"
     & cmd /c rmdir $_.FullName
+}
+
+Get-ChildItem "{{ dir }}\tombstones\*\*" | Where-Object {!$_.Name.StartsWith('.')} | foreach ($_) {
+    Remove-Item $_.FullName
 }
 
 & {{ _alias.winss_svscan }} {{ dir }}\init

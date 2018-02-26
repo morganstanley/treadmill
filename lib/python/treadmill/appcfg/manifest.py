@@ -21,7 +21,6 @@ from treadmill import yamlwrapper as yaml
 
 from treadmill.appcfg import features
 
-
 _LOGGER = logging.getLogger(__name__)
 
 
@@ -37,21 +36,13 @@ def read(filename, file_format='json'):
     return manifest
 
 
-def load(tm_env, event, runtime):
+def load(event):
     """Loads the app event file, ensuring it is in valid format, and supplement
     it into a full Treadmill manifest.
 
-    :param tm_env:
-        Full path to the application node event in the zookeeper cache.
-     :type event:
-        ``treadmill.appenv.AppEnvironment``
     :param event:
         Full path to the application node event in the zookeeper cache.
     :type event:
-        ``str``
-    :param runtime:
-        The name of the runtime to use.
-    :type runtime:
         ``str``
     :return:
         Application manifest object
@@ -76,6 +67,7 @@ def load(tm_env, event, runtime):
         ('cpu', True, str),
         ('memory', True, str),
         ('disk', True, str),
+        ('keytabs', False, list),
     ]
 
     utils.validate(manifest, schema)
@@ -134,6 +126,7 @@ def load(tm_env, event, runtime):
     _set_default('identity', None)
     _set_default('data_retention_timeout', None)
     _set_default('lease', None)
+    _set_default('keytabs', [])
 
     # Normalize optional and port information
     manifest['endpoints'] = [
@@ -163,48 +156,10 @@ def load(tm_env, event, runtime):
         manifest['ephemeral_ports']['udp'] = int(
             manifest['ephemeral_ports']['udp']
         )
-
-    _add_features(manifest, runtime)
-    _add_runtime(tm_env, manifest, runtime)
-
     return manifest
 
 
-def _add_runtime(tm_env, manifest, runtime):
-    """Adds runtime specific details to the manifest."""
-    if runtime == 'linux':
-        _add_runtime_linux(tm_env, manifest)
-
-
-def _add_runtime_linux(tm_env, manifest):
-    """Adds linux runtime specific details to the manifest."""
-    # Normalize restart count
-    manifest['services'] = [
-        {
-            'name': service['name'],
-            'command': service['command'],
-            'restart': {
-                'limit': int(service['restart']['limit']),
-                'interval': int(service['restart']['interval']),
-            },
-            'root': service.get('root', False),
-            'proid': (
-                'root' if service.get('root', False)
-                else manifest['proid']
-            ),
-            'environ': manifest['environ'],
-            'config': None,
-            'downed': False,
-            'trace': True,
-        }
-        for service in manifest.get('services', [])
-    ]
-
-    _add_linux_system_services(tm_env, manifest)
-    _add_linux_services(manifest)
-
-
-def _add_linux_system_services(tm_env, manifest):
+def add_linux_system_services(tm_env, manifest):
     """Configure linux system services."""
     container_svcdir = supervisor.open_service(
         os.path.join(
@@ -266,13 +221,11 @@ def _add_linux_system_services(tm_env, manifest):
             ' --zookeeper {zkurl}'
             ' --cell {cell}'
             ' presence register'
-            ' --approot {tm_root}'
             ' {manifest} {container_dir}'
         ).format(
             tm=dist.TREADMILL_BIN,
             zkurl=manifest['zookeeper'],
             cell=manifest['cell'],
-            tm_root=tm_env.root,
             manifest=os.path.join(container_data_dir, 'state.json'),
             container_dir=container_data_dir
         ),
@@ -330,6 +283,8 @@ def _add_linux_system_services(tm_env, manifest):
     manifest['system_services'].append(hostaliases)
 
     # Create the user app top level supervisor
+    #
+    # Reset environment variables set by bin/treadmill34 to default values.
     start_container = {
         'name': 'start_container',
         'proid': 'root',
@@ -347,62 +302,19 @@ def _add_linux_system_services(tm_env, manifest):
             pid1=subproc.resolve('pid1'),
             svscan=subproc.resolve('s6_svscan'),
         ),
-        'environ': [],
+        'environ': [
+            {'name': 'PYTHONPATH', 'value': ''},
+            {'name': 'LC_ALL', 'value': ''},
+            {'name': 'LANG', 'value': ''},
+        ],
         'config': None,
         'downed': True,
         'trace': False,
     }
     manifest['system_services'].append(start_container)
 
-    # Create the services monitor service
-    monitor = {
-        'name': 'monitor',
-        'proid': 'root',
-        'restart': None,  # Monitor should not be monitored
-        'command': (
-            'exec {tm} sproc'
-            ' --cell {cell}'
-            ' monitor services'
-            ' --approot {tm_root}'
-            ' -c {container_dir}'
-            ' -s {services_opts}'
-        ).format(
-            tm=dist.TREADMILL_BIN,
-            cell=manifest['cell'],
-            tm_root=tm_env.root,
-            container_dir=container_svcdir.directory,
-            # This adds all services beside monitor itself
-            services_opts=' -s'.join(
-                [
-                    os.path.join(container_data_dir, 'sys', s['name'])
-                    for s in manifest['system_services']
-                ] +
-                [
-                    os.path.join(container_data_dir, 'services', s['name'])
-                    for s in manifest['services']
-                ]
-            )
-        ),
-        'environ': [
-            {
-                'name': 'KRB5CCNAME',
-                'value': os.path.expandvars(
-                    'FILE:${TREADMILL_HOST_TICKET}'
-                ),
-            },
-            {
-                'name': 'TREADMILL_ALIASES_PATH',
-                'value': os.getenv('TREADMILL_ALIASES_PATH'),
-            },
-        ],
-        'config': None,
-        'downed': False,
-        'trace': False,
-    }
-    manifest['system_services'].append(monitor)
 
-
-def _add_linux_services(manifest):
+def add_linux_services(manifest):
     """Configure linux standard services."""
     # Configures sshd services in the container.
     sshd_svc = {
@@ -435,7 +347,7 @@ def _add_linux_services(manifest):
     manifest['endpoints'].append(ssh_endpoint)
 
 
-def _add_features(manifest, runtime):
+def add_manifest_features(manifest, runtime):
     """Configure optional container features."""
     for feature in manifest.get('features', []):
         feature_mod = features.get_feature(feature)()
@@ -449,7 +361,6 @@ def _add_features(manifest, runtime):
             raise Exception('Unsupported feature: ' + feature)
 
         try:
-
             feature_mod.configure(manifest)
         except Exception:
             _LOGGER.exception('Error configuring feature: %s', feature)

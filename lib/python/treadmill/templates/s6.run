@@ -3,12 +3,19 @@
 {{ _alias.redirfd }} -r 0 /dev/null
 {{ _alias.fdmove }} -c 2 1
 
-{% if monitored -%}
-# Set to single execution so that we can enforce restart policies
-{{ _alias.if }} {
-    {{ _alias.s6_svc }} -O .
+{% if trace -%}
+{{ _alias.foreground }} {
+    {{ _alias.backtick }} -n NOW {
+        {{ _alias.date }} "+%s.%3N"
+    }
+    {{ _alias.importas }} -u -i NOW NOW
+    {{ _alias.s6_ipcclient }} "{{ trace.path }}"
+    {{ _alias.fdmove }} 1 7
+    {{ _alias.define }} TRACEDATA "{{ trace.uniqueid }}.{{ trace.service }}"
+    {{ _alias.printf }} "%014.3f,{{ trace.instanceid }},service_running,%s" ${NOW} ${TRACEDATA}
 }
-{%- endif %}
+{%- endif %}  # !trace
+
 {% if ionice_prio is defined -%}
 {{ _alias.ionice  }} -c 2 -n {{ ionice_prio }}
 {%- endif %}

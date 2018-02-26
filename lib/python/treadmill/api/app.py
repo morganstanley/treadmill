@@ -8,6 +8,7 @@ from __future__ import unicode_literals
 
 import logging
 import fnmatch
+import re
 
 import jsonschema.exceptions
 
@@ -44,7 +45,14 @@ class API(object):
             if match is None:
                 match = '*'
 
-            apps = _admin_app().list({})
+            # If match contains full proid, do initial server-side filtering.
+            attrs = {}
+            res = re.search(r'^([\w-]+)\.', match)
+            if res:
+                proid = res.group(1)
+                attrs = {'_id': '{0}.*'.format(proid)}
+
+            apps = _admin_app().list(attrs, generator=True)
             filtered = [
                 app for app in apps
                 if fnmatch.fnmatch(app['_id'], match)

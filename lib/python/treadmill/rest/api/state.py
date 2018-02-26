@@ -27,6 +27,7 @@ def init(api, cors, impl):
         'when': fields.Float(description='Timestamp of event'),
         'signal': fields.Integer(description='Kill signal'),
         'exitcode': fields.Integer(description='Service exitcode'),
+        'aborted_reason': fields.String(description='Aborted reason'),
         'oom': fields.Boolean(description='Out of memory'),
     }
 

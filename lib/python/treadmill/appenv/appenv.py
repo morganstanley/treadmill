@@ -31,22 +31,26 @@ class AppEnvironment(object):
 
     __slots__ = (
         'apps_dir',
-        'bin_dir',
         'app_events_dir',
         'app_types',
         'archives_dir',
+        'bin_dir',
         'cache_dir',
         'cleaning_dir',
-        'cleanup_dir',
         'cleanup_apps_dir',
+        'cleanup_dir',
+        'cleanup_tombstone_dir',
         'configs_dir',
         'images_dir',
-        'init_dir',
         'init1_dir',
+        'init_dir',
+        'init_tombstone_dir',
         'root',
         'running_dir',
+        'running_tombstone_dir',
+        'tombstones_dir',
         'watchdogs',
-        'watchdog_dir'
+        'watchdog_dir',
     )
 
     APPS_DIR = 'apps'
@@ -63,6 +67,7 @@ class AppEnvironment(object):
     WATCHDOG_DIR = 'watchdogs'
     APP_EVENTS_DIR = 'appevents'
     IMAGES_DIR = 'images'
+    TOMBSTONES_DIR = 'tombstones'
 
     def __init__(self, root):
         self.root = root
@@ -81,6 +86,13 @@ class AppEnvironment(object):
         self.images_dir = os.path.join(self.root, self.IMAGES_DIR)
         self.init_dir = os.path.join(self.root, self.INIT_DIR)
         self.init1_dir = os.path.join(self.root, self.INIT1_DIR)
+        self.tombstones_dir = os.path.join(self.root, self.TOMBSTONES_DIR)
+        self.cleanup_tombstone_dir = os.path.join(self.tombstones_dir,
+                                                  self.CLEANUP_DIR)
+        self.running_tombstone_dir = os.path.join(self.tombstones_dir,
+                                                  self.RUNNING_DIR)
+        self.init_tombstone_dir = os.path.join(self.tombstones_dir,
+                                               self.INIT_DIR)
 
         self.watchdogs = watchdog.Watchdog(self.watchdog_dir)
 
@@ -97,6 +109,10 @@ class AppEnvironment(object):
         fs.mkdir_safe(self.archives_dir)
         fs.mkdir_safe(self.init_dir)
         fs.mkdir_safe(self.init1_dir)
+        fs.mkdir_safe(self.tombstones_dir)
+        fs.mkdir_safe(self.cleanup_tombstone_dir)
+        fs.mkdir_safe(self.running_tombstone_dir)
+        fs.mkdir_safe(self.init_tombstone_dir)
 
     @abc.abstractmethod
     def initialize(self, params):

@@ -29,10 +29,12 @@ from treadmill import utils
 from treadmill import zknamespace as z
 from treadmill import zkutils
 
+if os.name == 'posix':
+    from treadmill import iptables
+
 _LOGGER = logging.getLogger(__name__)
 
 _WATCHDOG_CHECK_INTERVAL = 30
-_KERNEL_WATCHDOG = None
 
 
 def init():
@@ -211,8 +213,13 @@ def _node_initialize(tm_env, runtime, zkclient, hostname,
                     acl=[host_acl],
                     ephemeral=True)
 
-        # Invoke the local node initialization
-        tm_env.initialize(node_info)
+        # TODO: Fix the network initialization. Then the below can be part of
+        # appenv.initialize()
+        if os.name == 'posix':
+            # Flush all rules in iptables nat and mangle tables (it is assumed
+            # that none but Treadmill manages these tables) and bulk load all
+            # the Treadmill static rules
+            iptables.initialize(node_info['network']['external_ip'])
 
     except Exception:  # pylint: disable=W0703
         _LOGGER.exception('Node initialization failed')
