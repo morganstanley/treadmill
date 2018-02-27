@@ -28,7 +28,6 @@ import kazoo.client
 from treadmill import appenv
 from treadmill import context
 from treadmill import fs
-from treadmill import presence
 from treadmill import sysinfo
 from treadmill import utils
 from treadmill import yamlwrapper as yaml
@@ -39,8 +38,9 @@ from treadmill import zkutils
 _LOGGER = logging.getLogger(__name__)
 
 _HEARTBEAT_SEC = 30
-_WATCHDOG_TIMEOUT_SEC = _HEARTBEAT_SEC * 2
-_SEEN_FILE = '.seen'
+_WATCHDOG_TIMEOUT_SEC = _HEARTBEAT_SEC * 4
+
+READY_FILE = '.ready'
 
 
 class EventMgr(object):
@@ -63,7 +63,7 @@ class EventMgr(object):
         """
         return self.__class__.__name__
 
-    def run(self):
+    def run(self, once=False):
         """Establish connection to Zookeeper and subscribes to node events."""
         # Setup the watchdog
         watchdog_lease = self.tm_env.watchdogs.create(
@@ -78,67 +78,57 @@ class EventMgr(object):
         zkclient = context.GLOBAL.zk.conn
         zkclient.add_listener(zkutils.exit_on_lost)
 
-        seen = zkclient.handler.event_object()
-        seen.clear()
+        present = zkclient.handler.event_object()
+        present.clear()
 
-        shutdown = zkclient.handler.event_object()
-        shutdown.clear()
+        synchronized = zkclient.handler.event_object()
+        synchronized.clear()
 
+        def _is_ready():
+            return present.is_set() and synchronized.is_set()
+
+        @zkclient.DataWatch(z.path.server_presence(self._hostname))
         @utils.exit_on_unhandled
-        def _server_presence_update(data, _stat, event):
-            deleted = False
-            if data is None and event is None:
-                deleted = True
-            if event is not None and event.type == 'DELETED':
-                deleted = True
-
-            if deleted:
-                _LOGGER.info('Presence node deleted, shutting down.')
-                shutdown.set()
-                seen.clear()
-            else:
-                _LOGGER.info('Presence is up.')
-                seen.set()
-
-            self._cache_notify(seen.is_set())
-            return not shutdown.is_set()
-
-        @zkclient.ChildrenWatch(z.SERVER_PRESENCE)
-        @utils.exit_on_unhandled
-        def _server_presence_watch(server_presence):
+        def _server_presence_watch(data, _stat, event):
             """Watch server presence."""
-            for node in sorted(server_presence, reverse=True):
-                if presence.server_hostname(node) == self._hostname:
-                    _LOGGER.info('Presence node found: %s, watching.', node)
-                    zkclient.DataWatch(z.path.server_presence(node),
-                                       _server_presence_update)
-                    return False
-            _LOGGER.info('Presence node not found, waiting.')
-            return not shutdown.is_set()
+            if data is None and event is None:
+                _LOGGER.info('Presence node not found, waiting.')
+                present.clear()
+            elif event is not None and event.type == 'DELETED':
+                _LOGGER.info('Presence node deleted.')
+                present.clear()
+            else:
+                _LOGGER.info('Presence node found.')
+                present.set()
+
+            self._cache_notify(_is_ready())
+            return True
 
         @zkclient.ChildrenWatch(z.path.placement(self._hostname))
         @utils.exit_on_unhandled
         def _app_watch(apps):
             """Watch application placement."""
             self._synchronize(zkclient, apps)
-            return not shutdown.is_set()
+            synchronized.set()
 
-        while not shutdown.is_set():
+            self._cache_notify(_is_ready())
+            return True
+
+        while True:
             # Refresh watchdog
             watchdog_lease.heartbeat()
             time.sleep(_HEARTBEAT_SEC)
-            self._cache_notify(seen.is_set())
-            # In case watch is missed, check periodically.
-            if not seen.is_set() and not shutdown.is_set():
-                server_presence = zkclient.get_children(z.SERVER_PRESENCE)
-                _server_presence_watch(server_presence)
+            self._cache_notify(_is_ready())
+
+            if once:
+                break
 
         # Graceful shutdown.
         _LOGGER.info('service shutdown.')
         watchdog_lease.remove()
 
     def _synchronize(self, zkclient, expected):
-        """synchronize local app cache with the expected list.
+        """Synchronize local app cache with the expected list.
 
         :param expected:
             List of instances expected to be running on the server.
@@ -168,7 +158,7 @@ class EventMgr(object):
             self._cache(zkclient, app)
 
     def _cache(self, zkclient, app):
-        """Reads the manifest from Zk and stores it as YAML in <cache>/<app>.
+        """Read the manifest from Zk and stores it as YAML in <cache>/<app>.
         """
         appnode = z.path.scheduled(app)
         placement_node = z.path.placement(self._hostname, app)
@@ -195,21 +185,22 @@ class EventMgr(object):
         except kazoo.exceptions.NoNodeError:
             _LOGGER.warning('App %r not found', app)
 
-    def _cache_notify(self, is_seen):
-        """Sent a cache status notification event.
+    def _cache_notify(self, is_ready):
+        """Send a cache status notification event.
 
         Note: this needs to be an event, not a once time state change so
         that if appcfgmgr restarts after we enter the ready state, it will
         still get notified that we are ready.
 
-        :params ``bool`` is_seen:
-            True if the server is seen by the scheduler.
+        :params ``bool`` is_ready:
+            True if the cache folder is ready.
         """
-        _LOGGER.debug('cache notify (seen: %r)', is_seen)
-        if is_seen:
+        _LOGGER.debug('cache notify (ready: %r)', is_ready)
+        ready_file = os.path.join(self.tm_env.cache_dir, READY_FILE)
+        if is_ready:
             # Mark the cache folder as ready.
-            with io.open(os.path.join(self.tm_env.cache_dir, _SEEN_FILE), 'w'):
+            with io.open(ready_file, 'w'):
                 pass
         else:
             # Mark the cache folder as outdated.
-            fs.rm_safe(os.path.join(self.tm_env.cache_dir, _SEEN_FILE))
+            fs.rm_safe(ready_file)

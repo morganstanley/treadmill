@@ -48,11 +48,12 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
-import json
-import os
-import logging
-import time
 import enum
+import errno
+import json
+import logging
+import os
+import time
 
 import jinja2
 
@@ -220,6 +221,21 @@ def create_environ_dir(env_dir, env, update=False):
         env_dir, env,
         update=update
     )
+
+
+def read_environ_dir(env_dir):
+    """Read an existing environ directory into a ``dict``.
+
+    :returns:
+        ``dict`` - Dictionary of environment variables.
+    """
+    try:
+        return supervisor_utils.environ_dir_read(env_dir)
+    except (OSError, IOError) as err:
+        if err.errno == errno.ENOENT:
+            return {}
+        else:
+            raise
 
 
 # Disable W0613: Unused argument 'kwargs' (for s6/winss compatibility)
@@ -562,22 +578,23 @@ LongrunService = sup_impl.LongrunService
 ServiceType = _service_base.ServiceType
 
 __all__ = [
-    'ScanDir',
-    'LongrunService',
-    'ServiceType',
     'ERR_COMMAND',
     'ERR_NO_SUP',
     'EXITS_DIR',
-    'create_environ_dir',
-    'ServiceWaitAction',
+    'LongrunService',
+    'ScanDir',
     'ServiceControlAction',
+    'ServiceType',
+    'ServiceWaitAction',
     'SvscanControlAction',
-    'open_service',
+    'control_service',
+    'control_svscan',
+    'create_environ_dir',
     'create_scan_dir',
     'create_service',
     'is_supervised',
-    'control_service',
-    'control_svscan',
+    'open_service',
+    'read_environ_dir',
     'wait_service',
 ]
 

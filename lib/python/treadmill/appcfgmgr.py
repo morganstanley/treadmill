@@ -40,6 +40,7 @@ import six
 from treadmill import appenv
 from treadmill import appcfg
 from treadmill import exc
+from treadmill import eventmgr
 from treadmill import fs
 from treadmill import dirwatch
 from treadmill import logcontext as lc
@@ -143,7 +144,7 @@ class AppCfgMgr(object):
         """
         instance_name = os.path.basename(event_file)
 
-        if instance_name == '.seen':
+        if instance_name == eventmgr.READY_FILE:
             self._first_sync()
             return
 
@@ -163,7 +164,7 @@ class AppCfgMgr(object):
         """
         instance_name = os.path.basename(event_file)
 
-        if instance_name == '.seen':
+        if instance_name == eventmgr.READY_FILE:
             self._first_sync()
             return
 
@@ -194,7 +195,7 @@ class AppCfgMgr(object):
             ``str``
         """
         instance_name = os.path.basename(event_file)
-        if instance_name == '.seen':
+        if instance_name == eventmgr.READY_FILE:
             _LOGGER.info('Cache folder not ready.'
                          ' Stopping processing of events.')
             self._is_active = False

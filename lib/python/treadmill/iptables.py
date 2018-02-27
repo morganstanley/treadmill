@@ -184,6 +184,9 @@ _PASSTHROUGH_RULE_RE = re.compile((
     r'$'
 ))
 
+#: Exit code in iptables>=1.4.20 when the table lock is already held.
+_IPTABLES_EXIT_LOCKED = 4
+
 
 def initialize(external_ip):
     """Initialize iptables firewall by bulk loading all the Treadmill static
@@ -1030,7 +1033,7 @@ def _iptables(table, action, chain, rules=None):
             res = subproc.check_call(cmd)
             break
         except subproc.CalledProcessError as err:
-            if err.returncode == 4:
+            if err.returncode == _IPTABLES_EXIT_LOCKED:
                 _LOGGER.debug('xtable locked, retrying.')
                 # table locked, spin and try again
                 time.sleep(random.uniform(0, 1))
@@ -1052,7 +1055,7 @@ def _iptables_output(table, action, chain):
             res = subproc.check_output(cmd)
             break
         except subproc.CalledProcessError as err:
-            if err.returncode == 4:
+            if err.returncode == _IPTABLES_EXIT_LOCKED:
                 _LOGGER.debug('xtable locked, retrying.')
                 # table locked, spin and try again
                 time.sleep(random.uniform(0, 1))
@@ -1075,6 +1078,18 @@ def _iptables_restore(iptables_state, noflush=False):
     if noflush:
         cmd.append('--noflush')
 
-    subproc.invoke(cmd,
-                   cmd_input=iptables_state,
-                   use_except=True)
+    while True:
+        try:
+            res = subproc.invoke(cmd,
+                                 cmd_input=iptables_state,
+                                 use_except=True)
+            break
+        except subproc.CalledProcessError as err:
+            if err.returncode == _IPTABLES_EXIT_LOCKED:
+                _LOGGER.debug('xtable locked, retrying.')
+                # table locked, spin and try again
+                time.sleep(random.uniform(0, 1))
+            else:
+                raise
+
+    return res
