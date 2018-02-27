@@ -15,60 +15,80 @@ from six.moves import urllib_parse
 from treadmill import cli
 from treadmill import restclient
 from treadmill import context
+from treadmill import utils
 
 
 _LOGGER = logging.getLogger(__name__)
 
+_FINISHED_STATES = ['finished', 'aborted', 'killed', 'terminated']
+
 _STATE_FORMATTER = cli.make_formatter('instance-state')
+
+_FINISHED_STATE_FORMATTER = cli.make_formatter('instance-finished-state')
 
 _ENDPOINT_FORMATTER = cli.make_formatter('endpoint')
 
 _APP_FORMATTER = cli.make_formatter('app')
 
 
-def _show_state(apis, match, finished):
-    """Show cell state."""
+def _get_state(apis, match=None, finished=False, partition=None):
+    """Get cell state."""
     url = '/state/'
-    query = []
+
+    query = {}
     if match:
-        query.append(('match', match))
+        query['match'] = match
     if finished:
-        query.append(('finished', '1'))
+        query['finished'] = 'true'
+    if partition:
+        query['partition'] = partition
 
     if query:
-        url += '?' + '&'.join(
-            [
-                urllib_parse.urlencode([param])
-                for param in query
-            ]
-        )
+        url += '?' + urllib_parse.urlencode(query)
 
     response = restclient.get(apis, url)
-    cli.out(_STATE_FORMATTER(response.json()))
+    return response.json()
+
+
+def _show_state(apis, match=None, finished=False, partition=None):
+    """Show cell state."""
+    state = _get_state(apis, match, finished, partition)
+    cli.out(_STATE_FORMATTER(state))
+
+
+def _show_finished(apis, match=None, partition=None):
+    state = _get_state(apis, match=match, finished=True, partition=partition)
+
+    result = []
+    for item in state:
+        if item['state'] not in _FINISHED_STATES:
+            continue
+
+        details = None
+        if item.get('exitcode') is not None:
+            details = 'return code: {}'.format(item['exitcode'])
+        if item.get('signal') is not None:
+            details = 'signal: {}'.format(utils.signal2name(item['signal']))
+        if item.get('aborted_reason'):
+            details = 'reason: {}'.format(item['aborted_reason'])
+        if item.get('oom'):
+            details = 'out of memory'
+
+        result.append({
+            'name': item['name'],
+            'state': item['state'],
+            'host': item['host'],
+            'when': utils.strftime_utc(item['when']),
+            'details': details,
+        })
+
+    cli.out(_FINISHED_STATE_FORMATTER(result))
 
 
 def _show_list(apis, match, states, finished=False, partition=None):
     """Show list of instnces in given state."""
-    url = '/state/'
-    query = []
-    if match:
-        query.append(('match', match))
-    if finished:
-        query.append(('finished', '1'))
-    if partition is not None:
-        query.append(('partition', partition))
-
-    if query:
-        url += '?' + '&'.join(
-            [
-                urllib_parse.urlencode([param])
-                for param in query
-            ]
-        )
-
-    response = restclient.get(apis, url)
-    names = [item['name']
-             for item in response.json() if item['state'] in states]
+    state = _get_state(apis, match, finished, partition)
+    names = [item['name'] for item in state if item['state'] in states]
     for name in names:
         cli.out(name)
 
@@ -125,10 +145,11 @@ def init():
     @click.option('--match', help='Application name pattern match')
     @click.option('--finished', is_flag=True, default=False,
                   help='Show finished instances.')
-    def state(match, finished):
+    @click.option('--partition', help='Filter apps by partition')
+    def state(match, finished, partition):
         """Show state of Treadmill scheduled instances."""
         apis = context.GLOBAL.state_api(ctx['api'])
-        return _show_state(apis, match, finished)
+        return _show_state(apis, match, finished, partition)
 
     @show.command()
     @cli.handle_exceptions(restclient.CLI_REST_EXCEPTIONS)
@@ -152,11 +173,15 @@ def init():
     @cli.handle_exceptions(restclient.CLI_REST_EXCEPTIONS)
     @click.option('--match', help='Application name pattern match')
     @click.option('--partition', help='Filter apps by partition')
-    def finished(match, partition):
+    @click.option('--details', is_flag=True, default=False,
+                  help='Show details.')
+    def finished(match, partition, details):
         """Show finished instances."""
         apis = context.GLOBAL.state_api(ctx['api'])
+        if details:
+            return _show_finished(apis, match, partition)
         return _show_list(
-            apis, match, ['finished'], finished=True, partition=partition
+            apis, match, _FINISHED_STATES, finished=True, partition=partition
         )
 
     @show.command()

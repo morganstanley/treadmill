@@ -168,7 +168,6 @@ def _interpolate_list(value, params):
 
 def _interpolate_scalar(value, params):
     """Interpolate string value by rendering the template."""
-    _LOGGER.debug('value: %r', value)
     if isinstance(value, six.string_types):
         return _render(value, params)
     else:
@@ -261,7 +260,8 @@ def interpolate(value, params=None):
 
 
 def wipe(wipe_me, wipe_script):
-    """Check if flag file is present, invoke cleanup script."""
+    """Check if flag file is present, invoke cleanup script.
+    """
     if os.path.exists(wipe_me):
         _LOGGER.info('Requested clean start, calling: %s', wipe_script)
         subprocess.check_call(wipe_script)

@@ -171,23 +171,10 @@ class Loader(object):
                              z.path.server(servername))
                 return
 
+            server = self.create_server(servername, data)
+
             assert 'parent' in data
             parentname = data['parent']
-            label = data.get('partition')
-            if not label:
-                # TODO: it will be better to have separate module for constants
-                #       and avoid unnecessary cross imports.
-                label = admin.DEFAULT_PARTITION
-            up_since = data.get('up_since', int(time.time()))
-
-            server = scheduler.Server(
-                servername,
-                resources(data),
-                up_since=up_since,
-                label=label,
-                traits=data.get('traits', 0)
-            )
-
             parent = self.buckets.get(parentname)
             if not parent:
                 _LOGGER.warning('Server parent does not exist: %s/%s',
@@ -232,6 +219,8 @@ class Loader(object):
             return
 
         current_server = self.servers[servername]
+        has_apps = bool(current_server.apps)
+
         # Check if server is same
         try:
             data = self.backend.get(z.path.server(servername))
@@ -240,24 +229,11 @@ class Loader(object):
                 self.remove_server(servername)
                 return
 
+            server = self.create_server(servername, data)
+
             # TODO: need better error handling.
             assert 'parent' in data
             assert data['parent'] in self.buckets
-
-            # TODO: seems like this is cut/paste code from load_server.
-            label = data.get('partition')
-            if not label:
-                label = admin.DEFAULT_PARTITION
-            up_since = data.get('up_since', time.time())
-
-            server = scheduler.Server(
-                servername,
-                resources(data),
-                up_since=up_since,
-                label=label,
-                traits=data.get('traits', 0)
-            )
-
             parent = self.buckets[data['parent']]
             # TODO: assume that bucket topology is constant, e.g.
             #                rack can never change buiding. If this does not
@@ -269,15 +245,35 @@ class Loader(object):
                 _LOGGER.info('server is same, keeping old.')
                 current_server.up_since = server.up_since
             else:
-                # Something changed - clear everything and re-register server
-                # as new.
+                # Something changed, replace server (remove and load as new).
                 _LOGGER.info('server modified, replacing.')
                 self.remove_server(servername)
                 self.load_server(servername)
+                if has_apps:
+                    # Restore placement after reload to ensure integrity.
+                    self.restore_placement(servername)
 
         except be.ObjectNotFoundError:
             self.remove_server(servername)
             _LOGGER.warning('Server node not found: %s', servername)
+
+    def create_server(self, servername, data):
+        """Create a new server object from server data."""
+        label = data.get('partition')
+        if not label:
+            # TODO: it will be better to have separate module for constants
+            #       and avoid unnecessary cross imports.
+            label = admin.DEFAULT_PARTITION
+        up_since = data.get('up_since', int(time.time()))
+
+        server = scheduler.Server(
+            servername,
+            resources(data),
+            up_since=up_since,
+            label=label,
+            traits=data.get('traits', 0)
+        )
+        return server
 
     def set_server_valid_until(self, servername):
         """Set server valid_until"""
@@ -457,46 +453,9 @@ class Loader(object):
         integrity = collections.defaultdict(list)
 
         for servername in self.servers:
-            try:
-                placement_node = z.path.placement(servername)
-                placed_apps = self.backend.list(placement_node)
-            except be.ObjectNotFoundError:
-                placed_apps = []
-
-            server = self.servers[servername]
-            server.remove_all()
-
-            for appname in placed_apps:
-                appnode = z.path.placement(servername, appname)
-                if appname not in self.cell.apps:
-                    # Stale app - safely ignored.
-                    self.backend.delete(appnode)
-                    continue
-
-                # Try to restore placement, if failed (e.g capacity of the
-                # servername changed - remove.
-                #
-                # The servername does not need to be active at the time,
-                # for applications will be moved from servers in DOWN state
-                # on subsequent reschedule.
-                app = self.cell.apps[appname]
+            _placed_apps, restored_apps = self.restore_placement(servername)
+            for appname in restored_apps:
                 integrity[appname].append(servername)
-
-                # Placement is restored and assumed to be correct, so
-                # force placement be specifying the server label.
-                assert app.allocation is not None
-                _LOGGER.info('Restore placement %s => %s', appname, servername)
-                if not server.put(app):
-                    _LOGGER.info('Failed to restore placement %s => %s',
-                                 appname, servername)
-                    self.backend.delete(appnode)
-                    # Check if app is marked to be scheduled once. If it is
-                    # remove the app.
-                    if app.schedule_once:
-                        _LOGGER.info('Removing scheduled once app: %s',
-                                     appname)
-                        self.cell.remove_app(appname)
-                        self.backend.delete(z.path.scheduled(appname))
 
         for appname, servers in six.iteritems(integrity):
             if len(servers) <= 1:
@@ -508,6 +467,53 @@ class Loader(object):
             for servername in servers:
                 self.servers[servername].remove(appname)
                 self.backend.delete(z.path.placement(servername, appname))
+
+    def restore_placement(self, servername):
+        """Restore placement after reload."""
+        placement_node = z.path.placement(servername)
+        try:
+            placed_apps = self.backend.list(placement_node)
+        except be.ObjectNotFoundError:
+            placed_apps = []
+        restored_apps = []
+
+        server = self.servers[servername]
+        server.remove_all()
+
+        for appname in placed_apps:
+            appnode = z.path.placement(servername, appname)
+            if appname not in self.cell.apps:
+                # Stale app - safely ignored.
+                self.backend.delete(appnode)
+                continue
+
+            # Try to restore placement, if failed (e.g capacity of the
+            # servername changed - remove.
+            #
+            # The servername does not need to be active at the time,
+            # for applications will be moved from servers in DOWN state
+            # on subsequent reschedule.
+            app = self.cell.apps[appname]
+
+            # Placement is restored and assumed to be correct, so
+            # force placement be specifying the server label.
+            assert app.allocation is not None
+            _LOGGER.info('Restore placement %s => %s', appname, servername)
+            if not server.put(app):
+                _LOGGER.info('Failed to restore placement %s => %s',
+                             appname, servername)
+                self.backend.delete(appnode)
+                # Check if app is marked to be scheduled once. If it is
+                # remove the app.
+                if app.schedule_once:
+                    _LOGGER.info('Removing scheduled once app: %s',
+                                 appname)
+                    self.cell.remove_app(appname)
+                    self.backend.delete(z.path.scheduled(appname))
+            else:
+                restored_apps.append(appname)
+
+        return placed_apps, restored_apps
 
     def load_placement_data(self):
         """Restore app identities."""

@@ -12,7 +12,6 @@ import contextlib
 import errno
 import functools
 import glob
-import importlib
 import io
 import logging
 import os
@@ -28,6 +27,7 @@ from treadmill import dirwatch
 from treadmill import exc
 from treadmill import fs
 from treadmill import logcontext as lc
+from treadmill import plugin_manager
 from treadmill import utils
 from treadmill import watchdog
 from treadmill import yamlwrapper as yaml
@@ -380,7 +380,40 @@ class ResourceService(object):
         return reply
 
     def run(self, watchdogs_dir, *impl_args, **impl_kwargs):
-        """Run the service."""
+        """Run the service.
+
+        The run procedure will first initialize the service's implementation,
+        the setup the service's watchdog, and start the service resource
+        resynchronization procedure.
+
+        This procedure is in 4 phases to handle both fresh starts and restarts.
+
+        $ Call the implementation's :function:`initialize` function which
+        allows the implementation to query and import the backend resource's
+        state.
+        $ Setup the service request watcher.
+        $ Import all existing requests (passing them to the
+        :function:`on_created` implementation's handler.
+        $ Call the implementation's :function:`synchronize` function which
+        expunges anything allocated against the backend resource that doesn't
+        have a matching request anymore.
+
+        The implementation is expected to implement two handlers:
+
+        * :function:`on_created` that handles new resource requests or update
+        to existing resource request (implementation is expected to be
+        idem-potent.
+        * :function:`on_deleted` that handlers delation of resource requests.
+        It should properly handle the case where the backend resource is
+        already gone.
+
+        :param ``str`` watchdogs_dir:
+            Path to the watchdogs directory.
+        :param ``tuple`` impl_args:
+            Arguments passed to the implementation's  constructor.
+        :param ``dict`` impl_kwargs:
+            Keywords arguments passed to the implementation's  constructor.
+        """
         # Load the implementation
         if self._service_class is None:
             self._service_class = self._load_impl()
@@ -406,6 +439,7 @@ class ResourceService(object):
         watcher.on_deleted = functools.partial(self._on_deleted, impl)
         # NOTE: A modified request is treated as a brand new request
         watcher.on_modified = functools.partial(self._on_created, impl)
+
         self._io_eventfd = eventfd.eventfd(0, eventfd.EFD_CLOEXEC)
 
         # Before starting, check the request directory
@@ -591,9 +625,8 @@ class ResourceService(object):
         """Load the implementation class of the service.
         """
         if isinstance(self._service_impl, six.string_types):
-            (module_name, cls_name) = self._service_impl.rsplit('.', 1)
-            impl_module = importlib.import_module(module_name)
-            impl_class = getattr(impl_module, cls_name)
+            impl_class = plugin_manager.load('treadmill.services',
+                                             self._service_impl)
         else:
             impl_class = self._service_impl
 
@@ -755,26 +788,29 @@ class ResourceService(object):
                 return
             raise
 
-        try:
-            # TODO: We should also validate the req_id format
-            utils.validate(req_data, impl.PAYLOAD_SCHEMA)
-            res = impl.on_create_request(req_id, req_data)
-            _LOGGER.debug('created %r', req_id)
+        # TODO: We should also validate the req_id format
+        with lc.LogContext(_LOGGER, req_id,
+                           adapter_cls=lc.ContainerAdapter) as log:
 
-        except exc.InvalidInputError as err:
-            _LOGGER.error('Invalid request data: %r: %s', req_data, err)
-            res = {'_error': {'input': req_data, 'why': str(err)}}
+            log.debug('created %r: %r', req_id, req_data)
 
-        except Exception as err:  # pylint: disable=W0703
-            _LOGGER.exception('Unable to process request: %r %r:',
+            try:
+                # TODO: We should also validate the req_id format
+                utils.validate(req_data, impl.PAYLOAD_SCHEMA)
+                res = impl.on_create_request(req_id, req_data)
+
+            except exc.InvalidInputError as err:
+                log.error('Invalid request data: %r: %s', req_data, err)
+                res = {'_error': {'input': req_data, 'why': str(err)}}
+
+            except Exception as err:  # pylint: disable=W0703
+                log.exception('Unable to process request: %r %r:',
                               req_id, req_data)
-            res = {'_error': {'input': req_data, 'why': str(err)}}
+                res = {'_error': {'input': req_data, 'why': str(err)}}
 
         if res is None:
             # Request was not actioned
             return False
-
-        _LOGGER.debug('created %r', req_id)
 
         fs.write_safe(
             rep_file,
@@ -785,6 +821,7 @@ class ResourceService(object):
             mode='w',
             permission=0o644
         )
+
         # Return True if there were no error
         return not bool(res.get('_error', False))
 
@@ -797,10 +834,12 @@ class ResourceService(object):
         if req_id[0] == '.':
             return
 
-        _LOGGER.debug('deleted %r', req_id)
-
         # TODO: We should also validate the req_id format
-        res = impl.on_delete_request(req_id)
+        with lc.LogContext(_LOGGER, req_id,
+                           adapter_cls=lc.ContainerAdapter) as log:
+
+            log.debug('deleted %r', req_id)
+            res = impl.on_delete_request(req_id)
 
         return res
 
@@ -872,3 +911,20 @@ class BaseResourceServiceImpl(object):
             rsrc_id ``str``: Unique resource identifier
         """
         pass
+
+    def retry_request(self, rsrc_id):
+        """Force re-evaluation of a request.
+        """
+        # XXX(boysson): Duplicate of _base_service.clt_update_request
+        request_lnk = os.path.join(self._service_rsrc_dir, rsrc_id)
+        _LOGGER.debug('Updating %r', rsrc_id)
+        # NOTE(boysson): This does the equivalent of a touch on the symlink
+        try:
+            os.lchown(
+                request_lnk,
+                os.getuid(),
+                os.getgid()
+            )
+        except OSError as err:
+            if err.errno != errno.ENOENT:
+                raise

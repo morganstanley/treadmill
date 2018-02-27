@@ -48,6 +48,7 @@ def init(api, cors, impl):
         'status': fields.String(description='Status'),
         'masters': fields.List(fields.Nested(master)),
         'partitions': fields.List(fields.Nested(partition)),
+        'data': fields.Raw(),
     }
 
     cell_model = api.model(

@@ -244,7 +244,7 @@ def benchmark_vg(vg_name,
             size_in_bytes=utils.size_to_bytes(total_volume)
         )
         fs_linux.blk_fs_create(device)
-        fs_linux.mount_filesystem(device, base_path)
+        fs_linux.mount_filesystem(device, base_path, fs_type='ext4')
 
     def cleanup_benchmark_env():
         """Cleanup environment after benchmark.

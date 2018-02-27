@@ -2,7 +2,6 @@
 # See slapd-config(5) for details on configuration options.
 # This file should NOT be world readable.
 #
-{%- set serverid = 0 %}
 {%- set rid = [1] %}
 dn: cn=config
 objectClass: olcGlobal
@@ -14,8 +13,7 @@ olcArgsFile: {{ dir }}/run/slapd.args
 olcPidFile: {{ dir }}/run/slapd.pid
 {%- if uri in masters %}
 {%- for master in masters %}
-{%- set serverid = serverid + 1 %}
-olcServerID: {{ serverid }} {{ master }}
+olcServerID: {{ loop.index }} {{ master }}
 {%- endfor %}
 {%- endif %}
 olcIdleTimeout: {{ idletimout | default(0) }}

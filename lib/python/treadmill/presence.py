@@ -147,6 +147,25 @@ class EndpointPresence(object):
             {'host': self.hostname, 'app': self.appname},
         )
 
+    def unregister_identity(self):
+        """Register app identity."""
+        identity_group = self.manifest.get('identity_group')
+
+        # If identity_group is not set or set to None, nothing to register.
+        if not identity_group:
+            return
+
+        identity = self.manifest.get('identity', _INVALID_IDENTITY)
+
+        _LOGGER.info('Unregister identity: %s, %s', identity_group, identity)
+        path = z.path.identity_group(identity_group, str(identity))
+        try:
+            data = zkutils.get(self.zkclient, path)
+            if data['host'] == self.hostname:
+                zkutils.ensure_deleted(self.zkclient, path)
+        except kazoo.client.NoNodeError:
+            _LOGGER.info('identity node %s does not exist.', path)
+
 
 def server_node(hostname, presence_id):
     """Return server.presence node for given hostname and presence_id."""

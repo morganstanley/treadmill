@@ -182,7 +182,7 @@ def read_cpu_stats(cgrp):
     data['cpuacct.usage'] = cgutils.cpu_usage(cgrp)
     data['cpuacct.stat'] = read_cpuacct_stat(cgrp)
     data['cpu.stat'] = read_cpu_stat(cgrp)
-    data['cpu.shares'] = cgroups.get_cpu_shares(cgrp)
+    data['cpu.shares'] = cgutils.get_cpu_shares(cgrp)
 
     return data
 

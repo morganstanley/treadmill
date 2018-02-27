@@ -6,7 +6,6 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
-import errno
 import logging
 import math
 import os
@@ -137,7 +136,7 @@ class LocalDiskResourceService(BaseResourceServiceImpl):
         # Now that we successfully removed a volume, retry all the pending
         # resources.
         for pending_id in self._pending:
-            self._retry_request(pending_id)
+            self.retry_request(pending_id)
         self._pending = []
 
         # We just destroyed a volume, refresh cached status from LVM and notify
@@ -269,7 +268,7 @@ class LocalDiskResourceService(BaseResourceServiceImpl):
             # Now that we successfully removed a volume, retry all the pending
             # resources.
             for pending_id in self._pending:
-                self._retry_request(pending_id)
+                self.retry_request(pending_id)
             self._pending = []
 
             # We just destroyed a volume, refresh cached status from LVM and
@@ -294,20 +293,3 @@ class LocalDiskResourceService(BaseResourceServiceImpl):
         _LOGGER.info('Destroyed volume %r', uniqueid)
 
         return True
-
-    def _retry_request(self, rsrc_id):
-        """Force re-evaluation of a request.
-        """
-        # XXX(boysson): Duplicate of _base_service.clt_update_request
-        request_lnk = os.path.join(self._service_rsrc_dir, rsrc_id)
-        _LOGGER.debug('Updating %r', rsrc_id)
-        # NOTE(boysson): This does the equivalent of a touch on the symlink
-        try:
-            os.lchown(
-                request_lnk,
-                os.getuid(),
-                os.getgid()
-            )
-        except OSError as err:
-            if err.errno != errno.ENOENT:
-                raise

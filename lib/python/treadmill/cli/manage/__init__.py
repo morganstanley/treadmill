@@ -20,24 +20,20 @@ _LOGGER = logging.getLogger(__name__)
 def make_manage_multi_command(module_name, **click_args):
     """Make a Click multicommand from all submodules of the module."""
 
-    old_multi = cli.make_multi_command(module_name, **click_args)
-    new_multi = cli.make_commands(module_name, **click_args)
+    commands = cli.make_commands(module_name, **click_args)
 
     class MCommand(click.MultiCommand):
         """Treadmill CLI driver."""
 
         def __init__(self, *args, **kwargs):
-            self.old_multi = old_multi(*args, **kwargs)
-            self.new_multi = new_multi(*args, **kwargs)
+            self.commands = commands(*args, **kwargs)
             if kwargs and click_args:
                 kwargs.update(click_args)
 
             click.MultiCommand.__init__(self, *args, **kwargs)
 
         def list_commands(self, ctx):
-            old_commands = set(self.old_multi.list_commands(ctx))
-            new_commands = set(self.new_multi.list_commands(ctx))
-            return sorted(old_commands | new_commands)
+            return sorted(set(self.commands.list_commands(ctx)))
 
         def invoke(self, ctx):
             """
@@ -70,11 +66,7 @@ def make_manage_multi_command(module_name, **click_args):
                                   [os.path.basename(module_path)] + ctx.args)
 
         def get_command(self, ctx, cmd_name):
-            try:
-                return self.new_multi.get_command(ctx, cmd_name)
-            except click.UsageError:
-                pass
-            return self.old_multi.get_command(ctx, cmd_name)
+            return self.commands.get_command(ctx, cmd_name)
 
         def format_commands(self, ctx, formatter):
             rows = []
@@ -82,18 +74,12 @@ def make_manage_multi_command(module_name, **click_args):
                 entry_points = list(pkg_resources.iter_entry_points(
                     module_name, subcommand))
                 # Try get the help with importlib if entry_point not found
-                if not entry_points:
-                    cmd = self.old_multi.get_command(ctx, subcommand)
-                    if cmd is None:
-                        continue
-                    rows.append((subcommand, cmd.short_help or ''))
+                dist = entry_points[0].dist
+                if dist.has_metadata('cli_help'):
+                    help_text = dist.get_metadata('cli_help')
                 else:
-                    dist = entry_points[0].dist
-                    if dist.has_metadata('cli_help'):
-                        help_text = dist.get_metadata('cli_help')
-                    else:
-                        help_text = ''
-                    rows.append((subcommand, help_text))
+                    help_text = ''
+                rows.append((subcommand, help_text))
 
             if rows:
                 with formatter.section('Commands'):

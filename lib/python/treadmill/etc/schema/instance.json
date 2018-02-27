@@ -1,6 +1,11 @@
 {
     "$schema": "http://json-schema.org/draft-04/schema#",
     "resource_id": { "$ref": "common.json#/instance_id" },
+    "resource_ids": {
+        "type": "array",
+        "items": { "$ref": "common.json#/instance_id" },
+        "minItems": 1
+    },
     "resource": { "$ref": "app.json#/resource" },
     "verbs": {
         "create": {
@@ -9,6 +14,7 @@
         "update": {
             "type": "object",
             "properties": {
+                "_id": { "$ref": "common.json#/instance_id" },
                 "priority": { "$ref": "common.json#/priority" }
             },
             "required": ["priority"],

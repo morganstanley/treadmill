@@ -167,6 +167,8 @@ class DockerRuntime(runtime_base.RuntimeBase):
     """Docker Treadmill runtime.
     """
 
+    name = 'docker'
+
     __slots__ = (
         '_client',
         '_config'
@@ -230,42 +232,38 @@ class DockerRuntime(runtime_base.RuntimeBase):
             app_presence.register_identity()
             app_presence.register_running()
 
+            client = self._get_client()
+
             try:
-                client = self._get_client()
-
-                try:
-                    container = _create_container(
-                        self._tm_env,
-                        self._get_config(),
-                        client,
-                        app
-                    )
-                except docker.errors.ImageNotFound:
-                    raise exc.ContainerSetupError(
-                        'Image {0} was not found'.format(app.image),
-                        app_abort.AbortedReason.IMAGE
-                    )
-
-                container.start()
-                container.reload()
-
-                _LOGGER.info('Container is running.')
-                app_presence.register_endpoints()
-                appevents.post(
-                    self._tm_env.app_events_dir,
-                    events.ServiceRunningTraceEvent(
-                        instanceid=app.name,
-                        uniqueid=app.uniqueid,
-                        service='docker'
-                    )
+                container = _create_container(
+                    self._tm_env,
+                    self._get_config(),
+                    client,
+                    app
+                )
+            except docker.errors.ImageNotFound:
+                raise exc.ContainerSetupError(
+                    'Image {0} was not found'.format(app.image),
+                    app_abort.AbortedReason.IMAGE
                 )
 
-                while container.status == 'running':
-                    container.wait(timeout=10)
-                    container.reload()
-            finally:
-                _LOGGER.info('Stopping zookeeper.')
-                context.GLOBAL.zk.conn.stop()
+            container.start()
+            container.reload()
+
+            _LOGGER.info('Container is running.')
+            app_presence.register_endpoints()
+            appevents.post(
+                self._tm_env.app_events_dir,
+                events.ServiceRunningTraceEvent(
+                    instanceid=app.name,
+                    uniqueid=app.uniqueid,
+                    service='docker'
+                )
+            )
+
+            while container.status == 'running':
+                container.wait(timeout=10)
+                container.reload()
 
     def _finish(self):
         app = runtime.load_app(self._service.data_dir, runtime.STATE_JSON)

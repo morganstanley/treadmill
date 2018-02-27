@@ -1,1 +1,0 @@
-{{ _alias.powershell }} -File {{ dir }}\bin\finish.ps1

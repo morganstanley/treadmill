@@ -70,40 +70,40 @@ class EventMgrTest(mockzk.MockZookeeperTestCase):
         if self.root and os.path.isdir(self.root):
             shutil.rmtree(self.root)
 
-    # XXX(boysson): Test disabled for now
-    # @mock.patch('treadmill.eventmgr.EventMgr._cache_notify', mock.Mock())
-    # @mock.patch('treadmill.zkutils.connect', autospec=True)
-    # def test_run(self, mock_connect):
-    #     """.
-    #     """
-    #     # Access to a protected member _cache_notify of a client class
-    #     # pylint: disable=W0212
-    #     self.evmgr.run()
-    #
-    #     mock_watchdog = self.evmgr.tm_env.watchdogs
-    #     mock_watchdog.create.assert_called_with(
-    #         content=mock.ANY,
-    #         name='svc:EventMgr',
-    #         timeout='60s'
-    #     )
-    #     mock_watchdog_lease = mock_watchdog.create.return_value
-    #     mock_watchdog_lease.heartbeat.assert_called_with()
-    #
-    #     mock_zkconnect = mock_connect.return_value
-    #     mock_zkconnect.handler.event_object.assert_called_with()
-    #
-    #     mock_seen = mock_zkconnect.handler.event_object.return_value
-    #     mock_seen.clear.assert_called_with()
-    #
-    #     treadmill.eventmgr.EventMgr._cache_notify.assert_called_with()
-    #
-    #     mock_zkconnect.DataWatch.assert_called_with(
-    #         '/some/path',
-    #     )
-    #
-    #     # The main loop terminates immediately
-    #
-    #     mock_watchdog_lease.remove.assert_called_with()
+    @unittest.skip('Broken fixme')
+    @mock.patch('treadmill.eventmgr.EventMgr._cache_notify', mock.Mock())
+    @mock.patch('treadmill.zkutils.connect', autospec=True)
+    def test_run(self, mock_connect):
+        """.
+        """
+        # Access to a protected member _cache_notify of a client class
+        # pylint: disable=W0212
+        self.evmgr.run()
+
+        mock_watchdog = self.evmgr.tm_env.watchdogs
+        mock_watchdog.create.assert_called_with(
+            content=mock.ANY,
+            name='svc:EventMgr',
+            timeout='60s'
+        )
+        mock_watchdog_lease = mock_watchdog.create.return_value
+        mock_watchdog_lease.heartbeat.assert_called_with()
+
+        mock_zkconnect = mock_connect.return_value
+        mock_zkconnect.handler.event_object.assert_called_with()
+
+        mock_seen = mock_zkconnect.handler.event_object.return_value
+        mock_seen.clear.assert_called_with()
+
+        treadmill.eventmgr.EventMgr._cache_notify.assert_called_with()
+
+        mock_zkconnect.DataWatch.assert_called_with(
+            '/some/path',
+        )
+
+        # The main loop terminates immediately
+
+        mock_watchdog_lease.remove.assert_called_with()
 
     @mock.patch('treadmill.zkutils.get', mock.Mock())
     def test__cache(self):
@@ -176,7 +176,10 @@ class EventMgrTest(mockzk.MockZookeeperTestCase):
     @mock.patch('kazoo.client.KazooClient.exists', mock.Mock())
     @mock.patch('kazoo.client.KazooClient.get_children', mock.Mock())
     def test_cache_placement_data(self):
-        """Tests sync of placement data."""
+        """Tests sync of placement data.
+        """
+        # Access to a protected member _synchronize of a client class
+        # pylint: disable=W0212
         zk_content = {
             'placement': {
                 'test.xx.com': {

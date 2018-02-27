@@ -9,4 +9,4 @@ exec \
     sproc --cgroup . \
     metrics \
         --step 30 \
-        --socket {{ dir }}/var/run/cgroup.sock
+        --socket {{ dir }}/run/cgroup.sock

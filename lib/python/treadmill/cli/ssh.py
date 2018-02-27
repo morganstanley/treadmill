@@ -88,7 +88,7 @@ def run_putty(host, port, sshcmd, command):
                                       stdout=subprocess.PIPE,
                                       stdin=subprocess.PIPE,
                                       stderr=subprocess.PIPE)
-    out, err = store_key_proc.communicate(input='y\n\n\n\n\n\n\n\n\n')
+    out, err = store_key_proc.communicate(input='y\n\n\n\n\n\n\n\n\n'.encode())
 
     _LOGGER.debug('plink STDOUT: %s', out)
     _LOGGER.debug('plink STDERR: %s', err)

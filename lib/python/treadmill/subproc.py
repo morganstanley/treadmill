@@ -12,12 +12,12 @@ import os
 import six
 
 if six.PY2 and os.name == 'posix':
-    import subprocess32 as subprocess  # pylint: disable=import-error
+    # pylint: disable=import-error
+    import subprocess32 as subprocess
+    from subprocess32 import CalledProcessError
 else:
-    import subprocess  # pylint: disable=wrong-import-order
-
-# pylint: disable=wrong-import-position
-from subprocess import CalledProcessError  # pylint: disable=wrong-import-order
+    import subprocess
+    from subprocess import CalledProcessError
 
 from treadmill import dist
 from treadmill import plugin_manager
@@ -143,7 +143,7 @@ def check_call(cmdline, environ=(), runas=None, **kwargs):
         _LOGGER.debug('Finished, rc: %d', rc)
         return rc
     except CalledProcessError as exc:
-        _LOGGER.warning('Error, rc: %d, %s', exc.returncode, exc.output)
+        _LOGGER.error('Command failed: rc:%d', exc.returncode)
         raise
 
 
@@ -174,7 +174,7 @@ def check_output(cmdline, environ=(), **kwargs):
 
         _LOGGER.debug('Finished.')
     except CalledProcessError as exc:
-        _LOGGER.warning(exc.output)
+        _LOGGER.error('Command failed: rc:%d: %s', exc.returncode, exc.output)
         raise
 
     # Decode output back into unicode
@@ -260,11 +260,53 @@ def invoke(cmd, cmd_input=None, use_except=False, **environ):
     out = out.decode()
 
     if retcode != 0 and use_except:
+        _LOGGER.error('Command failed: rc:%d: %s', retcode, out)
         raise CalledProcessError(cmd=args,
                                  returncode=retcode,
                                  output=out)
 
     return (retcode, out)
+
+
+def popen(cmdline, environ=(), stdin=None, stdout=None, stderr=None):
+    """Open a subprocess wrapping subprocess.Popen.
+
+    :param cmdline:
+        Command to run
+    :type cmdline:
+        ``list``
+    :param environ:
+        *optional* Environ variable to set prior to running the command
+    :type environ:
+        ``dict``
+    :param stdin:
+        *optional* File object to hook to the subprocess' stdin
+    :type stdin:
+        ``file object``
+    :param stdout:
+        *optional* File object to hook to the subprocess' stdout
+    :type stdout:
+        ``file object``
+    :param stderr:
+        *optional* File object to hook to the subprocess' stderr
+    :type stderr:
+        ``file object``
+    """
+    _LOGGER.debug('popen: %r', cmdline)
+    args = _alias_command(cmdline)
+
+    # Setup a copy of the environ with the provided overrides
+    cmd_environ = dict(os.environ.items())
+    cmd_environ.update(environ)
+
+    return subprocess.Popen(
+        args,
+        close_fds=_CLOSE_FDS, shell=False,
+        stdin=stdin or subprocess.PIPE,
+        stdout=stdout or subprocess.PIPE,
+        stderr=stderr or subprocess.PIPE,
+        env=cmd_environ
+    )
 
 
 def exec_pid1(cmd, ipc=True, mount=True, proc=True,
@@ -292,12 +334,31 @@ def exec_pid1(cmd, ipc=True, mount=True, proc=True,
                       signals=restore_signals)
 
 
-def safe_exec(cmd):
-    """Exec command line using os.execvp."""
+def exec_fghack(cmd, close_fds=True, restore_signals=True):
+    """Anti-backgrounding exec command.
+    """
+    fghack = resolve('s6_fghack')
+    safe_cmd = _alias_command(cmd)
+    args = [fghack] + safe_cmd
+    _LOGGER.debug('exec_fghack: %r', args)
+    utils.sane_execvp(
+        args[0], args,
+        close_fds=close_fds,
+        signals=restore_signals
+    )
+
+
+def safe_exec(cmd, close_fds=True, restore_signals=True):
+    """Exec command line using os.execvp.
+    """
     safe_cmd = _alias_command(cmd)
     _LOGGER.debug('safe_exec: %r', safe_cmd)
 
-    utils.sane_execvp(safe_cmd[0], safe_cmd)
+    utils.sane_execvp(
+        safe_cmd[0], safe_cmd,
+        close_fds=close_fds,
+        signals=restore_signals
+    )
 
 
 __all__ = [

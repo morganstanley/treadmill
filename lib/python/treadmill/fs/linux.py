@@ -6,6 +6,8 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
+import errno
+import fnmatch
 import glob
 import io
 import logging
@@ -31,21 +33,14 @@ def umount_filesystem(target_dir):
     return mount.unmount(target=target_dir)
 
 
-def mount_filesystem(block_dev, target_dir, fs_type='ext4'):
-    """Mount filesystem on target directory.
+from treadmill.syscall.mount import mount as mount_filesystem
 
-    :param block_dev:
-        Block device to mount
+
+def mount_move(target, source):
+    """Move a mount from one to a point to another.
     """
-    return mount.mount(
-        source=block_dev,
-        target=target_dir,
-        fs_type=fs_type,
-        mnt_flags=(
-            mount.MS_NOATIME,
-            mount.MS_NODIRATIME,
-        )
-    )
+    return mount.mount(source=source, target=target,
+                       fs_type=None, mnt_flags=[mount.MS_MOVE])
 
 
 def mount_bind(newroot, target, source=None, recursive=True, read_only=True):
@@ -87,7 +82,8 @@ def mount_bind(newroot, target, source=None, recursive=True, read_only=True):
 
     res = mount.mount(source=source, target=target_fp,
                       fs_type=None, mnt_flags=mnt_flags)
-    if read_only:
+
+    if res == 0 and read_only:
         res = mount.mount(source=None, target=target_fp,
                           fs_type=None, mnt_flags=(mount.MS_BIND,
                                                    mount.MS_RDONLY,
@@ -96,57 +92,221 @@ def mount_bind(newroot, target, source=None, recursive=True, read_only=True):
     return res
 
 
-def mount_proc(newroot, target='proc'):
-    """Mounts /proc directory on newroot.
-    """
-    while target.startswith('/'):
-        target = target[1:]
-
-    return mount.mount(
-        source='proc',
-        target=os.path.join(newroot, target),
-        fs_type='proc'
-    )
-
-
-def mount_sysfs(newroot, target='sys', read_only=True):
-    """Mounts /sysfs directory on newroot.
-    """
-    while target.startswith('/'):
-        target = target[1:]
-
-    mnt_flags = []
-    if read_only:
-        mnt_flags.append(mount.MS_RDONLY)
-
-    return mount.mount(
-        source='sysfs',
-        target=os.path.join(newroot, target),
-        fs_type='sysfs',
-        mnt_flags=mnt_flags
-    )
-
-
-def mount_tmpfs(newroot, target, size=None):
+def mount_tmpfs(newroot, target, **mnt_opts):
     """Mounts directory on tmpfs.
     """
     while target.startswith('/'):
         target = target[1:]
 
-    mnt_opts = {}
-    if size is not None:
-        mnt_opts['size'] = size
+    mnt_flags = [
+        mount.MS_NODEV,
+        mount.MS_NOEXEC,
+        mount.MS_NOSUID,
+        mount.MS_RELATIME,
+    ]
 
     return mount.mount(
         source='tmpfs',
         target=os.path.join(newroot, target),
         fs_type='tmpfs',
-        mnt_flags=(
-            mount.MS_NOATIME,
-            mount.MS_NODIRATIME,
-        ),
-        mnt_opts=mnt_opts
+        mnt_flags=mnt_flags,
+        **mnt_opts
     )
+
+
+class MountEntry(object):
+    """Mount table entry data.
+    """
+
+    __slots__ = (
+        'source',
+        'target',
+        'fs_type',
+        'mnt_opts',
+        'mount_id',
+        'parent_id'
+    )
+
+    def __init__(self, source, target, fs_type, mnt_opts,
+                 mount_id, parent_id):
+        self.source = source
+        self.target = target
+        self.fs_type = fs_type
+        self.mnt_opts = mnt_opts
+        self.mount_id = int(mount_id)
+        self.parent_id = int(parent_id)
+
+    def __repr__(self):
+        return (
+            '{name}(source={src!r}, target={target!r}, '
+            'fs_type={fs_type!r}, mnt_opts={mnt_opts!r})'
+        ).format(
+            name=self.__class__.__name__,
+            src=self.source,
+            target=self.target,
+            fs_type=self.fs_type,
+            mnt_opts=self.mnt_opts
+        )
+
+    def __lt__(self, other):
+        """Ordering is based on mount target.
+        """
+        return self.target < other.target
+
+    def __eq__(self, other):
+        """Equality is defined as the equality of the mount entry's attributes.
+        """
+        res = (
+            (self.mount_id == other.mount_id) and
+            (self.parent_id == other.parent_id) and
+            (self.source == other.source) and
+            (self.target == other.target) and
+            (self.fs_type == other.fs_type) and
+            (self.mnt_opts == other.mnt_opts)
+        )
+        return res
+
+    @classmethod
+    def mount_entry_parse(cls, mount_entry_line):
+        """Create a `:class:MountEntry from a mountinfo data line.
+
+        The file contains lines of the form:
+
+            36 35 98:0 /mnt1 /mnt2 rw,noatime master:1
+                                            - ext3 /dev/root rw,errors=continue
+            (1)(2)(3)   (4)   (5)      (6)      (7)
+                                           (8) (9)   (10)         (11)
+
+        The numbers in parentheses are labels for the descriptions
+        below:
+
+            (1)  mount ID: a unique ID for the mount (may be reused after
+                 umount(2)).
+
+            (2)  parent ID: the ID of the parent mount (or of self for the
+                 root of this mount namespace's mount tree).
+
+                 If the parent mount point lies outside the process's root
+                 directory (see chroot(2)), the ID shown here won't have a
+                 corresponding record in mountinfo whose mount ID (field
+                 1) matches this parent mount ID (because mount points
+                 that lie outside the process's root directory are not
+                 shown in mountinfo).  As a special case of this point,
+                 the process's root mount point may have a parent mount
+                 (for the initramfs filesystem) that lies outside the
+                 process's root directory, and an entry for that mount
+                 point will not appear in mountinfo.
+
+            (3)  major:minor: the value of st_dev for files on this
+                 filesystem (see stat(2)).
+
+            (4)  root: the pathname of the directory in the filesystem
+                 which forms the root of this mount.
+
+            (5)  mount point: the pathname of the mount point relative to
+                 the process's root directory.
+
+            (6)  mount options: per-mount options.
+
+            (7)  optional fields: zero or more fields of the form
+                 "tag[:value]"; see below.
+
+            (8)  separator: the end of the optional fields is marked by a
+                 single hyphen.
+
+            (9)  filesystem type: the filesystem type in the form
+                 "type[.subtype]".
+
+            (10) mount source: filesystem-specific information or "none".
+
+            (11) super options: per-superblock options.
+
+        """
+        mount_entry_line = mount_entry_line.strip().split(' ')
+
+        (
+            mount_id,
+            parent_id,
+            _major_minor,
+            _parent_path,
+            target,
+            mnt_opts
+        ), data = mount_entry_line[:6], mount_entry_line[6:]
+
+        fields = []
+        while data[0] != '-':
+            fields.append(data.pop(0))
+
+        (
+            _,
+            fs_type,
+            source,
+            mnt_opts2
+        ) = data
+
+        mnt_opts = set(mnt_opts.split(',') + mnt_opts2.split(','))
+
+        return cls(source, target, fs_type, mnt_opts, mount_id, parent_id)
+
+
+def list_mounts():
+    """Read the current process' mounts.
+    """
+    mounts = []
+
+    try:
+        with io.open('/proc/self/mountinfo', 'r') as mf:
+            mounts_lines = mf.readlines()
+
+    except EnvironmentError as err:
+        if err.errno == errno.ENOENT:
+            _LOGGER.warning('Unable to read "/proc/self/mounts": %s', err)
+            return mounts
+        else:
+            raise
+
+    for mounts_line in mounts_lines:
+        mounts.append(MountEntry.mount_entry_parse(mounts_line))
+
+    return mounts
+
+
+###############################################################################
+def cleanup_mounts(whitelist_patterns):
+    """Prune all mount points except whitelisted ones.
+    """
+    _LOGGER.info('Removing all mounts except %r', whitelist_patterns)
+    current_mounts = {
+        mount_entry.mount_id: mount_entry
+        for mount_entry in list_mounts()
+    }
+    # We need to iterate over mounts in "layering" order.
+    mount_parents = {}
+    for mount_entry in current_mounts.values():
+        mount_parents.setdefault(
+            mount_entry.parent_id,
+            []
+        ).append(mount_entry.mount_id)
+
+    sorted_mounts = sorted(
+        [
+            (
+                len(mount_parents.get(mount_entry.mount_id, [])),
+                mount_entry
+            )
+            for mount_entry in current_mounts.values()
+        ]
+    )
+
+    for _, mount_entry in sorted_mounts:
+        is_valid = any(
+            fnmatch.fnmatchcase(mount_entry.target, whitelist_pat)
+            for whitelist_pat in whitelist_patterns
+        )
+        if is_valid:
+            _LOGGER.info('Mount preserved: %r', mount_entry)
+        else:
+            umount_filesystem(mount_entry.target)
 
 
 ###############################################################################
@@ -294,4 +454,5 @@ __all__ = [
     'mount_filesystem',
     'mount_tmpfs',
     'umount_filesystem',
+    'list_mounts',
 ]

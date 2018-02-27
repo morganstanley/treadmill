@@ -285,8 +285,10 @@ class AppCfgMgr(object):
                 if appname in cached and cached[appname] == container:
                     data_dir = os.path.join(self.tm_env.apps_dir, container,
                                             'data')
-                    for file in ['cleanup', 'exitinfo', 'aborted', 'oom']:
-                        if os.path.exists(os.path.join(data_dir, file)):
+                    for cleanup_file in ['exitinfo', 'aborted', 'oom']:
+                        path = os.path.join(data_dir, cleanup_file)
+                        if os.path.exists(path):
+                            _LOGGER.debug('Found cleanup file %r', path)
                             break
                     else:
                         if self._configure(appname):

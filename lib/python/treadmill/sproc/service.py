@@ -8,6 +8,7 @@ from __future__ import unicode_literals
 
 import logging
 import os
+import signal
 
 import click
 
@@ -15,6 +16,10 @@ from treadmill import appenv
 from treadmill import diskbenchmark
 from treadmill import localdiskutils
 from treadmill.fs import linux as fs_linux
+from treadmill import fs
+from treadmill import zkutils
+from treadmill import context
+from treadmill import utils
 
 from .. import services
 
@@ -73,13 +78,12 @@ def init():
                   default_read_iops, default_write_iops):
         """Runs localdisk service."""
 
-        impl = 'treadmill.services.localdisk_service.LocalDiskResourceService'
         root_dir = local_ctx['root-dir']
         watchdogs_dir = local_ctx['watchdogs-dir']
 
         svc = services.ResourceService(
             service_dir=os.path.join(root_dir, 'localdisk_svc'),
-            impl=impl
+            impl='localdisk'
         )
 
         block_dev_params = [block_dev_read_bps, block_dev_write_bps,
@@ -175,7 +179,7 @@ def init():
 
         svc = services.ResourceService(
             service_dir=os.path.join(root_dir, 'cgroup_svc'),
-            impl='treadmill.services.cgroup_service.CgroupResourceService',
+            impl='cgroup',
         )
 
         svc.run(
@@ -200,7 +204,7 @@ def init():
 
         svc = services.ResourceService(
             service_dir=os.path.join(root_dir, 'network_svc'),
-            impl='treadmill.services.network_service.NetworkResourceService',
+            impl='network',
         )
 
         svc.run(
@@ -212,6 +216,43 @@ def init():
             ext_speed=ext_speed
         )
 
+    @service.command()
+    @click.option('--zkid', help='Zookeeper session ID file.')
+    def presence(zkid):
+        """Runs the presence service.
+        """
+        root_dir = local_ctx['root-dir']
+        watchdogs_dir = local_ctx['watchdogs-dir']
+
+        # Explicitely create global zk connection, so that zk session id is
+        # preserved.
+        context.GLOBAL.zk.conn = zkutils.connect(
+            context.GLOBAL.zk.url,
+            idpath=zkid
+        )
+
+        def sigterm_handler(_signo, _stack_frame):
+            """Handle sigterm.
+
+            On sigterm, stop Zookeeper session and delete Zookeeper session
+            id file.
+            """
+            _LOGGER.info('Got SIGTERM, closing zk session and rm: %s', zkid)
+            fs.rm_safe(zkid)
+            context.GLOBAL.zk.conn.stop()
+
+        signal.signal(utils.term_signal(), sigterm_handler)
+
+        svc = services.ResourceService(
+            service_dir=os.path.join(root_dir, 'presence_svc'),
+            impl='presence',
+        )
+
+        svc.run(
+            watchdogs_dir=os.path.join(root_dir, watchdogs_dir)
+        )
+
+    del presence
     del localdisk
     del cgroup
     del network

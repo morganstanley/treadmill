@@ -578,14 +578,14 @@ class API(object):
             try:
                 with io.open(fname) as f:
                     return json.load(f)
-            except EnvironmentError as err:
+            except (OSError, IOError) as err:
                 if uniq == 'running' or err.errno != errno.ENOENT:
                     raise
 
                 fname = _archive_path(tm_env, 'sys', instance, uniq)
                 with tarfile.open(fname) as archive:
                     member = archive.extractfile('state.json')
-                    return json.load(member)
+                    return json.loads(member.read().decode())
 
         class _ArchiveAPI(object):
             """Access to archive files.

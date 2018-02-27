@@ -6,6 +6,7 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
+import errno
 import logging
 import os
 import shutil
@@ -20,8 +21,36 @@ from treadmill import utils
 
 from treadmill.appcfg import manifest as app_manifest
 from treadmill.apptrace import events
+from treadmill import runtime as app_runtime
 
 _LOGGER = logging.getLogger(__name__)
+
+
+def load_runtime_manifest(tm_env, event, runtime):
+    """load manifest data and modify based on runtime
+    :param tm_env:
+        Full path to the application node event in the zookeeper cache.
+     :type event:
+        ``treadmill.appenv.AppEnvironment``
+    :param event:
+        Full path to the application node event in the zookeeper cache.
+    :type event:
+        ``str``
+    :param runtime:
+        The name of the runtime to use.
+    :type runtime:
+        ``str``
+    :return:
+        Application manifest object
+    :rtype:
+        ``dict``
+    """
+    manifest_data = app_manifest.load(event)
+
+    # apply runtime manipulation on manifest data
+    runtime_cls = app_runtime.get_runtime_cls(runtime)
+    runtime_cls.manifest(tm_env, manifest_data)
+    return manifest_data
 
 
 def configure(tm_env, event, runtime):
@@ -38,7 +67,6 @@ def configure(tm_env, event, runtime):
                 - app_start
                 - app.json
                 - manifest.yml
-                - policy.json
                 env/
                 - TREADMILL_*
                 run
@@ -55,7 +83,7 @@ def configure(tm_env, event, runtime):
     """
     # Load the app from the event
     try:
-        manifest_data = app_manifest.load(tm_env, event, runtime)
+        manifest_data = load_runtime_manifest(tm_env, event, runtime)
     except IOError:
         # File is gone. Nothing to do.
         _LOGGER.exception('No event to load: %r', event)
@@ -84,17 +112,34 @@ def configure(tm_env, event, runtime):
         app_run_script=run_script,
         userid='root',
         downed=False,
-        monitor_policy={'limit': 0, 'interval': 60},
+        monitor_policy={
+            'limit': 0,
+            'interval': 60,
+            'tombstone': {
+                'uds': False,
+                'path': tm_env.running_tombstone_dir,
+                'id': app.name
+            }
+        },
         environ={},
         environment=app.environment
     )
     data_dir = container_svc.data_dir
 
     # Copy the original event as 'manifest.yml' in the container dir
-    shutil.copyfile(
-        event,
-        os.path.join(data_dir, 'manifest.yml')
-    )
+    try:
+        shutil.copyfile(
+            event,
+            os.path.join(data_dir, 'manifest.yml')
+        )
+    except IOError as err:
+        # File is gone, cleanup.
+        if err.errno == errno.ENOENT:
+            shutil.rmtree(container_svc.directory)
+            _LOGGER.exception('Event gone: %r', event)
+            return
+        else:
+            raise
 
     # Store the app.json in the container directory
     fs.write_safe(
