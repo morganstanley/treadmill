@@ -8,6 +8,7 @@ from __future__ import unicode_literals
 
 import abc
 import logging
+import os
 import tornado.httpserver
 import tornado.ioloop
 import tornado.web
@@ -16,6 +17,7 @@ import tornado.netutil
 
 import flask
 
+from treadmill import fs
 from treadmill import plugin_manager
 
 
@@ -150,6 +152,7 @@ class UdsRestServer(RestServer):
 
     def _setup_endpoint(self, http_server):
         """Setup the http server endpoint."""
+        fs.mkdir_safe(os.path.dirname(self.socket), mode=0o755)
         unix_socket = tornado.netutil.bind_unix_socket(self.socket,
                                                        backlog=self.backlog)
         if self.workers != 1:

@@ -519,7 +519,7 @@ class NativeImage(_image_base.Image):
         create_supervision_tree(
             self.tm_env, container_dir, root_dir, app,
             cgroups_path=cgroups.makepath(
-                'memory', 'docker'  # XXX: Why "docker"? Issues with shutdown?
+                'memory', cgrp
             )
         )
         create_overlay(self.tm_env, container_dir, root_dir, app)

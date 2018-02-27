@@ -55,9 +55,15 @@ class Docker2RuntimeManifestTest(unittest.TestCase):
         )
         self.assertEqual(
             cmd,
-            ('exec /path/to/treadcmill34 sproc docker --unique_id foo '
-             '--user 274091:19290 --image testwt2 '
-             '--volume /var/tmp:/var/tmp:rw --volume /var/spool:/var/spool:rw')
+            (
+                'exec /path/to/treadcmill34 sproc docker'
+                ' --unique_id foo'
+                ' --user 274091:19290'
+                ' --envdirs /env,/services/foo/env'
+                ' --image testwt2'
+                ' --volume /var/tmp:/var/tmp:rw'
+                ' --volume /var/spool:/var/spool:rw'
+            )
         )
 
         cmd = app_manifest._generate_command(
@@ -65,10 +71,17 @@ class Docker2RuntimeManifestTest(unittest.TestCase):
         )
         self.assertEqual(
             cmd,
-            ('exec /path/to/treadcmill34 sproc docker --unique_id foo '
-             '--user 274091:19290 --image testwt2 '
-             '--volume /var/tmp:/var/tmp:rw --volume /var/spool:/var/spool:rw '
-             '-- foo bar')
+            (
+                'exec /path/to/treadcmill34 sproc docker'
+                ' --unique_id foo'
+                ' --user 274091:19290'
+                ' --envdirs /env,/services/foo/env'
+                ' --image testwt2'
+                ' --volume /var/tmp:/var/tmp:rw'
+                ' --volume /var/spool:/var/spool:rw'
+                ' --'
+                ' foo bar'
+            )
         )
 
 

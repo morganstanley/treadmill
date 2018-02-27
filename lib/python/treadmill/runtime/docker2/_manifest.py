@@ -54,7 +54,10 @@ def _get_docker_run_cmd(username, unique_id, image, command=None):
     ]
 
     tpl = (
-        'exec {tm} sproc docker --unique_id {unique_id} --user {uid}:{gid}'
+        'exec {tm} sproc docker'
+        ' --unique_id {unique_id}'
+        ' --user {uid}:{gid}'
+        ' --envdirs /env,/services/{unique_id}/env'
         ' --image {image}'
     )
 
@@ -109,7 +112,7 @@ def _transform_services(manifest):
 
 def _get_docker_registry(_tm_env):
     # TODO get registry from cell_config.yml
-    return 'registry:5000'
+    return 'lab-repo.msdev.ms.com:5000'
 
 
 def _add_dockerd_services(manifest, tm_env):
