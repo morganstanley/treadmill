@@ -15,6 +15,7 @@ import io
 import json
 import logging
 import os
+import re
 import sqlite3
 import threading
 import time
@@ -196,7 +197,7 @@ class DirWatchPubSub(object):
     """Pubsub dirwatch events."""
 
     def __init__(self, root, impl=None, watches=None):
-        self.root = root
+        self.root = os.path.realpath(root)
         self.impl = impl or {}
         self.watches = watches or []
 
@@ -225,8 +226,12 @@ class DirWatchPubSub(object):
                 _LOGGER.info('Added dir watcher: %s', directory)
                 self.watcher.add_dir(directory)
 
+            # Store pattern as precompiled regex.
+            pattern_re = re.compile(
+                fnmatch.translate(pattern)
+            )
             self.handlers[directory].append(
-                (pattern, ws_handler, impl, sub_id)
+                (pattern_re, ws_handler, impl, sub_id)
             )
         self._sow(watch, pattern, since, ws_handler, impl, sub_id=sub_id)
 
@@ -262,10 +267,10 @@ class DirWatchPubSub(object):
 
         directory_handlers = self.handlers.get(directory, [])
         handlers = [
-            (pattern, handler, impl, sub_id)
-            for pattern, handler, impl, sub_id in directory_handlers
+            (handler, impl, sub_id)
+            for pattern_re, handler, impl, sub_id in directory_handlers
             if (handler.active(sub_id=sub_id) and
-                fnmatch.fnmatch(filename, pattern))
+                pattern_re.match(filename))
         ]
         if not handlers:
             return
@@ -274,15 +279,22 @@ class DirWatchPubSub(object):
             when = time.time()
             content = None
         else:
-            try:
-                when = os.stat(path).st_mtime
-                with io.open(path) as f:
-                    content = f.read()
-            except (IOError, OSError) as err:
-                if err.errno == errno.ENOENT:
-                    # If file was already deleted, it will be handled as 'd'.
-                    return
-                raise
+            if '/trace/' in path:
+                # Specialized handling of trace files (no need to stat/read).
+                # If file was already deleted (trace cleanup), don't ignore it.
+                _, timestamp, _ = filename.split(',', 2)
+                when, content = float(timestamp), ''
+            else:
+                try:
+                    when = os.stat(path).st_mtime
+                    with io.open(path) as f:
+                        content = f.read()
+                except (IOError, OSError) as err:
+                    if err.errno == errno.ENOENT:
+                        # If file was already deleted, ignore.
+                        # It will be handled as 'd'.
+                        return
+                    raise
 
         self._notify(handlers, path, operation, content, when)
 
@@ -290,7 +302,7 @@ class DirWatchPubSub(object):
         """Notify interested handlers of the change."""
         root_len = len(self.root)
 
-        for _pattern, handler, impl, sub_id in handlers:
+        for handler, impl, sub_id in handlers:
             try:
                 payload = impl.on_event(path[root_len:],
                                         operation,

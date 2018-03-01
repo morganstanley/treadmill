@@ -68,8 +68,8 @@ class SupervisorTest(unittest.TestCase):
         supervisor.create_service(
             self.root,
             'xx',
-            'proid1',
             'ls -al',
+            userid='proid1',
             downed=True
         )
         service_dir = os.path.join(self.root, 'xx')
@@ -102,24 +102,31 @@ class SupervisorTest(unittest.TestCase):
         supervisor.create_service(
             svc_dir,
             'xx',
-            'proid1',
             'ls -al',
+            userid='proid1',
             monitor_policy={
-                'a': 'test1'
+                'limit': 5,
+                'interval': 60,
+                'tombstone': {
+                    'uds': True,
+                    'path': '/run/tm_ctl/tombstone',
+                    'id': 'xx'
+                }
             },
             environ={
                 'b': 'test2'
             },
             trace={
-                'c': 'test3'
+                'instanceid': 'xx',
+                'uniqueid': 'ID1234',
+                'service': 'xx',
+                'path': '/run/tm_ctl/appevents'
             }
         )
         service_dir = os.path.join(self.root, 'xx')
         self.assertTrue(os.path.isdir(service_dir))
         data_dir = os.path.join(service_dir, 'data')
         self.assertTrue(os.path.isfile(os.path.join(data_dir, 'app_start')))
-        self.assertTrue(os.path.isfile(os.path.join(data_dir, 'trace')))
-        self.assertTrue(os.path.isfile(os.path.join(data_dir, 'policy.json')))
         self.assertTrue(os.path.isfile(os.path.join(service_dir, 'run')))
         self.assertTrue(os.path.isfile(os.path.join(service_dir, 'finish')))
         self.assertTrue(os.path.isfile(os.path.join(service_dir, 'env/b')))
@@ -135,8 +142,8 @@ class SupervisorTest(unittest.TestCase):
             supervisor.create_service,
             svc_dir,
             'xx',
-            'should not exist',
             'ls -al',
+            userid='should not exist',
             downed=True
         )
 

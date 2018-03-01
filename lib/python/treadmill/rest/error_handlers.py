@@ -39,7 +39,7 @@ def register(api):
     def _authorization_exc(err):
         """Authorization exception handler."""
         _LOGGER.info('Authorization error: %r', err)
-        resp = {'message': err.message,
+        resp = {'message': str(err),
                 'status': http_client.UNAUTHORIZED}
         return resp, http_client.UNAUTHORIZED, _cors_headers()
 
@@ -64,7 +64,7 @@ def register(api):
         """Zookeeper exception handler."""
         _LOGGER.exception('Zookeeper error: %r', err)
         resp = {
-            'message': err.message,
+            'message': str(err),
             'status': http_client.INTERNAL_SERVER_ERROR
         }
         return resp, http_client.INTERNAL_SERVER_ERROR, _cors_headers()
@@ -81,7 +81,7 @@ def register(api):
     def _ldap_not_found_exc(err):
         """LDAP exception handler."""
         _LOGGER.exception('Ldap no such object error: %r', err)
-        resp = {'message': err.message,
+        resp = {'message': str(err),
                 'status': http_client.NOT_FOUND}
         return resp, http_client.NOT_FOUND, _cors_headers()
 
@@ -89,7 +89,7 @@ def register(api):
     def _file_not_found_exc(err):
         """Nodeinfo/local module exception handler."""
         _LOGGER.exception('File not found error: %r', err)
-        resp = {'message': err.message,
+        resp = {'message': str(err),
                 'status': http_client.NOT_FOUND}
         return resp, http_client.NOT_FOUND, _cors_headers()
 
@@ -97,7 +97,7 @@ def register(api):
     def _json_validation_error_exc(err):
         """JSON Schema Validation error exception handler."""
         _LOGGER.info('Schema validation error: %r', err)
-        resp = {'message': err.message,
+        resp = {'message': str(err),
                 'status': http_client.BAD_REQUEST}
         return resp, http_client.BAD_REQUEST, _cors_headers()
 
@@ -106,7 +106,7 @@ def register(api):
         """InvalidInputError exception handler."""
         _LOGGER.exception('Invalid input error: %r', err)
         resp = {
-            'message': err.message,
+            'message': str(err),
             'status': http_client.BAD_REQUEST
         }
         return resp, http_client.BAD_REQUEST, _cors_headers()
@@ -116,7 +116,7 @@ def register(api):
         """NotFoundError exception handler."""
         _LOGGER.exception('Not found error: %r', err)
         resp = {
-            'message': err.message,
+            'message': str(err),
             'status': http_client.NOT_FOUND
         }
         return resp, http_client.NOT_FOUND, _cors_headers()
@@ -126,7 +126,7 @@ def register(api):
         """Found exception handler."""
         _LOGGER.info('Resource already exists: %r', err)
         resp = {
-            'message': err.message,
+            'message': str(err),
             'status': http_client.FOUND
         }
         return resp, http_client.FOUND, _cors_headers()
@@ -136,7 +136,7 @@ def register(api):
         """Treadmill exception handler."""
         _LOGGER.exception('Treadmill error: %r', err)
         resp = {
-            'message': err.message,
+            'message': str(err),
             'status': http_client.INTERNAL_SERVER_ERROR
         }
         return resp, http_client.INTERNAL_SERVER_ERROR, _cors_headers()
@@ -145,7 +145,7 @@ def register(api):
         """Unhandled exception handler."""
         _LOGGER.exception('exception: %r', err)
         resp = {
-            'message': err.message,
+            'message': str(err),
             'status': http_client.INTERNAL_SERVER_ERROR
         }
         return resp, http_client.INTERNAL_SERVER_ERROR, _cors_headers()

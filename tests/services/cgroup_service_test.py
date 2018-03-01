@@ -18,6 +18,7 @@ import tests.treadmill_test_skip_windows  # pylint: disable=W0611
 import mock
 
 import treadmill
+from treadmill import services
 from treadmill.services import cgroup_service
 
 
@@ -63,6 +64,7 @@ class CGroupServiceTest(unittest.TestCase):
 
     @mock.patch('treadmill.cgroups.create', mock.Mock())
     @mock.patch('treadmill.cgroups.get_value', mock.Mock(return_value=10000))
+    @mock.patch('treadmill.cgroups.inherit_value', mock.Mock())
     @mock.patch('treadmill.cgroups.join', mock.Mock())
     @mock.patch('treadmill.cgroups.set_value', mock.Mock())
     @mock.patch('treadmill.services.cgroup_service.CgroupResourceService.'
@@ -87,7 +89,7 @@ class CGroupServiceTest(unittest.TestCase):
         treadmill.cgroups.create.assert_has_calls(
             [
                 mock.call(ss, cgrp)
-                for ss in ['cpu', 'cpuacct', 'memory', 'blkio']
+                for ss in ['cpu', 'cpuacct', 'cpuset', 'memory', 'blkio']
             ]
         )
 
@@ -102,6 +104,11 @@ class CGroupServiceTest(unittest.TestCase):
             mock.call('memory', cgrp, 'memory.memsw.limit_in_bytes', '100M'),
             mock.call('cpu', cgrp, 'cpu.shares',
                       treadmill.sysinfo.BMIPS_PER_CPU)
+        ])
+
+        treadmill.cgroups.inherit_value.assert_has_calls([
+            mock.call('cpuset', cgrp, 'cpuset.cpus'),
+            mock.call('cpuset', cgrp, 'cpuset.mems')
         ])
 
     @mock.patch('treadmill.cgutils.delete', mock.Mock())
@@ -123,7 +130,7 @@ class CGroupServiceTest(unittest.TestCase):
         treadmill.cgutils.delete.assert_has_calls(
             [
                 mock.call(ss, cgrp)
-                for ss in ['cpu', 'cpuacct', 'memory', 'blkio']
+                for ss in ['cpu', 'cpuacct', 'cpuset', 'memory', 'blkio']
             ]
         )
         svc._unregister_oom_handler.assert_called_with(cgrp)
@@ -178,6 +185,14 @@ class CGroupServiceTest(unittest.TestCase):
             registered_handlers
         )
         os.close.assert_called_with('fake_efd')
+
+    def test_load(self):
+        """Test loading service using alias."""
+        # pylint: disable=W0212
+        self.assertEqual(
+            cgroup_service.CgroupResourceService,
+            services.ResourceService(self.root, 'cgroup')._load_impl()
+        )
 
 
 if __name__ == '__main__':

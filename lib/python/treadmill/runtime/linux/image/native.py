@@ -18,6 +18,7 @@ import stat
 from treadmill import appcfg
 from treadmill import cgroups
 from treadmill import fs
+from treadmill import keytabs
 from treadmill import runtime
 from treadmill import subproc
 from treadmill import supervisor
@@ -80,13 +81,17 @@ def create_environ_dir(container_dir, root_dir, app):
     )
 
 
-def create_supervision_tree(container_dir, root_dir, app, cgroups_path):
+def create_supervision_tree(tm_env, container_dir, root_dir, app,
+                            cgroups_path):
     """Creates s6 supervision tree."""
+    uniq_name = appcfg.app_unique_name(app)
+    ctl_uds = os.path.join(os.sep, 'run', 'tm_ctl')
+    tombstone_ctl_uds = os.path.join(ctl_uds, 'tombstone')
+
     sys_dir = os.path.join(container_dir, 'sys')
     sys_scandir = supervisor.create_scan_dir(
         sys_dir,
         finish_timeout=6000,
-        monitor_service='monitor',
         wait_cgroups=cgroups_path,
     )
     for svc_def in app.system_services:
@@ -94,6 +99,11 @@ def create_supervision_tree(container_dir, root_dir, app, cgroups_path):
             monitor_policy = {
                 'limit': svc_def.restart.limit,
                 'interval': svc_def.restart.interval,
+                'tombstone': {
+                    'uds': False,
+                    'path': tm_env.services_tombstone_dir,
+                    'id': '{},{}'.format(uniq_name, svc_def.name)
+                }
             }
         else:
             monitor_policy = None
@@ -121,18 +131,33 @@ def create_supervision_tree(container_dir, root_dir, app, cgroups_path):
         finish_timeout=5000
     )
 
-    trace = {
-        'instanceid': app.name,
-        'uniqueid': app.uniqueid
-    }
     for svc_def in app.services:
+
         if svc_def.restart is not None:
             monitor_policy = {
                 'limit': svc_def.restart.limit,
                 'interval': svc_def.restart.interval,
+                'tombstone': {
+                    'uds': True,
+                    'path': tombstone_ctl_uds,
+                    'id': '{},{}'.format(uniq_name, svc_def.name)
+                }
             }
         else:
             monitor_policy = None
+
+        if svc_def.trace is not None:
+            trace = {
+                'instanceid': app.name,
+                'uniqueid': app.uniqueid,
+                'service': svc_def.name,
+                'path': os.path.join(ctl_uds, 'appevents')
+            }
+        else:
+            trace = None
+
+        logger_template = getattr(svc_def, 'logger', 's6.app-logger.run')
+        _LOGGER.info('Using logger: %s', logger_template)
 
         supervisor.create_service(
             services_scandir,
@@ -147,7 +172,7 @@ def create_supervision_tree(container_dir, root_dir, app, cgroups_path):
             environment=app.environment,
             downed=False,
             trace=trace if svc_def.trace else None,
-            log_run_script='s6.app-logger.run',
+            log_run_script=logger_template,
             monitor_policy=monitor_policy
         )
     services_scandir.write()
@@ -157,6 +182,15 @@ def create_supervision_tree(container_dir, root_dir, app, cgroups_path):
     fs_linux.mount_bind(
         root_dir, os.path.join(os.sep, 'services'),
         source=os.path.join(container_dir, 'services'),
+        recursive=False, read_only=False
+    )
+
+    # Bind the ctrl directory in the container volume which has all the
+    # unix domain sockets to communicate outside the container to treadmill
+    fs.mkdir_safe(os.path.join(root_dir, 'run', 'tm_ctl'))
+    fs_linux.mount_bind(
+        root_dir, os.path.join(os.sep, 'run', 'tm_ctl'),
+        source=tm_env.ctl_dir,
         recursive=False, read_only=False
     )
 
@@ -185,22 +219,25 @@ def make_fsroot(root_dir):
         '/lib64',
         '/opt',
         '/proc',
+        '/root',
         '/run',
         '/sbin',
         '/sys',
         '/tmp',
         '/usr',
         '/var/cache',
+        '/var/empty',
         '/var/lib',
         '/var/lock',
         '/var/log',
         '/var/opt',
         '/var/spool',
         '/var/tmp',
+        '/var/spool/keytabs',
+        '/var/spool/tickets',
+        '/var/spool/tokens',
         # for SSS
         '/var/lib/sss',
-        # for sshd
-        '/var/empty',
     ]
 
     stickydirs = [
@@ -213,6 +250,9 @@ def make_fsroot(root_dir):
         '/var/log',
         '/var/opt',
         '/var/tmp',
+        '/var/spool/keytabs',
+        '/var/spool/tickets',
+        '/var/spool/tokens',
     ]
 
     # these folders are shared with underlying host and other containers,
@@ -221,6 +261,7 @@ def make_fsroot(root_dir):
         '/etc',  # TODO: Add /etc/opt
         '/lib',
         '/lib64',
+        '/root',
         '/sbin',
         '/usr',
         # for SSS
@@ -239,12 +280,19 @@ def make_fsroot(root_dir):
     for directory in stickydirs:
         os.chmod(newroot_norm + directory, 0o777 | stat.S_ISVTX)
 
-    fs_linux.mount_proc(newroot_norm)
-    fs_linux.mount_sysfs(newroot_norm)
+    # /var/empty must be owned by root and not group or world-writable.
+    os.chmod(os.path.join(newroot_norm, 'var/empty'), 0o711)
+
+    fs_linux.mount_bind(
+        newroot_norm, os.path.join(os.sep, 'sys'),
+        source='/sys',
+        recursive=True, read_only=False
+    )
     # TODO: For security, /dev/ should be minimal and separated to each
     #       container.
     fs_linux.mount_bind(
-        newroot_norm, '/dev',
+        newroot_norm, os.path.join(os.sep, 'dev'),
+        source='/dev',
         recursive=True, read_only=False
     )
     # Per FHS3 /var/run should be a symlink to /run which should be tmpfs
@@ -277,31 +325,31 @@ def create_overlay(tm_env, container_dir, root_dir, app):
     # sshd PAM configuration
     _prepare_pam_sshd(tm_env, container_dir, app)
     # constructed keytab.
-    _prepare_krb(tm_env, container_dir)
+    _prepare_krb(tm_env, container_dir, root_dir, app)
     # bind prepared inside container
     _bind_overlay(container_dir, root_dir)
 
 
-def _prepare_krb(tm_env, container_dir):
+def _prepare_krb(tm_env, container_dir, root_dir, app):
     """Manage kerberos environment inside container.
     """
     etc_dir = os.path.join(container_dir, 'overlay', 'etc')
     fs.mkdir_safe(etc_dir)
     kt_dest = os.path.join(etc_dir, 'krb5.keytab')
-    kt_source = os.path.join(tm_env.spool_dir, 'krb5.keytab')
-    kt_host_source = os.path.join('/', 'etc', 'krb5.keytab')
-    _LOGGER.info('Copying keytab: to %r', kt_dest)
+    kt_sources = glob.glob(os.path.join(tm_env.spool_dir, 'keytabs', 'host#*'))
+    keytabs.make_keytab(kt_dest, kt_sources)
 
-    try:
-        shutil.copyfile(kt_source, kt_dest)
-    except IOError as err:
-        if err.errno != errno.ENOENT:
-            raise
-        # TODO: We should probable fail the node instead of having flaky
-        #       containers.
-        _LOGGER.error('No Treadmill managed keytab on node. '
-                      'Falling back to host keytab: %r.', kt_host_source)
-        shutil.copyfile(kt_host_source, kt_dest)
+    for kt_spec in app.keytabs:
+        if ':' in kt_spec:
+            owner, princ = kt_spec.split(':', 1)
+        else:
+            owner = kt_spec
+            princ = kt_spec
+
+        kt_dest = os.path.join(root_dir, 'var', 'spool', 'keytabs', owner)
+        kt_sources = glob.glob(os.path.join(tm_env.spool_dir, 'keytabs',
+                                            '%s#*' % princ))
+        keytabs.make_keytab(kt_dest, kt_sources, owner)
 
 
 def _prepare_ldpreload(container_dir, app):
@@ -402,7 +450,13 @@ def _prepare_resolv_conf(tm_env, container_dir):
 
 
 def _bind_overlay(container_dir, root_dir):
-    """Create the overlay in the container."""
+    """Create the overlay in the container.
+
+    :param ``str`` container_dir:
+        Base directory of container data/config.
+    :param ``str`` root_dir:
+        New root directory of the container.
+    """
     # Overlay overrides container configs
     #   - /etc/resolv.conf, so that container always uses dnscache.
     #   - pam.d sshd stack with special sshd pam that unshares network.
@@ -442,25 +496,6 @@ def get_cgroup_path(app):
     return cgrp
 
 
-def share_cgroup_info(root_dir, cgrp):
-    """Shares subset of cgroup tree with the container."""
-    # Bind /cgroup/memory inside chrooted environment to /cgroup/.../memory
-    # of the container.
-
-    # FIXME: This should be removed and proper cgroups should be
-    #        exposed (readonly). This is so that tools that
-    #        (correctly) read /proc/self/cgroups can access cgroup
-    #        data.
-    shared_subsystems = ['memory']
-    for subsystem in shared_subsystems:
-        fs.mkdir_safe(os.path.join(root_dir, 'cgroup', subsystem))
-        fs_linux.mount_bind(
-            root_dir, os.path.join(os.sep, 'cgroup', subsystem),
-            source=cgroups.makepath(subsystem, cgrp),
-            recursive=True, read_only=False
-        )
-
-
 class NativeImage(_image_base.Image):
     """Represents a native image."""
 
@@ -485,11 +520,13 @@ class NativeImage(_image_base.Image):
         cgrp = get_cgroup_path(app)
 
         create_environ_dir(container_dir, root_dir, app)
-        create_supervision_tree(container_dir, root_dir, app,
-                                cgroups_path=cgroups.makepath('memory', cgrp))
+        create_supervision_tree(
+            self.tm_env, container_dir, root_dir, app,
+            cgroups_path=cgroups.makepath(
+                'memory', cgrp
+            )
+        )
         create_overlay(self.tm_env, container_dir, root_dir, app)
-
-        share_cgroup_info(root_dir, cgrp)
 
 
 class NativeImageRepository(_repository_base.ImageRepository):

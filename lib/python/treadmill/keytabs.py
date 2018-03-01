@@ -12,9 +12,8 @@ import hashlib
 import io
 import logging
 import os
+import pwd
 import random
-import shutil
-import tempfile
 
 import six
 from twisted.internet import reactor
@@ -213,29 +212,27 @@ def _get_keytabs_from(host, port, spool_dir):
         client.disconnect()
 
 
-def make_keytab(zkclient, spool_dir, host_kt=None):
+def request_keytabs(zkclient, spool_dir):
     """Request keytabs from the locker.
     """
     lockers = zkutils.with_retry(zkclient.get_children, z.KEYTAB_LOCKER)
     random.shuffle(lockers)
 
     for locker in lockers:
+        _LOGGER.info('Connecting to keytab locker: %s', locker)
         host, port = locker.split(':')
+        fs.mkdir_safe(spool_dir)
+        if _get_keytabs_from(host, port, spool_dir):
+            return
 
-        try:
-            # put the tmp dir near the destination so they end up on
-            # the same partition
-            tmp_dir = tempfile.mkdtemp(dir=spool_dir)
-            if _get_keytabs_from(host, port, tmp_dir):
-                inputs = glob.glob(os.path.join(tmp_dir, '*'))
-                if host_kt:
-                    inputs.append(host_kt)
 
-                kt_file = os.path.join(spool_dir, 'krb5.keytab')
-                kt_temp = os.path.join(tmp_dir, 'krb5.keytab')
-                subproc.check_call(['kt_add', kt_temp] + inputs)
-                os.rename(kt_temp, kt_file)
-                break
+def make_keytab(kt_target, kt_components, owner=None):
+    """Construct target keytab from individial components."""
+    _LOGGER.info('Creating keytab: %s %r, owner=%s', kt_target, kt_components,
+                 owner)
+    cmd_line = ['kt_add', kt_target] + kt_components
+    subproc.check_call(cmd_line)
 
-        finally:
-            shutil.rmtree(tmp_dir)
+    if owner:
+        uid = pwd.getpwnam(owner).pw_uid
+        os.chown(kt_target, uid, -1)

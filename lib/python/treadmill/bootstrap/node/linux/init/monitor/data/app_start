@@ -7,7 +7,4 @@
 exec \
     {{ treadmill_bin }} \
     sproc --cgroup . \
-    monitor node_services \
-        --approot {{ dir }} \
-        -S {{ dir }}/init \
-        -S {{ dir }}/init1
+    monitor --config-dir ./data/config

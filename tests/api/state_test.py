@@ -115,7 +115,8 @@ class ApiStateTest(unittest.TestCase):
         self.assertEqual(
             state_api.get('foo.bar#0000000007'),
             {'oom': False, 'host': 'baz2', 'when': '1234567890.7',
-             'name': 'foo.bar#0000000007', 'state': 'aborted'}
+             'name': 'foo.bar#0000000007', 'state': 'aborted',
+             'aborted_reason': 'TypeError'}
         )
 
     @mock.patch('treadmill.context.GLOBAL', mock.Mock())

@@ -258,8 +258,6 @@ class UtilsTest(unittest.TestCase):
             utils.bytes_to_readable(1024 * 1024 * 2.5, 'M')
         )
         self.assertEqual('1.0K', utils.bytes_to_readable(1024, 'B'))
-        self.assertEqual('2,310', utils.cpu_to_readable(2310))
-        self.assertEqual('23.10', utils.cpu_to_cores_readable(2310))
 
     def test_tail(self):
         """Tests utils.tail."""
@@ -394,7 +392,8 @@ class UtilsTest(unittest.TestCase):
 
         utils.sane_execvp('/bin/sleep', ['sleep', '30'])
 
-        utils.closefrom.assert_called_with(3)
+        if six.PY2:
+            utils.closefrom.assert_called_with(3)
         signal.signal.assert_has_calls(
             [
                 mock.call(i, signal.SIG_DFL)

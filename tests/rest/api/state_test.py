@@ -56,13 +56,13 @@ class StateTest(unittest.TestCase):
             [
                 {'name': 'foo.bar#0000000001', 'oom': None, 'signal': None,
                  'expires': None, 'when': None, 'host': 'baz1',
-                 'state': 'running', 'exitcode': None},
+                 'state': 'running', 'exitcode': None, 'aborted_reason': None},
                 {'name': 'foo.bar#0000000002', 'oom': False, 'signal': None,
                  'expires': None, 'when': 1234567890.1, 'host': 'baz2',
-                 'state': 'finished', 'exitcode': 0},
+                 'state': 'finished', 'exitcode': 0, 'aborted_reason': None},
                 {'name': 'foo.bar#0000000003', 'oom': False, 'signal': 11,
                  'expires': None, 'when': 1234567890.2, 'host': 'baz3',
-                 'state': 'finished', 'exitcode': None}
+                 'state': 'finished', 'exitcode': None, 'aborted_reason': None}
             ]
         )
         self.assertEqual(resp.status_code, http_client.OK)
@@ -104,7 +104,7 @@ class StateTest(unittest.TestCase):
             {
                 'name': 'foo.bar#0000000001', 'oom': None, 'signal': None,
                 'expires': None, 'when': None, 'host': 'baz1',
-                'state': 'running', 'exitcode': None
+                'state': 'running', 'exitcode': None, 'aborted_reason': None
             }
         )
         self.assertEqual(resp.status_code, http_client.OK)

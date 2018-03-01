@@ -48,11 +48,12 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
-import json
-import os
-import logging
-import time
 import enum
+import errno
+import json
+import logging
+import os
+import time
 
 import jinja2
 
@@ -86,9 +87,6 @@ ERR_NO_SUP = 100
 # svc exits 99 if a timed request timeouts.
 ERR_TIMEOUT = 99
 
-
-POLICY_JSON = 'policy.json'
-TRACE_FILE = 'trace'
 EXITS_DIR = 'exits'
 
 
@@ -155,25 +153,21 @@ def _create_scan_dir_s6(scan_dir, finish_timeout, monitor_service=None,
     scan_dir.finish = svscan_finish_script
     svscan_sigterm_script = utils.generate_template(
         's6.svscan.sigterm',
-        monitor_service=monitor_service,
         _alias=subproc.get_aliases()
     )
     scan_dir.sigterm = svscan_sigterm_script
     svscan_sighup_script = utils.generate_template(
         's6.svscan.sighup',
-        monitor_service=monitor_service,
         _alias=subproc.get_aliases()
     )
     scan_dir.sighup = svscan_sighup_script
     svscan_sigint_script = utils.generate_template(
         's6.svscan.sigint',
-        monitor_service=monitor_service,
         _alias=subproc.get_aliases()
     )
     scan_dir.sigint = svscan_sigint_script
     svscan_sigquit_script = utils.generate_template(
         's6.svscan.sigquit',
-        monitor_service=monitor_service,
         _alias=subproc.get_aliases()
     )
     scan_dir.sigquit = svscan_sigquit_script
@@ -182,16 +176,13 @@ def _create_scan_dir_s6(scan_dir, finish_timeout, monitor_service=None,
 
 # Disable W0613: Unused argument 'kwargs' (for s6/winss compatibility)
 # pylint: disable=W0613
-def _create_scan_dir_winss(scan_dir, finish_timeout, monitor_service=None,
-                           **kwargs):
+def _create_scan_dir_winss(scan_dir, finish_timeout, **kwargs):
     """Create a scan directory.
 
     :param ``str`` scan_dir:
         Location of the scan directory.
     :param ``int`` finish_timeout:
         The finish script timeout.
-    :param ``str`` monitor_service:
-        Service monitoring other services in this scan directory.
     :returns ``_service_dir_base.ServiceDirBase``:
         Instance of a service dir
     """
@@ -207,7 +198,6 @@ def _create_scan_dir_winss(scan_dir, finish_timeout, monitor_service=None,
     scan_dir.finish = svscan_finish_script
     svscan_sigterm_script = utils.generate_template(
         'winss.svscan.sigterm',
-        monitor_service=monitor_service,
         _alias=subproc.get_aliases()
     )
     scan_dir.sigterm = svscan_sigterm_script
@@ -231,6 +221,21 @@ def create_environ_dir(env_dir, env, update=False):
         env_dir, env,
         update=update
     )
+
+
+def read_environ_dir(env_dir):
+    """Read an existing environ directory into a ``dict``.
+
+    :returns:
+        ``dict`` - Dictionary of environment variables.
+    """
+    try:
+        return supervisor_utils.environ_dir_read(env_dir)
+    except (OSError, IOError) as err:
+        if err.errno == errno.ENOENT:
+            return {}
+        else:
+            raise
 
 
 # Disable W0613: Unused argument 'kwargs' (for s6/winss compatibility)
@@ -284,21 +289,20 @@ def _create_service_s6(base_dir,
     else:
         ionice_prio = 6
 
-    monitored = (monitor_policy is not None)
-
     # Setup the run script
     svc.run_script = utils.generate_template(
         run_script,
         user=userid,
         shell=user_pw.pw_shell,
         environ_dir=environ_dir,
-        monitored=monitored,
-        ionice_prio=ionice_prio,
+        trace=trace,
         _alias=subproc.get_aliases()
     )
     # Setup the finish script
     svc.finish_script = utils.generate_template(
         finish_script,
+        monitor_policy=monitor_policy,
+        trace=trace,
         _alias=subproc.get_aliases()
     )
 
@@ -314,8 +318,12 @@ def _create_service_s6(base_dir,
         )
 
     svc.default_down = bool(downed)
-    if monitored:
+    if monitor_policy is not None:
         svc.timeout_finish = 0
+        if monitor_policy['limit'] > 0:
+            exits_dir = os.path.join(svc.data_dir, EXITS_DIR)
+            fs.mkdir_safe(exits_dir)
+            fs.rm_children_safe(exits_dir)
     else:
         svc.timeout_finish = timeout_finish
 
@@ -326,23 +334,6 @@ def _create_service_s6(base_dir,
         os.path.join(svc.data_dir, 'app_start'),
         app_run_script
     )
-    # Optionally write a monitor policy file
-    _LOGGER.info('monitor_policy, %r', monitor_policy)
-    if monitor_policy is not None:
-        exits_dir = os.path.join(svc.data_dir, EXITS_DIR)
-        fs.mkdir_safe(exits_dir)
-        fs.rm_children_safe(exits_dir)
-
-        supervisor_utils.data_write(
-            os.path.join(svc.data_dir, POLICY_JSON),
-            json.dumps(monitor_policy)
-        )
-    # Optionally write trace information file
-    if trace is not None:
-        supervisor_utils.data_write(
-            os.path.join(svc.data_dir, TRACE_FILE),
-            json.dumps(trace)
-        )
 
     return svc
 
@@ -379,8 +370,6 @@ def _create_service_winss(base_dir,
 
     svc.environ = svc_environ
 
-    monitored = (monitor_policy is not None)
-
     # Setup the run script
     svc.run_script = utils.generate_template(
         run_script,
@@ -390,6 +379,7 @@ def _create_service_winss(base_dir,
     # Setup the finish script
     svc.finish_script = utils.generate_template(
         finish_script,
+        monitor_policy=monitor_policy,
         _alias=subproc.get_aliases()
     )
 
@@ -408,23 +398,16 @@ def _create_service_winss(base_dir,
         )
 
     svc.default_down = bool(downed)
-    if monitored:
+    if monitor_policy is not None:
         svc.timeout_finish = 0
+        if monitor_policy['limit'] > 0:
+            exits_dir = os.path.join(svc.data_dir, EXITS_DIR)
+            fs.mkdir_safe(exits_dir)
+            fs.rm_children_safe(exits_dir)
     else:
         svc.timeout_finish = timeout_finish
 
     svc.write()
-
-    # Optionally write a monitor policy file
-    if monitor_policy is not None:
-        exits_dir = os.path.join(svc.data_dir, EXITS_DIR)
-        fs.mkdir_safe(exits_dir)
-        fs.rm_children_safe(exits_dir)
-
-        supervisor_utils.data_write(
-            os.path.join(svc.data_dir, POLICY_JSON),
-            json.dumps(monitor_policy)
-        )
 
     return svc
 
@@ -595,23 +578,23 @@ LongrunService = sup_impl.LongrunService
 ServiceType = _service_base.ServiceType
 
 __all__ = [
-    'ScanDir',
-    'LongrunService',
-    'ServiceType',
     'ERR_COMMAND',
     'ERR_NO_SUP',
-    'POLICY_JSON',
-    'TRACE_FILE',
-    'create_environ_dir',
-    'ServiceWaitAction',
+    'EXITS_DIR',
+    'LongrunService',
+    'ScanDir',
     'ServiceControlAction',
+    'ServiceType',
+    'ServiceWaitAction',
     'SvscanControlAction',
-    'open_service',
+    'control_service',
+    'control_svscan',
+    'create_environ_dir',
     'create_scan_dir',
     'create_service',
     'is_supervised',
-    'control_service',
-    'control_svscan',
+    'open_service',
+    'read_environ_dir',
     'wait_service',
 ]
 

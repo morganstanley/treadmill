@@ -18,6 +18,7 @@ import mock
 
 import treadmill
 from treadmill import subproc
+from treadmill import services
 from treadmill.services import network_service
 
 
@@ -671,6 +672,14 @@ class NetworkServiceTest(unittest.TestCase):
 
         treadmill.iptables.rm_ip_set.assert_called_with(
             treadmill.iptables.SET_PROD_CONTAINERS, '4.4.4.4'
+        )
+
+    def test_load(self):
+        """Test loading service using alias."""
+        # pylint: disable=W0212
+        self.assertEqual(
+            network_service.NetworkResourceService,
+            services.ResourceService(self.root, 'network')._load_impl()
         )
 
 

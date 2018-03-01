@@ -19,7 +19,8 @@ import mock
 
 import treadmill
 from treadmill import cgroups
-from treadmill import cgutils
+
+from treadmill.fs import linux as fs_linux
 
 
 PROCCGROUPS = """#subsys_name    hierarchy       num_cgroups     enabled
@@ -33,29 +34,13 @@ freezer 6       1       0
 net_cls 8       1       0
 blkio   1       1       0
 perf_event      11      1       0
-net_prio        9       1       0"""
-
-PROCMOUNTS_RH6 = """rootfs / rootfs rw 0 0
-proc /proc proc rw,relatime 0 0
-blkio /cgroup/blkio cgroup rw,relatime,blkio 0 0
-cpu /cgroup/cpu cgroup rw,relatime,cpu 0 0
-cpuacct /cgroup/cpuacct cgroup rw,relatime,cpuacct 0 0
-cpuset /cgroup/cpuset cgroup rw,relatime,cpuset 0 0
-devices /cgroup/devices cgroup rw,relatime,devices 0 0
-"""
-
-PROCMOUNTS_RH7 = """sysfs /sys sysfs rw,nosuid,nodev,noexec,relatime 0 0
-proc /proc proc rw,nosuid,nodev,noexec,relatime 0 0
-cgroup /sys/fs/cgroup/systemd cgroup rw,nosuid,nodev,noexec,relatime,xattr 0 0
-pstore /sys/fs/pstore pstore rw,nosuid,nodev,noexec,relatime 0 0
-cgroup /sys/fs/cgroup/cpu,cpuacct cgroup rw,nosuid,nodev,nonexe,cpuacct,cpu 0 0
-cgroup /sys/fs/cgroup/cpuset cgroup rw,nosuid,nodev,noexec,relatime,cpuset 0 0
-cpuset /cgroup/cpuset cgroup rw,relatime,cpuset 0 0
+net_prio        9       1       0
 """
 
 
 class CGroupsTest(unittest.TestCase):
-    """Tests for teadmill.cgroups."""
+    """Tests for teadmill.cgroups.
+    """
 
     def setUp(self):
         self.root = tempfile.mkdtemp()
@@ -64,77 +49,226 @@ class CGroupsTest(unittest.TestCase):
         if self.root and os.path.isdir(self.root):
             shutil.rmtree(self.root)
 
-    @mock.patch('treadmill.cgroups.available_subsystems',
+    @mock.patch('treadmill.cgroups._available_subsystems',
                 mock.Mock(return_value=[
                     'cpu', 'cpuacct', 'cpuset', 'memory', 'blkio'
                 ]))
-    @mock.patch('io.open', mock.Mock(return_value=io.StringIO(PROCMOUNTS_RH6)))
-    def test_read_mounted_cgroups_rh6(self):
-        """Test get mounted point from rh6
+    @mock.patch('treadmill.fs.linux.list_mounts', mock.Mock(spec_set=True))
+    def test_read_mounted_cgroups(self):
+        """Test get mounted point.
         """
-        subsystems2mounts = cgroups.read_mounted_cgroups()
-        self.assertEqual(
-            subsystems2mounts,
-            {
-                'blkio': ['/cgroup/blkio'],
-                'cpu': ['/cgroup/cpu'],
-                'cpuacct': ['/cgroup/cpuacct'],
-                'cpuset': ['/cgroup/cpuset'],
-            }
-        )
 
-    @mock.patch('treadmill.cgroups.available_subsystems',
-                mock.Mock(return_value=[
-                    'cpu', 'cpuacct', 'cpuset', 'memory', 'blkio'
-                ]))
-    @mock.patch('io.open', mock.Mock(return_value=io.StringIO(PROCMOUNTS_RH7)))
-    def test_read_mounted_cgroups_rh7(self):
-        """Test get mounted point from rh7
-        """
+        fs_linux.list_mounts.return_value = [
+            fs_linux.MountEntry(
+                mount_id=24, parent_id=17,
+                source='tmpfs', target='/sys/fs/cgroup',
+                fs_type='tmpfs',
+                mnt_opts={
+                    'mode=755',
+                    'nodev',
+                    'noexec',
+                    'nosuid',
+                    'ro',
+                }
+            ),
+            fs_linux.MountEntry(
+                mount_id=24, parent_id=17,
+                source='cgroup', target='/sys/fs/cgroup/devices',
+                fs_type='cgroup',
+                mnt_opts={
+                    'clone_children',
+                    'noexec',
+                    'relatime',
+                    'rw',
+                    'nosuid',
+                    'devices',
+                    'nodev',
+                }
+            ),
+            fs_linux.MountEntry(
+                mount_id=24, parent_id=17,
+                source='cgroup', target='/sys/fs/cgroup/memory',
+                fs_type='cgroup',
+                mnt_opts={
+                    'clone_children',
+                    'noexec',
+                    'relatime',
+                    'rw',
+                    'nosuid',
+                    'memory',
+                    'nodev',
+                }
+            ),
+            fs_linux.MountEntry(
+                mount_id=24, parent_id=17,
+                source='cgroup', target='/sys/fs/cgroup/blkio',
+                fs_type='cgroup',
+                mnt_opts={
+                    'clone_children',
+                    'blkio',
+                    'noexec',
+                    'relatime',
+                    'rw',
+                    'nosuid',
+                    'nodev',
+                }
+            ),
+            fs_linux.MountEntry(
+                mount_id=24, parent_id=17,
+                source='cgroup', target='/sys/fs/cgroup/net_cls,net_prio',
+                fs_type='cgroup',
+                mnt_opts={
+                    'clone_children',
+                    'noexec',
+                    'relatime',
+                    'net_cls',
+                    'rw',
+                    'nosuid',
+                    'nodev',
+                    'net_prio',
+                }
+            ),
+            fs_linux.MountEntry(
+                mount_id=24, parent_id=17,
+                source='cgroup', target='/sys/fs/cgroup/pids',
+                fs_type='cgroup',
+                mnt_opts={
+                    'pids',
+                    'clone_children',
+                    'noexec',
+                    'relatime',
+                    'rw',
+                    'nosuid',
+                    'nodev',
+                }
+            ),
+            fs_linux.MountEntry(
+                mount_id=24, parent_id=17,
+                source='cgroup', target='/sys/fs/cgroup/hugetlb',
+                fs_type='cgroup',
+                mnt_opts={
+                    'hugetlb',
+                    'clone_children',
+                    'noexec',
+                    'relatime',
+                    'rw',
+                    'nosuid',
+                    'nodev',
+                }
+            ),
+            fs_linux.MountEntry(
+                mount_id=24, parent_id=17,
+                source='cgroup', target='/sys/fs/cgroup/freezer',
+                fs_type='cgroup',
+                mnt_opts={
+                    'clone_children',
+                    'freezer',
+                    'noexec',
+                    'relatime',
+                    'rw',
+                    'nosuid',
+                    'nodev',
+                }
+            ),
+            fs_linux.MountEntry(
+                mount_id=24, parent_id=17,
+                source='cgroup', target='/sys/fs/cgroup/cpu,cpuacct',
+                fs_type='cgroup',
+                mnt_opts={
+                    'clone_children',
+                    'noexec',
+                    'relatime',
+                    'cpuacct',
+                    'cpu',
+                    'rw',
+                    'nosuid',
+                    'nodev',
+                }
+            ),
+            fs_linux.MountEntry(
+                mount_id=24, parent_id=17,
+                source='cgroup', target='/sys/fs/cgroup/perf_event',
+                fs_type='cgroup',
+                mnt_opts={
+                    'clone_children',
+                    'noexec',
+                    'relatime',
+                    'rw',
+                    'perf_event',
+                    'nosuid',
+                    'nodev',
+                }
+            ),
+            fs_linux.MountEntry(
+                mount_id=24, parent_id=17,
+                source='cgroup', target='/sys/fs/cgroup/cpuset',
+                fs_type='cgroup',
+                mnt_opts={
+                    'clone_children',
+                    'cpuset',
+                    'noexec',
+                    'relatime',
+                    'rw',
+                    'nosuid',
+                    'nodev',
+                }
+            ),
+        ]
+
         subsystems2mounts = cgroups.read_mounted_cgroups()
         self.assertEqual(
             subsystems2mounts,
             {
+                'blkio': ['/sys/fs/cgroup/blkio'],
                 'cpu': ['/sys/fs/cgroup/cpu,cpuacct'],
                 'cpuacct': ['/sys/fs/cgroup/cpu,cpuacct'],
-                'cpuset': ['/sys/fs/cgroup/cpuset', '/cgroup/cpuset']
+                'cpuset': ['/sys/fs/cgroup/cpuset'],
+                'memory': ['/sys/fs/cgroup/memory'],
             }
         )
 
     @mock.patch('treadmill.cgroups.get_data',
                 mock.Mock(side_effect=['2', '1\n2', '-1', '']))
     def test_get_value(self):
-        """Test cgroup value fetching"""
-        value = cgroups.get_value('memory', 'foo', 'memory,usage_in_bytes')
+        """Test cgroup value fetching.
+        """
+        value = cgroups.get_value('memory', 'foo', 'memory.usage_in_bytes')
         self.assertEqual(value, 2)
 
-        value = cgroups.get_value('memory', 'foo', 'memory,usage_in_bytes')
+        value = cgroups.get_value('memory', 'foo', 'memory.usage_in_bytes')
         self.assertEqual(value, 1)
 
-        value = cgroups.get_value('memory', 'foo', 'memory,usage_in_bytes')
+        value = cgroups.get_value('memory', 'foo', 'memory.usage_in_bytes')
         self.assertEqual(value, 0)
 
-        value = cgroups.get_value('memory', 'foo', 'memory,usage_in_bytes')
+        value = cgroups.get_value('memory', 'foo', 'memory.usage_in_bytes')
         self.assertEqual(value, 0)
 
-    @mock.patch('treadmill.cgroups.get_mountpoint',
+    @mock.patch('treadmill.cgroups._get_mountpoint',
                 mock.Mock(return_value='/cgroups'))
-    @mock.patch('os.makedirs', mock.Mock())
+    @mock.patch('treadmill.fs.mkdir_safe', mock.Mock(set_spec=True))
     def test_create(self):
-        """Tests cgroup creation."""
+        """Tests cgroup creation.
+        """
         group = os.path.join('treadmill', 'apps', 'test1')
         cgroups.create('cpu', group)
         cgroups.create('memory', group)
         cgroups.create('cpuacct', group)
-        os.makedirs.assert_has_calls(
-            [mock.call('/cgroups/treadmill/apps/test1'),
-             mock.call('/cgroups/treadmill/apps/test1'),
-             mock.call('/cgroups/treadmill/apps/test1')])
+        treadmill.fs.mkdir_safe.assert_has_calls(
+            [
+                mock.call('/cgroups/treadmill/apps/test1'),
+                mock.call('/cgroups/treadmill/apps/test1'),
+                mock.call('/cgroups/treadmill/apps/test1'),
+            ]
+        )
 
-    @mock.patch('treadmill.cgroups.get_mountpoint', mock.Mock())
+    @mock.patch('treadmill.cgroups._get_mountpoint', mock.Mock())
     def test_extractpath(self):
-        """ test cgroup name from a cgroup path"""
-        treadmill.cgroups.get_mountpoint.return_value = '/fs/cgroup/memory'
+        """Test cgroup name from a cgroup path.
+        """
+        # pylint: disable=W0212
+
+        treadmill.cgroups._get_mountpoint.return_value = '/fs/cgroup/memory'
         cgrp = cgroups.extractpath('/fs/cgroup/memory/treadmill/core',
                                    'memory')
         self.assertEqual(cgrp, 'treadmill/core')
@@ -150,12 +284,15 @@ class CGroupsTest(unittest.TestCase):
             cgroups.extractpath('/fs/cgroup/memory/treadmill/core/foo',
                                 'cpu', 'bar')
 
-    @mock.patch('treadmill.cgroups.get_mountpoint', mock.Mock())
+    @mock.patch('treadmill.cgroups._get_mountpoint', mock.Mock())
     @mock.patch('os.rmdir', mock.Mock())
     def test_delete(self):
-        """Tests cgroup deletion."""
+        """Tests cgroup deletion.
+        """
+        # pylint: disable=W0212
+
         cgroups_dir = os.path.join(self.root, 'cgroups')
-        treadmill.cgroups.get_mountpoint.return_value = cgroups_dir
+        treadmill.cgroups._get_mountpoint.return_value = cgroups_dir
 
         group = os.path.join('treadmill', 'apps', 'test1')
         # Create a directory for the cgroup
@@ -167,11 +304,12 @@ class CGroupsTest(unittest.TestCase):
             os.path.join(cgroups_dir, group)
         )
 
-    @mock.patch('treadmill.cgroups.get_mountpoint',
+    @mock.patch('treadmill.cgroups._get_mountpoint',
                 mock.Mock(return_value='/cgroups'))
     @mock.patch('io.open', mock.mock_open())
     def test_join(self):
-        """Tests joining the cgroup."""
+        """Tests joining the cgroup.
+        """
         group = os.path.join('treadmill', 'apps', 'test1')
 
         cgroups.join('cpu', group, '1234')
@@ -180,179 +318,14 @@ class CGroupsTest(unittest.TestCase):
             '/cgroups/treadmill/apps/test1/tasks', 'w')
         io.open().write.assert_called_once_with('1234')
 
-    @mock.patch('treadmill.cgroups.mounted_subsystems',
-                mock.Mock(return_value={'cpu': '/cgroup/cpu'}))
-    @mock.patch('treadmill.cgroups.mount', mock.Mock())
-    def test_ensure_mounted_missing(self):
-        """Checks that missing subsystem is mounted."""
-        cgroups.ensure_mounted(['cpu', 'memory'])
-        treadmill.cgroups.mount.assert_called_with('memory')
-
     @mock.patch('io.open', mock.Mock(return_value=io.StringIO(PROCCGROUPS)))
-    def test_available_subsystems(self):
-        """Test functions """
-        subsystems = cgroups.available_subsystems()
+    def test__available_subsystems(self):
+        """Test parsince available subsystems.
+        """
+        # pylint: disable=W0212
+
+        subsystems = cgroups._available_subsystems()
         self.assertEqual(['cpu', 'cpuacct', 'memory'], subsystems)
-
-    @mock.patch('treadmill.cgroups.create', mock.Mock())
-    @mock.patch('treadmill.cgroups.set_value', mock.Mock())
-    @mock.patch('treadmill.cgroups.get_data',
-                mock.Mock(side_effect=['0', '0', '', '1024', '512']))
-    @mock.patch('treadmill.sysinfo.cpu_count',
-                mock.Mock(return_value=4))
-    def test_create_treadmill_cgroups(self):
-        """Test the creation of core treadmill cgroups"""
-        system_cpu_shares = 50
-        treadmill_cpu_shares = 50
-        treadmill_core_cpu_shares = 10
-        treadmill_apps_cpu_shares = 90
-        treadmill_cpu_cores = 0
-        treadmill_mem = 1024
-        treadmill_core_mem = 512
-        treadmill_apps_mem = treadmill_mem - treadmill_core_mem
-        cgutils.create_treadmill_cgroups(system_cpu_shares,
-                                         treadmill_cpu_shares,
-                                         treadmill_core_cpu_shares,
-                                         treadmill_apps_cpu_shares,
-                                         treadmill_cpu_cores,
-                                         treadmill_mem,
-                                         treadmill_core_mem)
-        calls = [mock.call('cpu', 'system'),
-                 mock.call('cpu', 'treadmill'),
-                 mock.call('cpu', 'treadmill/core'),
-                 mock.call('cpu', 'treadmill/apps'),
-                 mock.call('cpuacct', 'system'),
-                 mock.call('cpuacct', 'treadmill'),
-                 mock.call('cpuacct', 'treadmill/core'),
-                 mock.call('cpuacct', 'treadmill/apps'),
-                 mock.call('cpuset', 'system'),
-                 mock.call('cpuset', 'treadmill'),
-                 mock.call('memory', 'system'),
-                 mock.call('memory', 'treadmill'),
-                 mock.call('memory', 'treadmill/core'),
-                 mock.call('memory', 'treadmill/apps')]
-        treadmill.cgroups.create.assert_has_calls(calls)
-        calls = [mock.call('cpu', 'treadmill',
-                           'cpu.shares', treadmill_cpu_shares),
-                 mock.call('cpu', 'system',
-                           'cpu.shares', system_cpu_shares),
-                 mock.call('cpu', 'treadmill/core',
-                           'cpu.shares', treadmill_core_cpu_shares),
-                 mock.call('cpu', 'treadmill/apps',
-                           'cpu.shares', treadmill_apps_cpu_shares),
-                 mock.call('cpuset', 'system',
-                           'cpuset.mems', 0),
-                 mock.call('cpuset', 'treadmill',
-                           'cpuset.mems', 0),
-                 mock.call('cpuset', 'treadmill',
-                           'cpuset.cpus', '0-3'),
-                 mock.call('cpuset', 'system',
-                           'cpuset.cpus', '0-3'),
-                 mock.call('memory', 'system',
-                           'memory.move_charge_at_immigrate', 1),
-                 mock.call('memory', 'treadmill',
-                           'memory.move_charge_at_immigrate', 1),
-                 mock.call('memory', 'treadmill',
-                           'memory.use_hierarchy', '1'),
-                 mock.call('memory', 'treadmill',
-                           'memory.limit_in_bytes', treadmill_mem),
-                 mock.call('memory', 'treadmill',
-                           'memory.memsw.limit_in_bytes', treadmill_mem),
-                 mock.call('memory', 'treadmill',
-                           'memory.oom_control', '0'),
-                 mock.call('memory', 'treadmill/core',
-                           'memory.move_charge_at_immigrate', 1),
-                 mock.call('memory', 'treadmill/apps',
-                           'memory.move_charge_at_immigrate', 1),
-                 mock.call('memory', 'treadmill/core',
-                           'memory.limit_in_bytes', treadmill_core_mem),
-                 mock.call('memory', 'treadmill/core',
-                           'memory.memsw.limit_in_bytes', treadmill_core_mem),
-                 mock.call('memory', 'treadmill/core',
-                           'memory.soft_limit_in_bytes', treadmill_core_mem),
-                 mock.call('memory', 'treadmill/apps',
-                           'memory.limit_in_bytes', treadmill_apps_mem),
-                 mock.call('memory', 'treadmill/apps',
-                           'memory.memsw.limit_in_bytes', treadmill_apps_mem)]
-        treadmill.cgroups.set_value.assert_has_calls(calls)
-
-    # TODO: Remove or fix
-    # @mock.patch('os.kill', mock.Mock())
-    # def test_kill_apps_in_cgroup(self):
-    #     """Make sure we kill all the stale apps."""
-    #     os.mkdir(os.path.join(self.root, 'a/b/c'))
-    #     os.mkdir(os.path.join(self.root, 'a/b/c/XXX'))
-    #     with open(os.path.join(self.root, 'a/b/c/tasks'), 'w+') as f:
-    #         f.write('123\n231\n')
-    #
-    #    cgutils.kill_apps_in_cgroup(self.root, 'a/b/c', delete_cgrp=True)
-    #    os.kill.assert_has_calls([mock.call(123, signal.SIGKILL),
-    #                              mock.call(321, signal.SIGKILL)])
-    #    self.assertFalse(os.path.exists(os.path.join(self.root, 'a/b/c')))
-
-    @mock.patch('treadmill.cgroups.set_value',
-                mock.Mock())
-    @mock.patch('treadmill.cgroups.get_value',
-                mock.Mock(return_value=512))
-    @mock.patch('treadmill.cgroups.makepath',
-                mock.Mock(return_value='/cgroup/memory/treadmill/apps'))
-    @mock.patch('treadmill.cgutils.total_soft_memory_limits',
-                mock.Mock(return_value=1024))
-    @mock.patch('os.listdir',
-                mock.Mock(return_value=['a', 'b']))
-    @mock.patch('os.path.isdir',
-                mock.Mock(return_value=True))
-    def test_reset_mem_limit_in_bytes(self):
-        """Make sure we are setting hardlimits right"""
-        cgutils.reset_memory_limit_in_bytes()
-        mock_calls = [mock.call('memory',
-                                'treadmill/apps',
-                                'memory.limit_in_bytes'),
-                      mock.call('memory',
-                                'treadmill/apps/a',
-                                'memory.soft_limit_in_bytes'),
-                      mock.call('memory',
-                                'treadmill/apps/b',
-                                'memory.soft_limit_in_bytes')]
-        cgroups.get_value.assert_has_calls(mock_calls)
-        mock_calls = [mock.call('memory',
-                                'treadmill/apps/a',
-                                'memory.limit_in_bytes',
-                                512),
-                      mock.call('memory',
-                                'treadmill/apps/a',
-                                'memory.memsw.limit_in_bytes',
-                                512),
-                      mock.call('memory',
-                                'treadmill/apps/b',
-                                'memory.limit_in_bytes',
-                                512),
-                      mock.call('memory',
-                                'treadmill/apps/b',
-                                'memory.memsw.limit_in_bytes',
-                                512)]
-
-        cgroups.set_value.assert_has_calls(mock_calls)
-
-    @mock.patch('treadmill.cgutils.set_memory_hardlimit', mock.Mock())
-    @mock.patch('treadmill.cgroups.get_value',
-                mock.Mock(return_value=512))
-    @mock.patch('treadmill.cgroups.makepath',
-                mock.Mock(return_value='/cgroup/memory/treadmill/apps'))
-    @mock.patch('treadmill.cgutils.total_soft_memory_limits',
-                mock.Mock(return_value=1024))
-    @mock.patch('os.listdir',
-                mock.Mock(return_value=['a']))
-    @mock.patch('os.path.isdir',
-                mock.Mock(return_value=True))
-    def test_reset_mem_limit_kill(self):
-        """Make sure we kill groups when we cannot lower their hardlimits."""
-        treadmill.cgutils.set_memory_hardlimit.side_effect = \
-            cgutils.TreadmillCgroupError('test')
-
-        res = cgutils.reset_memory_limit_in_bytes()
-
-        self.assertEqual(res, ['a'])
 
 
 if __name__ == '__main__':

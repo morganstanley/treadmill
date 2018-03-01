@@ -206,6 +206,9 @@ class CellState(object):
                 _LOGGER.warning('Unexpected finished state data for %s: %s',
                                 rsrc_id, data['data'])
 
+        if data['state'] == 'aborted' and data['data']:
+            state['aborted_reason'] = data['data']
+
         state['oom'] = data['state'] == 'killed' and data['data'] == 'oom'
 
         return state

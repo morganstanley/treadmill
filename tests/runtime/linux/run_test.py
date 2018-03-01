@@ -90,7 +90,7 @@ class LinuxRuntimeRunTest(unittest.TestCase):
             }
         )
         app_unique_name = appcfg.app_unique_name(app)
-        container_dir = os.path.join(self.root, 'apps', app_unique_name)
+        container_dir = '/some/dir'
         localdisk = {
             'block_dev': '/dev/foo',
         }
@@ -100,7 +100,11 @@ class LinuxRuntimeRunTest(unittest.TestCase):
 
         treadmill.fs.linux.blk_fs_create.assert_called_with('/dev/foo')
         unshare.unshare.assert_called_with(unshare.CLONE_NEWNS)
-        treadmill.fs.linux.mount_filesystem('/dev/foo', '/some/root_dir')
+        treadmill.fs.linux.mount_filesystem.assert_called_with(
+            '/dev/foo',
+            os.path.join(container_dir, 'root'),
+            fs_type='ext4'
+        )
 
     @mock.patch('treadmill.cgroups.join', mock.Mock())
     def test_apply_cgroup_limits(self):
@@ -373,10 +377,12 @@ class LinuxRuntimeRunTest(unittest.TestCase):
     @mock.patch('shutil.copy', mock.Mock())
     @mock.patch('shutil.copytree', mock.Mock())
     @mock.patch('treadmill.runtime.allocate_network_ports', mock.Mock())
-    @mock.patch('treadmill.runtime.linux._run._create_root_dir', mock.Mock())
+    @mock.patch('treadmill.runtime.linux._run._create_root_dir',
+                mock.Mock(return_value='/foo'))
     @mock.patch('treadmill.runtime.linux._run._unshare_network', mock.Mock())
     @mock.patch('treadmill.runtime.linux._run._apply_cgroup_limits',
                 mock.Mock())
+    @mock.patch('treadmill.fs.linux.cleanup_mounts', mock.Mock(set_spec=True))
     @mock.patch('treadmill.fs.linux.mount_bind', mock.Mock())
     @mock.patch('treadmill.runtime.linux.image.get_image_repo', mock.Mock())
     @mock.patch('treadmill.apphook.configure', mock.Mock())
@@ -472,10 +478,11 @@ class LinuxRuntimeRunTest(unittest.TestCase):
         treadmill.runtime.allocate_network_ports.side_effect = \
             _fake_allocate_network_ports
         mock_image = mock.Mock()
-
         treadmill.runtime.linux.image.get_image_repo.return_value = mock_image
+        mock_runtime_config = mock.Mock()
+        mock_runtime_config.host_mount_whitelist = []
 
-        app_run.run(self.tm_env, app_dir, manifest)
+        app_run.run(self.tm_env, mock_runtime_config, app_dir, manifest)
 
         mock_cgroup_client.put.assert_called_with(
             app_unique_name,
@@ -535,11 +542,13 @@ class LinuxRuntimeRunTest(unittest.TestCase):
     @mock.patch('shutil.copy', mock.Mock())
     @mock.patch('treadmill.runtime.allocate_network_ports',
                 mock.Mock())
-    @mock.patch('treadmill.runtime.linux._run._create_root_dir', mock.Mock())
+    @mock.patch('treadmill.runtime.linux._run._create_root_dir',
+                mock.Mock(return_value='/foo'))
     @mock.patch('treadmill.runtime.linux._run._unshare_network', mock.Mock())
     @mock.patch('treadmill.runtime.linux._run._apply_cgroup_limits',
                 mock.Mock())
     @mock.patch('treadmill.runtime.linux.image.get_image_repo', mock.Mock())
+    @mock.patch('treadmill.fs.linux.cleanup_mounts', mock.Mock(set_spec=True))
     @mock.patch('treadmill.fs.linux.mount_bind', mock.Mock())
     @mock.patch('treadmill.apphook.configure', mock.Mock())
     @mock.patch('treadmill.subproc.exec_pid1', mock.Mock())
@@ -612,8 +621,10 @@ class LinuxRuntimeRunTest(unittest.TestCase):
             return mock.DEFAULT
         treadmill.runtime.allocate_network_ports.side_effect = \
             _fake_allocate_network_ports
+        mock_runtime_config = mock.Mock()
+        mock_runtime_config.host_mount_whitelist = []
 
-        app_run.run(self.tm_env, app_dir, manifest)
+        app_run.run(self.tm_env, mock_runtime_config, app_dir, manifest)
 
         self.assertFalse(
             os.path.exists(
@@ -624,11 +635,13 @@ class LinuxRuntimeRunTest(unittest.TestCase):
     @mock.patch('pwd.getpwnam', mock.Mock())
     @mock.patch('shutil.copy', mock.Mock())
     @mock.patch('treadmill.runtime.allocate_network_ports', mock.Mock())
-    @mock.patch('treadmill.runtime.linux._run._create_root_dir', mock.Mock())
+    @mock.patch('treadmill.runtime.linux._run._create_root_dir',
+                mock.Mock(return_value='/foo'))
     @mock.patch('treadmill.runtime.linux._run._unshare_network', mock.Mock())
     @mock.patch('treadmill.runtime.linux._run._apply_cgroup_limits',
                 mock.Mock())
     @mock.patch('treadmill.runtime.linux.image.get_image_repo', mock.Mock())
+    @mock.patch('treadmill.fs.linux.cleanup_mounts', mock.Mock(set_spec=True))
     @mock.patch('treadmill.fs.linux.mount_bind', mock.Mock())
     @mock.patch('treadmill.apphook.configure', mock.Mock())
     @mock.patch('treadmill.subproc.exec_pid1', mock.Mock())
@@ -688,8 +701,10 @@ class LinuxRuntimeRunTest(unittest.TestCase):
             return mock.DEFAULT
         treadmill.runtime.allocate_network_ports.side_effect = \
             _fake_allocate_network_ports
+        mock_runtime_config = mock.Mock()
+        mock_runtime_config.host_mount_whitelist = []
         # Make sure that despite ticket absence there is no throw.
-        app_run.run(self.tm_env, app_dir, manifest)
+        app_run.run(self.tm_env, mock_runtime_config, app_dir, manifest)
 
     @mock.patch('socket.socket.bind', mock.Mock())
     @mock.patch('socket.socket.listen', mock.Mock())

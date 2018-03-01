@@ -10,7 +10,9 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import logging
+import random
 import re
+import shlex
 import time
 
 try:
@@ -182,6 +184,9 @@ _PASSTHROUGH_RULE_RE = re.compile((
     r'$'
 ))
 
+#: Exit code in iptables>=1.4.20 when the table lock is already held.
+_IPTABLES_EXIT_LOCKED = 4
+
 
 def initialize(external_ip):
     """Initialize iptables firewall by bulk loading all the Treadmill static
@@ -192,17 +197,15 @@ def initialize(external_ip):
     :param ``str`` external_ip:
         External IP to use with NAT rules
     """
-    ipset_rules = _IPSET_SETS.render(
-        any_container=_SET_CONTAINERS,
-        infra_services=SET_INFRA_SVC,
-        passthroughs=SET_PASSTHROUGHS,
-        nodes=SET_TM_NODES,
-        nonprod_containers=SET_NONPROD_CONTAINERS,
-        prod_containers=SET_PROD_CONTAINERS,
-        prod_sources=SET_PROD_SOURCES,
-        vring_containers=SET_VRING_CONTAINERS,
-    )
-    ipset_restore(ipset_rules)
+    # Ensure all the IPSets exists.
+    ipsets_ensure_exist()
+
+    # Do one time IPSet clean up.
+    flush_set(_SET_CONTAINERS)
+    add_ip_set(_SET_CONTAINERS, SET_PROD_CONTAINERS)
+    add_ip_set(_SET_CONTAINERS, SET_NONPROD_CONTAINERS)
+    flush_set(SET_INFRA_SVC)
+    flush_set(SET_VRING_CONTAINERS)
 
     iptables_state = _IPTABLES_TABLES.render(
         any_container=_SET_CONTAINERS,
@@ -242,8 +245,28 @@ def initialize(external_ip):
         filter_table_set(('-j DROP',), ('-j DROP',))
 
 
+def ipsets_ensure_exist():
+    """Initialize all used IPSets.
+    """
+    ipset_rules = _IPSET_SETS.render(
+        any_container=_SET_CONTAINERS,
+        infra_services=SET_INFRA_SVC,
+        passthroughs=SET_PASSTHROUGHS,
+        nodes=SET_TM_NODES,
+        nonprod_containers=SET_NONPROD_CONTAINERS,
+        prod_containers=SET_PROD_CONTAINERS,
+        prod_sources=SET_PROD_SOURCES,
+        vring_containers=SET_VRING_CONTAINERS,
+    )
+    ipset_restore(ipset_rules)
+
+
 def filter_table_set(filter_in_nonprod_chain, filter_out_nonprod_chain):
-    """Initialize the environment based filtering rule with the provided rules.
+    """Initialize the filter table chains' rules with the provided rules.
+
+    NOTE: Requires `SET_INFRA_SVC`, `SET_PROD_CONTAINERS`,
+    `SET_NONPROD_CONTAINERS` and `_SET_CONTAINERS` to be already defined.  See
+    `func:filter_sets_set`.
 
     :param filter_in_nonprod_chain:
         prod/nonprod -> non-prod FORWARD filter rules.
@@ -257,8 +280,15 @@ def filter_table_set(filter_in_nonprod_chain, filter_out_nonprod_chain):
         prod_containers=SET_PROD_CONTAINERS,
         nonprod_containers=SET_NONPROD_CONTAINERS,
         filter_in_nonprod_chain=filter_in_nonprod_chain,
-        filter_out_nonprod_chain=filter_out_nonprod_chain
+        filter_out_nonprod_chain=filter_out_nonprod_chain,
+        filter_exception_chain=EXCEPTION_FILTER,
     )
+
+    # NOTE: The filter_exception_chain needs to be created separately because
+    # iptables-restores always flushes the chains.  Doing it like this allows
+    # for 'ensure exists' semantics.
+    create_chain('filter', EXCEPTION_FILTER)
+
     return _iptables_restore(filtering_table, noflush=True)
 
 
@@ -283,19 +313,15 @@ def add_raw_rule(table, chain, rule, safe=False):
     :param ``bool`` safe:
         Query iptables prior to adding to prevent duplicates
     """
-    add_cmd = ['iptables', '-t', table, '-A', chain] + rule.split()
-    _LOGGER.info('%s', add_cmd)
     if safe:
         # Check if the rule already exists, and if it is, do nothing.
-        list_cmd = ['iptables', '-t', table, '-S', chain]
-        _LOGGER.info('%s', list_cmd)
-        lines = [line.strip() for line in
-                 subproc.check_output(list_cmd).splitlines()]
+        lines = _iptables_output(table, '-S', chain).splitlines()
         match = '-A %s %s' % (chain, rule)
         if match in lines:
             return
 
-    subproc.check_call(add_cmd)
+    rule_parts = shlex.split(rule)
+    _iptables(table, '-A', chain, rule_parts)
 
 
 def delete_raw_rule(table, chain, rule):
@@ -308,15 +334,15 @@ def delete_raw_rule(table, chain, rule):
     :param ``str`` rule:
         Raw iptables rule
     """
-    del_cmd = ['iptables', '-t', table, '-D', chain] + rule.split()
-    _LOGGER.info('%s', del_cmd)
+    rule_parts = shlex.split(rule)
 
     try:
-        subproc.check_call(del_cmd)
+        _iptables(table, '-D', chain, rule_parts)
     except subproc.CalledProcessError as exc:
-        if exc.returncode == 1:
-            # iptables exit with rc 1 if rule is not found, not fatal when
-            # deleting.
+        if exc.returncode in (1, 2):
+            # iptables exit with rc 1 (1.4.7) or 2 (1.4.21) if rule is not
+            # found, not fatal when deleting.
+            # FIXME: detect version of iptables
             pass
         else:
             raise
@@ -330,7 +356,10 @@ def create_chain(table, chain):
     :param ``str`` chain:
         Name of the chain to create
     """
-    subproc.call(['iptables', '-t', table, '-N', chain])
+    try:
+        _iptables(table, '-N', chain)
+    except subproc.CalledProcessError:
+        pass
 
 
 def flush_chain(table, chain):
@@ -341,7 +370,10 @@ def flush_chain(table, chain):
     :param ``str`` chain:
         Name of the chain to create
     """
-    subproc.call(['iptables', '-t', table, '-vF', chain])
+    try:
+        _iptables(table, '-F', chain)
+    except subproc.CalledProcessError:
+        pass
 
 
 def delete_chain(table, chain):
@@ -352,7 +384,10 @@ def delete_chain(table, chain):
     :param ``str`` chain:
         Name of the chain to delete
     """
-    subproc.call(['iptables', '-t', table, '-X', chain])
+    try:
+        _iptables(table, '-X', chain)
+    except subproc.CalledProcessError:
+        pass
 
 
 def _dnat_rule_format(dnat_rule):
@@ -498,8 +533,7 @@ def _get_current_dnat_rules(chain):
     if chain is None:
         chain = PREROUTING_DNAT
     rules = set()
-    iptables_cmd = ['iptables', '-t', 'nat', '-S', chain]
-    for line in subproc.check_output(iptables_cmd).splitlines():
+    for line in _iptables_output('nat', '-S', chain).splitlines():
         dnat_match = _DNAT_RULE_RE.match(line.strip())
         if dnat_match:
             data = dnat_match.groupdict()
@@ -556,8 +590,7 @@ def _get_current_snat_rules(chain):
     if chain is None:
         chain = POSTROUTING_SNAT
     rules = set()
-    iptables_cmd = ['iptables', '-t', 'nat', '-S', chain]
-    for line in subproc.check_output(iptables_cmd).splitlines():
+    for line in _iptables_output('nat', '-S', chain).splitlines():
         snat_match = _SNAT_RULE_RE.match(line.strip())
         if snat_match:
             data = snat_match.groupdict()
@@ -614,8 +647,7 @@ def _get_current_passthrough_rules(chain):
     rules = set()
     if chain is None:
         chain = PREROUTING_PASSTHROUGH
-    iptables_cmd = ['iptables', '-t', 'nat', '-S', chain]
-    for line in subproc.check_output(iptables_cmd).splitlines():
+    for line in _iptables_output('nat', '-S', chain).splitlines():
         match = _PASSTHROUGH_RULE_RE.match(line.strip())
         if match:
             data = match.groupdict()
@@ -823,15 +855,13 @@ def init_set(new_set, set_type='hash:ip', **set_options):
     flush_set(new_set)
 
 
-def destroy_set(target_set, safe=False):
+def destroy_set(target_set):
     """Destroy an IPSet set.
 
     :param ``str`` target_set:
         Name of the IPSet set to destroy.
-    :param ``bool`` safe:
-        Ignore non-existing set.
     """
-    _ipset('destroy', target_set, use_except=not safe)
+    _ipset('destroy', target_set, use_except=False)
 
 
 def flush_set(target_set):
@@ -866,9 +896,9 @@ def atomic_set(target_set, content, set_type='hash:ip', **set_options):
     _LOGGER.debug('Temporary IPSet: %r', new_set)
     try:
         # Create a new empty IPSet set
-        init_set(
+        create_set(
             new_set,
-            set_type,
+            set_type=set_type,
             **set_options
         )
         # Add all the data at once using a restore script
@@ -881,7 +911,7 @@ def atomic_set(target_set, content, set_type='hash:ip', **set_options):
         ipset_restore('\n'.join(ipset_dump))
         # All synchronized, now replace the old IPSet with the new one
         swap_set(target_set, new_set)
-        _LOGGER.info('IPSet %r reset.', target_set)
+        _LOGGER.info('IPSet %r updated.', target_set)
 
     finally:
         # Destroy the temporary IPSet set
@@ -982,11 +1012,57 @@ def ipset_restore(ipset_state):
 
 
 def _ipset(*args, **kwargs):
-    """Invoke the IPSet command"""
+    """Invoke the IPSet command.
+    """
     # Default to using exceptions.
     kwargs.setdefault('use_except', True)
     full_cmd = ['ipset'] + list(args)
     return subproc.invoke(full_cmd, **kwargs)
+
+
+def _iptables(table, action, chain, rules=None):
+    """Invoke iptables with the given table, action, chain and rules.
+    """
+    cmd = ['iptables', '-t', table, action, chain]
+    if rules is not None:
+        cmd += rules
+
+    _LOGGER.debug('%r', cmd)
+    while True:
+        try:
+            res = subproc.check_call(cmd)
+            break
+        except subproc.CalledProcessError as err:
+            if err.returncode == _IPTABLES_EXIT_LOCKED:
+                _LOGGER.debug('xtable locked, retrying.')
+                # table locked, spin and try again
+                time.sleep(random.uniform(0, 1))
+            else:
+                raise
+
+    return res
+
+
+def _iptables_output(table, action, chain):
+    """Invoke iptables with the given table, action and chain and capture its
+    output.
+    """
+    cmd = ['iptables', '-t', table, action, chain]
+
+    _LOGGER.debug('%r', cmd)
+    while True:
+        try:
+            res = subproc.check_output(cmd)
+            break
+        except subproc.CalledProcessError as err:
+            if err.returncode == _IPTABLES_EXIT_LOCKED:
+                _LOGGER.debug('xtable locked, retrying.')
+                # table locked, spin and try again
+                time.sleep(random.uniform(0, 1))
+            else:
+                raise
+
+    return res
 
 
 def _iptables_restore(iptables_state, noflush=False):
@@ -1002,6 +1078,18 @@ def _iptables_restore(iptables_state, noflush=False):
     if noflush:
         cmd.append('--noflush')
 
-    subproc.invoke(cmd,
-                   cmd_input=iptables_state,
-                   use_except=True)
+    while True:
+        try:
+            res = subproc.invoke(cmd,
+                                 cmd_input=iptables_state,
+                                 use_except=True)
+            break
+        except subproc.CalledProcessError as err:
+            if err.returncode == _IPTABLES_EXIT_LOCKED:
+                _LOGGER.debug('xtable locked, retrying.')
+                # table locked, spin and try again
+                time.sleep(random.uniform(0, 1))
+            else:
+                raise
+
+    return res

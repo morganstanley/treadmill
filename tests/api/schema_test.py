@@ -121,6 +121,7 @@ class ApiSchemaTest(unittest.TestCase):
             {'name': 'sleep', 'command': '/bin/sleep 1'}
         ]})
         _ok(api.create, 'foo.bla', good)
+        _ok(api.create, 'foo-bar.bla', good)
         _ok(api.create, 'foo@treadmll-users.bla', good)
 
         _fail(api.create, 'foo.bla',
@@ -173,6 +174,7 @@ class ApiSchemaTest(unittest.TestCase):
 
         # Tickets.
         good.update({'tickets': ['myproid@krb.realm']})
+        good.update({'tickets': ['myproid-foo@krb.realm']})
         _ok(api.create, 'foo.bla', good)
         _fail(api.create, 'foo.bla',
               _patch(good, '/tickets/0', 'ddd:d'))

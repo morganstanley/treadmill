@@ -8,6 +8,7 @@ from __future__ import unicode_literals
 
 import click
 
+from treadmill import appenv
 from treadmill import cleanup
 from treadmill import cli
 from treadmill import utils
@@ -25,7 +26,8 @@ def init():
                   envvar='TREADMILL_APPROOT', required=True)
     def cleanup_watcher(approot):
         """Start cleanup watcher."""
-        cleaner = cleanup.Cleanup(approot)
+        tm_env = appenv.AppEnvironment(root=approot)
+        cleaner = cleanup.Cleanup(tm_env)
         cleaner.run()
 
     @cleanup_grp.command('instance')
@@ -39,7 +41,8 @@ def init():
         """
         param = utils.equals_list2dict(runtime_param or [])
 
-        cleaner = cleanup.Cleanup(approot)
+        tm_env = appenv.AppEnvironment(root=approot)
+        cleaner = cleanup.Cleanup(tm_env)
         cleaner.invoke(runtime, instance, param)
 
     del cleanup_watcher

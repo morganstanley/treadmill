@@ -605,7 +605,11 @@ class Admin(object):
 
     def add(self, dn, object_class=None, attributes=None):
         """Call ldap add and raise exception on non-success."""
-        self.ldap.add(dn, object_class, attributes)
+        sorted_attributes = collections.OrderedDict(sorted(
+            (k, v)
+            for k, v in six.iteritems(attributes)
+        )) if attributes else None
+        self.ldap.add(dn, object_class, sorted_attributes)
         self._test_raise_exceptions()
 
     def delete(self, dn):
@@ -636,7 +640,10 @@ class Admin(object):
                              attributes=['olcAttributeTypes',
                                          'olcObjectClasses'])
 
-        schema_dn, entry = next(result)
+        try:
+            schema_dn, entry = next(result)
+        except StopIteration:
+            return None
 
         attr_types = []
         for attr_type_s in entry.get('olcAttributeTypes', []):
@@ -807,7 +814,7 @@ class Admin(object):
 
     def update_schema(self, new_schema):
         """Safely update schema, preserving existing attribute types."""
-        old_schema = self.schema()
+        old_schema = self.schema() or self.init_schema()
 
         schema_dn = old_schema['dn']
         old_attr_types = old_schema['attributeTypes']
@@ -850,6 +857,16 @@ class Admin(object):
             self.modify(schema_dn, changes)
         else:
             _LOGGER.info('Schema is up to date.')
+
+    def init_schema(self):
+        """Initializes treadmill ldap schema namespace."""
+        schema_dn = 'cn=treadmill,cn=schema,cn=config'
+        schema_object_class = 'olcSchemaConfig'
+        schema_attributes = {'cn': 'treadmill'}
+        _LOGGER.debug('Creating: %s %s %s',
+                      schema_dn, schema_object_class, schema_attributes)
+        self.add(schema_dn, schema_object_class, schema_attributes)
+        return self.schema()
 
     def init(self):
         """Initializes treadmill ldap namespace."""
@@ -1003,7 +1020,7 @@ class LdapObject(object):
 
         self.admin.create(self.dn(ident), entry)
 
-    def list(self, attrs):
+    def list(self, attrs, generator=False):
         """List records, given attribute filter."""
         query = self._query()
         for ldap_field, obj_field, _field_type in self.schema():
@@ -1025,6 +1042,8 @@ class LdapObject(object):
                                          search_filter=query.to_str(),
                                          search_scope=ldap3.SUBTREE,
                                          attributes=self.attrs())
+        if generator:
+            return (self.from_entry(entry, dn) for dn, entry in result)
         return [self.from_entry(entry, dn) for dn, entry in result]
 
     def update(self, ident, attrs):

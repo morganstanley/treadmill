@@ -21,6 +21,7 @@ import mock
 import treadmill
 from treadmill import localdiskutils
 from treadmill import subproc
+from treadmill import services
 from treadmill.services import localdisk_service
 
 
@@ -471,6 +472,14 @@ class LocalDiskServiceTest(unittest.TestCase):
         treadmill.fs.create_excl.assert_called_with(
             '/bar/foo',
             10 * 1024**3 - 2 * 1024**3,  # 10G free - 2G reserve
+        )
+
+    def test_load(self):
+        """Test loading service using alias."""
+        # pylint: disable=W0212
+        self.assertEqual(
+            localdisk_service.LocalDiskResourceService,
+            services.ResourceService(self.root, 'localdisk')._load_impl()
         )
 
 

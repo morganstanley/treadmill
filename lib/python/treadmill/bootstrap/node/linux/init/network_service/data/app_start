@@ -13,7 +13,7 @@ exec \
 {%- if network_device %}
         --ext-device {{ network_device }} \
 {%- endif %}
-{%- if network_ip%}
+{%- if network_ip %}
         --ext-ip {{ network_ip}} \
 {%- endif %}
 {%- if network_mtu %}

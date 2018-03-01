@@ -7,6 +7,8 @@ treadmill = treadmill.console:run
 [treadmill.runtime]
 linux = treadmill.runtime.linux:LinuxRuntime
 docker = treadmill.runtime.docker:DockerRuntime
+docker2 = treadmill.runtime.docker2:LinuxRuntime
+
 
 
 [treadmill.profiles]
@@ -23,12 +25,16 @@ dns = treadmill.dnsctx
 
 [treadmill.image.native.fs]
 
-
 [treadmill.image.tar.fs]
 
 
 [treadmill.apphooks]
 
+
+[treadmill.rest.authentication]
+trusted = treadmill.rest.auth.trusted
+
+[treadmill.rest.error_handlers]
 
 [treadmill.rest.api]
 allocation = treadmill.rest.api.allocation
@@ -50,10 +56,6 @@ server = treadmill.rest.api.server
 state = treadmill.rest.api.state
 tenant = treadmill.rest.api.tenant
 
-[treadmill.rest.authentication]
-trusted = treadmill.rest.auth.trusted
-
-[treadmill.rest.error_handlers]
 
 [treadmill.api]
 allocation = treadmill.api.allocation
@@ -74,6 +76,7 @@ scheduler = treadmill.api.scheduler
 server = treadmill.api.server
 state = treadmill.api.state
 tenant = treadmill.api.tenant
+
 
 [treadmill.api.instance.plugins]
 
@@ -102,6 +105,7 @@ endpoint = treadmill.formatter.tablefmt:EndpointPrettyFormatter
 haproxy = treadmill.formatter.tablefmt:HAProxyPrettyFormatter
 identity-group = treadmill.formatter.tablefmt:IdentityGroupPrettyFormatter
 instance-state = treadmill.formatter.tablefmt:InstanceStatePrettyFormatter
+instance-finished-state = treadmill.formatter.tablefmt:InstanceFinishedStatePrettyFormatter
 ldap-schema = treadmill.formatter.tablefmt:LdapSchemaPrettyFormatter
 partition = treadmill.formatter.tablefmt:PartitionPrettyFormatter
 placement = treadmill.formatter.tablefmt:PlacementPrettyFormatter
@@ -138,6 +142,7 @@ stop = treadmill.cli.stop
 supervise = treadmill.cli.supervise
 trace = treadmill.cli.trace
 trace-identity = treadmill.cli.trace_identity
+
 
 [treadmill.cli.admin]
 blackout = treadmill.cli.admin.blackout
@@ -210,6 +215,7 @@ ad = treadmill.sproc.ad
 appcfgmgr = treadmill.sproc.appcfgmgr
 appevents = treadmill.sproc.appevents
 appmonitor = treadmill.sproc.appmonitor
+boot = treadmill.sproc.boot
 cellsync = treadmill.sproc.cellsync
 cgroup = treadmill.sproc.cgroup
 cgroup-server = treadmill.sproc.cgroup_server
@@ -217,6 +223,7 @@ checkout = treadmill.sproc.checkout
 cleanup = treadmill.sproc.cleanup
 configure = treadmill.sproc.configure
 cron = treadmill.sproc.cron
+docker = treadmill.sproc.docker
 eventdaemon = treadmill.sproc.eventdaemon
 exec = treadmill.sproc.exec
 export-reports = treadmill.sproc.export_reports
@@ -227,6 +234,7 @@ host-aliases = treadmill.sproc.host_aliases
 host-ring = treadmill.sproc.host_ring
 init = treadmill.sproc.init
 kafka = treadmill.sproc.kafka
+kernel-watchdog = treadmill.sproc.kernel_watchdog
 keytabs = treadmill.sproc.keytabs
 metrics = treadmill.sproc.metrics
 monitor = treadmill.sproc.monitor
@@ -293,3 +301,26 @@ cli_callbacks = treadmill.infra.utils.cli_callbacks
 hosted_zones = treadmill.infra.utils.hosted_zones
 mutually_exclusive_option = treadmill.infra.utils.mutually_exclusive_option
 security_group = treadmill.infra.utils.security_group
+
+
+[treadmill.connection.manager]
+
+
+[treadmill.cellsync]
+appgroups = treadmill.cellsync:sync_appgroups
+allocations = treadmill.cellsync:sync_allocations
+partitions = treadmill.cellsync:sync_partitions
+servers = treadmill.cellsync:sync_servers
+
+
+[treadmill.services]
+localdisk = treadmill.services.localdisk_service:LocalDiskResourceService
+cgroup = treadmill.services.cgroup_service:CgroupResourceService
+network = treadmill.services.network_service:NetworkResourceService
+presence = treadmill.services.presence_service:PresenceResourceService
+
+
+[treadmill.tombstones]
+container-cleanup = treadmill.monitor:MonitorContainerCleanup
+node-down = treadmill.monitor:MonitorNodeDown
+container-down = treadmill.monitor:MonitorContainerDown

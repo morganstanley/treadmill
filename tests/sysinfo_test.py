@@ -186,7 +186,7 @@ power management: [8]
         self.assertEqual(400, du.total)
         self.assertEqual(80, du.free)
 
-    @mock.patch('treadmill.cgroups.get_cpuset_cores',
+    @mock.patch('treadmill.cgutils.get_cpuset_cores',
                 mock.Mock(return_value=six.moves.range(0, 4)))
     @mock.patch('io.open', mock.mock_open(read_data=CPUINFO.strip()))
     def test_bogomips(self):
@@ -205,7 +205,7 @@ power management: [8]
     @mock.patch('time.time', mock.Mock(return_value=50))
     @mock.patch('treadmill.cgroups.get_value',
                 mock.Mock(return_value=42 * 1024**2))
-    @mock.patch('treadmill.cgroups.get_cpu_shares',
+    @mock.patch('treadmill.cgutils.get_cpu_shares',
                 mock.Mock(return_value=2))
     @mock.patch('treadmill.sysinfo.BMIPS_PER_CPU', 1)
     @mock.patch('psutil.boot_time', mock.Mock(return_value=8))

@@ -7,13 +7,14 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import glob
-import importlib
-import io
 import logging
 import os
 import shutil
 import socket
-import tempfile
+import subprocess
+import tarfile
+import time
+import six
 
 from treadmill import fs
 from treadmill import subproc
@@ -21,6 +22,7 @@ from treadmill import utils
 
 _LOGGER = logging.getLogger(__name__)
 
+# TODO: should use aliases instead.
 _IFCONFIG = 'ifconfig'
 _SYSCTL = 'sysctl'
 _DMESG = 'dmesg'
@@ -29,32 +31,33 @@ _LVM = 'lvm'
 _VGDISPLAY = 'vgdisplay'
 _LVDISPLAY = 'lvdisplay'
 
-try:
-    _UPLOADER = importlib.import_module(
-        'treadmill.ms.plugins.postmortem_uploader'
-    )
-except ImportError:
-    _UPLOADER = None
+_MAX_ARCHIVES = 3
 
 
-def run(treadmill_root, upload_url=None):
+def run(treadmill_root):
     """Run postmortem"""
     filetime = utils.datetime_utcnow().strftime('%Y%m%d_%H%M%SUTC')
     hostname = socket.gethostname()
-    postmortem_file_base = os.path.join(
-        tempfile.gettempdir(), '{0}-{1}.tar'.format(hostname, filetime)
+    postmortem_dir = os.path.join(treadmill_root, 'postmortem')
+    fs.mkdir_safe(postmortem_dir)
+
+    postmortem_archive = os.path.join(
+        postmortem_dir, '{0}-{1}.tar.gz'.format(hostname, filetime)
     )
 
-    postmortem_file = collect(
-        treadmill_root,
-        postmortem_file_base
-    )
+    _LOGGER.info('Collection postmortem: %s', postmortem_archive)
+
+    with tarfile.open(postmortem_archive, 'w:gz') as f:
+        collect(treadmill_root, f)
+
     if os.name == 'posix':
-        os.chmod(postmortem_file, 0o644)
-    _LOGGER.info('generated postmortem file: %r', postmortem_file)
+        os.chmod(postmortem_archive, 0o644)
 
-    if _UPLOADER is not None:
-        _UPLOADER.upload(postmortem_file, upload_url)
+    existing = glob.glob(os.path.join(postmortem_dir, '*'))
+    # Remove all files except for last two.
+    for filename in sorted(existing)[0:-_MAX_ARCHIVES]:
+        _LOGGER.info('Removing old archive: %s', filename)
+        fs.rm_safe(filename)
 
 
 def _safe_copy(src, dest):
@@ -70,142 +73,120 @@ def _safe_copy(src, dest):
         _LOGGER.warning('skip %s => %s', src, dest)
 
 
-def collect(approot, archive_filename):
+def collect(approot, archive):
     """Collect node information in case of blackout.
 
     :param approot:
         treadmill root, usually /var/tmp/treadmill
     :type approot:
         ``str``
-    :param archive_filename:
-        archive path file
-    :type archive_filename:
-        ``str``
+    :param archive:
+        archive file object
+    :type archive:
+        ``TarFile``
     """
-    destroot = tempfile.mkdtemp()
+    _LOGGER.info('save node info in %s', archive)
 
-    _LOGGER.info('save node info in %s', destroot)
-
-    collect_init_services(approot, destroot)
-    collect_running_app(approot, destroot)
+    collect_services(approot, archive)
+    collect_running_app(approot, archive)
     if os.name == 'posix':
-        collect_sysctl(destroot)
-        collect_cgroup(approot, destroot)
-        collect_localdisk(approot, destroot)
-        collect_network(approot, destroot)
-        collect_message(destroot)
+        collect_sysctl(archive)
+        collect_cgroup(archive)
+        collect_localdisk(archive)
+        collect_network(archive)
+        collect_message(archive)
 
-    try:
-        archive_filename = fs.tar(sources=destroot,
-                                  target=archive_filename,
-                                  compression='gzip').name
-        _LOGGER.info('node info archive file: %s', archive_filename)
-        shutil.rmtree(destroot)
-        return archive_filename
-    except Exception:  # pylint: disable=W0703
-        # if tar bar is not generated successfully, we keep destroot
-        # we can find destroot path in log to check the files
-        _LOGGER.exception('Failed to generate node info archive')
-        return None
+    return True
 
 
-def collect_init_services(approot, destroot):
-    """Get treadmill init services information in node."""
-    pattern = os.path.join(approot, 'init*', '*', 'log', 'current')
-
-    for current in glob.glob(pattern):
-        path = os.path.splitdrive(current)[1]
-        target = '%s%s' % (destroot, path)
-        _safe_copy(current, target)
-
-
-def collect_running_app(approot, destroot):
-    """Get treadmill running application information in node."""
-    pattern = os.path.join(approot, 'running', '*', 'run.*')
-
-    for current in glob.glob(pattern):
-        path = os.path.splitdrive(current)[1]
-        target = '%s%s' % (destroot, path)
-        _safe_copy(current, target)
-
-    pattern = os.path.join(approot, 'running', '*', 'data', 'sys', '*', 'data',
-                           'log', 'current')
-
-    for current in glob.glob(pattern):
-        path = os.path.splitdrive(current)[1]
-        target = '%s%s' % (destroot, path)
-        _safe_copy(current, target)
-
-
-def collect_sysctl(destroot):
-    """Get host sysctl (related to kernel)."""
-    sysctl = subproc.check_output([_SYSCTL, '-a'])
-    with io.open('%s/sysctl' % destroot, 'wb') as f:
-        f.write(sysctl.encode(encoding='utf8', errors='replace'))
-
-
-def collect_cgroup(approot, destroot):
-    """Get host treadmill cgroups inforamation."""
-    src = '%s/cgroup_svc' % approot
-    dest = '%s%s' % (destroot, src)
-
-    try:
-        shutil.copytree(src, dest)
-    except (shutil.Error, OSError):
-        _LOGGER.warning('skip %s => %s', src, dest)
-
-    pattern = '/cgroup/*/treadmill/core'
-    for cgrp_core in glob.glob(pattern):
-        core_dest = '%s%s' % (destroot, cgrp_core)
-
+def _add_glob(archive, pattern):
+    """Add files matching glob pattern to archive."""
+    for filename in glob.glob(pattern):
+        _LOGGER.debug('add: %s', filename)
         try:
-            shutil.copytree(cgrp_core, core_dest)
-        except (shutil.Error, OSError):
-            _LOGGER.warning('skip %s => %s', src, dest)
+            archive.add(filename)
+        except Exception:  # pylint: disable=W0703
+            _LOGGER.exception('Unable to add file: %s', filename)
 
 
-def collect_localdisk(approot, destroot):
-    """Get host local disk information."""
-    src = '%s/localdisk_svc' % approot
-    dest = '%s%s' % (destroot, src)
-
+def _add_output(archive, command):
+    """Add output of command to the archive."""
+    tarinfo = tarfile.TarInfo(os.path.join('diag', '#'.join(command)))
+    tarinfo.mtime = time.time()
     try:
-        shutil.copytree(src, dest)
-    except (shutil.Error, OSError):
-        _LOGGER.warning('skip %s => %s', src, dest)
+        output = subproc.check_output(command).encode(encoding='utf8',
+                                                      errors='replace')
+        stream = six.BytesIO(output)
+        tarinfo.size = len(output)
+    except subprocess.CalledProcessError as exc:
+        output = str(exc).encode(encoding='utf8', errors='replace')
+        stream = six.BytesIO(output)
+        tarinfo.size = len(output)
 
-    vg_info = subproc.check_output([_LVM, _VGDISPLAY, 'treadmill'])
-    lv_info = subproc.check_output([_LVM, _LVDISPLAY, 'treadmill'])
-    with io.open('%s/lvm' % destroot, 'w') as f:
-        f.write('%s\n%s' % (vg_info, lv_info))
-
-
-def collect_network(approot, destroot):
-    """Get host network information."""
-    src = '%s/network_svc' % approot
-    dest = '%s%s' % (destroot, src)
-
-    try:
-        shutil.copytree(src, dest)
-    except (shutil.Error, OSError):
-        _LOGGER.warning('skip %s => %s', src, dest)
-
-    ifconfig = subproc.check_output([_IFCONFIG])
-    with io.open('%s/ifconfig' % destroot, 'wb') as f:
-        f.write(ifconfig.encode(encoding='utf8', errors='replace'))
+    stream.seek(0)
+    archive.addfile(tarinfo, fileobj=stream)
 
 
-def collect_message(destroot):
-    """Get messages on the host."""
-    dmesg = subproc.check_output([_DMESG])
-    with io.open('%s/dmesg' % destroot, 'wb') as f:
-        f.write(dmesg.encode(encoding='utf8', errors='replace'))
+def collect_services(approot, archive):
+    """Get treadmill init services information in node."""
+    _add_glob(archive,
+              os.path.join(approot, 'init', '*', 'log', 'current'))
+    _add_glob(archive,
+              os.path.join(approot, 'network_svc', '*'))
+    _add_glob(archive,
+              os.path.join(approot, 'localdisk_svc', '*'))
+    _add_glob(archive,
+              os.path.join(approot, 'cgroup_svc', '*'))
+    _add_glob(archive,
+              os.path.join(approot, 'presence_svc', '*'))
 
-    messages = subproc.check_output(
-        [_TAIL, '-n', '100', '/var/log/messages']
+
+def collect_running_app(approot, archive):
+    """Get treadmill running application information in node."""
+    _add_glob(
+        archive,
+        os.path.join(approot, 'running', '*', 'log', 'current')
+    )
+    _add_glob(
+        archive,
+        os.path.join(approot, 'running', '*', 'data', 'log', 'current')
+    )
+    _add_glob(
+        archive,
+        os.path.join(approot, 'running', '*', 'data', 'sys', '*', 'data',
+                     'log', 'current')
     )
 
-    dest_messages = '%s/var/log/messages' % destroot
-    fs.mkdir_safe(os.path.dirname(dest_messages))
-    with io.open(dest_messages, 'wb') as f:
-        f.write(messages.encode(encoding='utf8', errors='replace'))
+
+def collect_sysctl(archive):
+    """Get host sysctl (related to kernel)."""
+    _add_output(archive, [_SYSCTL, '-a'])
+
+
+def collect_cgroup(archive):
+    """Get host treadmill cgroups inforamation."""
+    _add_glob(
+        archive,
+        os.path.join('/cgroup', '*', 'treadmill', 'core', '*')
+    )
+    _add_glob(
+        archive,
+        os.path.join('/cgroup', '*', 'treadmill', 'apps', '*', '*')
+    )
+
+
+def collect_localdisk(archive):
+    """Get host local disk information."""
+    _add_output(archive, [_LVM, _VGDISPLAY, 'treadmill'])
+    _add_output(archive, [_LVM, _LVDISPLAY, 'treadmill'])
+
+
+def collect_network(archive):
+    """Get host network information."""
+    _add_output(archive, [_IFCONFIG])
+
+
+def collect_message(archive):
+    """Get messages on the host."""
+    _add_output(archive, [_DMESG])
+    _add_output(archive, [_TAIL, '-n', '100', '/var/log/messages'])

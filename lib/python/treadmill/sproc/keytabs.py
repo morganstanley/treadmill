@@ -7,7 +7,6 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import logging
-import time
 import click
 
 from treadmill import keytabs
@@ -36,23 +35,5 @@ def init():
         kt_locker = keytabs.KeytabLocker(context.GLOBAL.zk.conn, kt_spool_dir)
         keytabs.run_server(kt_locker)
 
-    @top.command()
-    @click.option('--kt-spool-dir',
-                  help='Keytab spool directory.')
-    @click.option('--host-kt', help='Path to host keytab',
-                  default='/etc/krb5.keytab')
-    @click.option('--refresh-interval', type=int,
-                  default=_KT_REFRESH_INTERVAL)
-    def make(kt_spool_dir, host_kt, refresh_interval):
-        """Periodically refresh keytabs on the node."""
-        while True:
-            keytabs.make_keytab(
-                context.GLOBAL.zk.conn,
-                kt_spool_dir,
-                host_kt=host_kt)
-
-            time.sleep(refresh_interval)
-
-    del make
     del locker
     return top

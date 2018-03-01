@@ -26,10 +26,12 @@ _ON_EXCEPTIONS = cli.handle_exceptions([
 ])
 
 
-def _gen_formatter(mapping, formatter):
+def _gen_formatter(fields, formatter):
     """Generate real formatter to have item index in position."""
     pattern = re.compile(r'(%(\w))')
     match = pattern.findall(formatter)
+
+    mapping = {field: index for index, field in enumerate(fields)}
 
     # (symbol, key) should be ('%t', 't')
     for (symbol, key) in match:
@@ -41,26 +43,49 @@ def _gen_formatter(mapping, formatter):
 
 def _list_server_blackouts(zkclient, fmt):
     """List server blackouts."""
-    # List currently blacked out nodes.
-    blacked_out = []
-    try:
-        blacked_out_nodes = zkclient.get_children(z.BLACKEDOUT_SERVERS)
-        for server in blacked_out_nodes:
-            node_path = z.path.blackedout_server(server)
-            data, metadata = zkutils.get_with_metadata(zkclient, node_path)
-            blacked_out.append((metadata.created, server, data))
 
-    except kazoo.client.NoNodeError:
-        pass
+    with_partition = '%p' in fmt
+    with_version = '%v' in fmt
+
+    blackouts = []
+    for node in zkclient.get_children(z.BLACKEDOUT_SERVERS):
+        try:
+            node_path = z.path.blackedout_server(node)
+            data, metadata = zkutils.get_with_metadata(zkclient, node_path)
+        except kazoo.client.NoNodeError:
+            continue
+
+        partition, version = None, None
+
+        if with_partition:
+            server_data = zkutils.get_default(
+                zkclient, z.path.server(node)
+            )
+            if server_data and server_data.get('partition'):
+                partition = server_data['partition']
+
+        if with_version:
+            version_data = zkutils.get_default(
+                zkclient, z.path.version(node)
+            )
+            if version_data and version_data.get('codepath'):
+                version = version_data['codepath']
+
+        blackouts.append((metadata.created, node, partition, version, data))
 
     # [%t] %h %r will be printed as below
     # [Thu, 05 May 2016 02:59:58 +0000] <hostname> -
-    mapping = {'t': 0, 'h': 1, 'r': 2}
-    formatter = _gen_formatter(mapping, fmt)
+    fields = ('t', 'h', 'p', 'v', 'r')
+    formatter = _gen_formatter(fields, fmt)
 
-    for when, server, reason in reversed(sorted(blacked_out)):
-        reason = '-' if reason is None else reason
-        print(formatter.format(utils.strftime_utc(when), server, reason))
+    for when, node, partition, version, reason in reversed(sorted(blackouts)):
+        cli.out(formatter.format(
+            utils.strftime_utc(when),
+            node,
+            partition or '-',
+            version or '-',
+            reason or '-'
+        ))
 
 
 def _clear_server_blackout(zkclient, server):

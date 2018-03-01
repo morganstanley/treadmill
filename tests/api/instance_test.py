@@ -313,6 +313,39 @@ class ApiInstanceTest(unittest.TestCase):
         ):
             self.instance.create('proid.app', {}, count=1001)
 
+    @mock.patch('treadmill.context.AdminContext.conn',
+                mock.Mock(return_value=admin.Admin(None, None)))
+    @mock.patch('treadmill.context.ZkContext.conn', mock.Mock())
+    @mock.patch('treadmill.scheduler.masterapi.delete_apps')
+    def test_instance_bulk_delete(self, delete_apps_mock):
+        """Test bulk deleting
+        """
+        delete_apps_mock.return_value = None
+
+        self.instance.bulk_delete(
+            ['proid.app#0000000001', 'proid.app#0000000002']
+        )
+        delete_apps_mock.assert_called_once_with(
+            mock.ANY, ['proid.app#0000000001', 'proid.app#0000000002'], None
+        )
+
+    @mock.patch('treadmill.context.AdminContext.conn',
+                mock.Mock(return_value=admin.Admin(None, None)))
+    @mock.patch('treadmill.context.ZkContext.conn', mock.Mock())
+    @mock.patch('treadmill.scheduler.masterapi.update_app_priorities')
+    def test_instance_bulk_update(self, update_apps_mock):
+        """Test bulk updateing
+        """
+        update_apps_mock.return_value = None
+
+        self.instance.bulk_update([
+            {'_id': 'proid.app#0000000001',
+             'priority': 1},
+        ])
+        update_apps_mock.assert_called_with(
+            mock.ANY, {'proid.app#0000000001': 1}
+        )
+
 
 if __name__ == '__main__':
     unittest.main()

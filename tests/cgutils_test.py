@@ -19,6 +19,7 @@ import mock
 
 import treadmill
 from treadmill import cgutils
+from treadmill import cgroups
 
 
 class CGutilsTest(unittest.TestCase):
@@ -80,13 +81,15 @@ class CGutilsTest(unittest.TestCase):
         # Should be returning the eventfd socket
         self.assertEqual(res, 42)
 
-    @mock.patch('treadmill.cgroups.get_mountpoint',
-                mock.Mock(return_value='/cgroups'))
-    @mock.patch('os.rmdir', mock.Mock())
+    @mock.patch('treadmill.cgroups._get_mountpoint', mock.Mock(set_spec=True))
+    @mock.patch('os.rmdir', mock.Mock(set_spec=True))
     def test_delete_rec(self):
-        """Tests recursive cgroup deletion."""
+        """Tests recursive cgroup deletion.
+        """
+        # pylint: disable=W0212
+
         cgroups_dir = os.path.join(self.root, 'cgroups')
-        treadmill.cgroups.get_mountpoint.return_value = cgroups_dir
+        treadmill.cgroups._get_mountpoint.return_value = cgroups_dir
 
         group = os.path.join('treadmill', 'apps', 'test1')
         # Create a directory and subdirs for the cgroup
@@ -103,7 +106,8 @@ class CGutilsTest(unittest.TestCase):
 
     @mock.patch('treadmill.cgroups.get_data', mock.Mock())
     def test_get_blkio_bps_info(self):
-        """Test reading of blkio throttle bps information."""
+        """Test reading of blkio throttle bps information.
+        """
 
         with io.open(self._BLKIO_THROTTLE_BPS) as f:
             data = f.read()
@@ -128,7 +132,8 @@ class CGutilsTest(unittest.TestCase):
 
     @mock.patch('treadmill.cgroups.get_data', mock.Mock())
     def test_get_blkio_info_empty(self):
-        """Test reading of blkio information with empty file"""
+        """Test reading of blkio information with empty file.
+        """
 
         with io.open(self._BLKIO_BPS_EMPTY) as f:
             data = f.read()
@@ -146,7 +151,8 @@ class CGutilsTest(unittest.TestCase):
 
     @mock.patch('treadmill.cgroups.get_data', mock.Mock())
     def test_get_blkio_value_empty(self):
-        """Test reading of blkio information with empty file"""
+        """Test reading of blkio information with empty file.
+        """
 
         with io.open(self._BLKIO_SECTORS_EMPTY) as f:
             data = f.read()
@@ -164,7 +170,8 @@ class CGutilsTest(unittest.TestCase):
 
     @mock.patch('treadmill.cgroups.get_data', mock.Mock())
     def test_get_blkio_iops_info(self):
-        """Test reading of blkio throttle iops information."""
+        """Test reading of blkio throttle iops information.
+        """
 
         with io.open(self._BLKIO_THROTTLE_IOPS) as f:
             data = f.read()
@@ -186,6 +193,131 @@ class CGutilsTest(unittest.TestCase):
                 'Total': 18347,
             }
         )
+
+    @mock.patch('treadmill.cgroups.create', mock.Mock())
+    @mock.patch('treadmill.cgroups.set_value', mock.Mock())
+    @mock.patch('treadmill.cgroups.get_data',
+                mock.Mock(side_effect=['0', '0', '', '1024', '512']))
+    @mock.patch('treadmill.sysinfo.cpu_count',
+                mock.Mock(return_value=4))
+    def test_create_treadmill_cgroups(self):
+        """Test the creation of core treadmill cgroups.
+        """
+        treadmill_core_cpu_shares = 10
+        treadmill_apps_cpu_shares = 90
+        treadmill_core_cpuset_cpus = '0-15'
+        treadmill_app_cpuset_cpus = '1-15'
+        treadmill_core_mem = 512
+        treadmill_apps_mem = 256
+        cgutils.create_treadmill_cgroups(treadmill_core_cpu_shares,
+                                         treadmill_apps_cpu_shares,
+                                         treadmill_core_cpuset_cpus,
+                                         treadmill_app_cpuset_cpus,
+                                         treadmill_core_mem,
+                                         treadmill_apps_mem)
+
+        calls = [mock.call('cpu', 'treadmill/core'),
+                 mock.call('cpu', 'treadmill/apps'),
+                 mock.call('cpuacct', 'treadmill/core'),
+                 mock.call('cpuacct', 'treadmill/apps'),
+                 mock.call('cpuset', 'treadmill/core'),
+                 mock.call('cpuset', 'treadmill/apps'),
+                 mock.call('memory', 'treadmill/core'),
+                 mock.call('memory', 'treadmill/apps')]
+        treadmill.cgroups.create.assert_has_calls(calls)
+        calls = [mock.call('cpu', 'treadmill/core',
+                           'cpu.shares', treadmill_core_cpu_shares),
+                 mock.call('cpu', 'treadmill/apps',
+                           'cpu.shares', treadmill_apps_cpu_shares),
+                 mock.call('cpuset', 'treadmill/core',
+                           'cpuset.mems', '0'),
+                 mock.call('cpuset', 'treadmill/apps',
+                           'cpuset.mems', '0'),
+                 mock.call('cpuset', 'treadmill/core',
+                           'cpuset.cpus', '0-15'),
+                 mock.call('cpuset', 'treadmill/apps',
+                           'cpuset.cpus', '1-15'),
+                 mock.call('memory', 'treadmill/core',
+                           'memory.move_charge_at_immigrate', 1),
+                 mock.call('memory', 'treadmill/apps',
+                           'memory.move_charge_at_immigrate', 1),
+                 mock.call('memory', 'treadmill/core',
+                           'memory.limit_in_bytes', treadmill_core_mem),
+                 mock.call('memory', 'treadmill/core',
+                           'memory.memsw.limit_in_bytes', treadmill_core_mem),
+                 mock.call('memory', 'treadmill/core',
+                           'memory.soft_limit_in_bytes', treadmill_core_mem),
+                 mock.call('memory', 'treadmill/apps',
+                           'memory.limit_in_bytes', treadmill_apps_mem),
+                 mock.call('memory', 'treadmill/apps',
+                           'memory.memsw.limit_in_bytes', treadmill_apps_mem)]
+        treadmill.cgroups.set_value.assert_has_calls(calls)
+
+    @mock.patch('treadmill.cgroups.set_value',
+                mock.Mock())
+    @mock.patch('treadmill.cgroups.get_value',
+                mock.Mock(return_value=512))
+    @mock.patch('treadmill.cgroups.makepath',
+                mock.Mock(return_value='/cgroup/memory/treadmill/apps'))
+    @mock.patch('treadmill.cgutils.total_soft_memory_limits',
+                mock.Mock(return_value=1024))
+    @mock.patch('os.listdir',
+                mock.Mock(return_value=['a', 'b']))
+    @mock.patch('os.path.isdir',
+                mock.Mock(return_value=True))
+    def test_reset_mem_limit_in_bytes(self):
+        """Make sure we are setting hardlimits right.
+        """
+        cgutils.reset_memory_limit_in_bytes()
+        mock_calls = [mock.call('memory',
+                                'treadmill/apps',
+                                'memory.limit_in_bytes'),
+                      mock.call('memory',
+                                'treadmill/apps/a',
+                                'memory.soft_limit_in_bytes'),
+                      mock.call('memory',
+                                'treadmill/apps/b',
+                                'memory.soft_limit_in_bytes')]
+        cgroups.get_value.assert_has_calls(mock_calls)
+        mock_calls = [mock.call('memory',
+                                'treadmill/apps/a',
+                                'memory.limit_in_bytes',
+                                512),
+                      mock.call('memory',
+                                'treadmill/apps/a',
+                                'memory.memsw.limit_in_bytes',
+                                512),
+                      mock.call('memory',
+                                'treadmill/apps/b',
+                                'memory.limit_in_bytes',
+                                512),
+                      mock.call('memory',
+                                'treadmill/apps/b',
+                                'memory.memsw.limit_in_bytes',
+                                512)]
+
+        cgroups.set_value.assert_has_calls(mock_calls)
+
+    @mock.patch('treadmill.cgutils.set_memory_hardlimit', mock.Mock())
+    @mock.patch('treadmill.cgroups.get_value',
+                mock.Mock(return_value=512))
+    @mock.patch('treadmill.cgroups.makepath',
+                mock.Mock(return_value='/cgroup/memory/treadmill/apps'))
+    @mock.patch('treadmill.cgutils.total_soft_memory_limits',
+                mock.Mock(return_value=1024))
+    @mock.patch('os.listdir',
+                mock.Mock(return_value=['a']))
+    @mock.patch('os.path.isdir',
+                mock.Mock(return_value=True))
+    def test_reset_mem_limit_kill(self):
+        """Make sure we kill groups when we cannot lower their hardlimits.
+        """
+        treadmill.cgutils.set_memory_hardlimit.side_effect = \
+            cgutils.TreadmillCgroupError('test')
+
+        res = cgutils.reset_memory_limit_in_bytes()
+
+        self.assertEqual(res, ['a'])
 
 
 if __name__ == '__main__':

@@ -1,0 +1,26 @@
+#!/bin/sh
+
+TYPE=$1
+TEST_RET_CODE=$2
+
+# watchdog reserves return value -10 ~ -1, ref https://linux.die.net/man/8/watchdog
+WATCHDOG_RESERVED=(246 247 248 249 250 251 252 253 254 255)
+REPLACEMENT=245
+
+if [ "$TYPE" == "test" ]; then
+    echo "Trigger test {{ name }}"
+    {{ command }}
+    ret=$?
+    for reserved in "${WATCHDOG_RESERVED[@]}"; do
+        if [ "$ret" -eq "$reserved" ]; then
+            exit $REPLACEMENT
+        fi
+    done
+    exit $ret
+fi
+
+if [ "$TYPE" == "repair" ]; then
+    echo "Test {{ name }} failed with $TEST_RET_CODE"
+    {{ reboot }}
+    exit -2
+fi

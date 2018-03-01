@@ -7,7 +7,6 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import fnmatch
-import importlib
 import io
 import logging
 import os
@@ -22,6 +21,7 @@ import kazoo.security
 from kazoo.protocol import states
 import six
 
+from treadmill import plugin_manager
 from treadmill import utils
 from treadmill import sysinfo
 from treadmill import yamlwrapper as yaml
@@ -38,8 +38,9 @@ _VAGRANT_PROFILE = 'vagrant'
 _ZK_PLUGIN_MOD = None
 
 try:
-    _ZK_PLUGIN_MOD = importlib.import_module('treadmill.ms.plugins.zookeeper')
-except ImportError:
+    _ZK_PLUGIN_MOD = plugin_manager.load('treadmill.connection.manager',
+                                         'zookeeper')
+except KeyError:
     _ZK_PLUGIN_MOD = None
 
 
@@ -241,7 +242,8 @@ def connect(zkurl, idpath=None, listener=None, max_tries=30,
 def connect_native(zkurl, client_id=None, listener=None, max_tries=30,
                    timeout=ZK_MAX_CONNECTION_START_TIMEOUT, chroot=None,
                    **connargs):
-    """Establish connection with Zk and return KazooClient."""
+    """Establish connection with Zk and return KazooClient.
+    """
     _LOGGER.debug('Connecting to %s', zkurl)
 
     zkconnstr = zkurl[len('zookeeper://'):]
@@ -265,9 +267,14 @@ def connect_native(zkurl, client_id=None, listener=None, max_tries=30,
         'connection_retry': zk_retry,
         'command_retry': zk_retry,
     })
+
     if _ZK_PLUGIN_MOD:
+        _LOGGER.debug('Using treadmill.connection.manager:zookeeper - %s',
+                      _ZK_PLUGIN_MOD.__name__)
         zkclient = _ZK_PLUGIN_MOD.connect(zkurl, connargs)
     else:
+        _LOGGER.debug('treadmill.connection.manager:zookeeper is not defined.')
+
         connargs['hosts'] = zkconnstr
         _LOGGER.debug('Connecting to zookeeper: %r', connargs)
         zkclient = kazoo.client.KazooClient(**connargs)

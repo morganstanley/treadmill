@@ -1,4 +1,5 @@
 APScheduler>=3.3,<3.4
+backports.weakref ; python_version < '3.4'
 boto3==1.4.4
 boto==2.46.1
 click>=6.6

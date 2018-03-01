@@ -29,7 +29,9 @@ class AppCfgConfigureTest(unittest.TestCase):
         self.root = tempfile.mkdtemp()
         self.tm_env = mock.Mock(
             apps_dir=os.path.join(self.root, 'apps'),
-            cleanup_dir=os.path.join(self.root, 'cleanup')
+            cleanup_dir=os.path.join(self.root, 'cleanup'),
+            running_tombstone_dir=os.path.join(self.root, 'tombstones',
+                                               'running')
         )
 
     def tearDown(self):
@@ -43,6 +45,7 @@ class AppCfgConfigureTest(unittest.TestCase):
     @mock.patch('treadmill.appevents.post', mock.Mock(auto_spec=True))
     @mock.patch('treadmill.fs.write_safe', mock.mock_open())
     @mock.patch('treadmill.subproc.get_aliases', mock.Mock(return_value={}))
+    @mock.patch('treadmill.subproc.resolve', mock.Mock(return_value='mock'))
     @mock.patch('treadmill.supervisor.create_service', auto_spec=True)
     @mock.patch('treadmill.utils.rootdir',
                 mock.Mock(return_value='/treadmill'))
@@ -65,6 +68,15 @@ class AppCfgConfigureTest(unittest.TestCase):
                     },
                 },
             ],
+            'environ': [
+                {
+                    'name': 'Hello',
+                    'value': 'World!',
+                },
+            ],
+            'zookeeper': 'foo',
+            'cell': 'cell',
+            'system_services': [],
             'endpoints': [
                 {
                     'name': 'http',
@@ -81,13 +93,21 @@ class AppCfgConfigureTest(unittest.TestCase):
 
         app_cfg.configure(self.tm_env, '/some/event', 'linux')
 
-        mock_load.assert_called_with(self.tm_env, '/some/event', 'linux')
+        mock_load.assert_called_with('/some/event')
         mock_create_svc.assert_called_with(
             self.tm_env.apps_dir,
             name=app_unique_name,
             app_run_script=mock.ANY,
             downed=False,
-            monitor_policy={'limit': 0, 'interval': 60},
+            monitor_policy={
+                'limit': 0,
+                'interval': 60,
+                'tombstone': {
+                    'uds': False,
+                    'path': self.tm_env.running_tombstone_dir,
+                    'id': 'proid.myapp#0'
+                }
+            },
             userid='root',
             environ={},
             environment='dev'
@@ -112,6 +132,95 @@ class AppCfgConfigureTest(unittest.TestCase):
                 payload=None
             )
         )
+
+    @unittest.skipUnless(sys.platform.startswith('linux'), 'Requires Linux')
+    @mock.patch('pwd.getpwnam', mock.Mock(auto_spec=True))
+    @mock.patch('shutil.copyfile', mock.Mock(auto_spec=True))
+    @mock.patch('shutil.rmtree', mock.Mock())
+    @mock.patch('treadmill.appcfg.manifest.load', auto_spec=True)
+    @mock.patch('treadmill.appevents.post', mock.Mock(auto_spec=True))
+    @mock.patch('treadmill.fs.write_safe', mock.mock_open())
+    @mock.patch('treadmill.subproc.get_aliases', mock.Mock(return_value={}))
+    @mock.patch('treadmill.subproc.resolve', mock.Mock(return_value='mock'))
+    @mock.patch('treadmill.supervisor.create_service', auto_spec=True)
+    @mock.patch('treadmill.utils.rootdir',
+                mock.Mock(return_value='/treadmill'))
+    def test_configure_linux_event_rm(self, mock_create_svc, mock_load):
+        """Tests when event file is removed when copied."""
+        manifest = {
+            'proid': 'foo',
+            'environment': 'dev',
+            'shared_network': False,
+            'cpu': '100',
+            'memory': '100M',
+            'disk': '100G',
+            'services': [
+                {
+                    'name': 'web_server',
+                    'command': '/bin/true',
+                    'restart': {
+                        'limit': 5,
+                        'interval': 60,
+                    },
+                },
+            ],
+            'system_services': [],
+            'endpoints': [
+                {
+                    'name': 'http',
+                    'port': '8000',
+                },
+            ],
+            'environ': [
+                {
+                    'name': 'Hello',
+                    'value': 'World!',
+                },
+            ],
+            'cell': 'cell',
+            'zookeeper': 'foo',
+            'name': 'proid.myapp#0',
+            'uniqueid': 'AAAAA',
+        }
+        mock_load.return_value = manifest
+        app_unique_name = 'proid.myapp-0-00000000AAAAA'
+        app_dir = os.path.join(self.root, 'apps', app_unique_name)
+        mock_create_svc.return_value.directory = app_dir
+        mock_create_svc.return_value.data_dir = os.path.join(app_dir, 'data')
+
+        shutil.copyfile.side_effect = IOError(2, 'No such file or directory')
+
+        app_cfg.configure(self.tm_env, '/some/event', 'linux')
+
+        mock_load.assert_called_with('/some/event')
+        mock_create_svc.assert_called_with(
+            self.tm_env.apps_dir,
+            name=app_unique_name,
+            app_run_script=mock.ANY,
+            downed=False,
+            monitor_policy={
+                'limit': 0,
+                'interval': 60,
+                'tombstone': {
+                    'uds': False,
+                    'path': self.tm_env.running_tombstone_dir,
+                    'id': 'proid.myapp#0'
+                }
+            },
+            userid='root',
+            environ={},
+            environment='dev'
+        )
+
+        shutil.copyfile.assert_called_with(
+            '/some/event',
+            os.path.join(app_dir, 'data', 'manifest.yml')
+        )
+
+        treadmill.fs.write_safe.assert_not_called()
+        shutil.rmtree.assert_called_with(app_dir)
+
+        treadmill.appevents.post.assert_not_called()
 
 
 if __name__ == '__main__':

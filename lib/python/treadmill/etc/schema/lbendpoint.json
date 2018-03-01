@@ -7,7 +7,7 @@
     },
     "resource": {
         "type": "object",
-        "additionalProperties": true,
+        "additionalProperties": false,
         "properties": {
             "cells": {
                 "type": "array",
@@ -17,29 +17,36 @@
                 "type": "string"
             },
             "endpoint": { "$ref": "common.json#/endpoint" },
-            "port": { "$ref": "common.json#/port" }
+            "port": { "$ref": "common.json#/port" },
+            "options": {
+                "type": "object",
+                "properties": {
+                    "conn_timeout": { "type": "integer", "minimum": 60 },
+                    "lb_method": { "type": "string" },
+                    "min_active": { "type": "integer", "minimum": 0 },
+                    "persist_type": { "type": "string" },
+                    "persist_timeout": { "type": "integer", "minimum": 0 },
+                    "svc_down_action": { "type": "string" }
+                },
+                "additionalProperties": false
+            }
         }
     },
     "lbenv": {
         "type": "string",
         "pattern": "^qa$|^prod$"
     },
-    "options": {
-        "type": "object",
-        "properties": {
-            "conn_timeout": { "type": "integer", "minimum": 0},
-            "lb_method": { "type": "string"},
-            "min_active": { "type": "integer", "minimum": 0},
-            "persist_type": { "type": "string"},
-            "persist_timeout": { "type": "integer", "minimum": 0},
-            "svc_down_action": { "type": "string"}
-        },
-        "required": [],
-        "additionalProperties": true
-    },
     "verbs": {
         "create": {
-            "required": ["endpoint", "pattern"]
+            "required": ["endpoint", "pattern"],
+            "not": {
+                "required": ["options"]
+            }
+        },
+        "update": {
+            "not": {
+                "required": ["port"]
+            }
         }
     }
 }

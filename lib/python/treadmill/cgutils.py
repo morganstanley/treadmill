@@ -13,9 +13,10 @@ import logging
 import os
 import signal
 
+import six
+
 from treadmill import cgroups
 from treadmill import exc
-from treadmill import sysinfo
 from treadmill.syscall import eventfd
 
 
@@ -73,88 +74,52 @@ def set_memory_hardlimit(cgrp, limit):
             raise
 
 
-def create_treadmill_cgroups(system_cpu_shares,
-                             treadmill_cpu_shares,
-                             treadmill_core_cpu_shares,
+def create_treadmill_cgroups(treadmill_core_cpu_shares,
                              treadmill_apps_cpu_shares,
-                             treadmill_cpu_cores,
-                             treadmill_mem,
-                             treadmill_core_mem):
-    """This is the core cgroup setup. Should be applied to a cleaned env."""
-
-    create('cpu', 'system')
-    create('cpu', 'treadmill')
+                             treadmill_core_cpuset_cpus,
+                             treadmill_apps_cpuset_cpus,
+                             treadmill_core_memory,
+                             treadmill_apps_memory):
+    """This is the core cgroup setup. Should be applied to a cleaned env.
+    """
     create('cpu', 'treadmill/core')
     create('cpu', 'treadmill/apps')
 
-    cgroups.set_value('cpu', 'treadmill',
-                      'cpu.shares', treadmill_cpu_shares)
-    cgroups.set_value('cpu', 'system',
-                      'cpu.shares', system_cpu_shares)
     cgroups.set_value('cpu', 'treadmill/core',
                       'cpu.shares', treadmill_core_cpu_shares)
     cgroups.set_value('cpu', 'treadmill/apps',
                       'cpu.shares', treadmill_apps_cpu_shares)
 
-    create('cpuacct', 'system')
-    create('cpuacct', 'treadmill')
     create('cpuacct', 'treadmill/core')
     create('cpuacct', 'treadmill/apps')
 
-    create('cpuset', 'system')
-    create('cpuset', 'treadmill')
+    # CPU sets
+    create('cpuset', 'treadmill/core')
+    create('cpuset', 'treadmill/apps')
+    cgroups.inherit_value('cpuset', 'treadmill/core', 'cpuset.mems')
+    cgroups.inherit_value('cpuset', 'treadmill/apps', 'cpuset.mems')
 
-    mems = cgroups.get_value('cpuset', '', 'cpuset.mems')
-    cgroups.set_value('cpuset', 'system', 'cpuset.mems', mems)
-    cgroups.set_value('cpuset', 'treadmill', 'cpuset.mems', mems)
+    # cgroup combines duplicate cores automatically
+    cgroups.set_value(
+        'cpuset', 'treadmill/core', 'cpuset.cpus',
+        treadmill_core_cpuset_cpus
+    )
+    cgroups.set_value(
+        'cpuset', 'treadmill/apps', 'cpuset.cpus',
+        treadmill_apps_cpuset_cpus
+    )
 
-    cores_max = sysinfo.cpu_count() - 1
-    if treadmill_cpu_cores > cores_max:
-        raise exc.TreadmillError('Not enough cpu cores.')
-
-    if treadmill_cpu_cores > 0:
-        cgroups.set_value('cpuset', 'treadmill', 'cpuset.cpus',
-                          '%d-%d' % (0, treadmill_cpu_cores - 1))
-        cgroups.set_value('cpuset', 'system', 'cpuset.cpus',
-                          '%d-%d' % (treadmill_cpu_cores, cores_max))
-    else:
-        cgroups.set_value('cpuset', 'treadmill', 'cpuset.cpus',
-                          '%d-%d' % (0, cores_max))
-        cgroups.set_value('cpuset', 'system', 'cpuset.cpus',
-                          '%d-%d' % (0, cores_max))
-
-    create('memory', 'system')
-    create('memory', 'treadmill')
-
-    if cgroups.get_value('memory', 'treadmill', 'memory.use_hierarchy') != 1:
-        cgroups.set_value('memory', 'treadmill', 'memory.use_hierarchy', '1')
-    set_memory_hardlimit('treadmill', treadmill_mem)
-
-    oom_value = 'oom_kill_disable 0\nunder_oom 0\n'
-    if cgroups.get_data('memory', 'treadmill',
-                        'memory.oom_control') != oom_value:
-        cgroups.set_value('memory', 'treadmill',
-                          'memory.oom_control', '0')
-
+    # Memory
     create('memory', 'treadmill/core')
     create('memory', 'treadmill/apps')
 
-    set_memory_hardlimit('treadmill/core', treadmill_core_mem)
+    set_memory_hardlimit('treadmill/core', treadmill_core_memory)
     cgroups.set_value('memory', 'treadmill/core',
-                      'memory.soft_limit_in_bytes', treadmill_core_mem)
+                      'memory.soft_limit_in_bytes', treadmill_core_memory)
 
-    # It is possible to use qualifiers in the input, for calculation of the
-    # difference, get memory limits in bytes as defined in cgroup.
-    total_mem_bytes = cgroups.get_value('memory',
-                                        'treadmill',
-                                        'memory.limit_in_bytes')
-
-    core_mem_bytes = cgroups.get_value('memory',
-                                       'treadmill/core',
-                                       'memory.limit_in_bytes')
-
-    apps_mem_bytes = (total_mem_bytes - core_mem_bytes)
-    set_memory_hardlimit('treadmill/apps', apps_mem_bytes)
+    set_memory_hardlimit('treadmill/apps', treadmill_apps_memory)
+    cgroups.set_value('memory', 'treadmill/apps',
+                      'memory.soft_limit_in_bytes', treadmill_apps_memory)
 
 
 def create(system, group):
@@ -419,3 +384,32 @@ def get_blkio_info(cgrp, pseudofile):
         blkio_info.setdefault(major_minor, {})[metric_type] = int(value)
 
     return blkio_info
+
+
+def get_cpu_shares(cgrp):
+    """Get cpu shares"""
+    return cgroups.get_value('cpu', cgrp, 'cpu.shares')
+
+
+def set_cpu_shares(cgrp, shares):
+    """set cpu shares"""
+    return cgroups.set_value('cpu', cgrp, 'cpu.shares', shares)
+
+
+def get_cpuset_cores(cgrp):
+    """Get list of enabled cores."""
+    cores = []
+    cpuset = cgroups.get_data('cpuset', cgrp, 'cpuset.cpus')
+    for entry in cpuset.split(','):
+        cpus = entry.split('-')
+        if len(cpus) == 1:
+            cores.append(int(cpus[0]))
+        elif len(cpus) == 2:
+            cores.extend(
+                six.moves.range(
+                    int(cpus[0]),
+                    int(cpus[1]) + 1
+                )
+            )
+
+    return cores

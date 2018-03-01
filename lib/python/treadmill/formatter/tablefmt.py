@@ -188,6 +188,12 @@ class AppPrettyFormatter(object):
             ('udp', None, None),
         ])
 
+        affinity_limits_tbl = make_dict_to_table([
+            ('pod', None, None),
+            ('rack', None, None),
+            ('server', None, None),
+        ])
+
         schema = [
             ('name', '_id', None),
             ('memory', None, None),
@@ -206,6 +212,8 @@ class AppPrettyFormatter(object):
             ('passthrough', None, '\n'.join),
             ('data-retention-timeout', 'data_retention_timeout', None),
             ('lease', 'lease', None),
+            ('affinity', 'affinity', None),
+            ('affinity-limits', 'affinity_limits', affinity_limits_tbl),
         ]
 
         format_item = make_dict_to_table(schema)
@@ -535,6 +543,29 @@ class InstanceStatePrettyFormatter(object):
             ('name', None, None),
             ('state', None, None),
             ('host', None, None),
+        ]
+
+        format_item = make_dict_to_table(schema)
+        format_list = make_list_to_table(schema, header=False)
+
+        if isinstance(item, list):
+            return format_list(item)
+        else:
+            return format_item(item)
+
+
+class InstanceFinishedStatePrettyFormatter(object):
+    """Pretty table instance finished state formatter."""
+
+    @staticmethod
+    def format(item):
+        """Return pretty-formatted item."""
+        schema = [
+            ('name', None, None),
+            ('state', None, None),
+            ('host', None, None),
+            ('when', None, None),
+            ('details', None, None),
         ]
 
         format_item = make_dict_to_table(schema)

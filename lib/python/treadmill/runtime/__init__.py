@@ -17,6 +17,7 @@ import tarfile
 
 import six
 
+from treadmill import appcfg
 from treadmill import exc
 from treadmill import fs
 from treadmill import utils
@@ -50,13 +51,22 @@ else:
     NONPROD_PORT_HIGH = NONPROD_PORT_LOW + PORT_SPAN - 1
 
 
-def get_runtime(runtime_name, tm_env, container_dir, param=None):
-    """Gets the runtime implementation with the given name."""
+def get_runtime_cls(runtime_name):
+    """Get runtime classs
+    Raise Key exception if runtime class does not exist
+    """
     try:
         runtime_cls = plugin_manager.load(_RUNTIME_NAMESPACE, runtime_name)
-        return runtime_cls(tm_env, container_dir, param)
+        return runtime_cls
     except KeyError:
         _LOGGER.error('Runtime not supported: %s', runtime_name)
+        raise
+
+
+def get_runtime(runtime_name, tm_env, container_dir, param=None):
+    """Gets the runtime implementation with the given name."""
+    runtime_cls = get_runtime_cls(runtime_name)
+    return runtime_cls(tm_env, container_dir, param)
 
 
 def load_app(container_dir, app_json=STATE_JSON):
@@ -79,6 +89,7 @@ def load_app(container_dir, app_json=STATE_JSON):
 def save_app(manifest, container_dir, app_json=STATE_JSON):
     """Saves app manifest and freezes to object."""
     # Save the manifest with allocated vip and ports in the state
+    #
     state_file = os.path.join(container_dir, app_json)
     fs.write_safe(
         state_file,
@@ -128,6 +139,10 @@ def _allocate_sockets(environment, host_ip, sock_type, count):
             if err.errno == errno.EADDRINUSE:
                 continue
             raise
+
+        if six.PY3:
+            # We want the sockets to survive an execv
+            socket_.set_inheritable(True)
 
         sockets.append(socket_)
     else:

@@ -14,7 +14,6 @@ import unittest
 
 import mock
 
-import treadmill
 from treadmill import appenv
 
 
@@ -60,7 +59,8 @@ class AppEnvTest(unittest.TestCase):
         })
 
         self.tm_env.rules.initialize.assert_called_with()
-        treadmill.iptables.initialize.assert_called_with('foo')
+        # TODO: Renable iptables init in linux AppEnv initialize
+        # treadmill.iptables.initialize.assert_called_with('foo')
 
 
 if __name__ == '__main__':

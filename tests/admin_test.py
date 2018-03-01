@@ -14,6 +14,7 @@ tests.treadmill_ldap_patch.monkey_patch()
 
 import ldap3
 import mock
+import six
 
 import treadmill
 from treadmill import admin
@@ -578,6 +579,32 @@ class AdminTest(unittest.TestCase):
         self.assertTrue('dc=test,dc=com' in dn_list)
         self.assertTrue('ou=treadmill,dc=test,dc=com' in dn_list)
         self.assertTrue('ou=apps,ou=treadmill,dc=test,dc=com' in dn_list)
+
+    @mock.patch('ldap3.Connection.add', mock.Mock())
+    def test_add(self):
+        """Tests add logic."""
+        admin_obj = admin.Admin(None, 'dc=test,dc=com')
+        admin_obj.ldap = ldap3.Connection(ldap3.Server('fake'),
+                                          client_strategy=ldap3.MOCK_SYNC)
+
+        admin_obj.add(
+            'ou=example,dc=test,dc=com',
+            'testClass',
+            {
+                'foo': 1,
+                'bar': ['z', 'a'],
+                'lot': 2,
+                'exp': [3, 4]
+            }
+        )
+
+        call = admin_obj.ldap.add.call_args_list[0][0]
+        self.assertEqual(call[0], 'ou=example,dc=test,dc=com')
+        self.assertEqual(call[1], 'testClass')
+        self.assertEqual(
+            [attr for attr in six.iteritems(call[2])],
+            [('bar', ['z', 'a']), ('exp', [3, 4]), ('foo', 1), ('lot', 2)]
+        )
 
 
 class TenantTest(unittest.TestCase):
