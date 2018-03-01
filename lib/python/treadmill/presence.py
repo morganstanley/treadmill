@@ -30,12 +30,13 @@ _INVALID_IDENTITY = sys.maxsize
 # Time to wait when registering endpoints in case previous ephemeral
 # endpoint is still present.
 _EPHEMERAL_RETRY_INTERVAL = 5
+_EPHEMERAL_RETRY_COUNT = 13
 
 
 def _create_ephemeral_with_retry(zkclient, path, data):
     """Create ephemeral node with retry."""
     prev_data = None
-    for _ in range(0, 5):
+    for _ in range(0, _EPHEMERAL_RETRY_COUNT):
         try:
             return zkutils.create(zkclient, path, data, acl=[_SERVERS_ACL],
                                   ephemeral=True)

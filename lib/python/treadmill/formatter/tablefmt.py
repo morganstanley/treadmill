@@ -583,11 +583,16 @@ class EndpointPrettyFormatter(object):
     @staticmethod
     def format(item):
         """Return pretty-formatted item."""
+        def _fmt_state(state):
+            """Format endpoint state."""
+            return '-' if state is None else 'up' if state else 'down'
+
         schema = [
             ('name', None, None),
             ('proto', None, None),
             ('endpoint', None, None),
             ('hostport', None, None),
+            ('state', None, _fmt_state),
         ]
 
         format_item = make_dict_to_table(schema)

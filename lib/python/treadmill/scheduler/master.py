@@ -140,28 +140,7 @@ class Master(loader.Loader):
         target = set(scheduled)
 
         for appname in current - target:
-            app = self.cell.apps[appname]
-            if app.server:
-                self.backend.delete(z.path.placement(app.server, appname))
-            if self.events_dir:
-                appevents.post(
-                    self.events_dir,
-                    traceevents.DeletedTraceEvent(
-                        instanceid=appname
-                    )
-                )
-            # If finished does not exist, it means app is terminated by
-            # explicit request, not because it finished on the node.
-            if not self.backend.exists(z.path.finished(appname)):
-                self.backend.put(
-                    z.path.finished(appname),
-                    {'state': 'terminated',
-                     'when': time.time(),
-                     'host': app.server,
-                     'data': None},
-                )
-
-            self.cell.remove_app(appname)
+            self.remove_app(appname)
 
         for appname in target - current:
             self.load_app(appname)
@@ -489,3 +468,34 @@ class Master(loader.Loader):
                     payload=exception
                 )
             )
+
+    def remove_app(self, appname):
+        """Remove app from scheduler."""
+        if appname not in self.cell.apps:
+            return
+
+        app = self.cell.apps[appname]
+
+        if app.server:
+            self.backend.delete(z.path.placement(app.server, appname))
+
+        if self.events_dir:
+            appevents.post(
+                self.events_dir,
+                traceevents.DeletedTraceEvent(
+                    instanceid=appname
+                )
+            )
+
+        # If finished does not exist, it means app is terminated by
+        # explicit request, not because it finished on the node.
+        if not self.backend.exists(z.path.finished(appname)):
+            self.backend.put(
+                z.path.finished(appname),
+                {'state': 'terminated',
+                 'when': time.time(),
+                 'host': app.server,
+                 'data': None},
+            )
+
+        super(Master, self).remove_app(appname)
