@@ -7,6 +7,7 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import json
+import sys
 import unittest
 
 import flask
@@ -129,7 +130,6 @@ class LocalTest(unittest.TestCase):
         )
         self.assertTrue(self.impl.log.get_all.called)
 
-    @unittest.skip('Flask exception handling is broken')
     def test_app_log_failure(self):
         """Dummy tests for the case when logs cannot be found."""
         self.impl.log.get.side_effect = LocalFileNotFoundError('foo')
@@ -142,19 +142,17 @@ class LocalTest(unittest.TestCase):
         resp = self.client.get('/local-app/proid.app/uniq/sys/component')
         self.assertEqual(resp.status_code, http_client.NOT_FOUND)
 
-    @unittest.skip('__file__ hack does not work')
     def test_arch_get(self):
         """Dummy tests for returning application archives.
         """
-        self.impl.archive.get.return_value = __file__
-
+        # File need to exist for flask to send it.
+        self.impl.archive.get.return_value = sys.executable
         resp = self.client.get('/archive/<app>/<uniq>/app')
         self.assertEqual(resp.status_code, http_client.OK)
 
     def test_arch_get_err(self):
         """Dummy tests for returning application archives (not found)
         """
-        self.impl.archive.get.return_value = __file__
         self.impl.archive.get.side_effect = LocalFileNotFoundError('foo')
 
         resp = self.client.get('/archive/<app>/<uniq>/app')

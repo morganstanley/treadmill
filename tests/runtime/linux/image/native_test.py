@@ -40,8 +40,11 @@ class NativeImageTest(unittest.TestCase):
         # pylint: disable=W0212
         self.container_dir = tempfile.mkdtemp()
         self.root = tempfile.mkdtemp(dir=self.container_dir)
+        self.services_tombstone_dir = os.path.join(self.root, 'tombstone')
         self.tm_env = mock.Mock(
             root=self.root,
+            services_tombstone_dir=self.services_tombstone_dir,
+            ctl_dir=os.path.join(self.root, 'ctl'),
             svc_cgroup=mock.Mock(
                 spec_set=treadmill.services._base_service.ResourceService,
             ),
@@ -87,8 +90,6 @@ class NativeImageTest(unittest.TestCase):
     @mock.patch('os.chown', mock.Mock(spec_set=True))
     @mock.patch('treadmill.fs.linux.mount_bind', mock.Mock(spec_set=True))
     @mock.patch('treadmill.fs.linux.mount_tmpfs', mock.Mock(spec_set=True))
-    @mock.patch('treadmill.fs.linux.mount_proc', mock.Mock(spec_set=True))
-    @mock.patch('treadmill.fs.linux.mount_sysfs', mock.Mock(spec_set=True))
     def test_make_fsroot(self):
         """Validates directory layout in chrooted environment."""
         native.make_fsroot(self.root)
@@ -108,6 +109,7 @@ class NativeImageTest(unittest.TestCase):
         self.assertTrue(isdir('tmp'))
         self.assertTrue(isdir('var/spool'))
         self.assertTrue(isdir('var/tmp'))
+        self.assertTrue(isdir('var/empty'))
 
         self.assertTrue(issticky('opt'))
         self.assertTrue(issticky('run'))
@@ -120,26 +122,6 @@ class NativeImageTest(unittest.TestCase):
 
         treadmill.fs.linux.mount_bind.assert_has_calls([
             mock.call(mock.ANY, '/bin', read_only=True, recursive=True)
-        ])
-
-    @mock.patch('treadmill.cgroups.makepath',
-                mock.Mock(return_value='/test/cgroup/path'))
-    @mock.patch('treadmill.fs.mkdir_safe', mock.Mock())
-    @mock.patch('treadmill.fs.linux.mount_bind', mock.Mock())
-    def test__share_cgroup_info(self):
-        """Test sharing of cgroup information with the container."""
-        # Access protected module _share_cgroup_info
-        # pylint: disable=W0212
-        native.share_cgroup_info('/some/root_dir', '/test/cgroup/path')
-
-        # Check that cgroup mountpoint exists inside the container.
-        treadmill.fs.mkdir_safe.assert_has_calls([
-            mock.call('/some/root_dir/cgroup/memory')
-        ])
-        treadmill.fs.linux.mount_bind.assert_has_calls([
-            mock.call('/some/root_dir', '/cgroup/memory',
-                      source='/test/cgroup/path',
-                      read_only=False, recursive=True)
         ])
 
     @mock.patch('pwd.getpwnam', mock.Mock(
@@ -233,8 +215,9 @@ class NativeImageTest(unittest.TestCase):
             mock_service_dir
 
         native.create_supervision_tree(
+            self.tm_env,
             base_dir,
-            '/test_treadmill',
+            os.path.join(base_dir, 'root'),
             app,
             '/test/cgroup/path'
         )
@@ -243,7 +226,6 @@ class NativeImageTest(unittest.TestCase):
             mock.call(
                 os.path.join(base_dir, 'sys'),
                 finish_timeout=6000,
-                monitor_service='monitor',
                 wait_cgroups='/test/cgroup/path'
             ),
             mock.call().write(),
@@ -267,6 +249,11 @@ class NativeImageTest(unittest.TestCase):
                       monitor_policy={
                           'limit': 5,
                           'interval': 60,
+                          'tombstone': {
+                              'uds': False,
+                              'path': self.services_tombstone_dir,
+                              'id': 'myproid.test-0-0000000ID1234,command3'
+                          }
                       },
                       trace=None),
             mock.call(mock_service_dir,
@@ -291,11 +278,18 @@ class NativeImageTest(unittest.TestCase):
                       monitor_policy={
                           'limit': 3,
                           'interval': 60,
+                          'tombstone': {
+                              'uds': True,
+                              'path': '/run/tm_ctl/tombstone',
+                              'id': 'myproid.test-0-0000000ID1234,command1'
+                          }
                       },
                       log_run_script='s6.app-logger.run',
                       trace={
                           'instanceid': 'myproid.test#0',
                           'uniqueid': 'ID1234',
+                          'service': 'command1',
+                          'path': '/run/tm_ctl/appevents'
                       }),
             mock.call(mock_service_dir,
                       name='command2',
@@ -308,21 +302,31 @@ class NativeImageTest(unittest.TestCase):
                       monitor_policy={
                           'limit': 3,
                           'interval': 60,
+                          'tombstone': {
+                              'uds': True,
+                              'path': '/run/tm_ctl/tombstone',
+                              'id': 'myproid.test-0-0000000ID1234,command2'
+                          }
                       },
                       log_run_script='s6.app-logger.run',
                       trace={
                           'instanceid': 'myproid.test#0',
                           'uniqueid': 'ID1234',
+                          'service': 'command2',
+                          'path': '/run/tm_ctl/appevents'
                       })
         ])
 
         self.assertEqual(2, mock_service_dir.write.call_count)
 
-        treadmill.fs.linux.mount_bind.assert_called_with(
-            '/test_treadmill', '/services',
-            source='/some/dir/services',
-            read_only=False, recursive=False
-        )
+        treadmill.fs.linux.mount_bind.assert_has_calls([
+            mock.call('/some/dir/root', '/services',
+                      source='/some/dir/services',
+                      read_only=False, recursive=False),
+            mock.call('/some/dir/root', '/run/tm_ctl',
+                      source=os.path.join(self.root, 'ctl'),
+                      read_only=False, recursive=False),
+        ])
 
     @mock.patch('treadmill.subproc.resolve', mock.Mock())
     def test__prepare_ldpreload(self):

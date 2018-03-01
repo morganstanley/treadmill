@@ -240,7 +240,7 @@ class ReportsTest(unittest.TestCase):
         df = pd.DataFrame([
             [1, 2, 3],
             [4, 5, 6]
-        ], columns=['a', 'b', 'c']).set_index('a')
+        ], columns=['a', 'b', 'c'])
 
         result = reports.serialize_dataframe(df)
         self.assertEqual(

@@ -8,6 +8,7 @@ from __future__ import unicode_literals
 
 import io
 import os
+import time
 import unittest
 
 # Disable W0611: Unused import
@@ -19,6 +20,9 @@ import treadmill
 from treadmill import firewall
 from treadmill import iptables
 from treadmill import subproc
+
+# Disable C0302: Too many lines
+# pylint: disable=C0302
 
 
 class IptablesTest(unittest.TestCase):
@@ -100,8 +104,12 @@ class IptablesTest(unittest.TestCase):
         with io.open(self.NAT_TABLE_SAVE) as f:
             self.nat_table_save = f.read()
 
-    @mock.patch('treadmill.iptables.ipset_restore', mock.Mock())
-    @mock.patch('treadmill.iptables._iptables_restore', mock.Mock())
+    @mock.patch('treadmill.iptables.flush_set', mock.Mock(set_spec=True))
+    @mock.patch('treadmill.iptables.add_ip_set', mock.Mock(set_spec=True))
+    @mock.patch('treadmill.iptables.ipset_restore', mock.Mock(set_spec=True))
+    @mock.patch('treadmill.iptables.create_chain', mock.Mock(set_spec=True))
+    @mock.patch('treadmill.iptables._iptables_restore',
+                mock.Mock(set_spec=True))
     def test_initialize(self):
         """Test iptables initialization"""
         # Disable protected-access: Test access protected members .
@@ -166,6 +174,35 @@ class IptablesTest(unittest.TestCase):
 
         treadmill.subproc.check_call.assert_called_with(
             ['iptables', '-t', 'nat', '-D', 'OUTPUT', '-j', 'FOO']
+        )
+        treadmill.subproc.check_call.reset_mock()
+
+        treadmill.subproc.check_call.side_effect = (
+            treadmill.subproc.CalledProcessError(1, '1.4.7 style')
+        )
+
+        # Should not raise
+        iptables.delete_raw_rule('nat', 'OUTPUT', '-j FOO')
+
+        treadmill.subproc.check_call.reset_mock()
+
+        # Should not raise
+        treadmill.subproc.check_call.side_effect = (
+            treadmill.subproc.CalledProcessError(2, '1.4.21 style')
+        )
+
+        iptables.delete_raw_rule('nat', 'OUTPUT', '-j FOO')
+
+        treadmill.subproc.check_call.reset_mock()
+
+        treadmill.subproc.check_call.side_effect = (
+            treadmill.subproc.CalledProcessError(42, 'other error')
+        )
+
+        self.assertRaises(
+            treadmill.subproc.CalledProcessError,
+            iptables.delete_raw_rule,
+            'nat', 'OUTPUT', '-j FOO'
         )
 
     @mock.patch('treadmill.subproc.check_call', mock.Mock())
@@ -724,9 +761,110 @@ class IptablesTest(unittest.TestCase):
             0, treadmill.iptables.delete_dnat_rule.call_count
         )
 
+    @mock.patch('time.sleep', mock.Mock(spec_set=True))
+    @mock.patch('treadmill.subproc.check_call', mock.Mock(spec_set=True))
+    def test__iptables(self):
+        """Test iptables command invocation.
+        """
+        # pylint: disable=protected-access
+
+        res = iptables._iptables('foo', 'bar', 'baz')
+
+        treadmill.subproc.check_call.assert_called_with(
+            ['iptables', '-t', 'foo', 'bar', 'baz']
+        )
+        self.assertEqual(res, treadmill.subproc.check_call.return_value)
+        treadmill.subproc.check_call.reset_mock()
+
+        res = iptables._iptables(
+            'foo', 'bar', 'baz',
+            ['-d', 'some_host', '-p', 'tcp']
+        )
+        treadmill.subproc.check_call.assert_called_with(
+            [
+                'iptables', '-t', 'foo', 'bar', 'baz',
+                '-d', 'some_host', '-p', 'tcp'
+            ]
+        )
+        self.assertEqual(res, treadmill.subproc.check_call.return_value)
+        treadmill.subproc.check_call.reset_mock()
+
+        mock_res = mock.Mock(name='finally!')
+        treadmill.subproc.check_call.side_effect = [
+            treadmill.subproc.CalledProcessError(4, 'locked'),
+            mock_res,
+        ]
+
+        res = iptables._iptables('foo', 'bar', 'baz')
+
+        treadmill.subproc.check_call.assert_called_with(
+            ['iptables', '-t', 'foo', 'bar', 'baz']
+        )
+        time.sleep.assert_has_calls(
+            [mock.ANY] * 1
+        )
+        self.assertEqual(time.sleep.call_count, 1)
+        self.assertEqual(res, mock_res)
+        treadmill.subproc.check_call.reset_mock()
+
+        treadmill.subproc.check_call.side_effect = (
+            treadmill.subproc.CalledProcessError('not 4', 'something else')
+        )
+
+        self.assertRaises(
+            treadmill.subproc.CalledProcessError,
+            iptables._iptables,
+            'foo', 'bar', 'baz'
+        )
+
+    @mock.patch('time.sleep', mock.Mock(spec_set=True))
+    @mock.patch('treadmill.subproc.check_output', mock.Mock(spec_set=True))
+    def test__iptables_output(self):
+        """Test iptables command invocation.
+        """
+        # pylint: disable=protected-access
+
+        res = iptables._iptables_output('foo', 'bar', 'baz')
+
+        treadmill.subproc.check_output.assert_called_with(
+            ['iptables', '-t', 'foo', 'bar', 'baz']
+        )
+        self.assertEqual(res, treadmill.subproc.check_output.return_value)
+        treadmill.subproc.check_output.reset_mock()
+
+        mock_res = mock.Mock(name='finally!')
+        treadmill.subproc.check_output.side_effect = [
+            treadmill.subproc.CalledProcessError(4, 'locked'),
+            treadmill.subproc.CalledProcessError(4, 'locked'),
+            mock_res,
+        ]
+
+        res = iptables._iptables_output('foo', 'bar', 'baz')
+
+        treadmill.subproc.check_output.assert_called_with(
+            ['iptables', '-t', 'foo', 'bar', 'baz']
+        )
+        time.sleep.assert_has_calls(
+            [mock.ANY] * 2
+        )
+        self.assertEqual(time.sleep.call_count, 2)
+        self.assertEqual(res, mock_res)
+        treadmill.subproc.check_output.reset_mock()
+
+        treadmill.subproc.check_output.side_effect = (
+            treadmill.subproc.CalledProcessError('not 4', 'something else')
+        )
+
+        self.assertRaises(
+            treadmill.subproc.CalledProcessError,
+            iptables._iptables_output,
+            'foo', 'bar', 'baz'
+        )
+
     @mock.patch('treadmill.subproc.invoke', mock.Mock(return_value=(0, '')))
-    def test_ipset(self):
-        """Test ipset tool invocation"""
+    def test__ipset(self):
+        """Test ipset tool invocation.
+        """
         # Disable protected-access: Test access protected members .
         # pylint: disable=protected-access
 
@@ -874,9 +1012,6 @@ class IptablesTest(unittest.TestCase):
         )
         tmp_set = iptables.create_set.call_args[0][0]
 
-        iptables.flush_set.assert_called_with(
-            tmp_set
-        )
         iptables.ipset_restore.assert_called_with(
             (
                 "add {tmp_set} a\n"

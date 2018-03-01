@@ -227,7 +227,6 @@ class AppCfgMgrTest(unittest.TestCase):
         """
         # Access to a protected member _synchronize of a client class
         # pylint: disable=W0212
-
         def _fake_unique_name(name):
             """Fake container unique name function.
             """
@@ -236,15 +235,19 @@ class AppCfgMgrTest(unittest.TestCase):
             uniquename += '-1234'
             return uniquename
         treadmill.appcfg.eventfile_unique_name.side_effect = _fake_unique_name
+
         for app in ('proid.app#0', 'proid.app#1', 'proid.app#2'):
+            # Create cache/ entry
+            with io.open(os.path.join(self.cache, app), 'w') as _f:
+                pass
             # Create app/ dir
             uniquename = _fake_unique_name(app)
             app_dir = os.path.join(self.apps, uniquename)
             os.mkdir(app_dir)
-            # Create cleanup file in data dir
+            # Create exitinfo file in data dir
             data_dir = os.path.join(app_dir, 'data')
             os.mkdir(data_dir)
-            with io.open(os.path.join(data_dir, 'cleanup'), 'w') as _f:
+            with io.open(os.path.join(data_dir, 'exitinfo'), 'w') as _f:
                 pass
 
         self.appcfgmgr._synchronize()

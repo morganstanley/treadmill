@@ -56,7 +56,8 @@ class ClientAuthorizer(object):
 
         nargs = len(args)
         if nargs > 0:
-            data['pk'] = str(args[0])
+            data['pk'] = args[0]
+
         if nargs > 1:
             data['payload'] = args[1]
 

@@ -1,1 +1,5 @@
-{{ _alias.powershell }} -File %TREADMILL_APPROOT%\bin\finish.ps1
+powershell -File %TREADMILL_APPROOT%\bin\finish.ps1 {% if monitor_policy -%}
+-limit {{ monitor_policy.limit }} -interval {{ monitor_policy.interval }} -tombstone_id {{ monitor_policy.tombstone.id }} -tombstone_path {{ monitor_policy.tombstone.path }} {% if monitor_policy.skip_path -%}
+-skip_path {{  monitor_policy.skip_path }}
+{%- endif %}
+{%- endif %}

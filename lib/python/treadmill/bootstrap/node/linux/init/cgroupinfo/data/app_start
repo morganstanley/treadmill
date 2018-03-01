@@ -10,5 +10,5 @@ exec \
     sproc --cgroup . \
     cgroup-server \
         --cors-origin='.*' \
-        --socket {{ dir }}/var/run/cgroup.sock \
+        --socket {{ dir }}/run/cgroup.sock \
         --interval 30

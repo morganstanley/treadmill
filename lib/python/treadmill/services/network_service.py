@@ -205,7 +205,7 @@ class NetworkResourceService(BaseResourceServiceImpl):
             assert environment in _SET_BY_ENVIRONMENT, \
                 'Unknown environment: %r' % environment
 
-            veth0, veth1 = _devive_from_rsrc_id(app_unique_name)
+            veth0, veth1 = _device_from_rsrc_id(app_unique_name)
 
             if app_unique_name not in self._devices:
                 # VIPs allocation (the owner is the resource link)
@@ -256,7 +256,7 @@ class NetworkResourceService(BaseResourceServiceImpl):
         app_unique_name = rsrc_id
 
         with lc.LogContext(_LOGGER, rsrc_id):
-            veth, _ = _devive_from_rsrc_id(app_unique_name)
+            veth, _ = _device_from_rsrc_id(app_unique_name)
 
             try:
                 netdev.dev_state(veth)
@@ -341,7 +341,7 @@ def _device_info(device):
     }
 
 
-def _devive_from_rsrc_id(app_unique_name):
+def _device_from_rsrc_id(app_unique_name):
     """Format devices names.
 
     :returns:

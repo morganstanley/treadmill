@@ -32,7 +32,7 @@ class CgroupResourceService(BaseResourceServiceImpl):
         '_tm_env'
     )
 
-    SUBSYSTEMS = ('cpu', 'cpuacct', 'memory', 'blkio')
+    SUBSYSTEMS = ('cpu', 'cpuacct', 'cpuset', 'memory', 'blkio', 'devices')
 
     PAYLOAD_SCHEMA = (('memory', True, str),
                       ('cpu', True, int))
@@ -124,7 +124,16 @@ class CgroupResourceService(BaseResourceServiceImpl):
             log.info(
                 'created in cpu:%s with %s shares', cgrp, app_cpu_shares
             )
-            cgroups.set_cpu_shares(cgrp, app_cpu_shares)
+            cgutils.set_cpu_shares(cgrp, app_cpu_shares)
+
+            log.info('Inherit parent cpuset.cpus for %s', cgrp)
+            cgroups.inherit_value(
+                'cpuset', cgrp, 'cpuset.cpus'
+            )
+            log.info('Inherit parent cpuset.mems for %s', cgrp)
+            cgroups.inherit_value(
+                'cpuset', cgrp, 'cpuset.mems'
+            )
 
         return {
             subsystem: cgrp

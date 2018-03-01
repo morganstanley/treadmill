@@ -166,6 +166,35 @@ class API(object):
             return masterapi.get_app(context.GLOBAL.zk.conn, rsrc_id)
 
         @schema.schema(
+            {'type': 'array',
+             'items': {'$ref': 'instance.json#/verbs/update'},
+             'minItems': 1}
+        )
+        def bulk_update(updates):
+            """Bulk update instance priorities."""
+            _LOGGER.info('update: %r', updates)
+
+            def _process(rsrc):
+                try:
+                    if '_id' not in rsrc:
+                        raise exc.InvalidInputError(
+                            __name__,
+                            'delta is missing _id attribute: {}'.format(rsrc)
+                        )
+                    rsrc_id = rsrc['_id']
+                    delta = {rsrc_id: rsrc['priority']}
+                    masterapi.update_app_priorities(
+                        context.GLOBAL.zk.conn,
+                        delta
+                    )
+                    return masterapi.get_app(context.GLOBAL.zk.conn, rsrc_id)
+                except Exception as err:  # pylint: disable=W0703
+                    return {'_error': {'_id': rsrc_id,
+                                       'why': str(err)}}
+
+            return [_process(rsrc) for rsrc in updates]
+
+        @schema.schema(
             {'$ref': 'instance.json#/resource_id'},
             deleted_by={'anyOf': [
                 {'type': 'null'},
@@ -180,8 +209,26 @@ class API(object):
                 context.GLOBAL.zk.conn, [rsrc_id], deleted_by
             )
 
+        @schema.schema(
+            {'$ref': 'instance.json#/resource_ids'},
+            deleted_by={'anyOf': [
+                {'type': 'null'},
+                {'$ref': 'common.json#/user'},
+            ]}
+        )
+        def bulk_delete(rsrc_ids, deleted_by=None):
+            """Bulk delete with resource instance IDs
+            """
+            _LOGGER.info('delete: %r, deleted_by = %s', rsrc_ids, deleted_by)
+
+            masterapi.delete_apps(
+                context.GLOBAL.zk.conn, rsrc_ids, deleted_by
+            )
+
         self.list = _list
         self.get = get
         self.create = create
         self.update = update
         self.delete = delete
+        self.bulk_update = bulk_update
+        self.bulk_delete = bulk_delete

@@ -10,288 +10,189 @@ import abc
 import collections
 import errno
 import io
-import json
 import logging
+import json
 import os
 
-import enum
 import six
 
-from treadmill import appevents
 from treadmill import dirwatch
 from treadmill import fs
+from treadmill import plugin_manager
 from treadmill import subproc
 from treadmill import supervisor
 from treadmill import utils
 
 from treadmill.appcfg import abort as app_abort
-from treadmill.apptrace import events as traceevents
 
 
 _LOGGER = logging.getLogger(__name__)
 
+_TOMESTONES_PLUGINS = 'treadmill.tombstones'
 EXIT_INFO = 'exitinfo'
 
 
 class Monitor(object):
-    """Treadmill s6-based supervisor monitoring.
+    """Treadmill tombstone monitoring.
 
-    Enforces restart policy and execute failure actions.
+    Watches a directory for tombstone files and performs an action when it
+    sees one.
     """
 
     __slots__ = (
+        '_tm_env',
+        '_config_dir',
+        '_dispatcher',
         '_dirwatcher',
-        '_down_action',
-        '_down_reasons',
-        '_policy_impl',
-        '_services',
-        '_scan_dirs',
-        '_service_policies',
-        '_event_hook',
+        '_tombstones'
     )
 
-    def __init__(self, scan_dirs, service_dirs, policy_impl, down_action,
-                 event_hook=None):
+    def __init__(self, tm_env, config_dir):
+        self._tm_env = tm_env
+        self._config_dir = config_dir
         self._dirwatcher = None
-        self._down_action = down_action
-        self._down_reasons = collections.deque()
-        self._event_hook = event_hook
-        self._policy_impl = policy_impl
-        self._services = list(utils.get_iterable(service_dirs))
-        self._scan_dirs = set(utils.get_iterable(scan_dirs))
-        self._service_policies = {}
+        self._dispatcher = None
+        self._tombstones = None
 
-    def _on_created(self, new_entry):
-        if os.path.basename(new_entry)[0] == '.':
+    def _on_created(self, path, handler):
+        name = os.path.basename(path)
+        if name[0] == '.':
             return
 
-        watched = os.path.dirname(new_entry)
+        tombstone_id, timestamp, rc, sig = name.rsplit(',', 3)
 
-        # Check if the created entry is a new service or a service exit entry
-        if watched in self._scan_dirs:
-            self._add_service(new_entry)
+        tombstone = (path, handler, {
+            'return_code': int(rc),
+            'id': tombstone_id,
+            'signal': int(sig),
+            'timestamp': float(timestamp),
+        })
 
-        else:
-            # A service exited
-            policy = self._service_policies.get(watched, None)
-            if policy is not None:
-                self._process(policy)
+        _LOGGER.info('Processing tombstone %r', tombstone)
+        self._tombstones.append(tombstone)
 
-    def _on_deleted(self, removed_entry):
-        if os.path.basename(removed_entry)[0] == '.':
-            return
-
-        _LOGGER.debug('Policies %r', self._service_policies)
-
-        watched = os.path.dirname(removed_entry)
-        if watched in self._scan_dirs:
-            _LOGGER.debug('Removed scan dir')
-
-        else:
-            # If a policy directory is being removed, remove the associated
-            # policy as well.
-            removed_svc_policy = self._service_policies.pop(
-                removed_entry, None
-            )
-            if removed_svc_policy is not None:
-                _LOGGER.debug('Removed %r. Remaining policies %r',
-                              removed_svc_policy, self._service_policies)
-        return
-
-    def _add_service(self, new_service_dir):
-        # Add the new service
-        try:
-            service = supervisor.open_service(new_service_dir)
-
-        except (ValueError, IOError):
-            _LOGGER.exception('Unable to read service directory %r',
-                              new_service_dir)
-            return
-
-        policy = self._policy_impl()
-        new_watch = policy.register(service)
-
-        if new_watch is None:
-            _LOGGER.info('Service %r is not configured for monitoring',
-                         service)
-            return
-
-        # Add the new service directory to the policy watcher
-        try:
-            self._dirwatcher.add_dir(new_watch)
-
-        except OSError:
-            _LOGGER.exception('Unable to add dir to watcher %r', new_watch)
-            return
-
-        self._service_policies[new_watch] = policy
-        # Immediately ensure we start within policy.
-        self._process(policy)
-
-    def _process(self, policy):
-        """Process an event on the service directory.
+    def _configure(self):
+        """Configures the dispatcher with the monitor actions defined in
+        the config directory.
         """
-        result = policy.check()
+        config = {}
 
-        if result is MonitorRestartPolicyResult.NOOP:
-            return
+        for name in os.listdir(self._config_dir):
+            path = os.path.join(self._config_dir, name)
+            if not os.path.isfile(path):
+                continue
 
-        reason = policy.fail_reason
-        self._went_down(policy.service, reason)
+            _LOGGER.debug('Configuring for file: %s', path)
 
-        if result is MonitorRestartPolicyResult.FAIL:
-            self._down_reasons.append(reason)
-            return
+            with io.open(path) as f:
+                for line in f.readlines():
+                    parts = line.rstrip().split(';', 2)
+                    if len(parts) < 2:
+                        _LOGGER.warning('skiping config line %s', line)
+                        continue
 
-        else:
-            self._bring_up(policy.service)
-            self._went_up(policy.service)
+                    try:
+                        handler = plugin_manager.load(_TOMESTONES_PLUGINS,
+                                                      parts[1])
+                    except KeyError:
+                        _LOGGER.warning('Tomestone handler does not exist: %r',
+                                        parts[1])
+                        continue
 
-    def _went_down(self, service, data):
-        """Called when the service went down.
+                    params = {}
+                    if len(parts) > 2:
+                        params = json.loads(parts[2])
 
-        :params ``supervisor.Service`` service:
-            Service that went down.
-        :params ``dict`` data:
-            Policy reason data why the service went down.
+                    impl = handler(self._tm_env, params)
+                    config[parts[0]] = impl
 
-        """
-        _LOGGER.info('Service went down %r', service)
-        if self._event_hook:
-            self._event_hook.down(service, data)
+        self._dirwatcher = dirwatch.DirWatcher()
+        self._dispatcher = dirwatch.DirWatcherDispatcher(self._dirwatcher)
+        self._tombstones = collections.deque()
 
-    def _went_up(self, service):
-        """Called when the service went up.
+        for path, handler in six.iteritems(config):
+            fs.mkdir_safe(path)
+            self._dirwatcher.add_dir(path)
+            self._dispatcher.register(path, {
+                dirwatch.DirWatcherEvent.CREATED:
+                    lambda p, h=handler: self._on_created(p, h)
+            })
 
-        :params ``supervisor.Service`` service:
-            Service that went down.
-        """
-        _LOGGER.info('Service went up %r', service)
-        if self._event_hook:
-            self._event_hook.up(service)
+            _LOGGER.info('Watching %s with handler %r', path, handler)
 
-    def _bring_up(self, service):
-        """Brings up the given service.
+            for name in os.listdir(path):
+                self._on_created(os.path.join(path, name), handler)
 
-        :params ``supervisor.Service`` service:
-            Service to bring up.
-        """
-        _LOGGER.info('Bringing up service %r', service)
-        try:
-            # Check in one step the service is supervised and *not* up (we
-            # expect it to be down).
-            supervisor.wait_service(
-                service.directory,
-                supervisor.ServiceWaitAction.up,
-                timeout=100
-            )
-
-            # Service is up, nothing to do.
-            return
-
-        except subproc.CalledProcessError as err:
-            if err.returncode == supervisor.ERR_NO_SUP:
-                # Watching a directory without supervisor, nothing to do.
-                return
-            elif err.returncode == supervisor.ERR_TIMEOUT:
-                # Service is down, make sure finish script is done.
-                supervisor.wait_service(
-                    service.directory,
-                    supervisor.ServiceWaitAction.really_down,
-                    timeout=(60 * 1000)
-                )
-            else:
-                raise
-
-        # Bring the service back up.
-        supervisor.control_service(service.directory,
-                                   supervisor.ServiceControlAction.up)
+        _LOGGER.info('Monitor configured')
 
     def run(self):
         """Run the monitor.
 
-        Start the event loop and continue until a service fails and the
-        configure down action considers it fatal.
+        Start the event loop and process tombstone events as they are recieved.
         """
-        self._dirwatcher = dirwatch.DirWatcher()
-        self._dirwatcher.on_deleted = self._on_deleted
-        self._dirwatcher.on_created = self._on_created
+        self._configure()
 
-        service_dirs = self._services[:]
-
-        for scan_dir in self._scan_dirs:
-            # If we have a svscan directory to watch add it.
-            self._dirwatcher.add_dir(scan_dir)
-            service_dirs += [
-                os.path.join(scan_dir, dentry)
-                for dentry in os.listdir(scan_dir)
-                if dentry[0] != '.'
-            ]
-
-        for service_dir in service_dirs:
-            self._add_service(service_dir)
-
-        running = True
-        while running:
-            while not self._down_reasons:
+        while True:
+            while not self._tombstones:
                 if self._dirwatcher.wait_for_events():
                     self._dirwatcher.process_events()
 
-            # Process all the down reasons through the down_action callback.
-            for down_reason in self._down_reasons:
-                if not self._down_action.execute(down_reason):
-                    # If one of the down_action stops the monitor, break early.
-                    running = False
-                    break
-            else:
-                # Clear the down reasons now that we have processed them all.
-                self._down_reasons.clear()
+            # Process all the tombstones through the tombstone_action callback.
+            for path, handler, data in self._tombstones:
+                if handler.execute(data):
+                    fs.rm_safe(path)
+
+            # Clear the down reasons now that we have processed them all.
+            self._tombstones.clear()
 
 
 @six.add_metaclass(abc.ABCMeta)
-class MonitorDownAction(object):
-    """Abstract base class for all monitor down actions.
+class MonitorTombstoneAction(object):
+    """Abstract base class for all monitor tombstone actions.
 
     Behavior when a service fails its policy.
     """
-    __slots__ = ()
+    __slots__ = (
+        '_tm_env',
+        '_params'
+    )
+
+    def __init__(self, tm_env, params=None):
+        self._tm_env = tm_env
+
+        if params is None:
+            params = {}
+
+        self._params = params
 
     @abc.abstractmethod
     def execute(self, data):
         """Execute the down action.
 
         :params ``dict`` data:
-            Output of the `class:MonitorPolicy.fail_reason()` method.
+            Contains 'path', 'return_code', 'id', 'signal', 'timestamp'.
 
         :returns ``bool``:
-            ``True`` - Monitor should keep running.
-            ``False`` - Monitor should stop.
+            ``True`` - Monitor should delete the tombstone
         """
         pass
 
 
-class MonitorNodeDown(MonitorDownAction):
+class MonitorNodeDown(MonitorTombstoneAction):
     """Monitor down action that disables the node by blacklisting it.
 
     Triggers the blacklist through the watchdog service.
     """
-    __slots__ = (
-        '_watchdog_dir',
-        '_prefix'
-    )
-
-    def __init__(self, tm_env, prefix=''):
-        self._watchdog_dir = tm_env.watchdog_dir
-        self._prefix = prefix
+    __slots__ = ()
 
     def execute(self, data):
         """Shut down the node by writing a watchdog with the down reason data.
         """
         _LOGGER.critical('Node down: %r', data)
         filename = os.path.join(
-            self._watchdog_dir, 'Monitor-{prefix}{service}'.format(
-                prefix=self._prefix,
-                service=data['service']
+            self._tm_env.watchdog_dir, 'Monitor-{prefix}{service}'.format(
+                prefix=self._params.get('prefix', ''),
+                service=data['id']
             )
         )
         fs.write_safe(
@@ -299,7 +200,7 @@ class MonitorNodeDown(MonitorDownAction):
             lambda f: f.write(
                 'Node service {service!r} crashed.'
                 ' Last exit {return_code} (sig:{signal}).'.format(
-                    service=data['service'],
+                    service=data['id'],
                     return_code=data['return_code'],
                     signal=data['signal']
                 )
@@ -309,28 +210,21 @@ class MonitorNodeDown(MonitorDownAction):
             permission=0o644
         )
 
-        return True
+        return False
 
 
-class MonitorContainerCleanup(MonitorDownAction):
+class MonitorContainerCleanup(MonitorTombstoneAction):
     """Monitor container cleanup action.
     """
-    __slots__ = (
-        '_running_dir',
-        '_cleanup_dir'
-    )
-
-    def __init__(self, tm_env):
-        self._running_dir = tm_env.running_dir
-        self._cleanup_dir = tm_env.cleanup_dir
+    __slots__ = ()
 
     def execute(self, data):
         """Pass a container to the cleanup service.
         """
         _LOGGER.critical('Monitor container cleanup: %r', data)
-        running = os.path.join(self._running_dir, data['service'])
-        data_dir = supervisor.open_service(running).data_dir
-        cleanup = os.path.join(self._cleanup_dir, data['service'])
+        running = os.path.join(self._tm_env.running_dir, data['id'])
+        data_dir = supervisor.open_service(running, existing=False).data_dir
+        cleanup = os.path.join(self._tm_env.cleanup_dir, data['id'])
 
         # pid1 will SIGABRT(6) when there is an issue
         if int(data['signal']) == 6:
@@ -346,326 +240,50 @@ class MonitorContainerCleanup(MonitorDownAction):
                 raise
 
         try:
-            supervisor.control_svscan(self._running_dir, [
+            supervisor.control_svscan(self._tm_env.running_dir, [
                 supervisor.SvscanControlAction.alarm,
                 supervisor.SvscanControlAction.nuke
             ])
         except subproc.CalledProcessError as err:
-            _LOGGER.warning('Failed to nuke svscan: %r', self._running_dir)
+            _LOGGER.warning('Failed to nuke svscan: %r',
+                            self._tm_env.running_dir)
 
         return True
 
 
-class MonitorContainerDown(MonitorDownAction):
+class MonitorContainerDown(MonitorTombstoneAction):
     """Monitor container down action.
     """
-    __slots__ = (
-        '_container_svc',
-    )
-
-    def __init__(self, container_dir):
-        self._container_svc = supervisor.open_service(container_dir)
+    __slots__ = ()
 
     def execute(self, data):
-        """Execute the down action.
-
-        :returns ``bool``:
-            ``True`` - Monitor should keep running.
-            ``False`` - Monitor should stop.
+        """Put the container into the down state which will trigger cleanup.
         """
+        unique_name, service_name = data['id'].split(',')
+        container_dir = os.path.join(self._tm_env.apps_dir, unique_name)
+        container_svc = supervisor.open_service(container_dir)
+
         _LOGGER.critical('Container down: %r', data)
-        data_dir = self._container_svc.data_dir
+        data_dir = container_svc.data_dir
         fs.write_safe(
             os.path.join(data_dir, EXIT_INFO),
             lambda f: f.writelines(
-                utils.json_genencode(data)
+                utils.json_genencode({
+                    'service': service_name,
+                    'return_code': data['return_code'],
+                    'signal': data['signal'],
+                    'timestamp': data['timestamp']
+                })
             ),
             mode='w',
             prefix='.tmp',
             permission=0o644
         )
-        # NOTE: This will take down this container's monitor service as well.
-        # NOTE: The supervisor has to be running as we call from inside the
-        #       container.
-        supervisor.control_service(self._container_svc.directory,
-                                   supervisor.ServiceControlAction.down)
 
-        return False
-
-
-@six.add_metaclass(abc.ABCMeta)
-class MonitorEventHook(object):
-    """Abstract base class for monitor events.
-    """
-    __slots__ = ()
-
-    @abc.abstractmethod
-    def down(self, service, data):
-        """Called when a service has went down.
-
-        :params service:
-            The service that went down.
-        :params ``dict`` data:
-            Output of the `class:MonitorPolicy.fail_reason()` method.
-        """
-        pass
-
-    # pylint complains: Invalid class attribute name "up"
-    @abc.abstractmethod
-    def up(self, service):  # pylint: disable=C0103
-        """Called when a service has been brought back up.
-
-        :params service:
-            The service that has been brought back up.
-        """
-        pass
-
-
-class PresenceMonitorEventHook(MonitorEventHook):
-    """Adds hooks to the monitor to enable presence."""
-    __slots__ = (
-        'tm_env',
-    )
-
-    def __init__(self, tm_env):
-        self.tm_env = tm_env
-
-    def _get_trace(self, service):
-        """Gets the trace details for the given service."""
-        trace_file = os.path.join(service.data_dir, supervisor.TRACE_FILE)
-
-        if not os.path.exists(trace_file):
-            return None
-
-        with io.open(trace_file) as f:
-            return json.load(f)
-
-    def down(self, service, data):
-        trace = self._get_trace(service)
-        if trace is None:
-            return
-
-        appevents.post(
-            self.tm_env.app_events_dir,
-            traceevents.ServiceExitedTraceEvent(
-                instanceid=trace['instanceid'],
-                uniqueid=trace['uniqueid'],
-                service=service.name,
-                rc=data['return_code'],
-                signal=data['signal']
-            )
-        )
-
-    def up(self, service):
-        trace = self._get_trace(service)
-        if trace is None:
-            return
-
-        appevents.post(
-            self.tm_env.app_events_dir,
-            traceevents.ServiceRunningTraceEvent(
-                instanceid=trace['instanceid'],
-                uniqueid=trace['uniqueid'],
-                service=service.name
-            )
-        )
-
-
-@six.add_metaclass(abc.ABCMeta)
-class MonitorPolicy(object):
-    """Abstract base class of all monitor policies implementations.
-
-    Behaviors for policing services executions.
-    """
-    __slots__ = ()
-
-    @abc.abstractmethod
-    def register(self, service):
-        """Register a service directory with the Monitor.
-
-        :returns:
-            ``str`` -- Absolute (real) path to the watch that needs to be added
-                       to the monitor.
-            ``None`` -- Policy registration failed. No watch will be created.
-        """
-        pass
-
-    @abc.abstractproperty
-    def check(self):
-        """Check the status of the service against the policy.
-
-        :returns ``MonitorRestartPolicyResult``:
-            ``NOOP`` is nothing needs be done, ``RESTART`` to bring the service
-             back up and ``FAIL`` to fail.
-        """
-        return
-
-    @abc.abstractproperty
-    def service(self):
-        """The service which this policy is for
-
-        :returns:
-            The service.
-        """
-        return
-
-    @abc.abstractproperty
-    def fail_reason(self):
-        """Policy failure data
-
-        :returns ``dict``:
-            Dictionary of failure data.
-        """
-        return
-
-
-class MonitorRestartPolicyResult(enum.Enum):
-    """Results of a MonitorRestartPolicy check.
-    """
-    NOOP = 'noop'
-    RESTART = 'restart'
-    FAIL = 'fail'
-
-
-class MonitorRestartPolicy(MonitorPolicy):
-    """Restart services based on limit and interval.
-    """
-
-    __slots__ = (
-        '_last_rc',
-        '_last_signal',
-        '_last_timestamp',
-        '_policy_interval',
-        '_policy_limit',
-        '_service',
-        '_service_exits_log',
-    )
-
-    def __init__(self):
-        self._last_rc = None
-        self._last_signal = None
-        self._last_timestamp = None
-        self._policy_interval = None
-        self._policy_limit = None
-        self._service = None
-        self._service_exits_log = None
-
-    def register(self, service):
-        self._service = service
         try:
-            with io.open(os.path.join(service.data_dir,
-                                      supervisor.POLICY_JSON)) as f:
-                policy_conf = json.load(f)
-            self._policy_limit = policy_conf['limit']
-            self._policy_interval = policy_conf['interval']
+            supervisor.control_service(container_svc.directory,
+                                       supervisor.ServiceControlAction.down)
+        except subproc.CalledProcessError as err:
+            _LOGGER.warning('Failed to bring down container: %r', unique_name)
 
-        except IOError as err:
-            if err.errno == errno.ENOENT:
-                _LOGGER.warning('No policy file found for %r', service)
-                return None
-            else:
-                raise
-
-        service_exits_log = os.path.join(
-            service.data_dir, supervisor.EXITS_DIR
-        )
-        fs.mkdir_safe(service_exits_log)
-        self._service_exits_log = service_exits_log
-
-        _LOGGER.info('monitoring %r with limit:%d interval:%d',
-                     self._service, self._policy_limit, self._policy_interval)
-
-        return os.path.realpath(service_exits_log)
-
-    def check(self):
-        try:
-            exits = sorted([
-                direntry
-                for direntry in os.listdir(self._service_exits_log)
-                if direntry[0] != '.'
-            ])
-        except OSError:
-            _LOGGER.info('Dir %r was deleted.', self._service_exits_log)
-            # The dir deleted event will remove from watcher
-            return MonitorRestartPolicyResult.NOOP
-
-        total_restarts = len(exits)
-        if total_restarts == 0:
-            # If it never exited, nothing to do
-            return MonitorRestartPolicyResult.NOOP
-
-        last_timestamp, last_rc, last_sig = exits[-1].split(',')
-        self._last_timestamp = float(last_timestamp)
-        self._last_rc = int(last_rc)
-        self._last_signal = int(last_sig)
-
-        success = True
-        if total_restarts > self._policy_limit:
-            if self._policy_limit == 0:
-                # Do not allow any restart
-                success = False
-
-            else:
-                # Check if within policy
-                cutoff_exit = exits[-(self._policy_limit + 1)]
-                timestamp, _rc, _sig = cutoff_exit.split(',')
-                if (float(timestamp) + self._policy_interval >
-                        self._last_timestamp):
-                    success = False
-
-        if not success:
-            _LOGGER.critical(
-                '%r restart rate exceeded. Last exit @%r code %r (sig:%r)',
-                self._service,
-                self._last_timestamp, self._last_rc, self._last_signal
-            )
-            return MonitorRestartPolicyResult.FAIL
-
-        else:
-            # Otherwise, restart the service
-            _LOGGER.info(
-                '%r should be up. Last exit @%r code %r (sig:%r)',
-                self._service,
-                self._last_timestamp, self._last_rc, self._last_signal
-            )
-            # Cleanup old exits (up to 2x the policy)
-            for old_exit in exits[:-(self._policy_limit * 2)]:
-                os.unlink(os.path.join(self._service_exits_log, old_exit))
-
-            return MonitorRestartPolicyResult.RESTART
-
-    @property
-    def service(self):
-        return self._service
-
-    @property
-    def fail_reason(self):
-        return {
-            'return_code': self._last_rc,
-            'service': self._service.name,
-            'signal': self._last_signal,
-            'timestamp': self._last_timestamp,
-        }
-
-
-class CleanupMonitorRestartPolicy(MonitorRestartPolicy):
-    """Restart services based on limit and interval only when cleanup
-    is still to be done.
-    """
-
-    __slots__ = (
-        '_tm_env',
-    )
-
-    def __init__(self, tm_env):
-        super(CleanupMonitorRestartPolicy, self).__init__()
-        self._tm_env = tm_env
-
-    def check(self):
-        name = os.path.basename(self._service.directory)
-        cleanup_link = os.path.join(self._tm_env.cleanup_dir, name)
-        if os.path.islink(cleanup_link):
-            return super(CleanupMonitorRestartPolicy, self).check()
-        else:
-            # Cleanup link removed so cleanup has done its job
-            return MonitorRestartPolicyResult.NOOP
+        return True

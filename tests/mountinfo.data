@@ -1,0 +1,9 @@
+17 60 0:16 / /sys rw,nosuid,nodev,noexec,relatime shared:6 - sysfs sysfs rw
+18 60 0:3 / /proc rw,nosuid,nodev,noexec,relatime shared:5 - proc proc rw
+19 60 0:5 / /dev rw,nosuid shared:2 - devtmpfs devtmpfs rw,size=3995352k,nr_inodes=998838,mode=755
+20 17 0:15 / /sys/kernel/security rw,nosuid,nodev,noexec,relatime shared:7 - securityfs securityfs rw
+21 19 0:17 / /dev/shm rw,nosuid,nodev shared:3 - tmpfs tmpfs rw
+22 19 0:11 / /dev/pts rw,nosuid,noexec,relatime shared:4 - devpts devpts rw,gid=5,mode=620,ptmxmode=000
+23 60 0:18 / /run rw,nosuid,nodev shared:22 - tmpfs tmpfs rw,mode=755
+24 17 0:19 / /sys/fs/cgroup ro,nosuid,nodev,noexec shared:8 - tmpfs tmpfs ro,mode=755
+25 24 0:20 / /sys/fs/cgroup/systemd rw,nosuid,nodev,noexec,relatime shared:9 - cgroup cgroup rw,xattr,release_agent=/usr/lib/systemd/systemd-cgroups-agent,name=systemd

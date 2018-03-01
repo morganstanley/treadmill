@@ -12,6 +12,7 @@ import six
 
 ALLOCATIONS = '/allocations'
 APPGROUPS = '/app-groups'
+APPGROUP_LOOKUP = '/appgroup-lookups'
 APPMONITORS = '/app-monitors'
 ARCHIVE_CONFIG = '/archive/config'
 BLACKEDOUT_APPS = '/blackedout.apps'
@@ -120,6 +121,7 @@ class path(object):  # pylint: disable=C0103
 
     allocation = make_path_f(ALLOCATIONS)
     appgroup = make_path_f(APPGROUPS)
+    appgroup_lookup = make_path_f(APPGROUP_LOOKUP)
     appmonitor = make_path_f(APPMONITORS)
     blackedout_app = make_path_f(BLACKEDOUT_APPS)
     blackedout_server = make_path_f(BLACKEDOUT_SERVERS)

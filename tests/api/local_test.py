@@ -8,6 +8,7 @@ from __future__ import unicode_literals
 
 import functools
 import io
+import json
 import os
 import shutil
 import tarfile
@@ -370,30 +371,72 @@ class HelperFuncTests(unittest.TestCase):
 
 
 class APITest(unittest.TestCase):
-    """Basic API tests."""
+    """Basic API tests.
+    """
 
     def setUp(self):
-        """Test the _get_file() func."""
+        self.root = tempfile.mkdtemp()
+        os.environ['TREADMILL_APPROOT'] = self.root
         self.api = local.API()
-        os.environ['TREADMILL_APPROOT'] = os.getcwd()
+
+    def tearDown(self):
+        if self.root and os.path.isdir(self.root):
+            shutil.rmtree(self.root)
 
     def test_archive(self):
-        """Test ArvhiveApi's get() method."""
+        """Test ArvhiveApi's get() method.
+        """
         with self.assertRaises(LocalFileNotFoundError):
             self.api.archive.get('no/such/archive')
 
-    # W0613: unused argument 'dont_care'
-    # pylint: disable=W0613
     @mock.patch('glob.glob',
-                return_value=['.../archives/proid.app-foo-bar#123.sys.tar.gz',
-                              '.../archives/proid.app-123-uniq.sys.tar.gz',
-                              '.../archives/proid.app#123.sys.tar.gz'])
-    @mock.patch('os.stat')
-    def test_list_finished(self, _, dont_care):
-        """Test _list_finished()."""
+                mock.Mock(spec_set=True, return_value=[
+                    '.../archives/proid.app-foo-bar#123.sys.tar.gz',
+                    '.../archives/proid.app-123-uniq.sys.tar.gz',
+                    '.../archives/proid.app#123.sys.tar.gz',
+                ]))
+    @mock.patch('os.stat', mock.Mock(spec_set=True))
+    @mock.patch('treadmill.fs.mkdir_safe', mock.Mock(spec_set=True))
+    def test_list_finished(self):
+        """Test _list_finished().
+        """
         res = self.api.list('finished')
         self.assertEqual(len(res), 1)
         self.assertEqual(res[0]['_id'], 'proid.app#123/uniq')
+
+    def test_get(self):
+        """Test _get(uniqid).
+        """
+        state = {'foo': 'bar'}
+        path_to_archives = os.path.join(self.root, 'archives')
+        os.makedirs(path_to_archives)
+        path_to_app = os.path.join(
+            self.root,
+            'apps',
+            'proid.app-123-uniq',
+            'data'
+        )
+        os.makedirs(path_to_app)
+        path_to_state_file = os.path.join(path_to_app, 'state.json')
+        with io.open(path_to_state_file, 'w') as f:
+            json.dump(state, f)
+
+        # check that state.json can be read back successfully
+        self.assertEqual(
+            self.api.get('proid.app-123/uniq'),
+            state
+        )
+
+        # add state.json to an archive
+        path_to_archive = os.path.join(
+            path_to_archives,
+            'proid.app-122-uniq.sys.tar.gz'
+        )
+        with tarfile.open(path_to_archive, mode='w') as out:
+            out.add(path_to_state_file, arcname='state.json')
+
+        # check that state.json can be read back from an archive
+        self.assertEqual(self.api.get('proid.app-122/uniq'), state)
 
 
 if __name__ == '__main__':

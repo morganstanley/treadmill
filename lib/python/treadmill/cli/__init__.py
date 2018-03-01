@@ -13,7 +13,6 @@ from __future__ import unicode_literals
 import codecs
 import copy
 import functools
-import importlib
 import io
 import logging
 import os
@@ -62,44 +61,6 @@ def init_logger(name):
             traceback.print_exc(file=f)
             click.echo('Error parsing log conf: {name}'.format(name=name),
                        err=True)
-
-
-def make_multi_command(module_name, **click_args):
-    """Make a Click multicommand from all submodules of the module."""
-
-    class MCommand(click.MultiCommand):
-        """Treadmill CLI driver."""
-
-        def __init__(self, *args, **kwargs):
-            if kwargs and click_args:
-                kwargs.update(click_args)
-
-            click.MultiCommand.__init__(self, *args, **kwargs)
-
-        def list_commands(self, ctx):
-            climod = importlib.import_module(module_name)
-            commands = set(
-                [modulename for _loader, modulename, _ispkg
-                 in pkgutil.iter_modules(climod.__path__)]
-            )
-            return sorted([cmd.replace('_', '-') for cmd in commands])
-
-        def get_command(self, ctx, cmd_name):
-            try:
-                full_name = '.'.join([module_name, cmd_name.replace('-', '_')])
-                mod = importlib.import_module(full_name)
-                return mod.init()
-            except Exception:  # pylint: disable=W0703
-                with tempfile.NamedTemporaryFile(delete=False, mode='w') as f:
-                    traceback.print_exc(file=f)
-                    click.echo(
-                        'Unable to load plugin: %s [ %s ]' % (
-                            cmd_name, f.name
-                        ),
-                        err=True)
-                return
-
-    return MCommand
 
 
 def make_commands(section, **click_args):
@@ -284,6 +245,15 @@ def validate_cpu(_ctx, _param, value):
         return
     if not re.search(r'\d+%$', value):
         raise click.BadParameter('CPU format: nnn%.')
+    return value
+
+
+def validate_cpuset_cores(_ctx, _param, value):
+    """Validate cpuset cores string."""
+    if value is None:
+        return
+    if not re.search(r'\d+\-?\d*(,\d+\-?\d*)*$', value):
+        raise click.BadParameter('CPU cores format: nnn[,nnn-[nnn]].')
     return value
 
 

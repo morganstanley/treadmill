@@ -108,24 +108,22 @@ def write_safe(filename, func, mode='wb', prefix='tmp', permission=None):
 def mkdir_safe(path, mode=0o777):
     """Creates directory, if there is any error, aborts the process.
 
-    :param path:
+    :param ``str`` path:
         Path to the directory to create. All intermediary folders will be
         created.
-    :type path:
-        ``str``
-    :return:
-        ``True`` if the directory was created
-    :rtype:
-        ``Boolean``
+    :return ``Bool``:
+        ``True`` - if the directory was created.
+        ``False`` - if the directory already existed.
     """
     try:
         os.makedirs(path, mode=mode)
         return True
     except OSError as err:
         # If dir already exists, no problem. Otherwise raise
-        if err.errno != errno.EEXIST:
+        if err.errno == errno.EEXIST and os.path.isdir(path):
+            return False
+        else:
             raise
-        return False
 
 
 def mkfile_safe(path):

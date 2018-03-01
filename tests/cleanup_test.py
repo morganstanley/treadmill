@@ -30,16 +30,21 @@ class CleanupTest(unittest.TestCase):
         self.cleanup_dir = os.path.join(self.root, 'cleanup')
         self.cleaning_dir = os.path.join(self.root, 'cleaning')
         self.cleanup_apps_dir = os.path.join(self.root, 'cleanup_apps')
+        self.cleanup_tombstone_dir = os.path.join(self.root, 'tombstones')
 
         for tmp_dir in [self.cleanup_dir, self.cleaning_dir,
                         self.cleanup_apps_dir]:
             os.mkdir(tmp_dir)
 
-        self.cleanup = cleanup.Cleanup(root=self.root)
-        self.cleanup.tm_env.root = self.root
-        self.cleanup.tm_env.cleanup_dir = self.cleanup_dir
-        self.cleanup.tm_env.cleaning_dir = self.cleaning_dir
-        self.cleanup.tm_env.cleanup_apps_dir = self.cleanup_apps_dir
+        self.tm_env = mock.Mock(
+            root=self.root,
+            cleanup_dir=self.cleanup_dir,
+            cleaning_dir=self.cleaning_dir,
+            cleanup_apps_dir=self.cleanup_apps_dir,
+            cleanup_tombstone_dir=self.cleanup_tombstone_dir
+        )
+
+        self.cleanup = cleanup.Cleanup(self.tm_env)
 
     def tearDown(self):
         if self.root and os.path.isdir(self.root):
@@ -82,6 +87,10 @@ class CleanupTest(unittest.TestCase):
             monitor_policy={
                 'limit': 5,
                 'interval': 60,
+                'tombstone': os.path.join(self.cleanup_tombstone_dir,
+                                          'proid.app#0000000000001'),
+                'skip_path': os.path.join(self.cleanup_dir,
+                                          'proid.app#0000000000001')
             },
             log_run_script=None,
         )

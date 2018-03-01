@@ -108,7 +108,7 @@ class InstanceTest(unittest.TestCase):
 
     def test_bulk_delete_instance(self):
         """Test bulk deleting list of instances."""
-        self.impl.delete.return_value = None
+        self.impl.bulk_delete.return_value = None
 
         resp = self.client.post(
             '/instance/_bulk/delete',
@@ -118,9 +118,8 @@ class InstanceTest(unittest.TestCase):
             content_type='application/json'
         )
         self.assertEqual(resp.status_code, http_client.OK)
-        self.assertEqual(self.impl.delete.call_args_list, [
-            mock.call('proid.app#0000000001', None),
-            mock.call('proid.app#0000000002', None)
+        self.assertEqual(self.impl.bulk_delete.call_args_list, [
+            mock.call(['proid.app#0000000001', 'proid.app#0000000002'], None),
         ])
 
         self.impl.reset_mock()
@@ -135,10 +134,38 @@ class InstanceTest(unittest.TestCase):
                 content_type='application/json'
             )
             self.assertEqual(resp.status_code, http_client.OK)
-            self.assertEqual(self.impl.delete.call_args_list, [
-                mock.call('proid.app#0000000001', 'foo@BAR.BAZ'),
-                mock.call('proid.app#0000000002', 'foo@BAR.BAZ')
+            self.assertEqual(self.impl.bulk_delete.call_args_list, [
+                mock.call(
+                    ['proid.app#0000000001', 'proid.app#0000000002'],
+                    'foo@BAR.BAZ'
+                ),
             ])
+
+    def test_bulk_update_instance(self):
+        """Test bulk updateing list of instances."""
+        self.impl.bulk_update.return_value = None
+
+        resp = self.client.post(
+            '/instance/_bulk/update',
+            data=json.dumps({
+                'instances': [
+                    {'_id': 'proid.app#0000000001',
+                     'priority': 10},
+                    {'_id': 'proid.app#0000000002',
+                     'priority': 10}
+                ]
+            }),
+            content_type='application/json'
+        )
+        self.assertEqual(resp.status_code, http_client.OK)
+        self.assertEqual(self.impl.bulk_update.call_args_list, [
+            mock.call([
+                {'_id': 'proid.app#0000000001',
+                 'priority': 10},
+                {'_id': 'proid.app#0000000002',
+                 'priority': 10}
+            ]),
+        ])
 
 
 if __name__ == '__main__':

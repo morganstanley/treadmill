@@ -13,14 +13,15 @@ import functools
 import hashlib
 import io
 import json
-import locale
 import logging
 import os
+import shutil
 import signal
 import stat
 import sys
 import tempfile
 import time
+import warnings
 
 # Pylint warning re string being deprecated
 #
@@ -157,6 +158,45 @@ def get_iterable(obj):
         return obj
     else:
         return (obj,)
+
+
+def iterable_to_stream(iterable, buffer_size=io.DEFAULT_BUFFER_SIZE):
+    """Convert an iterable into a `io.BufferedReader` file like object.
+    """
+    class IterRawStream(io.RawIOBase):
+        """io stream class wrapping an iterator.
+        """
+
+        __slots__ = (
+            '_remain',
+        )
+
+        def __init__(self):
+            super(IterRawStream, self).__init__()
+            self._remain = None
+
+        def readable(self):
+            return True
+
+        def readinto(self, buff):
+            """Read from the iterator into a buffer (in place).
+            """
+            try:
+                max_len = len(buff)
+                chunk = self._remain or next(iterable)
+                output, self._remain = chunk[:max_len], chunk[max_len:]
+                # Update target buffer in place.
+                buff[:len(output)] = output
+
+                return len(output)
+
+            except StopIteration:
+                return 0
+
+    return io.BufferedReader(
+        raw=IterRawStream(),
+        buffer_size=buffer_size
+    )
 
 
 def sys_exit(code):
@@ -368,33 +408,6 @@ def bytes_to_readable(num, power='M'):
             break
         power = powers[next_power_idx]
     return '%.1f%s' % (num, power)
-
-
-def cpu_to_readable(num):
-    """Converts CPU % into readable number."""
-    # TODO: Move this to CLI initialization
-    if os.name == 'posix':
-        locale.setlocale(locale.LC_ALL, ('en_US', sys.getdefaultencoding()))
-    else:
-        locale.setlocale(locale.LC_ALL, '')
-
-    return locale.format('%d', num, grouping=True)
-
-
-def cpu_to_cores_readable(num):
-    """Converts CPU % into number of abstract cores."""
-    # TODO: Move this to CLI initialization
-    if os.name == 'posix':
-        locale.setlocale(locale.LC_ALL, ('en_US', sys.getdefaultencoding()))
-    else:
-        locale.setlocale(locale.LC_ALL, '')
-
-    return locale.format('%.2f', num / 100.0, grouping=True)
-
-
-def ratio_to_readable(value):
-    """Converts ratio to human readable percentage."""
-    return '%.1f' % (value / 100.0)
 
 
 def find_in_path(prog):
@@ -620,75 +633,6 @@ def encode_uri_parts(path):
     return '/'.join([urllib_parse.quote(part) for part in path.split('/')])
 
 
-# R0912(too-many-branches): Too many branches (13/12)
-# pylint: disable=R0912
-def which(cmd, mode=os.F_OK | os.X_OK, path=None):
-    """TODO: This function has been copied from the shutil package shipped with
-    python 3.4.4. This func has to be deleted once we've upgraded to python 3.
-
-    Given a command, mode, and a PATH string, return the path which
-    conforms to the given mode on the PATH, or None if there is no such
-    file.
-
-    `mode` defaults to os.F_OK | os.X_OK. `path` defaults to the result
-    of os.environ.get('PATH'), or can be overridden with a custom search
-    path.
-
-    """
-    # Check that a given file can be accessed with the correct mode.
-    # Additionally check that `file` is not a directory, as on Windows
-    # directories pass the os.access check.
-    def _access_check(filename, mode):
-        return (os.path.exists(filename) and
-                os.access(filename, mode) and
-                not os.path.isdir(filename))
-
-    # If we're given a path with a directory part, look it up directly rather
-    # than referring to PATH directories. This includes checking relative to
-    # the current directory, e.g. ./script
-    if os.path.dirname(cmd):
-        if _access_check(cmd, mode):
-            return cmd
-        return None
-
-    if path is None:
-        path = os.environ.get('PATH', os.defpath)
-    if not path:
-        return None
-    path = path.split(os.pathsep)
-
-    if sys.platform == 'win32':
-        # The current directory takes precedence on Windows.
-        if os.curdir not in path:
-            path.insert(0, os.curdir)
-
-        # PATHEXT is necessary to check on Windows.
-        pathext = os.environ.get('PATHEXT', '').split(os.pathsep)
-        # See if the given file matches any of the expected path extensions.
-        # This will allow us to short circuit when given "python.exe".
-        # If it does match, only test that one, otherwise we have to try
-        # others.
-        if any(cmd.lower().endswith(ext.lower()) for ext in pathext):
-            files = [cmd]
-        else:
-            files = [cmd + ext for ext in pathext]
-    else:
-        # On other platforms you don't have things like PATHEXT to tell you
-        # what file suffixes are executable, so just pass on cmd as-is.
-        files = [cmd]
-
-    seen = set()
-    for dir_ in path:
-        normdir = os.path.normcase(dir_)
-        if normdir not in seen:
-            seen.add(normdir)
-            for thefile in files:
-                name = os.path.join(dir_, thefile)
-                if _access_check(name, mode):
-                    return name
-    return None
-
-
 def is_root():
     """Gets whether the current user is root"""
     if os.name == 'nt':
@@ -717,7 +661,7 @@ else:
 
 
 @osnoop.windows
-def closefrom(firstfd=3):
+def closefrom(firstfd):
     """Close all file descriptors from `firstfd` on.
     """
     try:
@@ -741,8 +685,10 @@ def restore_signals():
 def sane_execvp(filename, args, close_fds=True, signals=True):
     """Execute a new program with sanitized environment.
     """
-    if close_fds:
-        closefrom(3)
+    if six.PY2:
+        # Work around Python2 leaking filedescriptors.
+        if close_fds:
+            closefrom(3)
     if signals:
         restore_signals()
     os.execvp(filename, args)
@@ -803,3 +749,144 @@ def parse_mask(value, mask_enum):
         masks.append(hex(value))
 
     return masks
+
+
+def iter_sep(iterable, separator):
+    """Take an iterator and returns an new iterator over all the same values
+    separated by `separator`.
+
+    :params ``Iterator`` iterator:
+        Iterator over something.
+    :params separator:
+        Value returned in between each value of the iterator.
+    :returns:
+        ``Iterator`` - Values from `iterator` separated by `separator`.
+    """
+    for i in iterable:
+        yield i
+        yield separator
+
+
+if six.PY3:
+    # pylint: disable=ungrouped-imports
+
+    from tempfile import TemporaryDirectory
+    from shutil import which
+
+else:
+    # pylint: disable=import-error
+
+    from backports.weakref import finalize as weakref_finalize
+
+    # NOTE: This class has been copied from the Py3.4 weakref package.
+    class TemporaryDirectory(object):
+        """Create and return a temporary directory.  This has the same
+        behavior as mkdtemp but can be used as a context manager.  For
+        example:
+
+            with TemporaryDirectory() as tmpdir:
+                ...
+
+        Upon exiting the context, the directory and everything contained
+        in it are removed.
+        """
+
+        def __init__(self, suffix="", prefix=tempfile.template, dir_=None):
+            self.name = tempfile.mkdtemp(suffix, prefix, dir_)
+            self._finalizer = weakref_finalize(
+                self, self._cleanup, self.name,
+                warn_message="Implicitly cleaning up {!r}".format(self)
+            )
+
+        @classmethod
+        def _cleanup(cls, name, warn_message):
+            shutil.rmtree(name)
+            warnings.warn(warn_message, ResourceWarning)
+
+        def __repr__(self):
+            return "<{} {!r}>".format(self.__class__.__name__, self.name)
+
+        def __enter__(self):
+            return self.name
+
+        def __exit__(self, _exc, _value, _tb):
+            self.cleanup()
+
+        def cleanup(self):
+            """Cleanup the TemporaryDirectory.
+            """
+            if self._finalizer.detach():
+                shutil.rmtree(self.name)
+
+    # NOTE: This function has been copied from the Py3.4 shutil package.
+    def which(cmd, mode=os.F_OK | os.X_OK, path=None):
+        """Given a command, mode, and a PATH string, return the path which
+        conforms to the given mode on the PATH, or None if there is no such
+        file.
+
+        `mode` defaults to os.F_OK | os.X_OK. `path` defaults to the result
+        of os.environ.get('PATH'), or can be overridden with a custom search
+        path.
+
+        """
+        # R0912(too-many-branches): Too many branches (13/12)
+        # pylint: disable=R0912
+
+        # Check that a given file can be accessed with the correct mode.
+        # Additionally check that `file` is not a directory, as on Windows
+        # directories pass the os.access check.
+        def _access_check(filename, mode):
+            return (os.path.exists(filename) and
+                    os.access(filename, mode) and
+                    not os.path.isdir(filename))
+
+        # If we're given a path with a directory part, look it up directly
+        # rather than referring to PATH directories. This includes checking
+        # relative to the current directory, e.g. ./script.
+        if os.path.dirname(cmd):
+            if _access_check(cmd, mode):
+                return cmd
+            return None
+
+        if path is None:
+            path = os.environ.get('PATH', os.defpath)
+        if not path:
+            return None
+        path = path.split(os.pathsep)
+
+        if sys.platform == 'win32':
+            # The current directory takes precedence on Windows.
+            if os.curdir not in path:
+                path.insert(0, os.curdir)
+
+            # PATHEXT is necessary to check on Windows.
+            pathext = os.environ.get('PATHEXT', '').split(os.pathsep)
+            # See if the given file matches any of the expected path
+            # extensions.  This will allow us to short circuit when given
+            # "python.exe".  If it does match, only test that one, otherwise we
+            # have to try others.
+            if any(cmd.lower().endswith(ext.lower()) for ext in pathext):
+                files = [cmd]
+            else:
+                files = [cmd + ext for ext in pathext]
+        else:
+            # On other platforms you don't have things like PATHEXT to tell you
+            # what file suffixes are executable, so just pass on cmd as-is.
+            files = [cmd]
+
+        seen = set()
+        for dir_ in path:
+            normdir = os.path.normcase(dir_)
+            if normdir not in seen:
+                seen.add(normdir)
+                for thefile in files:
+                    name = os.path.join(dir_, thefile)
+                    if _access_check(name, mode):
+                        return name
+        return None
+
+
+__all__ = [
+    'TemporaryDirectory',
+    'which',
+]

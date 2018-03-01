@@ -1,0 +1,16 @@
+# watchdog features, ref https://linux.die.net/man/5/watchdog.conf
+
+# keep alive support
+watchdog-device = /dev/watchdog
+
+# lock watchdog in memory
+realtime = yes
+
+# set watchdog high priority
+priority = 1
+
+# timeout for each custom test
+test-timeout = 10
+
+# directory of custom tests
+test-directory = {{ test_directory }}

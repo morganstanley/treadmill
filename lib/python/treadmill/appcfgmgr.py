@@ -40,6 +40,7 @@ import six
 from treadmill import appenv
 from treadmill import appcfg
 from treadmill import exc
+from treadmill import eventmgr
 from treadmill import fs
 from treadmill import dirwatch
 from treadmill import logcontext as lc
@@ -143,7 +144,7 @@ class AppCfgMgr(object):
         """
         instance_name = os.path.basename(event_file)
 
-        if instance_name == '.seen':
+        if instance_name == eventmgr.READY_FILE:
             self._first_sync()
             return
 
@@ -163,7 +164,7 @@ class AppCfgMgr(object):
         """
         instance_name = os.path.basename(event_file)
 
-        if instance_name == '.seen':
+        if instance_name == eventmgr.READY_FILE:
             self._first_sync()
             return
 
@@ -194,7 +195,7 @@ class AppCfgMgr(object):
             ``str``
         """
         instance_name = os.path.basename(event_file)
-        if instance_name == '.seen':
+        if instance_name == eventmgr.READY_FILE:
             _LOGGER.info('Cache folder not ready.'
                          ' Stopping processing of events.')
             self._is_active = False
@@ -285,8 +286,10 @@ class AppCfgMgr(object):
                 if appname in cached and cached[appname] == container:
                     data_dir = os.path.join(self.tm_env.apps_dir, container,
                                             'data')
-                    for file in ['cleanup', 'exitinfo', 'aborted', 'oom']:
-                        if os.path.exists(os.path.join(data_dir, file)):
+                    for cleanup_file in ['exitinfo', 'aborted', 'oom']:
+                        path = os.path.join(data_dir, cleanup_file)
+                        if os.path.exists(path):
+                            _LOGGER.debug('Found cleanup file %r', path)
                             break
                     else:
                         if self._configure(appname):

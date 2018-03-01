@@ -1,1 +1,1 @@
-FILE:{{ dir }}/spool/krb5cc_host
+FILE:{{ treadmill_host_ticket }}

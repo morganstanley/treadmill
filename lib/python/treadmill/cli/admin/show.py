@@ -7,6 +7,8 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import logging
+import json
+import zlib
 
 import click
 
@@ -48,9 +50,23 @@ def init():
     @top.command()
     def pending():
         """List pending applications"""
-        running = set(context.GLOBAL.zk.conn.get_children(z.RUNNING))
-        scheduled = set(context.GLOBAL.zk.conn.get_children(z.SCHEDULED))
-        for app in sorted(scheduled - running):
+        zkclient = context.GLOBAL.zk.conn
+
+        data, _ = zkclient.get(z.PLACEMENT)
+        if data:
+            placement = json.loads(
+                zlib.decompress(data).decode()
+            )
+        else:
+            placement = []
+
+        # App is pending if it's scheduled but has no placement.
+        placed = {
+            app for app, _before, _exp_before, after, _exp_after in placement
+            if after
+        }
+        scheduled = set(zkclient.get_children(z.SCHEDULED))
+        for app in sorted(scheduled - placed):
             cli.out(app)
 
     @top.command()

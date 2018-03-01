@@ -23,6 +23,7 @@ for SVC in $($LS {{ dir }}/treadmill/init); do
 done
 
 $RM -vf {{ dir }}/treadmill/init/*/data/exits/*
+$RM -vf {{ dir }}/treadmill/tombstones/*
 
 # Look at ALL directories, e.g. .mslinks
 for DIR in $(ls -a /); do

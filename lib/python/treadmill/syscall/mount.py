@@ -6,9 +6,10 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
+import itertools
 import logging
-import os
 import operator
+import os
 
 import ctypes
 from ctypes import (
@@ -136,6 +137,8 @@ class MSFlags(enum.IntEnum):
     MANDLOCK = 0x000040
     #: Directory modifications are synchronous.
     DIRSYNC = 0x000080
+    #: Update atime relative to mtime/ctime
+    RELATIME = 0x200000
     #: Do not update access times.
     NOATIME = 0x000400
     #: Do not update directory access times.
@@ -178,6 +181,8 @@ MS_REMOUNT = MSFlags.REMOUNT
 MS_MANDLOCK = MSFlags.MANDLOCK
 #: Directory modifications are synchronous.
 MS_DIRSYNC = MSFlags.DIRSYNC
+#: Update atime relative to mtime/ctime
+MS_RELATIME = MSFlags.RELATIME
 #: Do not update access times.
 MS_NOATIME = MSFlags.NOATIME
 #: Do not update directory access times.
@@ -222,7 +227,8 @@ MNT_EXPIRE = MNTFlags.EXPIRE
 ###############################################################################
 # Main mount/umount functions
 
-def mount(source, target, fs_type, mnt_flags=(), mnt_opts=()):
+def mount(source, target, fs_type, mnt_flags=(),
+          *mnt_opts_args, **mnt_opts_kwargs):
     """Mount ``source`` on ``target`` using filesystem type ``fs_type`` and
     mount flags ``mnt_flags``.
 
@@ -250,10 +256,15 @@ def mount(source, target, fs_type, mnt_flags=(), mnt_opts=()):
         )
     )
     # Fix up mount options
-    options = ','.join([
-        '%s=%s' % (key, value)
-        for (key, value) in six.iteritems(dict(mnt_opts))
-    ])
+    options = ','.join(
+        itertools.chain(
+            mnt_opts_args,
+            (
+                '%s=%s' % (key, value)
+                for (key, value) in six.iteritems(mnt_opts_kwargs)
+            )
+        )
+    )
     if options:
         options = options.encode()
     else:

@@ -75,10 +75,10 @@ class BaseServiceTest(unittest.TestCase):
             )._load_impl
         )
         self.assertRaises(
-            AssertionError,
+            KeyError,
             _base_service.ResourceService(
                 service_dir=self.root,
-                impl='socket.socket',
+                impl='socket:socket',
             )._load_impl
         )
 

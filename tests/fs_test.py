@@ -28,6 +28,11 @@ if sys.platform.startswith('linux'):
 class FsLinuxTest(unittest.TestCase):
     """Tests for teadmill.fs.linux.
     """
+    MOUNTINFO = io.open(os.path.join(
+        os.path.dirname(__file__),
+        'mountinfo.data'
+    )).read()
+
     def setUp(self):
         self.root = tempfile.mkdtemp()
 
@@ -43,17 +48,13 @@ class FsLinuxTest(unittest.TestCase):
 
         treadmill.syscall.mount.unmount.assert_called_with(target='/foo')
 
-    @mock.patch('treadmill.syscall.mount.mount', mock.Mock(spec_set=True))
     def test_mount_filesystem(self):
         """Test mounting a filesystem.
         """
-        treadmill.fs.linux.mount_filesystem('/some/dev', '/some/mnt', 'type')
-
-        treadmill.syscall.mount.mount.assert_called_with(
-            source='/some/dev',
-            target='/some/mnt',
-            fs_type='type',
-            mnt_flags=mock.ANY
+        self.assertEqual(
+            treadmill.fs.linux.mount_filesystem,
+            treadmill.syscall.mount.mount,
+            'mount_filesystem is passthrough to mount syscall.'
         )
 
     @mock.patch('treadmill.syscall.mount.mount', mock.Mock(spec_set=True))
@@ -64,9 +65,11 @@ class FsLinuxTest(unittest.TestCase):
         os.makedirs(container_dir)
         foo_dir = os.path.join(self.root, 'foo')
         os.makedirs(foo_dir)
+        treadmill.syscall.mount.mount.return_value = 0
 
-        treadmill.fs.linux.mount_bind(container_dir, foo_dir)
+        res = treadmill.fs.linux.mount_bind(container_dir, foo_dir)
 
+        self.assertEqual(res, 0)
         container_foo_dir = os.path.join(container_dir, foo_dir[1:])
         treadmill.syscall.mount.mount.assert_has_calls(
             [
@@ -116,9 +119,12 @@ class FsLinuxTest(unittest.TestCase):
         os.makedirs(container_dir)
         foo_dir = os.path.join(self.root, 'foo')
         os.makedirs(foo_dir)
+        treadmill.syscall.mount.mount.return_value = 0
 
-        treadmill.fs.linux.mount_bind(container_dir, foo_dir, read_only=False)
+        res = treadmill.fs.linux.mount_bind(container_dir, foo_dir,
+                                            read_only=False)
 
+        self.assertEqual(res, 0)
         container_foo_dir = os.path.join(container_dir, foo_dir[1:])
         treadmill.syscall.mount.mount.assert_has_calls(
             [
@@ -154,8 +160,9 @@ class FsLinuxTest(unittest.TestCase):
         foo_file = os.path.join(self.root, 'foo')
         with io.open(os.path.join(self.root, 'foo'), 'w'):
             pass
+        treadmill.syscall.mount.mount.return_value = 0
 
-        treadmill.fs.linux.mount_bind(container_dir, foo_file)
+        res = treadmill.fs.linux.mount_bind(container_dir, foo_file)
 
         container_foo_file = os.path.join(container_dir, foo_file[1:])
         treadmill.syscall.mount.mount.assert_has_calls(
@@ -215,75 +222,185 @@ class FsLinuxTest(unittest.TestCase):
                           self.root, 'relative')
 
     @mock.patch('treadmill.syscall.mount.mount', mock.Mock(spec_set=True))
-    def test_mount_proc(self):
-        """Test mounting of proc filesystem.
-        """
-        treadmill.fs.linux.mount_proc('/foo')
-
-        treadmill.syscall.mount.mount.assert_called_with(
-            source='proc',
-            target='/foo/proc',
-            fs_type='proc',
-        )
-
-    @mock.patch('treadmill.syscall.mount.mount', mock.Mock(spec_set=True))
-    def test_mount_sysfs(self):
-        """Test mounting of sysfs filesystem.
-        """
-        treadmill.fs.linux.mount_sysfs('/foo')
-
-        treadmill.syscall.mount.mount.assert_called_with(
-            source='sysfs',
-            target='/foo/sys',
-            fs_type='sysfs',
-            mnt_flags=mock.ANY
-        )
-        self.assertCountEqual(
-            treadmill.syscall.mount.mount.call_args_list[0][1]['mnt_flags'],
-            (
-                treadmill.syscall.mount.MS_RDONLY,
-            ),
-            'Validate flags passed to second mount call'
-        )
-
-    @mock.patch('treadmill.syscall.mount.mount', mock.Mock(spec_set=True))
     def test_mount_tmpfs(self):
         """Tests behavior of mount tmpfs.
         """
-        treadmill.fs.linux.mount_tmpfs('/foo', '/tmp', size='4M')
+        treadmill.fs.linux.mount_tmpfs('/foo_root', '/tmp', size='4M')
         treadmill.syscall.mount.mount.assert_called_with(
             source='tmpfs',
-            target='/foo/tmp',
+            target='/foo_root/tmp',
             fs_type='tmpfs',
             mnt_flags=mock.ANY,
-            mnt_opts={'size': '4M'}
+            size='4M'
         )
         self.assertCountEqual(
             treadmill.syscall.mount.mount.call_args_list[0][1]['mnt_flags'],
             (
-                treadmill.syscall.mount.MS_NOATIME,
-                treadmill.syscall.mount.MS_NODIRATIME,
+                treadmill.syscall.mount.MS_NODEV,
+                treadmill.syscall.mount.MS_NOEXEC,
+                treadmill.syscall.mount.MS_NOSUID,
+                treadmill.syscall.mount.MS_RELATIME,
             ),
             'Validate flags passed to second mount call'
         )
         treadmill.syscall.mount.mount.reset_mock()
 
-        treadmill.fs.linux.mount_tmpfs('/foo', '/tmp2')
+        treadmill.fs.linux.mount_tmpfs('/foo_root', '/tmp2')
 
         treadmill.syscall.mount.mount.assert_called_with(
             source='tmpfs',
-            target='/foo/tmp2',
+            target='/foo_root/tmp2',
             fs_type='tmpfs',
             mnt_flags=mock.ANY,
-            mnt_opts={}
         )
         self.assertCountEqual(
             treadmill.syscall.mount.mount.call_args_list[0][1]['mnt_flags'],
             (
-                treadmill.syscall.mount.MS_NOATIME,
-                treadmill.syscall.mount.MS_NODIRATIME,
+                treadmill.syscall.mount.MS_NODEV,
+                treadmill.syscall.mount.MS_NOEXEC,
+                treadmill.syscall.mount.MS_NOSUID,
+                treadmill.syscall.mount.MS_RELATIME,
             ),
             'Validate flags passed to second mount call'
+        )
+
+    @mock.patch('io.open', mock.mock_open(read_data=MOUNTINFO))
+    def test_list_mounts(self):
+        """Test reading the current mounts information.
+        """
+        res = treadmill.fs.linux.list_mounts()
+        self.assertEqual(
+            res,
+            [
+                treadmill.fs.linux.MountEntry(
+                    mount_id=17,
+                    parent_id=60,
+                    source='sysfs',
+                    target='/sys',
+                    fs_type='sysfs',
+                    mnt_opts={
+                        'nodev',
+                        'noexec',
+                        'nosuid',
+                        'relatime',
+                        'rw',
+                    }
+                ),
+                treadmill.fs.linux.MountEntry(
+                    mount_id=18,
+                    parent_id=60,
+                    source='proc',
+                    target='/proc',
+                    fs_type='proc',
+                    mnt_opts={
+                        'nodev',
+                        'noexec',
+                        'nosuid',
+                        'relatime',
+                        'rw',
+                    }
+                ),
+                treadmill.fs.linux.MountEntry(
+                    mount_id=19,
+                    parent_id=60,
+                    source='devtmpfs',
+                    target='/dev',
+                    fs_type='devtmpfs',
+                    mnt_opts={
+                        'mode=755',
+                        'nosuid',
+                        'nr_inodes=998838',
+                        'rw',
+                        'size=3995352k',
+                    }
+                ),
+                treadmill.fs.linux.MountEntry(
+                    mount_id=20,
+                    parent_id=17,
+                    source='securityfs',
+                    target='/sys/kernel/security',
+                    fs_type='securityfs',
+                    mnt_opts={
+                        'nodev',
+                        'noexec',
+                        'nosuid',
+                        'relatime',
+                        'rw',
+                    }
+                ),
+                treadmill.fs.linux.MountEntry(
+                    mount_id=21,
+                    parent_id=19,
+                    source='tmpfs',
+                    target='/dev/shm',
+                    fs_type='tmpfs',
+                    mnt_opts={
+                        'nodev',
+                        'nosuid',
+                        'rw',
+                    }
+                ),
+                treadmill.fs.linux.MountEntry(
+                    mount_id=22,
+                    parent_id=19,
+                    source='devpts',
+                    target='/dev/pts',
+                    fs_type='devpts',
+                    mnt_opts={
+                        'gid=5',
+                        'mode=620',
+                        'noexec',
+                        'nosuid',
+                        'ptmxmode=000',
+                        'relatime',
+                        'rw',
+                    }
+                ),
+                treadmill.fs.linux.MountEntry(
+                    mount_id=23,
+                    parent_id=60,
+                    source='tmpfs',
+                    target='/run',
+                    fs_type='tmpfs',
+                    mnt_opts={
+                        'mode=755',
+                        'nodev',
+                        'nosuid',
+                        'rw',
+                    }
+                ),
+                treadmill.fs.linux.MountEntry(
+                    mount_id=24,
+                    parent_id=17,
+                    source='tmpfs',
+                    target='/sys/fs/cgroup',
+                    fs_type='tmpfs',
+                    mnt_opts={
+                        'mode=755',
+                        'nodev',
+                        'noexec',
+                        'nosuid',
+                        'ro',
+                    }
+                ),
+                treadmill.fs.linux.MountEntry(
+                    mount_id=25,
+                    parent_id=24,
+                    source='cgroup',
+                    target='/sys/fs/cgroup/systemd',
+                    fs_type='cgroup',
+                    mnt_opts={
+                        'name=systemd',
+                        'nodev',
+                        'noexec',
+                        'nosuid',
+                        'relatime',
+                        'release_agent=/usr/lib/systemd/systemd-cgroups-agent',
+                        'rw',
+                        'xattr',
+                    }
+                ),
+            ]
         )
 
     @mock.patch('treadmill.subproc.check_call', mock.Mock(spec_set=True))

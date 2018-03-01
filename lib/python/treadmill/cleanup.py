@@ -26,7 +26,6 @@ import os
 import sys
 import time
 
-from treadmill import appenv
 from treadmill import dirwatch
 from treadmill import dist
 from treadmill import fs
@@ -58,9 +57,8 @@ class Cleanup(object):
         'tm_env',
     )
 
-    def __init__(self, root):
-        _LOGGER.info('init cleanup: %s', root)
-        self.tm_env = appenv.AppEnvironment(root=root)
+    def __init__(self, tm_env):
+        self.tm_env = tm_env
 
     def _refresh_supervisor(self):
         """Notify the supervisor of new cleanup instances.
@@ -122,6 +120,9 @@ class Cleanup(object):
             monitor_policy={
                 'limit': 5,
                 'interval': 60,
+                'tombstone': os.path.join(self.tm_env.cleanup_tombstone_dir,
+                                          name),
+                'skip_path': os.path.join(self.tm_env.cleanup_dir, name)
             },
             log_run_script=None,
         )

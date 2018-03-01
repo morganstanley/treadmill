@@ -100,3 +100,11 @@ class RuntimeBase(object):
     def kill(self):
         """Kills a container."""
         pass
+
+    # pylint: disable=W0613
+    # tm_env for method in child class to use
+    @classmethod
+    def manifest(cls, tm_env, manifest):
+        """Add runtime modification to manifest, default does nothing
+        """
+        app_manifest.add_manifest_features(manifest, cls.name)

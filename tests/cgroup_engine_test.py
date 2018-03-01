@@ -34,7 +34,7 @@ class CgroupReaderTest(unittest.TestCase):
             shutil.rmtree(self.root)
 
     @mock.patch(
-        'treadmill.cgroups.get_mountpoint',
+        'treadmill.cgroups._get_mountpoint',
         mock.Mock(return_value='/cgroups'))
     @mock.patch(
         'treadmill.fs.linux.maj_min_to_blk',

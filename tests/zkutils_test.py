@@ -88,7 +88,7 @@ class ZkTest(unittest.TestCase):
     @mock.patch('kazoo.client.KazooClient.set_acls', mock.Mock())
     def test_put_existing(self):
         """Test update content of existing node."""
-        def raise_exists(*args_unused, **kwargs_unused):
+        def raise_exists(*_args, **_kwargs):
             """zk.create side effect, raising appropriate exception."""
             raise kazoo.client.NodeExistsError()
 
@@ -144,7 +144,7 @@ class ZkTest(unittest.TestCase):
     @mock.patch('kazoo.client.KazooClient.set_acls', mock.Mock())
     def test_ensure_exists_existing(self):
         """Test update content of existing node."""
-        def raise_exists(*args_unused, **kwargs_unused):
+        def raise_exists(*_args, **_kwargs):
             """zk.create side effect, raising appropriate exception."""
             raise kazoo.client.NodeExistsError()
 

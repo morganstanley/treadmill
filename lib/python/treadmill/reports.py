@@ -407,7 +407,7 @@ def serialize_dataframe(report, compressed=True):
 
     The dataframe is serialized as CSV and compressed with bzip2.
     """
-    result = report.to_csv()
+    result = report.to_csv(index=False)
     if compressed:
         result = bz2.compress(result.encode())
     return result

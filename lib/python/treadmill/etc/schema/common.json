@@ -7,7 +7,7 @@
     },
     "parameter": {
         "type": "string",
-        "pattern": "^[a-zA-Z0-9-_]+=.+$"
+        "pattern": "^[a-zA-Z0-9_-]+=.+$"
     },
     "memory": { "$ref": "#/_priv/bytes" },
     "disk": { "$ref": "#/_priv/bytes" },
@@ -22,12 +22,12 @@
     "proid": {
         "type": "string",
         "maxLength": 16,
-        "pattern": "^[a-zA-Z0-9_]+$"
+        "pattern": "^[a-zA-Z0-9_-]+$"
     },
     "ticket": {
         "type": "string",
         "maxLength": 32,
-        "pattern": "^[a-zA-Z0-9_]+@[\\.a-zA-Z0-9_]+$"
+        "pattern": "^[a-zA-Z0-9_-]+@[\\.a-zA-Z0-9_]+$"
     },
     "endpoint": {
         "type": "string",
