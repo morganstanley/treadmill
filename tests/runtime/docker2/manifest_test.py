@@ -45,19 +45,18 @@ class Docker2RuntimeManifestTest(unittest.TestCase):
                 mock.Mock(return_value=(274091, 19290)))
     def test_generate_command(self):
         cmd = app_manifest._generate_command(
-            'sleep 10', 'nervedev', 'foo'
+            'sleep 10', 'foo'
         )
         self.assertEqual(cmd, 'sleep 10')
 
         cmd = app_manifest._generate_command(
-            'docker://testwt2', 'nervedev', 'foo'
+            'docker://testwt2', 'foo'
         )
         self.assertEqual(
             cmd,
             (
                 'exec /path/to/treadcmill34 sproc docker'
                 ' --unique_id foo'
-                ' --user 274091:19290'
                 ' --envdirs /env,/services/foo/env'
                 ' --image testwt2'
                 ' --volume /var/tmp:/var/tmp:rw'
@@ -66,14 +65,13 @@ class Docker2RuntimeManifestTest(unittest.TestCase):
         )
 
         cmd = app_manifest._generate_command(
-            'docker://testwt2 foo bar', 'nervedev', 'foo'
+            'docker://testwt2 foo bar', 'foo'
         )
         self.assertEqual(
             cmd,
             (
                 'exec /path/to/treadcmill34 sproc docker'
                 ' --unique_id foo'
-                ' --user 274091:19290'
                 ' --envdirs /env,/services/foo/env'
                 ' --image testwt2'
                 ' --volume /var/tmp:/var/tmp:rw'

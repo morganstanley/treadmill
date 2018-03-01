@@ -44,18 +44,17 @@ class MasterTest(mockzk.MockZookeeperTestCase):
 
         scheduler.DIMENSION_COUNT = 3
 
-        self.root = tempfile.mkdtemp()
-        os.environ['TREADMILL_MASTER_ROOT'] = self.root
         backend = zkbackend.ZkBackend(kazoo.client.KazooClient())
-        self.master = master.Master(backend, 'test-cell')
+        self.events_dir = tempfile.mkdtemp()
+        self.master = master.Master(backend, 'test-cell', self.events_dir)
         # Use 111 to assert on zkhandle value.
         # Disable the exit on exception hack for tests
         self.old_exit_on_unhandled = treadmill.utils.exit_on_unhandled
         treadmill.utils.exit_on_unhandled = mock.Mock(side_effect=lambda x: x)
 
     def tearDown(self):
-        if self.root and os.path.isdir(self.root):
-            shutil.rmtree(self.root)
+        if self.events_dir and os.path.isdir(self.events_dir):
+            shutil.rmtree(self.events_dir)
         # Restore the exit on exception hack for tests
         treadmill.utils.exit_on_unhandled = self.old_exit_on_unhandled
         super(MasterTest, self).tearDown()
@@ -275,6 +274,151 @@ class MasterTest(mockzk.MockZookeeperTestCase):
         self.master.load_apps()
         self.assertEqual(len(self.master.cell.apps), 1)
         self.assertEqual(self.master.cell.apps['foo.bar#1234'].priority, 5)
+
+    @mock.patch('kazoo.client.KazooClient.get', mock.Mock())
+    @mock.patch('kazoo.client.KazooClient.exists', mock.Mock())
+    @mock.patch('kazoo.client.KazooClient.get_children', mock.Mock())
+    @mock.patch('treadmill.zkutils.ensure_exists', mock.Mock())
+    @mock.patch('treadmill.zkutils.ensure_deleted', mock.Mock())
+    @mock.patch('treadmill.zkutils.put', mock.Mock())
+    @mock.patch('treadmill.zkutils.update', mock.Mock())
+    @mock.patch('time.time', mock.Mock(return_value=123.34))
+    def test_remove_app(self):
+        """Tests removing application from scheduler."""
+        zk_content = {
+            'placement': {
+                'test.xx.com': {
+                    '.data': """
+                        state: up
+                        since: 100
+                    """,
+                    'xxx.app1#1234': '',
+                    'xxx.app2#2345': '',
+                }
+            },
+            'server.presence': {
+                'test.xx.com': {},
+            },
+            'cell': {
+                'pod:pod1': {},
+                'pod:pod2': {},
+            },
+            'buckets': {
+                'pod:pod1': {
+                    'traits': None,
+                },
+                'pod:pod2': {
+                    'traits': None,
+                },
+                'rack:1234': {
+                    'traits': None,
+                    'parent': 'pod:pod1',
+                },
+            },
+            'servers': {
+                'test.xx.com': {
+                    'memory': '16G',
+                    'disk': '128G',
+                    'cpu': '400%',
+                    'parent': 'rack:1234',
+                },
+            },
+            'scheduled': {
+                'xxx.app1#1234': {
+                    'memory': '1G',
+                    'disk': '1G',
+                    'cpu': '100%',
+                },
+                'xxx.app2#2345': {
+                    'memory': '1G',
+                    'disk': '1G',
+                    'cpu': '100%',
+                },
+                'xxx.app3#3456': {
+                    'memory': '1G',
+                    'disk': '1G',
+                    'cpu': '100%',
+                },
+                'xxx.app4#4567': {
+                    'memory': '1G',
+                    'disk': '1G',
+                    'cpu': '100%',
+                },
+            },
+            'finished': {
+                'xxx.app2#2345': {},
+            },
+        }
+        self.make_mock_zk(zk_content)
+
+        self.master.load_buckets()
+        self.master.load_cell()
+        self.master.load_servers()
+        self.master.load_apps()
+        self.master.restore_placements()
+        self.master.load_placement_data()
+
+        # Not loaded, ignore.
+        self.master.remove_app('xxx.app0#0123')
+
+        # Delete placement, create finished node.
+        self.master.remove_app('xxx.app1#1234')
+
+        treadmill.zkutils.ensure_deleted.assert_called_with(
+            mock.ANY,
+            '/placement/test.xx.com/xxx.app1#1234'
+        )
+        event = os.path.join(self.events_dir, '123.34,xxx.app1#1234,deleted,')
+        self.assertTrue(os.path.exists(event))
+        treadmill.zkutils.put.assert_called_with(
+            mock.ANY,
+            '/finished/xxx.app1#1234',
+            {
+                'state': 'terminated',
+                'when': 123.34,
+                'host': 'test.xx.com',
+                'data': None,
+            },
+            acl=mock.ANY
+        )
+        self.assertNotIn('xxx.app1#1234', self.master.cell.apps)
+
+        # Delete placement, finished node already exists.
+        treadmill.zkutils.put.reset_mock()
+
+        self.master.remove_app('xxx.app2#2345')
+
+        treadmill.zkutils.ensure_deleted.assert_called_with(
+            mock.ANY,
+            '/placement/test.xx.com/xxx.app2#2345'
+        )
+        event = os.path.join(self.events_dir, '123.34,xxx.app2#2345,deleted,')
+        self.assertTrue(os.path.exists(event))
+        treadmill.zkutils.put.assert_not_called()
+        self.assertNotIn('xxx.app2#2345', self.master.cell.apps)
+
+        # No placement, create finished node without host.
+        treadmill.zkutils.ensure_deleted.reset_mock()
+
+        self.master.remove_app('xxx.app3#3456')
+
+        treadmill.zkutils.ensure_deleted.assert_not_called()
+        event = os.path.join(self.events_dir, '123.34,xxx.app3#3456,deleted,')
+        self.assertTrue(os.path.exists(event))
+        treadmill.zkutils.put.assert_called_with(
+            mock.ANY,
+            '/finished/xxx.app3#3456',
+            {
+                'state': 'terminated',
+                'when': 123.34,
+                'host': None,
+                'data': None,
+            },
+            acl=mock.ANY
+        )
+        self.assertNotIn('xxx.app3#3456', self.master.cell.apps)
+
+        self.assertEqual(list(self.master.cell.apps), ['xxx.app4#4567'])
 
     @mock.patch('kazoo.client.KazooClient.get', mock.Mock())
     @mock.patch('kazoo.client.KazooClient.get_children', mock.Mock())
