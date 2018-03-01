@@ -45,31 +45,44 @@ def init():
 
     @service.command()
     @click.option('--img-location',
-                  help='Location of loopback image to back LVM group.')
+                  help='Location of loopback image to back LVM group.',
+                  envvar='TREADMILL_LOCALDISK_IMG_LOCATION')
     @click.option('--img-size', default='-2G',
-                  help='Amount of local disk space to use for the image.')
+                  help='Amount of local disk space to use for the image.',
+                  envvar='TREADMILL_LOCALDISK_IMG_SIZE')
     @click.option('--block-dev',
-                  help='Use a block device to back LVM group.')
+                  help='Use a block device to back LVM group.',
+                  envvar='TREADMILL_LOCALDISK_BLOCK_DEV')
     @click.option('--vg-name',
-                  help='Name of LVM volume group to use.')
+                  help='Name of LVM volume group to use.',
+                  envvar='TREADMILL_LOCALDISK_VG_NAME')
     @click.option('--block-dev-configuration',
-                  help='Block device io throughput configuration.')
+                  help='Block device io throughput configuration.',
+                  envvar='TREADMILL_BLOCK_DEV_CONFIGURATION')
     @click.option('--block-dev-read-bps',
-                  help='Block device read byte per second value.')
+                  help='Block device read byte per second value.',
+                  envvar='TREADMILL_BLOCK_DEV_READ_BPS')
     @click.option('--block-dev-write-bps',
-                  help='Block device write byte per second value.')
+                  help='Block device write byte per second value.',
+                  envvar='TREADMILL_BLOCK_DEV_WRITE_BPS')
     @click.option('--block-dev-read-iops', type=int,
-                  help='Block device read IO per second value.')
+                  help='Block device read IO per second value.',
+                  envvar='TREADMILL_BLOCK_DEV_READ_IOPS')
     @click.option('--block-dev-write-iops', type=int,
-                  help='Block device write IO per second value.')
+                  help='Block device write IO per second value.',
+                  envvar='TREADMILL_BLOCK_DEV_WRITE_IOPS')
     @click.option('--default-read-bps', required=True,
-                  help='Default read byte per second value.')
+                  help='Default read byte per second value.',
+                  envvar='TREADMILL_LOCALDISK_DEFAULT_READ_BPS')
     @click.option('--default-write-bps', required=True,
-                  help='Default write byte per second value.')
+                  help='Default write byte per second value.',
+                  envvar='TREADMILL_LOCALDISK_DEFAULT_WRITE_BPS')
     @click.option('--default-read-iops', required=True, type=int,
-                  help='Default read IO per second value.')
+                  help='Default read IO per second value.',
+                  envvar='TREADMILL_LOCALDISK_DEFAULT_READ_IOPS')
     @click.option('--default-write-iops', required=True, type=int,
-                  help='Default write IO per second value.')
+                  help='Default write IO per second value.',
+                  envvar='TREADMILL_LOCALDISK_DEFAULT_WRITE_IOPS')
     def localdisk(img_location, img_size, block_dev, vg_name,
                   block_dev_configuration,
                   block_dev_read_bps, block_dev_write_bps,
@@ -93,7 +106,7 @@ def init():
 
         # prepare block device
         if block_dev is not None:
-            underlying_device_uuid = fs_linux.device_uuid(
+            underlying_device_uuid = fs_linux.blk_uuid(
                 block_dev
             )
         else:

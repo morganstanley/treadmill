@@ -28,26 +28,26 @@ def add_runtime(tm_env, manifest):
     _add_dockerd_services(manifest, tm_env)
 
 
-def _generate_command(raw_cmd, proid, unique_id):
+def _generate_command(raw_cmd, unique_id):
     """Get treadmill docker running command from image
     """
     if raw_cmd.startswith('docker://'):
         image_cmd = raw_cmd[9:].split(None, 1)
         if len(image_cmd) > 1:
+            image = image_cmd[0]
             cmd = image_cmd[1]
         else:
+            image = image_cmd[0]
             cmd = None
-        return _get_docker_run_cmd(proid, unique_id, image_cmd[0], cmd)
+        return _get_docker_run_cmd(unique_id, image, cmd)
     else:
         return raw_cmd
 
 
-def _get_docker_run_cmd(username, unique_id, image, command=None):
+def _get_docker_run_cmd(unique_id, image, command=None, uidgid=None):
     """Get docker run cmd from raw command
     """
-    (uid, gid) = _get_user_uid_gid(username)
-
-    # XXX: hardode volume for now
+    # TODO: hardode volume for now
     volumes = [
         ('/var/tmp', '/var/tmp', 'rw'),
         ('/var/spool', '/var/spool', 'rw'),
@@ -56,7 +56,6 @@ def _get_docker_run_cmd(username, unique_id, image, command=None):
     tpl = (
         'exec {tm} sproc docker'
         ' --unique_id {unique_id}'
-        ' --user {uid}:{gid}'
         ' --envdirs /env,/services/{unique_id}/env'
         ' --image {image}'
     )
@@ -68,14 +67,15 @@ def _get_docker_run_cmd(username, unique_id, image, command=None):
             mode=volume[2]
         )
 
+    if uidgid is not None:
+        tpl += ' --user {uidgid}'.format(uidgid=uidgid)
+
     if command is not None:
         tpl += ' -- {cmd}'
 
     return tpl.format(
         tm=dist.TREADMILL_BIN,
         unique_id=unique_id,
-        uid=uid,
-        gid=gid,
         image=image,
         cmd=command,
     )
@@ -89,7 +89,6 @@ def _transform_services(manifest):
             'name': service['name'],
             'command': _generate_command(
                 service['command'],
-                manifest['proid'],
                 service['name'],
             ),
             'restart': {
