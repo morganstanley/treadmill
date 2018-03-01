@@ -396,7 +396,7 @@ class Loader(object):
         # TODO: need to check if app is blacklisted.
         manifest = self.backend.get_default(z.path.scheduled(appname))
         if not manifest:
-            self.cell.remove_app(appname)
+            self.remove_app(appname)
             return
 
         priority, allocation = self.find_assignment(appname)
@@ -428,6 +428,10 @@ class Loader(object):
                                         lease=lease)
 
         self.cell.add_app(allocation, app)
+
+    def remove_app(self, appname):
+        """Remove app from scheduler."""
+        self.cell.remove_app(appname)
 
     def load_strategies(self):
         """Load affinity strategies for buckets."""

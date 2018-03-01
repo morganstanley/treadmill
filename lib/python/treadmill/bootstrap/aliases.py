@@ -91,6 +91,7 @@ _LINUX_ALIASES = {
     'printf': '/usr/bin/printf',
     'ps': '/bin/ps',
     'pvremove': '/sbin/pvremove',
+    'pvs': '/sbin/pvs',
     'pwd': '/bin/pwd',
     'readlink': '/bin/readlink',
     'redirfd': None,

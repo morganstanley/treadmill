@@ -6,15 +6,18 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
+import collections
+import heapq
 import logging
 import json
 import zlib
 
 import click
 
+from treadmill import cli
 from treadmill import context
 from treadmill import zknamespace as z
-from treadmill import cli
+from treadmill import zkutils
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -76,6 +79,45 @@ def init():
         scheduled = set(context.GLOBAL.zk.conn.get_children(z.SCHEDULED))
         for app in sorted(running - scheduled):
             cli.out(app)
+
+    @top.command()
+    def endpoints():
+        """Show endpoints and their status."""
+        zkclient = context.GLOBAL.zk.conn
+        discovery_state = zkclient.get_children(z.DISCOVERY_STATE)
+        state = collections.defaultdict(dict)
+        for hostname in discovery_state:
+            state[hostname] = zkutils.get(
+                zkclient,
+                z.path.discovery_state(hostname)
+            )
+
+        discovery = zkclient.get_children(z.DISCOVERY)
+        all_endpoints = []
+        for hostname in discovery:
+            endpoints = []
+            for entry in zkutils.get(zkclient, z.path.discovery(hostname)):
+                app, endpoint, proto, port = entry.split(':')
+                port = int(port)
+                endpoint_state = state[hostname].get(port)
+                hostport = '{}:{}'.format(hostname, port)
+                endpoints.append(
+                    (app, proto, endpoint, hostport, endpoint_state)
+                )
+            all_endpoints.append(endpoints)
+
+        merged = heapq.merge(*all_endpoints)
+
+        formatter = cli.make_formatter('endpoint')
+        cli.out(formatter([
+            {
+                'name': name,
+                'endpoint': endpoint,
+                'proto': proto,
+                'hostport': hostport,
+                'state': state,
+            } for name, proto, endpoint, hostport, state in merged
+        ]))
 
     del stopped
     del pending
