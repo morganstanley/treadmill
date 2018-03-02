@@ -139,7 +139,9 @@ def _add_dockerd_services(manifest, tm_env):
             registry=_get_docker_registry(tm_env)
         ),
         'root': True,
-        'environ': [],
+        'environ': [
+            {'name': 'DOCKER_RAMDISK', 'value': '1'},
+        ],
         'config': None,
         'downed': False,
         'trace': False,

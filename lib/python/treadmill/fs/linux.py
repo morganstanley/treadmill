@@ -92,6 +92,27 @@ def mount_bind(newroot, target, source=None, recursive=True, read_only=True):
     return res
 
 
+def mount_procfs(newroot, target='/proc'):
+    """Mounts procfs on directory.
+    """
+    while target.startswith('/'):
+        target = target[1:]
+
+    mnt_flags = [
+        mount.MS_NODEV,
+        mount.MS_NOEXEC,
+        mount.MS_NOSUID,
+        mount.MS_RELATIME,
+    ]
+
+    return mount.mount(
+        source='proc',
+        target=os.path.join(newroot, target),
+        fs_type='proc',
+        mnt_flags=mnt_flags,
+    )
+
+
 def mount_tmpfs(newroot, target, **mnt_opts):
     """Mounts directory on tmpfs.
     """
@@ -272,8 +293,11 @@ def list_mounts():
 
 
 ###############################################################################
-def cleanup_mounts(whitelist_patterns):
+def cleanup_mounts(whitelist_patterns, ignore_exc=False):
     """Prune all mount points except whitelisted ones.
+
+    :param ``bool`` ignore_exc:
+        If True, proceed in a best effort, only logging when unmount fails.
     """
     _LOGGER.info('Removing all mounts except %r', whitelist_patterns)
     current_mounts = {
@@ -305,6 +329,12 @@ def cleanup_mounts(whitelist_patterns):
         )
         if is_valid:
             _LOGGER.info('Mount preserved: %r', mount_entry)
+        elif ignore_exc:
+            try:
+                umount_filesystem(mount_entry.target)
+            except OSError as err:
+                _LOGGER.warning('Failed to umount %r: %s',
+                                mount_entry.target, err)
         else:
             umount_filesystem(mount_entry.target)
 
@@ -448,11 +478,12 @@ __all__ = [
     'blk_fs_test',
     'blk_maj_min',
     'blk_uuid',
+    'list_mounts',
     'maj_min_from_path',
     'maj_min_to_blk',
     'mount_bind',
     'mount_filesystem',
+    'mount_procfs',
     'mount_tmpfs',
     'umount_filesystem',
-    'list_mounts',
 ]
