@@ -293,20 +293,19 @@ def add_linux_system_services(tm_env, manifest):
             'interval': 60,
         },
         'command': (
-            'exec {chroot} {container_dir}/root'
+            'exec'
             ' {pid1} -m -p -i'
-            ' {svscan} -s /services'
+            ' {tm} sproc'
+            ' --cell {cell}'
+            ' start-container'
+            ' --container-root {container_dir}/root'
         ).format(
-            chroot=subproc.resolve('chroot'),
-            container_dir=container_data_dir,
+            tm=dist.TREADMILL_BIN,
+            cell=manifest['cell'],
             pid1=subproc.resolve('pid1'),
-            svscan=subproc.resolve('s6_svscan'),
+            container_dir=container_data_dir,
         ),
-        'environ': [
-            {'name': 'PYTHONPATH', 'value': ''},
-            {'name': 'LC_ALL', 'value': ''},
-            {'name': 'LANG', 'value': ''},
-        ],
+        'environ': [],
         'config': None,
         'downed': True,
         'trace': False,
