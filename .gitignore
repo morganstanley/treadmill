@@ -3,10 +3,13 @@ __pycache__
 *.py[co]
 .*
 
+build/
 docs/api
 docs/build
+docs/_build
 dist/
 wheels/
+cover/
 
 # Keep track of .keepme files
 !.keepme

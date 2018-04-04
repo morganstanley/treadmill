@@ -1,11 +1,8 @@
 APScheduler>=3.3,<3.4
-boto3==1.4.4
-boto==2.46.1
 click>=6.6
 decorator>=4.0
 dnspython==1.15.0
 docker>=2.6,<3
-
 Flask-RESTful>=0.3,<1
 flask-restplus>=0.10,<1
 Flask>=0.12,<1
@@ -23,7 +20,6 @@ prettytable>=0.7,<1
 psutil
 pykerberos>1.1,<2
 pytz>=2017
-
 PyYAML>=3,<4
 requests-kerberos>=0.11,<1
 requests-unixsocket>=0.1,<1

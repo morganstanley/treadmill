@@ -34,7 +34,6 @@ from treadmill import utils
 from treadmill import context
 from treadmill import plugin_manager
 from treadmill import restclient
-from botocore import exceptions
 from treadmill import subproc
 
 
@@ -484,9 +483,6 @@ REST_EXCEPTIONS = [
 ]
 
 CLI_EXCEPTIONS = [
-    (exceptions.ClientError, None),
-    (exceptions.PartialCredentialsError, 'Partial Crendentials'),
-    (exceptions.NoCredentialsError, 'No Creds'),
 ]
 
 ON_REST_EXCEPTIONS = handle_exceptions(REST_EXCEPTIONS)

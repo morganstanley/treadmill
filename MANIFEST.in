@@ -11,8 +11,3 @@ recursive-include lib/python/treadmill/etc/ldap *
 recursive-include lib/python/treadmill/etc/schema *
 recursive-include lib/python/treadmill/logging *.conf
 recursive-include lib/python/treadmill/templates *
-# Treadmill cloud infra confs
-recursive-include lib/python/treadmill/infra/manifests *
-recursive-include lib/python/treadmill/infra/rpm_specs *
-recursive-include lib/python/treadmill/infra/setup/scripts *
-include lib/python/treadmill/VERSION.txt
