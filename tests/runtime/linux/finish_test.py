@@ -656,6 +656,85 @@ class LinuxRuntimeFinishTest(unittest.TestCase):
 
         treadmill.runtime.archive_logs.assert_called()
 
+    @mock.patch('treadmill.runtime.load_app', mock.Mock())
+    @mock.patch('treadmill.runtime.linux._finish._cleanup', mock.Mock())
+    @mock.patch('treadmill.apphook.cleanup', mock.Mock())
+    @mock.patch('treadmill.appevents.post', mock.Mock())
+    def test_finish_exitinfo_event(self):
+        """Test posting finished event.
+        """
+        app_unique_name = 'proid.myapp-001-0000000ID1234'
+        app_dir = os.path.join(self.tm_env.apps_dir, app_unique_name)
+        data_dir = os.path.join(app_dir, 'data')
+        fs.mkdir_safe(data_dir)
+        with io.open(os.path.join(data_dir, 'exitinfo'), 'w') as f:
+            f.write('{"service": "web_server", "return_code": 0, "signal": 0}')
+
+        app_finish.finish(self.tm_env, app_dir)
+
+        args, _kwargs = treadmill.appevents.post.call_args
+        _events_dir, event = args
+        self.assertIsInstance(event, events.FinishedTraceEvent)
+
+    @mock.patch('treadmill.runtime.load_app', mock.Mock())
+    @mock.patch('treadmill.runtime.linux._finish._cleanup', mock.Mock())
+    @mock.patch('treadmill.apphook.cleanup', mock.Mock())
+    @mock.patch('treadmill.appevents.post', mock.Mock())
+    def test_finish_aborted_event(self):
+        """Test posting aborted event.
+        """
+        app_unique_name = 'proid.myapp-001-0000000ID1234'
+        app_dir = os.path.join(self.tm_env.apps_dir, app_unique_name)
+        data_dir = os.path.join(app_dir, 'data')
+        fs.mkdir_safe(data_dir)
+        with io.open(os.path.join(data_dir, 'aborted'), 'w') as f:
+            f.write('{"why": "reason", "payload": "test"}')
+
+        app_finish.finish(self.tm_env, app_dir)
+
+        args, _kwargs = treadmill.appevents.post.call_args
+        _events_dir, event = args
+        self.assertIsInstance(event, events.AbortedTraceEvent)
+
+    @mock.patch('treadmill.runtime.load_app', mock.Mock())
+    @mock.patch('treadmill.runtime.linux._finish._cleanup', mock.Mock())
+    @mock.patch('treadmill.apphook.cleanup', mock.Mock())
+    @mock.patch('treadmill.appevents.post', mock.Mock())
+    def test_finish_oom_event(self):
+        """Test posting oom event.
+        """
+        app_unique_name = 'proid.myapp-001-0000000ID1234'
+        app_dir = os.path.join(self.tm_env.apps_dir, app_unique_name)
+        data_dir = os.path.join(app_dir, 'data')
+        fs.mkdir_safe(data_dir)
+        utils.touch(os.path.join(data_dir, 'oom'))
+
+        app_finish.finish(self.tm_env, app_dir)
+
+        args, _kwargs = treadmill.appevents.post.call_args
+        _events_dir, event = args
+        self.assertIsInstance(event, events.KilledTraceEvent)
+
+    @mock.patch('treadmill.runtime.load_app', mock.Mock())
+    @mock.patch('treadmill.runtime.linux._finish._cleanup', mock.Mock())
+    @mock.patch('treadmill.apphook.cleanup', mock.Mock())
+    @mock.patch('treadmill.appevents.post', mock.Mock())
+    def test_terminated_no_event(self):
+        """Test that event won't be posted if container is terminated/evicted.
+        """
+        app_unique_name = 'proid.myapp-001-0000000ID1234'
+        app_dir = os.path.join(self.tm_env.apps_dir, app_unique_name)
+        data_dir = os.path.join(app_dir, 'data')
+        fs.mkdir_safe(data_dir)
+        utils.touch(os.path.join(data_dir, 'terminated'))
+        # exitinfo file should be ignored.
+        with io.open(os.path.join(data_dir, 'exitinfo'), 'w') as f:
+            f.write('{"service": "web_server", "return_code": 0, "signal": 0}')
+
+        app_finish.finish(self.tm_env, app_dir)
+
+        treadmill.appevents.post.assert_not_called()
+
     def test__copy_metrics(self):
         """Test that metrics are copied safely.
         """

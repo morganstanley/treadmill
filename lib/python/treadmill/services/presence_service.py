@@ -19,7 +19,7 @@ from treadmill import zknamespace as z
 from treadmill import sysinfo
 from treadmill import utils
 
-from ._base_service import BaseResourceServiceImpl
+from . import BaseResourceServiceImpl
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -144,7 +144,14 @@ class PresenceResourceService(BaseResourceServiceImpl):
             zkutils.create(self.zkclient, path, data, ephemeral=True)
             _LOGGER.info('Created node: %s', path)
         except kazoo.client.NodeExistsError:
-            content, metadata = zkutils.get_with_metadata(self.zkclient, path)
+            try:
+                content, metadata = zkutils.get_with_metadata(
+                    self.zkclient, path
+                )
+            except kazoo.client.NoNodeError:
+                # The node existed when we tried to create, but now it is gone.
+                self.retry_request(rsrc_id)
+                return False
             session_id, _pwd = self.zkclient.client_id
             if metadata.owner_session_id != session_id:
                 _LOGGER.info('Node exists, owned by other: %s - %s - %s',

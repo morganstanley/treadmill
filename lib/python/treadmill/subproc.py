@@ -19,7 +19,6 @@ else:
     import subprocess
     from subprocess import CalledProcessError
 
-from treadmill import dist
 from treadmill import plugin_manager
 from treadmill import utils
 
@@ -28,6 +27,9 @@ _LOGGER = logging.getLogger(__name__)
 
 _EXECUTABLES = None
 _CLOSE_FDS = os.name != 'nt'
+
+
+ALIASES_PATH = None
 
 
 class CommandAliasError(Exception):
@@ -42,7 +44,7 @@ def get_aliases(aliases_path=None):
         return _EXECUTABLES
 
     if not aliases_path:
-        aliases_path = os.environ.get('TREADMILL_ALIASES_PATH')
+        aliases_path = ALIASES_PATH
 
     assert aliases_path is not None
     # TODO: need to check that file is either owned by running proc
@@ -77,8 +79,7 @@ def _check(path):
 
 def resolve(exe):
     """Resolve logical name to full path."""
-    # All exes in distro are trusted.
-    if exe.startswith(dist.TREADMILL):
+    if os.path.isabs(exe):
         return exe
 
     executables = get_aliases()

@@ -35,6 +35,8 @@ from treadmill import context
 from treadmill import plugin_manager
 from treadmill import restclient
 from botocore import exceptions
+from treadmill import subproc
+
 
 EXIT_CODE_DEFAULT = 1
 
@@ -63,6 +65,21 @@ def init_logger(name):
                        err=True)
 
 
+def init_profile():
+    """Initailize profile.
+    """
+
+    default_aliases = ['aliases']
+    profile = context.GLOBAL.get_profile_name()
+    if profile:
+        default_aliases.append('aliases.{}'.format(profile))
+
+    subproc.ALIASES_PATH = os.environ.get(
+        'TREADMILL_ALIASES_PATH',
+        ':'.join(default_aliases)
+    )
+
+
 def make_commands(section, **click_args):
     """Make a Click multicommand from all submodules of the module."""
 
@@ -82,6 +99,13 @@ def make_commands(section, **click_args):
         def get_command(self, ctx, cmd_name):
             try:
                 return plugin_manager.load(section, cmd_name).init()
+            except ImportError as import_err:
+                print(
+                    'dependency error: {}:{} - {}'.format(
+                        section, cmd_name, str(import_err)
+                    ),
+                    file=sys.stderr
+                )
             except KeyError:
                 raise click.UsageError('Invalid command: %s' % cmd_name)
 
@@ -139,7 +163,7 @@ def handle_context_opt(ctx, param, value):
     elif opt == 'zookeeper':
         context.GLOBAL.zk.url = value
     elif opt == 'profile':
-        context.GLOBAL.set_profile(value)
+        context.GLOBAL.set_profile_name(value)
     else:
         raise click.UsageError('Invalid option: %s' % param.name)
 

@@ -1,0 +1,24 @@
+command: |
+  exec \
+    {{ python }} -m treadmill \
+    sproc --cgroup {{ name }} \
+    exec -- \
+      {{ _alias.s6_ipcserver }} {{ dir }}/ctl/appevents \
+      {{ _alias.s6_ipcserver_access }} -i ./access \
+      ./write_appevents.sh
+environ_dir: "{{ dir }}/env"
+monitor_policy:
+  limit: 5
+  interval: 60
+  tombstone:
+    path: "{{ dir }}/tombstones/init"
+data_dir:
+- path: access/uid/0/allow
+- path: write_appevents.sh
+  executable: True
+  content: |
+    #!{{ _alias.execlineb }}
+
+    {{ _alias.withstdinas }} FILENAME
+    {{ _alias.importas }} -i -n FILENAME FILENAME
+    {{ _alias.touch }} {{ dir }}/appevents/${FILENAME}

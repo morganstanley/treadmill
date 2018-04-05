@@ -1,1 +1,0 @@
-{{ python }} -m treadmill.ms sproc init --zkid data\zkid.pickle

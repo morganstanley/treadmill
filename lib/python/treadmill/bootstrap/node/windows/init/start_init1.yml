@@ -1,0 +1,7 @@
+command: >
+  {{ _alias.winss_svscan }} {{ dir }}\init1
+downed: True
+monitor_policy:
+  limit: 0
+  tombstone:
+    path: "{{ dir }}\\tombstones\\init"

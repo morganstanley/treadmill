@@ -121,7 +121,7 @@ class AppCfgMgrTest(unittest.TestCase):
         # Access to a protected member _terminate of a client class
         # pylint: disable=W0212
 
-        fs.mkdir_safe(os.path.join(self.apps, 'proid.app-0-1234'))
+        fs.mkdir_safe(os.path.join(self.apps, 'proid.app-0-1234', 'data'))
         os.symlink(
             os.path.join(self.apps, 'proid.app-0-1234'),
             os.path.join(self.running, 'proid.app#0'),
@@ -135,6 +135,13 @@ class AppCfgMgrTest(unittest.TestCase):
         self.assertEqual(
             os.readlink(os.path.join(self.cleanup, 'proid.app-0-1234')),
             os.path.join(self.apps, 'proid.app-0-1234')
+        )
+        self.assertTrue(
+            os.path.exists(
+                os.path.join(
+                    self.apps, 'proid.app-0-1234', 'data', 'terminated'
+                )
+            )
         )
 
     @mock.patch('treadmill.appcfgmgr.AppCfgMgr._configure', mock.Mock())

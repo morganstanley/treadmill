@@ -43,11 +43,6 @@ class IptablesTest(unittest.TestCase):
         'iptables_filter_state.save'
     )
 
-    IPTABLES_FILTER_DROP_STATE = os.path.join(
-        os.path.dirname(__file__),
-        'iptables_filter_drop_state.save'
-    )
-
     IPSET_STATE = os.path.join(
         os.path.dirname(__file__),
         'ipset_state.save'
@@ -95,9 +90,6 @@ class IptablesTest(unittest.TestCase):
         with io.open(self.IPTABLES_FILTER_STATE) as f:
             self.iptables_filter_state = f.read()
 
-        with io.open(self.IPTABLES_FILTER_DROP_STATE) as f:
-            self.iptables_filter_drop_state = f.read()
-
         with io.open(self.IPSET_STATE) as f:
             self.ipset_state = f.read()
 
@@ -114,26 +106,35 @@ class IptablesTest(unittest.TestCase):
         """Test iptables initialization"""
         # Disable protected-access: Test access protected members .
         # pylint: disable=protected-access
-        treadmill.iptables._iptables_restore.side_effect = [
-            None,
-            subproc.CalledProcessError(2, 'failed'),
-            None,
-        ]
 
-        # NOTE(boysson): keep this IP in sync with the tests' states
+        # NOTE: keep this IP in sync with the tests' state file dumps
         iptables.initialize('1.2.3.4')
 
         treadmill.iptables.ipset_restore.assert_called_with(
             self.ipset_state
         )
+        treadmill.iptables._iptables_restore.assert_called_with(
+            self.iptables_state
+        )
 
-        treadmill.iptables._iptables_restore.assert_has_calls([
-            mock.call(self.iptables_state),
-            mock.call(self.iptables_filter_state,
-                      noflush=True),
-            mock.call(self.iptables_filter_drop_state,
-                      noflush=True),
-        ])
+    @mock.patch('treadmill.iptables.create_chain', mock.Mock(set_spec=True))
+    @mock.patch('treadmill.iptables._iptables_restore',
+                mock.Mock(set_spec=True))
+    def test_filter_table_set(self):
+        """Test filter table initialization.
+        """
+        # Disable protected-access: Test access protected members .
+        # pylint: disable=protected-access
+
+        # NOTE: keep this sync with the tests' filter state file dump.
+        iptables.filter_table_set(['one rule', 'two rule'], ['other rule'])
+
+        treadmill.iptables.create_chain.assert_called_with(
+            'filter', 'TM_EXCEPTION_FILTER'
+        )
+        treadmill.iptables._iptables_restore.assert_called_with(
+            self.iptables_filter_state, noflush=True
+        )
 
     @mock.patch('treadmill.subproc.invoke', mock.Mock(return_value=(0, '')))
     def test_iptables_restore(self):

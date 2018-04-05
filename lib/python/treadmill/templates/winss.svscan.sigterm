@@ -1,1 +1,1 @@
-{{ _alias.powershell }} -File %TREADMILL_APPROOT%\bin\sigterm.ps1
+{{ _alias.powershell }} -File %TREADMILL_APPROOT%\bin\sigterm.ps1 {{ kill_svc }}

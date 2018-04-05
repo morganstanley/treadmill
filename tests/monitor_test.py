@@ -8,6 +8,7 @@ from __future__ import unicode_literals
 
 import collections
 import io
+import json
 import os
 import shutil
 import tempfile
@@ -302,35 +303,50 @@ class MonitorContainerDownTest(unittest.TestCase):
                 mock.Mock(spec_set=True))
     @mock.patch('treadmill.supervisor.control_service',
                 mock.Mock(spec_set=True))
-    @mock.patch('os.replace', mock.Mock())
     def test_execute(self):
         """Test shutting down of the container services.
         """
-        mock_tm_env_class = collections.namedtuple(
-            'MockTMEnv', ['apps_dir']
+        apps_dir = os.path.join(self.root, 'apps')
+        data_dir = os.path.join(apps_dir, 'proid.app-0000000001-abcde', 'data')
+        os.makedirs(data_dir)
+
+        mock_tm_env = mock.Mock(apps_dir=apps_dir)
+        treadmill.supervisor.open_service.return_value = mock.Mock(
+            data_dir=data_dir
         )
-        mock_tm_env = mock_tm_env_class(os.path.join(self.root, 'apps'))
 
-        mock_service_class = collections.namedtuple(
-            'MockSvc', ['data_dir', 'directory']
-        )
-        treadmill.supervisor.open_service.return_value = \
-            mock_service_class(self.root, self.root)
-
-        mock_container_cleanup_action =\
-            monitor.MonitorContainerDown(mock_tm_env, {})
-
-        res = mock_container_cleanup_action.execute(
+        monitor_container_down = monitor.MonitorContainerDown(mock_tm_env, {})
+        res1 = monitor_container_down.execute(
             {
-                'id': 'proid.app-0000000001-abcdefg,mock_service',
-                'return_code': 0,
+                'id': 'proid.app-0000000001-abcde,service1',
+                'return_code': 1,
                 'signal': 0,
-                'timestamp': 123454.123
+                'timestamp': 12345.123
+            }
+        )
+        res2 = monitor_container_down.execute(
+            {
+                'id': 'proid.app-0000000001-abcde,service2',
+                'return_code': 256,
+                'signal': 15,
+                'timestamp': 12345.456
             }
         )
 
-        self.assertEqual(res, True)
-        self.assertTrue(os.replace.called)
+        self.assertEqual(res1, True)
+        self.assertEqual(res2, True)
+        exitinfo_file = os.path.join(data_dir, 'exitinfo')
+        with io.open(exitinfo_file, 'r') as f:
+            exitinfo = json.load(f)
+        self.assertEqual(
+            exitinfo,
+            {
+                'service': 'service1',
+                'return_code': 1,
+                'signal': 0,
+                'timestamp': 12345.123
+            }
+        )
         self.assertTrue(treadmill.supervisor.control_service.called)
 
 

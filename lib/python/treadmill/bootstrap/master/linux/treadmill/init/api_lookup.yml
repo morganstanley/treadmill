@@ -1,0 +1,13 @@
+command: |
+  exec \
+    {{ python }} -m treadmill \
+    sproc restapi \
+        -m api-lookup \
+        -c '.*' \
+        -p 5800
+environ_dir: "/treadmill/env"
+monitor_policy:
+  limit: "{{ restart_limit }}"
+  interval: "{{ restart_interval }}"
+  tombstone:
+    path: "/treadmill/tombstones"

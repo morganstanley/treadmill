@@ -28,10 +28,7 @@
     {{ _alias.loopwhilex }} -o 1 -x 0
     {{ _alias.if }} -nt {
         {{ _alias.backtick }} TASKS_COUNT {
-            {{ _alias.pipeline }} {
-                {{ _alias.wc }} -l {{ wait_cgroups }}/tasks
-            }
-            {{ _alias.awk }} "{print \$1}"
+            {{ _alias.awk }} "END {print NR}" {{ wait_cgroups }}/tasks
         }
         {{ _alias.importas }} -nu TASKS_COUNT TASKS_COUNT
         # There will should be a total of 6 tasks for this finish script

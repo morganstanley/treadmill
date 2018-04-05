@@ -14,7 +14,6 @@ import sys
 
 from treadmill import appcfg
 from treadmill import appevents
-from treadmill import dist
 from treadmill import fs
 from treadmill import supervisor
 from treadmill import utils
@@ -97,13 +96,13 @@ def configure(tm_env, event, runtime):
 
     # Write the actual container start script
     if os.name == 'nt':
-        run_script = ' '.join([
-            sys.executable, '-m', 'treadmill.ms', 'sproc', 'run', '.'
-        ])
+        run_script = '{python} -m treadmill sproc run .'.format(
+            python=sys.executable
+        )
     else:
-        run_script = ' '.join([
-            'exec', dist.TREADMILL_BIN, 'sproc', 'run', '../'
-        ])
+        run_script = '{python} -m treadmill sproc run ../'.format(
+            python=sys.executable
+        )
 
     # Create the service for that container
     container_svc = supervisor.create_service(

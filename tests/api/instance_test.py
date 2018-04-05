@@ -36,6 +36,8 @@ class ApiInstanceTest(unittest.TestCase):
     @mock.patch('treadmill.scheduler.masterapi.create_apps', mock.Mock())
     @mock.patch('treadmill.api.instance._check_required_attributes',
                 mock.Mock())
+    @mock.patch('treadmill.scheduler.masterapi.get_scheduled_stats',
+                mock.Mock(return_value={}))
     def test_normalize_run_once(self):
         """Test missing defaults which cause the app to fail."""
         doc = """
@@ -62,6 +64,8 @@ class ApiInstanceTest(unittest.TestCase):
                 mock.Mock(return_value=admin.Admin(None, None)))
     @mock.patch('treadmill.context.ZkContext.conn', mock.Mock())
     @mock.patch('treadmill.scheduler.masterapi.create_apps', mock.Mock())
+    @mock.patch('treadmill.scheduler.masterapi.get_scheduled_stats',
+                mock.Mock(return_value={}))
     def test_run_once_small_memory(self):
         """Testing too small memory definition for container."""
         doc = """
@@ -107,6 +111,8 @@ class ApiInstanceTest(unittest.TestCase):
                 mock.Mock())
     @mock.patch('treadmill.api.instance._set_defaults',
                 mock.Mock())
+    @mock.patch('treadmill.scheduler.masterapi.get_scheduled_stats',
+                mock.Mock(return_value={}))
     def test_instance_create_configured(self, create_apps_mock):
         """Test creating configured instance."""
         create_apps_mock.side_effect = _create_apps
@@ -212,6 +218,8 @@ class ApiInstanceTest(unittest.TestCase):
     @mock.patch('treadmill.api.instance._check_required_attributes',
                 mock.Mock())
     @mock.patch('treadmill.api.instance._set_defaults', mock.Mock())
+    @mock.patch('treadmill.scheduler.masterapi.get_scheduled_stats',
+                mock.Mock(return_value={}))
     def test_inst_create_cfg_docker(self, create_apps_mock):
         """Test creating configured docker instance.
         """
@@ -264,6 +272,8 @@ class ApiInstanceTest(unittest.TestCase):
                 mock.Mock())
     @mock.patch('treadmill.api.instance._set_defaults',
                 mock.Mock())
+    @mock.patch('treadmill.scheduler.masterapi.get_scheduled_stats',
+                mock.Mock(return_value={}))
     def test_inst_create_eph_docker(self, create_apps_mock):
         """Test creating ephemeral docker instance.
         """
@@ -345,6 +355,43 @@ class ApiInstanceTest(unittest.TestCase):
         update_apps_mock.assert_called_with(
             mock.ANY, {'proid.app#0000000001': 1}
         )
+
+    @mock.patch('treadmill.context.AdminContext.conn',
+                mock.Mock(return_value=admin.Admin(None, None)))
+    @mock.patch('treadmill.context.ZkContext.conn', mock.Mock())
+    @mock.patch('treadmill.scheduler.masterapi.create_apps', mock.Mock())
+    @mock.patch('treadmill.scheduler.masterapi.get_scheduled_stats')
+    @mock.patch('treadmill.api.instance._check_required_attributes',
+                mock.Mock())
+    def test_quotas(self, scheduled_stats_mock):
+        """Test quotas enforcement.
+        """
+        doc = """
+        services:
+        - command: /bin/sleep 10
+          name: sleep1m
+          restart:
+            limit: 0
+        memory: 100M
+        cpu: 10%
+        disk: 100M
+        """
+
+        scheduled_stats_mock.return_value = {'xxx': 50000}
+        with self.assertRaises(exc.QuotaExceededError):
+            self.instance.create('yyy.app', yaml.load(doc), count=1)
+
+        scheduled_stats_mock.return_value = {'xxx': 49900}
+        with self.assertRaises(exc.QuotaExceededError):
+            self.instance.create('yyy.app', yaml.load(doc), count=101)
+
+        scheduled_stats_mock.return_value = {'yyy': 10000}
+        with self.assertRaises(exc.QuotaExceededError):
+            self.instance.create('yyy.app', yaml.load(doc), count=1)
+
+        scheduled_stats_mock.return_value = {'yyy': 9900}
+        with self.assertRaises(exc.QuotaExceededError):
+            self.instance.create('yyy.app', yaml.load(doc), count=101)
 
 
 if __name__ == '__main__':

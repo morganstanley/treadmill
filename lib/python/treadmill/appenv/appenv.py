@@ -12,7 +12,6 @@ import os
 
 import six
 
-from treadmill import fs
 from treadmill import watchdog
 
 
@@ -95,24 +94,6 @@ class AppEnvironment(object):
                                                self.INIT_DIR)
 
         self.watchdogs = watchdog.Watchdog(self.watchdog_dir)
-
-        fs.mkdir_safe(self.apps_dir)
-        fs.mkdir_safe(self.bin_dir)
-        fs.mkdir_safe(self.watchdog_dir)
-        fs.mkdir_safe(self.running_dir)
-        fs.mkdir_safe(self.cache_dir)
-        fs.mkdir_safe(self.cleaning_dir)
-        fs.mkdir_safe(self.cleanup_dir)
-        fs.mkdir_safe(self.cleanup_apps_dir)
-        fs.mkdir_safe(self.configs_dir)
-        fs.mkdir_safe(self.app_events_dir)
-        fs.mkdir_safe(self.archives_dir)
-        fs.mkdir_safe(self.init_dir)
-        fs.mkdir_safe(self.init1_dir)
-        fs.mkdir_safe(self.tombstones_dir)
-        fs.mkdir_safe(self.cleanup_tombstone_dir)
-        fs.mkdir_safe(self.running_tombstone_dir)
-        fs.mkdir_safe(self.init_tombstone_dir)
 
     @abc.abstractmethod
     def initialize(self, params):

@@ -11,6 +11,7 @@ import flask_restplus as restplus
 
 from flask_restplus import fields
 
+from treadmill import exc
 from treadmill import webutils
 
 
@@ -93,7 +94,12 @@ def init(api, cors, impl):
                           resp_model=resp_model)
         def get(self, job_id):
             """Return Treadmill cron configuration."""
-            return impl.get(job_id)
+            job = impl.get(job_id)
+            if not job:
+                raise exc.NotFoundError(
+                    'job does not exist: {}'.format(job_id)
+                )
+            return job
 
         @webutils.post_api(api, cors,
                            req_model=req_model,

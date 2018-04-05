@@ -45,6 +45,9 @@ class LinuxRuntimeRunTest(unittest.TestCase):
         self.root = tempfile.mkdtemp()
         self.tm_env = mock.Mock(
             root=self.root,
+            apps_dir=os.path.join(self.root, 'apps'),
+            endpoints_dir=os.path.join(self.root, 'endpoints'),
+            rules_dir=os.path.join(self.root, 'rules'),
             svc_cgroup=mock.Mock(
                 spec_set=treadmill.services._base_service.ResourceService,
             ),
@@ -156,12 +159,14 @@ class LinuxRuntimeRunTest(unittest.TestCase):
                 },
                 'endpoints': [
                     {
+                        'name': 'foo',
                         'real_port': '5007',
                         'proto': 'tcp',
                         'port': '22',
                         'type': 'infra'
                     },
                     {
+                        'name': 'bla',
                         'real_port': '5013',
                         'proto': 'udp',
                         'port': '12345'

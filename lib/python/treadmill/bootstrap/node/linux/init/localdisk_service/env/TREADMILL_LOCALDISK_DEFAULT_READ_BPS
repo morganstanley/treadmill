@@ -1,1 +1,0 @@
-"{% if localdisk_default_read_bps %}{{ localdisk_default_read_bps }}{% endif %}"

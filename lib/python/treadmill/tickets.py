@@ -181,7 +181,7 @@ def krbcc_ok(tkt_path):
         subproc.check_call(['klist', '-5', '-s', tkt_path])
         return True
     except subproc.CalledProcessError:
-        _LOGGER.exception('Ticket cache invalid: %s', tkt_path)
+        _LOGGER.warning('Ticket cache invalid: %s', tkt_path)
         return False
 
 
@@ -229,7 +229,7 @@ class TicketLocker(object):
                             tkt_details,
                             ephemeral=True)
             except subproc.CalledProcessError:
-                _LOGGER.exception('Unable to get tickets details.')
+                _LOGGER.warning('Unable to get tickets details.')
 
         for tkt_file in glob.glob(os.path.join(self.tkt_spool_dir, '*')):
             _publish_ticket(tkt_file)

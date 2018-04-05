@@ -29,7 +29,8 @@ WANTED_CGROUPS = {
 }
 
 #: Where to read kernel supported cgroups
-PROCCGROUPS = '/proc/cgroups'
+_PROC_CGROUPS = '/proc/cgroups'
+_PROC_CGROUP = '/proc/{}/cgroup'
 
 _SUBSYSTEMS2MOUNTS = None
 
@@ -75,6 +76,23 @@ def mounted_subsystems():
         _SUBSYSTEMS2MOUNTS = read_mounted_cgroups(filter_by=CGROOT)
 
     return _SUBSYSTEMS2MOUNTS
+
+
+def proc_cgroups(proc='self'):
+    """Read a process' cgroups
+
+    :returns:
+        ``dict`` - Dictionary of all the process' subsystem and cgroups.
+    """
+    assert isinstance(proc, int) or '/' not in proc
+
+    cgroups = {}
+    with io.open(_PROC_CGROUP.format(proc), 'r') as f:
+        for cgroup_line in f:
+            (_id, subsys, path) = cgroup_line.strip().split(':', 2)
+            cgroups[subsys] = path
+
+    return cgroups
 
 
 def makepath(subsystem, group, pseudofile=None):
@@ -178,7 +196,7 @@ def _available_subsystems():
     """
     subsystems = []
 
-    with io.open(PROCCGROUPS, 'r') as cgroups:
+    with io.open(_PROC_CGROUPS, 'r') as cgroups:
         for cgroup in cgroups:
             (
                 subsys_name,

@@ -30,16 +30,42 @@ from . import fs as image_fs
 from . import _image_base
 from . import _repository_base
 
+from .. import _manifest
+
 
 _LOGGER = logging.getLogger(__name__)
 
 _CONTAINER_ENV_DIR = 'env'
+_CONTAINER_DOCKER_ENV_DIR = os.path.join('docker', 'env')
+_CONTAINER_DOCKER_ETC_DIR = os.path.join('docker', 'etc')
+
+
+def create_docker_environ_dir(container_dir, root_dir, app):
+    """Creates environ dir for docker"""
+    env_dir = os.path.join(container_dir, _CONTAINER_DOCKER_ENV_DIR)
+    env = {}
+
+    if app.ephemeral_ports.tcp or app.ephemeral_ports.udp:
+        env['LD_PRELOAD'] = os.path.join(
+            _manifest.TREADMILL_BIND_PATH,
+            '$LIB',
+            'treadmill_bind_preload.so'
+        )
+
+    supervisor.create_environ_dir(env_dir, env)
+
+    # Bind the environ directory in the container volume
+    fs.mkdir_safe(os.path.join(root_dir, _CONTAINER_DOCKER_ENV_DIR))
+    fs_linux.mount_bind(
+        root_dir, os.path.join(os.sep, _CONTAINER_DOCKER_ENV_DIR),
+        source=os.path.join(container_dir, _CONTAINER_DOCKER_ENV_DIR),
+        recursive=False, read_only=True
+    )
 
 
 def create_environ_dir(container_dir, root_dir, app):
     """Creates environ dir for s6-envdir."""
     env_dir = os.path.join(container_dir, _CONTAINER_ENV_DIR)
-
     env = {
         'TREADMILL_APP': app.app,
         'TREADMILL_CELL': app.cell,
@@ -79,6 +105,9 @@ def create_environ_dir(container_dir, root_dir, app):
         source=os.path.join(container_dir, _CONTAINER_ENV_DIR),
         recursive=False, read_only=True
     )
+
+    if app.docker:
+        create_docker_environ_dir(container_dir, root_dir, app)
 
 
 def create_supervision_tree(tm_env, container_dir, root_dir, app,
@@ -195,7 +224,7 @@ def create_supervision_tree(tm_env, container_dir, root_dir, app,
     )
 
 
-def make_fsroot(root_dir):
+def make_fsroot(root_dir, app):
     """Initializes directory structure for the container in a new root.
 
     The container uses pretty much a blank a FHS 3 layout.
@@ -312,6 +341,16 @@ def make_fsroot(root_dir):
                 recursive=True, read_only=True
             )
 
+    if app.docker:
+        _mount_docker_tmpfs(newroot_norm)
+
+
+def _mount_docker_tmpfs(newroot_norm):
+    """Mount tmpfs for docker
+    """
+    # /etc/docker as temp fs as dockerd create /etc/docker/key.json
+    fs_linux.mount_tmpfs(newroot_norm, '/etc/docker')
+
 
 def create_overlay(tm_env, container_dir, root_dir, app):
     """Create overlay configuration files for the container.
@@ -326,8 +365,12 @@ def create_overlay(tm_env, container_dir, root_dir, app):
     _prepare_pam_sshd(tm_env, container_dir, app)
     # constructed keytab.
     _prepare_krb(tm_env, container_dir, root_dir, app)
+
     # bind prepared inside container
     _bind_overlay(container_dir, root_dir)
+
+    if app.docker:
+        _bind_overlay_docker(container_dir, root_dir)
 
 
 def _prepare_krb(tm_env, container_dir, root_dir, app):
@@ -489,6 +532,21 @@ def _bind_overlay(container_dir, root_dir):
     )
 
 
+def _bind_overlay_docker(container_dir, root_dir):
+    """Mount etc/hosts for docker container
+    """
+    # XXX: This path is mounted as RW
+    #    because ro volume in treadmill container can not be mounted in docker
+    #   'Error response from daemon: chown /etc/hosts: read-only file system.'
+    overlay_dir = os.path.join(container_dir, 'overlay')
+
+    fs_linux.mount_bind(
+        root_dir, os.path.join(os.sep, _CONTAINER_DOCKER_ETC_DIR, 'hosts'),
+        source=os.path.join(overlay_dir, 'etc/hosts'),
+        recursive=False, read_only=False
+    )
+
+
 def get_cgroup_path(app):
     """Gets the path of the cgroup."""
     unique_name = appcfg.app_unique_name(app)
@@ -507,7 +565,7 @@ class NativeImage(_image_base.Image):
         self.tm_env = tm_env
 
     def unpack(self, container_dir, root_dir, app):
-        make_fsroot(root_dir)
+        make_fsroot(root_dir, app)
 
         image_fs.configure_plugins(self.tm_env, container_dir, app)
 
@@ -520,6 +578,7 @@ class NativeImage(_image_base.Image):
         cgrp = get_cgroup_path(app)
 
         create_environ_dir(container_dir, root_dir, app)
+
         create_supervision_tree(
             self.tm_env, container_dir, root_dir, app,
             cgroups_path=cgroups.makepath(

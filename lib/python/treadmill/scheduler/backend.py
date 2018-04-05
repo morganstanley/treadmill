@@ -31,6 +31,10 @@ class Backend(object):
         """Return stored object given path."""
         return None
 
+    def get_with_metadata(self, _path):
+        """Return stored object with metadata."""
+        return None, None
+
     def get_default(self, path, default=None):
         """Return stored object given path, default if not found."""
         try:

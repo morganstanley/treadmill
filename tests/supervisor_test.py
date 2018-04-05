@@ -39,9 +39,7 @@ class SupervisorTest(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        aliases_path = os.environ.get('TREADMILL_ALIASES_PATH')
-        if aliases_path is None:
-            os.environ['TREADMILL_ALIASES_PATH'] = 'node'
+        subproc.ALIASES_PATH = 'node'
 
     def setUp(self):
         self.mock_pwrow = collections.namedtuple(
@@ -77,7 +75,7 @@ class SupervisorTest(unittest.TestCase):
         data_dir = os.path.join(service_dir, 'data')
         self.assertTrue(os.path.isfile(os.path.join(data_dir, 'app_start')))
         self.assertTrue(os.path.isfile(os.path.join(service_dir, 'run')))
-        self.assertTrue(os.path.isfile(os.path.join(service_dir, 'finish')))
+        self.assertFalse(os.path.isfile(os.path.join(service_dir, 'finish')))
         self.assertTrue(os.path.isfile(os.path.join(service_dir, 'down')))
 
         # Do not create down file.

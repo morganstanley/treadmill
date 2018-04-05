@@ -70,7 +70,7 @@ class PresenceServiceTest(unittest.TestCase):
         """
         svc = presence_service.PresenceResourceService()
         request = {
-            'identity': 1,
+            'identity': 0,
             'identity_group': 'bla',
             'endpoints': [{'name': 'xxx',
                            'port': 8000,
@@ -80,7 +80,7 @@ class PresenceServiceTest(unittest.TestCase):
         svc.on_create_request(request_id, request)
         self.assertEqual(svc.state['foo.bar#12345'],
                          set(['/running/foo.bar#12345',
-                              '/identity-groups/bla/1',
+                              '/identity-groups/bla/0',
                               '/endpoints/foo/bar#12345:tcp:xxx']))
 
     @mock.patch('treadmill.zkutils.get', mock.Mock())

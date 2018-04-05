@@ -253,6 +253,10 @@ class LongrunService(_AtomicService):
             )
         return self._notification_fd
 
+    @notification_fd.setter
+    def notification_fd(self, new_notification_fd):
+        self._notification_fd = new_notification_fd
+
     @property
     def default_down(self):
         """Is the default service state set to down?

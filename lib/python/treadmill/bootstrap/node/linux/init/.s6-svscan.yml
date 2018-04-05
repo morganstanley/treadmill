@@ -1,0 +1,2 @@
+finish_timeout: 9000
+kill_svc: monitor

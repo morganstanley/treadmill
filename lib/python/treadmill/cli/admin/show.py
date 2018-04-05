@@ -100,7 +100,12 @@ def init():
                 app, endpoint, proto, port = entry.split(':')
                 port = int(port)
                 endpoint_state = state[hostname].get(port)
-                hostport = '{}:{}'.format(hostname, port)
+                instance_pos = hostname.find('#')
+                if instance_pos != -1:
+                    hostport = '{}:{}'.format(hostname[:instance_pos], port)
+                else:
+                    hostport = '{}:{}'.format(hostname, port)
+
                 endpoints.append(
                     (app, proto, endpoint, hostport, endpoint_state)
                 )

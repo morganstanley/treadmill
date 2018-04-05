@@ -306,6 +306,12 @@ class UtilsTest(unittest.TestCase):
         self.assertFalse(os.write.called)
         self.assertFalse(os.close.called)
 
+        utils.report_ready(100)
+        os.write.assert_called_with(100, mock.ANY)
+        os.close.assert_called_with(100)
+
+        os.write.reset()
+        os.close.reset()
         with io.open('notification-fd', 'w') as f:
             f.write('300')
         utils.report_ready()

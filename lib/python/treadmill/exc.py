@@ -81,3 +81,9 @@ class FoundError(TreadmillError):
     """Thrown in REST API when a resource is found"""
 
     __slots__ = ()
+
+
+class QuotaExceededError(TreadmillError):
+    """Thrown if quota is exceeded."""
+
+    __slots__ = ()
