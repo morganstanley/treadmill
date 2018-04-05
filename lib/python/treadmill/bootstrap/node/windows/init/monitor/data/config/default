@@ -1,3 +1,0 @@
-{{ dir }}\tombstones\cleanup;node-down;{"prefix": "cleanup-"}
-{{ dir }}\tombstones\init;node-down
-{{ dir }}\tombstones\running;container-cleanup

@@ -23,7 +23,7 @@ from treadmill import cgroups
 from treadmill.fs import linux as fs_linux
 
 
-PROCCGROUPS = """#subsys_name    hierarchy       num_cgroups     enabled
+_PROC_CGROUPS = """#subsys_name    hierarchy       num_cgroups     enabled
 cpuset  4       1       0
 ns      10      3       0
 cpu     2       3       1
@@ -35,6 +35,20 @@ net_cls 8       1       0
 blkio   1       1       0
 perf_event      11      1       0
 net_prio        9       1       0
+"""
+
+_PROC_CGROUP = """
+11:pids:/
+10:cpuacct,cpu:/
+9:blkio:/
+8:freezer:/
+7:memory:/
+6:perf_event:/
+5:hugetlb:/
+4:cpuset:/
+3:devices:/system.slice/sshd.service
+2:net_prio,net_cls:/
+1:name=systemd:/system.slice/sshd.service
 """
 
 
@@ -227,6 +241,30 @@ class CGroupsTest(unittest.TestCase):
             }
         )
 
+    @mock.patch('io.open', mock.mock_open(read_data=_PROC_CGROUP.strip()))
+    def test_proc_cgroups(self):
+        """Test reading a process' cgroups.
+        """
+        io.open.return_value.__iter__ = lambda x: iter(x.readlines())
+
+        res = cgroups.proc_cgroups()
+        self.assertEqual(
+            res,
+            {
+                'blkio': '/',
+                'cpuacct,cpu': '/',
+                'cpuset': '/',
+                'devices': '/system.slice/sshd.service',
+                'freezer': '/',
+                'hugetlb': '/',
+                'memory': '/',
+                'name=systemd': '/system.slice/sshd.service',
+                'net_prio,net_cls': '/',
+                'perf_event': '/',
+                'pids': '/',
+            }
+        )
+
     @mock.patch('treadmill.cgroups.get_data',
                 mock.Mock(side_effect=['2', '1\n2', '-1', '']))
     def test_get_value(self):
@@ -318,11 +356,12 @@ class CGroupsTest(unittest.TestCase):
             '/cgroups/treadmill/apps/test1/tasks', 'w')
         io.open().write.assert_called_once_with('1234')
 
-    @mock.patch('io.open', mock.Mock(return_value=io.StringIO(PROCCGROUPS)))
+    @mock.patch('io.open', mock.mock_open(read_data=_PROC_CGROUPS))
     def test__available_subsystems(self):
         """Test parsince available subsystems.
         """
         # pylint: disable=W0212
+        io.open.return_value.__iter__ = lambda x: iter(x.readlines())
 
         subsystems = cgroups._available_subsystems()
         self.assertEqual(['cpu', 'cpuacct', 'memory'], subsystems)

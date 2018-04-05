@@ -36,9 +36,15 @@ class ScanDir(_scan_dir_base.ScanDir):
     _create_service = staticmethod(services.create_service)
 
     def __init__(self, directory):
-        super(ScanDir, self).__init__(directory, ScanDir._CONTROL_DIR)
+        super(ScanDir, self).__init__(directory)
         for attrib in self.__slots__:
             setattr(self, attrib, None)
+
+    @staticmethod
+    def control_dir_name():
+        """Gets the name of the svscan control directory.
+        """
+        return ScanDir._CONTROL_DIR
 
     @property
     def _crash_file(self):

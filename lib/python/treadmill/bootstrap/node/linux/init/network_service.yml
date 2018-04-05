@@ -1,0 +1,25 @@
+command: |
+  exec \
+    {{ python }} -m treadmill \
+    sproc --cgroup {{ name }} \
+    service \
+        --root-dir {{ dir }} \
+    network \
+  {%- if network_device %}
+        --ext-device {{ network_device }} \
+  {%- endif %}
+  {%- if network_ip%}
+        --ext-ip {{ network_ip}} \
+  {%- endif %}
+  {%- if network_mtu %}
+        --ext-mtu {{ network_mtu }} \
+  {%- endif %}
+  {%-if network_speed %}
+        --ext-speed {{ network_speed }} \
+  {%- endif %}
+environ_dir: "{{ dir }}/env"
+monitor_policy:
+  limit: 5
+  interval: 60
+  tombstone:
+    path: "{{ dir }}/tombstones/init"

@@ -18,9 +18,12 @@ import logging
 import os
 import socket
 import time
+import tempfile
 
 import click
 
+from treadmill import appenv
+from treadmill import endpoints
 from treadmill import tickets
 from treadmill import context
 from treadmill import zknamespace as z
@@ -39,6 +42,26 @@ _MIN_FWD_REFRESH = 5
 _RENEW_INTERVAL = 60 * 60
 
 _LOGGER = logging.getLogger(__name__)
+
+
+def _construct_keytab(keytabs):
+    """Construct keytab from the list."""
+    temp_keytabs = []
+    file_keytabs = []
+    for kt_uri in keytabs:
+        if kt_uri.startswith('zookeeper:'):
+            zkpath = kt_uri[len('zookeeper:'):]
+            with tempfile.NamedTemporaryFile(mode='wb', delete=False) as temp:
+                ktab, _metadata = context.GLOBAL.zk.conn.get(zkpath)
+                temp.write(ktab)
+                temp_keytabs.append(temp.name)
+
+        if kt_uri.startswith('file:'):
+            file_keytabs.append(kt_uri[len('file:'):])
+
+    kt_target = os.environ.get('KRB5_KTNAME')
+    cmd_line = ['kt_add', kt_target] + temp_keytabs + file_keytabs
+    subproc.check_call(cmd_line)
 
 
 def _renew_tickets(tkt_spool_dir):
@@ -112,6 +135,8 @@ def init():
     @top.command()
     @click.option('--tkt-spool-dir',
                   help='Ticket spool directory.')
+    @click.option('--approot', type=click.Path(exists=True),
+                  envvar='TREADMILL_APPROOT', required=True)
     @click.option('--port', help='Acceptor port.', default=0)
     @click.option('--appname', help='Pseudo app name to use for discovery',
                   required=True)
@@ -119,8 +144,15 @@ def init():
                   default='tickets')
     @click.option('--use-v2', help='Start tkt-recv v2 protocol.', is_flag=True,
                   default=False)
-    def accept(tkt_spool_dir, port, appname, endpoint, use_v2):
+    @click.option('--keytab', help='List of keytabs to merge.',
+                  multiple=True,
+                  required=False)
+    def accept(tkt_spool_dir, approot, port, appname, endpoint, use_v2,
+               keytab):
         """Run ticket locker acceptor."""
+        if keytab:
+            _construct_keytab(keytab)
+
         if port == 0:
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             sock.bind(('0.0.0.0', 0))
@@ -149,6 +181,23 @@ def init():
         zkutils.put(context.GLOBAL.zk.conn, endpoint_path, hostport)
 
         context.GLOBAL.zk.conn.stop()
+
+        tm_env = appenv.AppEnvironment(approot)
+        endpoints_mgr = endpoints.EndpointsMgr(tm_env.endpoints_dir)
+        endpoints_mgr.unlink_all(
+            appname=appname,
+            endpoint=endpoint,
+            proto='tcp'
+        )
+        endpoints_mgr.create_spec(
+            appname=appname,
+            endpoint=endpoint,
+            proto='tcp',
+            real_port=port,
+            pid=os.getpid(),
+            port=port,
+            owner='/proc/{}'.format(os.getpid()),
+        )
 
         # Exec into tickets acceptor. If race condition will not allow it to
         # bind to the provided port, it will exit and registration will
@@ -198,7 +247,7 @@ def init():
                 endpoint_ref.clear()
             else:
                 _LOGGER.info('Ticket endpoint initialized: %s', data)
-                endpoint_ref['endpoint'] = data
+                endpoint_ref['endpoint'] = data.decode('utf-8')
 
             return True
 

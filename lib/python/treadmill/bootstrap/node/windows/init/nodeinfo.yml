@@ -1,0 +1,10 @@
+command: >
+  {{ python }} -m treadmill.ms sproc nodeinfo
+  --register
+  --cors-origin='.*'
+  -m local
+monitor_policy:
+  limit: 5
+  interval: 60
+  tombstone:
+    path: "{{ dir }}\\tombstones\\init"

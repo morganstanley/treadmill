@@ -26,13 +26,6 @@ from treadmill.appcfg import abort as app_abort
 _LOGGER = logging.getLogger(__name__)
 
 
-def _get_name(image, unique_id):
-    """Get name from image and unique_id
-    """
-    # TODO
-    return '{}-{}'.format(image, unique_id)
-
-
 def _read_environ(envdirs):
     """Read a list of environ directories and return a full envrion ``dict``.
 
@@ -46,14 +39,22 @@ def _read_environ(envdirs):
     return environ
 
 
-def _create_container(client, image, cmd, name, **args):
+def _get_image_user(image_attrs):
+    """User is in Config data
+    """
+    config = image_attrs.get('Config', {})
+    return config.get('User', None)
+
+
+def _create_container(client, name, image_name, cmd, **args):
     """Create docker container from given app.
     """
-    client.images.pull(image)
+    # if success,  pull returns an image object
+    image = client.images.pull(image_name)
 
     container_args = {
-        'image': image,
         'name': name,
+        'image': image_name,
         'command': list(cmd),
         'detach': True,
         'stdin_open': True,
@@ -65,9 +66,17 @@ def _create_container(client, image, cmd, name, **args):
         # 'uts_mode': 'host',
     }
 
+    # assign user argument
+    user = _get_image_user(image.attrs)
+    if user is None or user == '':
+        uid = os.getuid()
+        gid = os.getgid()
+        container_args['user'] = '{}:{}'.format(uid, gid)
+
     # add additonal container args
     for key, value in six.iteritems(args):
-        container_args[key] = value
+        if value is not None:
+            container_args[key] = value
 
     try:
         # The container might exist already
@@ -128,13 +137,11 @@ class DockerSprocClient(object):
         self.client = docker.from_env(**self.param)
         return self.client
 
-    def run(self, image, cmd, unique_id, **args):
+    def run(self, name, image, cmd, **args):
         """Run
         """
         client = self._get_client()
         try:
-            name = _get_name(image, unique_id)
-
             if 'volumes' in args:
                 args['volumes'] = _transform_volumes(args['volumes'])
 
@@ -142,8 +149,9 @@ class DockerSprocClient(object):
                 args['environment'] = _read_environ(args.pop('envdirs'))
 
             container = _create_container(
-                client, image, cmd, name, **args
+                client, name, image, cmd, **args
             )
+
         except docker.errors.ImageNotFound:
             raise exc.ContainerSetupError(
                 'Image {0} was not found'.format(image),
@@ -183,23 +191,23 @@ def init():
     """Top level command handler."""
 
     @click.command()
-    @click.option('--image', required=True, help='docker image')
-    @click.option('--unique_id', required=True, help='uniq_id for container')
+    @click.option('--name', required=True, help='name of container')
+    @click.option('--image', required=True, help='container image')
+    @click.argument('cmd', nargs=-1)
     @click.option('--user', required=False,
                   help='userid in the form UID:GID')
-    @click.option('--envdirs', type=cli.LIST, required=False, default=[],
+    @click.option('--envdirs', type=cli.LIST, required=False, default='',
                   help='List of environ directory to pass into the container.')
     @click.option('--read-only', is_flag=True, default=False,
                   help='Mount the docker image read-only')
     @click.option('--volume', multiple=True, required=False,
                   help='Specify each volume as TARGET:SOURCE:MODE')
-    @click.argument('cmd', nargs=-1)
-    def configure(image, cmd, user, envdirs, unique_id, read_only, volume):
+    def configure(name, image, cmd, user, envdirs, read_only, volume):
         """Configure local manifest and schedule app to run."""
         service_client = DockerSprocClient()
         service_client.run(
             # manditory parameters
-            image, cmd, unique_id,
+            name, image, cmd,
             # optional parameters
             user=user,
             envdirs=envdirs,

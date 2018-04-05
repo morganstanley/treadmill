@@ -910,6 +910,9 @@ class Server(Node):
     def restore(self, app, placement_expiry=None):
         """Put app back on the server, ignore app lifetime.
         """
+        _LOGGER.debug('server.restore: %s => %s (%s)',
+                      app.name, self.name, placement_expiry)
+
         lease = app.lease
         # If not explicit
         if placement_expiry is None:

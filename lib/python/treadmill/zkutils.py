@@ -37,6 +37,9 @@ ZK_MAX_CONNECTION_START_TIMEOUT = 30
 _VAGRANT_PROFILE = 'vagrant'
 _ZK_PLUGIN_MOD = None
 
+DEFAULT_ACL = True
+
+
 try:
     _ZK_PLUGIN_MOD = plugin_manager.load('treadmill.connection.manager',
                                          'zookeeper')
@@ -122,6 +125,9 @@ def make_anonymous_acl(perm):
 
 def make_default_acl(acls):
     """Constructs a default Treadmill acl."""
+    if not DEFAULT_ACL:
+        return acls
+
     realacl = [
         make_role_acl('readers', 'r'),
         make_role_acl('admins', 'rwcda'),

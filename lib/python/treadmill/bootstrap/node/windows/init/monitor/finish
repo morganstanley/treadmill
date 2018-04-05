@@ -1,1 +1,0 @@
-{{ _alias.powershell }} -File {{ dir }}\bin\finish.ps1 -limit 5 -interval 60 -tombstone_id Monitor -tombstone_path {{ dir }}\watchdogs -ignore_exitinfo

@@ -40,6 +40,7 @@ class AbortedReason(enum.Enum):
     IMAGE = 'image'
     PID1 = 'pid1'
     GMSA = 'GMSA'
+    TIMEOUT = 'timeout'
 
     def description(self):
         """Gets the description for the current aborted reason."""

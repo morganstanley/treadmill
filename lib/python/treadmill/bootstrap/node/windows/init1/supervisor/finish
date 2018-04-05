@@ -1,1 +1,0 @@
-{{ _alias.powershell }} -File {{ dir }}\bin\finish.ps1 -limit 0 -tombstone_id supervisor -tombstone_path {{ dir }}\tombstones\init

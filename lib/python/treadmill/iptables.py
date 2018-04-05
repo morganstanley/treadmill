@@ -230,20 +230,6 @@ def initialize(external_ip):
     )
     _iptables_restore(iptables_state)
 
-    # Try to load the iptables Filter tables without touching the ProdPerim
-    # rules.
-    _LOGGER.debug('Reloading Treadmill filter rules')
-    try:
-        filter_table_set(None, None)
-
-    except subproc.CalledProcessError:
-        # We were not able to load without a NONPROD rule (filtering not setup
-        # yet?).
-        # Insert a default rule that drop all non-prod traffic by default until
-        # the proper rules are loaded.
-        _LOGGER.debug('Reloading Treadmill filter rules (drop all NONPROD)')
-        filter_table_set(('-j DROP',), ('-j DROP',))
-
 
 def ipsets_ensure_exist():
     """Initialize all used IPSets.

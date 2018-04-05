@@ -70,7 +70,7 @@ class MetricsTest(unittest.TestCase):
             'hardmem': 10, 'softmem': 10, 'blk_write_iops': 0, 'memusage': 10,
             'fs_used_bytes': 10, 'blk_read_bps': 0,
             'cpuusage_ratio': 0.000244140625,
-            'cpuusage': 0.005,
+            'cpuusage': 0.00625,
             'blk_read_iops': 0, 'cputotal': 3000000000, 'blk_write_bps': 0,
             'timestamp': 3
         }
@@ -129,7 +129,7 @@ class MetricsTest(unittest.TestCase):
         metrics_data = {
             'hardmem': 10, 'softmem': 10, 'blk_write_iops': 3, 'memusage': 10,
             'fs_used_bytes': 10, 'blk_read_bps': 5,
-            'cpuusage_ratio': 0.000244140625, 'cpuusage': 0.005,
+            'cpuusage_ratio': 0.000244140625, 'cpuusage': 0.00625,
             'blk_read_iops': 5, 'cputotal': 3000000000, 'blk_write_bps': 3,
             'timestamp': 3,
         }

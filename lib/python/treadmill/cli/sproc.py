@@ -18,15 +18,19 @@ _LOGGER = logging.getLogger(__name__)
 
 
 @osnoop.windows
-def _configure_core_cgroups(service_name):
+def _configure_service_cgroups(cgroup):
     """Configure service specific cgroups."""
     from treadmill import cgroups
     from treadmill import cgutils
 
-    if service_name == '.':
-        service_name = os.path.basename(os.path.realpath(service_name))
+    if cgroup == '.':
+        cgroup = os.path.basename(os.path.realpath('.'))
 
-    group = os.path.join('treadmill/core', service_name)
+    if os.path.isabs(cgroup):
+        group = os.path.join('treadmill', cgroup.lstrip('/'))
+    else:
+        group = os.path.join('treadmill/core', cgroup)
+    parent = os.path.dirname(group)
 
     # create group directory
     for subsystem in ['memory', 'cpu', 'cpuacct', 'cpuset', 'blkio']:
@@ -38,14 +42,14 @@ def _configure_core_cgroups(service_name):
                  'memory.memsw.limit_in_bytes',
                  'memory.soft_limit_in_bytes']
     for limit in memlimits:
-        parent_limit = cgroups.get_value('memory', 'treadmill/core', limit)
+        parent_limit = cgroups.get_value('memory', parent, limit)
         _LOGGER.info('setting %s: %s', limit, parent_limit)
         cgroups.set_value('memory', group, limit, parent_limit)
 
     # set cpu share limits
     cpulimits = ['cpu.shares']
     for limit in cpulimits:
-        parent_limit = cgroups.get_value('cpu', 'treadmill/core', limit)
+        parent_limit = cgroups.get_value('cpu', parent, limit)
         _LOGGER.info('setting %s: %s', limit, parent_limit)
         cgroups.set_value('cpu', group, limit, parent_limit)
 
@@ -92,6 +96,6 @@ def init():
         logging.getLogger().setLevel(log_level)
 
         if cgroup:
-            _configure_core_cgroups(cgroup)
+            _configure_service_cgroups(cgroup)
 
     return run

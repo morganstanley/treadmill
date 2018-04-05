@@ -45,6 +45,7 @@ from treadmill import fs
 from treadmill import dirwatch
 from treadmill import logcontext as lc
 from treadmill import supervisor
+from treadmill import utils
 
 from treadmill.appcfg import configure as app_cfg
 from treadmill.appcfg import abort as app_abort
@@ -394,7 +395,7 @@ class AppCfgMgr(object):
 
         try:
             fs.replace(instance_run_link, container_cleanup_link)
-
+            utils.touch(os.path.join(container_dir, 'data', 'terminated'))
         except OSError as err:
             # It is OK if the symlink is already removed (race with app own
             # cleanup).  Everything else is an error.

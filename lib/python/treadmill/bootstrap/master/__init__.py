@@ -12,6 +12,8 @@ from .. import aliases
 DEFAULTS = {
     'treadmill_host_ticket': '/treadmill/spool/krb5cc_host',
     'broken_nodes_percent': '5%',
+    'restart_interval': 300,
+    'restart_limit': 5,
 }
 
 ALIASES = aliases.ALIASES

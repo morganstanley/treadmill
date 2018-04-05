@@ -111,6 +111,16 @@ def register(api):
         }
         return resp, http_client.BAD_REQUEST, _cors_headers()
 
+    @api.errorhandler(exc.QuotaExceededError)
+    def _quota_exceeded_exc(err):
+        """QuotaExceededError exception handler."""
+        _LOGGER.info('Quota exceeded: %r', err)
+        resp = {
+            'message': str(err),
+            'status': http_client.BAD_REQUEST
+        }
+        return resp, http_client.BAD_REQUEST, _cors_headers()
+
     @api.errorhandler(exc.NotFoundError)
     def _not_found_exc(err):
         """NotFoundError exception handler."""

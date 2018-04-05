@@ -31,7 +31,7 @@ else:
 
 
 # Equate "virtual" CPU to 5000 bogomips.
-BMIPS_PER_CPU = 5000
+BMIPS_PER_CPU = 4000
 _BYTES_IN_MB = 1024 * 1024
 
 
@@ -256,8 +256,7 @@ def _node_info_linux(tm_env, runtime):
         'up_since': up_since(),
     }
 
-    # TODO: docker2 is same as linux in terms of capacity calculation now
-    if runtime == 'linux' or runtime == 'docker2':
+    if runtime == 'linux':
         # Request status information from services (this may wait for the
         # services to be up).
         localdisk_status = tm_env.svc_localdisk.status(timeout=30)

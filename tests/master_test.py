@@ -292,12 +292,18 @@ class MasterTest(mockzk.MockZookeeperTestCase):
                         state: up
                         since: 100
                     """,
-                    'xxx.app1#1234': '',
-                    'xxx.app2#2345': '',
+                    'xxx.app1#1234': {
+                        '.metadata': {'created': 100},
+                    },
+                    'xxx.app2#2345': {
+                        '.metadata': {'created': 101},
+                    },
                 }
             },
             'server.presence': {
-                'test.xx.com': {},
+                'test.xx.com': {
+                    '.metadata': {'created': 100},
+                },
             },
             'cell': {
                 'pod:pod1': {},
@@ -356,7 +362,6 @@ class MasterTest(mockzk.MockZookeeperTestCase):
         self.master.load_servers()
         self.master.load_apps()
         self.master.restore_placements()
-        self.master.load_placement_data()
 
         # Not loaded, ignore.
         self.master.remove_app('xxx.app0#0123')
@@ -684,23 +689,68 @@ class MasterTest(mockzk.MockZookeeperTestCase):
     @mock.patch('treadmill.zkutils.ensure_deleted', mock.Mock())
     @mock.patch('treadmill.zkutils.put', mock.Mock())
     @mock.patch('treadmill.zkutils.update', mock.Mock())
+    @mock.patch('time.time', mock.Mock(return_value=123.34))
     def test_restore_placement(self):
         """Tests application placement."""
         zk_content = {
             'placement': {
-                'test.xx.com': {
+                'test1.xx.com': {
                     '.data': """
                         state: up
                         since: 100
                     """,
                     'xxx.app1#1234': {
-                        '.data': '{identity: 1}\n',
+                        '.metadata': {'created': 100},
+                        '.data': """
+                            expires: 300
+                            identity: 1
+                        """,
                     },
-                    'xxx.app2#2345': '',
-                }
+                    'xxx.app2#2345': {
+                        '.metadata': {'created': 101},
+                        '.data': """
+                            expires: 300
+                        """,
+                    },
+                },
+                'test2.xx.com': {
+                    '.data': """
+                        state: up
+                        since: 100
+                    """,
+                    'xxx.app3#3456': {
+                        '.metadata': {'created': 100},
+                        '.data': """
+                            expires: 300
+                        """,
+                    },
+                    'xxx.app4#4567': {
+                        '.metadata': {'created': 101},
+                        '.data': """
+                            expires: 300
+                        """,
+                    },
+                },
+                'test3.xx.com': {
+                    '.data': """
+                        state: down
+                        since: 100
+                    """,
+                    'xxx.app5#5678': {
+                        '.metadata': {'created': 100},
+                        '.data': """
+                            expires: 300
+                        """,
+                    },
+                },
             },
             'server.presence': {
-                'test.xx.com': {},
+                'test1.xx.com': {
+                    '.metadata': {'created': 100},
+                },
+                'test2.xx.com': {
+                    '.metadata': {'created': 200},
+                },
             },
             'cell': {
                 'pod:pod1': {},
@@ -719,7 +769,19 @@ class MasterTest(mockzk.MockZookeeperTestCase):
                 },
             },
             'servers': {
-                'test.xx.com': {
+                'test1.xx.com': {
+                    'memory': '16G',
+                    'disk': '128G',
+                    'cpu': '400%',
+                    'parent': 'rack:1234',
+                },
+                'test2.xx.com': {
+                    'memory': '16G',
+                    'disk': '128G',
+                    'cpu': '400%',
+                    'parent': 'rack:1234',
+                },
+                'test3.xx.com': {
                     'memory': '16G',
                     'disk': '128G',
                     'cpu': '400%',
@@ -739,6 +801,27 @@ class MasterTest(mockzk.MockZookeeperTestCase):
                     'memory': '1G',
                     'disk': '1G',
                     'cpu': '100%',
+                    'schedule_once': True,
+                },
+                'xxx.app3#3456': {
+                    'affinity': 'app3',
+                    'memory': '1G',
+                    'disk': '1G',
+                    'cpu': '100%',
+                },
+                'xxx.app4#4567': {
+                    'affinity': 'app4',
+                    'memory': '1G',
+                    'disk': '1G',
+                    'cpu': '100%',
+                    'schedule_once': True,
+                },
+                'xxx.app5#5678': {
+                    'affinity': 'app5',
+                    'memory': '1G',
+                    'disk': '1G',
+                    'cpu': '100%',
+                    'schedule_once': True,
                 },
             },
             'identity-groups': {
@@ -753,12 +836,87 @@ class MasterTest(mockzk.MockZookeeperTestCase):
         self.master.load_cell()
         self.master.load_servers()
         self.master.load_apps()
-        self.master.restore_placements()
         self.master.load_identity_groups()
-        self.master.load_placement_data()
+        self.master.restore_placements()
 
+        # Severs test1.xx.com and test2.xx.com are up, test3.xx.com is down.
         self.assertTrue(
-            self.master.servers['test.xx.com'].state is scheduler.State.up)
+            self.master.servers['test1.xx.com'].state is scheduler.State.up
+        )
+        self.assertTrue(
+            self.master.servers['test2.xx.com'].state is scheduler.State.up
+        )
+        self.assertTrue(
+            self.master.servers['test3.xx.com'].state is scheduler.State.down
+        )
+
+        # xxx.app1#1234 restored on test1.xx.com with the same placement expiry
+        self.assertEqual(
+            self.master.cell.apps['xxx.app1#1234'].server, 'test1.xx.com'
+        )
+        self.assertEqual(
+            self.master.cell.apps['xxx.app1#1234'].placement_expiry, 300
+        )
+
+        # xxx.app2#2345 restored on test2.xx.com with the same placement expiry
+        self.assertEqual(
+            self.master.cell.apps['xxx.app2#2345'].server, 'test1.xx.com'
+        )
+        self.assertEqual(
+            self.master.cell.apps['xxx.app2#2345'].placement_expiry, 300
+        )
+
+        # xxx.app3#3456 restored on test2.xx.com with new placement expiry
+        self.assertEqual(
+            self.master.cell.apps['xxx.app3#3456'].server, 'test2.xx.com'
+        )
+        self.assertEqual(
+            self.master.cell.apps['xxx.app3#3456'].placement_expiry, 123.34
+        )
+
+        # xxx.app4#4567 removed (server presence changed, schedule once app)
+        self.assertNotIn('xxx.app4#4567', self.master.cell.apps)
+        treadmill.zkutils.ensure_deleted.assert_any_call(
+            mock.ANY,
+            '/placement/test2.xx.com/xxx.app4#4567'
+        )
+        treadmill.zkutils.put.assert_any_call(
+            mock.ANY,
+            '/finished/xxx.app4#4567',
+            {
+                'state': 'terminated',
+                'host': 'test2.xx.com',
+                'when': 123.34,
+                'data': 'schedule_once',
+            },
+            acl=mock.ANY
+        )
+        treadmill.zkutils.ensure_deleted.assert_any_call(
+            mock.ANY,
+            '/scheduled/xxx.app4#4567'
+        )
+
+        # xxx.app5#5678 removed (server down, schedule once app)
+        self.assertNotIn('xxx.app5#5678', self.master.cell.apps)
+        treadmill.zkutils.ensure_deleted.assert_any_call(
+            mock.ANY,
+            '/placement/test3.xx.com/xxx.app5#5678'
+        )
+        treadmill.zkutils.put.assert_any_call(
+            mock.ANY,
+            '/finished/xxx.app5#5678',
+            {
+                'state': 'terminated',
+                'host': 'test3.xx.com',
+                'when': 123.34,
+                'data': 'schedule_once',
+            },
+            acl=mock.ANY
+        )
+        treadmill.zkutils.ensure_deleted.assert_any_call(
+            mock.ANY,
+            '/scheduled/xxx.app5#5678'
+        )
 
         # Reschedule should produce no events.
         treadmill.zkutils.ensure_deleted.reset_mock()
@@ -767,6 +925,7 @@ class MasterTest(mockzk.MockZookeeperTestCase):
         self.assertFalse(treadmill.zkutils.ensure_deleted.called)
         self.assertFalse(treadmill.zkutils.ensure_exists.called)
 
+        # Restore identity
         self.assertEqual(self.master.cell.apps['xxx.app1#1234'].identity, 1)
         self.assertEqual(
             self.master.cell.apps['xxx.app1#1234'].identity_group, 'xxx.app1'
@@ -792,20 +951,30 @@ class MasterTest(mockzk.MockZookeeperTestCase):
                         state: up
                         since: 100
                     """,
-                    'xxx.app1#1234': '',
-                    'xxx.app2#2345': '',
+                    'xxx.app1#1234': {
+                        '.metadata': {'created': 100},
+                    },
+                    'xxx.app2#2345': {
+                        '.metadata': {'created': 101},
+                    },
                 },
                 'test2.xx.com': {
                     '.data': """
                         state: up
                         since: 100
                     """,
-                    'xxx.app1#1234': '',
+                    'xxx.app1#1234': {
+                        '.metadata': {'created': 100},
+                    },
                 }
             },
             'server.presence': {
-                'test1.xx.com': {},
-                'test2.xx.com': {},
+                'test1.xx.com': {
+                    '.metadata': {'created': 100},
+                },
+                'test2.xx.com': {
+                    '.metadata': {'created': 100},
+                },
             },
             'cell': {
                 'pod:pod1': {},
@@ -1164,20 +1333,30 @@ class MasterTest(mockzk.MockZookeeperTestCase):
                         state: up
                         since: 100
                     """,
-                    'xxx.app1#1234': '',
-                    'xxx.app2#2345': '',
+                    'xxx.app1#1234': {
+                        '.metadata': {'created': 100},
+                    },
+                    'xxx.app2#2345': {
+                        '.metadata': {'created': 101},
+                    },
                 },
                 'test2.xx.com': {
                     '.data': """
                         state: up
                         since: 100
                     """,
-                    'xxx.app1#1234': '',
+                    'xxx.app1#1234': {
+                        '.metadata': {'created': 100},
+                    },
                 }
             },
             'server.presence': {
-                'test1.xx.com': {},
-                'test2.xx.com': {},
+                'test1.xx.com': {
+                    '.metadata': {'created': 100},
+                },
+                'test2.xx.com': {
+                    '.metadata': {'created': 100},
+                },
             },
             'cell': {
                 'pod:pod1': {},
@@ -1223,7 +1402,7 @@ class MasterTest(mockzk.MockZookeeperTestCase):
         self.master.load_cell()
         self.master.load_servers()
         self.master.load_apps()
-        self.master.load_placement_data()
+        self.master.restore_placements()
         self.master.init_schedule()
 
         expired_at = self.master.servers['test1.xx.com'].valid_until
@@ -1325,8 +1504,12 @@ class MasterTest(mockzk.MockZookeeperTestCase):
         """Tests the ZK operations of a readonly master."""
         zk_content = {
             'server.presence': {
-                'test1.xx.com': {},
-                'test2.xx.com': {},
+                'test1.xx.com': {
+                    '.metadata': {'created': 100},
+                },
+                'test2.xx.com': {
+                    '.metadata': {'created': 100},
+                },
             },
             'cell': {
                 'pod:pod1': {},
@@ -1366,15 +1549,21 @@ class MasterTest(mockzk.MockZookeeperTestCase):
                         state: up
                         since: 100
                     """,
-                    'xxx.app1#1234': '',  # on two servers: ensure_deleted
-                    'xxx.app2#2345': '',  # not scheduled: ensure_deleted
+                    'xxx.app1#1234': {  # on two servers: ensure_deleted
+                        '.metadata': {'created': 100},
+                    },
+                    'xxx.app2#2345': {  # not scheduled: ensure_deleted
+                        '.metadata': {'created': 101},
+                    },
                 },
                 'test2.xx.com': {
                     '.data': """
                         state: up
                         since: 100
                     """,
-                    'xxx.app1#1234': '',  # on two servers: ensure_deleted
+                    'xxx.app1#1234': {  # on two servers: ensure_deleted
+                        '.metadata': {'created': 100},
+                    },
                 }
             },
             'scheduled': {

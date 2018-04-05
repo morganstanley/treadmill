@@ -8,7 +8,7 @@ UNSHARE={{ _alias.unshare }}
 
 # Benchmark disk io throughput of the LVM
 {{ _alias.s6_envdir }} {{ dir }}/env                                           \
-$UNSHARE --mount {{ treadmill_bin }} --debug admin node              \
+$UNSHARE --mount {{ python }} -m treadmill --debug admin node               \
     benchmark                                                                  \
     --benchmark-publish-file {{ block_dev_configuration }}                     \
 {%- if localdisk_block_dev %}

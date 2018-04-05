@@ -1,1 +1,1 @@
-{{ treadmill_core_mem }}
+{{ treadmill_core_mem or '' }}

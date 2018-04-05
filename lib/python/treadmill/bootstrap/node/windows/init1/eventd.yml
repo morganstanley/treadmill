@@ -1,0 +1,7 @@
+command: >
+  {{ python }} -m treadmill.ms sproc eventdaemon
+monitor_policy:
+  limit: 5
+  interval: 60
+  tombstone:
+    path: "{{ dir }}\\tombstones\\init"

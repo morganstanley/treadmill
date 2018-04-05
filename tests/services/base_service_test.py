@@ -11,16 +11,18 @@ import tempfile
 import unittest
 import select
 import socket
+import sys
 
 # Disable W0611: Unused import
 import tests.treadmill_test_skip_windows  # pylint: disable=W0611
 
 import mock
 
-from treadmill.services import _base_service
+import treadmill
+from treadmill import services
 
 
-class MyTestService(_base_service.BaseResourceServiceImpl):
+class MyTestService(services.BaseResourceServiceImpl):
     """Test Service implementation.
     """
     def __init__(self, *_args, **_kw_args):
@@ -51,7 +53,7 @@ class BaseServiceTest(unittest.TestCase):
     def test_init(self):
         """Validate simple instanciation.
         """
-        instance = _base_service.ResourceService(
+        instance = services.ResourceService(
             service_dir=self.root,
             impl='a.sample.module',
         )
@@ -69,21 +71,21 @@ class BaseServiceTest(unittest.TestCase):
 
         self.assertRaises(
             AssertionError,
-            _base_service.ResourceService(
+            services.ResourceService(
                 service_dir=self.root,
                 impl=object,
             )._load_impl
         )
         self.assertRaises(
             KeyError,
-            _base_service.ResourceService(
+            services.ResourceService(
                 service_dir=self.root,
                 impl='socket:socket',
             )._load_impl
         )
 
         self.assertTrue(
-            _base_service.ResourceService(
+            services.ResourceService(
                 service_dir=self.root,
                 impl=MyTestService,
             )._load_impl()
@@ -93,49 +95,50 @@ class BaseServiceTest(unittest.TestCase):
         """Check how the name is derived from the class name.
         """
         self.assertEqual(
-            _base_service.ResourceService(
+            services.ResourceService(
                 service_dir=self.root,
                 impl='treadmill.services.MyClass',
             ).name,
             'MyClass',
         )
         self.assertEqual(
-            _base_service.ResourceService(
+            services.ResourceService(
                 service_dir=self.root,
                 impl='treadmill.services.MyClass',
             ).name,
             'MyClass',
         )
         self.assertEqual(
-            _base_service.ResourceService(
+            services.ResourceService(
                 service_dir=self.root,
                 impl=MyTestService,
             ).name,
             'MyTestService',
         )
 
+    @unittest.skipUnless(sys.platform.startswith('linux'), 'Requires Linux')
     @mock.patch('select.poll', autospec=True)
     @mock.patch('treadmill.dirwatch.DirWatcher', autospec=True)
-    @mock.patch('treadmill.services._base_service.ResourceService'
+    @mock.patch('treadmill.services._linux_base_service.LinuxResourceService'
                 '._create_status_socket',
                 mock.Mock(return_value='status_socket'))
-    @mock.patch('treadmill.services._base_service.ResourceService'
+    @mock.patch('treadmill.services._linux_base_service.LinuxResourceService'
                 '._check_requests',
                 mock.Mock(return_value=['foo-1', 'foo-2']))
-    @mock.patch('treadmill.services._base_service.ResourceService'
+    @mock.patch('treadmill.services._linux_base_service.LinuxResourceService'
                 '._load_impl',
                 return_value=mock.create_autospec(MyTestService))
-    @mock.patch('treadmill.services._base_service.ResourceService'
+    @mock.patch('treadmill.services._linux_base_service.LinuxResourceService'
                 '._on_created',
                 mock.Mock(return_value=True))
-    @mock.patch('treadmill.services._base_service.ResourceService'
+    @mock.patch('treadmill.services._linux_base_service.LinuxResourceService'
                 '._update_poll_registration',
                 mock.Mock())
     @mock.patch('treadmill.watchdog.Watchdog', autospec=True)
     @mock.patch('treadmill.syscall.eventfd.eventfd',
                 mock.Mock(return_value='eventfd'))
-    def test_run(self,
-                 mock_watchdog, mock_load_impl, mock_dirwatcher, mock_poll):
+    def test_linux_run(self, mock_watchdog, mock_load_impl, mock_dirwatcher,
+                       mock_poll):
         """Test the run method setup before the main loop.
         """
         # Access to a protected member _is_dead of a client class
@@ -155,7 +158,7 @@ class BaseServiceTest(unittest.TestCase):
         mock_dirwatcher.return_value.configure_mock(
             inotify='mock_inotiy',
         )
-        instance = _base_service.ResourceService(
+        instance = services.ResourceService(
             service_dir=self.root,
             impl='MyTestService',
         )
@@ -194,8 +197,8 @@ class BaseServiceTest(unittest.TestCase):
             os.path.join(self.root, 'resources')
         )
         # Then we check/cleanup pre-existing requests
-        _base_service.ResourceService._check_requests.assert_called_with()
-        _base_service.ResourceService._on_created.assert_has_calls([
+        services.ResourceService._check_requests.assert_called_with()
+        services.ResourceService._on_created.assert_has_calls([
             mock.call(mock_impl_instance, 'foo-1'),
             mock.call(mock_impl_instance, 'foo-2'),
         ])
@@ -221,23 +224,25 @@ class BaseServiceTest(unittest.TestCase):
         # Watchdog lease should be cleared
         mock_watchdog_lease.remove.assert_called_with()
 
+    # Disable C0103(invalid-name) as the name is too long
+    # pylint: disable=C0103
+    @unittest.skipUnless(sys.platform.startswith('linux'), 'Requires Linux')
     @mock.patch('os.chmod', mock.Mock())
     @mock.patch('os.unlink', mock.Mock())
     @mock.patch('socket.socket', auto_spec=True)
-    def test__create_status_socket(self, mock_sock):
+    def test_linux__create_status_socket(self, mock_sock):
         """Test status socket creation.
         """
         # Access to a protected member _create_status_socket of a client class
         # pylint: disable=W0212
 
         mock_self = mock.Mock(
-            spec_set=_base_service.ResourceService,
+            spec_set=services.ResourceService,
             status_sock='/tmp/foo',
         )
 
-        _base_service.ResourceService._create_status_socket(
-            mock_self,
-        )
+        treadmill.services._linux_base_service.LinuxResourceService\
+            ._create_status_socket(mock_self,)
 
         os.unlink.assert_called_with(
             '/tmp/foo'
@@ -256,14 +261,15 @@ class BaseServiceTest(unittest.TestCase):
             '/tmp/foo', 0o666
         )
 
+    @unittest.skipUnless(sys.platform.startswith('linux'), 'Requires Linux')
     @mock.patch('select.poll', autospec=True)
-    def test__run_events(self, mock_poll):
+    def test_linux__run_events(self, mock_poll):
         """Test event dispatcher.
         """
         # Access to a protected member _run_events of a client class
         # pylint: disable=W0212
 
-        instance = _base_service.ResourceService(
+        instance = services.ResourceService(
             service_dir=self.root,
             impl='a.sample.module',
         )

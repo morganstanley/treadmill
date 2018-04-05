@@ -88,6 +88,8 @@ class Master(loader.Loader):
             z.APPMONITORS,
             z.BUCKETS,
             z.CELL,
+            z.DISCOVERY,
+            z.DISCOVERY_STATE,
             z.IDENTITY_GROUPS,
             z.PLACEMENT,
             z.PARTITIONS,
@@ -144,6 +146,10 @@ class Master(loader.Loader):
 
         for appname in target - current:
             self.load_app(appname)
+
+        # Store by-proid aggregates.
+        aggregate = self._calculate_aggregate(target)
+        self.backend.put(z.SCHEDULED_STATS, aggregate)
 
     def process_server_presence(self, servers):
         """Callback invoked when server presence is modified."""
@@ -235,10 +241,16 @@ class Master(loader.Loader):
         self.watch(z.SCHEDULED)
         self.watch(z.EVENTS)
 
+    def store_timezone(self):
+        """Store local timezone in root ZK node."""
+        tz = time.tzname[0]
+        self.backend.update('/', {'timezone': tz})
+
     @utils.exit_on_unhandled
     def run_loop(self):
         """Run the master loop."""
         self.create_rootns()
+        self.store_timezone()
         self.load_model()
         self.init_schedule()
         self.attach_watchers()
@@ -432,7 +444,14 @@ class Master(loader.Loader):
             if app.schedule_once and app.evicted:
                 _LOGGER.info('Removing schedule_once/evicted app: %s',
                              appname)
-                # TODO: need to publish trace event.
+                # TODO: unfortunately app.server is already None at this point.
+                self.backend.put(
+                    z.path.finished(appname),
+                    {'state': 'terminated',
+                     'when': time.time(),
+                     'host': None,
+                     'data': 'schedule_once'},
+                )
                 self.backend.delete(z.path.scheduled(appname))
 
     def _update_task(self, appname, server, why):
@@ -499,3 +518,10 @@ class Master(loader.Loader):
             )
 
         super(Master, self).remove_app(appname)
+
+    def _calculate_aggregate(self, apps):
+        """Calculate aggregate # of apps by proid."""
+        aggregate = collections.Counter()
+        for app in apps:
+            aggregate[app[:app.find('.')]] += 1
+        return dict(aggregate)
