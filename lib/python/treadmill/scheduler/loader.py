@@ -90,9 +90,8 @@ class Loader(object):
         self.load_allocations()
         self.load_strategies()
         self.load_apps()
-        self.restore_placements()
         self.load_identity_groups()
-        self.load_placement_data()
+        self.restore_placements()
 
     def load_cell(self):
         """Construct cell from top level buckets."""
@@ -251,7 +250,7 @@ class Loader(object):
                 self.load_server(servername)
                 if has_apps:
                     # Restore placement after reload to ensure integrity.
-                    self.restore_placement(servername)
+                    self.restore_placement(servername, restore_identity=False)
 
         except be.ObjectNotFoundError:
             self.remove_server(servername)
@@ -472,17 +471,32 @@ class Loader(object):
                 self.servers[servername].remove(appname)
                 self.backend.delete(z.path.placement(servername, appname))
 
-    def restore_placement(self, servername):
-        """Restore placement after reload."""
+    def get_placed_apps(self, servername):
+        """Get apps placed on the server."""
         placement_node = z.path.placement(servername)
         try:
             placed_apps = self.backend.list(placement_node)
         except be.ObjectNotFoundError:
             placed_apps = []
+        return placed_apps
+
+    def restore_placement(self, servername, restore_identity=True):
+        """Restore placement after reload."""
+        placed_apps = self.get_placed_apps(servername)
         restored_apps = []
 
         server = self.servers[servername]
         server.remove_all()
+
+        if not placed_apps:
+            return placed_apps, restored_apps
+
+        presence_node = z.path.server_presence(servername)
+        try:
+            _, metadata = self.backend.get_with_metadata(presence_node)
+            presence_time = metadata.ctime / 1000.0
+        except be.ObjectNotFoundError:
+            presence_time = None
 
         for appname in placed_apps:
             appnode = z.path.placement(servername, appname)
@@ -502,36 +516,51 @@ class Loader(object):
             # Placement is restored and assumed to be correct, so
             # force placement be specifying the server label.
             assert app.allocation is not None
+
+            try:
+                data, metadata = self.backend.get_with_metadata(appnode)
+                placement_time = metadata.ctime / 1000.0
+                expires = data.get('expires', 0)
+                identity = data.get('identity')
+            except be.ObjectNotFoundError:
+                continue
+
+            # If server is up and presence didn't change since we put app on it
+            # restore app with the same placement expiry ignoring app lifetime.
+            # Otherwise, remove schedule once apps and try to put back the rest
+            # as usual (app lease needs to be re-evaluated).
             _LOGGER.info('Restore placement %s => %s', appname, servername)
-            if not server.put(app):
+            if presence_time and presence_time <= placement_time:
+                restored = server.restore(app, expires)
+            else:
+                if app.schedule_once:
+                    restored = False
+                else:
+                    restored = server.put(app)
+
+            if not restored:
                 _LOGGER.info('Failed to restore placement %s => %s',
                              appname, servername)
                 self.backend.delete(appnode)
-                # Check if app is marked to be scheduled once. If it is
-                # remove the app.
                 if app.schedule_once:
-                    _LOGGER.info('Removing scheduled once app: %s',
-                                 appname)
-                    self.cell.remove_app(appname)
+                    _LOGGER.info('Removing schedule once app: %s', appname)
+                    self.backend.put(
+                        z.path.finished(appname),
+                        {'state': 'terminated',
+                         'when': time.time(),
+                         'host': servername,
+                         'data': 'schedule_once'},
+                    )
                     self.backend.delete(z.path.scheduled(appname))
+                    self.remove_app(appname)
             else:
                 restored_apps.append(appname)
+                if restore_identity and identity is not None:
+                    _LOGGER.info('Restore identity %s => %s',
+                                 appname, identity)
+                    app.force_set_identity(identity)
 
         return placed_apps, restored_apps
-
-    def load_placement_data(self):
-        """Restore app identities."""
-        for appname, app in six.iteritems(self.cell.apps):
-            if not app.server:
-                continue
-
-            placement_data = self.backend.get_default(
-                z.path.placement(app.server, appname)
-            )
-
-            if placement_data is not None:
-                app.force_set_identity(placement_data.get('identity'))
-                app.placement_expiry = placement_data.get('expires', 0)
 
     def adjust_presence(self, servers):
         """Given current presence set, adjust status."""

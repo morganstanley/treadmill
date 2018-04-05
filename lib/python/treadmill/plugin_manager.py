@@ -20,10 +20,13 @@ def names(namespace):
 
 def load(namespace, name):
     """Return loaded module."""
-    try:
-        return next(pkg_resources.iter_entry_points(namespace, name)).load()
-    except StopIteration:
+    plugin = next(pkg_resources.iter_entry_points(namespace, name), None)
+    if plugin is None:
+        # FIXME: Do not overload KeyError
         raise KeyError('Entry point not found: %r:%r' % (namespace, name))
+
+    instance = plugin.load()
+    return instance
 
 
 def load_all(namespace):

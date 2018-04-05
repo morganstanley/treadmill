@@ -35,6 +35,9 @@ logging.getLogger('kazoo.client').setLevel(logging.WARNING)
 # This is the maximum time the start will try to connect for, i.e. 30 sec
 ZK_MAX_CONNECTION_START_TIMEOUT = 30
 
+DEFAULT_ACL = True
+
+
 try:
     _ZK_PLUGIN_MOD = plugin_manager.load('treadmill.connection.manager',
                                          'zookeeper')
@@ -120,6 +123,9 @@ def make_anonymous_acl(perm):
 
 def make_default_acl(acls):
     """Constructs a default Treadmill acl."""
+    if not DEFAULT_ACL:
+        return acls
+
     realacl = [
         make_role_acl('readers', 'r'),
         make_role_acl('admin', 'rwcda'),

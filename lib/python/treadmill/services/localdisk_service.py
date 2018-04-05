@@ -20,7 +20,7 @@ from treadmill import lvm
 from treadmill import subproc
 from treadmill import utils
 
-from ._base_service import BaseResourceServiceImpl
+from . import BaseResourceServiceImpl
 
 _LOGGER = logging.getLogger(__name__)
 

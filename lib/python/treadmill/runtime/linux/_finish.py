@@ -55,7 +55,7 @@ def finish(tm_env, container_dir):
             # If restart limit was reached, application node will be removed
             # from Zookeeper at the end of the cleanup process, indicating to
             # the scheduler that the server is ready to accept new load.
-            exitinfo, aborted, oom = _collect_exit_info(data_dir)
+            exitinfo, aborted, oom, terminated = _collect_exit_info(data_dir)
 
             # All resources are cleaned up. If the app terminated inside the
             # container, remove the node from Zookeeper, which will notify the
@@ -68,13 +68,16 @@ def finish(tm_env, container_dir):
             elif oom:
                 _post_oom_event(tm_env, app)
 
-            elif exitinfo is not None:
-                _post_exit_event(tm_env, app, exitinfo)
+            elif terminated:
+                # Terminated (or evicted).
+                # Don't post event, this is handled by the master.
+                _LOGGER.info('Terminated: %s', app.name)
 
             else:
-                # No need to post event as evicted notification is handled by
-                # master.
-                _LOGGER.info('Evicted: %s', app.name)
+                # Container finished because service exited.
+                # It is important that this is checked last.
+                if exitinfo is not None:
+                    _post_exit_event(tm_env, app, exitinfo)
 
         # cleanup monitor with container information
         if app:
@@ -82,12 +85,14 @@ def finish(tm_env, container_dir):
 
 
 def _collect_exit_info(container_dir):
-    """Read exitinfo, check if app was aborted and why.
+    """Read exitinfo, aborted, oom and terminated files to check how container
+    finished.
 
-    :returns ``(exitinfo, aborted)``:
+    :returns ``(exitinfo, aborted, oom, terminated)``:
         Returns a tuple of exitinfo, a ``(service_name,return_code,signal)`` if
-        present or None otherwise, and aborted reason is persent or None
-        otherwise.
+        present or None otherwise, aborted reason if persent or None otherwise,
+        oom (True if container was killed due to oom event or False otherwise),
+        terminated (True if container was terminated/evicted, False otherwise).
     """
     exitinfo = aborted = None
 
@@ -95,9 +100,8 @@ def _collect_exit_info(container_dir):
     try:
         with io.open(exitinfo_file) as f:
             exitinfo = json.load(f)
-
     except IOError:
-        _LOGGER.debug('exitinfo file does not exist: %r', exitinfo_file)
+        _LOGGER.debug('exitinfo file does not exist: %s', exitinfo_file)
 
     aborted_file = os.path.join(container_dir, 'aborted')
     try:
@@ -108,16 +112,20 @@ def _collect_exit_info(container_dir):
                 _LOGGER.warning('Invalid json in aborted file: %s',
                                 aborted_file)
                 aborted = app_abort.ABORTED_UNKNOWN
-
     except IOError:
-        _LOGGER.debug('aborted file does not exist: %r', aborted_file)
+        _LOGGER.debug('aborted file does not exist: %s', aborted_file)
 
     oom_file = os.path.join(container_dir, 'oom')
     oom = os.path.exists(oom_file)
     if not oom:
-        _LOGGER.debug('oom file does not exist: %r', oom_file)
+        _LOGGER.debug('oom file does not exist: %s', oom_file)
 
-    return exitinfo, aborted, oom
+    terminated_file = os.path.join(container_dir, 'terminated')
+    terminated = os.path.exists(terminated_file)
+    if not terminated:
+        _LOGGER.debug('terminated file does not exist: %s', terminated_file)
+
+    return exitinfo, aborted, oom, terminated
 
 
 def _post_oom_event(tm_env, app):
@@ -248,6 +256,8 @@ def _cleanup_network(tm_env, container_dir, app, network_client):
             iptables.SET_VRING_CONTAINERS,
             app_network['vip']
         )
+
+    tm_env.endpoints.unlink_all(app.name, owner=unique_name)
 
     for endpoint in app.endpoints:
         tm_env.rules.unlink_rule(

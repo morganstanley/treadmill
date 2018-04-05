@@ -1,3 +1,0 @@
-#!/bin/sh
-
-exec {{ _alias.s6_log }} -b T n200 s16777215 .

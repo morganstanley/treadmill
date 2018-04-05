@@ -27,6 +27,7 @@ def init(api, cors, impl):
         'port': fields.Integer(description='Endpoint port'),
         'proto': fields.String(description='Application endpoint protocol'),
         'host': fields.String(description='Endpoint host'),
+        'state': fields.Boolean(description='Endpoint state'),
     }
 
     response_model = api.model(

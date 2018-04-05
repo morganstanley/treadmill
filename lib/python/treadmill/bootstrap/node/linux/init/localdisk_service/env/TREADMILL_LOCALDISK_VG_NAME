@@ -1,1 +1,0 @@
-"{% if localdisk_vg_name %}{{ localdisk_vg_name }}{% endif %}"

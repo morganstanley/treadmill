@@ -44,6 +44,9 @@ class LinuxRuntimeRunTest(unittest.TestCase):
         self.root = tempfile.mkdtemp()
         self.tm_env = mock.Mock(
             root=self.root,
+            apps_dir=os.path.join(self.root, 'apps'),
+            endpoints_dir=os.path.join(self.root, 'endpoints'),
+            rules_dir=os.path.join(self.root, 'rules'),
             svc_cgroup=mock.Mock(
                 spec_set=treadmill.services._base_service.ResourceService,
             ),
@@ -131,10 +134,6 @@ class LinuxRuntimeRunTest(unittest.TestCase):
 
     @mock.patch('treadmill.iptables.add_ip_set', mock.Mock())
     @mock.patch('treadmill.newnet.create_newnet', mock.Mock())
-    @mock.patch(
-        'treadmill.ms.plugins.firewall.apply_exception_rules',
-        mock.Mock()
-    )
     def test__unshare_network_simple(self):
         """Tests unshare network sequence.
         """
@@ -159,12 +158,14 @@ class LinuxRuntimeRunTest(unittest.TestCase):
                 },
                 'endpoints': [
                     {
+                        'name': 'foo',
                         'real_port': '5007',
                         'proto': 'tcp',
                         'port': '22',
                         'type': 'infra'
                     },
                     {
+                        'name': 'bla',
                         'real_port': '5013',
                         'proto': 'udp',
                         'port': '12345'
@@ -235,10 +236,6 @@ class LinuxRuntimeRunTest(unittest.TestCase):
     @mock.patch('socket.gethostbyname', mock.Mock())
     @mock.patch('treadmill.iptables.add_ip_set', mock.Mock())
     @mock.patch('treadmill.newnet.create_newnet', mock.Mock())
-    @mock.patch(
-        'treadmill.ms.plugins.firewall.apply_exception_rules',
-        mock.Mock()
-    )
     def test__unshare_network_complex(self):
         """Test unshare network advanced sequence (ephemeral/passthrough)."""
         # Disable W0212: Access to a protected member

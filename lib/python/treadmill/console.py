@@ -66,6 +66,7 @@ def run(ctx, outfmt, debug):
 
     # Default logging to cli.conf, at CRITICAL, unless --debug
     cli.init_logger('cli.conf')
+    cli.init_profile()
     if debug:
         ctx.obj['logging.debug'] = True
         logging.getLogger('treadmill').setLevel(logging.DEBUG)

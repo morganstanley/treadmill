@@ -1,1 +1,0 @@
-{{ python }} -m treadmill.ms sproc monitor --approot {{ dir }} --config-dir .\data\config

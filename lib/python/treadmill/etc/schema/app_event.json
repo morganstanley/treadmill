@@ -26,6 +26,10 @@
                 "type": "array",
                 "items": { "enum": ["non-zero", "aborted", "oom"] },
                 "minItems": 1
+            },
+            "mismatch": {
+                "type": "integer",
+                "minimum": 0
             }
         }
     },

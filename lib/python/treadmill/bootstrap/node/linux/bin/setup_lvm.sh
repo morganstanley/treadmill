@@ -4,13 +4,13 @@
 
 {{ _alias.s6_envdir }} {{ dir }}/env                                       \
 {% if localdisk_block_dev %}
-    {{ treadmill }}/bin/treadmill34 --debug admin node                     \
+    {{ python }} -m treadmill --debug admin node                     \
     lvm                                                                    \
     --vg-name {{ localdisk_vg_name }}                                      \
     device                                                                 \
     --device-name {{ localdisk_block_dev }}
 {% else %}
-    {{ treadmill }}/bin/treadmill34 --debug admin node                     \
+    {{ python }} -m treadmill --debug admin node                     \
     lvm                                                                    \
     --vg-name {{ localdisk_vg_name }}                                      \
     image                                                                  \

@@ -13,8 +13,11 @@ import os
 from six.moves import configparser
 
 from treadmill import appcfg
+from treadmill import exc
 from treadmill import subproc
+from treadmill import services
 from treadmill import supervisor
+from treadmill.appcfg import abort as app_abort
 from treadmill import utils
 from treadmill.runtime import runtime_base
 
@@ -54,12 +57,18 @@ class LinuxRuntime(runtime_base.RuntimeBase):
             return False
 
     def _run(self, manifest):
-        app_run.run(
-            tm_env=self._tm_env,
-            runtime_config=self._config,
-            container_dir=self._service.data_dir,
-            manifest=manifest
-        )
+        try:
+            app_run.run(
+                tm_env=self._tm_env,
+                runtime_config=self._config,
+                container_dir=self._service.data_dir,
+                manifest=manifest
+            )
+        except services.ResourceServiceTimeoutError as err:
+            raise exc.ContainerSetupError(
+                err.message,
+                app_abort.AbortedReason.TIMEOUT
+            )
 
     def _finish(self):
         app_finish.finish(self._tm_env, self._service.directory)

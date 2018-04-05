@@ -1,0 +1,11 @@
+command: |
+  exec \
+    {{ python }} -m treadmill \
+    sproc --cgroup /apps/{{ name }} \
+    exec -- \
+      {{ _alias.s6_svscan }} {{ dir }}/running
+environ_dir: "{{ dir }}/env"
+monitor_policy:
+  limit: 0
+  tombstone:
+    path: "{{ dir }}/tombstones/init"

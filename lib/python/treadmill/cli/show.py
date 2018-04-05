@@ -71,6 +71,8 @@ def _show_finished(apis, match=None, partition=None):
             details = 'signal: {}'.format(utils.signal2name(item['signal']))
         if item.get('aborted_reason'):
             details = 'reason: {}'.format(item['aborted_reason'])
+        if item.get('terminated_reason'):
+            details = 'reason: {}'.format(item['terminated_reason'])
         if item.get('oom'):
             details = 'out of memory'
 
@@ -109,7 +111,8 @@ def _show_endpoints(apis, pattern, endpoint, proto):
         'name': end['name'],
         'proto': end['proto'],
         'endpoint': end['endpoint'],
-        'hostport': '{0}:{1}'.format(end['host'], end['port'])
+        'hostport': '{0}:{1}'.format(end['host'], end['port']),
+        'state': end.get('state')
     } for end in response.json()]
 
     cli.out(_ENDPOINT_FORMATTER(endpoints))

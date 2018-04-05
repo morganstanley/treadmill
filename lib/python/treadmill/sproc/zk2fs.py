@@ -149,10 +149,13 @@ def init():
                   is_flag=True, default=False)
     @click.option('--trace', help='Sync trace.',
                   is_flag=True, default=False)
+    @click.option('--app-monitors', help='Sync app monitors.',
+                  is_flag=True, default=False)
     @click.option('--once', help='Sync once and exit.',
                   is_flag=True, default=False)
     def zk2fs_cmd(root, endpoints, identity_groups, appgroups, running,
-                  scheduled, servers, servers_data, placement, trace, once):
+                  scheduled, servers, servers_data, placement, trace,
+                  app_monitors, once):
         """Starts appcfgmgr process."""
 
         fs.mkdir_safe(root)
@@ -186,6 +189,9 @@ def init():
 
         if appgroups:
             zk2fs_sync.sync_children(z.path.appgroup(), watch_data=True)
+
+        if app_monitors:
+            zk2fs_sync.sync_children(z.path.appmonitor(), watch_data=True)
 
         if placement:
             zk2fs_sync.sync_children(

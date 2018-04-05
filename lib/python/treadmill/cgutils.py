@@ -74,24 +74,25 @@ def set_memory_hardlimit(cgrp, limit):
             raise
 
 
-def create_treadmill_cgroups(treadmill_core_cpu_shares,
-                             treadmill_apps_cpu_shares,
-                             treadmill_core_cpuset_cpus,
-                             treadmill_apps_cpuset_cpus,
-                             treadmill_core_memory,
-                             treadmill_apps_memory):
+def create_treadmill_cgroups(core_cpu_shares,
+                             apps_cpu_shares,
+                             core_cpuset_cpus,
+                             apps_cpuset_cpus,
+                             core_memory,
+                             apps_memory):
     """This is the core cgroup setup. Should be applied to a cleaned env.
     """
+    # CPU and CPU Accounting (typically joined).
     create('cpu', 'treadmill/core')
     create('cpu', 'treadmill/apps')
-
-    cgroups.set_value('cpu', 'treadmill/core',
-                      'cpu.shares', treadmill_core_cpu_shares)
-    cgroups.set_value('cpu', 'treadmill/apps',
-                      'cpu.shares', treadmill_apps_cpu_shares)
-
     create('cpuacct', 'treadmill/core')
     create('cpuacct', 'treadmill/apps')
+
+    if core_cpu_shares is not None:
+        cgroups.set_value('cpu', 'treadmill/core',
+                          'cpu.shares', core_cpu_shares)
+        cgroups.set_value('cpu', 'treadmill/apps',
+                          'cpu.shares', apps_cpu_shares)
 
     # CPU sets
     create('cpuset', 'treadmill/core')
@@ -100,26 +101,24 @@ def create_treadmill_cgroups(treadmill_core_cpu_shares,
     cgroups.inherit_value('cpuset', 'treadmill/apps', 'cpuset.mems')
 
     # cgroup combines duplicate cores automatically
-    cgroups.set_value(
-        'cpuset', 'treadmill/core', 'cpuset.cpus',
-        treadmill_core_cpuset_cpus
-    )
-    cgroups.set_value(
-        'cpuset', 'treadmill/apps', 'cpuset.cpus',
-        treadmill_apps_cpuset_cpus
-    )
+    if core_cpuset_cpus is not None:
+        cgroups.set_value('cpuset', 'treadmill/core',
+                          'cpuset.cpus', core_cpuset_cpus)
+        cgroups.set_value('cpuset', 'treadmill/apps',
+                          'cpuset.cpus', apps_cpuset_cpus)
 
     # Memory
     create('memory', 'treadmill/core')
     create('memory', 'treadmill/apps')
 
-    set_memory_hardlimit('treadmill/core', treadmill_core_memory)
-    cgroups.set_value('memory', 'treadmill/core',
-                      'memory.soft_limit_in_bytes', treadmill_core_memory)
+    if core_memory is not None:
+        set_memory_hardlimit('treadmill/core', core_memory)
+        cgroups.set_value('memory', 'treadmill/core',
+                          'memory.soft_limit_in_bytes', core_memory)
 
-    set_memory_hardlimit('treadmill/apps', treadmill_apps_memory)
-    cgroups.set_value('memory', 'treadmill/apps',
-                      'memory.soft_limit_in_bytes', treadmill_apps_memory)
+        set_memory_hardlimit('treadmill/apps', apps_memory)
+        cgroups.set_value('memory', 'treadmill/apps',
+                          'memory.soft_limit_in_bytes', apps_memory)
 
 
 def create(system, group):

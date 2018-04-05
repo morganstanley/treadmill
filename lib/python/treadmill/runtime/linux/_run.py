@@ -130,11 +130,12 @@ def run(tm_env, runtime_config, container_dir, manifest):
     presence_req_id = manifest['name']
     presence_req = {
         'endpoints': manifest['endpoints'],
+        'vip': manifest['vip'],
     }
 
     if manifest.get('identity_group'):
         presence_req['identity_group'] = manifest['identity_group']
-    if manifest.get('identity'):
+    if manifest.get('identity') is not None:
         presence_req['identity'] = manifest['identity']
 
     presence_client.put(presence_req_id, presence_req)
@@ -166,29 +167,50 @@ def _unshare_network(tm_env, container_dir, app):
         Treadmill application environment
     """
     unique_name = appcfg.app_unique_name(app)
+    owner = os.path.join(tm_env.apps_dir, unique_name)
+
     # Configure DNAT rules while on host network.
     for endpoint in app.endpoints:
-        _LOGGER.info('Creating DNAT rule: %s:%s -> %s:%s',
-                     app.network.external_ip,
-                     endpoint.real_port,
-                     app.network.vip,
-                     endpoint.port)
-        dnatrule = firewall.DNATRule(proto=endpoint.proto,
-                                     dst_ip=app.network.external_ip,
-                                     dst_port=endpoint.real_port,
-                                     new_ip=app.network.vip,
-                                     new_port=endpoint.port)
-        snatrule = firewall.SNATRule(proto=endpoint.proto,
-                                     src_ip=app.network.vip,
-                                     src_port=endpoint.port,
-                                     new_ip=app.network.external_ip,
-                                     new_port=endpoint.real_port)
-        tm_env.rules.create_rule(chain=iptables.PREROUTING_DNAT,
-                                 rule=dnatrule,
-                                 owner=unique_name)
-        tm_env.rules.create_rule(chain=iptables.POSTROUTING_SNAT,
-                                 rule=snatrule,
-                                 owner=unique_name)
+        _LOGGER.info(
+            'Creating DNAT rule: %s:%s -> %s:%s',
+            app.network.external_ip,
+            endpoint.real_port,
+            app.network.vip,
+            endpoint.port
+        )
+        dnatrule = firewall.DNATRule(
+            proto=endpoint.proto,
+            dst_ip=app.network.external_ip,
+            dst_port=endpoint.real_port,
+            new_ip=app.network.vip,
+            new_port=endpoint.port
+        )
+        snatrule = firewall.SNATRule(
+            proto=endpoint.proto,
+            src_ip=app.network.vip,
+            src_port=endpoint.port,
+            new_ip=app.network.external_ip,
+            new_port=endpoint.real_port
+        )
+        tm_env.rules.create_rule(
+            chain=iptables.PREROUTING_DNAT,
+            rule=dnatrule,
+            owner=unique_name
+        )
+        tm_env.rules.create_rule(
+            chain=iptables.POSTROUTING_SNAT,
+            rule=snatrule,
+            owner=unique_name
+        )
+        tm_env.endpoints.create_spec(
+            appname=app.name,
+            endpoint=endpoint.name,
+            proto=endpoint.proto,
+            real_port=endpoint.real_port,
+            pid=str(os.getpid()),
+            port=endpoint.port,
+            owner=owner,
+        )
 
         # See if this container requires vring service
         if app.vring:
