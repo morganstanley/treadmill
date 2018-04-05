@@ -1,10 +1,15 @@
 #!{{ _alias.execlineb }}
-
-{% if monitor_policy -%}
 {{ _alias.umask }} 0022
 {{ _alias.redirfd }} -r 0 /dev/null
 {{ _alias.redirfd }} -a 1 data/finish.log
 
+{% if call_before_finish -%}
+{{ _alias.foreground }} {
+    {{ call_before_finish }}
+}
+{%- endif %}
+
+{% if monitor_policy -%}
 {{ _alias.define }} LIMIT {{ monitor_policy.limit }}
 {{ _alias.define }} INTERVAL {{ monitor_policy.interval }}
 
@@ -55,10 +60,7 @@
 # Check that the limit on the policy is not met by using number of lines in the
 # exits log file
 {{ _alias.backtick }} NUMLINES {
-    {{ _alias.pipeline }} {
-        {{ _alias.wc }} -l data/exits/log
-    }
-    {{ _alias.awk }} "{print \$1}"
+    {{ _alias.awk }} "END {print NR}" data/exits/log
 }
 {{ _alias.importas }} -u -i -n NUMLINES NUMLINES
 
@@ -89,7 +91,7 @@
 # redundant
 {{ _alias.if }} {
 {{ _alias.redirfd }} -w 1 data/exits/log.tmp
-    {{ _alias.tail }} --lines=${LIMIT} data/exits/log
+    {{ _alias.tail }} -${LIMIT} data/exits/log
 }
 {{ _alias.if }} {
     {{ _alias.mv }} data/exits/log.tmp data/exits/log
@@ -104,22 +106,24 @@
     {{ _alias.importas }} -u -i -n BCRESULT BCRESULT
     {{ _alias.exit }} ${BCRESULT}
 }
+{%- endif %}
 
-{%- endif %}  # !monitor_policy.limit > 0
-
+{% if monitor_policy.tombstone.no_exit_info %}
+{{ _alias.define }} TOMBID "{{ monitor_policy.tombstone.id }}"
+{% else -%}
+{{ _alias.define }} TOMBID "{{ monitor_policy.tombstone.id }},${EXITINFO}"
+{%- endif %}
 {% if monitor_policy.tombstone.uds -%}
 # Send the uds over a uds
 {{ _alias.foreground }} {
     {{ _alias.s6_ipcclient }} "{{ monitor_policy.tombstone.path }}"
     {{ _alias.fdmove }} 1 7
-    {{ _alias.echo }} "{{ monitor_policy.tombstone.id }},${EXITINFO}"
+    {{ _alias.echo }} "${TOMBID}"
 }
 {% else %}  # !monitor_policy.tombstone.uds
 # Write the tombstone file
-{{ _alias.define }} TOMBFILE "{{ monitor_policy.tombstone.path }}/{{ monitor_policy.tombstone.id }}"
-
 {{ _alias.foreground }} {
-    {{ _alias.touch }} "${TOMBFILE},${EXITINFO}"
+    {{ _alias.touch }} "{{ monitor_policy.tombstone.path }}/${TOMBID}"
 }
 {%- endif %}  # !monitor_policy.tombstone.uds
 

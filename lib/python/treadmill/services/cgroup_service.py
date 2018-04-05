@@ -18,7 +18,7 @@ from treadmill import runtime
 from treadmill import sysinfo
 from treadmill import utils
 
-from ._base_service import BaseResourceServiceImpl
+from . import BaseResourceServiceImpl
 
 _LOGGER = logging.getLogger(__name__)
 

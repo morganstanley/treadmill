@@ -22,6 +22,16 @@ from treadmill.api import app
 _LOGGER = logging.getLogger(__name__)
 
 
+# TODO: these are temporary hardcoded quotas on total number of scheduled
+#       apps and total allowed apps per-proid.
+#       The goal is to manage these eventually. Immediate goal is to prevent
+#       DoS attack on the scheduler.
+
+_TOTAL_SCHEDULED_QUOTA = 50000
+
+_PROID_SCHEDULED_QUOTA = 10000
+
+
 @schema.schema(
     {'allOf': [{'$ref': 'instance.json#/resource'},
                {'$ref': 'instance.json#/verbs/schedule'}]},
@@ -68,9 +78,11 @@ def _api_plugins(initialized):
         return initialized
 
     plugins_ns = 'treadmill.api.instance.plugins'
+    plugins = context.GLOBAL.get('api.instance.plugins', [])
+    _LOGGER.info('Instance api plugins: %r', plugins)
     return [
         plugin_manager.load(plugins_ns, name)
-        for name in context.GLOBAL.get('api.instance.plugins', [])
+        for name in plugins
     ]
 
 
@@ -123,6 +135,20 @@ class API(object):
             _LOGGER.info('create: count = %s, %s %r, created_by = %s',
                          count, rsrc_id, rsrc, created_by)
 
+            # Check scheduled quota.
+            zkclient = context.GLOBAL.zk.conn
+            scheduled_stats = masterapi.get_scheduled_stats(zkclient)
+
+            total_apps = sum(scheduled_stats.values())
+            if total_apps + count > _TOTAL_SCHEDULED_QUOTA:
+                raise exc.QuotaExceededError(
+                    'Total scheduled apps quota exceeded.')
+
+            proid_apps = scheduled_stats.get(rsrc_id[:rsrc_id.find('.')], 0)
+            if proid_apps + count > _PROID_SCHEDULED_QUOTA:
+                raise exc.QuotaExceededError(
+                    'Proid scheduled apps quota exceeded.')
+
             admin_app = admin.Application(context.GLOBAL.ldap.conn)
             if not rsrc:
                 configured = admin_app.get(rsrc_id)
@@ -148,7 +174,7 @@ class API(object):
             _set_defaults(configured, rsrc_id)
 
             scheduled = masterapi.create_apps(
-                context.GLOBAL.zk.conn, rsrc_id, configured, count, created_by
+                zkclient, rsrc_id, configured, count, created_by
             )
             return scheduled
 

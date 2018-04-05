@@ -19,7 +19,7 @@ from treadmill import netdev
 from treadmill import subproc
 from treadmill import vipfile
 
-from ._base_service import BaseResourceServiceImpl
+from . import BaseResourceServiceImpl
 
 _LOGGER = logging.getLogger(__name__)
 

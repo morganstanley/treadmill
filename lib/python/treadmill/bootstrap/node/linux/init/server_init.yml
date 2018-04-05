@@ -1,0 +1,22 @@
+command: |
+  if [ ! -f zkid.pickle ]; then
+      echo `date`: clean start, zkid.pickle not found.
+  else
+      echo `date`: reset detected, reconnect using existing session.
+  fi
+
+  exec \
+      {{ python }} -m treadmill \
+      sproc --cgroup {{ name }} \
+      init \
+          --zkid zkid.pickle \
+          --notification-fd 4
+environ_dir: "{{ dir }}/env"
+environ:
+  KRB5CCNAME: "FILE:{{ treadmill_host_ticket }}"
+notification_fd: 4
+monitor_policy:
+  limit: 5
+  interval: 60
+  tombstone:
+    path: "{{ dir }}/tombstones/init"

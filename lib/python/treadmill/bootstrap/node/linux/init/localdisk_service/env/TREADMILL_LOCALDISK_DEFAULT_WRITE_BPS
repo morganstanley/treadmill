@@ -1,1 +1,0 @@
-"{% if localdisk_default_write_bps %}{{ localdisk_default_write_bps }}{% endif %}"

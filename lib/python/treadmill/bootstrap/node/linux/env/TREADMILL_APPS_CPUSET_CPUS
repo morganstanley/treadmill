@@ -1,1 +1,1 @@
-{{ treadmill_apps_cpuset_cpus }}
+{{ treadmill_apps_cpuset_cpus or '' }}

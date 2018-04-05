@@ -464,7 +464,8 @@ class Admin(object):
     # Allow such names as 'dn', 'ou'
     # pylint: disable=invalid-name
 
-    def __init__(self, uri, ldap_suffix, user=None, password=None):
+    def __init__(self, uri, ldap_suffix,
+                 user=None, password=None, connect_timeout=5):
         self.uri = uri
         if uri and not isinstance(uri, list):
             self.uri = uri.split(',')
@@ -473,6 +474,7 @@ class Admin(object):
         self.ldap = None
         self.user = user
         self.password = password
+        self._connect_timeout = connect_timeout
 
     def close(self):
         """Closes ldap connection."""
@@ -500,7 +502,11 @@ class Admin(object):
                 # and ldap3 code is wrong.
                 # pylint: disable=W0212
                 ldap3.Server._is_ipv6 = lambda x, y: False
-                server = ldap3.Server(uri, mode=ldap3.IP_V4_ONLY)
+                server = ldap3.Server(
+                    uri,
+                    mode=ldap3.IP_V4_ONLY,
+                    connect_timeout=self._connect_timeout,
+                )
                 if self.user and self.password:
                     self.ldap = ldap3.Connection(
                         server,

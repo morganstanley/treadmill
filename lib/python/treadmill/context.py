@@ -358,10 +358,15 @@ class Context(object):
         """
         self._profile[attr] = value
 
-    def set_profile(self, profile_name):
+    def set_profile_name(self, profile_name):
         """Sets current profile.
         """
         self._profile_name = profile_name
+
+    def get_profile_name(self):
+        """Returns profile name.
+        """
+        return self._profile_name
 
     @property
     def profile(self):

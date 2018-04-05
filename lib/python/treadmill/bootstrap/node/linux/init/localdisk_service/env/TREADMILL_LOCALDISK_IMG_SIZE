@@ -1,1 +1,0 @@
-"{% if localdisk_img_size %}{{ localdisk_img_size }}{% endif %}"

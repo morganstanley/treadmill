@@ -1,0 +1,6 @@
+command: >
+  {{ _alias.winss_svscan }} {{ dir }}\cleaning
+monitor_policy:
+  limit: 0
+  tombstone:
+    path: "{{ dir }}\\tombstones\\init"

@@ -52,6 +52,9 @@ class API(object):
             job = cron.get_job(_scheduler(), rsrc_id)
             _LOGGER.debug('job: %r', job)
 
+            if job is None:
+                return job
+
             return cron.job_to_dict(job)
 
         @schema.schema(

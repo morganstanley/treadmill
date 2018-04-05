@@ -40,7 +40,7 @@ done
 
 # Starting svscan
 exec $IONICE -c2 -n0 $S6/bin/s6-envdir $DIR/env                       \
-    $TREADMILL/bin/treadmill sproc --cell -                           \
+    {{ python }} -m treadmill sproc --cell -                          \
         exec --                                                       \
         $PID1 -p                                                      \
         $S6/bin/s6-setuidgid $TREADMILL_ID                            \

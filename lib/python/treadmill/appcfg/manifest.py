@@ -10,10 +10,10 @@ import io
 import json
 import logging
 import os
+import sys
 
 from treadmill import appcfg
 from treadmill import context
-from treadmill import dist
 from treadmill import subproc
 from treadmill import supervisor
 from treadmill import utils
@@ -181,14 +181,14 @@ def add_linux_system_services(tm_env, manifest):
                     'interval': 60,
                 },
                 'command': (
-                    'exec {tm} sproc'
+                    'exec {python} -m treadmill sproc'
                     ' --zookeeper {zkurl}'
                     ' --cell {cell}'
                     ' vring'
                     ' --approot {tm_root}'
                     ' {manifest}'
                 ).format(
-                    tm=dist.TREADMILL_BIN,
+                    python=sys.executable,
                     zkurl=manifest['zookeeper'],
                     cell=cell,
                     tm_root=tm_env.root,
@@ -217,13 +217,13 @@ def add_linux_system_services(tm_env, manifest):
             'interval': 60,
         },
         'command': (
-            'exec {tm} sproc'
+            'exec {python} -m treadmill sproc'
             ' --zookeeper {zkurl}'
             ' --cell {cell}'
             ' presence register'
             ' {manifest} {container_dir}'
         ).format(
-            tm=dist.TREADMILL_BIN,
+            python=sys.executable,
             zkurl=manifest['zookeeper'],
             cell=manifest['cell'],
             manifest=os.path.join(container_data_dir, 'state.json'),
@@ -258,13 +258,13 @@ def add_linux_system_services(tm_env, manifest):
             'interval': 60,
         },
         'command': (
-            'exec {tm} sproc'
+            'exec {python} -m treadmill sproc'
             ' --cell {cell}'
             ' host-aliases'
             ' --aliases-dir {aliases_dir}'
             ' {hosts_original} {hosts_container}'
         ).format(
-            tm=dist.TREADMILL_BIN,
+            python=sys.executable,
             cell=manifest['cell'],
             aliases_dir=os.path.join(
                 run_overlay, 'host-aliases',
@@ -284,7 +284,7 @@ def add_linux_system_services(tm_env, manifest):
 
     # Create the user app top level supervisor
     #
-    # Reset environment variables set by bin/treadmill34 to default values.
+    # Reset environment variables set by treadmill to default values.
     start_container = {
         'name': 'start_container',
         'proid': 'root',
@@ -293,20 +293,20 @@ def add_linux_system_services(tm_env, manifest):
             'interval': 60,
         },
         'command': (
-            'exec {chroot} {container_dir}/root'
-            ' {pid1} -m -p -i'
-            ' {svscan} -s /services'
+            'exec'
+            ' {pid1} -i -m -p'
+            ' --propagation slave'
+            ' {python} -m treadmill sproc'
+            ' --cell {cell}'
+            ' start-container'
+            ' --container-root {container_dir}/root'
         ).format(
-            chroot=subproc.resolve('chroot'),
-            container_dir=container_data_dir,
+            python=sys.executable,
+            cell=manifest['cell'],
             pid1=subproc.resolve('pid1'),
-            svscan=subproc.resolve('s6_svscan'),
+            container_dir=container_data_dir,
         ),
-        'environ': [
-            {'name': 'PYTHONPATH', 'value': ''},
-            {'name': 'LC_ALL', 'value': ''},
-            {'name': 'LANG', 'value': ''},
-        ],
+        'environ': [],
         'config': None,
         'downed': True,
         'trace': False,

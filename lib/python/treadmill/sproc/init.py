@@ -12,6 +12,7 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
+import functools
 import logging
 import os
 import time
@@ -42,17 +43,20 @@ def init():
     @click.command()
     @click.option('--exit-on-fail', is_flag=True, default=False)
     @click.option('--zkid', help='Zookeeper session ID file.')
+    @click.option('--notification-fd', help='Notification file descriptor.',
+                  type=int)
     @click.option('--approot', type=click.Path(exists=True),
                   envvar='TREADMILL_APPROOT', required=True)
     @click.option('--runtime', envvar='TREADMILL_RUNTIME', required=True)
-    def top(exit_on_fail, zkid, approot, runtime):
+    def top(exit_on_fail, zkid, notification_fd, approot, runtime):
         """Run treadmill init process."""
         _LOGGER.info('Initializing Treadmill: %s (%s)', approot, runtime)
 
         tm_env = appenv.AppEnvironment(approot)
+        stop_on_lost = functools.partial(_stop_on_lost, tm_env)
         zkclient = zkutils.connect(context.GLOBAL.zk.url,
                                    idpath=zkid,
-                                   listener=_exit_clear_watchdog_on_lost)
+                                   listener=stop_on_lost)
 
         while not zkclient.exists(z.SERVER_PRESENCE):
             _LOGGER.warning('namespace not ready.')
@@ -76,7 +80,7 @@ def init():
             _node_start(tm_env, runtime, zkclient, hostname, zk_server_path,
                         zk_presence_path)
 
-            utils.report_ready()
+            utils.report_ready(notification_fd)
             _init_network()
             _start_init1(tm_env)
             _LOGGER.info('Ready.')
@@ -109,7 +113,7 @@ def init():
         # Delete the node
         if zk_presence_path:
             zkutils.ensure_deleted(zkclient, zk_presence_path)
-        zkclient.remove_listener(_exit_clear_watchdog_on_lost)
+        zkclient.remove_listener(stop_on_lost)
         zkclient.stop()
         zkclient.close()
 
@@ -131,6 +135,13 @@ def init():
 def _blackout_terminate(tm_env):
     """Blackout by terminating all containers in running dir.
     """
+    _LOGGER.info('Terminating monitor.')
+    supervisor.control_service(
+        os.path.join(tm_env.init_dir, 'monitor'),
+        supervisor.ServiceControlAction.down,
+        wait=supervisor.ServiceWaitAction.down
+    )
+
     _LOGGER.info('Terminating init1.')
     supervisor.control_service(
         os.path.join(tm_env.init_dir, 'start_init1'),
@@ -226,10 +237,16 @@ def _node_initialize(tm_env, runtime, zkclient, hostname,
         zkclient.stop()
 
 
-def _exit_clear_watchdog_on_lost(state):
+def _stop_on_lost(tm_env, state):
     _LOGGER.debug('ZK connection state: %s', state)
     if state == zkutils.states.KazooState.LOST:
-        _LOGGER.info('Exiting on ZK connection lost.')
+        _LOGGER.info('ZK connection lost, stopping node.')
+        _LOGGER.info('Terminating svscan in %s', tm_env.init_dir)
+        supervisor.control_svscan(
+            tm_env.init_dir,
+            supervisor.SvscanControlAction.quit
+        )
+        # server_init should be terminated at this point but exit just in case.
         utils.sys_exit(-1)
 
 

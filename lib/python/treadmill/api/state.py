@@ -209,6 +209,9 @@ class CellState(object):
         if data['state'] == 'aborted' and data['data']:
             state['aborted_reason'] = data['data']
 
+        if data['state'] == 'terminated' and data['data']:
+            state['terminated_reason'] = data['data']
+
         state['oom'] = data['state'] == 'killed' and data['data'] == 'oom'
 
         return state

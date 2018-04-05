@@ -8,6 +8,7 @@ from __future__ import unicode_literals
 
 import logging
 import os
+import socket
 import sys
 
 import click
@@ -23,7 +24,6 @@ if six.PY2 and os.name == 'posix':
 else:
     import subprocess  # pylint: disable=wrong-import-order
 
-from treadmill import checkout
 from treadmill import context
 from treadmill import cli
 from treadmill import restclient
@@ -37,6 +37,19 @@ if sys.platform == 'win32':
     _DEFAULT_SSH = 'putty.exe'
 else:
     _DEFAULT_SSH = 'ssh'
+
+
+def _connect(host, port):
+    """Check host:port is up."""
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.settimeout(1)
+
+    try:
+        sock.connect((host, int(port)))
+        sock.close()
+        return True
+    except socket.error:
+        return False
 
 
 def _check_handle(handle):
@@ -139,7 +152,7 @@ def _wait_for_ssh(queue, ssh, command, timeout=1, attempts=40):
 
     for _ in six.moves.range(attempts):
         _LOGGER.debug('Checking SSH endpoint %s:%s', host, port)
-        if checkout.connect(host, port):
+        if _connect(host, port):
             run_ssh(host, port, ssh, list(command))
             break  # if run_ssh doesn't end with os.execvp()...
 

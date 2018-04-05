@@ -27,7 +27,6 @@ import sys
 import time
 
 from treadmill import dirwatch
-from treadmill import dist
 from treadmill import fs
 from treadmill import logcontext as lc
 from treadmill import runtime as app_runtime
@@ -90,27 +89,18 @@ class Cleanup(object):
             return
 
         _LOGGER.info('Configure cleaning app: %s', name)
+        command = (
+            '{python} -m treadmill sproc cleanup instance'
+            ' --approot {tm_root}'
+            ' {instance}'
+        ).format(
+            python=sys.executable,
+            tm_root=self.tm_env.root,
+            instance=name
+        )
 
         if os.name == 'posix':
-            command = (
-                'exec {tm} sproc cleanup instance'
-                ' --approot {tm_root}'
-                ' {instance}'
-            ).format(
-                tm=dist.TREADMILL_BIN,
-                tm_root=self.tm_env.root,
-                instance=name
-            )
-        else:
-            command = (
-                '{python} -m treadmill.ms sproc cleanup instance'
-                ' --approot {tm_root}'
-                ' {instance}'
-            ).format(
-                python=sys.executable,
-                tm_root=self.tm_env.root,
-                instance=name
-            )
+            command = 'exec ' + command
 
         supervisor.create_service(
             self.tm_env.cleanup_apps_dir,

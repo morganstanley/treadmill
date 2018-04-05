@@ -50,6 +50,13 @@ class ZkReadonlyBackend(backend.Backend):
         except kazoo.client.NoNodeError:
             raise backend.ObjectNotFoundError()
 
+    def get_with_metadata(self, path):
+        """Return stored object with metadata."""
+        try:
+            return zkutils.get_with_metadata(self.zkclient, path)
+        except kazoo.client.NoNodeError:
+            raise backend.ObjectNotFoundError()
+
     def exists(self, path):
         """Check if object exists."""
         try:
@@ -69,10 +76,13 @@ class ZkBackend(ZkReadonlyBackend):
             z.APPMONITORS: None,
             z.BUCKETS: None,
             z.CELL: None,
+            z.DISCOVERY: [_SERVERS_ACL],
+            z.DISCOVERY_STATE: [_SERVERS_ACL],
             z.IDENTITY_GROUPS: None,
             z.PLACEMENT: None,
             z.PARTITIONS: None,
             z.SCHEDULED: [_SERVERS_ACL_DEL],
+            z.SCHEDULED_STATS: None,
             z.SCHEDULER: None,
             z.SERVERS: None,
             z.STATE_REPORTS: None,

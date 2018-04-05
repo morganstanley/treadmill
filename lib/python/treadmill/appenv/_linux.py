@@ -10,7 +10,7 @@ import logging
 import os
 
 from treadmill import apphook
-from treadmill import fs
+from treadmill import endpoints
 from treadmill import rulefile
 from treadmill import services
 from treadmill.runtime.linux.image import fs as image_fs
@@ -45,6 +45,12 @@ class LinuxAppEnvironment(appenv.AppEnvironment):
         'svc_network_dir',
         'svc_presence',
         'svc_presence_dir',
+        'rules',
+        'endpoints',
+        'rules_dir',
+        'services_tombstone_dir',
+        'ctl_dir',
+        'endpoints_dir',
     )
 
     CTL_DIR = 'ctl'
@@ -57,6 +63,10 @@ class LinuxAppEnvironment(appenv.AppEnvironment):
     SVC_LOCALDISK_DIR = 'localdisk_svc'
     SVC_NETWORK_DIR = 'network_svc'
     SVC_PRESENCE_DIR = 'presence_svc'
+    RULES_DIR = 'rules'
+    CTL_DIR = 'ctl'
+    SERVICES_DIR = 'services'
+    ENDPOINTS_DIR = 'endpoints'
 
     def __init__(self, root):
 
@@ -72,21 +82,18 @@ class LinuxAppEnvironment(appenv.AppEnvironment):
         self.svc_cgroup_dir = os.path.join(self.root, self.SVC_CGROUP_DIR)
         self.svc_localdisk_dir = os.path.join(self.root,
                                               self.SVC_LOCALDISK_DIR)
-        self.svc_network_dir = os.path.join(self.root, self.SVC_NETWORK_DIR)
-        self.svc_presence_dir = os.path.join(self.root, self.SVC_PRESENCE_DIR)
-
-        # Make sure our directories exists.
-        fs.mkdir_safe(self.ctl_dir)
-        fs.mkdir_safe(self.metrics_dir)
-        fs.mkdir_safe(self.mounts_dir)
-        fs.mkdir_safe(self.rules_dir)
-        fs.mkdir_safe(self.services_tombstone_dir)
-        fs.mkdir_safe(self.spool_dir)
-        fs.mkdir_safe(self.svc_cgroup_dir)
-        fs.mkdir_safe(self.svc_localdisk_dir)
-        fs.mkdir_safe(self.svc_network_dir)
+        self.svc_network_dir = os.path.join(self.root,
+                                            self.SVC_NETWORK_DIR)
+        self.svc_presence_dir = os.path.join(self.root,
+                                             self.SVC_PRESENCE_DIR)
+        self.rules_dir = os.path.join(self.root, self.RULES_DIR)
+        self.services_tombstone_dir = os.path.join(self.tombstones_dir,
+                                                   self.SERVICES_DIR)
+        self.ctl_dir = os.path.join(self.root, self.CTL_DIR)
+        self.endpoints_dir = os.path.join(self.root, self.ENDPOINTS_DIR)
 
         self.rules = rulefile.RuleMgr(self.rules_dir, self.apps_dir)
+        self.endpoints = endpoints.EndpointsMgr(self.endpoints_dir)
 
         # Services
         self.svc_cgroup = services.ResourceService(
@@ -116,6 +123,9 @@ class LinuxAppEnvironment(appenv.AppEnvironment):
 
         # Initialize network rules
         self.rules.initialize()
+
+        # Initialize endpoints manager
+        self.endpoints.initialize()
 
         # Initialize FS plugins.
         image_fs.init_plugins(self)

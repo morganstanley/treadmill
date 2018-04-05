@@ -33,15 +33,22 @@ class ScanDir(object):
         '_services',
     )
 
-    def __init__(self, directory, control_dir):
+    def __init__(self, directory):
         self._dir = directory
-        self._control_dir = os.path.join(self._dir, control_dir)
+        self._control_dir = os.path.join(self._dir, self.control_dir_name())
         self._services = None
 
     @staticmethod
     @abc.abstractmethod
     def _create_service(svc_basedir, svc_name, svc_type, **kwargs):
         """Implementation specifc service object creation from service data.
+        """
+        pass
+
+    @staticmethod
+    @abc.abstractmethod
+    def control_dir_name():
+        """Gets the name of the svscan control directory.
         """
         pass
 

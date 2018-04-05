@@ -1,1 +1,0 @@
-"{% if block_dev_read_iops %}{{ block_dev_read_iops }}{% endif %}"

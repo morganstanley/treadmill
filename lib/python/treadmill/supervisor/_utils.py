@@ -219,6 +219,7 @@ def script_write(filename, script):
             f.write(chunk)
         f.write('\n')
         if os.name == 'posix':
+            f.write('\n')
             os.fchmod(f.fileno(), 0o755)
 
 
