@@ -1,1 +1,0 @@
-"{% if block_dev_read_bps %}{{ block_dev_read_bps }}{% endif %}"

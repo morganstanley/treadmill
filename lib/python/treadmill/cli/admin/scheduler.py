@@ -7,6 +7,8 @@ from __future__ import division
 from __future__ import unicode_literals
 
 import logging
+import os
+import time
 
 import click
 import kazoo
@@ -36,8 +38,19 @@ def make_readonly_master(run_scheduler=False):
     """Prepare a readonly master."""
     treadmill_sched.DIMENSION_COUNT = 3
 
+    backend = zkbackend.ZkReadonlyBackend(context.GLOBAL.zk.conn)
+
+    # set timezone to master's
+    data = backend.get('/')
+    if data and 'timezone' in data:
+        _LOGGER.debug('Setting timezone to %s', data['timezone'])
+        os.environ['TZ'] = data['timezone']
+        time.tzset()
+    else:
+        _LOGGER.warning('Missing timezone info.')
+
     cell_master = loader.Loader(
-        zkbackend.ZkReadonlyBackend(context.GLOBAL.zk.conn),
+        backend,
         context.GLOBAL.cell
     )
     cell_master.load_model()

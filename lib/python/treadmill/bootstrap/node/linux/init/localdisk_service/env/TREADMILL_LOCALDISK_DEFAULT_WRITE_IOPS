@@ -1,1 +1,0 @@
-"{% if localdisk_default_write_iops %}{{ localdisk_default_write_iops }}{% endif %}"

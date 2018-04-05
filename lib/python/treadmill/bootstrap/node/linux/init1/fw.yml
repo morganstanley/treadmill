@@ -1,0 +1,12 @@
+command: |
+  exec \
+    {{ python }} -m treadmill \
+    sproc --cgroup {{ name }} \
+    firewall watcher \
+        --root-dir {{ dir }}
+environ_dir: "{{ dir }}/env"
+monitor_policy:
+  limit: 5
+  interval: 60
+  tombstone:
+    path: "{{ dir }}/tombstones/init"

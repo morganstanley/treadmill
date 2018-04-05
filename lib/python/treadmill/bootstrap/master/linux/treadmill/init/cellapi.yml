@@ -1,0 +1,22 @@
+command: |
+  RM={{ _alias.rm }}
+
+  ${RM} -f /var/spool/cellapi.sock
+
+  exec \
+      {{ python }} -m treadmill \
+      sproc \
+      restapi \
+          -s /tmp/cellapi.sock \
+          --title 'Treadmill_Cell_API' \
+          -m instance,app-monitor \
+          --cors-origin='.*' \
+          -a trusted
+environ_dir: "/treadmill/env"
+environ:
+  KRB5CCNAME: "FILE:/var/spool/tickets/{{ treadmillid }}"
+monitor_policy:
+  limit: "{{ restart_limit }}"
+  interval: "{{ restart_interval }}"
+  tombstone:
+    path: "/treadmill/tombstones"

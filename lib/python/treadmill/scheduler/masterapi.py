@@ -352,3 +352,8 @@ def update_allocations(zkclient, allocations):
                    allocations,
                    check_content=True):
         create_event(zkclient, 0, 'allocations', None)
+
+
+def get_scheduled_stats(zkclient):
+    """Return count of scheduled apps by proid."""
+    return zkutils.get_default(zkclient, z.SCHEDULED_STATS, {})

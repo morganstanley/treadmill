@@ -14,7 +14,6 @@ import click
 
 from treadmill import cli
 from treadmill import context
-from treadmill import dist
 from treadmill import yamlwrapper as yaml
 
 
@@ -22,6 +21,9 @@ def init():
     """Return top level command handler."""
 
     @click.group(cls=cli.make_commands(__name__))
+    @click.option('--distro', required=True,
+                  help='Path to treadmill distro.',
+                  envvar='TREADMILL_DISTRO')
     @click.option('--install-dir', required=True,
                   help='Target installation directory.',
                   envvar='TREADMILL_APPROOT')
@@ -33,7 +35,7 @@ def init():
                   multiple=True)
     @click.option('--override', required=False, type=cli.DICT)
     @click.pass_context
-    def install(ctx, install_dir, profile, cell, config, override):
+    def install(ctx, distro, install_dir, profile, cell, config, override):
         """Installs Treadmill."""
         if cell == '-':
             cell = None
@@ -45,29 +47,38 @@ def init():
             'cell': cell,
             'dns_domain': context.GLOBAL.dns_domain,
             'ldap_suffix': context.GLOBAL.ldap_suffix,
-            'treadmill': dist.TREADMILL,
+            'treadmill': distro,
             'dir': install_dir,
             'profile': profile,
             'python': sys.executable,
             'python_path': os.getenv('PYTHONPATH', ''),
-            'data': {},
+            'init_hook': os.getenv('TREADMILL_INIT_HOOK', ''),
         }
+        install_data = {}
 
         for conf in config:
             if conf == '-':
-                ctx.obj['PARAMS'].update(yaml.load(stream=sys.stdin))
+                conf_dict = yaml.load(stream=sys.stdin)
             else:
                 with io.open(conf, 'r') as fd:
-                    ctx.obj['PARAMS'].update(yaml.load(stream=fd))
+                    conf_dict = yaml.load(stream=fd)
+
+            ctx.obj['PARAMS'].update(conf_dict)
+            install_data.update(conf_dict.get('data', {}))
 
         if override:
             ctx.obj['PARAMS'].update(override)
-            ctx.obj['PARAMS']['data'].update(override)
+            install_data.update(override)
+
+        # Store the intall data in the context.
+        # TODO: This is a terrible terrible mess.
+        ctx.obj['PARAMS'].update(install_data)
+        ctx.obj['PARAMS']['data'] = install_data
 
         # XXX: hack - templates use treadmillid, but it is defined as
         #      "username" in cell object.
         ctx.obj['PARAMS']['treadmillid'] = ctx.obj['PARAMS'].get('username')
 
-        os.environ['TREADMILL'] = dist.TREADMILL
+        os.environ['TREADMILL'] = distro
 
     return install

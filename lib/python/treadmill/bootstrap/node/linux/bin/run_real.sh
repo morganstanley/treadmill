@@ -53,7 +53,7 @@ for PART in "{{ dir }}/bin/parts"/*; do
 done
 
 # Cleanup zkids (FIXME: figure out why we still need this)
-${RM} -vf "{{ dir }}/init*/*/zkid.pickle"
+${RM} -vf "{{ dir }}/init*/*/data/zkid.pickle"
 
 # Cleanup the watchdog directory.
 ${RM} -vf "{{ dir }}/watchdogs"/*

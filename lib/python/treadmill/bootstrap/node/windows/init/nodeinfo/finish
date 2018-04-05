@@ -1,1 +1,0 @@
-{{ _alias.powershell }} -File {{ dir }}\bin\finish.ps1 -limit 5 -interval 60 -tombstone_id node_info -tombstone_path {{ dir }}\tombstones\init

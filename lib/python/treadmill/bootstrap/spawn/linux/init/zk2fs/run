@@ -2,5 +2,5 @@
 
 exec 2>&1
 
-exec {{ treadmill }}/bin/treadmill \
+exec {{ python }} -m treadmill \
     sproc zk2fs --root {{ dir }}/zk_mirror --trace

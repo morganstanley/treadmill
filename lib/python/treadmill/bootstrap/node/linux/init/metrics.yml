@@ -1,0 +1,13 @@
+command: |
+  exec \
+    {{ python }} -m treadmill \
+    sproc --cgroup {{ name }} \
+    metrics \
+        --step 30 \
+        --socket {{ dir }}/run/cgroup.sock
+environ_dir: "{{ dir }}/env"
+monitor_policy:
+  limit: 5
+  interval: 60
+  tombstone:
+    path: "{{ dir }}/tombstones/init"

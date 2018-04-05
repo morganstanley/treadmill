@@ -1,0 +1,27 @@
+command: |
+  exec \
+    {{ python }} -m treadmill \
+    sproc --cgroup {{ name }} \
+    service \
+        --root-dir {{ dir }} \
+    localdisk
+environ_dir: "{{ dir }}/env"
+environ:
+  TREADMILL_LOCALDISK_IMG_LOCATION: "{% if localdisk_img_location %}{{ localdisk_img_location }}{% endif %}"
+  TREADMILL_LOCALDISK_IMG_SIZE: "{% if localdisk_img_size %}{{ localdisk_img_size }}{% endif %}"
+  TREADMILL_LOCALDISK_BLOCK_DEV: "{% if localdisk_block_dev %}{{ localdisk_block_dev }}{% endif %}"
+  TREADMILL_LOCALDISK_VG_NAME: "{% if localdisk_vg_name %}{{ localdisk_vg_name }}{% endif %}"
+  TREADMILL_BLOCK_DEV_CONFIGURATION: "{% if block_dev_configuration %}{{ block_dev_configuration }}{% endif %}"
+  TREADMILL_BLOCK_DEV_READ_BPS: "{% if block_dev_read_bps %}{{ block_dev_read_bps }}{% endif %}"
+  TREADMILL_BLOCK_DEV_WRITE_BPS: "{% if block_dev_write_bps %}{{ block_dev_write_bps }}{% endif %}"
+  TREADMILL_BLOCK_DEV_READ_IOPS: "{% if block_dev_read_iops %}{{ block_dev_read_iops }}{% endif %}"
+  TREADMILL_BLOCK_DEV_WRITE_IOPS: "{% if block_dev_write_iops %}{{ block_dev_write_iops }}{% endif %}"
+  TREADMILL_LOCALDISK_DEFAULT_READ_BPS: "{% if localdisk_default_read_bps %}{{ localdisk_default_read_bps }}{% endif %}"
+  TREADMILL_LOCALDISK_DEFAULT_WRITE_BPS: "{% if localdisk_default_write_bps %}{{ localdisk_default_write_bps }}{% endif %}"
+  TREADMILL_LOCALDISK_DEFAULT_READ_IOPS: "{% if localdisk_default_read_iops %}{{ localdisk_default_read_iops }}{% endif %}"
+  TREADMILL_LOCALDISK_DEFAULT_WRITE_IOPS: "{% if localdisk_default_write_iops %}{{ localdisk_default_write_iops }}{% endif %}"
+monitor_policy:
+  limit: 5
+  interval: 60
+  tombstone:
+    path: "{{ dir }}/tombstones/init"

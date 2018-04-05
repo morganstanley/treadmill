@@ -1,1 +1,0 @@
-{{ python }} -m treadmill.ms sproc nodeinfo --register --cors-origin='.*' -m local

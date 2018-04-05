@@ -1,0 +1,16 @@
+command: |
+  exec \
+    {{ python }} -m treadmill \
+    sproc --cgroup {{ name }} \
+    service \
+        --root-dir {{ dir }} \
+    presence \
+        --zkid zkid.pickle
+environ_dir: "{{ dir }}/env"
+environ:
+  KRB5CCNAME: "FILE:{{ treadmill_host_ticket }}"
+monitor_policy:
+  limit: 5
+  interval: 60
+  tombstone:
+    path: "{{ dir }}/tombstones/init"

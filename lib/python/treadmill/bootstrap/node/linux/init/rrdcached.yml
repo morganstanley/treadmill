@@ -1,0 +1,28 @@
+command: |
+  RM={{ _alias.rm }}
+  CHOWN={{ _alias.chown }}
+  MKDIR={{ _alias.mkdir }}
+
+  ${RM} /tmp/treadmill.rrd.pid
+  ${RM} /tmp/treadmill.rrd
+
+  ${MKDIR} -p {{ dir }}/metrics/apps
+  ${MKDIR} -p {{ dir }}/metrics/core
+
+  ${CHOWN} -R nobody {{ dir }}/metrics
+
+  exec \
+      {{ python }} -m treadmill \
+      sproc --cgroup {{ name }} \
+      exec -- \
+          {{ _alias.s6_setuidgid }} nobody \
+          {{ rrdcached }} \
+              -g \
+              -l unix:/tmp/treadmill.rrd \
+              -p /tmp/treadmill.rrd.pid
+environ_dir: "{{ dir }}/env"
+monitor_policy:
+  limit: 5
+  interval: 60
+  tombstone:
+    path: "{{ dir }}/tombstones/init"

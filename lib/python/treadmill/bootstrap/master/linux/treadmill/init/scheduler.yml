@@ -1,0 +1,15 @@
+command: |
+  exec \
+    {{ python }} -m treadmill \
+    sproc \
+    scheduler \
+        /treadmill/appevents
+environ_dir: "/treadmill/env"
+environ:
+  KRB5CCNAME: "FILE:/var/spool/tickets/{{ treadmillid }}"
+logger_args: "-b -p T n200 s16777215"
+monitor_policy:
+  limit: "{{ restart_limit }}"
+  interval: "{{ restart_interval }}"
+  tombstone:
+    path: "/treadmill/tombstones"

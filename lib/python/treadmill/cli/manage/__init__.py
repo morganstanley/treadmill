@@ -54,7 +54,7 @@ def make_manage_multi_command(module_name, **click_args):
             if os.name == 'nt':
                 nt_path = module_path[:-2] + 'cmd'
                 if os.path.exists(nt_path):
-                    utils.sane_execvp(nt_path, [nt_path] + ctx.args)
+                    os.execvp(nt_path, [nt_path] + ctx.args)
                 else:
                     _LOGGER.critical(
                         "%s cli is not supported on windows", name)

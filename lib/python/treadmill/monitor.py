@@ -259,31 +259,34 @@ class MonitorContainerDown(MonitorTombstoneAction):
     def execute(self, data):
         """Put the container into the down state which will trigger cleanup.
         """
+        _LOGGER.critical('Container down: %r', data)
+
         unique_name, service_name = data['id'].split(',')
         container_dir = os.path.join(self._tm_env.apps_dir, unique_name)
         container_svc = supervisor.open_service(container_dir)
-
-        _LOGGER.critical('Container down: %r', data)
         data_dir = container_svc.data_dir
-        fs.write_safe(
-            os.path.join(data_dir, EXIT_INFO),
-            lambda f: f.writelines(
-                utils.json_genencode({
-                    'service': service_name,
-                    'return_code': data['return_code'],
-                    'signal': data['signal'],
-                    'timestamp': data['timestamp']
-                })
-            ),
-            mode='w',
-            prefix='.tmp',
-            permission=0o644
-        )
+
+        exitinfo_file = os.path.join(os.path.join(data_dir, EXIT_INFO))
+        try:
+            with io.open(exitinfo_file, 'x') as f:
+                _LOGGER.info('Creating exitinfo file: %s', exitinfo_file)
+                if os.name == 'posix':
+                    os.fchmod(f.fileno(), 0o644)
+                f.writelines(
+                    utils.json_genencode({
+                        'service': service_name,
+                        'return_code': data['return_code'],
+                        'signal': data['signal'],
+                        'timestamp': data['timestamp']
+                    })
+                )
+        except FileExistsError as err:
+            _LOGGER.info('exitinfo file already exists: %s', exitinfo_file)
 
         try:
             supervisor.control_service(container_svc.directory,
                                        supervisor.ServiceControlAction.down)
         except subproc.CalledProcessError as err:
-            _LOGGER.warning('Failed to bring down container: %r', unique_name)
+            _LOGGER.warning('Failed to bring down container: %s', unique_name)
 
         return True

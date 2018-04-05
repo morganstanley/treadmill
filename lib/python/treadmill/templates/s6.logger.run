@@ -12,4 +12,4 @@
 }
 {% endif -%}
 
-{{ _alias.s6_log }} -b -p T n20 s1000000 {{ logdir }}
+{{ _alias.s6_log }} {{ logger_args }} {{ logdir }}

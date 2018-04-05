@@ -1,0 +1,14 @@
+command: |
+  exec \
+    {{ python }} -m treadmill \
+    sproc --cgroup {{ name }} \
+    kernel-watchdog \
+        --kernel-watchdog-root {{ dir }}/kernel_watchdog \
+        --reboot-script {{ dir }}/bin/reboot.sh
+environ_dir: "{{ dir }}/env"
+call_before_finish: "{{ dir }}/bin/stop_watchdog.sh"
+monitor_policy:
+  limit: 1
+  interval: 60
+  tombstone:
+    path: "{{ dir }}/tombstones/init"

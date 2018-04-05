@@ -514,18 +514,21 @@ def from_base_n(base_num, base=None, alphabet=None):
 
 
 @osnoop.windows
-def report_ready():
+def report_ready(notification_fd=None):
     """Reports the service as ready for s6-svwait -U."""
+    if notification_fd is None:
+        try:
+            with io.open('notification-fd') as f:
+                notification_fd = int(f.readline())
+        except (IOError, OSError):
+            _LOGGER.exception('Cannot read notification-fd')
+            return
+
     try:
-        with io.open('notification-fd') as f:
-            try:
-                fd = int(f.readline())
-                os.write(fd, b'ready\n')
-                os.close(fd)
-            except OSError:
-                _LOGGER.exception('Cannot read notification-fd')
-    except IOError:
-        _LOGGER.warning('notification-fd does not exist.')
+        os.write(notification_fd, b'ready\n')
+        os.close(notification_fd)
+    except OSError:
+        _LOGGER.warning('notification-fd %s does not exist.', notification_fd)
 
 
 @osnoop.windows

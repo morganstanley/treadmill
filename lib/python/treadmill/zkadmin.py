@@ -26,4 +26,21 @@ def netcat(hostname, port, command):
             break
         data.append(chunk)
     sock.close()
-    return ''.join(data)
+    return b''.join(data).decode()
+
+
+# pylint does not like "ok" as a function name.
+# pylint: disable=C0103
+def ok(hostname, port):
+    """Send ruok command to Zookeeper instance.
+    """
+    try:
+        return netcat(hostname, port, b'ruok\n') == 'imok'
+    except socket.error:
+        return False
+
+
+def stat(hostname, port):
+    """Send stat command to Zookeeper instance.
+    """
+    return netcat(hostname, port, b'stat\n')

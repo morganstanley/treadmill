@@ -80,7 +80,8 @@ class NativeImageTest(unittest.TestCase):
                 'ephemeral_ports': {
                     'tcp': 1,
                     'udp': 0
-                }
+                },
+                'docker': False
             }
         )
 
@@ -93,7 +94,7 @@ class NativeImageTest(unittest.TestCase):
     @mock.patch('treadmill.fs.linux.mount_tmpfs', mock.Mock(spec_set=True))
     def test_make_fsroot(self):
         """Validates directory layout in chrooted environment."""
-        native.make_fsroot(self.root)
+        native.make_fsroot(self.root, self.app)
 
         def isdir(path):
             """Checks directory presence in chrooted environment."""

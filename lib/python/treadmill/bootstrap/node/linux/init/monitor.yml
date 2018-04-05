@@ -1,0 +1,20 @@
+command: |
+  exec \
+    {{ python }} -m treadmill \
+    sproc --cgroup {{ name }} \
+    monitor --config-dir ./config
+environ_dir: "{{ dir }}/env"
+monitor_policy:
+  limit: 5
+  interval: 60
+  tombstone:
+    path: "{{ dir }}/watchdogs"
+    id: Monitor
+    no_exit_info: True
+data_dir:
+- path: config/default
+  content: |
+    {{ dir }}/tombstones/cleanup;node-down;{"prefix": "cleanup-"}
+    {{ dir }}/tombstones/init;node-down
+    {{ dir }}/tombstones/running;container-cleanup
+    {{ dir }}/tombstones/services;container-down

@@ -126,18 +126,18 @@ def open_service(service_dir, existing=True):
 
 # Disable W0613: Unused argument 'kwargs' (for s6/winss compatibility)
 # pylint: disable=W0613
-def _create_scan_dir_s6(scan_dir, finish_timeout, monitor_service=None,
-                        wait_cgroups=None, **kwargs):
+def _create_scan_dir_s6(scan_dir, finish_timeout, wait_cgroups=None,
+                        kill_svc=None, **kwargs):
     """Create a scan directory.
 
     :param ``str`` scan_dir:
         Location of the scan directory.
     :param ``int`` finish_timeout:
         The finish script timeout.
-    :param ``str`` monitor_service:
-        Service monitoring other services in this scan directory.
     :param ``str`` wait_cgroups:
         Instruct the finish procedure to wait on all processes in the cgroup.
+    :param ``str`` kill_svc:
+        The service to kill before shutdown.
     :returns ``_service_dir_base.ServiceDirBase``:
         Instance of a service dir
     """
@@ -153,21 +153,25 @@ def _create_scan_dir_s6(scan_dir, finish_timeout, monitor_service=None,
     scan_dir.finish = svscan_finish_script
     svscan_sigterm_script = utils.generate_template(
         's6.svscan.sigterm',
+        kill_svc=kill_svc,
         _alias=subproc.get_aliases()
     )
     scan_dir.sigterm = svscan_sigterm_script
     svscan_sighup_script = utils.generate_template(
         's6.svscan.sighup',
+        kill_svc=kill_svc,
         _alias=subproc.get_aliases()
     )
     scan_dir.sighup = svscan_sighup_script
     svscan_sigint_script = utils.generate_template(
         's6.svscan.sigint',
+        kill_svc=kill_svc,
         _alias=subproc.get_aliases()
     )
     scan_dir.sigint = svscan_sigint_script
     svscan_sigquit_script = utils.generate_template(
         's6.svscan.sigquit',
+        kill_svc=kill_svc,
         _alias=subproc.get_aliases()
     )
     scan_dir.sigquit = svscan_sigquit_script
@@ -176,13 +180,15 @@ def _create_scan_dir_s6(scan_dir, finish_timeout, monitor_service=None,
 
 # Disable W0613: Unused argument 'kwargs' (for s6/winss compatibility)
 # pylint: disable=W0613
-def _create_scan_dir_winss(scan_dir, finish_timeout, **kwargs):
+def _create_scan_dir_winss(scan_dir, finish_timeout, kill_svc=None, **kwargs):
     """Create a scan directory.
 
     :param ``str`` scan_dir:
         Location of the scan directory.
     :param ``int`` finish_timeout:
         The finish script timeout.
+    :param ``str`` kill_svc:
+        The service to kill before shutdown.
     :returns ``_service_dir_base.ServiceDirBase``:
         Instance of a service dir
     """
@@ -198,6 +204,7 @@ def _create_scan_dir_winss(scan_dir, finish_timeout, **kwargs):
     scan_dir.finish = svscan_finish_script
     svscan_sigterm_script = utils.generate_template(
         'winss.svscan.sigterm',
+        kill_svc=kill_svc,
         _alias=subproc.get_aliases()
     )
     scan_dir.sigterm = svscan_sigterm_script
@@ -251,15 +258,21 @@ def _create_service_s6(base_dir,
                        monitor_policy=None,
                        trace=None,
                        timeout_finish=None,
+                       notification_fd=None,
+                       call_before_run=None,
+                       call_before_finish=None,
                        run_script='s6.run',
                        log_run_script='s6.logger.run',
                        finish_script='s6.finish',
+                       logger_args=None,
                        **kwargs):
     """Initializes service directory.
 
     Creates run, finish scripts as well as log directory with appropriate
     run script.
     """
+    # Disable R0912: Too many branches
+    # pylint: disable=R0912
     try:
         user_pw = pwd.getpwnam(userid)
 
@@ -296,17 +309,24 @@ def _create_service_s6(base_dir,
         shell=user_pw.pw_shell,
         environ_dir=environ_dir,
         trace=trace,
-        _alias=subproc.get_aliases()
-    )
-    # Setup the finish script
-    svc.finish_script = utils.generate_template(
-        finish_script,
-        monitor_policy=monitor_policy,
-        trace=trace,
+        call_before_run=call_before_run,
         _alias=subproc.get_aliases()
     )
 
+    if monitor_policy is not None or call_before_finish is not None:
+        # Setup the finish script
+        svc.finish_script = utils.generate_template(
+            finish_script,
+            monitor_policy=monitor_policy,
+            trace=trace,
+            call_before_finish=call_before_finish,
+            _alias=subproc.get_aliases()
+        )
+
     if log_run_script is not None:
+        if logger_args is None:
+            logger_args = '-b -p T n20 s1000000'
+
         # Setup the log run script
         svc.log_run_script = utils.generate_template(
             log_run_script,
@@ -314,10 +334,13 @@ def _create_service_s6(base_dir,
                 os.path.join(svc.data_dir, 'log'),
                 svc.logger_dir
             ),
+            logger_args=logger_args,
             _alias=subproc.get_aliases()
         )
 
     svc.default_down = bool(downed)
+    svc.notification_fd = notification_fd
+
     if monitor_policy is not None:
         svc.timeout_finish = 0
         if monitor_policy['limit'] > 0:
@@ -376,12 +399,14 @@ def _create_service_winss(base_dir,
         app_run_script=app_run_script,
         _alias=subproc.get_aliases()
     )
-    # Setup the finish script
-    svc.finish_script = utils.generate_template(
-        finish_script,
-        monitor_policy=monitor_policy,
-        _alias=subproc.get_aliases()
-    )
+
+    if monitor_policy is not None:
+        # Setup the finish script
+        svc.finish_script = utils.generate_template(
+            finish_script,
+            monitor_policy=monitor_policy,
+            _alias=subproc.get_aliases()
+        )
 
     logdir = os.path.join(svc.data_dir, 'log')
     fs.mkdir_safe(logdir)

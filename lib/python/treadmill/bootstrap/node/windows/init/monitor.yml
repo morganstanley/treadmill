@@ -1,0 +1,17 @@
+command: >
+  {{ python }} -m treadmill.ms sproc monitor
+  --approot {{ dir }}
+  --config-dir .\data\config
+monitor_policy:
+  limit: 5
+  interval: 60
+  tombstone:
+    path: "{{ dir }}\\watchdogs"
+    id: Monitor
+    no_exit_info: True
+data_dir:
+- path: config/default
+  content: |
+    {{ dir }}\tombstones\cleanup;node-down;{"prefix": "cleanup-"}
+    {{ dir }}\tombstones\init;node-down
+    {{ dir }}\tombstones\running;container-cleanup

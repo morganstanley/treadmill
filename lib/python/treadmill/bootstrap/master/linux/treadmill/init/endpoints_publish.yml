@@ -1,0 +1,13 @@
+command: |
+    exec \
+        {{ python }} -m treadmill sproc publish-endpoints \
+            --approot /treadmill \
+            --instance master-{{ master_id }}
+environ_dir: "/treadmill/env"
+environ:
+  KRB5CCNAME: "FILE:{{ treadmill_host_ticket }}"
+monitor_policy:
+  limit: "{{ restart_limit }}"
+  interval: "{{ restart_interval }}"
+  tombstone:
+    path: "/treadmill/tombstones"

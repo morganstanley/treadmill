@@ -3,6 +3,12 @@
 {{ _alias.redirfd }} -r 0 /dev/null
 {{ _alias.fdmove }} -c 2 1
 
+{% if call_before_run -%}
+{{ _alias.foreground }} {
+    {{ call_before_run }}
+}
+{%- endif %}
+
 {% if trace -%}
 {{ _alias.foreground }} {
     {{ _alias.backtick }} -n NOW {

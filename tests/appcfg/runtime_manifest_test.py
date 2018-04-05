@@ -144,8 +144,6 @@ class AppCfgRuntimeManifestTest(unittest.TestCase):
     @mock.patch('treadmill.appcfg.gen_uniqueid', mock.Mock(return_value='42'))
     @mock.patch('treadmill.appcfg.gen_uniqueid', mock.Mock(return_value='42'))
     @mock.patch('treadmill.appcfg.manifest.read', mock.Mock())
-    @mock.patch('treadmill.ms.proiddb.environment',
-                mock.Mock(return_value='dev'))  # XXX: Remove MS specific
     @mock.patch('treadmill.subproc._check', mock.Mock(return_value=True))
     @mock.patch('treadmill.subproc.get_aliases',
                 mock.Mock(return_value={

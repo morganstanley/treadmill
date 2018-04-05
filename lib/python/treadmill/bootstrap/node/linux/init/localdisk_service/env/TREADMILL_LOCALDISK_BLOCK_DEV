@@ -1,1 +1,0 @@
-"{% if localdisk_block_dev %}{{ localdisk_block_dev }}{% endif %}"

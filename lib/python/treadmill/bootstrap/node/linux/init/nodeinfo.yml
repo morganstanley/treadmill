@@ -1,0 +1,16 @@
+command: |
+  exec \
+    {{ python }} -m treadmill \
+    sproc --cgroup {{ name }} \
+    nodeinfo \
+        --register \
+        --cors-origin='.*' \
+        -m local
+environ_dir: "{{ dir }}/env"
+environ:
+  KRB5CCNAME: "FILE:{{ treadmill_host_ticket }}"
+monitor_policy:
+  limit: 5
+  interval: 60
+  tombstone:
+    path: "{{ dir }}/tombstones/init"
