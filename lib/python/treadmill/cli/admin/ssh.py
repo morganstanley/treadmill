@@ -51,7 +51,7 @@ def run_unix(host, port, ssh, command):
            '-p', port, host] + command
 
     _LOGGER.debug('Starting ssh: %s', ssh)
-    utils.sane_execvp(ssh[0], ssh)
+    return utils.sane_execvp(ssh[0], ssh)
 
 
 def run_putty(host, port, sshcmd, command):
@@ -89,6 +89,8 @@ def run_putty(host, port, sshcmd, command):
             subprocess.call(ssh)
     except KeyboardInterrupt:
         sys.exit(0)
+
+    return -1
 
 
 def init():

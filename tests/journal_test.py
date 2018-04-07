@@ -8,10 +8,10 @@ from __future__ import unicode_literals
 
 import unittest
 
+import mock
+
 from treadmill import journal
 from treadmill.journal import plugin as jplugin
-
-import mock
 
 
 class API(object):

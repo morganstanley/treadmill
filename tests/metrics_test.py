@@ -8,10 +8,10 @@ from __future__ import unicode_literals
 
 import unittest
 
+import mock
+
 # Disable W0611: Unused import
 import tests.treadmill_test_skip_windows  # pylint: disable=W0611
-
-import mock
 
 from treadmill import metrics
 

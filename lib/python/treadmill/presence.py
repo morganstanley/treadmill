@@ -193,6 +193,7 @@ def find_server(zkclient, hostname):
     for node in sorted(zkclient.get_children(z.SERVER_PRESENCE), reverse=True):
         if server_hostname(node) == hostname:
             return z.path.server_presence(node)
+    return None
 
 
 def register_server(zkclient, hostname, node_info):

@@ -38,7 +38,7 @@ class Backend(object):
     def get_default(self, path, default=None):
         """Return stored object given path, default if not found."""
         try:
-            self.get(path)
+            return self.get(path)
         except ObjectNotFoundError:
             return default
 

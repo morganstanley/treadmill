@@ -12,12 +12,12 @@ import shutil
 import tempfile
 import unittest
 
-# Disable W0611: Unused import
-import tests.treadmill_test_skip_windows  # pylint: disable=W0611
-
 import ldap3
 import mock
 import yaml
+
+# Disable W0611: Unused import
+import tests.treadmill_test_skip_windows  # pylint: disable=W0611
 
 from treadmill import utils
 from treadmill.ad import gmsa
@@ -204,7 +204,7 @@ class HostGroupWatchTest(unittest.TestCase):
 
     @mock.patch('ldap3.Connection')
     @mock.patch('treadmill.ad.gmsa._check_ldap3_operation', mock.Mock())
-    def test_on_created_placement_same_host(self, connection):
+    def test_on_created_same_host(self, connection):
         """Test gmsa.HostGroupWatch._on_created_placement."""
         # Access protected module
         # pylint: disable=W0212
@@ -318,7 +318,7 @@ class HostGroupWatchTest(unittest.TestCase):
 
     @mock.patch('ldap3.Connection')
     @mock.patch('treadmill.ad.gmsa._check_ldap3_operation', mock.Mock())
-    def test_on_deleted_placement_same_host(self, connection):
+    def test_on_deleted_same_host(self, connection):
         """Test gmsa.HostGroupWatch._on_deleted_placement."""
         # Access protected module
         # pylint: disable=W0212

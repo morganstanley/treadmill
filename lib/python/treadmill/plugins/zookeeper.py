@@ -41,7 +41,7 @@ def make_user_acl(user, perm):
 def make_role_acl(role, perm):
     """Create role acl in zookeeper.
     """
-    assert(role in _ROLES)
+    assert role in _ROLES
 
     return kazoo.security.make_acl(
         scheme='sasl', credential='role/{0}'.format(role),

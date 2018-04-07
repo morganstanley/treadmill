@@ -11,12 +11,12 @@ import datetime
 import time
 import unittest
 
-# Disable W0611: Unused import
-import tests.treadmill_test_skip_windows  # pylint: disable=W0611
-
 import mock
 import numpy as np
 import pandas as pd
+
+# Disable W0611: Unused import
+import tests.treadmill_test_skip_windows  # pylint: disable=W0611
 
 from treadmill import scheduler
 from treadmill import reports

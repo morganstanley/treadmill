@@ -187,7 +187,7 @@ class CellState(object):
         """Get finished state if present."""
         data = self.finished.get(rsrc_id) or self.finished_history.get(rsrc_id)
         if not data:
-            return
+            return None
 
         state = {
             'name': rsrc_id,

@@ -13,11 +13,11 @@ import tempfile
 import time
 import unittest
 
-from tests.testutils import mockzk
-
 import mock
 import kazoo
 import kazoo.client
+
+from tests.testutils import mockzk
 
 import treadmill
 from treadmill import exc
@@ -37,6 +37,7 @@ hugetlb	9	1	1
 pids	5	1	1
 net_prio	2	1	1"""
 
+# pylint: disable=C0301
 PROCMOUNTS = """rootfs / rootfs rw 0 0
 sysfs /sys sysfs rw,seclabel,nosuid,nodev,noexec,relatime 0 0
 proc /proc proc rw,nosuid,nodev,noexec,relatime 0 0
@@ -73,7 +74,7 @@ home_centos_treadmill /home/centos/treadmill vboxsf rw,nodev,relatime 0 0
 home_centos_treadmill-pid1 /home/centos/treadmill-pid1 vboxsf rw,nodev,relatime 0 0
 tmpfs /run/user/1000 tmpfs rw,seclabel,nosuid,nodev,relatime,size=50040k,mode=700,uid=1000,gid=1000 0 0"""  # noqa: E501
 
-original_open = open
+_ORIGINAL_OPEN = open
 
 
 def _open_side_effect(path, *args):
@@ -82,7 +83,7 @@ def _open_side_effect(path, *args):
     elif path == '/proc/cgroups':
         return io.StringIO(PROCCGROUPS)
     else:
-        return original_open(path, *args)
+        return _ORIGINAL_OPEN(path, *args)
 
 
 class PresenceTest(mockzk.MockZookeeperTestCase):

@@ -10,8 +10,8 @@ import errno
 import logging
 import os
 
-import netifaces
 import six
+import netifaces
 
 from treadmill import iptables
 from treadmill import logcontext as lc
@@ -390,7 +390,7 @@ def _add_mark_rule(src_ip, environment):
     }
     for other_set in other_env_sets:
         if iptables.test_ip_set(other_set, src_ip) is True:
-            raise Exception('%r is already in %r', src_ip, other_set)
+            raise Exception('%r is already in %r' % (src_ip, other_set))
 
 
 def _delete_mark_rule(src_ip, environment):

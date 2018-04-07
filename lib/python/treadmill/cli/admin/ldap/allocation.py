@@ -73,7 +73,8 @@ def init():
         """Reserve capacity on a given cell"""
         admin_cell_alloc = admin.CellAllocation(context.GLOBAL.ldap.conn)
         if delete:
-            return admin_cell_alloc.delete([cell, allocation])
+            admin_cell_alloc.delete([cell, allocation])
+            return
 
         data = {}
         if memory:
