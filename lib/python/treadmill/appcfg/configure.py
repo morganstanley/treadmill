@@ -86,7 +86,7 @@ def configure(tm_env, event, runtime):
     except IOError:
         # File is gone. Nothing to do.
         _LOGGER.exception('No event to load: %r', event)
-        return
+        return None
 
     # Freeze the app data into a namedtuple object
     app = utils.to_obj(manifest_data)
@@ -136,7 +136,7 @@ def configure(tm_env, event, runtime):
         if err.errno == errno.ENOENT:
             shutil.rmtree(container_svc.directory)
             _LOGGER.exception('Event gone: %r', event)
-            return
+            return None
         else:
             raise
 

@@ -9,11 +9,11 @@ import os
 import sqlite3
 import tempfile
 
-# Disable W0611: Unused import
-import tests.treadmill_test_skip_windows  # pylint: disable=W0611
-
 import kazoo
 import mock
+
+# Disable W0611: Unused import
+import tests.treadmill_test_skip_windows  # pylint: disable=W0611
 
 from treadmill import cellsync  # pylint: disable=no-name-in-module
 from treadmill import zkutils

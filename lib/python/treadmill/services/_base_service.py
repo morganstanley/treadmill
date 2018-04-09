@@ -474,13 +474,13 @@ class ResourceService(object):
         """
         # Avoid triggering on changes to the service directory itself.
         if filepath == self._rsrc_dir:
-            return
+            return False
 
         req_id = os.path.basename(filepath)
 
         # Avoid triggerring on temporary files
         if req_id[0] == '.':
-            return
+            return False
 
         req_file = os.path.join(filepath, REQ_FILE)
         rep_file = os.path.join(filepath, REP_FILE)
@@ -500,7 +500,7 @@ class ResourceService(object):
                         fs.rmtree_safe(filepath)
                     else:
                         raise
-                return
+                return False
             raise
 
         # TODO: We should also validate the req_id format
@@ -547,7 +547,7 @@ class ResourceService(object):
 
         # Avoid triggerring on temporary files
         if req_id[0] == '.':
-            return
+            return None
 
         # TODO: We should also validate the req_id format
         with lc.LogContext(_LOGGER, req_id,

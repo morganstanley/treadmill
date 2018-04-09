@@ -779,9 +779,8 @@ if six.PY3:
 else:
     # pylint: disable=import-error
 
-    from backports.weakref import finalize as weakref_finalize
+    from weakref import finalize as weakref_finalize
 
-    # NOTE: This class has been copied from the Py3.4 weakref package.
     class TemporaryDirectory(object):
         """Create and return a temporary directory.  This has the same
         behavior as mkdtemp but can be used as a context manager.  For

@@ -48,8 +48,9 @@ class VipMgr(object):
         """
         if picked_ip is not None:
             if not self._alloc(owner, picked_ip):
-                raise Exception('Unabled to assign IP %r for %r',
-                                picked_ip, owner)
+                raise Exception(
+                    'Unabled to assign IP %r for %r' % (picked_ip, owner)
+                )
             return picked_ip
 
         for index in six.moves.range(0, 256**2):
@@ -65,7 +66,7 @@ class VipMgr(object):
             break
 
         else:
-            raise Exception('Unabled to find free IP for %r', owner)
+            raise Exception('Unabled to find free IP for %r' % owner)
 
         return ip
 

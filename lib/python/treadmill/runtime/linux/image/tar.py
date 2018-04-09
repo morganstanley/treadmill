@@ -105,14 +105,14 @@ class TarImageRepository(_repository_base.ImageRepository):
 
         if not tarfile.is_tarfile(temp.name):
             _LOGGER.error('File %r is not a tar file.', url)
-            raise Exception('File {0} is not a tar file.', url)
+            raise Exception('File {0} is not a tar file.'.format(url))
 
         new_sha256 = _sha256sum(temp.name)
 
         if sha256 is not None and sha256[0] != new_sha256:
             _LOGGER.error('Hash does not match %r - %r', sha256[0], new_sha256)
             raise Exception(
-                'Given hash of {0} does not match.'.format(new_sha256), url)
+                'Hash of {0} does not match {1}.'.format(new_sha256, url))
 
         # TODO: rename tar file to sha256 to allow for caching.
         return TarImage(self.tm_env, temp.name)

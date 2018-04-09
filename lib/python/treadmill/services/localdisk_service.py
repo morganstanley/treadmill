@@ -263,7 +263,7 @@ class LocalDiskResourceService(BaseResourceServiceImpl):
 
             # Remove it from state (if present)
             if not self._destroy_volume(uniqueid):
-                return
+                return False
 
             # Now that we successfully removed a volume, retry all the pending
             # resources.
@@ -285,7 +285,7 @@ class LocalDiskResourceService(BaseResourceServiceImpl):
         try:
             lvm.lvdisplay(uniqueid, group=self._vg_name)
         except subproc.CalledProcessError:
-            _LOGGER.warning('Ignoring unknow volume %r', uniqueid)
+            _LOGGER.warning('Ignoring unknown volume %r', uniqueid)
             return False
 
         # This should not fail.

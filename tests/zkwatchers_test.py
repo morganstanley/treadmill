@@ -9,11 +9,11 @@ from __future__ import unicode_literals
 import unittest
 import threading
 
-from tests.testutils import mockzk
-
 import mock
 import kazoo.client
 import kazoo.exceptions
+
+from tests.testutils import mockzk
 
 from treadmill import zkwatchers
 

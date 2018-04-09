@@ -37,7 +37,7 @@ class EndpointAPI(object):
         def on_event(filename, operation, content):
             """Event handler."""
             if not filename.startswith('/endpoints/'):
-                return
+                return None
 
             proid, endpoint_file = filename[len('/endpoints/'):].split('/', 1)
 

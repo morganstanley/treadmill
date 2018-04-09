@@ -1,6 +1,0 @@
-vpc:
-  name: 'IntegrationTest'
-  region: 'us-east-1'
-  vpc_cidr_block: '172.23.0.0/16'
-  secgroup_desc: 'sg_test'
-  secgroup_name: 'Treadmill Test Security Group'

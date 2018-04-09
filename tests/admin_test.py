@@ -9,6 +9,9 @@ from __future__ import unicode_literals
 import hashlib
 import unittest
 
+# Disable wrong import order warning.
+#
+# pylint: disable=C0411
 import tests.treadmill_ldap_patch
 tests.treadmill_ldap_patch.monkey_patch()
 

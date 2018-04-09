@@ -16,10 +16,10 @@ import stat
 import tempfile
 import unittest
 
+import mock
+
 # Disable W0611: Unused import
 import tests.treadmill_test_skip_windows   # pylint: disable=W0611
-
-import mock
 
 import treadmill
 import treadmill.rulefile
@@ -33,7 +33,7 @@ from treadmill.syscall import unshare
 
 from treadmill.runtime.linux import _run as app_run
 
-path_exists = os.path.exists
+_PATH_EXISTS = os.path.exists
 
 
 class LinuxRuntimeRunTest(unittest.TestCase):
@@ -397,7 +397,7 @@ class LinuxRuntimeRunTest(unittest.TestCase):
                 mock.Mock(return_value='/treadmill'))
     @mock.patch('os.path.exists', mock.Mock(
         side_effect=lambda path: True if 'root/.etc' in path else
-        path_exists(path)
+        _PATH_EXISTS(path)
     ))
     @mock.patch('treadmill.subproc.resolve',
                 mock.Mock(return_value='/tmp/treadmill_bind_preload.so'))

@@ -12,11 +12,11 @@ import shutil
 import tempfile
 import unittest
 
-# Disable W0611: Unused import
-import tests.treadmill_test_skip_windows  # pylint: disable=W0611
-
 import mock
 import yaml
+
+# Disable W0611: Unused import
+import tests.treadmill_test_skip_windows  # pylint: disable=W0611
 
 from treadmill import dirwatch
 from treadmill.ad import _servers as servers

@@ -146,10 +146,10 @@ class ServersWatch(object):
                 server_info = yaml.load(stream=f)
 
                 if not server_info:
-                    return
+                    return None
 
                 if 'partition' not in server_info:
-                    return
+                    return None
 
                 if fnmatch.fnmatch(server_info['partition'], self._partition):
                     if self._add_ldap_connection(server_info):

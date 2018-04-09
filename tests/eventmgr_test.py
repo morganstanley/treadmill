@@ -13,10 +13,10 @@ import shutil
 import tempfile
 import unittest
 
-from tests.testutils import mockzk
-
 import kazoo
 import mock
+
+from tests.testutils import mockzk
 
 import treadmill
 from treadmill import context

@@ -42,7 +42,6 @@ app = treadmill.rest.api.app
 app-group = treadmill.rest.api.app_group
 app-monitor = treadmill.rest.api.app_monitor
 cell = treadmill.rest.api.cell
-cloud = treadmill.rest.api.cloud
 cron = treadmill.rest.api.cron
 dns = treadmill.rest.api.dns
 endpoint = treadmill.rest.api.endpoint
@@ -62,7 +61,6 @@ app = treadmill.api.app
 app-group = treadmill.api.app_group
 app-monitor = treadmill.api.app_monitor
 cell = treadmill.api.cell
-cloud = treadmill.api.cloud
 cron = treadmill.api.cron
 dns = treadmill.api.dns
 endpoint = treadmill.api.endpoint
@@ -119,7 +117,6 @@ tenant = treadmill.formatter.tablefmt:TenantPrettyFormatter
 admin = treadmill.cli.admin
 allocation = treadmill.cli.allocation
 cell = treadmill.cli.cell
-cloud = treadmill.cli.cloud
 configure = treadmill.cli.configure
 cron = treadmill.cli.cron
 discovery = treadmill.cli.discovery
@@ -156,7 +153,6 @@ reaper = treadmill.cli.supervise.reaper
 [treadmill.cli.admin]
 blackout = treadmill.cli.admin.blackout
 checkout = treadmill.cli.admin.checkout
-cloud = treadmill.cli.admin.cloud
 cron = treadmill.cli.admin.cron
 diag = treadmill.cli.admin.diag
 discovery = treadmill.cli.admin.discovery
@@ -269,32 +265,6 @@ zookeeper = treadmill.bootstrap.zookeeper
 
 
 [treadmill.checkout.processors]
-
-
-[treadmill.infra]
-configuration = treadmill.infra.configuration
-connection = treadmill.infra.connection
-constants = treadmill.infra.constants
-ec2object = treadmill.infra.ec2object
-instances = treadmill.infra.instances
-setup = treadmill.infra.setup
-subnet = treadmill.infra.subnet
-utils = treadmill.infra.utils
-vpc = treadmill.infra.vpc
-
-[treadmill.infra.setup]
-base_provision = treadmill.infra.setup.base_provision
-cell = treadmill.infra.setup.cell
-ipa = treadmill.infra.setup.ipa
-ldap = treadmill.infra.setup.ldap
-node = treadmill.infra.setup.node
-zookeeeper = treadmill.infra.setup.zookeeper
-
-[treadmill.infra.utils]
-cli_callbacks = treadmill.infra.utils.cli_callbacks
-hosted_zones = treadmill.infra.utils.hosted_zones
-mutually_exclusive_option = treadmill.infra.utils.mutually_exclusive_option
-security_group = treadmill.infra.utils.security_group
 
 
 [treadmill.connection.manager]

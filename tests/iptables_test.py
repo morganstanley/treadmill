@@ -11,10 +11,10 @@ import os
 import time
 import unittest
 
+import mock
+
 # Disable W0611: Unused import
 import tests.treadmill_test_skip_windows  # pylint: disable=W0611
-
-import mock
 
 import treadmill
 from treadmill import firewall
@@ -594,7 +594,7 @@ class IptablesTest(unittest.TestCase):
         treadmill.iptables._get_current_passthrough_rules.return_value = \
             self.passthrough_rules
         missing_rule = firewall.PassThroughRule(src_ip='10.197.19.20',
-                                                dst_ip='192.168.2.2'),
+                                                dst_ip='192.168.2.2')
         passthroughs = self.passthrough_rules | set([missing_rule, ])
 
         iptables.configure_passthrough_rules(

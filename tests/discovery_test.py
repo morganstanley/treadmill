@@ -8,11 +8,11 @@ from __future__ import unicode_literals
 
 import unittest
 
-from tests.testutils import mockzk
-
 import kazoo
 import kazoo.client
 import mock
+
+from tests.testutils import mockzk
 
 from treadmill import discovery
 

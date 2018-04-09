@@ -15,6 +15,8 @@ def linux(func):
         """Wrapper function"""
         if os.name != 'posix':
             return func(*args, **kwargs)
+        else:
+            return None
     return func_wrapper
 
 
@@ -24,4 +26,6 @@ def windows(func):
         """Wrapper function"""
         if os.name != 'nt':
             return func(*args, **kwargs)
+        else:
+            return None
     return func_wrapper
