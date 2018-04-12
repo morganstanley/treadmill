@@ -259,7 +259,7 @@ def mk_metrics_api(tm_env):
             self.get = _get
 
         def _remove_ext(self, fname, extension='.rrd'):
-            """Returns the basename of a file and removes the extension as well.
+            """Returns the basename of a file without the extension.
             """
             res = os.path.basename(fname)
             res = res[:-len(extension)]
