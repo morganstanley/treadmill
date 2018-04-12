@@ -1,7 +1,6 @@
 #!/bin/bash
 
 set -e
-set -x
 
 SCRIPT_NAME=${0##*/}
 SCRIPT_DIR=${0%/${SCRIPT_NAME}}
@@ -58,6 +57,7 @@ mkdir -vp "${WHEELS_DIR}"
 pip ${PIP_OPTIONS} wheel \
     -r requirements.txt \
     -r test-requirements.txt \
+    -f "${WHEELS_DIR}" \
     -w "${WHEELS_DIR}" \
     --only-binary :all: \
     --no-binary ${CAN_BUILD_WHEELS}
@@ -67,3 +67,15 @@ for WHEEL in $(find "${WHEELS_DIR}" -name "*manylinux1*")
 do
     mv -v ${WHEEL} $(echo ${WHEEL} | sed s/manylinux1/linux/)
 done
+
+# All requirements should be downloaded from requirements.txt, disable
+# pypi
+pip ${PIP_OPTIONS} wheel \
+    --no-index         \
+    -f "${WHEELS_DIR}" \
+    -w "${WHEELS_DIR}" \
+    .
+
+pushd ${WHEELS_DIR}
+for f in `ls *.whl`; do echo "<a href=\"$f\">$f</a>"; done > index.html
+popd

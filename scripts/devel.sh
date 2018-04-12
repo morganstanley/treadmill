@@ -22,8 +22,15 @@ if [ "$WHEELS_DIR" == "" ]; then
     WHEELS_DIR=~/wheels/
 fi
 
-pip install -f $WHEELS_DIR \
-    --no-cache-dir --no-index \
-    -r requirements.txt -r test-requirements.txt
+pip install                   \
+    -f $WHEELS_DIR            \
+    --no-cache-dir            \
+    --no-index                \
+    -r test-requirements.txt
 
-pip install -e .
+pip install                   \
+    -f $WHEELS_DIR            \
+    --only-binary             \
+    --no-cache-dir            \
+    --no-index                \
+    -e .

@@ -328,7 +328,7 @@ def run_server(locker):
 
         @utils.exit_on_unhandled
         def got_line(self, data):
-            """Invoked after authentication is done, with decrypted data as arg.
+            """Invoked after authentication is done, decrypted data as arg.
 
             :param ``bytes`` data:
                 Data received from the client.

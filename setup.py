@@ -8,6 +8,9 @@ def _read_requires(filename):
     reqs = []
     for inst_req in pip.req.parse_requirements(filename, session='no session'):
         req = str(inst_req.req)
+        if req == 'kazoo[sasl]':
+            inst_req.req = 'kazoo==2.4.0.dev0'
+
         if not inst_req.match_markers():
             print('Skipping %r: %r => False' % (req, inst_req.markers))
             continue
