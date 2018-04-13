@@ -10,11 +10,12 @@ import errno
 import io
 import logging
 import os
+import sys
+import tempfile
+
 if os.name == 'posix':
     import pwd
     import stat
-import sys
-import tempfile
 
 import jinja2
 import pkg_resources
@@ -129,8 +130,9 @@ def _interpolate_service_conf(resource_path, service_conf, name, params):
     new_service_conf = {'name': name}
 
     if 'command' not in service_conf:
-        raise Exception('Service def did not include command: %s',
-                        resource_path)
+        raise Exception(
+            'Service def did not include command: %s' % resource_path
+        )
 
     new_service_conf['command'] = _interpolate_scalar(
         service_conf.get('command'), params)
@@ -141,8 +143,7 @@ def _interpolate_service_conf(resource_path, service_conf, name, params):
         if 'tombstone' not in monitor_policy or \
                 'path' not in monitor_policy['tombstone']:
             raise Exception(
-                'Service def did not include a tombstone path: %s',
-                resource_path
+                'Service def ombstone path missing: %s' % resource_path
             )
 
         tombstone_path = monitor_policy['tombstone']['path']
@@ -351,7 +352,8 @@ def _install(package, src_dir, dst_dir, params, prefix_len=None, rec=None):
     """Interpolate source directory into target directory with params.
     """
     package_name = package.__name__
-    _LOGGER.info('Installing package: %s %s %s', package_name, src_dir, dst_dir)
+    _LOGGER.info('Installing package: %s %s %s',
+                 package_name, src_dir, dst_dir)
 
     contents = pkg_resources.resource_listdir(package_name, src_dir)
 
@@ -423,7 +425,7 @@ def _interpolate_dict(value, params):
             break
         target = dict(result)
     else:
-        raise Exception('Too many recursions: %s %s', value, params)
+        raise Exception('Too many recursions: %s %s' % (value, params))
 
     return result
 

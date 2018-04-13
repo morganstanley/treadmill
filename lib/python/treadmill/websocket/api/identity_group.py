@@ -32,7 +32,7 @@ class IdentityGroupAPI(object):
             """Event handler.
             """
             if not filename.startswith('/identity-groups/'):
-                return
+                return None
 
             sow = operation is None
 

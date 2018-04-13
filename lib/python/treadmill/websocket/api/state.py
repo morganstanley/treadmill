@@ -33,7 +33,7 @@ class RunningAPI(object):
             """Event handler.
             """
             if not filename.startswith('/running/'):
-                return
+                return None
 
             appname = os.path.basename(filename)
             return {
@@ -63,7 +63,7 @@ class ScheduledAPI(object):
             """Event handler.
             """
             if not filename.startswith('/scheduled/'):
-                return
+                return None
 
             appname = os.path.basename(filename)
             manifest = None

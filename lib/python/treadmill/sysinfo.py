@@ -37,18 +37,18 @@ _BYTES_IN_MB = 1024 * 1024
 
 def _disk_usage_linux(path):
     """Return disk usage associated with path."""
-    st = os.statvfs(path)
-    total = st.f_blocks * st.f_frsize
-    free = st.f_bavail * st.f_frsize
+    statvfs = os.statvfs(path)
+    total = statvfs.f_blocks * statvfs.f_frsize
+    free = statvfs.f_bavail * statvfs.f_frsize
 
     return namedtuple('usage', 'total free')(total, free)
 
 
 def _disk_usage_windows(path):
     """Return disk usage associated with path."""
-    du = psutil.disk_usage(path)
+    dsk_use = psutil.disk_usage(path)
 
-    return namedtuple('usage', 'total free')(du.total, du.free)
+    return namedtuple('usage', 'total free')(dsk_use.total, dsk_use.free)
 
 
 _MEMINFO = None
@@ -168,8 +168,8 @@ def hostname():
 
 def _port_range_linux():
     """Returns local port range."""
-    with io.open('/proc/sys/net/ipv4/ip_local_port_range', 'r') as pr:
-        low, high = [int(i) for i in pr.read().split()]
+    with io.open('/proc/sys/net/ipv4/ip_local_port_range', 'r') as f:
+        low, high = [int(i) for i in f.read().split()]
     return low, high
 
 
@@ -287,8 +287,9 @@ def _node_info_linux(tm_env, runtime):
     elif runtime == 'docker':
         info = _get_docker_node_info(info)
     else:
-        raise NotImplementedError('Runtime {0} is not supported on Linux',
-                                  runtime)
+        raise NotImplementedError(
+            'Runtime {0} is not supported on Linux'.format(runtime)
+        )
 
     return info
 
@@ -308,8 +309,9 @@ def _node_info_windows(_tm_env, runtime):
     if runtime != 'docker':
         # Raising an exception will ensure windows is started with docker
         # runtime enabled
-        raise NotImplementedError('Runtime {0} is not supported on Windows',
-                                  runtime)
+        raise NotImplementedError(
+            'Runtime {0} is not supported on Windows'.format(runtime)
+        )
 
     info = _get_docker_node_info({
         'up_since': up_since(),

@@ -231,6 +231,8 @@ class UtilsTest(unittest.TestCase):
 
     def test_find_in_path(self):
         """Tests finding program in system path."""
+        # pylint: disable=protected-access
+
         temp_dir = self.root
         saved_path = os.environ['PATH']
         # xxxx is not in path
@@ -243,7 +245,7 @@ class UtilsTest(unittest.TestCase):
         if os.name == 'posix':
             # xxxx is in path, but not executable.
             self.assertEqual('xxxx', utils.find_in_path('xxxx'))
-            os.chmod(os.path.join(temp_dir, 'xxxx'), int(utils.EXEC_MODE))
+            os.chmod(os.path.join(temp_dir, 'xxxx'), int(utils._EXEC_MODE))
 
         self.assertEqual(
             os.path.join(temp_dir, 'xxxx'),

@@ -166,3 +166,4 @@ def evaluate_filter_node(self, node, candidates):
                 node.matched.add(candidate)
             else:
                 node.unmatched.add(candidate)
+    return None

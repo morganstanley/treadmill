@@ -111,14 +111,14 @@ def extractpath(path, subsystem, pseudofile=None):
     mountpoint = _get_mountpoint(subsystem)
 
     if not path.startswith(mountpoint):
-        raise ValueError('cgroup path does not start with %r', mountpoint)
+        raise ValueError('cgroup path does not start with %r' % mountpoint)
 
     subpath = path[len(mountpoint):]
 
     if pseudofile is None:
         return subpath.strip('/')
     elif not subpath.endswith(pseudofile):
-        raise ValueError('cgroup path not end with pseudofile %r', pseudofile)
+        raise ValueError('cgroup path not end with pseudofile %r' % pseudofile)
 
     return subpath[:-len(pseudofile)].strip('/')
 

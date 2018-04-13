@@ -174,7 +174,7 @@ def signalfd_read(sfd):
         # Ignore signal interruptions
         if err.errno != errno.EINTR:
             raise
-        return
+        return None
 
     return SFDSigInfo.from_buffer_copy(data)
 

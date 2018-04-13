@@ -16,8 +16,6 @@ import itertools
 import logging
 import shlex
 
-from distutils import util
-
 import ldap3
 from ldap3.core import exceptions as ldap_exceptions
 import jinja2
@@ -66,6 +64,19 @@ DEFAULT_PARTITION = '_default'
 DEFAULT_TENANT = '_default'
 
 
+def _to_bool(value):
+    """Fuzzy converion of string/int to bool."""
+    if isinstance(value, bool):
+        return value
+
+    # XXX: This is necessary until previous bad entries are cleaned up.
+    s_value = str(value).lower()
+    if s_value == "0" or s_value == "false":
+        return False
+    else:
+        return True
+
+
 def _entry_2_dict(entry, schema):
     """Convert LDAP entry like object to dict.
     """
@@ -88,9 +99,7 @@ def _entry_2_dict(entry, schema):
             else:
                 obj[obj_field] = [field_type[0](v) for v in value]
         elif field_type is bool:
-            # XXX: This is necessary until previous bad entries are cleaned up.
-            obj[obj_field] = (bool(util.strtobool(value[0].lower()))
-                              if not isinstance(value[0], bool) else value[0])
+            obj[obj_field] = _to_bool(value[0])
         elif field_type is dict:
             obj[obj_field] = json.loads(value[0])
         elif field_type is str:
@@ -151,12 +160,7 @@ def _dict_2_entry(obj, schema, option=None, option_value=None):
                                          field_type, value)
                     entry[ldap_field] = filtered
             elif field_type is bool:
-                # XXX: This is necessary until previous bad entries are cleaned
-                # up.
-                entry[ldap_field] = [bool(
-                    util.strtobool(six.text_type(value).lower())
-                    if not isinstance(value, bool) else value
-                )]
+                entry[ldap_field] = [_to_bool(value)]
             elif field_type is dict:
                 entry[ldap_field] = [
                     json.dumps(

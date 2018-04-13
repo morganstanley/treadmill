@@ -205,6 +205,8 @@ class CgroupResourceService(BaseResourceServiceImpl):
 
                 # We need a refresh after this event
                 return True
+            else:
+                return False
 
         handler_data['oom_handler'] = _cgroup_oom_handler
         self._cgroups[cgrp] = handler_data

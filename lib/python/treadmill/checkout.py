@@ -72,3 +72,5 @@ def url_check(url):
         return _http_check(url)
     elif url.startswith('ws://'):
         return _ws_check(url)
+    else:
+        raise Exception('Invalid protocol: %s' % url)

@@ -11,6 +11,10 @@ import unittest
 
 # Disable W0611: Unused import
 import tests.treadmill_test_deps  # pylint: disable=W0611
+
+# Disable wrong import order warning.
+#
+# pylint: disable=C0411
 import tests.treadmill_ldap_patch
 tests.treadmill_ldap_patch.monkey_patch()
 
