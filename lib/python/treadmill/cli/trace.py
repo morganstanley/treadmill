@@ -156,7 +156,7 @@ def init():
             elif not last:
                 for name in [app['name'] for app in app_states]:
                     cli.out(name)
-                return
+                return None
 
             else:
                 app = app_states[-1]['name']

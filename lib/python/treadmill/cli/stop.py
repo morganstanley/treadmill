@@ -31,7 +31,7 @@ def init():
     def stop(api, all_instances, instances):
         """Stop (unschedule, terminate) Treadmill instance(s)."""
         if not instances:
-            return
+            return None
 
         apis = context.GLOBAL.cell_api(api)
 
@@ -39,7 +39,7 @@ def init():
             endpoint = '/instance/?match=' + instances[0]
             instances = restclient.get(apis, endpoint).json()['instances']
             if not instances:
-                return
+                return None
 
         response = restclient.post(apis, '/instance/_bulk/delete',
                                    payload=dict(instances=list(instances)))

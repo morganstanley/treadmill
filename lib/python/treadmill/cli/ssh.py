@@ -9,6 +9,7 @@ from __future__ import unicode_literals
 import logging
 import os
 import socket
+import subprocess
 import sys
 
 import click
@@ -18,11 +19,6 @@ from gevent import queue as g_queue
 
 import six
 from six.moves import urllib_parse
-
-if six.PY2 and os.name == 'posix':
-    import subprocess32 as subprocess  # pylint: disable=E0401
-else:
-    import subprocess  # pylint: disable=wrong-import-order
 
 from treadmill import context
 from treadmill import cli
@@ -79,7 +75,7 @@ def run_unix(host, port, ssh, command):
            '-p', port, host] + command
 
     _LOGGER.debug('Starting ssh: %s', ssh)
-    utils.sane_execvp(ssh[0], ssh)
+    return utils.sane_execvp(ssh[0], ssh)
 
 
 def run_putty(host, port, sshcmd, command):
@@ -228,22 +224,25 @@ def init():
             ssh = _DEFAULT_SSH
 
         if wait:
-            return _wait_for_app(wsapi, ssh, app, command)
+            _wait_for_app(wsapi, ssh, app, command)
 
-        apis = context.GLOBAL.state_api(api)
+        else:
+            apis = context.GLOBAL.state_api(api)
 
-        url = '/endpoint/{}/tcp/ssh'.format(urllib_parse.quote(app))
+            url = '/endpoint/{}/tcp/ssh'.format(urllib_parse.quote(app))
 
-        response = restclient.get(apis, url)
-        endpoints = response.json()
-        _LOGGER.debug('endpoints: %r', endpoints)
-        if not endpoints:
-            cli.bad_exit('No ssh endpoint(s) found for %s', app)
+            response = restclient.get(apis, url)
+            endpoints = response.json()
+            _LOGGER.debug('endpoints: %r', endpoints)
+            if not endpoints:
+                cli.bad_exit('No ssh endpoint(s) found for %s', app)
 
-        # Take the first one, if there are more than one, then this is
-        # consistent with when 1 is returned.
-        endpoint = endpoints[0]
-
-        run_ssh(endpoint['host'], str(endpoint['port']), ssh, list(command))
+            # Take the first one, if there are more than one, then this is
+            # consistent with when 1 is returned.
+            endpoint = endpoints[0]
+            run_ssh(
+                endpoint['host'],
+                str(endpoint['port']), ssh, list(command)
+            )
 
     return ssh

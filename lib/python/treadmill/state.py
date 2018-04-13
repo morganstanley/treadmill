@@ -93,7 +93,7 @@ class State(object):
         """Returns all apps that are scheduled but not running."""
         sched = self.scheduler()
         if sched is None:
-            return
+            return []
 
         placed = {
             app

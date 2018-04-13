@@ -15,13 +15,11 @@ import io
 import json
 import logging
 import os
-import shutil
 import signal
 import stat
 import sys
 import tempfile
 import time
-import warnings
 
 # Pylint warning re string being deprecated
 #
@@ -51,15 +49,15 @@ from treadmill import osnoop
 
 _LOGGER = logging.getLogger(__name__)
 
-JINJA2_ENV = jinja2.Environment(loader=jinja2.PackageLoader(__name__))
+_JINJA2_ENV = jinja2.Environment(loader=jinja2.PackageLoader(__name__))
 
-EXEC_MODE = (stat.S_IRUSR |
-             stat.S_IRGRP |
-             stat.S_IROTH |
-             stat.S_IWUSR |
-             stat.S_IXUSR |
-             stat.S_IXGRP |
-             stat.S_IXOTH)
+_EXEC_MODE = (stat.S_IRUSR |
+              stat.S_IRGRP |
+              stat.S_IROTH |
+              stat.S_IWUSR |
+              stat.S_IXUSR |
+              stat.S_IXGRP |
+              stat.S_IXOTH)
 
 _DEFAULT_BASE_ALPHABET = string.digits + string.ascii_lowercase
 
@@ -74,11 +72,11 @@ def generate_template(templatename, **kwargs):
     :param ``dict`` kwargs:
         key/value passed into the template.
     """
-    template = JINJA2_ENV.get_template(templatename)
+    template = _JINJA2_ENV.get_template(templatename)
     return template.generate(**kwargs)
 
 
-def create_script(filename, templatename, mode=EXEC_MODE, **kwargs):
+def create_script(filename, templatename, mode=_EXEC_MODE, **kwargs):
     """This Creates a file from a JINJA template.
 
     The templates exist in our lib/python/treadmill/templates directory.
@@ -99,7 +97,7 @@ def create_script(filename, templatename, mode=EXEC_MODE, **kwargs):
         for data in generate_template(templatename, **kwargs):
             f.write(data)
         if os.name == 'posix':
-            # cast to int required in order for default EXEC_MODE to work
+            # cast to int required in order for default _EXEC_MODE to work
             os.fchmod(f.fileno(), int(mode))
     if sys.version_info[0] < 3:
         # TODO: os.rename cannot replace on windows
@@ -770,124 +768,57 @@ def iter_sep(iterable, separator):
         yield separator
 
 
-if six.PY3:
-    # pylint: disable=ungrouped-imports
-
-    from tempfile import TemporaryDirectory
-    from shutil import which
-
-else:
-    from backports.weakref import finalize as weakref_finalize
-
-    # NOTE: This class has been copied from the Py3.4 weakref package.
-    class TemporaryDirectory(object):
-        """Create and return a temporary directory.  This has the same
-        behavior as mkdtemp but can be used as a context manager.  For
-        example:
-
-            with TemporaryDirectory() as tmpdir:
-                ...
-
-        Upon exiting the context, the directory and everything contained
-        in it are removed.
-        """
-
-        def __init__(self, suffix="", prefix=tempfile.template, dir_=None):
-            self.name = tempfile.mkdtemp(suffix, prefix, dir_)
-            self._finalizer = weakref_finalize(
-                self, self._cleanup, self.name,
-                warn_message="Implicitly cleaning up {!r}".format(self)
-            )
-
-        @classmethod
-        def _cleanup(cls, name, warn_message):
-            shutil.rmtree(name)
-            warnings.warn(warn_message, ResourceWarning)
-
-        def __repr__(self):
-            return "<{} {!r}>".format(self.__class__.__name__, self.name)
-
-        def __enter__(self):
-            return self.name
-
-        def __exit__(self, _exc, _value, _tb):
-            self.cleanup()
-
-        def cleanup(self):
-            """Cleanup the TemporaryDirectory.
-            """
-            if self._finalizer.detach():
-                shutil.rmtree(self.name)
-
-    # NOTE: This function has been copied from the Py3.4 shutil package.
-    def which(cmd, mode=os.F_OK | os.X_OK, path=None):
-        """Given a command, mode, and a PATH string, return the path which
-        conforms to the given mode on the PATH, or None if there is no such
-        file.
-
-        `mode` defaults to os.F_OK | os.X_OK. `path` defaults to the result
-        of os.environ.get('PATH'), or can be overridden with a custom search
-        path.
-
-        """
-        # R0912(too-many-branches): Too many branches (13/12)
-        # pylint: disable=R0912
-
-        # Check that a given file can be accessed with the correct mode.
-        # Additionally check that `file` is not a directory, as on Windows
-        # directories pass the os.access check.
-        def _access_check(filename, mode):
-            return (os.path.exists(filename) and
-                    os.access(filename, mode) and
-                    not os.path.isdir(filename))
-
-        # If we're given a path with a directory part, look it up directly
-        # rather than referring to PATH directories. This includes checking
-        # relative to the current directory, e.g. ./script.
-        if os.path.dirname(cmd):
-            if _access_check(cmd, mode):
-                return cmd
-            return None
-
-        if path is None:
-            path = os.environ.get('PATH', os.defpath)
-        if not path:
-            return None
-        path = path.split(os.pathsep)
-
-        if sys.platform == 'win32':
-            # The current directory takes precedence on Windows.
-            if os.curdir not in path:
-                path.insert(0, os.curdir)
-
-            # PATHEXT is necessary to check on Windows.
-            pathext = os.environ.get('PATHEXT', '').split(os.pathsep)
-            # See if the given file matches any of the expected path
-            # extensions.  This will allow us to short circuit when given
-            # "python.exe".  If it does match, only test that one, otherwise we
-            # have to try others.
-            if any(cmd.lower().endswith(ext.lower()) for ext in pathext):
-                files = [cmd]
-            else:
-                files = [cmd + ext for ext in pathext]
-        else:
-            # On other platforms you don't have things like PATHEXT to tell you
-            # what file suffixes are executable, so just pass on cmd as-is.
-            files = [cmd]
-
-        seen = set()
-        for dir_ in path:
-            normdir = os.path.normcase(dir_)
-            if normdir not in seen:
-                seen.add(normdir)
-                for thefile in files:
-                    name = os.path.join(dir_, thefile)
-                    if _access_check(name, mode):
-                        return name
-        return None
+# Aliases for compatibility
+# wrong-import-order,ungrouped-imports
+from shutil import which  # pylint: disable=C0411,C0412
+from tempfile import TemporaryDirectory  # pylint: disable=C0411,C0412
 
 
 __all__ = [
+    'bytes_to_readable',
+    'cidr_range',
+    'closefrom',
+    'compose',
+    'cpu_units',
+    'create_script',
+    'datetime_utcnow',
+    'drop_privileges',
+    'encode_uri_parts',
+    'equals_list2dict',
+    'exit_on_unhandled',
+    'find_in_path',
+    'from_base_n',
+    'generate_template',
+    'get_current_username',
+    'get_iterable',
+    'hashcmp',
+    'int2ip',
+    'ip2int',
+    'is_root',
+    'iterable_to_stream',
+    'iter_sep',
+    'json_genencode',
+    'kilobytes',
+    'make_signal_flag',
+    'megabytes',
+    'parse_mask',
+    'reboot_schedule',
+    'report_ready',
+    'restore_signals',
+    'rootdir',
+    'sane_execvp',
+    'signal2name',
+    'size_to_bytes',
+    'strftime_utc',
+    'sys_exit',
+    'tail',
+    'tail_stream',
     'TemporaryDirectory',
+    'term_signal',
+    'touch',
+    'to_base_n',
+    'to_obj',
+    'to_seconds',
+    'validate',
     'which',
 ]

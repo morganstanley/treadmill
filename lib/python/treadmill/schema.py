@@ -85,5 +85,7 @@ def schema(*schemas, **kwschemas):
         valid_args, valid_kwargs = validate(args, kwargs)
         if not _TEST_MODE:
             return func(*valid_args, **valid_kwargs)
+        else:
+            return None
 
     return decorated

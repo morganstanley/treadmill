@@ -245,7 +245,7 @@ DICT = _KeyValuePairs()
 def validate_memory(_ctx, _param, value):
     """Validate memory string."""
     if value is None:
-        return
+        return None
 
     if not re.search(r'\d+[KkMmGg]$', value):
         raise click.BadParameter('Memory format: nnn[K|M|G].')
@@ -255,7 +255,7 @@ def validate_memory(_ctx, _param, value):
 def validate_disk(_ctx, _param, value):
     """Validate disk string."""
     if value is None:
-        return
+        return None
     if not re.search(r'\d+[KkMmGg]$', value):
         raise click.BadParameter('Disk format: nnn[K|M|Gyy].')
     return value
@@ -264,7 +264,7 @@ def validate_disk(_ctx, _param, value):
 def validate_cpu(_ctx, _param, value):
     """Validate cpu string."""
     if value is None:
-        return
+        return None
     if not re.search(r'\d+%$', value):
         raise click.BadParameter('CPU format: nnn%.')
     return value
@@ -273,7 +273,7 @@ def validate_cpu(_ctx, _param, value):
 def validate_cpuset_cores(_ctx, _param, value):
     """Validate cpuset cores string."""
     if value is None:
-        return
+        return None
     if not re.search(r'\d+\-?\d*(,\d+\-?\d*)*$', value):
         raise click.BadParameter('CPU cores format: nnn[,nnn-[nnn]].')
     return value
@@ -282,7 +282,7 @@ def validate_cpuset_cores(_ctx, _param, value):
 def validate_reboot_schedule(_ctx, _param, value):
     """Validate reboot schedule specification."""
     if value is None:
-        return
+        return None
     try:
         utils.reboot_schedule(value)
     except ValueError:

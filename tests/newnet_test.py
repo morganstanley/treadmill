@@ -10,11 +10,11 @@ import multiprocessing
 import os
 import unittest
 
+import mock
+
 # Disable W0611: Unused import
 import tests.treadmill_test_skip_windows  # pylint: disable=W0611
 import tests.treadmill_test_deps  # pylint: disable=W0611
-
-import mock
 
 import treadmill
 from treadmill import newnet

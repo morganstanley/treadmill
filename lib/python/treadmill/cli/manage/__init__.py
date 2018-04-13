@@ -64,6 +64,7 @@ def make_manage_multi_command(module_name, **click_args):
                     return super(MCommand, self).invoke(ctx)
                 utils.sane_execvp(module_path,
                                   [os.path.basename(module_path)] + ctx.args)
+            return None
 
         def get_command(self, ctx, cmd_name):
             return self.commands.get_command(ctx, cmd_name)

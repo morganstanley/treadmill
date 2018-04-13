@@ -1,4 +1,6 @@
-"""Instance REST api tests."""
+"""Instance REST api tests.
+"""
+
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
@@ -8,8 +10,7 @@ import json
 import unittest
 
 # don't complain about unused imports
-# pylint: disable=W0611
-import tests.treadmill_test_deps
+import tests.treadmill_test_deps  # pylint: disable=W0611
 from tests.rest.api import user_set
 
 import flask
@@ -18,7 +19,6 @@ import mock
 
 from six.moves import http_client
 
-import treadmill
 from treadmill import exc
 from treadmill import webutils
 from treadmill.rest import error_handlers  # pylint: disable=no-name-in-module

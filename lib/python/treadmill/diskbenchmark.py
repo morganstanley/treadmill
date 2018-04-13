@@ -264,7 +264,7 @@ def benchmark_vg(vg_name,
         _LOGGER.error('Space not enough for benchmark,'
                       'need at least %s',
                       total_volume)
-        return
+        return None
 
     try:
         _LOGGER.info('Setup benchmark env')

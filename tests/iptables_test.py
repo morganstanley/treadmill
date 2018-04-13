@@ -11,11 +11,11 @@ import os
 import time
 import unittest
 
+import mock
+
 # Disable W0611: Unused import
 import tests.treadmill_test_skip_windows  # pylint: disable=W0611
 import tests.treadmill_test_deps  # pylint: disable=W0611
-
-import mock
 
 import treadmill
 from treadmill import firewall
@@ -208,30 +208,39 @@ class IptablesTest(unittest.TestCase):
         )
 
     @mock.patch('treadmill.subproc.check_call', mock.Mock())
-    @mock.patch('treadmill.subproc.check_output', mock.Mock())
     def test_add_raw_rule_safe(self):
         """Test adding iptable rule (safe)."""
-        treadmill.subproc.check_output.return_value = ''
+        treadmill.subproc.check_call.return_value = 0
 
         iptables.add_raw_rule('nat', 'OUTPUT', '-j FOO', safe=True)
 
-        treadmill.subproc.check_output.assert_called_with(
-            ['iptables', '-t', 'nat', '-S', 'OUTPUT']
+        treadmill.subproc.check_call.assert_called_once_with(
+            ['iptables', '-t', 'nat', '-C', 'OUTPUT', '-j', 'FOO']
         )
-        treadmill.subproc.check_call.assert_called_with(
-            ['iptables', '-t', 'nat', '-A', 'OUTPUT', '-j', 'FOO']
-        )
-        treadmill.subproc.check_output.reset_mock()
+
+        # Rule does not exist.
         treadmill.subproc.check_call.reset_mock()
-        ##
-        treadmill.subproc.check_output.return_value = '-A OUTPUT -j FOO'
+
+        treadmill.subproc.check_call.side_effect = [
+            subproc.CalledProcessError(1, ''),
+            0,
+        ]
 
         iptables.add_raw_rule('nat', 'OUTPUT', '-j FOO', safe=True)
 
-        treadmill.subproc.check_output.assert_called_with(
-            ['iptables', '-t', 'nat', '-S', 'OUTPUT']
-        )
-        self.assertEqual(0, treadmill.subproc.check_call.call_count)
+        treadmill.subproc.check_call.assert_has_calls([
+            mock.call(['iptables', '-t', 'nat', '-C', 'OUTPUT', '-j', 'FOO']),
+            mock.call(['iptables', '-t', 'nat', '-A', 'OUTPUT', '-j', 'FOO'])
+        ])
+
+        # Unexpected iptables error while checking if the rule already exists.
+        treadmill.subproc.check_call.reset_mock()
+
+        treadmill.subproc.check_call.side_effect = \
+            subproc.CalledProcessError(3, '')
+
+        with self.assertRaises(subproc.CalledProcessError):
+            iptables.add_raw_rule('nat', 'OUTPUT', '-j FOO', safe=True)
 
     @mock.patch('treadmill.iptables.add_raw_rule', mock.Mock())
     def test_add_dnat_rule(self):
@@ -595,7 +604,7 @@ class IptablesTest(unittest.TestCase):
         treadmill.iptables._get_current_passthrough_rules.return_value = \
             self.passthrough_rules
         missing_rule = firewall.PassThroughRule(src_ip='10.197.19.20',
-                                                dst_ip='192.168.2.2'),
+                                                dst_ip='192.168.2.2')
         passthroughs = self.passthrough_rules | set([missing_rule, ])
 
         iptables.configure_passthrough_rules(

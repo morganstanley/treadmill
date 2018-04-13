@@ -47,6 +47,8 @@ def init():
             cli.bad_exit('Incomplete parameter list')
 
         _host, port = _nodeinfo_endpoint(host)
+        if not port:
+            cli.bad_exit('Unable for fine nodeinfo endpoint.')
 
         api = 'http://{0}:{1}'.format(host, port)
         logurl = '/local-app/%s/%s/%s/%s' % (
@@ -72,3 +74,4 @@ def _nodeinfo_endpoint(host):
                 '{}/{}'.format(nodeinfo_zk_path, node)
             )
             return data.decode().split(':')
+    return None, None

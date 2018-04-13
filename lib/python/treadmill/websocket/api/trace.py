@@ -37,11 +37,11 @@ class TraceAPI(object):
             """Event handler.
             """
             if not filename.startswith('/trace/'):
-                return
+                return None
 
             # Ignore deletes for trace files, as they are not real events.
             if operation == 'd':
-                return
+                return None
 
             _shard, event = filename[len('/trace/'):].split('/')
             (instanceid,
@@ -59,7 +59,7 @@ class TraceAPI(object):
                 payload=content
             )
             if trace_event is None:
-                return
+                return None
 
             return {
                 'topic': '/trace',

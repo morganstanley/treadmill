@@ -1,6 +1,10 @@
 """Unit test for treadmill.scheduler.
 """
 
+# Disable too many lines in module warning.
+#
+# pylint: disable=C0302
+
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
@@ -9,10 +13,6 @@ from __future__ import unicode_literals
 import time
 import unittest
 import sys
-
-# Disable too many lines in module warning.
-#
-# pylint: disable=C0302
 
 # Disable W0611: Unused import
 import tests.treadmill_test_skip_windows  # pylint: disable=W0611

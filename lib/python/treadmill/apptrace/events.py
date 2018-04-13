@@ -57,7 +57,7 @@ class AppTraceEvent(object):
         etype = getattr(AppTraceEventTypes, event_type, None)
         if etype is None:
             _LOGGER.warning('Unknown event type %r', event_type)
-            return
+            return None
         eclass = etype.value
         return eclass
 

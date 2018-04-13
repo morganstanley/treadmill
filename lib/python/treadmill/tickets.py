@@ -279,13 +279,13 @@ class TicketLocker(object):
         _LOGGER.info('Processing request from %s: %s', princ, appname)
         if not princ or not princ.startswith('host/'):
             _LOGGER.error('Host principal expected, got: %s.', princ)
-            return
+            return None
 
         hostname = princ[len('host/'):princ.rfind('@')]
 
         if not self.zkclient.exists(z.path.placement(hostname, appname)):
             _LOGGER.error('App %s not scheduled on node %s', appname, hostname)
-            return
+            return None
 
         tkt_dict = dict()
         try:
@@ -445,3 +445,4 @@ def store_ticket(tkt, tkt_spool_dir):
                      tkt_spool_link,
                      os.path.basename(tkt_spool_path))
         fs.symlink_safe(tkt_spool_link, os.path.basename(tkt_spool_path))
+    return True
