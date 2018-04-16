@@ -1,12 +1,17 @@
 #!/usr/bin/env python
 """Treadmill setup.py."""
 
-import pip.req
+# pip 10.0 moved req to _internal. Need to find better solution, changing
+# for now so that build pass.
+try:
+    import pip.req as pip_req
+except ImportError:
+    import pip._internal.req as pip_req
 
 
 def _read_requires(filename):
     reqs = []
-    for inst_req in pip.req.parse_requirements(filename, session='no session'):
+    for inst_req in pip_req.parse_requirements(filename, session='no session'):
         req = str(inst_req.req)
         if req == 'kazoo[sasl]':
             inst_req.req = 'kazoo==2.4.0.dev0'
