@@ -1,7 +1,7 @@
 APScheduler>=3.3,<3.4
 backports.weakref ; python_version < '3.4'
 click>=6.6
-decorator>=4.0
+decorator>=4.0,<4.3
 dnspython==1.15.0
 docker>=2.6,<3
 enum34>=1.1 ; python_version < '3.4'
