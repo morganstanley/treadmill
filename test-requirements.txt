@@ -1,8 +1,9 @@
 jsonpointer
 mock
+pip
+pycodestyle
 pylint
 pytest
 pytest-cov
-Sphinx
-tox
-blinker
+pytest-runner
+setuptools

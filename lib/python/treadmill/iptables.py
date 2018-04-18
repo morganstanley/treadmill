@@ -299,14 +299,18 @@ def add_raw_rule(table, chain, rule, safe=False):
     :param ``bool`` safe:
         Query iptables prior to adding to prevent duplicates
     """
-    if safe:
-        # Check if the rule already exists, and if it is, do nothing.
-        lines = _iptables_output(table, '-S', chain).splitlines()
-        match = '-A %s %s' % (chain, rule)
-        if match in lines:
-            return
-
     rule_parts = shlex.split(rule)
+
+    if safe:
+        # Check if the rule already exists, and if it does, do nothing.
+        # iptables exit with rc 1 if rule is not found.
+        try:
+            _iptables(table, '-C', chain, rule_parts)
+            return
+        except subproc.CalledProcessError as exc:
+            if exc.returncode != 1:
+                raise
+
     _iptables(table, '-A', chain, rule_parts)
 
 

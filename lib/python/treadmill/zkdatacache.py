@@ -255,16 +255,29 @@ class ZkDataCache(object):
 
         return new_data
 
-    def pull(self, expunge=False):
-        """Pull down data from Zookeeper into the cache.
+    def pull(self, expunge=False, refresh=False):
+        """Compare files and chksum with nodes in Zookeeper.
+
+        Pull down data from Zookeeper into the cache if files and nodes differ.
 
         :param ``bool`` expunge:
             If `True`, remove all local files not present upstream.
+
+        :param ``bool`` refresh:
+            If `True`, refresh the list of Zookeeper nodes.
+
         :returns:
             `True` - When new local data was pulled down.
-            `False` - When local data is already up to data.
+            `False` - When local data is already up to date.
         """
         assert self.zkclient is not None, 'Operation requires a ZK client.'
+
+        if refresh:
+            try:
+                zknodes = self._zkclient.get_children(self._zkpath)
+            except kazoo.exceptions.NoNodeError:
+                zknodes = []
+            self.refresh_zk(zknodes)
 
         new_data = False
         for name, entries in six.iteritems(self._zkdata):
