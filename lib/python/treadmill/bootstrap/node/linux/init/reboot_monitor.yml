@@ -1,6 +1,6 @@
 command: |
   exec \
-    {{ treadmill }}/bin/treadmill34 \
+    {{ python }} -m treadmill \
     sproc --cgroup {{ name }} \
     reboot-monitor -- \
         {{ dir }}/bin/reboot.sh

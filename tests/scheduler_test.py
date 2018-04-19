@@ -1,7 +1,7 @@
 """Unit test for treadmill.scheduler.
 """
 
-# Disable too many lines pylint warning.
+# Disable too many lines in module warning.
 #
 # pylint: disable=C0302
 
