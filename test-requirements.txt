@@ -5,5 +5,4 @@ pycodestyle
 pylint
 pytest
 pytest-cov
-pytest-runner
 setuptools
