@@ -1,5 +1,8 @@
 #!/usr/bin/env python
-"""Treadmill setup.py."""
+"""Treadmill setup.py.
+"""
+
+import setuptools
 
 # pip 10.0 moved req to _internal. Need to find better solution, changing
 # for now so that build pass.
@@ -13,21 +16,13 @@ def _read_requires(filename):
     reqs = []
     for inst_req in pip_req.parse_requirements(filename, session='no session'):
         req = str(inst_req.req)
-        if req == 'kazoo[sasl]':
-            inst_req.req = 'kazoo==2.4.0.dev0'
-
-        if not inst_req.match_markers():
-            print('Skipping %r: %r => False' % (req, inst_req.markers))
-            continue
-        reqs.append(str(inst_req.req))
+        if inst_req.markers:
+            req += '; %s' % inst_req.markers
+        reqs.append(req)
     return reqs
 
 
-from setuptools import setup  # pylint: disable=wrong-import-position
-
-
-setup(
+setuptools.setup(
     version='3.7',
     install_requires=_read_requires('requirements.txt'),
-    setup_requires=_read_requires('test-requirements.txt')
 )
