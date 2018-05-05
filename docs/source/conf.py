@@ -32,12 +32,15 @@
 # ones.
 import sphinx_rtd_theme
 
-extensions = ['sphinx.ext.autodoc',
-    'sphinx.ext.todo',
+extensions = [
+    'sphinx.ext.autodoc',
     'sphinx.ext.coverage',
-    'sphinx.ext.mathjax',
+    'sphinx.ext.doctest',
     'sphinx.ext.ifconfig',
-    'sphinx.ext.viewcode']
+    'sphinx.ext.mathjax',
+    'sphinx.ext.todo',
+    'sphinx.ext.viewcode'
+]
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
