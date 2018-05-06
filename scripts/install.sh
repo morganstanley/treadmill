@@ -35,11 +35,11 @@ if [ -z $INSTALL_DIR ]; then
     usage
 fi
 
-if [ "$WHEELS_DIR" == "" ]; then
+if [ "$WHEELS_DIR" = "" ]; then
     WHEELS_DIR=$INSTALL_DIR/wheels
 fi
 
-if [ "$PROFILE" == "" ]; then
+if [ "$PROFILE" = "" ]; then
     PROFILE=default
 fi
 

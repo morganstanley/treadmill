@@ -18,7 +18,7 @@ while getopts "w:" OPT; do
 done
 shift $((OPTIND-1))
 
-if [ "$WHEELS_DIR" == "" ]; then
+if [ "$WHEELS_DIR" = "" ]; then
     WHEELS_DIR=~/wheels/
 fi
 
