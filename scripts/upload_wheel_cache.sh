@@ -23,11 +23,11 @@ while getopts "w:b:p:" OPT; do
 done
 shift $((OPTIND-1))
 
-if [ "$WHEELS_DIR" == "" ]; then
+if [ "$WHEELS_DIR" = "" ]; then
     WHEELS_DIR=~/wheels/
 fi
 
-if [ "$PROFILE" == "" ]; then
+if [ "$PROFILE" = "" ]; then
     PROFILE=default
 fi
 

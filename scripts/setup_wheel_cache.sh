@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 set -e
 
@@ -16,7 +16,7 @@ while getopts "w:" OPT; do
 done
 shift $((OPTIND-1))
 
-if [ "$WHEELS_DIR" == "" ]; then
+if [ "$WHEELS_DIR" = "" ]; then
     WHEELS_DIR=~/wheels/
 fi
 
@@ -76,6 +76,6 @@ pip ${PIP_OPTIONS} wheel \
     -w "${WHEELS_DIR}" \
     .
 
-pushd ${WHEELS_DIR}
+cd ${WHEELS_DIR}
 for f in `ls *.whl`; do echo "<a href=\"$f\">$f</a>"; done > index.html
-popd
+cd -
