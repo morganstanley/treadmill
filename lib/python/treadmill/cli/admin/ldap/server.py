@@ -60,7 +60,7 @@ def init():
                 admin_srv.update(server, attrs)
 
         try:
-            cli.out(formatter(admin_srv.get(server)))
+            cli.out(formatter(admin_srv.get(server, dirty=bool(attrs))))
         except ldap_exceptions.LDAPNoSuchObjectResult:
             cli.bad_exit('Server does not exist: %s', server)
 

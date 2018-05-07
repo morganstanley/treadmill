@@ -1,5 +1,5 @@
 command: >
-  {{ python }} -m treadmill.ms sproc appevents {{ dir }}\appevents
+  {{ python }} -m treadmill sproc appevents {{ dir }}\appevents
 monitor_policy:
   limit: 5
   interval: 60

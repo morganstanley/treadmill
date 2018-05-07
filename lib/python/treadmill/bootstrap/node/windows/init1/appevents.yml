@@ -1,5 +1,5 @@
 command: >
-  {{ python }} -m treadmill.ms sproc cleanup watcher
+  {{ python }} -m treadmill sproc cleanup watcher
 monitor_policy:
   limit: 5
   interval: 60

@@ -76,7 +76,7 @@ class API(object):
             verify_feature(rsrc.get('features', []))
 
             _admin_app().create(rsrc_id, rsrc)
-            return _admin_app().get(rsrc_id)
+            return _admin_app().get(rsrc_id, dirty=True)
 
         @schema.schema(
             {'$ref': 'app.json#/resource_id'},
@@ -88,7 +88,7 @@ class API(object):
             verify_feature(rsrc.get('features', []))
 
             _admin_app().replace(rsrc_id, rsrc)
-            return _admin_app().get(rsrc_id)
+            return _admin_app().get(rsrc_id, dirty=True)
 
         @schema.schema({'$ref': 'app.json#/resource_id'})
         def delete(rsrc_id):

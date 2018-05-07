@@ -6,7 +6,6 @@ IONICE="{{ _alias.ionice }}"
 RM="{{ _alias.rm }}"
 PID1="{{ _alias.pid1 }}"
 ENVDIR="{{ _alias.s6_envdir }}"
-TMBIN="{{ treadmill }}/bin/treadmill34"
 
 ###############################################################################
 function run_parts {
@@ -94,5 +93,4 @@ exec \
     ${IONICE} -c2 -n0 \
     ${PID1} -m -p --propagation slave \
     ${ENVDIR} "{{ dir }}/env" \
-    ${TMBIN} \
-        sproc boot
+    {{ python }} -m treadmill sproc boot

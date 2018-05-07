@@ -13,8 +13,6 @@ import shutil
 import tempfile
 import unittest
 
-# Disable W0611: Unused import
-import tests.treadmill_test_deps  # pylint: disable=W0611
 from tests.testutils import mockzk
 
 import kazoo
@@ -87,7 +85,7 @@ class EventMgrTest(mockzk.MockZookeeperTestCase):
             side_effect=lambda func: func(['foo.bar#0'])
         )
 
-        mock_zkclient.get.return_value = ('{}', None)
+        mock_zkclient.get.return_value = ('{}', mock.Mock(ctime=1000))
         mock_zkclient.DataWatch.return_value = mock_data_watch
         mock_zkclient.ChildrenWatch.return_value = mock_children_watch
         mock_zkclient.handler.event_object.side_effect = mock_event_object
@@ -125,7 +123,7 @@ class EventMgrTest(mockzk.MockZookeeperTestCase):
             side_effect=lambda func: func(['foo.bar#0'])
         )
 
-        mock_zkclient.get.return_value = ('{}', None)
+        mock_zkclient.get.return_value = ('{}', mock.Mock(ctime=1000))
         mock_zkclient.DataWatch.return_value = mock_data_watch
         mock_zkclient.ChildrenWatch.return_value = mock_children_watch
         mock_zkclient.handler.event_object.side_effect = mock_event_object
@@ -155,12 +153,17 @@ class EventMgrTest(mockzk.MockZookeeperTestCase):
         self.assertFalse(os.path.exists(os.path.join(self.cache, '.ready')))
 
     @mock.patch('treadmill.zkutils.get', mock.Mock())
+    @mock.patch('treadmill.zkutils.get_with_metadata', mock.Mock())
     def test__cache(self):
-        """Tests application cache event.
+        """Test application cache event.
         """
         # Access to a protected member _cache of a client class
         # pylint: disable=W0212
         treadmill.zkutils.get.return_value = {}
+
+        treadmill.zkutils.get_with_metadata.return_value = (
+            {}, mock.Mock(ctime=1000)
+        )
 
         zkclient = kazoo.client.KazooClient()
         self.evmgr._cache(zkclient, 'foo#001')
@@ -169,12 +172,15 @@ class EventMgrTest(mockzk.MockZookeeperTestCase):
         self.assertTrue(os.path.exists(appcache))
 
     @mock.patch('treadmill.zkutils.get', mock.Mock())
-    def test__cache_notfound(self):
-        """Tests application cache event when app is not found.
+    @mock.patch('treadmill.zkutils.get_with_metadata', mock.Mock())
+    def test__cache_placement_notfound(self):
+        """Test application cache event when placement is not found.
         """
         # Access to a protected member _cache of a client class
         # pylint: disable=W0212
-        treadmill.zkutils.get.side_effect = \
+        treadmill.zkutils.get.return_value = {}
+
+        treadmill.zkutils.get_with_metadata.side_effect = \
             kazoo.exceptions.NoNodeError
 
         zkclient = kazoo.client.KazooClient()
@@ -183,10 +189,71 @@ class EventMgrTest(mockzk.MockZookeeperTestCase):
         appcache = os.path.join(self.cache, 'foo#001')
         self.assertFalse(os.path.exists(appcache))
 
+    @mock.patch('treadmill.zkutils.get', mock.Mock())
+    @mock.patch('treadmill.zkutils.get_with_metadata', mock.Mock())
+    def test__cache_app_notfound(self):
+        """Test application cache event when app is not found.
+        """
+        # Access to a protected member _cache of a client class
+        # pylint: disable=W0212
+        treadmill.zkutils.get.side_effect = \
+            kazoo.exceptions.NoNodeError
+
+        treadmill.zkutils.get_with_metadata.return_value = (
+            {}, mock.Mock(ctime=1000)
+        )
+
+        zkclient = kazoo.client.KazooClient()
+        self.evmgr._cache(zkclient, 'foo#001')
+
+        appcache = os.path.join(self.cache, 'foo#001')
+        self.assertFalse(os.path.exists(appcache))
+
+    @mock.patch('treadmill.zkutils.get', mock.Mock())
+    @mock.patch('treadmill.zkutils.get_with_metadata', mock.Mock())
+    @mock.patch('treadmill.fs.write_safe', mock.Mock())
+    @mock.patch('os.stat', mock.Mock())
+    def test__cache_check_existing(self):
+        """Test checking if the file already exists in cache and is up to date.
+        """
+        # Access to a protected member _cache of a client class
+        # pylint: disable=W0212
+        treadmill.zkutils.get.return_value = {}
+
+        treadmill.zkutils.get_with_metadata.return_value = (
+            {}, mock.Mock(ctime=1000)
+        )
+
+        zkclient = kazoo.client.KazooClient()
+
+        # File doesn't exist.
+        os.stat.side_effect = FileNotFoundError
+
+        self.evmgr._cache(zkclient, 'foo#001', check_existing=True)
+
+        treadmill.fs.write_safe.assert_called()
+
+        # File is up to date.
+        treadmill.fs.write_safe.reset_mock()
+        os.stat.side_effect = None
+        os.stat.return_value = mock.Mock(st_ctime=2)
+
+        self.evmgr._cache(zkclient, 'foo#001', check_existing=True)
+
+        treadmill.fs.write_safe.assert_not_called()
+
+        # File is out of date.
+        treadmill.fs.write_safe.reset_mock()
+        os.stat.return_value = mock.Mock(st_ctime=0)
+
+        self.evmgr._cache(zkclient, 'foo#001', check_existing=True)
+
+        treadmill.fs.write_safe.assert_called()
+
     @mock.patch('glob.glob', mock.Mock())
     @mock.patch('treadmill.eventmgr.EventMgr._cache', mock.Mock())
     def test__synchronize(self):
-        """Checks that app events are synchronized properly."""
+        """Check that app events are synchronized properly."""
         # Access to a protected member _synchronize of a client class
         # pylint: disable=W0212
         existing_apps = []
@@ -203,7 +270,7 @@ class EventMgrTest(mockzk.MockZookeeperTestCase):
     @mock.patch('os.unlink', mock.Mock())
     @mock.patch('treadmill.eventmgr.EventMgr._cache', mock.Mock())
     def test__synchronize_empty(self):
-        """Checks synchronized properly remove extra apps."""
+        """Check synchronized properly remove extra apps."""
         # Access to a protected member _synchronize of a client class
         # pylint: disable=W0212
         existing_apps = ['proid.app#0', 'proid.app#1', 'proid.app#2']
@@ -225,7 +292,7 @@ class EventMgrTest(mockzk.MockZookeeperTestCase):
     @mock.patch('kazoo.client.KazooClient.exists', mock.Mock())
     @mock.patch('kazoo.client.KazooClient.get_children', mock.Mock())
     def test_cache_placement_data(self):
-        """Tests sync of placement data.
+        """Test sync of placement data.
         """
         # Access to a protected member _synchronize of a client class
         # pylint: disable=W0212

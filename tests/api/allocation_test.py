@@ -7,7 +7,6 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import unittest
-import tests.treadmill_test_deps  # pylint: disable=W0611
 
 import mock
 
@@ -51,7 +50,7 @@ class ApiAllocationTest(unittest.TestCase):
     @mock.patch('treadmill.api.allocation._check_capacity',
                 mock.Mock(return_value=True))
     def test_reservation(self):
-        """Dummy test for treadmill.api.allocation._list()"""
+        """Dummy test for treadmill.api.allocation.create()"""
         alloc_admin = admin.CellAllocation(None)
         self.alloc.reservation.create(
             'tenant/alloc/cellname',

@@ -18,10 +18,10 @@ from treadmill import context
 _LOGGER = logging.getLogger(__name__)
 
 
-def connect(url, ldap_suffix, user, password):
+def connect(uri, write_uri, ldap_suffix, user, password):
     """Connect to from parent context parameters."""
-    _LOGGER.debug('Connecting to LDAP %s, %s', url, ldap_suffix)
-    conn = admin.Admin(url, ldap_suffix,
+    _LOGGER.debug('Connecting to LDAP %s, %s', uri, ldap_suffix)
+    conn = admin.Admin(uri, ldap_suffix, write_uri=write_uri,
                        user=user, password=password)
     conn.connect()
     return conn

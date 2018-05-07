@@ -11,9 +11,6 @@ import shutil
 import tempfile
 import unittest
 
-# Disable W0611: Unused import
-import tests.treadmill_test_deps  # pylint: disable=W0611
-
 from treadmill import appcfg
 from treadmill import fs
 

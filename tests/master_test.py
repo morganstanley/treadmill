@@ -19,7 +19,6 @@ import zlib
 
 # Disable W0611: Unused import
 import tests.treadmill_test_skip_windows  # pylint: disable=W0611
-import tests.treadmill_test_deps  # pylint: disable=W0611
 from tests.testutils import mockzk
 
 import kazoo

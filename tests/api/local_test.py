@@ -15,7 +15,6 @@ import tarfile
 import tempfile
 import unittest
 
-import tests.treadmill_test_deps  # pylint: disable=unused-import
 
 import mock
 

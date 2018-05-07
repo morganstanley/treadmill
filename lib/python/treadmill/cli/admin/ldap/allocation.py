@@ -46,7 +46,7 @@ def init():
                 admin_alloc.update(allocation, attrs)
 
         try:
-            cli.out(formatter(admin_alloc.get(allocation)))
+            cli.out(formatter(admin_alloc.get(allocation, dirty=True)))
         except ldap_exceptions.LDAPNoSuchObjectResult:
             click.echo('Allocation does not exist: %s' % allocation, err=True)
 
@@ -73,8 +73,7 @@ def init():
         """Reserve capacity on a given cell"""
         admin_cell_alloc = admin.CellAllocation(context.GLOBAL.ldap.conn)
         if delete:
-            admin_cell_alloc.delete([cell, allocation])
-            return
+            return admin_cell_alloc.delete([cell, allocation])
 
         data = {}
         if memory:
@@ -103,7 +102,7 @@ def init():
 
         try:
             admin_alloc = admin.Allocation(context.GLOBAL.ldap.conn)
-            cli.out(formatter(admin_alloc.get(allocation)))
+            cli.out(formatter(admin_alloc.get(allocation, dirty=True)))
         except ldap_exceptions.LDAPNoSuchObjectResult:
             click.echo('Allocation does not exist: %s' % allocation, err=True)
 
@@ -135,7 +134,7 @@ def init():
 
         try:
             admin_alloc = admin.Allocation(context.GLOBAL.ldap.conn)
-            cli.out(formatter(admin_alloc.get(allocation)))
+            cli.out(formatter(admin_alloc.get(allocation, dirty=True)))
         except ldap_exceptions.LDAPNoSuchObjectResult:
             click.echo('Allocation does not exist: %s' % allocation, err=True)
 

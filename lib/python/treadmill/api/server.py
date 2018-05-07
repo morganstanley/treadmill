@@ -54,7 +54,7 @@ class API(object):
         def create(rsrc_id, rsrc):
             """Create server."""
             _admin_svr().create(rsrc_id, rsrc)
-            return _admin_svr().get(rsrc_id)
+            return _admin_svr().get(rsrc_id, dirty=True)
 
         @schema.schema({'$ref': 'server.json#/resource_id'},
                        {'allOf': [{'$ref': 'server.json#/resource'},
@@ -62,7 +62,7 @@ class API(object):
         def update(rsrc_id, rsrc):
             """Update server."""
             _admin_svr().update(rsrc_id, rsrc)
-            return _admin_svr().get(rsrc_id)
+            return _admin_svr().get(rsrc_id, dirty=True)
 
         @schema.schema({'$ref': 'server.json#/resource_id'})
         def delete(rsrc_id):

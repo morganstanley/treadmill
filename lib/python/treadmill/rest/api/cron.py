@@ -6,6 +6,7 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
+import copy
 import flask
 import flask_restplus as restplus
 from flask_restplus import fields
@@ -34,7 +35,7 @@ def init(api, cors, impl):
         'Cron', cron_model,
     )
 
-    cron_resp_model = cron_model
+    cron_resp_model = copy.copy(cron_model)
     cron_resp_model.update(
         action=fields.String(description='Action'),
         next_run_time=fields.DateTime(description='Next run time'),

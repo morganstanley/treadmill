@@ -7,7 +7,6 @@ from __future__ import unicode_literals
 
 import contextlib
 
-import tests.treadmill_test_deps  # pylint: disable=W0611
 import flask
 
 

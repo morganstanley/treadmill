@@ -6,6 +6,7 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
+import copy
 import flask
 import flask_restplus as restplus
 from flask_restplus import fields
@@ -25,8 +26,16 @@ def init(api, cors, impl):
         'count': fields.Integer(description='Count', required=True),
     }
 
-    app_monitor_model = api.model(
+    req_monitor_model = api.model(
         'AppMonitor', model
+    )
+
+    resp_model = copy.copy(model)
+    resp_model.update(
+        suspend_until=fields.Float(description='Suspend Until'),
+    )
+    resp_monitor_model = api.model(
+        'AppMonitorResponse', resp_model,
     )
 
     match_parser = api.parser()
@@ -41,7 +50,7 @@ def init(api, cors, impl):
 
         @webutils.get_api(api, cors,
                           marshal=api.marshal_list_with,
-                          resp_model=app_monitor_model,
+                          resp_model=resp_monitor_model,
                           parser=match_parser)
         def get(self):
             """Returns list of configured app monitors."""
@@ -55,21 +64,21 @@ def init(api, cors, impl):
 
         @webutils.get_api(api, cors,
                           marshal=api.marshal_with,
-                          resp_model=app_monitor_model)
+                          resp_model=resp_monitor_model)
         def get(self, app_monitor):
             """Return Treadmill application monitor configuration."""
             return impl.get(app_monitor)
 
         @webutils.post_api(api, cors,
-                           req_model=app_monitor_model,
-                           resp_model=app_monitor_model)
+                           req_model=req_monitor_model,
+                           resp_model=resp_monitor_model)
         def post(self, app_monitor):
             """Creates Treadmill application."""
             return impl.create(app_monitor, flask.request.json)
 
         @webutils.put_api(api, cors,
-                          req_model=app_monitor_model,
-                          resp_model=app_monitor_model)
+                          req_model=req_monitor_model,
+                          resp_model=resp_monitor_model)
         def put(self, app_monitor):
             """Updates Treadmill application configuration."""
             return impl.update(app_monitor, flask.request.json)

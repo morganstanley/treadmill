@@ -9,7 +9,6 @@ from __future__ import unicode_literals
 import unittest
 
 import tests.treadmill_test_skip_windows  # pylint: disable=W0611
-import tests.treadmill_test_deps  # pylint: disable=W0611
 
 import docker
 import mock

@@ -12,7 +12,6 @@ import mock
 # Disable W0611: Unused import
 # pylint: disable=W0611
 import tests.treadmill_test_skip_windows  # pylint: disable=W0611
-import tests.treadmill_test_deps
 
 import treadmill
 from treadmill.sproc import version_monitor
@@ -36,6 +35,7 @@ class VersionMonitorTest(unittest.TestCase):
         version_monitor._save_version(zkclient, hostname, version)
 
         treadmill.zkutils.put.assert_has_calls([
+            mock.call(mock.ANY, '/version/testhost', version),
             mock.call(mock.ANY, '/version.history/testhost', [version])
         ])
 

@@ -1,6 +1,7 @@
 APScheduler>=3.3,<3.4
+blinker>=1.3,<2
 click>=6.6,<7
-decorator>=4.0,<5
+decorator>=4.0,<4.3
 dnspython>=1.15,<2
 docker>=2.4,<3
 Flask-RESTful>=0.3,<1

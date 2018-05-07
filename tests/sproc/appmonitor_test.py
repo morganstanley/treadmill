@@ -13,9 +13,9 @@ import mock
 
 # Disable W0611: Unused import
 import tests.treadmill_test_skip_windows  # pylint: disable=W0611
-import tests.treadmill_test_deps  # pylint: disable=W0611
 
 from treadmill import restclient
+from treadmill import zkutils
 from treadmill.sproc import appmonitor
 
 
@@ -27,6 +27,7 @@ class AppMonitorTest(unittest.TestCase):
     @mock.patch('treadmill.restclient.delete', mock.Mock())
     def test_reevaluate(self):
         """Test state reevaluation."""
+        zkclient = mock.Mock()
 
         state = {
             'scheduled': {
@@ -47,16 +48,16 @@ class AppMonitorTest(unittest.TestCase):
                     'last_update': 100,
                 },
             },
-            'delayed': {},
+            'suspended': {},
         }
 
         time.time.return_value = 101
 
-        appmonitor.reevaluate('/cellapi.sock', state)
+        appmonitor.reevaluate('/cellapi.sock', state, zkclient, {})
         self.assertFalse(restclient.post.called)
 
         state['scheduled']['foo.baz'].append('foo.baz#5')
-        appmonitor.reevaluate('/cellapi.sock', state)
+        appmonitor.reevaluate('/cellapi.sock', state, zkclient, {})
         restclient.post.assert_called_with(
             ['/cellapi.sock'],
             '/instance/_bulk/delete', payload={'instances': ['foo.baz#3']},
@@ -76,7 +77,7 @@ class AppMonitorTest(unittest.TestCase):
 
         time.time.return_value = 102
         state['scheduled']['foo.bar'] = []
-        appmonitor.reevaluate('/cellapi.sock', state)
+        appmonitor.reevaluate('/cellapi.sock', state, zkclient, {})
         self.assertEqual(102, state['monitors']['foo.bar']['last_update'])
         self.assertEqual(2.0, state['monitors']['foo.bar']['available'])
 
@@ -86,7 +87,7 @@ class AppMonitorTest(unittest.TestCase):
 
         time.time.return_value = 103
         state['scheduled']['foo.bar'] = ['foo.bar#5', 'foo.bar#6']
-        appmonitor.reevaluate('/cellapi.sock', state)
+        appmonitor.reevaluate('/cellapi.sock', state, zkclient, {})
         self.assertEqual(103, state['monitors']['foo.bar']['last_update'])
         self.assertEqual(3.0, state['monitors']['foo.bar']['available'])
 
@@ -95,7 +96,7 @@ class AppMonitorTest(unittest.TestCase):
 
         state['scheduled']['foo.bar'] = []
 
-        appmonitor.reevaluate('/cellapi.sock', state)
+        appmonitor.reevaluate('/cellapi.sock', state, zkclient, {})
         restclient.post.assert_called_with(
             ['/cellapi.sock'],
             '/instance/foo.bar?count=2', payload={},
@@ -103,33 +104,42 @@ class AppMonitorTest(unittest.TestCase):
         )
         self.assertEqual(1.0, state['monitors']['foo.bar']['available'])
 
-        appmonitor.reevaluate('/cellapi.sock', state)
+        last_waited = appmonitor.reevaluate(
+            '/cellapi.sock', state, zkclient, {})
         restclient.post.assert_called_with(
             ['/cellapi.sock'],
             '/instance/foo.bar?count=1', payload={},
             headers={'X-Treadmill-Trusted-Agent': 'monitor'}
         )
         self.assertEqual(0.0, state['monitors']['foo.bar']['available'])
+        self.assertEqual(last_waited, {})
 
         # No available, create not called.
         restclient.post.reset_mock()
 
-        appmonitor.reevaluate('/cellapi.sock', state)
+        state['scheduled']['foo.bar'] = []
+        last_waited = appmonitor.reevaluate(
+            '/cellapi.sock', state, zkclient, {})
         self.assertFalse(restclient.post.called)
+        self.assertEqual(last_waited, {'foo.bar': 104})
 
         time.time.return_value = 104
-        appmonitor.reevaluate('/cellapi.sock', state)
+        last_waited = appmonitor.reevaluate(
+            '/cellapi.sock', state, zkclient, last_waited)
         restclient.post.assert_called_with(
             ['/cellapi.sock'],
             '/instance/foo.bar?count=1', payload={},
             headers={'X-Treadmill-Trusted-Agent': 'monitor'}
         )
         self.assertEqual(0.0, state['monitors']['foo.bar']['available'])
+        self.assertEqual(last_waited, {})
 
     @mock.patch('time.time', mock.Mock())
     @mock.patch('treadmill.restclient.post', mock.Mock())
+    @mock.patch('treadmill.zkutils.update', mock.Mock())
     def test_reevaluate_notfound(self):
         """Test state reevaluation."""
+        zkclient = mock.Mock()
 
         state = {
             'scheduled': {
@@ -143,34 +153,42 @@ class AppMonitorTest(unittest.TestCase):
                     'last_update': 100,
                 },
             },
-            'delayed': {},
+            'suspended': {},
         }
 
         time.time.return_value = 101
 
         restclient.post.side_effect = restclient.NotFoundError('xxx')
 
-        appmonitor.reevaluate('/cellapi.sock', state)
+        appmonitor.reevaluate('/cellapi.sock', state, zkclient, {})
         self.assertTrue(restclient.post.called)
-        self.assertIn('foo.bar', state['delayed'])
-        self.assertEqual(state['delayed']['foo.bar'], float(101 + 300))
+        self.assertIn('foo.bar', state['suspended'])
+        self.assertEqual(state['suspended']['foo.bar'], float(101 + 300))
+        zkutils.update.assert_called_with(
+            zkclient, '/app-monitors', {'foo.bar': float(101 + 300)}
+        )
 
         restclient.post.reset_mock()
         time.time.return_value = 102
-        appmonitor.reevaluate('/cellapi.sock', state)
+        appmonitor.reevaluate('/cellapi.sock', state, zkclient, {})
         self.assertFalse(restclient.post.called)
-        self.assertIn('foo.bar', state['delayed'])
+        self.assertIn('foo.bar', state['suspended'])
         # Delay did not increase
-        self.assertEqual(state['delayed']['foo.bar'], float(101 + 300))
+        self.assertEqual(state['suspended']['foo.bar'], float(101 + 300))
 
         # After time reached, call will happen, fail, and delay will be
         # extended.
         restclient.post.reset_mock()
         time.time.return_value = 500
-        appmonitor.reevaluate('/cellapi.sock', state)
+        last_waited = appmonitor.reevaluate(
+            '/cellapi.sock', state, zkclient, {})
         self.assertTrue(restclient.post.called)
-        self.assertIn('foo.bar', state['delayed'])
-        self.assertEqual(state['delayed']['foo.bar'], float(500 + 300))
+        self.assertIn('foo.bar', state['suspended'])
+        self.assertEqual(state['suspended']['foo.bar'], float(500 + 300))
+        zkutils.update.assert_called_with(
+            zkclient, '/app-monitors', {'foo.bar': float(500 + 300)}
+        )
+        self.assertEqual(last_waited, {'foo.bar': 800.0})
 
         # More time pass, and this time call will succeed - application will
         # be removed from delay dict.
@@ -178,9 +196,14 @@ class AppMonitorTest(unittest.TestCase):
         restclient.post.return_value = ()
         restclient.post.side_effect = None
         time.time.return_value = 500 + 300 + 1
-        appmonitor.reevaluate('/cellapi.sock', state)
+        last_waited = appmonitor.reevaluate(
+            '/cellapi.sock', state, zkclient, last_waited)
         self.assertTrue(restclient.post.called)
-        self.assertNotIn('foo.bar', state['delayed'])
+        self.assertNotIn('foo.bar', state['suspended'])
+        zkutils.update.assert_called_with(
+            zkclient, '/app-monitors', {}
+        )
+        self.assertEqual(last_waited, {})
 
 
 if __name__ == '__main__':

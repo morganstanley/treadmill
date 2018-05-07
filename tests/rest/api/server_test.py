@@ -11,7 +11,6 @@ import unittest
 
 # don't complain about unused imports
 # pylint: disable=W0611
-import tests.treadmill_test_deps
 
 import flask
 import flask_restplus as restplus

@@ -1,9 +1,9 @@
 jsonpointer
 mock
-pip
 pycodestyle
 pylint
 pytest
 pytest-cov
-pytest-runner
-setuptools
+Sphinx
+sphinx-click
+sphinx-rtd-theme

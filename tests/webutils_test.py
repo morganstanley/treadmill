@@ -8,9 +8,6 @@ from __future__ import unicode_literals
 
 import unittest
 
-# Disable W0611: Unused import
-import tests.treadmill_test_deps  # pylint: disable=W0611
-
 import flask
 import mock
 
@@ -73,7 +70,7 @@ class WebUtilsTest(unittest.TestCase):
         self.assertEqual(ns, 'state')
 
         (ns,) = webutils.namespace(
-            m_api, 'treadmill.ms.rest.api.allocation_group', 'foo')
+            m_api, 'treadmill_foo.rest.api.allocation_group', 'foo')
         self.assertEqual(ns, 'allocation-group')
 
 

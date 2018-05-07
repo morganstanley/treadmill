@@ -352,8 +352,9 @@ def _install(package, src_dir, dst_dir, params, prefix_len=None, rec=None):
     """Interpolate source directory into target directory with params.
     """
     package_name = package.__name__
-    _LOGGER.info('Installing package: %s %s %s',
-                 package_name, src_dir, dst_dir)
+    _LOGGER.info(
+        'Installing package: %s %s %s', package_name, src_dir, dst_dir
+    )
 
     contents = pkg_resources.resource_listdir(package_name, src_dir)
 

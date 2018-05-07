@@ -16,7 +16,6 @@ import mock
 
 # Disable W0611: Unused import
 import tests.treadmill_test_skip_windows  # pylint: disable=W0611
-import tests.treadmill_test_deps  # pylint: disable=W0611
 
 import treadmill
 from treadmill import cgutils
@@ -217,41 +216,48 @@ class CGutilsTest(unittest.TestCase):
                                          treadmill_core_mem,
                                          treadmill_apps_mem)
 
-        calls = [mock.call('cpu', 'treadmill/core'),
-                 mock.call('cpu', 'treadmill/apps'),
-                 mock.call('cpuacct', 'treadmill/core'),
-                 mock.call('cpuacct', 'treadmill/apps'),
-                 mock.call('cpuset', 'treadmill/core'),
-                 mock.call('cpuset', 'treadmill/apps'),
-                 mock.call('memory', 'treadmill/core'),
-                 mock.call('memory', 'treadmill/apps')]
+        calls = [
+            mock.call('cpu', 'treadmill/core'),
+            mock.call('cpu', 'treadmill/apps'),
+            mock.call('cpuacct', 'treadmill/core'),
+            mock.call('cpuacct', 'treadmill/apps'),
+            mock.call('cpuset', 'treadmill/core'),
+            mock.call('cpuset', 'treadmill/apps'),
+            mock.call('memory', 'treadmill/core'),
+            mock.call('memory', 'treadmill/apps')
+        ]
         treadmill.cgroups.create.assert_has_calls(calls)
-        calls = [mock.call('cpu', 'treadmill/core',
-                           'cpu.shares', treadmill_core_cpu_shares),
-                 mock.call('cpu', 'treadmill/apps',
-                           'cpu.shares', treadmill_apps_cpu_shares),
-                 mock.call('cpuset', 'treadmill/core',
-                           'cpuset.mems', '0'),
-                 mock.call('cpuset', 'treadmill/apps',
-                           'cpuset.mems', '0'),
-                 mock.call('cpuset', 'treadmill/core',
-                           'cpuset.cpus', '0-15'),
-                 mock.call('cpuset', 'treadmill/apps',
-                           'cpuset.cpus', '1-15'),
-                 mock.call('memory', 'treadmill/core',
-                           'memory.move_charge_at_immigrate', 1),
-                 mock.call('memory', 'treadmill/apps',
-                           'memory.move_charge_at_immigrate', 1),
-                 mock.call('memory', 'treadmill/core',
-                           'memory.limit_in_bytes', treadmill_core_mem),
-                 mock.call('memory', 'treadmill/core',
-                           'memory.memsw.limit_in_bytes', treadmill_core_mem),
-                 mock.call('memory', 'treadmill/core',
-                           'memory.soft_limit_in_bytes', treadmill_core_mem),
-                 mock.call('memory', 'treadmill/apps',
-                           'memory.limit_in_bytes', treadmill_apps_mem),
-                 mock.call('memory', 'treadmill/apps',
-                           'memory.memsw.limit_in_bytes', treadmill_apps_mem)]
+        calls = [
+            mock.call('cpu', 'treadmill/core',
+                      'cpu.shares', treadmill_core_cpu_shares),
+            mock.call('cpu', 'treadmill/apps',
+                      'cpu.shares', treadmill_apps_cpu_shares),
+            mock.call('cpuset', 'treadmill/core',
+                      'cpuset.mems', '0'),
+            mock.call('cpuset', 'treadmill/apps',
+                      'cpuset.mems', '0'),
+            mock.call('cpuset', 'treadmill/core',
+                      'cpuset.cpus', '0-15'),
+            mock.call('cpuset', 'treadmill/apps',
+                      'cpuset.cpus', '1-15'),
+            mock.call('memory', 'treadmill/core',
+                      'memory.move_charge_at_immigrate', 1),
+            mock.call('memory', 'treadmill/apps',
+                      'memory.move_charge_at_immigrate', 1),
+            mock.call('memory', 'treadmill/core',
+                      'memory.limit_in_bytes', treadmill_core_mem),
+            mock.call('memory', 'treadmill/core',
+                      'memory.memsw.limit_in_bytes', treadmill_core_mem),
+            mock.call('memory', 'treadmill/core',
+                      'memory.soft_limit_in_bytes', treadmill_core_mem),
+            mock.call('memory', 'treadmill/apps',
+                      'memory.limit_in_bytes', treadmill_apps_mem),
+            mock.call('memory', 'treadmill/apps',
+                      'memory.memsw.limit_in_bytes', treadmill_apps_mem),
+            mock.call('memory', 'treadmill/apps',
+                      'memory.soft_limit_in_bytes', treadmill_apps_mem)
+        ]
+
         treadmill.cgroups.set_value.assert_has_calls(calls)
 
     @mock.patch('treadmill.cgroups.set_value',
