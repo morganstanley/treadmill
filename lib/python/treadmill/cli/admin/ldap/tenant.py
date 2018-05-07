@@ -44,7 +44,7 @@ def init():
                 admin_tnt.update(tenant, attrs)
 
         try:
-            tenant_obj = admin_tnt.get(tenant)
+            tenant_obj = admin_tnt.get(tenant, dirty=bool(attrs))
             tenant_obj['allocations'] = admin_tnt.allocations(tenant)
             cli.out(formatter(tenant_obj))
         except ldap_exceptions.LDAPNoSuchObjectResult:

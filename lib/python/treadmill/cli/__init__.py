@@ -119,6 +119,7 @@ def _read_password(value):
         return value
 
 
+# pylint: disable=too-many-branches
 def handle_context_opt(ctx, param, value):
     """Handle eager CLI options to configure context.
 
@@ -128,6 +129,7 @@ def handle_context_opt(ctx, param, value):
     The only side effect of consuming these options are setting attributes
     of the global context.
     """
+    # pylint: disable=too-many-branches
 
     def parse_dns_server(dns_server):
         """Parse dns server string"""
@@ -145,13 +147,18 @@ def handle_context_opt(ctx, param, value):
 
     opt = param.name
     if opt == 'cell':
-        context.GLOBAL.cell = value
+        cell_parts = value.split('.')
+        context.GLOBAL.cell = cell_parts.pop(0)
+        if cell_parts:
+            context.GLOBAL.dns_domain = '.'.join(cell_parts)
     elif opt == 'dns_domain':
         context.GLOBAL.dns_domain = value
     elif opt == 'dns_server':
         context.GLOBAL.dns_server = parse_dns_server(value)
     elif opt == 'ldap':
         context.GLOBAL.ldap.url = value
+    elif opt == 'ldap_master':
+        context.GLOBAL.ldap.write_url = value
     elif opt == 'ldap_suffix':
         context.GLOBAL.ldap_suffix = value
     elif opt == 'ldap_user':

@@ -220,9 +220,11 @@ def monitor_group(parent):
         """Create, get or modify an app monitor configuration"""
         zkclient = context.GLOBAL.zk.conn
         if count is not None:
-            masterapi.update_appmonitor(zkclient, app, count)
+            data = masterapi.update_appmonitor(zkclient, app, count)
+        else:
+            data = masterapi.get_appmonitor(zkclient, app)
 
-        cli.out(formatter(masterapi.get_appmonitor(zkclient, app)))
+        cli.out(formatter(data))
 
     @monitor.command()
     @click.argument('app')
@@ -235,8 +237,14 @@ def monitor_group(parent):
     def _list():
         """List all configured monitors"""
         zkclient = context.GLOBAL.zk.conn
+
+        suspended_monitors = masterapi.get_suspended_appmonitors(zkclient)
+
         monitors = [
-            masterapi.get_appmonitor(zkclient, app)
+            masterapi.get_appmonitor(
+                zkclient, app,
+                suspended_monitors=suspended_monitors,
+            )
             for app in masterapi.appmonitors(zkclient)
         ]
 

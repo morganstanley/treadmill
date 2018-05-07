@@ -83,7 +83,7 @@ def init():
                 admin_cell.update(cell, attrs)
 
         try:
-            cli.out(formatter(admin_cell.get(cell)))
+            cli.out(formatter(admin_cell.get(cell, dirty=bool(attrs))))
         except ldap_exceptions.LDAPNoSuchObjectResult:
             click.echo('Cell does not exist: %s' % cell, err=True)
 
@@ -131,7 +131,7 @@ def init():
 
         try:
             admin_cell.update(cell, attrs)
-            cli.out(formatter(admin_cell.get(cell)))
+            cli.out(formatter(admin_cell.get(cell, dirty=True)))
         except ldap_exceptions.LDAPNoSuchObjectResult:
             click.echo('Cell does not exist: %s' % cell, err=True)
 
@@ -157,7 +157,7 @@ def init():
 
         try:
             admin_cell.remove(cell, attrs)
-            cli.out(formatter(admin_cell.get(cell)))
+            cli.out(formatter(admin_cell.get(cell, dirty=True)))
         except ldap_exceptions.LDAPNoSuchObjectResult:
             click.echo('Cell does not exist: %s' % cell, err=True)
 

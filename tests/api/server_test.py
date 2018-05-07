@@ -8,9 +8,6 @@ from __future__ import unicode_literals
 
 import unittest
 
-# Disable W0611: Unused import
-import tests.treadmill_test_deps  # pylint: disable=W0611
-
 import mock
 
 from treadmill import admin
@@ -65,7 +62,7 @@ class ApiServerTest(unittest.TestCase):
         svr_admin = admin.Server(None)
         self.svr.create('foo.somewhere.in.xx.com', {'cell': 'ny-999-cell',
                                                     'partition': 'xxx'})
-        svr_admin.get.assert_called_with('foo.somewhere.in.xx.com')
+        svr_admin.get.assert_called_with('foo.somewhere.in.xx.com', dirty=True)
 
 
 if __name__ == '__main__':

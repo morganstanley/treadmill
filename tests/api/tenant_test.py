@@ -6,9 +6,6 @@ from __future__ import unicode_literals
 
 import unittest
 
-# Disable W0611: Unused import
-import tests.treadmill_test_deps  # pylint: disable=W0611
-
 import mock
 
 from treadmill import admin
@@ -52,7 +49,7 @@ class ApiTenantTest(unittest.TestCase):
         """Dummy test for treadmill.api.tenant.create()"""
         tnt_admin = admin.Tenant(None)
         self.tnt.create('some_tenant', {'systems': [1, 2, 3]})
-        tnt_admin.get.assert_called_with('some_tenant')
+        tnt_admin.get.assert_called_with('some_tenant', dirty=True)
 
 
 if __name__ == '__main__':

@@ -4,9 +4,7 @@
 docs/api
 docs/build
 dist/
-
-# Examples
-examples/oom/oom
+venv/
 
 # Keep track of .keepme files
 !.keepme
@@ -23,14 +21,3 @@ lib/python/*.egg-info/*
 # Ensure that .git* files are included
 !.gitignore
 !.gitattributes
-
-# Preserve tmpwatch files
-!.tmpwatch.exclude
-
-# Keep msdlbuildignore
-!.msdlbuildignore
-
-# Ignore build files
-lint.log
-pep8.log
-

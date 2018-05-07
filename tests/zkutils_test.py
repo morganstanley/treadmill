@@ -9,9 +9,6 @@ from __future__ import unicode_literals
 import os
 import unittest
 
-# Disable W0611: Unused import
-import tests.treadmill_test_deps  # pylint: disable=W0611
-
 import kazoo
 import kazoo.client
 import mock

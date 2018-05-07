@@ -12,8 +12,6 @@ import tempfile
 import time
 import unittest
 
-# Disable W0611: Unused import
-import tests.treadmill_test_deps  # pylint: disable=W0611
 from tests.testutils import mockzk
 
 import mock
@@ -150,13 +148,13 @@ class PresenceTest(mockzk.MockZookeeperTestCase):
         """Checks removal of the endpoints."""
         zk_content = {
             'running': {
-                'myproid.aaa': 'xxx.xx.com',
-                'myproid.bbb': 'yyy.xx.com'
+                'myproid.aaa': b'xxx.xx.com',
+                'myproid.bbb': b'yyy.xx.com'
             },
             'endpoints': {
                 'myproid': {
-                    'aaa:tcp:http': 'xxx.xx.com:1234',
-                    'bbb:tcp:http': 'yyy.xx.com:1234',
+                    'aaa:tcp:http': b'xxx.xx.com:1234',
+                    'bbb:tcp:http': b'yyy.xx.com:1234',
                 },
             },
             'servers': {

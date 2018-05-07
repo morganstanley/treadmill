@@ -10,7 +10,6 @@ import json
 import unittest
 
 # don't complain about unused imports
-import tests.treadmill_test_deps  # pylint: disable=W0611
 from tests.rest.api import user_set
 
 import flask

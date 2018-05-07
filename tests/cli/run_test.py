@@ -9,9 +9,6 @@ from __future__ import unicode_literals
 import tempfile
 import unittest
 
-# Disable W0611: Unused import
-import tests.treadmill_test_deps  # pylint: disable=W0611
-
 import click
 import click.testing
 import mock

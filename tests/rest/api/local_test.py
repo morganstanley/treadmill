@@ -10,7 +10,6 @@ import json
 import sys
 import unittest
 
-import tests.treadmill_test_deps  # pylint: disable=unused-import
 
 import flask
 import flask_restplus as restplus

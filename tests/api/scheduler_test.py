@@ -9,9 +9,6 @@ from __future__ import unicode_literals
 import bz2
 import unittest
 
-# Disable W0611: Unused import
-import tests.treadmill_test_deps  # pylint: disable=W0611
-
 import mock
 import pandas as pd
 

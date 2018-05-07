@@ -42,7 +42,7 @@ def init():
                 admin_haproxy.update(haproxy, attrs)
 
         try:
-            cli.out(formatter(admin_haproxy.get(haproxy)))
+            cli.out(formatter(admin_haproxy.get(haproxy, dirty=bool(attrs))))
         except ldap_exceptions.LDAPNoSuchObjectResult:
             click.echo('HAProxy does not exist: {}'.format(haproxy), err=True)
 

@@ -1,5 +1,5 @@
 command: >
-  {{ python }} -m treadmill.ms sproc appcfgmgr
+  {{ python }} -m treadmill sproc appcfgmgr
 monitor_policy:
   limit: 2
   interval: 60

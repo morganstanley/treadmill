@@ -9,9 +9,6 @@ from __future__ import unicode_literals
 import hashlib
 import unittest
 
-# Disable W0611: Unused import
-import tests.treadmill_test_deps  # pylint: disable=W0611
-
 # Disable wrong import order warning.
 #
 # pylint: disable=C0411
@@ -281,12 +278,14 @@ class AdminTest(unittest.TestCase):
             'shared-network': [True]
         }
 
+        # TODO this logs "Expected [<class 'str'>], got ['a', None, 'b']"
+        # see treadmill.admin:_dict_2_entry
         self.assertEqual(ldap_entry, admin.Application(None).to_entry(app))
 
         # When converting to entry, None are skipped, and unicode is converted
         # to str.
         #
-        # Adjuest app['tickets'] accordingly.
+        # Adjust app['tickets'] accordingly.
         app['tickets'] = ['a', 'b']
         # Account for default restart values
         app['services'][1]['restart'] = {'limit': 5, 'interval': 60}
@@ -575,12 +574,15 @@ class AdminTest(unittest.TestCase):
     def test_init(self):
         """Tests init logic."""
         admin_obj = admin.Admin(None, 'dc=test,dc=com')
-        admin_obj.ldap = ldap3.Connection(ldap3.Server('fake'),
-                                          client_strategy=ldap3.MOCK_SYNC)
+        admin_obj.write_ldap = ldap3.Connection(
+            ldap3.Server('fake'), client_strategy=ldap3.MOCK_SYNC
+        )
 
         admin_obj.init()
 
-        dn_list = [arg[0][0] for arg in admin_obj.ldap.add.call_args_list]
+        dn_list = [
+            arg[0][0] for arg in admin_obj.write_ldap.add.call_args_list
+        ]
 
         self.assertTrue('dc=test,dc=com' in dn_list)
         self.assertTrue('ou=treadmill,dc=test,dc=com' in dn_list)
@@ -590,8 +592,9 @@ class AdminTest(unittest.TestCase):
     def test_add(self):
         """Tests add logic."""
         admin_obj = admin.Admin(None, 'dc=test,dc=com')
-        admin_obj.ldap = ldap3.Connection(ldap3.Server('fake'),
-                                          client_strategy=ldap3.MOCK_SYNC)
+        admin_obj.write_ldap = ldap3.Connection(
+            ldap3.Server('fake'), client_strategy=ldap3.MOCK_SYNC
+        )
 
         admin_obj.add(
             'ou=example,dc=test,dc=com',
@@ -604,7 +607,7 @@ class AdminTest(unittest.TestCase):
             }
         )
 
-        call = admin_obj.ldap.add.call_args_list[0][0]
+        call = admin_obj.write_ldap.add.call_args_list[0][0]
         self.assertEqual(call[0], 'ou=example,dc=test,dc=com')
         self.assertEqual(call[1], 'testClass')
         self.assertEqual(
@@ -687,6 +690,7 @@ class AllocationTest(unittest.TestCase):
             search_base='allocation=prod1,tenant=bar,tenant=foo,'
                         'ou=allocations,ou=treadmill,dc=xx,dc=com',
             search_filter='(objectclass=tmCellAllocation)',
+            dirty=False
         )
         self.assertEqual(obj['reservations'][0]['cell'], 'xxx')
         self.assertEqual(obj['reservations'][0]['disk'], '2G')

@@ -8,11 +8,10 @@ from __future__ import unicode_literals
 
 import unittest
 
-import mock
-
 # Disable W0611: Unused import
 import tests.treadmill_test_skip_windows   # pylint: disable=W0611
-import tests.treadmill_test_deps  # pylint: disable=W0611
+
+import mock
 
 from treadmill.runtime.linux import _manifest as app_manifest
 
@@ -31,7 +30,6 @@ class Docker2RuntimeManifestTest(unittest.TestCase):
     def tearDown(self):
         pass
 
-    @mock.patch('sys.executable', 'mock_python')
     @mock.patch('treadmill.runtime.linux._manifest._get_user_uid_gid',
                 mock.Mock(return_value=(274091, 19290)))
     @mock.patch(
@@ -53,7 +51,7 @@ class Docker2RuntimeManifestTest(unittest.TestCase):
         self.assertEqual(
             cmd[0],
             (
-                'exec mock_python -m treadmill sproc docker'
+                'exec $TREADMILL/bin/treadmill sproc docker'
                 ' --name foo'
                 ' --envdirs /env,/docker/env,/services/foo/env'
                 ' --image testwt2'
@@ -72,7 +70,7 @@ class Docker2RuntimeManifestTest(unittest.TestCase):
         self.assertEqual(
             cmd[0],
             (
-                'exec mock_python -m treadmill sproc docker'
+                'exec $TREADMILL/bin/treadmill sproc docker'
                 ' --name foo'
                 ' --envdirs /env,/docker/env,/services/foo/env'
                 ' --image testwt2'

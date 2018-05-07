@@ -46,7 +46,7 @@ def init():
                 admin_app.replace(app, data)
 
         try:
-            cli.out(formatter(admin_app.get(app)))
+            cli.out(formatter(admin_app.get(app, dirty=True)))
         except ldap_exceptions.LDAPNoSuchObjectResult:
             click.echo('App does not exist: %s' % app, err=True)
 

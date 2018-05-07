@@ -581,6 +581,7 @@ def ensure_not_supervised(service_dir):
         try:
             # Close supervised process as it should have already
             # been told to go down
+            _LOGGER.info('Force service %s to exit', service)
             control_service(service, ServiceControlAction.exit,
                             ServiceWaitAction.really_down,
                             timeout=1000)

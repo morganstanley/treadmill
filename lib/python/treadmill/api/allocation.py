@@ -165,7 +165,7 @@ class API(object):
             """Create allocation.
             """
             _admin_alloc().create(rsrc_id, rsrc)
-            return _admin_alloc().get(rsrc_id)
+            return _admin_alloc().get(rsrc_id, dirty=True)
 
         @schema.schema({'$ref': 'allocation.json#/resource_id'},
                        {'allOf': [{'$ref': 'allocation.json#/resource'},
@@ -174,7 +174,7 @@ class API(object):
             """Update allocation.
             """
             _admin_alloc().update(rsrc_id, rsrc)
-            return _admin_alloc().get(rsrc_id)
+            return _admin_alloc().get(rsrc_id, dirty=True)
 
         @schema.schema({'$ref': 'allocation.json#/resource_id'})
         def delete(rsrc_id):
@@ -224,7 +224,9 @@ class API(object):
                         rsrc = plugin.add_attributes(rsrc_id, rsrc)
 
                     _admin_cell_alloc().create([cell, allocation], rsrc)
-                    return _admin_cell_alloc().get([cell, allocation])
+                    return _admin_cell_alloc().get(
+                        [cell, allocation], dirty=True
+                    )
 
                 @schema.schema(
                     {'$ref': 'reservation.json#/resource_id'},
@@ -237,7 +239,9 @@ class API(object):
                     allocation, cell = rsrc_id.rsplit('/', 1)
                     _check_capacity(cell, allocation, rsrc)
                     _admin_cell_alloc().update([cell, allocation], rsrc)
-                    return _admin_cell_alloc().get([cell, allocation])
+                    return _admin_cell_alloc().get(
+                        [cell, allocation], dirty=True
+                    )
 
                 @schema.schema({'$ref': 'reservation.json#/resource_id'})
                 def delete(rsrc_id):
@@ -284,7 +288,8 @@ class API(object):
                                           'priority': priority}]}
                     )
                     return _admin_cell_alloc().get(
-                        [cell, allocation]).get('assignments', [])
+                        [cell, allocation], dirty=True
+                    ).get('assignments', [])
 
                 @schema.schema(
                     {'$ref': 'assignment.json#/resource_id'},
@@ -302,7 +307,8 @@ class API(object):
                                           'priority': priority}]}
                     )
                     return _admin_cell_alloc().get(
-                        [cell, allocation]).get('assignments', [])
+                        [cell, allocation], dirty=True
+                    ).get('assignments', [])
 
                 @schema.schema({'$ref': 'assignment.json#/resource_id'})
                 def delete(rsrc_id):

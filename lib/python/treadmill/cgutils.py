@@ -106,6 +106,9 @@ def create_treadmill_cgroups(core_cpu_shares,
                           'cpuset.cpus', core_cpuset_cpus)
         cgroups.set_value('cpuset', 'treadmill/apps',
                           'cpuset.cpus', apps_cpuset_cpus)
+    else:
+        cgroups.inherit_value('cpuset', 'treadmill/core', 'cpuset.cpus')
+        cgroups.inherit_value('cpuset', 'treadmill/apps', 'cpuset.cpus')
 
     # Memory
     create('memory', 'treadmill/core')

@@ -151,6 +151,7 @@ reaper = treadmill.cli.supervise.reaper
 
 [treadmill.cli.admin]
 blackout = treadmill.cli.admin.blackout
+checkout = treadmill.cli.admin.checkout
 cron = treadmill.cli.admin.cron
 diag = treadmill.cli.admin.diag
 discovery = treadmill.cli.admin.discovery
@@ -167,7 +168,6 @@ show = treadmill.cli.admin.show
 ssh = treadmill.cli.admin.ssh
 trace = treadmill.cli.admin.trace
 wait = treadmill.cli.admin.wait
-checkout = treadmill.cli.admin.checkout
 
 [treadmill.cli.admin.install]
 haproxy = treadmill.cli.admin.install.haproxy
@@ -286,3 +286,5 @@ presence = treadmill.services.presence_service:PresenceResourceService
 container-cleanup = treadmill.monitor:MonitorContainerCleanup
 node-down = treadmill.monitor:MonitorNodeDown
 container-down = treadmill.monitor:MonitorContainerDown
+
+[treadmill.version_monitor]

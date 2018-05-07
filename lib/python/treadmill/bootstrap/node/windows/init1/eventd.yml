@@ -1,5 +1,5 @@
 command: >
-  {{ python }} -m treadmill.ms sproc eventdaemon
+  {{ python }} -m treadmill sproc eventdaemon
 monitor_policy:
   limit: 5
   interval: 60
