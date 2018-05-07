@@ -103,7 +103,9 @@ def init():
                 admin_part.update([partition, cell], attrs)
 
         try:
-            cli.out(formatter(admin_part.get([partition, cell])))
+            cli.out(formatter(admin_part.get(
+                [partition, cell], dirty=bool(attrs)
+            )))
         except ldap_exceptions.LDAPNoSuchObjectResult:
             click.echo('Partition does not exist: %s' % partition, err=True)
 

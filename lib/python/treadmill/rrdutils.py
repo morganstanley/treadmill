@@ -196,7 +196,7 @@ def first(rrdfile, timeframe, rrdtool=RRDTOOL, rrd_socket=SOCKET,
         epoch = subprocess.check_output([rrdtool, 'first', rrdfile,
                                          '--rraindex', rra_idx])
 
-    return epoch.strip()
+    return epoch.decode().strip()
 
 
 def last(rrdfile, rrdtool=RRDTOOL, rrd_socket=SOCKET, exec_on_node=True):
@@ -209,7 +209,7 @@ def last(rrdfile, rrdtool=RRDTOOL, rrd_socket=SOCKET, exec_on_node=True):
     else:
         epoch = subprocess.check_output([rrdtool, 'last', rrdfile])
 
-    return epoch.strip()
+    return epoch.decode().strip()
 
 
 def lastupdate(rrdfile, rrdtool=RRDTOOL, rrd_socket=SOCKET):

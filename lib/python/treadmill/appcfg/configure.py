@@ -100,7 +100,7 @@ def configure(tm_env, event, runtime):
             python=sys.executable
         )
     else:
-        run_script = '{python} -m treadmill sproc run ../'.format(
+        run_script = 'exec {python} -m treadmill sproc run ../'.format(
             python=sys.executable
         )
 

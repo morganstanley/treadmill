@@ -22,14 +22,14 @@ import treadmill
 from treadmill import services
 from treadmill.services import presence_service
 
-# Test accesses protected members of presence service.
-#
-# pylint:disable=W0212
-
 
 class PresenceServiceTest(unittest.TestCase):
     """Unit tests for the network service implementation.
     """
+    # Test accesses protected members of presence service.
+    #
+    # pylint:disable=W0212
+
     def setUp(self):
         self.root = tempfile.mkdtemp()
 

@@ -11,9 +11,10 @@ import importlib
 
 
 if __name__ == '__main__':
-    INIT_HOOK = os.environ.get('TREADMILL_INIT_HOOK')
-    if INIT_HOOK:
-        for module_name in INIT_HOOK.split(':'):
+    # pylint: disable=invalid-name
+    init_hook = os.environ.get('TREADMILL_INIT_HOOK')
+    if init_hook:
+        for module_name in init_hook.split(':'):
             importlib.import_module(module_name)
 
     from . import console

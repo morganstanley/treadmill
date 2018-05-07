@@ -23,6 +23,7 @@ from treadmill import yamlwrapper as yaml
 from treadmill import zknamespace as z
 from treadmill import zkutils
 from treadmill import zkwatchers
+from treadmill.scheduler import masterapi
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -33,31 +34,39 @@ _INTERVAL = float(60 * 60)
 _DELAY_INTERVAL = float(5 * 60)
 
 
-def reevaluate(api_url, state):
+def reevaluate(api_url, state, zkclient, last_waited):
     """Evaluate state and adjust app count based on monitor"""
     # Disable too many branches/statements warning.
     #
     # pylint: disable=R0912
     # pylint: disable=R0915
-
     grouped = dict(state['scheduled'])
     monitors = dict(state['monitors'])
 
-    # Do not create a copy, delayed is accessed by ref.
-    delayed = state['delayed']
+    # Do not create a copy, suspended is accessed by ref.
+    suspended = state['suspended']
+    waited = {}
+    modified = False
 
     now = time.time()
+
+    # remove outdated information in suspended dict
+    extra = six.viewkeys(suspended) - six.viewkeys(monitors)
+    for name in extra:
+        suspended.pop(name, None)
+        modified = True
 
     # Increase available tokens.
     for name, conf in six.iteritems(monitors):
 
-        if delayed.get(name, 0) > now:
-            _LOGGER.debug('Ignoring app %s - delayed.', name)
+        if suspended.get(name, 0) > now:
+            _LOGGER.debug('Ignoring app %s - suspended.', name)
             continue
 
-        # Either app is not delayed or it is past-due - remove it from
-        # delayed dict.
-        delayed.pop(name, None)
+        # Either app is not suspended or it is past-due - remove it from
+        # suspended dict.
+        if suspended.pop(name, None) is not None:
+            modified = True
 
         # Max value reached, nothing to do.
         max_value = conf['count'] * 2
@@ -65,15 +74,13 @@ def reevaluate(api_url, state):
         if available < max_value:
             delta = conf['rate'] * (now - conf['last_update'])
             conf['available'] = min(available + delta, max_value)
-        conf['last_update'] = now
 
-    # Allow every application to evaluate
-    success = True
+        conf['last_update'] = now
 
     for name, conf in six.iteritems(monitors):
 
-        if delayed.get(name, 0) > now:
-            _LOGGER.debug('Monitor is delayed for: %s.', name)
+        if suspended.get(name, 0) > now:
+            _LOGGER.debug('Monitor is suspended for: %s.', name)
             continue
 
         count = conf['count']
@@ -89,26 +96,44 @@ def reevaluate(api_url, state):
         elif count > current_count:
             needed = count - current_count
             allowed = int(min(needed, math.floor(available)))
+            _LOGGER.debug('%s => need %d, allow %d', name, needed, allowed)
             if allowed <= 0:
+                # in this case available <= 0 as needed >= 1
+                # we got estimated wait time, now + wait seconds
+                print((1 - available) / conf['rate'])
+                waited[name] = now + int((1 - available) / conf['rate'])
+                # new wait item, need modify
+                if name not in last_waited:
+                    modified = True
+
                 continue
 
             try:
+                # scheduled, remove app from waited list
                 _scheduled = restclient.post(
                     [api_url],
                     '/instance/{}?count={}'.format(name, allowed),
                     payload={},
                     headers={'X-Treadmill-Trusted-Agent': 'monitor'}
                 )
+
+                if name in last_waited:
+                    # this means app jump out of wait, need to clear it from zk
+                    modified = True
+
                 conf['available'] -= allowed
             except restclient.NotFoundError:
                 _LOGGER.info('App not configured: %s', name)
-                delayed[name] = now + _DELAY_INTERVAL
+                suspended[name] = now + _DELAY_INTERVAL
+                modified = True
             except restclient.BadRequestError:
                 _LOGGER.exception('Unable to start: %s', name)
-                delayed[name] = now + _DELAY_INTERVAL
+                suspended[name] = now + _DELAY_INTERVAL
+                modified = True
             except restclient.ValidationError:
                 _LOGGER.exception('Invalid manifest: %s', name)
-                delayed[name] = now + _DELAY_INTERVAL
+                suspended[name] = now + _DELAY_INTERVAL
+                modified = True
             except Exception:  # pylint: disable=W0703
                 _LOGGER.exception('Unable to create instances: %s: %s',
                                   name, needed)
@@ -122,10 +147,20 @@ def reevaluate(api_url, state):
                     headers={'X-Treadmill-Trusted-Agent': 'monitor'}
                 )
                 _LOGGER.info('deleted: %r - %s', extra, response)
+
+                # this means we reduce the count number, no need to wait
+                modified = True
+
             except Exception:  # pylint: disable=W0703
                 _LOGGER.exception('Unable to delete instances: %r', extra)
 
-    return success
+    # total inactive means
+    waited.update(suspended)
+    if modified:
+        _LOGGER.info('Updating suspended app monitors')
+        zkutils.update(zkclient, z.path.appmonitor(), waited)
+
+    return waited
 
 
 def _run_sync(api_url):
@@ -136,7 +171,7 @@ def _run_sync(api_url):
     state = {
         'scheduled': {},
         'monitors': {},
-        'delayed': {},
+        'suspended': {},
     }
 
     @zkclient.ChildrenWatch(z.path.scheduled())
@@ -204,13 +239,11 @@ def _run_sync(api_url):
             _LOGGER.info('Adding missing monitor: %s', name)
             _watch_monitor(name)
 
-    _LOGGER.info('Ready')
-
+    _LOGGER.info('Ready, loading waited app list')
+    last_waited = masterapi.get_suspended_appmonitors(zkclient)
     while True:
         time.sleep(1)
-        if not reevaluate(api_url, state):
-            _LOGGER.error('Unhandled exception while evaluating state.')
-            break
+        last_waited = reevaluate(api_url, state, zkclient, last_waited)
 
 
 def init():

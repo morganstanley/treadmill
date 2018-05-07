@@ -9,7 +9,6 @@ from __future__ import unicode_literals
 import logging
 import unittest
 
-
 from treadmill import logcontext as lc
 
 

@@ -53,7 +53,7 @@ class ApiCellTest(unittest.TestCase):
         self.cell.create('some-cell', {'location': 'ny',
                                        'treadmillid': 'treadmld',
                                        'version': 'v3'})
-        cell_admin.get.assert_called_with('some-cell')
+        cell_admin.get.assert_called_with('some-cell', dirty=True)
 
 
 if __name__ == '__main__':

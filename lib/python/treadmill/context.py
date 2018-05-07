@@ -168,6 +168,20 @@ class AdminContext(object):
         self._conn = None
 
     @property
+    def write_url(self):
+        """Get the LDAP server URL for write access.
+        """
+        url = self._context.get('ldap_write_url', resolve=True)
+        return url
+
+    @write_url.setter
+    def write_url(self, value):
+        """Set the LDAP server URL for write access.
+        """
+        self._context.set('ldap_write_url', value)
+        self._conn = None
+
+    @property
     def conn(self):
         """Lazily establishes connection to admin LDAP.
         """
@@ -175,7 +189,7 @@ class AdminContext(object):
             return self._conn
 
         plugin = plugin_manager.load('treadmill.context', 'admin')
-        self._conn = plugin.connect(self.url, self.ldap_suffix,
+        self._conn = plugin.connect(self.url, self.write_url, self.ldap_suffix,
                                     self.user, self.password)
         return self._conn
 

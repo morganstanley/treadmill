@@ -1,5 +1,5 @@
 command: >
-  {{ python }} -m treadmill.ms sproc service --root-dir {{ dir }}
+  {{ python }} -m treadmill sproc service --root-dir {{ dir }}
   presence --zkid zkid.pickle
 monitor_policy:
   limit: 5

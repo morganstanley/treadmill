@@ -46,7 +46,7 @@ def init():
                 admin_alloc.update(allocation, attrs)
 
         try:
-            cli.out(formatter(admin_alloc.get(allocation)))
+            cli.out(formatter(admin_alloc.get(allocation, dirty=True)))
         except ldap_exceptions.LDAPNoSuchObjectResult:
             click.echo('Allocation does not exist: %s' % allocation, err=True)
 
@@ -103,7 +103,7 @@ def init():
 
         try:
             admin_alloc = admin.Allocation(context.GLOBAL.ldap.conn)
-            cli.out(formatter(admin_alloc.get(allocation)))
+            cli.out(formatter(admin_alloc.get(allocation, dirty=True)))
         except ldap_exceptions.LDAPNoSuchObjectResult:
             click.echo('Allocation does not exist: %s' % allocation, err=True)
 
@@ -135,7 +135,7 @@ def init():
 
         try:
             admin_alloc = admin.Allocation(context.GLOBAL.ldap.conn)
-            cli.out(formatter(admin_alloc.get(allocation)))
+            cli.out(formatter(admin_alloc.get(allocation, dirty=True)))
         except ldap_exceptions.LDAPNoSuchObjectResult:
             click.echo('Allocation does not exist: %s' % allocation, err=True)
 

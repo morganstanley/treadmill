@@ -66,7 +66,7 @@ def init():  # pylint: disable=R0912
                 admin_dns.update(name, data)
 
         try:
-            cli.out(formatter(admin_dns.get(name)))
+            cli.out(formatter(admin_dns.get(name, dirty=bool(data))))
         except ldap_exceptions.LDAPNoSuchObjectResult:
             click.echo('DNS entry does not exist: %s' % name, err=True)
 

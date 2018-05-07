@@ -5,6 +5,7 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
+import collections
 import sys
 import unittest
 
@@ -14,6 +15,7 @@ import mock
 import six
 
 from treadmill import cli
+from treadmill import context
 from treadmill.formatter import tablefmt
 
 
@@ -89,6 +91,21 @@ class CliTest(unittest.TestCase):
         """
         self.assertEqual(['a', 'b', 'c'], cli.combine(['a', 'b,c']))
         self.assertEqual(None, cli.combine(['-']))
+
+    def test_handle_cell_opt(self):
+        """Test parsing cell CLI option."""
+        param = collections.namedtuple('param', 'name')('cell')
+        ctx = collections.namedtuple('ctx', 'resilient_parsing')(False)
+        cli.handle_context_opt(ctx, param, 'foo')
+        self.assertEqual(context.GLOBAL.cell, 'foo')
+
+    def test_handle_fq_cell_opt(self):
+        """Test parsing cell CLI option."""
+        param = collections.namedtuple('param', 'name')('cell')
+        ctx = collections.namedtuple('ctx', 'resilient_parsing')(False)
+        cli.handle_context_opt(ctx, param, 'foo.xx.com')
+        self.assertEqual(context.GLOBAL.cell, 'foo')
+        self.assertEqual(context.GLOBAL.dns_domain, 'xx.com')
 
 
 if __name__ == '__main__':

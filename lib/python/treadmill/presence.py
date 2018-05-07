@@ -83,7 +83,7 @@ class EndpointPresence(object):
         path = z.path.running(self.appname)
         try:
             data, _metadata = self.zkclient.get(path)
-            if data == self.hostname:
+            if data and data.decode() == self.hostname:
                 self.zkclient.delete(path)
         except kazoo.client.NoNodeError:
             _LOGGER.info('running node does not exist.')
@@ -126,7 +126,7 @@ class EndpointPresence(object):
             _LOGGER.info('un-register endpoint: %s', path)
             try:
                 data, _metadata = self.zkclient.get(path)
-                if data.split(':')[0] == self.hostname:
+                if data and data.decode().split(':')[0] == self.hostname:
                     self.zkclient.delete(path)
             except kazoo.client.NoNodeError:
                 _LOGGER.info('endpoint node does not exist.')

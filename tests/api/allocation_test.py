@@ -50,7 +50,7 @@ class ApiAllocationTest(unittest.TestCase):
     @mock.patch('treadmill.api.allocation._check_capacity',
                 mock.Mock(return_value=True))
     def test_reservation(self):
-        """Dummy test for treadmill.api.allocation._list()"""
+        """Dummy test for treadmill.api.allocation.create()"""
         alloc_admin = admin.CellAllocation(None)
         self.alloc.reservation.create(
             'tenant/alloc/cellname',

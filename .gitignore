@@ -4,12 +4,12 @@ __pycache__
 .*
 
 build/
+dist/
 docs/api
 docs/build
 docs/_build
-dist/
+venv/
 wheels/
-cover/
 
 # Keep track of .keepme files
 !.keepme

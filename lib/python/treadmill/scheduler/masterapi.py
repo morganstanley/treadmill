@@ -238,6 +238,8 @@ def delete_server(zkclient, server_id):
     """Delete the server in Zookeeper."""
     zkutils.ensure_deleted(zkclient, z.path.server(server_id))
     zkutils.ensure_deleted(zkclient, z.path.placement(server_id))
+    zkutils.ensure_deleted(zkclient, z.path.version(server_id))
+    zkutils.ensure_deleted(zkclient, z.path.version_history(server_id))
     create_event(zkclient, 0, 'servers', [server_id])
 
 
@@ -288,11 +290,21 @@ def appmonitors(zkclient):
     return sorted(zkclient.get_children(z.path.appmonitor()))
 
 
-def get_appmonitor(zkclient, monitor_id, raise_notfound=False):
+def get_suspended_appmonitors(zkclient):
+    """Return appmonitor suspension information."""
+    # we avoid returning None
+    return zkutils.get(zkclient, z.path.appmonitor()) or {}
+
+
+def get_appmonitor(zkclient, monitor_id,
+                   raise_notfound=False, suspended_monitors=None):
     """Return app monitor given id."""
     try:
         data = zkutils.get(zkclient, z.path.appmonitor(monitor_id))
         data['_id'] = monitor_id
+        if suspended_monitors is None:
+            suspended_monitors = get_suspended_appmonitors(zkclient)
+        data['suspend_until'] = suspended_monitors.get(monitor_id)
         return data
     except kazoo.client.NoNodeError:
         _LOGGER.info('App monitor does not exist: %s', monitor_id)
@@ -307,6 +319,10 @@ def update_appmonitor(zkclient, monitor_id, count):
     node = z.path.appmonitor(monitor_id)
     data = {'count': count}
     zkutils.put(zkclient, node, data, check_content=True)
+
+    # return data directly. As check_content=True, we believe data is correct
+    data['_id'] = monitor_id
+    return data
 
 
 def delete_appmonitor(zkclient, monitor_id):

@@ -40,7 +40,7 @@ class API(object):
         def create(rsrc_id, rsrc):
             """Create tenant."""
             _admin_tnt().create(rsrc_id, rsrc)
-            return _admin_tnt().get(rsrc_id)
+            return _admin_tnt().get(rsrc_id, dirty=True)
 
         @schema.schema(
             {'$ref': 'tenant.json#/resource_id'},
@@ -50,7 +50,7 @@ class API(object):
         def update(rsrc_id, rsrc):
             """Update tenant."""
             _admin_tnt().update(rsrc_id, rsrc)
-            return _admin_tnt().get(rsrc_id)
+            return _admin_tnt().get(rsrc_id, dirty=True)
 
         @schema.schema({'$ref': 'tenant.json#/resource_id'})
         def delete(rsrc_id):

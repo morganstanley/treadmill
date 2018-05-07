@@ -16,7 +16,6 @@ import tempfile
 import unittest
 
 import mock
-
 import six
 from six.moves import _thread
 
