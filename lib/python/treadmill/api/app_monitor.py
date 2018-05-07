@@ -28,8 +28,15 @@ class API(object):
                 match = '*'
 
             zkclient = context.GLOBAL.zk.conn
+
+            # get suspended monitors
+            suspended_monitors = masterapi.get_suspended_appmonitors(zkclient)
+
             monitors = [
-                masterapi.get_appmonitor(zkclient, app)
+                masterapi.get_appmonitor(
+                    zkclient, app,
+                    suspended_monitors=suspended_monitors,
+                )
                 for app in masterapi.appmonitors(zkclient)
             ]
 
@@ -57,8 +64,9 @@ class API(object):
         def create(rsrc_id, rsrc):
             """Create (configure) application monitor."""
             zkclient = context.GLOBAL.zk.conn
-            masterapi.update_appmonitor(zkclient, rsrc_id, rsrc['count'])
-            return masterapi.get_appmonitor(zkclient, rsrc_id)
+            return masterapi.update_appmonitor(
+                zkclient, rsrc_id, rsrc['count']
+            )
 
         @schema.schema(
             {'$ref': 'appmonitor.json#/resource_id'},
@@ -68,8 +76,9 @@ class API(object):
         def update(rsrc_id, rsrc):
             """Update application configuration."""
             zkclient = context.GLOBAL.zk.conn
-            masterapi.update_appmonitor(zkclient, rsrc_id, rsrc['count'])
-            return masterapi.get_appmonitor(zkclient, rsrc_id)
+            return masterapi.update_appmonitor(
+                zkclient, rsrc_id, rsrc['count']
+            )
 
         @schema.schema(
             {'$ref': 'appmonitor.json#/resource_id'},

@@ -16,7 +16,10 @@ from treadmill import yamlwrapper as yaml
 
 def fmt_time(timestamp):
     """Return ISO formatted time from seconds from epoch."""
-    return time.strftime('%Y-%M-%dT%H:%m:%S', time.localtime(timestamp))
+    if timestamp:
+        return time.strftime('%Y-%m-%dT%H:%M:%S', time.localtime(timestamp))
+    else:
+        return '-'
 
 
 def fmt_utilization(util):
@@ -240,7 +243,8 @@ class AppMonitorPrettyFormatter(object):
     def format(item):
         """Return pretty-formatted item."""
         schema = [('monitor', '_id', None),
-                  ('count', 'count', None)]
+                  ('count', 'count', None),
+                  ('suspend until', 'suspend_until', fmt_time)]
 
         format_item = make_dict_to_table(schema)
         format_list = make_list_to_table(schema)

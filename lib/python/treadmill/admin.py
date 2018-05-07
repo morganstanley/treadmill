@@ -156,7 +156,7 @@ def _dict_2_entry(obj, schema, option=None, option_value=None):
                         if v is not None
                     ]
                     if len(filtered) < len(value):
-                        _LOGGER.critical('Exptected %r, got %r',
+                        _LOGGER.critical('Expected %r, got %r',
                                          field_type, value)
                     entry[ldap_field] = filtered
             elif field_type is bool:
@@ -469,16 +469,23 @@ class Admin(object):
     # pylint: disable=invalid-name
 
     def __init__(self, uri, ldap_suffix,
-                 user=None, password=None, connect_timeout=5):
+                 user=None, password=None, connect_timeout=5, write_uri=None):
         self.uri = uri
-        if uri and not isinstance(uri, list):
+        if isinstance(uri, six.string_types):
             self.uri = uri.split(',')
+
+        self.write_uri = write_uri
+        if isinstance(write_uri, six.string_types):
+            self.write_uri = write_uri.split(',')
+
         self.ldap_suffix = ldap_suffix
         self.root_ou = 'ou=treadmill,%s' % ldap_suffix
-        self.ldap = None
         self.user = user
         self.password = password
         self._connect_timeout = connect_timeout
+
+        self.ldap = None
+        self.write_ldap = None
 
     def close(self):
         """Closes ldap connection."""
@@ -488,85 +495,127 @@ class Admin(object):
         except ldap_exceptions.LDAPCommunicationError:
             _LOGGER.exception('cannot close connection.')
 
+        try:
+            if self.write_ldap:
+                self.write_ldap.unbind()
+        except ldap_exceptions.LDAPCommunicationError:
+            _LOGGER.exception('cannot close connection.')
+
     def dn(self, parts):
         """Constructs dn."""
         return ','.join(parts + [self.root_ou])
+
+    def _connect_to_uri(self, uri):
+        """Create an LDAP connection to the given URI."""
+        try:
+            server = ldap3.Server(
+                uri,
+                mode=ldap3.IP_V4_ONLY,
+                connect_timeout=self._connect_timeout,
+            )
+            if self.user and self.password:
+                ldap_auth = {
+                    'user': self.user,
+                    'password': self.password
+                }
+            else:
+                ldap_auth = {
+                    'authentication': ldap3.SASL,
+                    'sasl_mechanism': 'GSSAPI'
+                }
+
+            return ldap3.Connection(
+                server,
+                client_strategy=ldap3.RESTARTABLE,
+                auto_bind=True,
+                auto_encode=True,
+                auto_escape=True,
+                return_empty_attributes=False,
+                **ldap_auth
+            )
+        except (ldap_exceptions.LDAPSocketOpenError,
+                ldap_exceptions.LDAPBindError,
+                ldap_exceptions.LDAPMaximumRetriesError):
+            _LOGGER.debug('Failed to connect to %s', uri, exc_info=True)
+            return None
 
     def connect(self):
         """Connects (binds) to LDAP server."""
         ldap3.set_config_parameter('RESTARTABLE_TRIES', 3)
         ldap3.set_config_parameter('DEFAULT_CLIENT_ENCODING', 'utf8')
         ldap3.set_config_parameter('DEFAULT_SERVER_ENCODING', 'utf8')
+        # This is needed because twisted monkey-patches socket._is_ipv6
+        # and ldap3 code is wrong.
+        # pylint: disable=protected-access
+        ldap3.Server._is_ipv6 = lambda x, y: False
+
+        if self.ldap or self.write_ldap:
+            _LOGGER.debug('Closing existing connections before connect')
+            self.close()
+
         for uri in self.uri:
-            try:
-                # Disable W0212: Access to a protected member _is_ipv6 of a
-                #                client class
-                #
-                # This is needed because twisted monkey patches socket._is_ipv6
-                # and ldap3 code is wrong.
-                # pylint: disable=W0212
-                ldap3.Server._is_ipv6 = lambda x, y: False
-                server = ldap3.Server(
-                    uri,
-                    mode=ldap3.IP_V4_ONLY,
-                    connect_timeout=self._connect_timeout,
-                )
-                if self.user and self.password:
-                    self.ldap = ldap3.Connection(
-                        server,
-                        user=self.user,
-                        password=self.password,
-                        client_strategy=ldap3.RESTARTABLE,
-                        auto_bind=True,
-                        auto_encode=True,
-                        auto_escape=True,
-                        return_empty_attributes=False
-                    )
-                else:
-                    self.ldap = ldap3.Connection(
-                        server,
-                        authentication=ldap3.SASL,
-                        sasl_mechanism='GSSAPI',
-                        client_strategy=ldap3.RESTARTABLE,
-                        auto_bind=True,
-                        auto_encode=True,
-                        auto_escape=True,
-                        return_empty_attributes=False
-                    )
-            except (ldap_exceptions.LDAPSocketOpenError,
-                    ldap_exceptions.LDAPBindError,
-                    ldap_exceptions.LDAPMaximumRetriesError):
-                _LOGGER.debug('Could not connect to %s', uri, exc_info=True)
-            else:
+            ldap_connection = self._connect_to_uri(uri)
+            if ldap_connection is not None:
+                self.ldap = ldap_connection
                 break
 
-        # E0704: The raise statement is not inside an except clause
         if not self.ldap:
-            raise  # pylint: disable=E0704
+            raise ldap_exceptions.LDAPBindError(
+                'Failed to connect to any LDAP server: {}'.format(
+                    ', '.join(self.uri)
+                )
+            )
+
+        if not self.write_uri:
+            self.write_ldap = self.ldap
+            return
+
+        for write_uri in self.write_uri:
+            ldap_connection = self._connect_to_uri(write_uri)
+            if ldap_connection is not None:
+                self.write_ldap = ldap_connection
+                break
+
+        if not self.write_ldap:
+            raise ldap_exceptions.LDAPBindError(
+                'Failed to connect to any LDAP server: {}'.format(
+                    ', '.join(self.write_uri)
+                )
+            )
 
     def search(self, search_base, search_filter,
-               search_scope=ldap3.SUBTREE, attributes=None):
+               search_scope=ldap3.SUBTREE, attributes=None, dirty=False):
         """Call ldap search and return a generator of dn, entry tuples.
         """
-        self.ldap.result = None
-        self.ldap.search(
+        # If entries in the potential search results were written or modified
+        # recently, we use the connection to the write server to avoid problems
+        # with replication delays between provider and consumer
+        ldap = self.write_ldap if dirty else self.ldap
+
+        ldap.result = None
+        ldap.search(
             search_base=search_base,
             search_filter=search_filter,
             search_scope=search_scope,
             attributes=attributes,
             dereference_aliases=ldap3.DEREF_NEVER
         )
-        self._test_raise_exceptions()
+        self._test_raise_exceptions(ldap)
 
-        for entry in self.ldap.response:
+        for entry in ldap.response:
             yield entry['dn'], _dict_normalize(entry['attributes'])
 
     def paged_search(self, search_base, search_filter,
-                     search_scope=ldap3.SUBTREE, attributes=None):
+                     search_scope=ldap3.SUBTREE, attributes=None, dirty=False):
         """Call ldap paged search and return a generator of dn, entry tuples.
         """
-        self.ldap.result = None
-        res_gen = self.ldap.extend.standard.paged_search(
+        # If entries in the potential search results were written or modified
+        # recently, we use the connection to the write server to avoid problems
+        # with replication delays between provider and consumer
+        ldap = self.write_ldap if dirty else self.ldap
+
+        ldap.result = None
+        res_gen = ldap.extend.standard.paged_search(
             search_base=search_base,
             search_filter=search_filter,
             search_scope=search_scope,
@@ -576,20 +625,23 @@ class Admin(object):
             paged_criticality=True,
             generator=True
         )
-        self._test_raise_exceptions()
+        self._test_raise_exceptions(ldap)
 
         for entry in res_gen:
             yield entry['dn'], _dict_normalize(entry['attributes'])
 
-    def _test_raise_exceptions(self):
+    def _test_raise_exceptions(self, ldap=None):
         """
         Looks for specific error conditions or throws if non-success state.
         """
-        if not self.ldap.result or 'result' not in self.ldap.result:
+        if ldap is None:
+            ldap = self.ldap
+
+        if not ldap.result or 'result' not in ldap.result:
             return
 
         exception_type = None
-        result_code = self.ldap.result['result']
+        result_code = ldap.result['result']
         if result_code == 68:
             exception_type = ldap_exceptions.LDAPEntryAlreadyExistsResult
         elif result_code == 32:
@@ -601,17 +653,17 @@ class Admin(object):
             exception_type = ldap_exceptions.LDAPOperationResult
 
         if exception_type:
-            raise exception_type(result=self.ldap.result['result'],
-                                 description=self.ldap.result['description'],
-                                 dn=self.ldap.result['dn'],
-                                 message=self.ldap.result['message'],
-                                 response_type=self.ldap.result['type'])
+            raise exception_type(result=ldap.result['result'],
+                                 description=ldap.result['description'],
+                                 dn=ldap.result['dn'],
+                                 message=ldap.result['message'],
+                                 response_type=ldap.result['type'])
 
     def modify(self, dn, changes):
         """Call ldap modify and raise exception on non-success."""
         if changes:
-            self.ldap.modify(dn, changes)
-            self._test_raise_exceptions()
+            self.write_ldap.modify(dn, changes)
+            self._test_raise_exceptions(self.write_ldap)
 
     def add(self, dn, object_class=None, attributes=None):
         """Call ldap add and raise exception on non-success."""
@@ -619,21 +671,22 @@ class Admin(object):
             (k, v)
             for k, v in six.iteritems(attributes)
         )) if attributes else None
-        self.ldap.add(dn, object_class, sorted_attributes)
-        self._test_raise_exceptions()
+        self.write_ldap.add(dn, object_class, sorted_attributes)
+        self._test_raise_exceptions(self.write_ldap)
 
     def delete(self, dn):
         """Call ldap delete and raise exception on non-success."""
-        self.ldap.delete(dn)
-        self._test_raise_exceptions()
+        self.write_ldap.delete(dn)
+        self._test_raise_exceptions(self.write_ldap)
 
-    def list(self, root=None):
+    def list(self, root=None, dirty=False):
         """Lists all objects in the database."""
         if not root:
             root = self.root_ou
         result = self.paged_search(
             search_base=root,
-            search_filter='(objectClass=*)'
+            search_filter='(objectClass=*)',
+            dirty=dirty
         )
         return [dn for dn, _ in result]
 
@@ -864,6 +917,7 @@ class Admin(object):
             changes['olcObjectClasses'].extend([(ldap3.MODIFY_ADD, values)])
 
         if changes:
+            # TODO must be modified in a specific order to avoid exceptions
             self.modify(schema_dn, changes)
         else:
             _LOGGER.info('Schema is up to date.')
@@ -915,7 +969,7 @@ class Admin(object):
             except ldap_exceptions.LDAPEntryAlreadyExistsResult:
                 _LOGGER.debug('%s already exists.', dn)
 
-    def get(self, dn, query, attrs, paged_search=True):
+    def get(self, dn, query, attrs, paged_search=True, dirty=False):
         """Gets LDAP object given dn."""
         if paged_search:
             search_func = self.paged_search
@@ -925,7 +979,8 @@ class Admin(object):
         result = search_func(search_base=dn,
                              search_filter=six.text_type(query),
                              search_scope=ldap3.BASE,
-                             attributes=attrs)
+                             attributes=attrs,
+                             dirty=dirty)
 
         for _dn, entry in result:
             return entry
@@ -1007,11 +1062,11 @@ class LdapObject(object):
 
         return dn
 
-    def get(self, ident):
+    def get(self, ident, dirty=False):
         """Gets object given identity."""
-        entry = self.admin.get(self.dn(ident),
-                               self._query(),
-                               self.attrs())
+        entry = self.admin.get(
+            self.dn(ident), self._query(), self.attrs(), dirty
+        )
         if entry:
             return self.from_entry(entry, self.dn(ident))
         else:
@@ -1030,7 +1085,7 @@ class LdapObject(object):
 
         self.admin.create(self.dn(ident), entry)
 
-    def list(self, attrs, generator=False):
+    def list(self, attrs, generator=False, dirty=False):
         """List records, given attribute filter."""
         query = self._query()
         for ldap_field, obj_field, _field_type in self.schema():
@@ -1051,7 +1106,8 @@ class LdapObject(object):
         result = self.admin.paged_search(search_base=self.dn(),
                                          search_filter=query.to_str(),
                                          search_scope=ldap3.SUBTREE,
-                                         attributes=self.attrs())
+                                         attributes=self.attrs(),
+                                         dirty=dirty)
         if generator:
             return (self.from_entry(entry, dn) for dn, entry in result)
         return [self.from_entry(entry, dn) for dn, entry in result]
@@ -1078,20 +1134,21 @@ class LdapObject(object):
         assert ident is not None
         self.admin.delete(self.dn(ident))
 
-    def children(self, ident, clazz):
+    def children(self, ident, clazz, dirty=False):
         """Selects all children given the children type."""
         dn = self.dn(ident)
 
         children_admin = clazz(self.admin)
         attrs = [elem[0] for elem in children_admin.schema()]
-        search = self.admin.paged_search(
+        children = self.admin.paged_search(
             search_base=dn,
             search_filter='(objectclass=%s)' % clazz.oc(),
-            attributes=attrs
+            attributes=attrs,
+            dirty=dirty
         )
         return [
             children_admin.from_entry(entry, child_dn)
-            for child_dn, entry in search
+            for child_dn, entry in children
         ]
 
 
@@ -1163,21 +1220,14 @@ class AppGroup(LdapObject):
     _ou = 'app-groups'
     _entity = 'app-group'
 
-    # W0221: Arguments number differs from overridden 'get'
-    def get(self, ident, group_type=None):  # pylint: disable=W0221
+    # pylint: disable=arguments-differ
+    def get(self, ident, group_type=None, dirty=False):
         """Gets object given identity and group_type"""
-        search = {'_id': ident}
-        if group_type:
-            search['group-type'] = group_type
+        entry = super(AppGroup, self).get(ident, dirty)
+        if entry and group_type and entry['group-type'] != group_type:
+            return None
 
-        entries = self.list(search)
-        if not entries:
-            raise ldap_exceptions.LDAPNoSuchObjectResult(
-                'No entries for {0} and group-type {1}'.format(
-                    ident, group_type)
-            )
-
-        return entries[0]
+        return entry
 
 
 AppGroup.schema = staticmethod(
@@ -1454,15 +1504,15 @@ class Cell(LdapObject):
             [_name_only(e) for e in Cell._master_host_schema]
         )
 
-    def get(self, ident):
+    def get(self, ident, dirty=False):
         """Gets cell given primary key."""
-        obj = super(Cell, self).get(ident)
-        obj['partitions'] = self.partitions(ident)
+        obj = super(Cell, self).get(ident, dirty=dirty)
+        obj['partitions'] = self.partitions(ident, dirty=dirty)
         return obj
 
-    def partitions(self, ident):
+    def partitions(self, ident, dirty=False):
         """Retrieves all partitions for given cell."""
-        return self.children(ident, Partition)
+        return self.children(ident, Partition, dirty=dirty)
 
     def from_entry(self, entry, dn=None):
         """Converts LDAP app object to dict."""
@@ -1544,13 +1594,13 @@ class Tenant(LdapObject):
         entry = super(Tenant, self).to_entry(obj)
         return entry
 
-    def allocations(self, ident):
+    def allocations(self, ident, dirty=False):
         """Return all tenant's allocations."""
-        return self.children(ident, Allocation)
+        return self.children(ident, Allocation, dirty=dirty)
 
-    def reservations(self, ident):
+    def reservations(self, ident, dirty=False):
         """Return all tenant's reservations."""
-        return self.children(ident, CellAllocation)
+        return self.children(ident, CellAllocation, dirty=dirty)
 
 
 Tenant.oc = staticmethod(lambda: Tenant._oc)  # pylint: disable=W0212
@@ -1709,15 +1759,14 @@ class Allocation(LdapObject):
         """Returns combined schema for retrieval."""
         return Allocation._schema
 
-    def get(self, ident):
+    def get(self, ident, dirty=False):
         """Gets allocation given primary key."""
-        obj = super(Allocation, self).get(ident)
-        obj['reservations'] = self.reservations(ident)
+        obj = super(Allocation, self).get(ident, dirty=dirty)
+        obj['reservations'] = self.reservations(ident, dirty=dirty)
         return obj
 
     def delete(self, ident):
         """Deletes LDAP record."""
-        # TODO: need to delete cell allocations as well.
         dn = self.dn(ident)
         cell_allocs_search = self.admin.paged_search(
             search_base=dn,
@@ -1730,9 +1779,9 @@ class Allocation(LdapObject):
 
         return super(Allocation, self).delete(ident)
 
-    def reservations(self, ident):
+    def reservations(self, ident, dirty=False):
         """Retrieves all reservations for given allocation."""
-        return self.children(ident, CellAllocation)
+        return self.children(ident, CellAllocation, dirty=dirty)
 
 
 Allocation.oc = staticmethod(lambda: Allocation._oc)  # pylint: disable=W0212

@@ -108,7 +108,9 @@ class EventMgr(object):
         @utils.exit_on_unhandled
         def _app_watch(apps):
             """Watch application placement."""
-            self._synchronize(zkclient, apps)
+            self._synchronize(
+                zkclient, apps, check_existing=not synchronized.is_set()
+            )
             synchronized.set()
 
             self._cache_notify(_is_ready())
@@ -127,13 +129,13 @@ class EventMgr(object):
         _LOGGER.info('service shutdown.')
         watchdog_lease.remove()
 
-    def _synchronize(self, zkclient, expected):
+    def _synchronize(self, zkclient, expected, check_existing=False):
         """Synchronize local app cache with the expected list.
 
-        :param expected:
+        :param ``list`` expected:
             List of instances expected to be running on the server.
-        :type expected:
-            ``list``
+        :param ``bool`` check_existing:
+            Whether to check if the already existing entries are up to date.
         """
         expected_set = set(expected)
         current_set = {
@@ -142,6 +144,7 @@ class EventMgr(object):
         }
         extra = current_set - expected_set
         missing = expected_set - current_set
+        existing = current_set & expected_set
 
         _LOGGER.info('expected : %s', ','.join(expected_set))
         _LOGGER.info('actual   : %s', ','.join(current_set))
@@ -157,22 +160,50 @@ class EventMgr(object):
         for app in missing:
             self._cache(zkclient, app)
 
-    def _cache(self, zkclient, app):
-        """Read the manifest from Zk and stores it as YAML in <cache>/<app>.
+        if check_existing:
+            _LOGGER.info('existing : %s', ','.join(existing))
+            for app in existing:
+                self._cache(zkclient, app, check_existing=True)
+
+    def _cache(self, zkclient, app, check_existing=False):
+        """Read the manifest and placement data from Zk and store it as YAML in
+        <cache>/<app>.
+
+        :param ``str`` app:
+            Instance name.
+        :param ``bool`` check_existing:
+            Whether to check if the file already exists and is up to date.
         """
-        appnode = z.path.scheduled(app)
         placement_node = z.path.placement(self._hostname, app)
-        manifest_file = None
         try:
-            manifest = zkutils.get(zkclient, appnode)
+            placement_data, placement_metadata = zkutils.get_with_metadata(
+                zkclient, placement_node
+            )
+            placement_time = placement_metadata.ctime / 1000.0
+        except kazoo.exceptions.NoNodeError:
+            _LOGGER.info('Placement %s/%s not found', self._hostname, app)
+            return
+
+        manifest_file = os.path.join(self.tm_env.cache_dir, app)
+        if check_existing:
+            try:
+                manifest_time = os.stat(manifest_file).st_ctime
+            except FileNotFoundError:
+                manifest_time = None
+
+            if manifest_time and manifest_time >= placement_time:
+                _LOGGER.info('%s is up to date', manifest_file)
+                return
+
+        app_node = z.path.scheduled(app)
+        try:
+            manifest = zkutils.get(zkclient, app_node)
             # TODO: need a function to parse instance id from name.
             manifest['task'] = app[app.index('#') + 1:]
 
-            placement_info = zkutils.get(zkclient, placement_node)
-            if placement_info is not None:
-                manifest.update(placement_info)
+            if placement_data is not None:
+                manifest.update(placement_data)
 
-            manifest_file = os.path.join(self.tm_env.cache_dir, app)
             fs.write_safe(
                 manifest_file,
                 lambda f: yaml.dump(manifest, stream=f),
@@ -183,7 +214,7 @@ class EventMgr(object):
             _LOGGER.info('Created cache manifest: %s', manifest_file)
 
         except kazoo.exceptions.NoNodeError:
-            _LOGGER.warning('App %r not found', app)
+            _LOGGER.info('App %s not found', app)
 
     def _cache_notify(self, is_ready):
         """Send a cache status notification event.

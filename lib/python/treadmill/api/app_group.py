@@ -38,7 +38,7 @@ class API(object):
         def create(rsrc_id, rsrc):
             """Create (configure) application."""
             _admin_app_group().create(rsrc_id, rsrc)
-            return _admin_app_group().get(rsrc_id)
+            return _admin_app_group().get(rsrc_id, dirty=True)
 
         @schema.schema(
             {'$ref': 'app_group.json#/resource_id'},
@@ -48,7 +48,7 @@ class API(object):
         def update(rsrc_id, rsrc):
             """Update application configuration."""
             _admin_app_group().replace(rsrc_id, rsrc)
-            return _admin_app_group().get(rsrc_id)
+            return _admin_app_group().get(rsrc_id, dirty=True)
 
         @schema.schema({'$ref': 'app_group.json#/resource_id'})
         def delete(rsrc_id):

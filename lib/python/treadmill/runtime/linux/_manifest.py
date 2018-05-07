@@ -9,10 +9,9 @@ from __future__ import unicode_literals
 import logging
 import pwd
 import socket
-import sys
 
+from treadmill import cellconfig
 from treadmill import subproc
-
 from treadmill.appcfg import manifest as app_manifest
 
 _LOGGER = logging.getLogger(__name__)
@@ -73,8 +72,7 @@ def _get_docker_run_cmd(name, image, command=None, uidgid=None):
     ]
 
     tpl = (
-        'exec {python} -m treadmill sproc'
-        ' docker'
+        'exec $TREADMILL/bin/treadmill sproc docker'
         ' --name {name}'
         ' --envdirs /env,/docker/env,/services/{name}/env'
         ' --image {image}'
@@ -94,7 +92,6 @@ def _get_docker_run_cmd(name, image, command=None, uidgid=None):
         tpl += ' -- {cmd}'
 
     return tpl.format(
-        python=sys.executable,
         name=name,
         image=image,
         cmd=command,
@@ -142,11 +139,13 @@ def _transform_services(manifest):
     return dockers
 
 
-def _get_docker_registry(_tm_env):
+def _get_docker_registry(tm_env):
     """Return the registry to use.
     """
-    # TODO get registry from cell_config.yml
-    registry = 'lab-repo.msdev.ms.com:5000'
+    # get registry address from cell_config.yml
+    cell_config = cellconfig.CellConfig(tm_env.root)
+    registry = cell_config.data['docker_registry']
+
     if ':' in registry:
         host, _sep, port = registry.partition(':')
     else:

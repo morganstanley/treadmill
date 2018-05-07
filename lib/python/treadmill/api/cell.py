@@ -39,7 +39,7 @@ class API(object):
         def create(rsrc_id, rsrc):
             """Create cell."""
             _admin_cell().create(rsrc_id, rsrc)
-            return _admin_cell().get(rsrc_id)
+            return _admin_cell().get(rsrc_id, dirty=True)
 
         @schema.schema(
             {'$ref': 'cell.json#/resource_id'},
@@ -49,7 +49,7 @@ class API(object):
         def update(rsrc_id, rsrc):
             """Update cell."""
             _admin_cell().update(rsrc_id, rsrc)
-            return _admin_cell().get(rsrc_id)
+            return _admin_cell().get(rsrc_id, dirty=True)
 
         @schema.schema({'$ref': 'cell.json#/resource_id'})
         def delete(rsrc_id):

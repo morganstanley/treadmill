@@ -65,7 +65,7 @@ def init():  # pylint: disable=R0912
                 admin_app_group.update(name, data_struct)
 
         try:
-            cli.out(formatter(admin_app_group.get(name)))
+            cli.out(formatter(admin_app_group.get(name, dirty=True)))
         except ldap_exceptions.LDAPNoSuchObjectResult:
             cli.bad_exit('App group does not exist: %s', name)
 
@@ -77,7 +77,7 @@ def init():  # pylint: disable=R0912
     def cells(add, remove, name):
         """Add or remove cells from the app-group"""
         admin_app_group = admin.AppGroup(context.GLOBAL.ldap.conn)
-        existing = admin_app_group.get(name)
+        existing = admin_app_group.get(name, dirty=bool(add or remove))
         group_cells = set(existing['cells'])
 
         if add:
@@ -86,7 +86,9 @@ def init():  # pylint: disable=R0912
             group_cells = group_cells - set(remove)
 
         admin_app_group.update(name, {'cells': list(group_cells)})
-        cli.out(formatter(admin_app_group.get(name)))
+        cli.out(formatter(admin_app_group.get(
+            name, dirty=bool(add or remove)
+        )))
 
     @app_group.command()
     @click.argument('name', nargs=1, required=True)

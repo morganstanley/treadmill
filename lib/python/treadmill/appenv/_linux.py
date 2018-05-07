@@ -31,6 +31,8 @@ class LinuxAppEnvironment(appenv.AppEnvironment):
 
     __slots__ = (
         'ctl_dir',
+        'endpoints',
+        'endpoints_dir',
         'metrics_dir',
         'mounts_dir',
         'rules',
@@ -45,12 +47,6 @@ class LinuxAppEnvironment(appenv.AppEnvironment):
         'svc_network_dir',
         'svc_presence',
         'svc_presence_dir',
-        'rules',
-        'endpoints',
-        'rules_dir',
-        'services_tombstone_dir',
-        'ctl_dir',
-        'endpoints_dir',
     )
 
     CTL_DIR = 'ctl'
@@ -73,6 +69,7 @@ class LinuxAppEnvironment(appenv.AppEnvironment):
         super(LinuxAppEnvironment, self).__init__(root)
 
         self.ctl_dir = os.path.join(self.root, self.CTL_DIR)
+        self.endpoints_dir = os.path.join(self.root, self.ENDPOINTS_DIR)
         self.metrics_dir = os.path.join(self.root, self.METRICS_DIR)
         self.mounts_dir = os.path.join(self.root, self.MOUNTS_DIR)
         self.rules_dir = os.path.join(self.root, self.RULES_DIR)
@@ -86,11 +83,6 @@ class LinuxAppEnvironment(appenv.AppEnvironment):
                                             self.SVC_NETWORK_DIR)
         self.svc_presence_dir = os.path.join(self.root,
                                              self.SVC_PRESENCE_DIR)
-        self.rules_dir = os.path.join(self.root, self.RULES_DIR)
-        self.services_tombstone_dir = os.path.join(self.tombstones_dir,
-                                                   self.SERVICES_DIR)
-        self.ctl_dir = os.path.join(self.root, self.CTL_DIR)
-        self.endpoints_dir = os.path.join(self.root, self.ENDPOINTS_DIR)
 
         self.rules = rulefile.RuleMgr(self.rules_dir, self.apps_dir)
         self.endpoints = endpoints.EndpointsMgr(self.endpoints_dir)

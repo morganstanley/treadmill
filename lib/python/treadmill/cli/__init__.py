@@ -33,7 +33,6 @@ import treadmill
 from treadmill import utils
 from treadmill import context
 from treadmill import plugin_manager
-from treadmill import restclient
 from treadmill import subproc
 
 
@@ -120,6 +119,7 @@ def _read_password(value):
         return value
 
 
+# pylint: disable=too-many-branches
 def handle_context_opt(ctx, param, value):
     """Handle eager CLI options to configure context.
 
@@ -129,6 +129,7 @@ def handle_context_opt(ctx, param, value):
     The only side effect of consuming these options are setting attributes
     of the global context.
     """
+    # pylint: disable=too-many-branches
 
     def parse_dns_server(dns_server):
         """Parse dns server string"""
@@ -146,13 +147,18 @@ def handle_context_opt(ctx, param, value):
 
     opt = param.name
     if opt == 'cell':
-        context.GLOBAL.cell = value
+        cell_parts = value.split('.')
+        context.GLOBAL.cell = cell_parts.pop(0)
+        if cell_parts:
+            context.GLOBAL.dns_domain = '.'.join(cell_parts)
     elif opt == 'dns_domain':
         context.GLOBAL.dns_domain = value
     elif opt == 'dns_server':
         context.GLOBAL.dns_server = parse_dns_server(value)
     elif opt == 'ldap':
         context.GLOBAL.ldap.url = value
+    elif opt == 'ldap_master':
+        context.GLOBAL.ldap.write_url = value
     elif opt == 'ldap_suffix':
         context.GLOBAL.ldap_suffix = value
     elif opt == 'ldap_user':
@@ -418,72 +424,3 @@ def echo_yellow(string, *args):
 def echo_red(string, *args):
     """click.echo yellow with support for placeholders, e.g. %s"""
     echo_colour('red', string, *args)
-
-
-def handle_not_authorized(err):
-    """Handle REST NotAuthorizedExceptions"""
-    msg = str(err)
-    msgs = [re.sub(r'failure: ', '    ', line) for line in msg.split(r'\n')]
-    echo_red('Not authorized.')
-    click.echo('\n'.join(msgs), nl=False)
-
-
-def handle_cli_exceptions(exclist):
-    """Decorator that will handle exceptions and output friendly messages."""
-
-    def wrap(f):
-        """Returns decorator that wraps/handles exceptions."""
-        exclist_copy = copy.copy(exclist)
-
-        @functools.wraps(f)
-        def wrapped_f(*args, **kwargs):
-            """Wrapped function."""
-            if not exclist_copy:
-                f(*args, **kwargs)
-            else:
-                exc, handler = exclist_copy.pop(0)
-
-                try:
-                    wrapped_f(*args, **kwargs)
-                except exc as err:
-                    if handler is None:
-                        raise click.UsageError(
-                            err.response['Error']['Message']
-                        )
-                    elif isinstance(handler, str):
-                        click.echo(err, err=True)
-
-                    sys.exit(EXIT_CODE_DEFAULT)
-
-        @functools.wraps(f)
-        def _handle_any(*args, **kwargs):
-            """Default exception handler."""
-            try:
-                return wrapped_f(*args, **kwargs)
-            except Exception as unhandled:  # pylint: disable=W0703
-                with tempfile.NamedTemporaryFile(delete=False, mode='w') as f:
-                    traceback.print_exc(file=f)
-                    click.echo('Error: %s [ %s ]' % (unhandled, f.name),
-                               err=True)
-
-                sys.exit(EXIT_CODE_DEFAULT)
-
-        return _handle_any
-
-    return wrap
-
-
-REST_EXCEPTIONS = [
-    (restclient.NotFoundError, 'Resource not found'),
-    (restclient.AlreadyExistsError, 'Resource already exists'),
-    (restclient.ValidationError, None),
-    (restclient.NotAuthorizedError, handle_not_authorized),
-    (restclient.BadRequestError, None),
-    (restclient.MaxRequestRetriesError, None)
-]
-
-CLI_EXCEPTIONS = [
-]
-
-ON_REST_EXCEPTIONS = handle_exceptions(REST_EXCEPTIONS)
-ON_CLI_EXCEPTIONS = handle_cli_exceptions(CLI_EXCEPTIONS)

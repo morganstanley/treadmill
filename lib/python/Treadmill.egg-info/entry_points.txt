@@ -9,7 +9,6 @@ linux = treadmill.runtime.linux:LinuxRuntime
 docker = treadmill.runtime.docker:DockerRuntime
 
 
-
 [treadmill.profiles]
 
 
@@ -198,7 +197,6 @@ zk = treadmill.cli.admin.checkout.zk
 servers = treadmill.cli.admin.checkout.servers
 
 
-
 [treadmill.sproc]
 ad = treadmill.sproc.ad
 appcfgmgr = treadmill.sproc.appcfgmgr
@@ -288,3 +286,5 @@ presence = treadmill.services.presence_service:PresenceResourceService
 container-cleanup = treadmill.monitor:MonitorContainerCleanup
 node-down = treadmill.monitor:MonitorNodeDown
 container-down = treadmill.monitor:MonitorContainerDown
+
+[treadmill.version_monitor]

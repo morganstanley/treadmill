@@ -126,17 +126,17 @@ function init_cgroup_rhel7() {
     ${ECHO} "Setting system CPU shares: ${SYSTEM_CPUSHARE}%"
     ${ECHO} "Setting Treadmill CPU shares: ${TREADMILL_CPUSHARE}%"
     ${ECHO} ${SYSTEM_CPUSHARE} >${CGROUP_BASE}/cpu/system.slice/cpu.shares
-    ${ECHO} ${TREADMILL_CPUSHARE} >${CGROUP_BASE}/cpu/treadmill/cpu.shares
+    ${ECHO} ${TREADMILL_CPUSHARE} >${CGROUP_BASE}/cpu/${TREADMILL_ROOT_CGROUP}/cpu.shares
 
     ${ECHO} "Setting system CPU set: ${SYSTEM_CPUSET_CORES}"
     ${ECHO} "Setting Treadmill CPU set: ${TREADMILL_CPUSET_CORES}"
     ${ECHO} ${SYSTEM_CPUSET_CORES} >${CGROUP_BASE}/cpuset/system.slice/cpuset.cpus
-    ${ECHO} ${TREADMILL_CPUSET_CORES} >${CGROUP_BASE}/cpuset/treadmill/cpuset.cpus
+    ${ECHO} ${TREADMILL_CPUSET_CORES} >${CGROUP_BASE}/cpuset/${TREADMILL_ROOT_CGROUP}/cpuset.cpus
 
     ${ECHO} "Setting system memory: ${SYSTEM_MEMORY}"
     ${ECHO} "Setting Treadmill memory: ${TREADMILL_MEMORY}"
     ${ECHO} ${SYSTEM_MEMORY} >${CGROUP_BASE}/memory/system.slice/memory.limit_in_bytes
-    ${ECHO} ${TREADMILL_MEMORY} >${CGROUP_BASE}/memory/treadmill/memory.limit_in_bytes
+    ${ECHO} ${TREADMILL_MEMORY} >${CGROUP_BASE}/memory/${TREADMILL_ROOT_CGROUP}/memory.limit_in_bytes
 
     systemctl set-property --runtime system.slice CPUAccounting=true
     systemctl set-property --runtime system.slice MemoryAccounting=true
@@ -274,7 +274,7 @@ function init_cgroup_rhel6() {
     ${ECHO} "Setting system CPU shares: ${SYSTEM_CPUSHARE}%"
     ${ECHO} "Setting Treadmill CPU shares: ${TREADMILL_CPUSHARE}%"
     ${ECHO} ${SYSTEM_CPUSHARE} >${CGROUP_BASE}/cpu/system.slice/cpu.shares
-    ${ECHO} ${TREADMILL_CPUSHARE} >${CGROUP_BASE}/cpu/treadmill/cpu.shares
+    ${ECHO} ${TREADMILL_CPUSHARE} >${CGROUP_BASE}/cpu/${TREADMILL_ROOT_CGROUP}/cpu.shares
 }
 
 ###############################################################################

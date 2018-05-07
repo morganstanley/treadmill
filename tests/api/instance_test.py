@@ -10,7 +10,6 @@ import unittest
 
 import mock
 import jsonschema
-
 import six
 
 from treadmill import admin

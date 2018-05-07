@@ -35,6 +35,7 @@ class VersionMonitorTest(unittest.TestCase):
         version_monitor._save_version(zkclient, hostname, version)
 
         treadmill.zkutils.put.assert_has_calls([
+            mock.call(mock.ANY, '/version/testhost', version),
             mock.call(mock.ANY, '/version.history/testhost', [version])
         ])
 

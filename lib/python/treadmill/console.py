@@ -33,6 +33,11 @@ click.disable_unicode_literals_warning = True
               callback=cli.handle_context_opt,
               is_eager=True,
               expose_value=False)
+@click.option('--ldap-master', required=False, envvar='TREADMILL_LDAP_MASTER',
+              type=cli.LIST,
+              callback=cli.handle_context_opt,
+              is_eager=True,
+              expose_value=False)
 @click.option('--ldap-user', required=False, envvar='TREADMILL_LDAP_USER',
               callback=cli.handle_context_opt,
               is_eager=True,
