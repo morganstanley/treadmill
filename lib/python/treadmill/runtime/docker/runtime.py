@@ -113,6 +113,7 @@ def _create_container(tm_env, conf, client, app):
     client.images.pull(image_name)
 
     name = appcfg.app_unique_name(app)
+    name = name.replace('/', '-')
 
     container_args = {
         'image': image_name,
