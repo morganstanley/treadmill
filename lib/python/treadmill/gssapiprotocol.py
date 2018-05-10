@@ -99,6 +99,14 @@ class GSSAPILineServer(basic.LineReceiver):  # pylint: disable=C0103
         else:
             return None
 
+    def peercred_lifetime(self):
+        """Returns lifetime peer credential.
+        """
+        if self.ctx and self.ctx.complete:
+            return self.ctx.lifetime
+        else:
+            return 0
+
     def write(self, data):
         """Write line back to the client, encrytped and encoded base64.
 
