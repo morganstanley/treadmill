@@ -50,7 +50,7 @@ def init():
                 partition = None
             attrs['partition'] = partition
         if data:
-            with io.open(data, 'rb') as fd:
+            with io.open(data, 'r') as fd:
                 attrs['data'] = json.loads(fd.read())
 
         if attrs:
