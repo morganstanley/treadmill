@@ -46,9 +46,9 @@ def init():
 
         # Clean the environ
         # TODO: Remove me once clean environment management is merged in.
-        del os.environ['PYTHONPATH']
-        del os.environ['LC_ALL']
-        del os.environ['LANG']
+        os.environ.pop('PYTHONPATH', None)
+        os.environ.pop('LC_ALL', None)
+        os.environ.pop('LANG', None)
 
         subproc.safe_exec(
             [
