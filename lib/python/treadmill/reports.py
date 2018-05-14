@@ -64,14 +64,19 @@ def servers(cell):
         return row
 
     rows = [_server_row(server) for server in cell.members().values()]
-    frame = pd.DataFrame.from_dict(rows).astype({
-        'mem': 'int',
-        'cpu': 'int',
-        'disk': 'int',
-        'mem_free': 'int',
-        'cpu_free': 'int',
-        'disk_free': 'int'
-    })
+
+    try:
+        frame = pd.DataFrame.from_dict(rows).astype({
+            'mem': 'int',
+            'cpu': 'int',
+            'disk': 'int',
+            'mem_free': 'int',
+            'cpu_free': 'int',
+            'disk_free': 'int'
+        })
+    except KeyError:
+        # Empty server set; create empty dataframe
+        frame = pd.DataFrame()
 
     if frame.empty:
         frame = pd.DataFrame(columns=columns)
