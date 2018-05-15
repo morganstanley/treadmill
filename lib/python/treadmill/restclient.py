@@ -91,7 +91,7 @@ class NotFoundError(Exception):
 
 
 class AlreadyExistsError(Exception):
-    """Error raised on HTTP 302 (Found).
+    """Error raised on HTTP 409 (Conflict).
 
     Attributes:
     message -- message to return
@@ -118,7 +118,7 @@ def _handle_error(url, response):
         http_client.NOT_FOUND: NotFoundError(
             'Resource not found: {}'.format(url)
         ),
-        http_client.FOUND: AlreadyExistsError(
+        http_client.CONFLICT: AlreadyExistsError(
             'Resource already exists: {}'.format(url)
         ),
         http_client.FAILED_DEPENDENCY: ValidationError(response),

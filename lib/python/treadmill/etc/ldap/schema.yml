@@ -324,6 +324,7 @@ objectClasses:
     - master-zk-election-port
     - data
     - status
+    - trait
   tmServer:
     desc: Treadmill Server
     must:

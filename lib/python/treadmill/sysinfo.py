@@ -147,6 +147,21 @@ def _total_bogomips_linux():
     return _bogomips_linux(cores)
 
 
+def _cpuflags_linux():
+    """Return list of cpu flags."""
+    with io.open('/proc/cpuinfo') as cpuinfo:
+        for line in cpuinfo.read().splitlines():
+            if line.startswith('flags'):
+                flags = line.split(':')[1]
+                return flags.split()
+    return []
+
+
+def _cpuflags_windows():
+    """Return list of cpu flags."""
+    return []
+
+
 def hostname():
     """Hostname of the server."""
     host_name = socket.gethostname()
@@ -338,6 +353,7 @@ if os.name == 'nt':
     disk_usage = _disk_usage_windows
     mem_info = _mem_info_windows
     proc_info = _proc_info_windows
+    cpu_flags = _cpuflags_windows
     port_range = _port_range_windows
     kernel_ver = _kernel_ver_windows
     node_info = _node_info_windows
@@ -345,6 +361,7 @@ else:
     disk_usage = _disk_usage_linux
     mem_info = _mem_info_linux
     proc_info = _proc_info_linux
+    cpu_flags = _cpuflags_linux
     bogomips = _bogomips_linux
     total_bogomips = _total_bogomips_linux
     port_range = _port_range_linux

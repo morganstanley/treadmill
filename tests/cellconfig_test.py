@@ -14,7 +14,7 @@ import unittest
 
 import yaml
 
-from treadmill import cellconfig
+from treadmill import cellconfig  # pylint: disable=no-name-in-module
 
 
 class CellConfigTest(unittest.TestCase):

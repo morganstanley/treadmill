@@ -39,6 +39,10 @@ for DIR in $(ls -a /); do
     fi
 done
 
+# Do a one time generation of the host ticket before starting services. There
+# will be a service in charge or keeping tickets refreshed (not the chroot).
+{{ dir }}/treadmill/bin/host_tickets.sh -o {{ dir }}/treadmill/spool/krb5cc_host
+
 cd {{ dir }}
 
 # Starting svscan

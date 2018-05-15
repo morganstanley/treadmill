@@ -1501,6 +1501,7 @@ class MasterTest(mockzk.MockZookeeperTestCase):
     def test_readonly_master(self):
         """Tests the ZK operations of a readonly master."""
         zk_content = {
+            'traits': {},
             'server.presence': {
                 'test1.xx.com': {
                     '.metadata': {'created': 100},

@@ -471,12 +471,7 @@ class Admin(object):
     def __init__(self, uri, ldap_suffix,
                  user=None, password=None, connect_timeout=5, write_uri=None):
         self.uri = uri
-        if isinstance(uri, six.string_types):
-            self.uri = uri.split(',')
-
         self.write_uri = write_uri
-        if isinstance(write_uri, six.string_types):
-            self.write_uri = write_uri.split(',')
 
         self.ldap_suffix = ldap_suffix
         self.root_ou = 'ou=treadmill,%s' % ldap_suffix
@@ -1487,6 +1482,7 @@ class Cell(LdapObject):
         ('root', 'root', str),
         ('data', 'data', dict),
         ('status', 'status', str),
+        ('trait', 'traits', [str]),
     ]
 
     _oc = 'tmCell'

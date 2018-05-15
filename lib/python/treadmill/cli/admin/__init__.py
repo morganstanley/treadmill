@@ -64,9 +64,35 @@ def init():
     """Return top level command handler."""
 
     @click.group(cls=cli.make_commands(__name__))
-    @click.option('--ldap', envvar='TREADMILL_LDAP')
+    @click.option('--ldap', required=False,
+                  envvar='TREADMILL_LDAP',
+                  type=cli.LIST,
+                  callback=cli.handle_context_opt,
+                  is_eager=True,
+                  expose_value=False)
+    @click.option('--ldap-master', required=False,
+                  envvar='TREADMILL_LDAP_MASTER',
+                  type=cli.LIST,
+                  callback=cli.handle_context_opt,
+                  is_eager=True,
+                  expose_value=False)
+    @click.option('--ldap-user', required=False,
+                  envvar='TREADMILL_LDAP_USER',
+                  callback=cli.handle_context_opt,
+                  is_eager=True,
+                  expose_value=False)
+    @click.option('--ldap-pwd', required=False,
+                  envvar='TREADMILL_LDAP_PWD',
+                  callback=cli.handle_context_opt,
+                  is_eager=True,
+                  expose_value=False)
+    @click.option('--ldap-suffix', required=False,
+                  envvar='TREADMILL_LDAP_SUFFIX',
+                  callback=cli.handle_context_opt,
+                  is_eager=True,
+                  expose_value=False)
     @click.pass_context
-    def run(ctx, ldap):
+    def run(ctx):
         """Admin commands."""
         cli.init_logger('admin.conf')
 
@@ -76,8 +102,5 @@ def init():
 
         logging.getLogger('treadmill').setLevel(log_level)
         logging.getLogger().setLevel(log_level)
-
-        if ldap:
-            context.GLOBAL.ldap.url = ldap
 
     return run

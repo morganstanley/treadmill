@@ -56,8 +56,8 @@ def register(api):
         """Zookeeper node exists exception handler."""
         _LOGGER.info('Zookeeper node exists error: %r', err)
         resp = {'message': 'Resource already exists',
-                'status': http_client.FOUND}
-        return resp, http_client.FOUND, _cors_headers()
+                'status': http_client.CONFLICT}
+        return resp, http_client.CONFLICT, _cors_headers()
 
     @api.errorhandler(kazoo.exceptions.KazooException)
     def _zookeeper_exc(err):
@@ -74,8 +74,8 @@ def register(api):
         """LDAP exception handler."""
         _LOGGER.info('Ldap already exists error: %r', err)
         resp = {'message': err.result,
-                'status': http_client.FOUND}
-        return resp, http_client.FOUND, _cors_headers()
+                'status': http_client.CONFLICT}
+        return resp, http_client.CONFLICT, _cors_headers()
 
     @api.errorhandler(ldap_exceptions.LDAPNoSuchObjectResult)
     def _ldap_not_found_exc(err):
@@ -137,9 +137,9 @@ def register(api):
         _LOGGER.info('Resource already exists: %r', err)
         resp = {
             'message': str(err),
-            'status': http_client.FOUND
+            'status': http_client.CONFLICT
         }
-        return resp, http_client.FOUND, _cors_headers()
+        return resp, http_client.CONFLICT, _cors_headers()
 
     @api.errorhandler(exc.TreadmillError)
     def _treadmill_exc(err):

@@ -17,6 +17,7 @@ import six
 from treadmill import admin
 from treadmill import reports
 from treadmill import scheduler
+from treadmill import traits
 from treadmill import utils
 from treadmill import zknamespace as z
 
@@ -70,6 +71,7 @@ class Loader(object):
         'allocations',
         'assignments',
         'partitions',
+        'trait_codes',
     )
 
     def __init__(self, backend, cellname):
@@ -80,9 +82,11 @@ class Loader(object):
         self.allocations = dict()
         self.assignments = collections.defaultdict(list)
         self.partitions = dict()
+        self.trait_codes = dict()
 
     def load_model(self):
         """Load cell state from Zookeeper."""
+        self.load_traits()
         self.load_partitions()
         self.load_buckets()
         self.load_cell()
@@ -92,6 +96,12 @@ class Loader(object):
         self.load_apps()
         self.load_identity_groups()
         self.restore_placements()
+
+    def load_traits(self):
+        """Load traits."""
+        traitz = self.backend.get_default(z.path.traits(), default=[])
+        _LOGGER.info('loading traits: %s', traitz)
+        self.trait_codes = traits.create_code(traitz)
 
     def load_cell(self):
         """Construct cell from top level buckets."""
@@ -141,10 +151,9 @@ class Loader(object):
         _LOGGER.info('loading bucket: %s', bucketname)
         data = self.backend.get_default(z.path.bucket(bucketname),
                                         default={})
-        traits = data.get('traits', 0)
 
         level = data.get('level', bucketname.split(':')[0])
-        bucket = scheduler.Bucket(bucketname, traits=traits, level=level)
+        bucket = scheduler.Bucket(bucketname, level=level)
         self.buckets[bucketname] = bucket
 
         parent_name = data.get('parent')
@@ -265,12 +274,14 @@ class Loader(object):
             label = admin.DEFAULT_PARTITION
         up_since = data.get('up_since', int(time.time()))
 
+        traitz = data.get('traits', [])
+
         server = scheduler.Server(
             servername,
             resources(data),
             up_since=up_since,
             label=label,
-            traits=data.get('traits', 0)
+            traits=traits.encode(self.trait_codes, traitz)
         )
         return server
 
@@ -347,6 +358,9 @@ class Loader(object):
             capacity = resources(obj)
             alloc.update(capacity, obj['rank'], obj.get('rank_adjustment'),
                          obj.get('max_utilization'))
+
+            traitz = obj.get('traits', [])
+            alloc.set_traits(traits.encode(self.trait_codes, traitz))
 
             for assignment in obj.get('assignments', []):
                 pattern = assignment['pattern'] + '[#]' + ('[0-9]' * 10)
@@ -645,7 +659,7 @@ class Loader(object):
         for report_type in ('servers', 'allocations', 'apps'):
             _LOGGER.info('Saving scheduler report "%s" to ZooKeeper',
                          report_type)
-            report = getattr(reports, report_type)(self.cell)
+            report = getattr(reports, report_type)(self.cell, self.trait_codes)
             self.backend.put(
                 z.path.state_report(report_type),
                 reports.serialize_dataframe(report)
