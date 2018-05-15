@@ -102,6 +102,7 @@ class Master(loader.Loader):
             z.FINISHED_HISTORY,
             z.TRACE,
             z.TRACE_HISTORY,
+            z.TRAITS,
             z.VERSION_ID,
             z.ZOOKEEPER,
             z.BLACKEDOUT_SERVERS,

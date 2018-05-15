@@ -256,6 +256,7 @@ def make_fsroot(root_dir, app):
         '/usr',
         '/var/cache',
         '/var/empty',
+        '/var/empty/sshd',
         '/var/lib',
         '/var/lock',
         '/var/log',

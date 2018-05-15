@@ -9,14 +9,13 @@ from __future__ import unicode_literals
 import json
 import unittest
 
-# don't complain about unused imports
-from tests.rest.api import user_set
-
 import flask
 import flask_restplus as restplus
 import mock
 
 from six.moves import http_client
+
+from tests.rest.api import user_set
 
 from treadmill import exc
 from treadmill import webutils

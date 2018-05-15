@@ -150,7 +150,7 @@ def _get_docker_registry(tm_env):
         host, _sep, port = registry.partition(':')
     else:
         host = registry
-        port = 5000
+        port = '5000'
 
     # Ensure we have teh FQDN for the registry host.
     host = socket.getfqdn(host)

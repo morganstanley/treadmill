@@ -93,7 +93,12 @@ def init():
 
         api_paths = []
         if modules:
-            api_paths = api.init(modules, title.replace('_', ' '), cors_origin)
+            api_modules = {module: None for module in modules}
+            api_paths = api.init(
+                api_modules,
+                title.replace('_', ' '),
+                cors_origin
+            )
 
         rest_server = rest.TcpRestServer(port, auth_type=auth,
                                          protect=api_paths)

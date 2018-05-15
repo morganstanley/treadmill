@@ -22,9 +22,11 @@ from treadmill import scheduler
 from treadmill import reports
 
 
-def _construct_cell():
+def _construct_cell(empty=False):
     """Constructs a test cell."""
     cell = scheduler.Cell('top')
+    if empty:
+        return cell
 
     rack1 = scheduler.Bucket('rack:rack1', traits=0, level='rack')
     rack2 = scheduler.Bucket('rack:rack2', traits=0, level='rack')
@@ -32,9 +34,9 @@ def _construct_cell():
     cell.add_node(rack1)
     cell.add_node(rack2)
 
-    srv1 = scheduler.Server('srv1', [10, 20, 30], traits=3,
+    srv1 = scheduler.Server('srv1', [10, 20, 30], traits=1,
                             valid_until=1000, label='part')
-    srv2 = scheduler.Server('srv2', [10, 20, 30], traits=7,
+    srv2 = scheduler.Server('srv2', [10, 20, 30], traits=3,
                             valid_until=2000, label='part')
     srv3 = scheduler.Server('srv3', [10, 20, 30], traits=0,
                             valid_until=3000, label='_default')
@@ -67,19 +69,23 @@ class ReportsTest(unittest.TestCase):
         scheduler.DIMENSION_COUNT = 3
 
         self.cell = _construct_cell()
+        self.trait_codes = {
+            'a': 1,
+            'b': 2,
+        }
         super(ReportsTest, self).setUp()
 
     def test_servers(self):
         """Tests servers report."""
-        report = reports.servers(self.cell)
+        report = reports.servers(self.cell, self.trait_codes)
         pd.util.testing.assert_frame_equal(report, pd.DataFrame([
-            ['srv3', 'top/rack:rack2', '_default', 0, 'up', 3000,
+            ['srv3', 'top/rack:rack2', '_default', '', 'up', 3000,
              10, 20, 30, 10, 20, 30],
-            ['srv4', 'top/rack:rack2', '_default', 0, 'up', 4000,
+            ['srv4', 'top/rack:rack2', '_default', '', 'up', 4000,
              10, 20, 30, 10, 20, 30],
-            ['srv1', 'top/rack:rack1', 'part', 3, 'up', 1000,
+            ['srv1', 'top/rack:rack1', 'part', 'a', 'up', 1000,
              10, 20, 30, 10, 20, 30],
-            ['srv2', 'top/rack:rack1', 'part', 7, 'up', 2000,
+            ['srv2', 'top/rack:rack1', 'part', 'a,b', 'up', 2000,
              10, 20, 30, 10, 20, 30],
         ], columns=[
             'name', 'location', 'partition', 'traits', 'state', 'valid_until',
@@ -88,10 +94,10 @@ class ReportsTest(unittest.TestCase):
 
     def test_allocations(self):
         """Tests allocations report."""
-        report = reports.allocations(self.cell)
+        report = reports.allocations(self.cell, self.trait_codes)
         pd.util.testing.assert_frame_equal(report, pd.DataFrame([
-            ['_default', 't1/t11/a1', 10, 10, 10, 100, 0, 0, np.inf],
-            ['part', 't2/a2', 10, 10, 10, 100, 0, 3, np.inf]
+            ['_default', 't1/t11/a1', 10, 10, 10, 100, 0, '', np.inf],
+            ['part', 't2/a2', 10, 10, 10, 100, 0, 'a,b', np.inf]
         ], columns=[
             'partition', 'name', 'mem', 'cpu', 'disk',
             'rank', 'rank_adj', 'traits', 'max_util'
@@ -132,7 +138,7 @@ class ReportsTest(unittest.TestCase):
 
         self.cell.schedule()
 
-        apps_df = reports.apps(self.cell)
+        apps_df = reports.apps(self.cell, self.trait_codes)
         pd.util.testing.assert_frame_equal(apps_df, pd.DataFrame([
             [
                 'bla.xxx#3', 't2/a1', 100, 'bla.xxx', 'part',
@@ -181,6 +187,53 @@ class ReportsTest(unittest.TestCase):
         time1 = pd.Timestamp(datetime.datetime.fromtimestamp(101))
         self.assertEqual(util1.ix[time0]['bla.xxx']['cpu'], 1)
         self.assertEqual(util1.ix[time1]['foo.xxx']['count'], 2)
+
+    def test_empty_cell_reports(self):
+        """Tests all reports for an empty cell."""
+        empty_cell = _construct_cell(empty=True)
+
+        servers = reports.servers(empty_cell, self.trait_codes)
+        empty_servers = pd.DataFrame(columns=[
+            'name', 'location', 'partition', 'traits', 'state', 'valid_until',
+            'mem', 'cpu', 'disk', 'mem_free', 'cpu_free', 'disk_free'
+        ]).astype({
+            'mem': 'int',
+            'cpu': 'int',
+            'disk': 'int',
+            'mem_free': 'int',
+            'cpu_free': 'int',
+            'disk_free': 'int'
+        }).reset_index(drop=True)
+        pd.util.testing.assert_frame_equal(servers, empty_servers)
+
+        allocations = reports.allocations(empty_cell, self.trait_codes)
+        empty_allocations = pd.DataFrame(columns=[
+            'partition', 'name', 'mem', 'cpu', 'disk',
+            'rank', 'rank_adj', 'traits', 'max_util'
+        ]).astype({
+            'mem': 'int',
+            'cpu': 'int',
+            'disk': 'int'
+        }).reset_index(drop=True)
+        pd.util.testing.assert_frame_equal(allocations, empty_allocations)
+
+        apps = reports.apps(empty_cell, self.trait_codes)
+        empty_apps = pd.DataFrame(columns=[
+            'instance', 'allocation', 'rank', 'affinity', 'partition',
+            'identity_group', 'identity',
+            'order', 'lease', 'expires', 'data_retention',
+            'pending', 'server', 'util0', 'util1',
+            'mem', 'cpu', 'disk'
+        ]).astype({
+            'mem': 'int',
+            'cpu': 'int',
+            'disk': 'int',
+            'order': 'int',
+            'expires': 'int',
+            'data_retention': 'int',
+            'identity': 'int'
+        }).reset_index(drop=True)
+        pd.util.testing.assert_frame_equal(apps, empty_apps)
 
     def test_explain_queue(self):
         """Test explain queue"""

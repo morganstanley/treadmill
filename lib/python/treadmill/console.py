@@ -28,6 +28,7 @@ click.disable_unicode_literals_warning = True
               callback=cli.handle_context_opt,
               is_eager=True,
               expose_value=False)
+# FIXME: None of the ldap options should be at the top level
 @click.option('--ldap', required=False, envvar='TREADMILL_LDAP',
               type=cli.LIST,
               callback=cli.handle_context_opt,
@@ -71,7 +72,6 @@ def run(ctx, outfmt, debug):
 
     # Default logging to cli.conf, at CRITICAL, unless --debug
     cli.init_logger('cli.conf')
-    cli.init_profile()
     if debug:
         ctx.obj['logging.debug'] = True
         logging.getLogger('treadmill').setLevel(logging.DEBUG)

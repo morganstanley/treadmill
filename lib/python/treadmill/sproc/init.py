@@ -26,6 +26,7 @@ from treadmill import netdev
 from treadmill import postmortem
 from treadmill import supervisor
 from treadmill import sysinfo
+from treadmill import traits
 from treadmill import utils
 from treadmill import zknamespace as z
 from treadmill import zkutils
@@ -209,6 +210,9 @@ def _node_initialize(tm_env, runtime, zkclient, hostname,
     """
     try:
         new_node_info = sysinfo.node_info(tm_env, runtime)
+
+        traitz = zkutils.get(zkclient, z.path.traits())
+        new_node_info['traits'] = traits.detect(traitz)
 
         # Merging scheduler data with node_info data
         node_info = zkutils.get(zkclient, zk_server_path)

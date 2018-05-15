@@ -42,7 +42,7 @@ class ReportTest(unittest.TestCase):
             'data': [
                 [
                     'example.ms.com', 'foo/building:bar/rack:baz', '_default',
-                    123, 'up', 1500000000,
+                    'sse', 'up', 1500000000,
                     1001, 2001, 3001,
                     1000, 2000, 3000
                 ]
@@ -62,7 +62,7 @@ class ReportTest(unittest.TestCase):
         self.assertIn('example.ms.com', result.output)
         self.assertIn('foo/building:bar/rack:baz', result.output)
         self.assertIn('_default', result.output)
-        self.assertIn('123', result.output)
+        self.assertIn('sse', result.output)
         self.assertIn('up', result.output)
         self.assertIn('2017-07-14 02:40:00', result.output)
         self.assertIn('1001', result.output)
@@ -108,7 +108,7 @@ class ReportTest(unittest.TestCase):
                 [
                     'part1', 'tenant/proid',
                     1001, 1002, 1003,
-                    99, 98, 7, 6
+                    99, 98, 'sse', 6
                 ]
             ]
         }
@@ -131,7 +131,7 @@ class ReportTest(unittest.TestCase):
         self.assertIn('1003', result.output)
         self.assertIn('99', result.output)
         self.assertIn('98', result.output)
-        self.assertIn('7', result.output)
+        self.assertIn('sse', result.output)
         self.assertIn('6', result.output)
 
     @mock.patch('treadmill.restclient.get',

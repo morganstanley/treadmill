@@ -15,7 +15,7 @@ from treadmill import (cli, context)
 from treadmill.cli.scheduler import print_report
 from treadmill import restclient
 
-# let's handle HTTP 302 (AlreadyExistsError in the explain() func. locally
+# let's handle HTTP 409 (AlreadyExistsError in the explain() func. locally
 _EXCEPTIONS = [
     ex for ex in restclient.CLI_REST_EXCEPTIONS
     if ex[0] != restclient.AlreadyExistsError

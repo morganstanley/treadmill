@@ -65,11 +65,14 @@ class Context(object):
         self.journaler = (jplugin.NullJournaler()
                           if journaler is None else journaler)
 
-    def build_api(self, api_cls):
+    def build_api(self, api_cls, kwargs=None):
         """ build api with decoration """
+        if not kwargs:
+            kwargs = {}
+
         return authz_mod.wrap(
             journal.wrap(
-                api_cls(),
+                api_cls(**kwargs),
                 self.journaler
             ),
             self.authorizer
