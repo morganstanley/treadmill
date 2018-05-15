@@ -1,1 +1,1 @@
-cn=Manager,cn=config
+{{ ldap_user }}

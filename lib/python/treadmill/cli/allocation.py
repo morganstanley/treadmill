@@ -173,12 +173,14 @@ def init():
     @click.option('--disk', help='Disk demand.',
                   metavar='G|M',
                   callback=cli.validate_disk)
+    @click.option('--traits', help='Requested traits.', type=cli.LIST)
     @click.argument('allocation', required=True)
     @cli.handle_exceptions(restclient.CLI_REST_EXCEPTIONS)
     # pylint: disable=R0912
     def reserve(allocation, env, cell, partition,
                 rank, rank_adjustment, max_utilization, empty,
-                memory, cpu, disk):
+                memory, cpu, disk, traits):
+
         """Reserve capacity on the cell for given environment."""
         _check_reserve_usage(empty, memory, cpu, disk)
 
@@ -208,6 +210,8 @@ def init():
             data['max_utilization'] = max_utilization
         if partition:
             data['partition'] = partition
+        if traits:
+            data['traits'] = cli.combine(traits)
 
         if data:
             reservation_url = '/allocation/{}/{}/reservation/{}'.format(
@@ -218,7 +222,7 @@ def init():
                 existing = restclient.get(restapi, reservation_url).json()
                 # TODO: need cleaner way of deleting attributes that are not
                 #       valid for update. It is a hack.
-                for attr in existing.keys():
+                for attr in list(existing):
                     if (attr not in
                             ['memory', 'cpu', 'disk', 'partition']):
                         del existing[attr]

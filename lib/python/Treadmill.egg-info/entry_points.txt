@@ -151,7 +151,6 @@ reaper = treadmill.cli.supervise.reaper
 
 [treadmill.cli.admin]
 blackout = treadmill.cli.admin.blackout
-checkout = treadmill.cli.admin.checkout
 cron = treadmill.cli.admin.cron
 diag = treadmill.cli.admin.diag
 discovery = treadmill.cli.admin.discovery
@@ -168,6 +167,8 @@ show = treadmill.cli.admin.show
 ssh = treadmill.cli.admin.ssh
 trace = treadmill.cli.admin.trace
 wait = treadmill.cli.admin.wait
+checkout = treadmill.cli.admin.checkout
+check-aliases = treadmill.cli.admin.check_aliases
 
 [treadmill.cli.admin.install]
 haproxy = treadmill.cli.admin.install.haproxy
@@ -196,6 +197,9 @@ tenant = treadmill.cli.admin.ldap.tenant
 zk = treadmill.cli.admin.checkout.zk
 servers = treadmill.cli.admin.checkout.servers
 
+[treadmill.server.traits]
+sse4 = treadmill.traits:has_sse4
+rdtscp = treadmill.traits:has_rdtscp
 
 [treadmill.sproc]
 ad = treadmill.sproc.ad
@@ -273,6 +277,7 @@ appgroups = treadmill.cellsync:sync_appgroups
 allocations = treadmill.cellsync:sync_allocations
 partitions = treadmill.cellsync:sync_partitions
 servers = treadmill.cellsync:sync_servers
+traits = treadmill.cellsync:sync_traits
 
 
 [treadmill.services]

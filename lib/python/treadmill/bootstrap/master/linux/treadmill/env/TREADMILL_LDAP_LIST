@@ -1,1 +1,1 @@
-{{ ldap_list }}
+{{ ','.join(ldap_list) }}

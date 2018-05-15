@@ -47,9 +47,9 @@ class RESTClientTest(unittest.TestCase):
 
     @mock.patch('requests.get',
                 return_value=mock.MagicMock(requests.Response))
-    def test_get_302(self, resp_mock):
-        """Test treadmill.restclient.get FOUND (302)"""
-        resp_mock.return_value.status_code = http_client.FOUND
+    def test_get_409(self, resp_mock):
+        """Test treadmill.restclient.get CONFLICT (409)"""
+        resp_mock.return_value.status_code = http_client.CONFLICT
 
         with self.assertRaises(restclient.AlreadyExistsError):
             restclient.get('http://foo.com', '/')

@@ -404,6 +404,7 @@ class CellPrettyFormatter(object):
             ('archive-server', None, None),
             ('archive-username', None, None),
             ('ssq-namespace', None, None),
+            ('traits', None, None),
             ('masters', None, masters_tbl),
             ('partitions', None, partitions_tbl),
             ('data', None, yaml.dump),
@@ -519,11 +520,12 @@ class AllocationPrettyFormatter(object):
             ('memory', None, None),
             ('cpu', None, None),
             ('disk', None, None),
-            ('traits', None, '\n'.join),
+            ('traits', None, None),
             ('assignments', None, assignments_table),
         ])
 
         schema = [
+            ('name', '_id', None),
             ('environment', None, None),
             ('reservations', None, cell_tbl),
         ]
