@@ -442,6 +442,7 @@ class AdminTest(unittest.TestCase):
                  'zk-election-port': 8000}
             ],
             'data': {'foo': 'bar', 'x': 'y'},
+            'traits': [],
         }
         cell_admin = admin.Cell(None)
         self.assertEqual(
@@ -726,7 +727,7 @@ class CellAllocationTest(unittest.TestCase):
             'rank_adjustment': 10,
             'partition': '_default',
             'max_utilization': 4.2,
-            'traits': [],
+            'traits': ['a', 'b'],
         }
         ldap_entry = {
             'cell': ['somecell'],
@@ -737,11 +738,11 @@ class CellAllocationTest(unittest.TestCase):
             'rank-adjustment': ['10'],
             'partition': ['_default'],
             'max-utilization': ['4.2'],
+            'trait': ['a', 'b'],
         }
         self.assertEqual(ldap_entry, self.cell_alloc.to_entry(obj))
 
         obj.update({
-            'traits': [],
             'assignments': [],
         })
         self.assertEqual(obj, self.cell_alloc.from_entry(ldap_entry))

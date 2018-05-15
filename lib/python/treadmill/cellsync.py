@@ -245,3 +245,16 @@ def sync_servers():
         z.path.globals('servers'),
         data=[server['_id'] for server in global_servers]
     )
+
+
+def sync_traits():
+    """Sync cell traits."""
+    _LOGGER.info('Sync traits.')
+    admin_cell = admin.Cell(context.GLOBAL.ldap.conn)
+    cell = admin_cell.get(context.GLOBAL.cell)
+    payload = cell['traits']
+    zkutils.ensure_exists(
+        context.GLOBAL.zk.conn,
+        z.path.traits(),
+        data=payload
+    )

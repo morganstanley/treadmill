@@ -8,6 +8,7 @@ from __future__ import unicode_literals
 
 import logging
 import os
+import functools
 
 import six
 
@@ -77,6 +78,7 @@ def _check(path):
         return os.access(path, os.X_OK)
 
 
+@functools.lru_cache(maxsize=256)
 def resolve(exe):
     """Resolve logical name to full path."""
     if os.path.isabs(exe):
@@ -84,20 +86,27 @@ def resolve(exe):
 
     executables = get_aliases()
 
-    if exe not in executables:
+    if not executables.get(exe):
         _LOGGER.critical('Not in aliases: %s', exe)
         raise CommandAliasError()
 
-    safe_exe = executables[exe]
+    if callable(executables[exe]):
+        safe_exe = executables[exe](exe)
+    else:
+        safe_exe = executables[exe]
+
+    if safe_exe:
+        safe_exe = os.path.normpath(safe_exe)
+
     if isinstance(safe_exe, list):
         for choice in safe_exe:
             if _check(choice):
                 return choice
-        _LOGGER.critical('Cannot resolve: %s', exe)
+        _LOGGER.debug('Cannot resolve: %s', exe)
         raise CommandAliasError()
     else:
         if not _check(safe_exe):
-            _LOGGER.critical('Command not found: %s, %s', exe, safe_exe)
+            _LOGGER.debug('Command not found: %s, %s', exe, safe_exe)
             raise CommandAliasError()
 
     return safe_exe

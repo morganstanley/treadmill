@@ -31,7 +31,7 @@ def _iterate(discovery_iter, check_state, sep):
                 sock.settimeout(1)
 
                 try:
-                    host, port = hostport.split(b':')
+                    host, port = hostport.split(':')
                     sock.connect((host, int(port)))
                     sock.close()
                     state = 'up'

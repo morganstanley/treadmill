@@ -95,6 +95,7 @@ def make_commands(section, **click_args):
             return sorted(plugin_manager.names(section))
 
         def get_command(self, ctx, cmd_name):
+            """Return dymanically constructed command."""
             try:
                 return plugin_manager.load(section, cmd_name).init()
             except ImportError as import_err:
@@ -169,6 +170,7 @@ def handle_context_opt(ctx, param, value):
         context.GLOBAL.zk.url = value
     elif opt == 'profile':
         context.GLOBAL.set_profile_name(value)
+        init_profile()
     else:
         raise click.UsageError('Invalid option: %s' % param.name)
 

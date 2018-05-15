@@ -20,17 +20,21 @@ class _RefResolver(jsonschema.RefResolver):
     """Resolves schema from pkg resource."""
 
     def __init__(self):
-        super(_RefResolver, self).__init__('file://etc/schema/', None)
+        super(_RefResolver, self).__init__(
+            'file://treadmill/etc/schema/',
+            None
+        )
 
     def resolve_remote(self, uri):
         """Resolves json schema from package resource."""
         # TODO: specyfying file:// uri is wrong, but for some reason
         #       documented ways of handling differnet uri type (using handlers
         #       dict) do not work with local ref points like #/<xxx>.
-        if uri.startswith('file://etc/schema/'):
-            resource = uri[len('file:/'):]
+        if uri.startswith('file://'):
+            resource = uri[len('file://'):]
+            pkg, path = resource.split('/', 1)
             json_string = pkg_resources.resource_string(
-                'treadmill', resource
+                pkg, path
             )
             return json.loads(json_string.decode('utf8'))
         else:

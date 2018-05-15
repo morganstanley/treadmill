@@ -93,7 +93,7 @@ def view_group(parent):
     def servers():
         """View servers report"""
         cell_master = make_readonly_master(ctx['run_scheduler'])
-        output = reports.servers(cell_master.cell)
+        output = reports.servers(cell_master.cell, cell_master.trait_codes)
         output['valid_until'] = pd.to_datetime(output['valid_until'], unit='s')
         _print(output, servers_formatter)
 
@@ -102,7 +102,7 @@ def view_group(parent):
     def apps():
         """View apps report"""
         cell_master = make_readonly_master(ctx['run_scheduler'])
-        output = reports.apps(cell_master.cell)
+        output = reports.apps(cell_master.cell, cell_master.trait_codes)
         # Replace integer N/As
         for col in ['identity', 'expires', 'lease', 'data_retention']:
             output.loc[output[col] == -1, col] = ''
@@ -119,7 +119,7 @@ def view_group(parent):
     def allocs():
         """View allocation report"""
         cell_master = make_readonly_master(ctx['run_scheduler'])
-        allocs = reports.allocations(cell_master.cell)
+        allocs = reports.allocations(cell_master.cell, cell_master.trait_codes)
         _print(allocs, allocs_formatter)
 
     @view.command()

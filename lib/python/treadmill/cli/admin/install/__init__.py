@@ -27,21 +27,26 @@ def init():
     @click.option('--install-dir', required=True,
                   help='Target installation directory.',
                   envvar='TREADMILL_APPROOT')
-    @click.option('--profile', required=False, help='Install profile.',
-                  envvar='TREADMILL_PROFILE')
-    @click.option('--cell', required=True, envvar='TREADMILL_CELL')
+    @click.option('--cell', required=True,
+                  envvar='TREADMILL_CELL',
+                  callback=cli.handle_context_opt,
+                  is_eager=True,
+                  expose_value=False)
     @click.option('--config', required=False,
                   type=click.Path(exists=True, readable=True, allow_dash=True),
                   multiple=True)
     @click.option('--override', required=False, type=cli.DICT)
+    @click.option('--profile', required=True,
+                  envvar='TREADMILL_PROFILE',
+                  callback=cli.handle_context_opt,
+                  is_eager=True,
+                  expose_value=False)
     @click.pass_context
-    def install(ctx, distro, install_dir, profile, cell, config, override):
+    def install(ctx, distro, install_dir, config, override):
         """Installs Treadmill."""
-        if cell == '-':
-            cell = None
 
-        if cell:
-            context.GLOBAL.cell = cell
+        cell = None if context.GLOBAL.cell == '-' else context.GLOBAL.cell
+        profile = context.GLOBAL.get_profile_name()
 
         ctx.obj['PARAMS'] = {
             'cell': cell,

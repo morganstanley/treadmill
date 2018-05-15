@@ -20,11 +20,12 @@ import pandas as pd
 import six
 
 from treadmill import scheduler
+from treadmill import traits
 
 _LOGGER = logging.getLogger(__name__)
 
 
-def servers(cell):
+def servers(cell, trait_codes):
     """Prepare DataFrame with server information."""
 
     # Hard-code order of columns
@@ -44,13 +45,14 @@ def servers(cell):
     def _server_row(server):
         """Transform server into a DataFrame-ready dict."""
         partition = list(server.labels)[0]
+        traitz = traits.format_traits(trait_codes, server.traits.traits)
         row = {
             'name': server.name,
             'location': '/'.join(reversed(list(
                 _server_location(server.parent)
             ))),
             'partition': partition if partition else '-',
-            'traits': server.traits.traits,
+            'traits': traitz,
             'state': server.state.value,
             'valid_until': server.valid_until,
             'mem': server.init_capacity[0],
@@ -64,7 +66,11 @@ def servers(cell):
         return row
 
     rows = [_server_row(server) for server in cell.members().values()]
-    frame = pd.DataFrame.from_dict(rows).astype({
+    frame = pd.DataFrame.from_dict(rows)
+    if frame.empty:
+        frame = pd.DataFrame(columns=columns)
+
+    frame = frame.astype({
         'mem': 'int',
         'cpu': 'int',
         'disk': 'int',
@@ -72,9 +78,6 @@ def servers(cell):
         'cpu_free': 'int',
         'disk_free': 'int'
     })
-
-    if frame.empty:
-        frame = pd.DataFrame(columns=columns)
 
     return frame[columns].sort_values(
         by=['partition', 'name']).reset_index(drop=True)
@@ -100,7 +103,7 @@ def iterate_allocations(path, alloc):
         )
 
 
-def allocations(cell):
+def allocations(cell, trait_codes):
     """Prepare DataFrame with allocation information."""
 
     # Hard-code order of columns
@@ -116,6 +119,8 @@ def allocations(cell):
         if not partition:
             partition = '-'
 
+        traitz = traits.format_traits(trait_codes, alloc.traits)
+
         return {
             'partition': partition,
             'name': name,
@@ -124,7 +129,7 @@ def allocations(cell):
             'disk': alloc.reserved[2],
             'rank': alloc.rank,
             'rank_adj': alloc.rank_adjustment,
-            'traits': alloc.traits,
+            'traits': traitz,
             'max_util': alloc.max_utilization,
         }
 
@@ -147,7 +152,7 @@ def allocations(cell):
     }).sort_values(by=['partition', 'name']).reset_index(drop=True)
 
 
-def apps(cell):
+def apps(cell, _trait_codes):
     """Prepare DataFrame with app and queue information."""
 
     # Hard-code order of columns

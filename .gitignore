@@ -21,3 +21,10 @@ lib/python/*.egg-info/*
 # Ensure that .git* files are included
 !.gitignore
 !.gitattributes
+
+# Preserve tmpwatch files
+!.tmpwatch.exclude
+
+# Ignore build files
+lint.log
+pep8.log

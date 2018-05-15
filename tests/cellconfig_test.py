@@ -14,7 +14,7 @@ import unittest
 
 import yaml
 
-from treadmill import cellconfig
+from treadmill import cellconfig  # pylint: disable=no-name-in-module
 
 
 class CellConfigTest(unittest.TestCase):
@@ -38,6 +38,8 @@ class CellConfigTest(unittest.TestCase):
     def test_get_data(self):
         """Test get data from cell config file
         """
+        # pylint: disable=protected-access
+
         cell_config = cellconfig.CellConfig(self.root)
         self.assertEqual(cell_config.data, {'foo': 'bar'})
         self.assertEqual(cell_config.version, '3.x')
@@ -50,6 +52,8 @@ class CellConfigTest(unittest.TestCase):
                  'version': '3.x'},
                 stream=f,
             )
+        # force lodaded data is older than file
+        cell_config._modified = 0
         self.assertEqual(cell_config.data, {'hello': 'world'})
 
 

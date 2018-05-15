@@ -41,12 +41,15 @@ def init():
     @click.option('-d', '--data', help='Cell specific data in YAML',
                   type=click.Path(exists=True, readable=True))
     @click.option('--status', help='Cell status')
+    @click.option('--traits', help='Traits enabled for the cell.',
+                  type=cli.LIST)
     @click.option('-m', '--manifest', help='Load cell from manifest file.',
                   type=click.Path(exists=True, readable=True))
     @click.argument('cell')
     @cli.admin.ON_EXCEPTIONS
     def configure(cell, version, root, location, username, archive_server,
-                  archive_username, ssq_namespace, data, status, manifest):
+                  archive_username, ssq_namespace, data, status, traits,
+                  manifest):
         """Create, get or modify cell configuration"""
         admin_cell = admin.Cell(context.GLOBAL.ldap.conn)
         attrs = {}
@@ -72,6 +75,8 @@ def init():
             attrs['ssq-namespace'] = ssq_namespace
         if status:
             attrs['status'] = status
+        if traits:
+            attrs['traits'] = traits
         if data:
             with io.open(data, 'rb') as fd:
                 attrs['data'] = yaml.load(stream=fd)

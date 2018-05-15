@@ -113,12 +113,12 @@ def init(apis, title=None, cors_origin=None, authz_arg=None):
     ctx = api_mod.Context(authorizer=authorizer)
 
     endpoints = []
-    for apiname in apis:
+    for apiname, apiconfig in apis.items():
         try:
             _LOGGER.info('Loading api: %s', apiname)
 
             api_cls = plugin_manager.load('treadmill.api', apiname).API
-            api_impl = ctx.build_api(api_cls)
+            api_impl = ctx.build_api(api_cls, apiconfig)
             endpoint = plugin_manager.load(
                 'treadmill.rest.api', apiname).init(api, cors, api_impl)
 

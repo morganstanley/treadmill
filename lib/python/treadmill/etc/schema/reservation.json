@@ -13,7 +13,11 @@
             "rank": { "$ref": "common.json#/rank" },
             "rank_adjustment": { "$ref": "common.json#/rank_adjustment" },
             "max_utilization": { "$ref": "common.json#/max_utilization" },
-            "partition": { "$ref": "common.json#/partition" }
+            "partition": { "$ref": "common.json#/partition" },
+            "traits": {
+                "type": "array",
+                "items" : { "$ref": "common.json#/trait" }
+            }
         }
     },
     "verbs": {

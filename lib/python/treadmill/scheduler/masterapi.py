@@ -187,11 +187,10 @@ def list_servers(zkclient):
     return sorted(zkclient.get_children(z.SERVERS))
 
 
-def update_server_attrs(zkclient, server_id, traits, partition):
+def update_server_attrs(zkclient, server_id, partition):
     """Updates server traits."""
     node = z.path.server(server_id)
     data = zkutils.get(zkclient, node)
-    data['traits'] = traits
     data['partition'] = partition
 
     if zkutils.update(zkclient, node, data, check_content=True):
