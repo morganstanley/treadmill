@@ -46,16 +46,10 @@ def init_logger(name):
     """Initialize logger.
     """
     # Logging configuration must be unicode file
-    utf8_reader = codecs.getreader('utf8')
-    log_conf_file = utf8_reader(
-        pkg_resources.resource_stream(
-            'treadmill',
-            '/logging/{name}'.format(name=name)
-        )
-    )
+    conf = treadmill.logging.load_logging_conf(name)
 
     try:
-        logging.config.fileConfig(log_conf_file)
+        logging.config.dictConfig(conf)
     except configparser.Error:
         with tempfile.NamedTemporaryFile(delete=False, mode='w') as f:
             traceback.print_exc(file=f)
@@ -66,16 +60,14 @@ def init_logger(name):
 def init_profile():
     """Initailize profile.
     """
-
-    default_aliases = ['aliases']
-    profile = context.GLOBAL.get_profile_name()
-    if profile:
-        default_aliases.append('aliases.{}'.format(profile))
-
-    subproc.ALIASES_PATH = os.environ.get(
-        'TREADMILL_ALIASES_PATH',
-        ':'.join(default_aliases)
-    )
+    if 'TREADMILL_ALIASES_PATH' in os.environ:
+        subproc.load_aliases(os.environ['TREADMILL_ALIASES_PATH'])
+    else:
+        packages = ['aliases']
+        profile = context.GLOBAL.get_profile_name()
+        if profile:
+            packages.append('aliases.{}'.format(profile))
+        subproc.load_packages(packages)
 
 
 def make_commands(section, **click_args):

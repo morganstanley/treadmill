@@ -5,6 +5,10 @@ docs/api
 docs/build
 dist/
 venv/
+test_container_dir/
+
+# Examples
+examples/oom/oom
 
 # Keep track of .keepme files
 !.keepme
@@ -24,6 +28,9 @@ lib/python/*.egg-info/*
 
 # Preserve tmpwatch files
 !.tmpwatch.exclude
+
+# Keep msdlbuildignore
+!.msdlbuildignore
 
 # Ignore build files
 lint.log

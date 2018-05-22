@@ -224,6 +224,59 @@ def create_supervision_tree(tm_env, container_dir, root_dir, app,
     )
 
 
+def make_dev(newroot_norm):
+    """Make /dev.
+    """
+    fs_linux.mount_tmpfs(
+        newroot_norm, '/dev',
+        nodev=False, noexec=False, nosuid=True, relatime=False,
+        mode='0755'
+    )
+
+    devices = [
+        ('/dev/null', 0o666, 1, 3),
+        ('/dev/zero', 0o666, 1, 5),
+        ('/dev/full', 0o666, 1, 7),
+        ('/dev/tty', 0o666, 5, 0),
+        ('/dev/random', 0o444, 1, 8),
+        ('/dev/urandom', 0o444, 1, 9),
+    ]
+    prev_umask = os.umask(0000)
+    for device, permissions, major, minor in devices:
+        os.mknod(
+            newroot_norm + device,
+            permissions | stat.S_IFCHR,
+            os.makedev(major, minor)
+        )
+    os.umask(prev_umask)
+    st = os.stat('/dev/tty')
+    os.chown(newroot_norm + '/dev/tty', st.st_uid, st.st_gid)
+
+    symlinks = [
+        ('/dev/fd', '/proc/self/fd'),
+        ('/dev/stdin', '/proc/self/fd/0'),
+        ('/dev/stdout', '/proc/self/fd/1'),
+        ('/dev/stderr', '/proc/self/fd/2'),
+        ('/dev/core', '/proc/kcore'),
+    ]
+    for link, target in symlinks:
+        fs.symlink_safe(newroot_norm + link, target)
+
+    for directory in ['/dev/shm', '/dev/pts', '/dev/mqueue']:
+        fs.mkdir_safe(newroot_norm + directory)
+    fs_linux.mount_tmpfs(
+        newroot_norm, '/dev/shm',
+        nodev=True, noexec=False, nosuid=True, relatime=False
+    )
+    fs_linux.mount_devpts(
+        newroot_norm, '/dev/pts',
+        gid=st.st_gid, mode='0620', ptmxmode='0666'
+    )
+    fs_linux.mount_mqueue(newroot_norm, '/dev/mqueue')
+
+    fs.symlink_safe(newroot_norm + '/dev/ptmx', 'pts/ptmx')
+
+
 def make_fsroot(root_dir, app):
     """Initializes directory structure for the container in a new root.
 
@@ -311,13 +364,9 @@ def make_fsroot(root_dir, app):
         source='/sys',
         recursive=True, read_only=False
     )
-    # TODO: For security, /dev/ should be minimal and separated to each
-    #       container.
-    fs_linux.mount_bind(
-        newroot_norm, os.path.join(os.sep, 'dev'),
-        source='/dev',
-        recursive=True, read_only=False
-    )
+
+    make_dev(newroot_norm)
+
     # Per FHS3 /var/run should be a symlink to /run which should be tmpfs
     fs.symlink_safe(
         os.path.join(newroot_norm, 'var', 'run'),

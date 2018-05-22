@@ -258,3 +258,66 @@ def sync_traits():
         z.path.traits(),
         data=payload
     )
+
+
+def sync_server_topology():
+    """Sync servers into buckets in the masterapi.
+    """
+    admin_srv = admin.Server(context.GLOBAL.ldap.conn)
+    servers = admin_srv.list({'cell': context.GLOBAL.cell})
+    zkclient = context.GLOBAL.zk.conn
+
+    # Cells are composed of buckets. The topology is ~1000 servers per pod
+    # with each pod composed of racks, each ~40 servers.
+    def _server_pod_rack(servername):
+        # In the absence of any information about the server and topology, we
+        # simply hash the servername and use the value to place the server in
+        # a fictive topology of at most 4 pods, each with 16 racks.
+        svr_hash = hashlib.md5(servername.encode()).hexdigest()
+        svr_id = int(svr_hash, 16)  # That is a 128 bit number
+        pod = (svr_id >> (128 - 2))  # First 2 bits -> pod
+        # below the first 2 bits, we take the rest, modulo 16
+        rack = (svr_id % (1 << (128 - 2))) % 16
+        return (pod, rack)
+
+    for server in servers:
+        servername = server['_id']
+        partition = server.get('partition')
+
+        (pod, rack) = _server_pod_rack(servername)
+        pod_bucket = 'pod:{:04X}'.format(pod)
+        rack_bucket = 'rack:{:04X}'.format(rack)
+
+        _LOGGER.info('Update: %r(partition:%r) -> %r, %r',
+                     servername, partition, pod_bucket, rack_bucket)
+
+        masterapi.create_bucket(zkclient, pod_bucket, parent_id=None)
+        masterapi.cell_insert_bucket(zkclient, pod_bucket)
+        masterapi.create_bucket(zkclient, rack_bucket, parent_id=pod_bucket)
+        masterapi.create_server(
+            zkclient,
+            servername,
+            rack_bucket,
+            partition=partition
+        )
+
+    ldap_servers = set(server['_id'] for server in servers)
+    zk_servers = set(masterapi.list_servers(zkclient))
+    zk_server_presence = set(zkclient.get_children(z.SERVER_PRESENCE))
+    for servername in zk_servers - ldap_servers:
+        if servername in zk_server_presence:
+            _LOGGER.warning('%s not in LDAP but node still present, skipping.',
+                            servername)
+        else:
+            _LOGGER.info('Delete: %s', servername)
+            masterapi.delete_server(zkclient, servername)
+
+
+__all__ = (
+    'sync_allocations'
+    'sync_appgroups'
+    'sync_partitions'
+    'sync_servers'
+    'sync_server_topology'
+    'sync_traits'
+)

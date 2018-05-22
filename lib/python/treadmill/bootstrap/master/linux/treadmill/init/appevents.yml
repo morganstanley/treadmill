@@ -4,7 +4,7 @@ command: |
   ${CHOWN} -R {{ treadmillid }} /treadmill/appevents
 
   exec \
-      {{ python }} -m treadmill \
+      {{ treadmill }}/bin/treadmill \
       sproc \
       appevents /treadmill/appevents
 environ_dir: "/treadmill/env"

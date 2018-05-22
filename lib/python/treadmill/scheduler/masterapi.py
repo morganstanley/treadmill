@@ -161,7 +161,7 @@ def list_buckets(zkclient):
     return sorted(zkclient.get_children(z.BUCKETS))
 
 
-def create_server(zkclient, server_id, parent_id):
+def create_server(zkclient, server_id, parent_id, partition):
     """Creates server definition in Zookeeper."""
     server_node = z.path.server(server_id)
     server_acl = zkutils.make_host_acl(server_id, 'rwcd')
@@ -169,11 +169,10 @@ def create_server(zkclient, server_id, parent_id):
     zkutils.ensure_exists(zkclient, server_node, acl=[server_acl])
 
     data = zkutils.get(zkclient, server_node)
-    if parent_id:
-        if not data:
-            data = {'parent': parent_id}
-        else:
-            data['parent'] = parent_id
+    data.update({
+        'parent': parent_id,
+        'partition': partition,
+    })
 
     _LOGGER.info('Creating server node %s with data %r and ACL %r',
                  server_node, data, server_acl)

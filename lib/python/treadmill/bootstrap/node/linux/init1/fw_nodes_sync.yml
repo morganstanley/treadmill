@@ -1,6 +1,6 @@
 command: |
   exec \
-    {{ python }} -m treadmill \
+    {{ treadmill }}/bin/treadmill \
     sproc --cgroup {{ name }} \
     firewall node_sync
 environ_dir: "{{ dir }}/env"

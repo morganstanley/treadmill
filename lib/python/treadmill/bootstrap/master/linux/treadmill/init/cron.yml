@@ -23,7 +23,7 @@ command: |
   export TZ
 
   exec \
-      {{ python }} -m treadmill \
+      {{ treadmill }}/bin/treadmill \
       sproc \
       cron
 environ_dir: "/treadmill/env"

@@ -2,4 +2,4 @@
 
 exec 2>&1
 
-exec {{ python }} -m treadmill sproc spawn cleanup
+exec {{ treadmill }}/bin/treadmill sproc spawn cleanup

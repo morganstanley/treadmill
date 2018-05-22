@@ -8,6 +8,7 @@ from __future__ import unicode_literals
 
 import errno
 import io
+import json
 import logging
 import os
 import sys
@@ -31,6 +32,7 @@ from treadmill import plugin_manager
 from treadmill import supervisor
 from treadmill import utils
 from treadmill import yamlwrapper as yaml
+from treadmill import subproc
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -478,14 +480,14 @@ def install(package, dst_dir, params, run=None, profile=None):
     """
     _LOGGER.info('install: %s - %s, profile: %s', package, dst_dir, profile)
 
-    aliases_path = [package]
+    packages = [package]
 
     module = plugin_manager.load('treadmill.bootstrap', package)
     extension_module = None
     if profile:
         _LOGGER.info('Installing profile: %s', profile)
         extension_name = '{}.{}'.format(package, profile)
-        aliases_path.append(extension_name)
+        packages.append(extension_name)
 
         try:
             extension_module = plugin_manager.load('treadmill.bootstrap',
@@ -494,15 +496,19 @@ def install(package, dst_dir, params, run=None, profile=None):
             _LOGGER.info('Extension not defined: %s, profile: %s',
                          package, profile)
 
+    subproc.load_packages(packages, lazy=False)
+
+    # Store resolved aliases
+    aliases_path = os.path.join(dst_dir, '.aliases.json')
+    aliases = subproc.get_aliases()
+    with io.open(aliases_path, 'w') as f_aliases:
+        f_aliases.write(json.dumps(aliases))
+
     defaults = {}
     defaults.update(getattr(module, 'DEFAULTS', {}))
 
-    aliases = {}
-    aliases.update(getattr(module, 'ALIASES', {}))
-
     if extension_module:
         defaults.update(getattr(extension_module, 'DEFAULTS', {}))
-        aliases.update(getattr(extension_module, 'ALIASES', {}))
 
     # TODO: this is ugly, error prone and should go away.
     #       aliases should be in default scope, everything else in _args.
@@ -510,7 +516,7 @@ def install(package, dst_dir, params, run=None, profile=None):
     defaults.update(aliases)
     defaults.update(params)
 
-    defaults['aliases_path'] = ':'.join(aliases_path)
+    defaults['aliases_path'] = aliases_path
     os.environ['TREADMILL_ALIASES_PATH'] = defaults['aliases_path']
 
     interpolated = _interpolate(defaults, defaults)

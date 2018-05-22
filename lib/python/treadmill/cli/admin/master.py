@@ -43,6 +43,8 @@ def server_group(parent):
     @click.option('-f', '--features', help='Server features, - to reset.',
                   multiple=True, default=[])
     @click.option('-p', '--parent', help='Server parent / separated.')
+    @click.option('-P', '--partition', help='Server partition.',
+                  default='_default')
     @click.option('-m', '--memory', help='Server memory.',
                   callback=cli.validate_memory)
     @click.option('-c', '--cpu', help='Server cpu, %.',
@@ -51,7 +53,7 @@ def server_group(parent):
                   callback=cli.validate_disk)
     @click.argument('server')
     @cli.admin.ON_EXCEPTIONS
-    def configure(server, features, parent, memory, cpu, disk):
+    def configure(server, features, parent, partition, memory, cpu, disk):
         """Create, get or modify server configuration"""
         if parent:
             path = parent.split('/')
@@ -64,7 +66,9 @@ def server_group(parent):
                 )
             assert bucket is not None, 'server topology missing.'
 
-            masterapi.create_server(context.GLOBAL.zk.conn, server, bucket)
+            masterapi.create_server(context.GLOBAL.zk.conn,
+                                    server, bucket,
+                                    partition=partition)
 
         features = cli.combine(features)
         if features:
