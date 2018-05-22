@@ -1,0 +1,26 @@
+{
+    "version": 1,
+    "formatters": {
+        "simple": {
+            "format": "# %(asctime)s - [%(threadName)s] %(name)s:%(lineno)d %(levelname)s - %(message)s"
+        }
+    },
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "simple",
+            "stream": "ext://sys.stderr"
+        }
+    },
+    "loggers": {
+        "": {
+            "handlers": ["console"],
+            "level": "INFO"
+        },
+        "treadmill": {
+            "handlers": ["console"],
+            "level": "INFO",
+            "propagate": 0
+        }
+    }
+}

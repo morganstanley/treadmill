@@ -12,6 +12,7 @@ import logging.config
 import click
 
 from treadmill import cli
+from treadmill import logging as tl
 
 # Disable click warning for importing unicode_literals in python 2
 click.disable_unicode_literals_warning = True
@@ -70,9 +71,8 @@ def run(ctx, outfmt, debug):
     if outfmt:
         cli.OUTPUT_FORMAT = outfmt
 
-    # Default logging to cli.conf, at CRITICAL, unless --debug
-    cli.init_logger('cli.conf')
+    # Default logging to cli.json, at CRITICAL, unless --debug
+    cli.init_logger('cli.json')
     if debug:
         ctx.obj['logging.debug'] = True
-        logging.getLogger('treadmill').setLevel(logging.DEBUG)
-        logging.getLogger().setLevel(logging.DEBUG)
+        tl.set_log_level(logging.DEBUG)

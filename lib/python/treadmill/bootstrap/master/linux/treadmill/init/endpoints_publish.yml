@@ -1,6 +1,6 @@
 command: |
     exec \
-        {{ python }} -m treadmill sproc publish-endpoints \
+        {{ treadmill }}/bin/treadmill sproc publish-endpoints \
             --approot /treadmill \
             --instance master-{{ master_id }}
 environ_dir: "/treadmill/env"

@@ -263,6 +263,92 @@ class FsLinuxTest(unittest.TestCase):
             ),
             'Validate flags passed to second mount call'
         )
+        treadmill.syscall.mount.mount.reset_mock()
+
+        treadmill.fs.linux.mount_tmpfs(
+            '/foo', '/dev',
+            nodev=False, noexec=False, nosuid=True, relatime=False,
+            mode='0755'
+        )
+        treadmill.syscall.mount.mount.assert_called_with(
+            source='tmpfs',
+            target='/foo/dev',
+            fs_type='tmpfs',
+            mnt_flags=mock.ANY,
+            mode='0755'
+        )
+        self.assertCountEqual(
+            treadmill.syscall.mount.mount.call_args_list[0][1]['mnt_flags'],
+            (
+                treadmill.syscall.mount.MS_NOSUID,
+            ),
+            'Validate flags passed to second mount call'
+        )
+        treadmill.syscall.mount.mount.reset_mock()
+
+        treadmill.fs.linux.mount_tmpfs(
+            '/foo', '/dev/shm',
+            nodev=True, noexec=False, nosuid=True, relatime=False
+        )
+        treadmill.syscall.mount.mount.assert_called_with(
+            source='tmpfs',
+            target='/foo/dev/shm',
+            fs_type='tmpfs',
+            mnt_flags=mock.ANY
+        )
+        self.assertCountEqual(
+            treadmill.syscall.mount.mount.call_args_list[0][1]['mnt_flags'],
+            (
+                treadmill.syscall.mount.MS_NOSUID,
+                treadmill.syscall.mount.MS_NODEV,
+            ),
+            'Validate flags passed to second mount call'
+        )
+
+    @mock.patch('treadmill.syscall.mount.mount', mock.Mock(spec_set=True))
+    def test_mount_devpts(self):
+        """Tests behavior of mount devpts.
+        """
+        treadmill.fs.linux.mount_devpts(
+            '/foo', '/dev/pts',
+            gid=5, mode='0620', ptmxmode='0666'
+        )
+        treadmill.syscall.mount.mount.assert_called_with(
+            source='devpts',
+            target='/foo/dev/pts',
+            fs_type='devpts',
+            mnt_flags=mock.ANY,
+            gid=5, mode='0620', ptmxmode='0666'
+        )
+        self.assertCountEqual(
+            treadmill.syscall.mount.mount.call_args_list[0][1]['mnt_flags'],
+            (
+                treadmill.syscall.mount.MS_NOSUID,
+                treadmill.syscall.mount.MS_NOEXEC,
+            ),
+            'Validate flags passed to second mount call'
+        )
+
+    @mock.patch('treadmill.syscall.mount.mount', mock.Mock(spec_set=True))
+    def test_mount_mqueue(self):
+        """Tests behavior of mount mqueue.
+        """
+        treadmill.fs.linux.mount_mqueue('/foo', '/dev/mqueue')
+        treadmill.syscall.mount.mount.assert_called_with(
+            source='mqueue',
+            target='/foo/dev/mqueue',
+            fs_type='mqueue',
+            mnt_flags=mock.ANY
+        )
+        self.assertCountEqual(
+            treadmill.syscall.mount.mount.call_args_list[0][1]['mnt_flags'],
+            (
+                treadmill.syscall.mount.MS_NOSUID,
+                treadmill.syscall.mount.MS_NODEV,
+                treadmill.syscall.mount.MS_NOEXEC,
+            ),
+            'Validate flags passed to second mount call'
+        )
 
     @mock.patch('io.open', mock.mock_open(read_data=MOUNTINFO))
     def test_list_mounts(self):

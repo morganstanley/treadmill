@@ -12,7 +12,7 @@ command: |
   ${CHOWN} -R nobody {{ dir }}/metrics
 
   exec \
-      {{ python }} -m treadmill \
+      {{ treadmill }}/bin/treadmill \
       sproc --cgroup {{ name }} \
       exec -- \
           {{ _alias.s6_setuidgid }} nobody \

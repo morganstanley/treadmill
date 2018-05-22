@@ -1,6 +1,0 @@
-#!/bin/sh
-
-exec 2>&1
-
-exec {{ python }} -m treadmill sproc haproxy --fs-root {{ dir }}/zk2fs \
-    --config {{ dir }}/haproxy/haproxy.cfg

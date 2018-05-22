@@ -10,13 +10,13 @@ import errno
 import logging
 import os
 import shutil
-import sys
 
 from treadmill import appcfg
 from treadmill import appevents
 from treadmill import fs
 from treadmill import supervisor
 from treadmill import utils
+from treadmill import subproc
 
 from treadmill.appcfg import manifest as app_manifest
 from treadmill.apptrace import events
@@ -96,12 +96,12 @@ def configure(tm_env, event, runtime):
 
     # Write the actual container start script
     if os.name == 'nt':
-        run_script = '{python} -m treadmill sproc run .'.format(
-            python=sys.executable
+        run_script = '{treadmill}/bin/treadmill sproc run .'.format(
+            treadmill=subproc.resolve('treadmill'),
         )
     else:
-        run_script = 'exec {python} -m treadmill sproc run ../'.format(
-            python=sys.executable
+        run_script = 'exec {treadmill}/bin/treadmill sproc run ../'.format(
+            treadmill=subproc.resolve('treadmill'),
         )
 
     # Create the service for that container

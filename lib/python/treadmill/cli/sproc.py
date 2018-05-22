@@ -12,6 +12,7 @@ import os
 import click
 
 from treadmill import cli
+from treadmill import logging as tl
 from treadmill import osnoop
 
 _LOGGER = logging.getLogger(__name__)
@@ -69,7 +70,7 @@ def init():
     @click.group(cls=cli.make_commands('treadmill.sproc'))
     @click.option('--cgroup',
                   help='Create separate cgroup for the service.')
-    @click.option('--logging-conf', default='daemon.conf',
+    @click.option('--logging-conf', default='daemon.json',
                   help='Logging config file to use.')
     @click.option('--cell', required=True,
                   envvar='TREADMILL_CELL',
@@ -91,9 +92,7 @@ def init():
         else:
             log_level = logging.DEBUG
 
-        logging.getLogger('kazoo').setLevel(logging.INFO)
-        logging.getLogger('treadmill').setLevel(log_level)
-        logging.getLogger().setLevel(log_level)
+        tl.set_log_level(log_level)
 
         if cgroup:
             _configure_service_cgroups(cgroup)

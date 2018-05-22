@@ -9,6 +9,8 @@ from __future__ import unicode_literals
 import logging
 import os
 import functools
+import io
+import json
 
 import six
 
@@ -30,30 +32,25 @@ _EXECUTABLES = None
 _CLOSE_FDS = os.name != 'nt'
 
 
-ALIASES_PATH = None
-
-
 class CommandAliasError(Exception):
-    """Error if not in aliases."""
+    """Error raised if alises can't be resolved."""
     pass
 
 
-def get_aliases(aliases_path=None):
-    """Load aliases of external binaries that can invoked."""
+def load_aliases(aliases_path):
+    """Load aliases from file."""
     global _EXECUTABLES  # pylint: disable=W0603
-    if _EXECUTABLES:
-        return _EXECUTABLES
+    with io.open(aliases_path) as f:
+        _EXECUTABLES = json.loads(f.read())
 
-    if not aliases_path:
-        aliases_path = ALIASES_PATH
 
-    assert aliases_path is not None
-    # TODO: need to check that file is either owned by running proc
-    #                or root.
-    _LOGGER.debug('Loading aliases path: %s', aliases_path)
+def load_packages(packages, lazy=True):
+    """Laze load aliases from packages.
 
+    Aliases will not be resolved.
+    """
     exes = {}
-    for name in aliases_path.split(':'):
+    for name in packages:
         alias_mod = plugin_manager.load('treadmill.bootstrap', name)
         exes.update(getattr(alias_mod, 'ALIASES'))
 
@@ -61,7 +58,17 @@ def get_aliases(aliases_path=None):
     if tm is not None:
         exes['treadmill'] = tm
 
+    global _EXECUTABLES  # pylint: disable=W0603
     _EXECUTABLES = exes
+
+    if not lazy:
+        resolved = {path: resolve(path) for path in _EXECUTABLES}
+        _EXECUTABLES = resolved
+
+
+def get_aliases():
+    """Load aliases of external binaries that can invoked."""
+    global _EXECUTABLES  # pylint: disable=W0603
     return _EXECUTABLES
 
 
@@ -87,8 +94,8 @@ def resolve(exe):
     executables = get_aliases()
 
     if not executables.get(exe):
-        _LOGGER.critical('Not in aliases: %s', exe)
-        raise CommandAliasError()
+        _LOGGER.debug('Not in aliases: %s', exe)
+        return None
 
     if callable(executables[exe]):
         safe_exe = executables[exe](exe)
@@ -103,19 +110,27 @@ def resolve(exe):
             if _check(choice):
                 return choice
         _LOGGER.debug('Cannot resolve: %s', exe)
-        raise CommandAliasError()
+        return None
     else:
         if not _check(safe_exe):
             _LOGGER.debug('Command not found: %s, %s', exe, safe_exe)
-            raise CommandAliasError()
+            return None
 
     return safe_exe
+
+
+def _resolve(exe):
+    """Resolve alias, raise exception if not found."""
+    resolved = resolve(exe)
+    if not resolved:
+        raise CommandAliasError('Unable to resolve: {}'.format(exe))
+    return resolved
 
 
 def _alias_command(cmdline):
     """Checks that the command line is in the aliases."""
     safe_cmdline = list(cmdline)
-    safe_cmdline.insert(0, resolve(safe_cmdline.pop(0)))
+    safe_cmdline.insert(0, _resolve(safe_cmdline.pop(0)))
     return safe_cmdline
 
 
@@ -140,7 +155,7 @@ def check_call(cmdline, environ=(), runas=None, **kwargs):
 
     args = _alias_command(cmdline)
     if runas:
-        s6_setguid = resolve('s6_setuidgid')
+        s6_setguid = _resolve('s6_setuidgid')
         args = [s6_setguid, runas] + args
 
     # Setup a copy of the environ with the provided overrides
@@ -324,7 +339,7 @@ def exec_pid1(cmd, ipc=True, mount=True, proc=True,
               propagation=None):
     """Exec command line under pid1.
     """
-    pid1 = resolve('pid1')
+    pid1 = _resolve('pid1')
     safe_cmd = _alias_command(cmd)
     args = [pid1]
     if ipc:
@@ -347,7 +362,7 @@ def exec_pid1(cmd, ipc=True, mount=True, proc=True,
 def exec_fghack(cmd, close_fds=True, restore_signals=True):
     """Anti-backgrounding exec command.
     """
-    fghack = resolve('s6_fghack')
+    fghack = _resolve('s6_fghack')
     safe_cmd = _alias_command(cmd)
     args = [fghack] + safe_cmd
     _LOGGER.debug('exec_fghack: %r', args)

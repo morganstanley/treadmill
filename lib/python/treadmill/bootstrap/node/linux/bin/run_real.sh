@@ -93,4 +93,4 @@ exec \
     ${IONICE} -c2 -n0 \
     ${PID1} -m -p --propagation slave \
     ${ENVDIR} "{{ dir }}/env" \
-    {{ python }} -m treadmill sproc boot
+    {{ treadmill }}/bin/treadmill sproc boot

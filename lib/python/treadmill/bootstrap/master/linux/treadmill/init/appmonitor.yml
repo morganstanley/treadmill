@@ -1,6 +1,6 @@
 command: |
   exec \
-    {{ python }} -m treadmill \
+    {{ treadmill }}/bin/treadmill \
     sproc \
     appmonitor \
         --api http+unix://%2Ftmp%2Fcellapi.sock

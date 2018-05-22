@@ -277,6 +277,7 @@ appgroups = treadmill.cellsync:sync_appgroups
 allocations = treadmill.cellsync:sync_allocations
 partitions = treadmill.cellsync:sync_partitions
 servers = treadmill.cellsync:sync_servers
+server-topology = treadmill.cellsync:sync_server_topology
 traits = treadmill.cellsync:sync_traits
 
 
@@ -293,3 +294,5 @@ node-down = treadmill.monitor:MonitorNodeDown
 container-down = treadmill.monitor:MonitorContainerDown
 
 [treadmill.version_monitor]
+
+[treadmill.logging]

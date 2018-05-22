@@ -14,11 +14,11 @@ from treadmill import subproc
 
 def _s6(exe):
     """Resolve s6 exe."""
-    try:
-        s6_dir = subproc.resolve('s6')
-        return os.path.join(s6_dir, 'bin', exe.replace('_', '-'))
-    except subproc.CommandAliasError:
+    s6_dir = subproc.resolve('s6')
+    if not s6_dir:
         return None
+
+    return os.path.join(s6_dir, 'bin', exe.replace('_', '-'))
 
 
 _BIN = functools.partial(os.path.join, '/bin')

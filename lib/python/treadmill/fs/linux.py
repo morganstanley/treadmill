@@ -113,24 +113,62 @@ def mount_procfs(newroot, target='/proc'):
     )
 
 
-def mount_tmpfs(newroot, target, **mnt_opts):
+def mount_tmpfs(newroot, target, nodev=True, noexec=True, nosuid=True,
+                relatime=True, **mnt_opts):
     """Mounts directory on tmpfs.
     """
     while target.startswith('/'):
         target = target[1:]
 
     mnt_flags = [
-        mount.MS_NODEV,
-        mount.MS_NOEXEC,
-        mount.MS_NOSUID,
-        mount.MS_RELATIME,
+        (nodev, mount.MS_NODEV),
+        (noexec, mount.MS_NOEXEC),
+        (nosuid, mount.MS_NOSUID),
+        (relatime, mount.MS_RELATIME),
     ]
 
     return mount.mount(
         source='tmpfs',
         target=os.path.join(newroot, target),
         fs_type='tmpfs',
-        mnt_flags=mnt_flags,
+        mnt_flags=[mnt_flag for flag, mnt_flag in mnt_flags if flag],
+        **mnt_opts
+    )
+
+
+def mount_devpts(newroot, target, **mnt_opts):
+    """Mounts directory on devpts.
+    """
+    while target.startswith('/'):
+        target = target[1:]
+
+    return mount.mount(
+        source='devpts',
+        target=os.path.join(newroot, target),
+        fs_type='devpts',
+        mnt_flags=(
+            mount.MS_NOSUID,
+            mount.MS_NOEXEC
+        ),
+        **mnt_opts
+    )
+
+
+def mount_mqueue(newroot, target, **mnt_opts):
+    """Mounts directory on mqueue.
+    """
+    while target.startswith('/'):
+        target = target[1:]
+
+    return mount.mount(
+        source='mqueue',
+        target=os.path.join(newroot, target),
+        fs_type='mqueue',
+        mnt_flags=(
+            mount.MS_NOSUID,
+            mount.MS_NODEV,
+            mount.MS_NOEXEC
+        ),
         **mnt_opts
     )
 

@@ -18,18 +18,18 @@ import tests.treadmill_test_skip_windows  # pylint: disable=W0611
 import kazoo
 import mock
 
-from treadmill import cellsync  # pylint: disable=no-name-in-module
+import treadmill
+from treadmill import cellsync
 from treadmill import zkutils
 
 
-# Disable W0212: Test access protected members of admin module.
-# pylint: disable=W0212
 class CellsyncTest(unittest.TestCase):
     """Test treadmill.cellsync"""
 
     @mock.patch('treadmill.context.GLOBAL', mock.Mock(cell='test'))
     def test_sync_collection(self):
         """"Test syncing ldap collection to Zookeeper."""
+        # pylint: disable=protected-access
 
         zkclient = mock.Mock()
         zkclient.get_children.side_effect = lambda path: {
@@ -54,8 +54,74 @@ class CellsyncTest(unittest.TestCase):
             makepath=True, ephemeral=False, acl=mock.ANY, sequence=False
         )
 
+    @mock.patch('treadmill.admin.Server', mock.Mock(spec_set=True))
+    @mock.patch('treadmill.context.GLOBAL', mock.Mock(cell='test'))
+    @mock.patch('treadmill.scheduler.masterapi.create_bucket',
+                mock.Mock(spec_set=True))
+    @mock.patch('treadmill.scheduler.masterapi.cell_insert_bucket',
+                mock.Mock(spec_set=True))
+    @mock.patch('treadmill.scheduler.masterapi.create_server',
+                mock.Mock(spec_set=True))
+    @mock.patch('treadmill.scheduler.masterapi.update_server_attrs',
+                mock.Mock(spec_set=True))
+    @mock.patch('treadmill.scheduler.masterapi.list_servers',
+                mock.Mock(spec_set=True))
+    @mock.patch('treadmill.scheduler.masterapi.delete_server',
+                mock.Mock(spec_set=True))
+    def test_sync_server_topology(self):
+        """"Test syncing LDAP servers to Zookeeper.
+        """
+
+        mock_zkclient = treadmill.context.GLOBAL.zk.conn
+        mock_admsrv = treadmill.admin.Server.return_value
+
+        mock_admsrv.list.return_value = [
+            {'_id': 'foo'},
+            {'_id': 'bar', 'partition': 'one'},
+            {'_id': 'baz', 'partition': 'two'},
+        ]
+        treadmill.scheduler.masterapi.list_servers.return_value = [
+            'extra_and_down',
+        ]
+        mock_zkclient.get_children.return_value = [
+            'extra_but_up',
+        ]
+
+        cellsync.sync_server_topology()
+
+        treadmill.scheduler.masterapi.create_bucket.assert_has_calls(
+            [
+                mock.call(mock_zkclient, 'pod:0000', parent_id=None),
+                mock.call(mock_zkclient, 'pod:0001', parent_id=None),
+                mock.call(mock_zkclient, 'pod:0002', parent_id=None),
+                mock.call(mock_zkclient, 'rack:0002', parent_id='pod:0000'),
+                mock.call(mock_zkclient, 'rack:0008', parent_id='pod:0001'),
+                mock.call(mock_zkclient, 'rack:0008', parent_id='pod:0002'),
+            ],
+            any_order=True
+        )
+        treadmill.scheduler.masterapi.cell_insert_bucket.assert_has_calls(
+            [
+                mock.call(mock_zkclient, 'pod:0001'),
+            ],
+            any_order=True
+        )
+        treadmill.scheduler.masterapi.create_server.assert_has_calls(
+            [
+                mock.call(mock_zkclient, 'foo', 'rack:0008', partition=None),
+                mock.call(mock_zkclient, 'bar', 'rack:0002', partition='one'),
+                mock.call(mock_zkclient, 'baz', 'rack:0008', partition='two'),
+            ]
+        )
+        treadmill.scheduler.masterapi.delete_server.assert_called_once_with(
+            mock_zkclient, 'extra_and_down'
+        )
+
     def test_appgroup_lookup_db(self):
-        """Test lookup db construction."""
+        """Test lookup db construction.
+        """
+        # pylint: disable=protected-access
+
         rows = [
             ('foo.bar.*', 'dns', 'http', '{"name":"value"}'),
             ('foo.bar.*', 'lbendpoint', 'http', '{"name":"value"}'),
@@ -71,7 +137,9 @@ class CellsyncTest(unittest.TestCase):
     @mock.patch('treadmill.zkutils.put', mock.Mock())
     @mock.patch('treadmill.zkutils.ensure_deleted', mock.Mock())
     def test_save_appgroup_lookup(self):
-        """Test saving appgroup loopkup."""
+        """Test saving appgroup loopkup.
+        """
+        # pylint: disable=protected-access
 
         with tempfile.NamedTemporaryFile(delete=False) as f:
             f.write(b'xxx')
@@ -101,7 +169,10 @@ class CellsyncTest(unittest.TestCase):
         )
 
     def test_appgroup_group_by(self):
-        """Test partitioning of appgroups by proid, generating checksum."""
+        """Test partitioning of appgroups by proid, generating checksum.
+        """
+        # pylint: disable=protected-access
+
         appgroups1 = [
             {'pattern': 'foo.2.*', 'data': {},
              'endpoints': ['http'], 'group-type': 'dns'},
