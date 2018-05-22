@@ -1,5 +1,5 @@
 command: >
-  {{ python }} -m treadmill sproc monitor
+  {{ treadmill }}/bin/treadmill sproc monitor
   --approot {{ dir }}
   --config-dir .\data\config
 monitor_policy:

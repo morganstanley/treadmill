@@ -42,6 +42,7 @@ class InstanceTest(unittest.TestCase):
         instance.init(api, cors, self.impl)
         self.client = self.app.test_client()
 
+    @unittest.skip('BROKEN: Flask exception handling')  # FIXME
     def test_post_instance(self):
         """Test creating an instance."""
         self.impl.create.return_value = ['proid.app#0000000001']

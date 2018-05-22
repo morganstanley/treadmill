@@ -50,6 +50,9 @@ def init():
         os.environ.pop('LC_ALL', None)
         os.environ.pop('LANG', None)
 
+        # Clear aliases path.
+        os.environ.pop('TREADMILL_ALIASES_PATH', None)
+
         subproc.safe_exec(
             [
                 's6_svscan',

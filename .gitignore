@@ -10,6 +10,7 @@ docs/build
 docs/_build
 venv/
 wheels/
+test_container_dir/
 
 # Keep track of .keepme files
 !.keepme

@@ -1,8 +1,0 @@
-#!/bin/sh
-
-exec 2>&1
-
-# exec {{ python }} -m treadmill sproc lbvirtual --fs-root {{ dir }}/zk2fs
-
-# For now, exec sleep, until changes to lbvirtual are complete
-exec {{ sleep }} 600000
