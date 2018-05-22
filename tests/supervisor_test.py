@@ -39,7 +39,7 @@ class SupervisorTest(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        subproc.ALIASES_PATH = 'node'
+        subproc.load_packages(['node'])
 
     def setUp(self):
         self.mock_pwrow = collections.namedtuple(

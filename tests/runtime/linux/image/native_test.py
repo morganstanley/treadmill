@@ -89,8 +89,13 @@ class NativeImageTest(unittest.TestCase):
             shutil.rmtree(self.container_dir)
 
     @mock.patch('os.chown', mock.Mock(spec_set=True))
+    @mock.patch('os.mknod', mock.Mock(spec_set=True))
+    @mock.patch('os.makedev', mock.Mock(spec_set=True))
+    @mock.patch('treadmill.fs.symlink_safe', mock.Mock(spec_set=True))
     @mock.patch('treadmill.fs.linux.mount_bind', mock.Mock(spec_set=True))
     @mock.patch('treadmill.fs.linux.mount_tmpfs', mock.Mock(spec_set=True))
+    @mock.patch('treadmill.fs.linux.mount_devpts', mock.Mock(spec_set=True))
+    @mock.patch('treadmill.fs.linux.mount_mqueue', mock.Mock(spec_set=True))
     def test_make_fsroot(self):
         """Validates directory layout in chrooted environment."""
         native.make_fsroot(self.root, self.app)
@@ -104,6 +109,10 @@ class NativeImageTest(unittest.TestCase):
             statinfo = os.stat(os.path.join(self.root, path))
             return statinfo.st_mode & stat.S_ISVTX
 
+        self.assertTrue(isdir('dev'))
+        self.assertTrue(isdir('dev/shm'))
+        self.assertTrue(isdir('dev/pts'))
+        self.assertTrue(isdir('dev/mqueue'))
         self.assertTrue(isdir('home'))
         self.assertTrue(isdir('opt'))
         self.assertTrue(isdir('run'))
@@ -117,8 +126,68 @@ class NativeImageTest(unittest.TestCase):
         self.assertTrue(issticky('tmp'))
         self.assertTrue(issticky('var/tmp'))
 
-        treadmill.fs.linux.mount_tmpfs.assert_called_once_with(
-            mock.ANY, '/run'
+        self.assertEqual(
+            os.mknod.call_args_list,
+            [
+                mock.call(self.root + '/dev/null', 0o20666, mock.ANY),
+                mock.call(self.root + '/dev/zero', 0o20666, mock.ANY),
+                mock.call(self.root + '/dev/full', 0o20666, mock.ANY),
+                mock.call(self.root + '/dev/tty', 0o20666, mock.ANY),
+                mock.call(self.root + '/dev/random', 0o20444, mock.ANY),
+                mock.call(self.root + '/dev/urandom', 0o20444, mock.ANY),
+            ]
+        )
+        self.assertEqual(
+            os.makedev.call_args_list,
+            [
+                mock.call(1, 3),
+                mock.call(1, 5),
+                mock.call(1, 7),
+                mock.call(5, 0),
+                mock.call(1, 8),
+                mock.call(1, 9),
+            ]
+        )
+        os.chown.assert_called_once_with(
+            self.root + '/dev/tty',
+            os.stat('/dev/tty').st_uid,
+            os.stat('/dev/tty').st_gid
+        )
+
+        self.assertEqual(
+            treadmill.fs.symlink_safe.call_args_list,
+            [
+                mock.call(self.root + '/dev/fd', '/proc/self/fd'),
+                mock.call(self.root + '/dev/stdin', '/proc/self/fd/0'),
+                mock.call(self.root + '/dev/stdout', '/proc/self/fd/1'),
+                mock.call(self.root + '/dev/stderr', '/proc/self/fd/2'),
+                mock.call(self.root + '/dev/core', '/proc/kcore'),
+                mock.call(self.root + '/dev/ptmx', 'pts/ptmx'),
+                mock.call(self.root + '/var/run', '/run')
+            ]
+        )
+
+        self.assertEqual(
+            treadmill.fs.linux.mount_tmpfs.call_args_list,
+            [
+                mock.call(
+                    self.root, '/dev',
+                    nodev=False, noexec=False, nosuid=True, relatime=False,
+                    mode='0755'
+                ),
+                mock.call(
+                    self.root, '/dev/shm',
+                    nodev=True, noexec=False, nosuid=True, relatime=False
+                ),
+                mock.call(self.root, '/run'),
+            ],
+        )
+        treadmill.fs.linux.mount_devpts.assert_called_once_with(
+            self.root, '/dev/pts',
+            gid=os.stat('/dev/tty').st_gid, mode='0620', ptmxmode='0666'
+        )
+        treadmill.fs.linux.mount_mqueue.assert_called_once_with(
+            self.root, '/dev/mqueue'
         )
 
         treadmill.fs.linux.mount_bind.assert_has_calls([

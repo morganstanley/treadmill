@@ -69,6 +69,8 @@ class CleanupTest(unittest.TestCase):
     @mock.patch('treadmill.supervisor.create_service', mock.Mock())
     @mock.patch('treadmill.fs.symlink_safe', mock.Mock())
     @mock.patch('treadmill.cleanup.Cleanup._refresh_supervisor', mock.Mock())
+    @mock.patch('treadmill.subproc.resolve',
+                mock.Mock(return_value='/x/y/bin/treadmill'))
     def test__add_cleanup_app(self):
         """Tests that a new cleanup app is correctly configured.
         """

@@ -23,13 +23,13 @@ def init():
     @click.argument('aliases')
     def check(aliases):
         """Check aliases."""
-        exes = subproc.get_aliases(aliases)
-        for exe in exes:
+        subproc.load_packages(aliases.split(':'))
+        for exe in subproc.get_aliases():
             success = True
-            try:
-                fullpath = subproc.resolve(exe)
+            fullpath = subproc.resolve(exe)
+            if fullpath:
                 print('{:<30}{:<10}{}'.format(exe, 'ok', fullpath))
-            except subproc.CommandAliasError:
+            else:
                 print('{:<30}{:<10}'.format(exe, 'fail'))
 
     return check

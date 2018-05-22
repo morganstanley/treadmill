@@ -10,7 +10,6 @@ import io
 import json
 import logging
 import os
-import sys
 
 from treadmill import appcfg
 from treadmill import context
@@ -181,14 +180,14 @@ def add_linux_system_services(tm_env, manifest):
                     'interval': 60,
                 },
                 'command': (
-                    'exec {python} -m treadmill sproc'
+                    'exec {treadmill}/bin/treadmill sproc'
                     ' --zookeeper {zkurl}'
                     ' --cell {cell}'
                     ' vring'
                     ' --approot {tm_root}'
                     ' {manifest}'
                 ).format(
-                    python=sys.executable,
+                    treadmill=subproc.resolve('treadmill'),
                     zkurl=manifest['zookeeper'],
                     cell=cell,
                     tm_root=tm_env.root,
@@ -217,13 +216,13 @@ def add_linux_system_services(tm_env, manifest):
             'interval': 60,
         },
         'command': (
-            'exec {python} -m treadmill sproc'
+            'exec {treadmill}/bin/treadmill sproc'
             ' --zookeeper {zkurl}'
             ' --cell {cell}'
             ' presence register'
             ' {manifest} {container_dir}'
         ).format(
-            python=sys.executable,
+            treadmill=subproc.resolve('treadmill'),
             zkurl=manifest['zookeeper'],
             cell=manifest['cell'],
             manifest=os.path.join(container_data_dir, 'state.json'),
@@ -258,13 +257,13 @@ def add_linux_system_services(tm_env, manifest):
             'interval': 60,
         },
         'command': (
-            'exec {python} -m treadmill sproc'
+            'exec {treadmill}/bin/treadmill sproc'
             ' --cell {cell}'
             ' host-aliases'
             ' --aliases-dir {aliases_dir}'
             ' {hosts_original} {hosts_container}'
         ).format(
-            python=sys.executable,
+            treadmill=subproc.resolve('treadmill'),
             cell=manifest['cell'],
             aliases_dir=os.path.join(
                 run_overlay, 'host-aliases',
@@ -296,12 +295,12 @@ def add_linux_system_services(tm_env, manifest):
             'exec'
             ' {pid1} -i -m -p'
             ' --propagation slave'
-            ' {python} -m treadmill sproc'
+            ' {treadmill}/bin/treadmill sproc'
             ' --cell {cell}'
             ' start-container'
             ' --container-root {container_dir}/root'
         ).format(
-            python=sys.executable,
+            treadmill=subproc.resolve('treadmill'),
             cell=manifest['cell'],
             pid1=subproc.resolve('pid1'),
             container_dir=container_data_dir,

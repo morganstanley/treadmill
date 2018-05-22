@@ -6,7 +6,7 @@ command: |
   fi
 
   exec \
-      {{ python }} -m treadmill \
+      {{ treadmill }}/bin/treadmill \
       sproc --cgroup {{ name }} \
       init \
           --zkid zkid.pickle \

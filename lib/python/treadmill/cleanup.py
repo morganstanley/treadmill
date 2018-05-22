@@ -23,7 +23,6 @@ from __future__ import unicode_literals
 import glob
 import logging
 import os
-import sys
 import time
 
 from treadmill import dirwatch
@@ -90,11 +89,11 @@ class Cleanup(object):
 
         _LOGGER.info('Configure cleaning app: %s', name)
         command = (
-            '{python} -m treadmill sproc cleanup instance'
+            '{treadmill}/bin/treadmill sproc cleanup instance'
             ' --approot {tm_root}'
             ' {instance}'
         ).format(
-            python=sys.executable,
+            treadmill=subproc.resolve('treadmill'),
             tm_root=self.tm_env.root,
             instance=name
         )

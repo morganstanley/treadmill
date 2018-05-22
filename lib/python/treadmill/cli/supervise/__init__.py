@@ -17,6 +17,6 @@ def init():
     @click.group(cls=cli.make_commands(__name__))
     def run():
         """Cross-cell supervision tools."""
-        cli.init_logger('daemon.conf')
+        cli.init_logger('daemon.json')
 
     return run

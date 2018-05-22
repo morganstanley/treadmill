@@ -1,9 +1,0 @@
-#!/bin/sh
-
-exec 2>&1
-
-{{ echo }} "Waiting for all services in $({{ pwd }}) to really finish"
-
-{{ s6 }}/bin/s6-svwait -aD -t 5000 *
-
-{{ echo }} "All services are finished"

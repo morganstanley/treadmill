@@ -23,6 +23,7 @@ import treadmill
 from treadmill import restclient
 from treadmill import cli
 from treadmill import context
+from treadmill import logging as tl
 from treadmill import yamlwrapper as yaml
 
 
@@ -94,13 +95,12 @@ def init():
     @click.pass_context
     def run(ctx):
         """Admin commands."""
-        cli.init_logger('admin.conf')
+        cli.init_logger('admin.json')
 
         log_level = logging.WARN
         if ctx.obj.get('logging.debug'):
             log_level = logging.DEBUG
 
-        logging.getLogger('treadmill').setLevel(log_level)
-        logging.getLogger().setLevel(log_level)
+        tl.set_log_level(log_level)
 
     return run

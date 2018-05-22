@@ -1,0 +1,36 @@
+{
+    "version": 1,
+    "formatters": {
+        "simple": {
+            "format": "%(levelname)-8s [%(threadName)-10s] %(name)s:%(lineno)d - %(message)s"
+        }
+    },
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "simple",
+            "stream": "ext://sys.stdout"
+        }
+    },
+    "loggers": {
+        "": {
+            "handlers": ["console"],
+            "level": "DEBUG"
+        },
+        "treadmill": {
+            "handlers": ["console"],
+            "level": "DEBUG",
+            "propagate": 0
+        },
+        "kazoo": {
+            "handlers": ["console"],
+            "level": "INFO",
+            "propagate": 0
+        },
+        "http_kerberos_auth_handler": {
+            "handlers": ["console"],
+            "level": "INFO",
+            "propagate": 0
+        }
+    }
+}

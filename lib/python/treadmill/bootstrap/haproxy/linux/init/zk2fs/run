@@ -1,6 +1,0 @@
-#!/bin/sh
-
-exec 2>&1
-
-exec {{ python }} -m treadmill sproc zk2fs --root {{ dir }}/zk2fs \
-    --appgroups --endpoints --servers
