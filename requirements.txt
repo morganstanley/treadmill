@@ -35,5 +35,4 @@ websocket-client>=0.40.0,<1
 winkerberos>=0.6 ; sys_platform == 'win32'
 
 # Until Kazoo SASL patches are upstreamed
-# kazoo>=2.2,<3
-git+https://github.com/ceache/kazoo.git@puresasl#egg=kazoo [sasl]
+kazoo>=2.2,<3

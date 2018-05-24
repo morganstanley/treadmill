@@ -54,18 +54,14 @@ CAN_BUILD_WHEELS=$(echo ${CAN_BUILD_WHEELS} | sed 's/[ ]\+/,/g')
 
 echo "Caching all the wheels..."
 mkdir -vp "${WHEELS_DIR}"
-pip ${PIP_OPTIONS} wheel \
-    -r requirements.txt \
-    -r test-requirements.txt \
-    -f "${WHEELS_DIR}" \
-    -w "${WHEELS_DIR}" \
-    --only-binary :all: \
-    --no-binary ${CAN_BUILD_WHEELS}
 
-echo "Patching the wheels..."
-for WHEEL in $(find "${WHEELS_DIR}" -name "*manylinux1*")
-do
-    mv -v ${WHEEL} $(echo ${WHEEL} | sed s/manylinux1/linux/)
+for req in $(ls *requirements.txt); do
+    pip ${PIP_OPTIONS} wheel \
+        -r $req \
+        -f "${WHEELS_DIR}" \
+        -w "${WHEELS_DIR}" \
+        --only-binary :all: \
+        --no-binary ${CAN_BUILD_WHEELS}
 done
 
 # All requirements should be downloaded from requirements.txt, disable
