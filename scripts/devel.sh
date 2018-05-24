@@ -26,6 +26,12 @@ pip install                   \
     -f $WHEELS_DIR            \
     --no-cache-dir            \
     --no-index                \
+    kazoo[sasl]==2.4.0.dev0
+
+pip install                   \
+    -f $WHEELS_DIR            \
+    --no-cache-dir            \
+    --no-index                \
     -r test-requirements.txt
 
 pip install                   \
