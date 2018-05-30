@@ -117,7 +117,7 @@ def init():
             zkutils.ensure_exists(
                 zkclient,
                 zk_blackout_path,
-                acl=[zkutils.make_host_acl(hostname, 'rwcda')],
+                acl=[zkclient.make_host_acl(hostname, 'rwcda')],
                 data='Possible reboot loop detected.'
             )
 

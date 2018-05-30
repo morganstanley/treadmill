@@ -42,7 +42,7 @@ class MasterTest(mockzk.MockZookeeperTestCase):
 
         scheduler.DIMENSION_COUNT = 3
 
-        backend = zkbackend.ZkBackend(kazoo.client.KazooClient())
+        backend = zkbackend.ZkBackend(treadmill.zkutils.ZkClient())
         self.events_dir = tempfile.mkdtemp()
         self.master = master.Master(backend, 'test-cell', self.events_dir)
         # Use 111 to assert on zkhandle value.
@@ -1105,7 +1105,7 @@ class MasterTest(mockzk.MockZookeeperTestCase):
     @mock.patch('treadmill.appevents._HOSTNAME', 'xxx')
     def test_create_apps(self):
         """Tests app api."""
-        zkclient = kazoo.client.KazooClient()
+        zkclient = treadmill.zkutils.ZkClient()
         kazoo.client.KazooClient.create.return_value = '/scheduled/foo.bar#12'
 
         masterapi.create_apps(zkclient, 'foo.bar', {}, 2)
@@ -1113,7 +1113,7 @@ class MasterTest(mockzk.MockZookeeperTestCase):
         kazoo.client.KazooClient.create.assert_has_calls([
             mock.call(
                 '/scheduled/foo.bar#',
-                b'{}\n',
+                value=b'{}\n',
                 makepath=True,
                 sequence=True,
                 ephemeral=False,
@@ -1121,20 +1121,20 @@ class MasterTest(mockzk.MockZookeeperTestCase):
             ),
             mock.call(
                 '/trace/000C/foo.bar#12,123.34,xxx,pending,created',
-                b'',
+                value=b'',
                 ephemeral=False, makepath=True, sequence=False,
                 acl=mock.ANY
             ),
             # Mock call returns same instance (#12), so same task is created
             # twice.
             mock.call('/scheduled/foo.bar#',
-                      b'{}\n',
+                      value=b'{}\n',
                       makepath=True,
                       sequence=True,
                       ephemeral=False,
                       acl=mock.ANY),
             mock.call('/trace/000C/foo.bar#12,123.34,xxx,pending,created',
-                      b'',
+                      value=b'',
                       ephemeral=False, makepath=True, sequence=False,
                       acl=mock.ANY)
         ])
@@ -1143,14 +1143,14 @@ class MasterTest(mockzk.MockZookeeperTestCase):
         masterapi.create_apps(zkclient, 'foo.bar', {}, 1, 'monitor')
         kazoo.client.KazooClient.create.assert_has_calls([
             mock.call('/scheduled/foo.bar#',
-                      b'{}\n',
+                      value=b'{}\n',
                       makepath=True,
                       sequence=True,
                       ephemeral=False,
                       acl=mock.ANY),
             mock.call(
                 '/trace/000C/foo.bar#12,123.34,xxx,pending,monitor:created',
-                b'',
+                value=b'',
                 ephemeral=False, makepath=True, sequence=False,
                 acl=mock.ANY
             )
@@ -1164,7 +1164,7 @@ class MasterTest(mockzk.MockZookeeperTestCase):
     @mock.patch('treadmill.appevents._HOSTNAME', 'xxx')
     def test_delete_apps(self):
         """Tests app api."""
-        zkclient = kazoo.client.KazooClient()
+        zkclient = treadmill.zkutils.ZkClient()
 
         masterapi.delete_apps(zkclient, ['foo.bar#12', 'foo.bar#22'])
         kazoo.client.KazooClient.delete.assert_has_calls([
@@ -1174,13 +1174,13 @@ class MasterTest(mockzk.MockZookeeperTestCase):
         kazoo.client.KazooClient.create.assert_has_calls([
             mock.call(
                 '/trace/000C/foo.bar#12,123.34,xxx,pending_delete,deleted',
-                b'',
+                value=b'',
                 ephemeral=False, makepath=True, sequence=False,
                 acl=mock.ANY
             ),
             mock.call(
                 '/trace/0016/foo.bar#22,123.34,xxx,pending_delete,deleted',
-                b'',
+                value=b'',
                 ephemeral=False, makepath=True, sequence=False,
                 acl=mock.ANY
             )
@@ -1198,7 +1198,7 @@ class MasterTest(mockzk.MockZookeeperTestCase):
                     '/trace/000C/foo.bar#12,123.34,xxx,'
                     'pending_delete,monitor:deleted'
                 ),
-                b'',
+                value=b'',
                 ephemeral=False, makepath=True, sequence=False,
                 acl=mock.ANY
             )
@@ -1210,7 +1210,7 @@ class MasterTest(mockzk.MockZookeeperTestCase):
     @mock.patch('kazoo.client.KazooClient.create', mock.Mock())
     def test_update_app_priority(self):
         """Tests app api."""
-        zkclient = kazoo.client.KazooClient()
+        zkclient = treadmill.zkutils.ZkClient()
 
         kazoo.client.KazooClient.create.return_value = '/events/001-apps-1'
         masterapi.update_app_priorities(zkclient, {'foo.bar#1': 10,
@@ -1225,7 +1225,7 @@ class MasterTest(mockzk.MockZookeeperTestCase):
 
         # Verify that event is placed correctly.
         kazoo.client.KazooClient.create.assert_called_with(
-            '/events/001-apps-', mock.ANY,
+            '/events/001-apps-', value=mock.ANY,
             makepath=True, acl=mock.ANY, sequence=True, ephemeral=False
         )
 
@@ -1236,7 +1236,7 @@ class MasterTest(mockzk.MockZookeeperTestCase):
                 mock.Mock(return_value=None))
     def test_update_app_priority_noop(self):
         """Tests app api."""
-        zkclient = kazoo.client.KazooClient()
+        zkclient = treadmill.zkutils.ZkClient()
 
         # kazoo.client.KazooClient.create.return_value = '/events/001-apps-1'
         masterapi.update_app_priorities(zkclient, {'foo.bar#1': 10,
@@ -1262,15 +1262,16 @@ class MasterTest(mockzk.MockZookeeperTestCase):
                 mock.Mock(return_value=False))
     def test_cell_insert_bucket(self):
         """Tests inserting bucket into cell."""
-        zkclient = kazoo.client.KazooClient()
+        zkclient = treadmill.zkutils.ZkClient()
         kazoo.client.KazooClient.create.return_value = '/events/000-cell-1'
         masterapi.cell_insert_bucket(zkclient, 'pod:pod1')
 
         kazoo.client.KazooClient.create.assert_has_calls([
-            mock.call('/cell/pod:pod1', b'',
+            mock.call('/cell/pod:pod1', value=b'',
                       makepath=True, acl=mock.ANY,
+                      ephemeral=False,
                       sequence=False),
-            mock.call('/events/000-cell-', b'',
+            mock.call('/events/000-cell-', value=b'',
                       makepath=True, acl=mock.ANY,
                       sequence=True, ephemeral=False)
         ])
@@ -1421,7 +1422,7 @@ class MasterTest(mockzk.MockZookeeperTestCase):
         treadmill.zkutils.ensure_exists.assert_called_with(
             mock.ANY,
             '/reboots/' + free_server,
-            acl=[zkbackend._SERVERS_ACL_DEL]
+            acl=[self.master.backend.zkclient.make_servers_del_acl()]
         )
 
         # Run check after app expires, shouldn't affect reboot of app server.
@@ -1474,7 +1475,7 @@ class MasterTest(mockzk.MockZookeeperTestCase):
     @mock.patch('kazoo.client.KazooClient.create', mock.Mock())
     def test_update_server_features(self):
         """Tests master.update_server_features()."""
-        zkclient = kazoo.client.KazooClient()
+        zkclient = treadmill.zkutils.ZkClient()
         kazoo.client.KazooClient.create.return_value = '/events/000-servers-1'
 
         masterapi.update_server_features(zkclient, 'foo.ms.com', ['test'])
@@ -1487,7 +1488,7 @@ class MasterTest(mockzk.MockZookeeperTestCase):
         )
         # Verify that event is placed correctly.
         kazoo.client.KazooClient.create.assert_called_with(
-            '/events/000-servers-', mock.ANY,
+            '/events/000-servers-', value=mock.ANY,
             makepath=True, acl=mock.ANY, sequence=True, ephemeral=False
         )
 
@@ -1584,7 +1585,7 @@ class MasterTest(mockzk.MockZookeeperTestCase):
         time.time.return_value = 500
         self.make_mock_zk(zk_content)
         ro_master = master.Master(
-            zkbackend.ZkReadonlyBackend(kazoo.client.KazooClient()),
+            zkbackend.ZkReadonlyBackend(treadmill.zkutils.ZkClient()),
             'test-cell',
 
         )

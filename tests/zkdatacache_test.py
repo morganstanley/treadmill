@@ -53,7 +53,7 @@ class ZkDataCacheTest(mockzk.MockZookeeperTestCase):
         """Test zkclient property operations
         """
         zdc = zkdatacache.ZkDataCache(None, '/zk/path', self.cachedir)
-        mock_zkclient = kazoo.client.KazooClient()
+        mock_zkclient = treadmill.zkutils.ZkClient()
 
         zdc.zkclient = mock_zkclient
         mock_zkclient.get_children.assert_called_with('/zk/path')
@@ -498,7 +498,7 @@ class ZkDataCacheTest(mockzk.MockZookeeperTestCase):
             }
         }
         self.make_mock_zk(zk_content)
-        zkclient = kazoo.client.KazooClient()
+        zkclient = treadmill.zkutils.ZkClient()
         test_cache_entry = zkdatacache.ZkCachedEntry(
             fname='TEST#0beec7b5ea3f0fdbc95d0dd47f3c5bc275da8a33',
             chksum='0beec7b5ea3f0fdbc95d0dd47f3c5bc275da8a33',
@@ -593,7 +593,7 @@ class ZkDataCacheTest(mockzk.MockZookeeperTestCase):
         zdc._trim_cache.assert_called_with('TEST')
 
     @mock.patch('io.open', mock.mock_open(read_data=b'foo'), create=True)
-    @mock.patch('kazoo.client.KazooClient.create', mock.Mock(set_spec=True))
+    @mock.patch('treadmill.zkutils.ZkClient.create', mock.Mock(set_spec=True))
     @mock.patch('kazoo.client.KazooClient.exists', mock.Mock(set_spec=True))
     @mock.patch('kazoo.client.KazooClient.get_children',
                 mock.Mock(set_spec=True))
@@ -614,7 +614,7 @@ class ZkDataCacheTest(mockzk.MockZookeeperTestCase):
             }
         }
         self.make_mock_zk(zk_content)
-        zkclient = kazoo.client.KazooClient()
+        zkclient = treadmill.zkutils.ZkClient()
         zdc = zkdatacache.ZkDataCache(zkclient, '/zk/path', self.cachedir)
         zdc._cached = {
             'FOO': [
@@ -633,7 +633,6 @@ class ZkDataCacheTest(mockzk.MockZookeeperTestCase):
         zkclient.create.assert_called_with(
             '/zk/path/FOO#chk2' + '#',
             b'foo',
-            acl=mock.ANY,
             makepath=True, sequence=True
         )
         treadmill.zkutils.ensure_deleted.assert_called_once_with(
@@ -662,7 +661,7 @@ class ZkDataCacheTest(mockzk.MockZookeeperTestCase):
             4
         )
 
-    @mock.patch('kazoo.client.KazooClient.create', mock.Mock(set_spec=True))
+    @mock.patch('treadmill.zkutils.ZkClient.create', mock.Mock(set_spec=True))
     @mock.patch('kazoo.client.KazooClient.exists', mock.Mock(set_spec=True))
     @mock.patch('kazoo.client.KazooClient.get_children',
                 mock.Mock(set_spec=True))
@@ -680,7 +679,7 @@ class ZkDataCacheTest(mockzk.MockZookeeperTestCase):
             }
         }
         self.make_mock_zk(zk_content)
-        zkclient = kazoo.client.KazooClient()
+        zkclient = treadmill.zkutils.ZkClient()
         zdc = zkdatacache.ZkDataCache(zkclient, '/zk/path', self.cachedir)
         zdc._cached = {
             'FOO': [

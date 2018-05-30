@@ -206,7 +206,7 @@ class PortScanner(object):
         self.scan_interval = scan_interval
         self.hostname = sysinfo.hostname()
         self.state = collections.defaultdict(dict)
-        self.node_acl = zkutils.make_host_acl(self.hostname, 'rwcd')
+        self.node_acl = self.zkclient.make_host_acl(self.hostname, 'rwcd')
         self.instance = instance
 
     def _publish(self, result):
@@ -290,7 +290,7 @@ class EndpointPublisher(object):
         self.up_to_date = True
         self.state = set()
         self.hostname = sysinfo.hostname()
-        self.node_acl = zkutils.make_host_acl(self.hostname, 'rwcd')
+        self.node_acl = self.zkclient.make_host_acl(self.hostname, 'rwcd')
         self.instance = instance
 
     def _on_created(self, path):
