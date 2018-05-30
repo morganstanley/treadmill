@@ -1860,22 +1860,3 @@ Partition.ou = staticmethod(
 Partition.entity = staticmethod(
     lambda: Partition._entity  # pylint: disable=W0212
 )
-
-
-class HAProxy(LdapObject):
-    """HAProxy object."""
-
-    _schema = [
-        ('server', '_id', str),
-        ('cell', 'cell', str),
-    ]
-
-    _oc = 'tmHAProxy'
-    _ou = 'haproxies'
-    _entity = 'server'
-
-
-HAProxy.schema = staticmethod(lambda: HAProxy._schema)  # pylint: disable=W0212
-HAProxy.oc = staticmethod(lambda: HAProxy._oc)  # pylint: disable=W0212
-HAProxy.ou = staticmethod(lambda: HAProxy._ou)  # pylint: disable=W0212
-HAProxy.entity = staticmethod(lambda: HAProxy._entity)  # pylint: disable=W0212

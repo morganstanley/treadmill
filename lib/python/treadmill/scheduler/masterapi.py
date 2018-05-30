@@ -29,17 +29,6 @@ def _app_node(app_id, existing=True):
     return path
 
 
-# ACL which allows all servers in the cell to full control over node.
-#
-# Set in /finished, /servers
-_SERVERS_ACL = zkutils.make_role_acl('servers', 'rwcda')
-# Delete only servers ACL
-_SERVERS_ACL_DEL = zkutils.make_role_acl('servers', 'd')
-
-# Timer interval to reevaluate time events (seconds).
-# TIMER_INTERVAL = 60
-
-
 def create_event(zkclient, priority, event, payload):
     """Places event on the event queue."""
     assert 0 <= priority <= 100
@@ -47,14 +36,20 @@ def create_event(zkclient, priority, event, payload):
         '%(priority)03d-%(event)s-' % {'priority': priority, 'event': event})
 
     return os.path.basename(
-        zkutils.put(zkclient, node_path, payload, acl=[_SERVERS_ACL],
-                    sequence=True))
+        zkutils.put(
+            zkclient,
+            node_path,
+            payload,
+            acl=[zkclient.make_servers_acl()],
+            sequence=True
+        )
+    )
 
 
 def create_apps(zkclient, app_id, app, count, created_by=None):
     """Schedules new apps."""
     instance_ids = []
-    acl = zkutils.make_role_acl('servers', 'rwcda')
+    acl = zkclient.make_servers_acl()
     for _idx in range(0, count):
         node_path = zkutils.put(zkclient,
                                 _app_node(app_id, existing=False),
@@ -164,7 +159,7 @@ def list_buckets(zkclient):
 def create_server(zkclient, server_id, parent_id, partition):
     """Creates server definition in Zookeeper."""
     server_node = z.path.server(server_id)
-    server_acl = zkutils.make_host_acl(server_id, 'rwcd')
+    server_acl = zkclient.make_host_acl(server_id, 'rwcd')
 
     zkutils.ensure_exists(zkclient, server_node, acl=[server_acl])
 
@@ -261,7 +256,7 @@ def get_server(zkclient, server_id, placement=False):
 def reboot_server(zkclient, server_id):
     """Create server reboot event."""
     zkutils.ensure_exists(zkclient, z.path.reboot(server_id),
-                          acl=[_SERVERS_ACL_DEL])
+                          acl=[zkclient.make_servers_del_acl()])
 
 
 def cell_insert_bucket(zkclient, bucket_id):
@@ -348,7 +343,7 @@ def update_identity_group(zkclient, ident_group_id, count):
                    node,
                    data,
                    check_content=True,
-                   acl=[_SERVERS_ACL]):
+                   acl=[zkclient.make_servers_acl()]):
         create_event(zkclient, 0, 'identity_groups', [ident_group_id])
 
 

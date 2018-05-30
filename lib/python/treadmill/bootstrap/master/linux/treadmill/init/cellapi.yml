@@ -10,6 +10,7 @@ command: |
           -s /tmp/cellapi.sock \
           --title 'Treadmill_Cell_API' \
           -m instance,app-monitor \
+          --config instance /treadmill/cfg/instance.api.yml \
           --cors-origin='.*' \
           -a trusted
 environ_dir: "/treadmill/env"

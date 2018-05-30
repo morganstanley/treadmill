@@ -94,7 +94,7 @@ def init():
                 zkutils.ensure_exists(
                     zkclient,
                     zk_blackout_path,
-                    acl=[zkutils.make_host_acl(hostname, 'rwcda')],
+                    acl=[zkclient.make_host_acl(hostname, 'rwcda')],
                     data=down_reason
                 )
                 trigger_postmortem = True
@@ -221,7 +221,7 @@ def _node_initialize(tm_env, runtime, zkclient, hostname,
                      zk_server_path, hostname, node_info)
 
         zkutils.update(zkclient, zk_server_path, node_info)
-        host_acl = zkutils.make_host_acl(hostname, 'rwcda')
+        host_acl = zkclient.make_host_acl(hostname, 'rwcda')
         _LOGGER.debug('host_acl: %r', host_acl)
         zkutils.put(zkclient,
                     zk_presence_path, {'seen': False},
