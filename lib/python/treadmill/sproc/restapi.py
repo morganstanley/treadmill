@@ -6,7 +6,6 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
-import io
 import sys
 import errno
 import logging
@@ -41,7 +40,7 @@ def init():
                   required=True, type=cli.LIST)
     @click.option('--config', help='API configuration.',
                   multiple=True,
-                  type=(str, click.Path(exists=True, readable=True)))
+                  type=(str, click.File()))
     @click.option('-c', '--cors-origin', help='CORS origin REGEX',
                   required=True)
     @click.option('--workers', help='Number of workers', default=1)
@@ -54,13 +53,13 @@ def init():
         context.GLOBAL.zk.add_listener(zkutils.exit_on_lost)
 
         api_modules = {module: None for module in modules}
-        for module, cfg_file in config:
+        for module, cfg in config:
             if module not in api_modules:
                 raise click.UsageError(
                     'Orphan config: %s, not in: %r' % (module, modules)
                 )
-            with io.open(cfg_file) as f:
-                api_modules[module] = yaml.load(stream=f)
+            api_modules[module] = yaml.load(stream=cfg)
+            cfg.close()
 
         api_paths = api.init(api_modules, title.replace('_', ' '), cors_origin,
                              authz)

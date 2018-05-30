@@ -16,6 +16,7 @@ import mock
 import kazoo
 import kazoo.client
 
+import treadmill
 from treadmill.apptrace import zk
 
 
@@ -66,7 +67,7 @@ class AppTraceZKTest(mockzk.MockZookeeperTestCase):
         }
 
         self.make_mock_zk(zk_content)
-        zkclient = kazoo.client.KazooClient()
+        zkclient = treadmill.zkutils.ZkClient()
 
         zk.prune_trace(zkclient, 4)
 
@@ -137,7 +138,7 @@ class AppTraceZKTest(mockzk.MockZookeeperTestCase):
         }
 
         self.make_mock_zk(zk_content)
-        zkclient = kazoo.client.KazooClient()
+        zkclient = treadmill.zkutils.ZkClient()
 
         conn_mock = mock.MagicMock()
         sqlite3.connect.return_value = conn_mock
@@ -215,7 +216,7 @@ class AppTraceZKTest(mockzk.MockZookeeperTestCase):
 
         kazoo.client.KazooClient.create.assert_called_with(
             '/trace.history/trace.db.gzip-',
-            mock.ANY,
+            value=mock.ANY,
             acl=mock.ANY,
             makepath=True, ephemeral=False, sequence=True,
         )
@@ -275,7 +276,7 @@ class AppTraceZKTest(mockzk.MockZookeeperTestCase):
         }
 
         self.make_mock_zk(zk_content)
-        zkclient = kazoo.client.KazooClient()
+        zkclient = treadmill.zkutils.ZkClient()
 
         conn_mock = mock.MagicMock()
         sqlite3.connect.return_value = conn_mock
@@ -319,7 +320,7 @@ class AppTraceZKTest(mockzk.MockZookeeperTestCase):
 
         kazoo.client.KazooClient.create.assert_called_with(
             '/finished.history/finished.db.gzip-',
-            mock.ANY,
+            value=mock.ANY,
             acl=mock.ANY,
             makepath=True, ephemeral=False, sequence=True,
         )

@@ -25,8 +25,6 @@ from treadmill import zkutils
 
 _LOGGER = logging.getLogger(__name__)
 
-_SERVERS_ACL = zkutils.make_role_acl('servers', 'rwcda')
-
 _HOSTNAME = sysinfo.hostname()
 
 
@@ -35,13 +33,15 @@ def _publish_zk(zkclient, when, instanceid, event_type, event_data, payload):
     """
     eventnode = '%s,%s,%s,%s' % (when, _HOSTNAME, event_type, event_data)
     _LOGGER.debug('Creating %s', z.path.trace(instanceid, eventnode))
+
+    acl = zkclient.make_servers_acl()
     try:
         zkutils.with_retry(
             zkutils.create,
             zkclient,
             z.path.trace(instanceid, eventnode),
             payload,
-            acl=[_SERVERS_ACL]
+            acl=[acl]
         )
     except kazoo.client.NodeExistsError:
         pass
@@ -56,7 +56,7 @@ def _publish_zk(zkclient, when, instanceid, event_type, event_data, payload):
              'when': when,
              'host': _HOSTNAME,
              'data': event_data},
-            acl=[_SERVERS_ACL],
+            acl=[acl],
         )
 
         _unschedule(zkclient, instanceid)

@@ -96,7 +96,6 @@ cell = treadmill.formatter.tablefmt:CellPrettyFormatter
 cron = treadmill.formatter.tablefmt:CronPrettyFormatter
 dns = treadmill.formatter.tablefmt:DNSPrettyFormatter
 endpoint = treadmill.formatter.tablefmt:EndpointPrettyFormatter
-haproxy = treadmill.formatter.tablefmt:HAProxyPrettyFormatter
 identity-group = treadmill.formatter.tablefmt:IdentityGroupPrettyFormatter
 instance-state = treadmill.formatter.tablefmt:InstanceStatePrettyFormatter
 instance-finished-state = treadmill.formatter.tablefmt:InstanceFinishedStatePrettyFormatter
@@ -171,7 +170,6 @@ checkout = treadmill.cli.admin.checkout
 check-aliases = treadmill.cli.admin.check_aliases
 
 [treadmill.cli.admin.install]
-haproxy = treadmill.cli.admin.install.haproxy
 master = treadmill.cli.admin.install.master
 node = treadmill.cli.admin.install.node
 openldap = treadmill.cli.admin.install.openldap
@@ -186,7 +184,6 @@ app-group = treadmill.cli.admin.ldap.app_group
 cell = treadmill.cli.admin.ldap.cell
 direct = treadmill.cli.admin.ldap.direct
 dns = treadmill.cli.admin.ldap.dns
-haproxy = treadmill.cli.admin.ldap.haproxy
 init = treadmill.cli.admin.ldap.init
 partition = treadmill.cli.admin.ldap.partition
 schema = treadmill.cli.admin.ldap.schema
@@ -219,7 +216,6 @@ exec = treadmill.sproc.exec
 export-reports = treadmill.sproc.export_reports
 finish = treadmill.sproc.finish
 firewall = treadmill.sproc.firewall
-haproxy = treadmill.sproc.haproxy
 host-aliases = treadmill.sproc.host_aliases
 host-ring = treadmill.sproc.host_ring
 init = treadmill.sproc.init
@@ -257,7 +253,6 @@ monitor = treadmill.cron.model.monitor
 
 [treadmill.bootstrap]
 aliases = treadmill.bootstrap.aliases
-haproxy = treadmill.bootstrap.haproxy
 master = treadmill.bootstrap.master
 node = treadmill.bootstrap.node
 openldap = treadmill.bootstrap.openldap
@@ -269,7 +264,7 @@ zookeeper = treadmill.bootstrap.zookeeper
 [treadmill.checkout.processors]
 
 
-[treadmill.connection.manager]
+[treadmill.zookeeper.client]
 
 
 [treadmill.cellsync]

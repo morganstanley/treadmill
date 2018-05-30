@@ -226,7 +226,6 @@ class ZkDataCache(object):
                 else None
             )
             # Upload a new version if the chksum is different.
-            acl = zkutils.make_default_acl(None)
             if zk_entry is None or cache_entry.chksum != zk_entry.chksum:
                 with io.open(cache_entry.fname, 'rb') as data:
                     self.zkclient.create(
@@ -236,7 +235,6 @@ class ZkDataCache(object):
                             chksum=cache_entry.chksum
                         ),
                         data.read(),
-                        acl=acl,
                         sequence=True,
                         makepath=True
                     )

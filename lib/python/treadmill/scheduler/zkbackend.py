@@ -17,13 +17,6 @@ from . import backend
 
 _LOGGER = logging.getLogger(__name__)
 
-# ACL which allows all servers in the cell to full control over node.
-#
-# Set in /finished, /servers
-_SERVERS_ACL = zkutils.make_role_acl('servers', 'rwcda')
-# Delete only servers ACL
-_SERVERS_ACL_DEL = zkutils.make_role_acl('servers', 'd')
-
 
 class ZkReadonlyBackend(backend.Backend):
     """Implements readonly Zookeeper based storage."""
@@ -70,42 +63,44 @@ class ZkBackend(ZkReadonlyBackend):
 
     def __init__(self, zkclient):
         super(ZkBackend, self).__init__(zkclient)
+        servers_acl = zkclient.make_servers_acl()
+        servers_del_acl = zkclient.make_servers_del_acl()
         self.acls = {
             '/': None,
             z.ALLOCATIONS: None,
             z.APPMONITORS: None,
             z.BUCKETS: None,
             z.CELL: None,
-            z.DISCOVERY: [_SERVERS_ACL],
-            z.DISCOVERY_STATE: [_SERVERS_ACL],
+            z.DISCOVERY: [servers_acl],
+            z.DISCOVERY_STATE: [servers_acl],
             z.IDENTITY_GROUPS: None,
             z.PLACEMENT: None,
             z.PARTITIONS: None,
-            z.SCHEDULED: [_SERVERS_ACL_DEL],
+            z.SCHEDULED: [servers_del_acl],
             z.SCHEDULED_STATS: None,
             z.SCHEDULER: None,
             z.SERVERS: None,
             z.STATE_REPORTS: None,
             z.STRATEGIES: None,
-            z.FINISHED: [_SERVERS_ACL],
+            z.FINISHED: [servers_acl],
             z.FINISHED_HISTORY: None,
             z.TRACE: None,
             z.TRACE_HISTORY: None,
             z.VERSION_ID: None,
             z.ZOOKEEPER: None,
-            z.BLACKEDOUT_SERVERS: [_SERVERS_ACL],
-            z.ENDPOINTS: [_SERVERS_ACL],
-            z.path.endpoint_proid('root'): [_SERVERS_ACL],
-            z.EVENTS: [_SERVERS_ACL],
-            z.RUNNING: [_SERVERS_ACL],
-            z.SERVER_PRESENCE: [_SERVERS_ACL],
-            z.VERSION: [_SERVERS_ACL],
-            z.VERSION_HISTORY: [_SERVERS_ACL],
-            z.REBOOTS: [_SERVERS_ACL],
+            z.BLACKEDOUT_SERVERS: [servers_acl],
+            z.ENDPOINTS: [servers_acl],
+            z.path.endpoint_proid('root'): [servers_acl],
+            z.EVENTS: [servers_acl],
+            z.RUNNING: [servers_acl],
+            z.SERVER_PRESENCE: [servers_acl],
+            z.VERSION: [servers_acl],
+            z.VERSION_HISTORY: [servers_acl],
+            z.REBOOTS: [servers_acl],
         }
 
         for path in z.trace_shards():
-            self.acls[path] = [_SERVERS_ACL]
+            self.acls[path] = [servers_acl]
 
     def _acl(self, path):
         """Returns ACL of the Zookeeper node."""
@@ -113,13 +108,13 @@ class ZkBackend(ZkReadonlyBackend):
             return self.acls[path]
 
         if path.startswith(z.path.placement('')):
-            return [_SERVERS_ACL]
+            return [self.zkclient.make_servers_acl()]
 
         if path.startswith(z.path.reboot('')):
-            return [_SERVERS_ACL_DEL]
+            return [self.zkclient.make_servers_del_acl()]
 
         if path.startswith(z.path.finished('')):
-            return [_SERVERS_ACL]
+            return [self.zkclient.make_servers_acl()]
 
         return None
 

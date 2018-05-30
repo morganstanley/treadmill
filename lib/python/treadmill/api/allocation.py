@@ -110,16 +110,16 @@ def _check_capacity(cell, allocation, rsrc):
             __name__, 'Not enough disk capacity in partition.')
 
 
-def _api_plugins(initialized):
+def _api_plugins(plugins):
     """Return api  plugins.
     """
-    if initialized is not None:
-        return initialized
+    if not plugins:
+        return []
 
     plugins_ns = 'treadmill.api.allocation.plugins'
     return [
         plugin_manager.load(plugins_ns, name)
-        for name in context.GLOBAL.get('api.allocation.plugins', [])
+        for name in plugins
     ]
 
 
@@ -127,7 +127,9 @@ class API(object):
     """Treadmill Allocation REST api.
     """
 
-    def __init__(self):
+    def __init__(self, plugins=None):
+
+        self._plugins = _api_plugins(plugins)
 
         def _admin_alloc():
             """Lazily return admin allocation object.
@@ -187,9 +189,9 @@ class API(object):
             """Reservation API.
             """
 
-            def __init__(self):
+            def __init__(self, plugins=None):
 
-                self.plugins = None
+                self._plugins = _api_plugins(plugins)
 
                 @schema.schema({'$ref': 'reservation.json#/resource_id'})
                 def get(rsrc_id):
@@ -200,8 +202,7 @@ class API(object):
                     if inst is None:
                         return inst
 
-                    self.plugins = _api_plugins(self.plugins)
-                    for plugin in self.plugins:
+                    for plugin in self._plugins:
                         inst = plugin.remove_attributes(inst)
 
                     return inst
@@ -219,8 +220,7 @@ class API(object):
                     if 'rank' not in rsrc:
                         rsrc['rank'] = _DEFAULT_RANK
 
-                    self.plugins = _api_plugins(self.plugins)
-                    for plugin in self.plugins:
+                    for plugin in self._plugins:
                         rsrc = plugin.add_attributes(rsrc_id, rsrc)
 
                     _admin_cell_alloc().create([cell, allocation], rsrc)

@@ -13,6 +13,7 @@ import kazoo
 import kazoo.client
 import mock
 
+import treadmill
 from treadmill import zkutils
 from treadmill import yamlwrapper as yaml
 
@@ -30,7 +31,7 @@ class ZkTest(unittest.TestCase):
         def _callback(path, _data, _stat):
             return events.append(path)
 
-        watcher = zkutils.SequenceNodeWatch(kazoo.client.KazooClient(),
+        watcher = zkutils.SequenceNodeWatch(treadmill.zkutils.ZkClient(),
                                             _callback,
                                             delim='-', pattern=None,
                                             include_data=False)
@@ -59,7 +60,7 @@ class ZkTest(unittest.TestCase):
         self.assertEqual('/xxx/0-004', events.pop())
 
         # Test that pattern is being filtered.
-        watcher = zkutils.SequenceNodeWatch(kazoo.client.KazooClient(),
+        watcher = zkutils.SequenceNodeWatch(treadmill.zkutils.ZkClient(),
                                             _callback, delim='-',
                                             pattern='foo',
                                             include_data=False)
@@ -71,59 +72,59 @@ class ZkTest(unittest.TestCase):
             watcher.invoke_callback('/xxx', node)
         self.assertEqual(1, len(events))
 
-    @mock.patch('kazoo.client.KazooClient.create', mock.Mock())
+    @mock.patch('treadmill.zkutils.ZkClient.create', mock.Mock())
     def test_put(self):
         """Tests updating/creating node content."""
-        client = kazoo.client.KazooClient()
+        client = treadmill.zkutils.ZkClient()
         zkutils.put(client, '/foo/bar')
-        kazoo.client.KazooClient.create.assert_called_with(
+        treadmill.zkutils.ZkClient.create.assert_called_with(
             '/foo/bar',
             b'',
             acl=mock.ANY,
             makepath=True, sequence=False, ephemeral=False
         )
 
-    @mock.patch('kazoo.client.KazooClient.create', mock.Mock())
-    @mock.patch('kazoo.client.KazooClient.set', mock.Mock())
-    @mock.patch('kazoo.client.KazooClient.set_acls', mock.Mock())
+    @mock.patch('treadmill.zkutils.ZkClient.create', mock.Mock())
+    @mock.patch('treadmill.zkutils.ZkClient.set', mock.Mock())
+    @mock.patch('treadmill.zkutils.ZkClient.set_acls', mock.Mock())
     def test_put_existing(self):
         """Test update content of existing node."""
         def raise_exists(*_args, **_kwargs):
             """zk.create side effect, raising appropriate exception."""
             raise kazoo.client.NodeExistsError()
 
-        client = kazoo.client.KazooClient()
-        kazoo.client.KazooClient.create.side_effect = raise_exists
+        client = treadmill.zkutils.ZkClient()
+        treadmill.zkutils.ZkClient.create.side_effect = raise_exists
         zkutils.put(client, '/foo/bar')
-        kazoo.client.KazooClient.set.assert_called_with('/foo/bar', b'')
-        kazoo.client.KazooClient.set_acls.assert_called_with('/foo/bar',
-                                                             mock.ANY)
+        treadmill.zkutils.ZkClient.set.assert_called_with('/foo/bar', b'')
+        treadmill.zkutils.ZkClient.set_acls.assert_called_with('/foo/bar',
+                                                               mock.ANY)
 
-    @mock.patch('kazoo.client.KazooClient.get', mock.Mock())
+    @mock.patch('treadmill.zkutils.ZkClient.get', mock.Mock())
     def test_get(self):
         """Test zkutils.get parsing of YAML data."""
-        client = kazoo.client.KazooClient()
-        kazoo.client.KazooClient.get.return_value = ('{xxx: 123}', None)
+        client = treadmill.zkutils.ZkClient()
+        treadmill.zkutils.ZkClient.get.return_value = ('{xxx: 123}', None)
         self.assertEqual({'xxx': 123}, zkutils.get(client, '/foo'))
 
         # parsing error
-        kazoo.client.KazooClient.get.return_value = ('{xxx: 123', None)
+        treadmill.zkutils.ZkClient.get.return_value = ('{xxx: 123', None)
         self.assertEqual(
             '{xxx: 123',
             zkutils.get(client, '/foo', strict=False)
         )
         self.assertRaises(yaml.YAMLError, zkutils.get, client, '/foo')
 
-        kazoo.client.KazooClient.get.return_value = (None, None)
+        treadmill.zkutils.ZkClient.get.return_value = (None, None)
         self.assertIsNone(zkutils.get(client, '/foo'))
 
-    @mock.patch('kazoo.client.KazooClient.create', mock.Mock())
+    @mock.patch('treadmill.zkutils.ZkClient.create', mock.Mock())
     def test_ensure_exists(self):
         """Tests updating/creating node content."""
         # with data
-        client = kazoo.client.KazooClient()
+        client = treadmill.zkutils.ZkClient()
         zkutils.ensure_exists(client, '/foo/bar', data='foo')
-        kazoo.client.KazooClient.create.assert_called_with(
+        treadmill.zkutils.ZkClient.create.assert_called_with(
             '/foo/bar',
             b'foo',
             acl=mock.ANY,
@@ -132,43 +133,43 @@ class ZkTest(unittest.TestCase):
 
         # non-data
         zkutils.ensure_exists(client, '/foo/bar')
-        kazoo.client.KazooClient.create.assert_called_with(
+        treadmill.zkutils.ZkClient.create.assert_called_with(
             '/foo/bar',
             b'',
             acl=mock.ANY,
             makepath=True, sequence=False
         )
 
-    @mock.patch('kazoo.client.KazooClient.set', mock.Mock())
-    @mock.patch('kazoo.client.KazooClient.create', mock.Mock())
-    @mock.patch('kazoo.client.KazooClient.set_acls', mock.Mock())
+    @mock.patch('treadmill.zkutils.ZkClient.set', mock.Mock())
+    @mock.patch('treadmill.zkutils.ZkClient.create', mock.Mock())
+    @mock.patch('treadmill.zkutils.ZkClient.set_acls', mock.Mock())
     def test_ensure_exists_existing(self):
         """Test update content of existing node."""
         def raise_exists(*_args, **_kwargs):
             """zk.create side effect, raising appropriate exception."""
             raise kazoo.client.NodeExistsError()
 
-        client = kazoo.client.KazooClient()
-        kazoo.client.KazooClient.create.side_effect = raise_exists
+        client = treadmill.zkutils.ZkClient()
+        treadmill.zkutils.ZkClient.create.side_effect = raise_exists
         zkutils.ensure_exists(client, '/foo/bar')
-        kazoo.client.KazooClient.set_acls.assert_called_with('/foo/bar',
-                                                             mock.ANY)
+        treadmill.zkutils.ZkClient.set_acls.assert_called_with('/foo/bar',
+                                                               mock.ANY)
 
         # ensure with data
         zkutils.ensure_exists(client, '/foo/bar', data='foo')
-        kazoo.client.KazooClient.set.assert_called_with('/foo/bar', b'foo')
-        kazoo.client.KazooClient.set_acls.assert_called_with('/foo/bar',
-                                                             mock.ANY)
+        treadmill.zkutils.ZkClient.set.assert_called_with('/foo/bar', b'foo')
+        treadmill.zkutils.ZkClient.set_acls.assert_called_with('/foo/bar',
+                                                               mock.ANY)
 
-    @mock.patch('kazoo.client.KazooClient.start', mock.Mock())
-    @mock.patch('kazoo.client.KazooClient.add_listener', mock.Mock())
-    @mock.patch('kazoo.client.KazooClient.exists',
+    @mock.patch('treadmill.zkutils.ZkClient.start', mock.Mock())
+    @mock.patch('treadmill.zkutils.ZkClient.add_listener', mock.Mock())
+    @mock.patch('treadmill.zkutils.ZkClient.exists',
                 mock.Mock(return_value=False))
-    @mock.patch('kazoo.client.KazooClient.create', mock.Mock())
+    @mock.patch('treadmill.zkutils.ZkClient.create', mock.Mock())
     def test_connect_chroot(self):
         """Test connecting with chroot."""
         zkutils.connect('zookeeper://me@xxx:123,yyy:123,zzz:123/a/b/c')
-        kazoo.client.KazooClient.create.assert_has_calls(
+        treadmill.zkutils.ZkClient.create.assert_has_calls(
             [
                 mock.call('/a', b'', makepath=True, acl=mock.ANY),
                 mock.call('/a/b', b'', makepath=True, acl=mock.ANY),
@@ -176,34 +177,34 @@ class ZkTest(unittest.TestCase):
             ]
         )
 
-    @mock.patch('kazoo.client.KazooClient.set', mock.Mock())
-    @mock.patch('kazoo.client.KazooClient.set_acls', mock.Mock())
-    @mock.patch('kazoo.client.KazooClient.create', mock.Mock())
-    @mock.patch('kazoo.client.KazooClient.get', mock.Mock())
+    @mock.patch('treadmill.zkutils.ZkClient.set', mock.Mock())
+    @mock.patch('treadmill.zkutils.ZkClient.set_acls', mock.Mock())
+    @mock.patch('treadmill.zkutils.ZkClient.create', mock.Mock())
+    @mock.patch('treadmill.zkutils.ZkClient.get', mock.Mock())
     def test_put_check_content(self):
         """Verifies put/update with check_content=True."""
-        kazoo.client.KazooClient.create.side_effect = (
+        treadmill.zkutils.ZkClient.create.side_effect = (
             kazoo.client.NodeExistsError)
-        kazoo.client.KazooClient.get.return_value = (b'aaa', {})
-        zkclient = kazoo.client.KazooClient()
+        treadmill.zkutils.ZkClient.get.return_value = (b'aaa', {})
+        zkclient = treadmill.zkutils.ZkClient()
         zkutils.put(zkclient, '/a', 'aaa', check_content=True)
-        self.assertFalse(kazoo.client.KazooClient.set.called)
+        self.assertFalse(treadmill.zkutils.ZkClient.set.called)
 
         zkutils.put(zkclient, '/a', 'bbb', check_content=True)
-        kazoo.client.KazooClient.set.assert_called_with('/a', b'bbb')
+        treadmill.zkutils.ZkClient.set.assert_called_with('/a', b'bbb')
 
-    @mock.patch('kazoo.client.KazooClient.set', mock.Mock())
-    @mock.patch('kazoo.client.KazooClient.set_acls', mock.Mock())
-    @mock.patch('kazoo.client.KazooClient.get', mock.Mock())
+    @mock.patch('treadmill.zkutils.ZkClient.set', mock.Mock())
+    @mock.patch('treadmill.zkutils.ZkClient.set_acls', mock.Mock())
+    @mock.patch('treadmill.zkutils.ZkClient.get', mock.Mock())
     def test_update_check_content(self):
         """Verifies put/update with check_content=True."""
-        kazoo.client.KazooClient.get.return_value = (b'aaa', {})
-        zkclient = kazoo.client.KazooClient()
+        treadmill.zkutils.ZkClient.get.return_value = (b'aaa', {})
+        zkclient = treadmill.zkutils.ZkClient()
         zkutils.update(zkclient, '/a', 'aaa', check_content=True)
-        self.assertFalse(kazoo.client.KazooClient.set.called)
+        self.assertFalse(treadmill.zkutils.ZkClient.set.called)
 
         zkutils.update(zkclient, '/a', 'bbb', check_content=True)
-        kazoo.client.KazooClient.set.assert_called_with('/a', b'bbb')
+        treadmill.zkutils.ZkClient.set.assert_called_with('/a', b'bbb')
 
 
 if __name__ == '__main__':

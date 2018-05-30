@@ -120,7 +120,6 @@ _LINUX_ALIASES = {
     'execlineb': _s6,
     'exit': _s6,
     'fdmove': _s6,
-    'haproxy': _s6,
     'foreground': _s6,
     'heredoc': _s6,
     'if': _s6,

@@ -72,13 +72,12 @@ def _set_defaults(configured, rsrc_id):
         configured['affinity'] = '{0}.{1}'.format(*rsrc_id.split('.'))
 
 
-def _api_plugins(initialized):
+def _api_plugins(plugins):
     """Return instance plugins."""
-    if initialized is not None:
-        return initialized
+    if not plugins:
+        return []
 
     plugins_ns = 'treadmill.api.instance.plugins'
-    plugins = context.GLOBAL.get('api.instance.plugins', [])
     _LOGGER.info('Instance api plugins: %r', plugins)
     return [
         plugin_manager.load(plugins_ns, name)
@@ -89,9 +88,11 @@ def _api_plugins(initialized):
 class API(object):
     """Treadmill Instance REST api."""
 
-    def __init__(self):
+    def __init__(self, plugins=None):
 
-        self.plugins = None
+        # Since the API attributes are wrapped (journal, authz, etc) - all non
+        # methods should be protected.
+        self._plugins = _api_plugins(plugins)
 
         def _list(match=None):
             """List configured instances."""
@@ -115,8 +116,7 @@ class API(object):
                 return inst
 
             inst['_id'] = rsrc_id
-            self.plugins = _api_plugins(self.plugins)
-            for plugin in self.plugins:
+            for plugin in self._plugins:
                 inst = plugin.remove_attributes(inst)
             return inst
 
@@ -166,8 +166,7 @@ class API(object):
 
             _validate(configured)
 
-            self.plugins = _api_plugins(self.plugins)
-            for plugin in self.plugins:
+            for plugin in self._plugins:
                 configured = plugin.add_attributes(rsrc_id, configured)
 
             _check_required_attributes(configured)
