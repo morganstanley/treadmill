@@ -16,6 +16,7 @@ LS="{{ _alias.ls }}"
 MKDIR="{{ _alias.mkdir }}"
 MOUNT="{{ _alias.mount }}"
 RMDIR="{{ _alias.rmdir }}"
+SLEEP="{{ _alias.sleep }}"
 
 set -e
 
@@ -152,11 +153,27 @@ function init_cgroup_rhel6() {
     MNT_BASE='/mnt'
 
     # clear existing cgroup mount/setting
-    # if no cgroup mounted, cgclear returns 3 but we do not care
-    ${ECHO} "Calling ${CGCLEAR} to clear cgroup mount/setting"
-    set +e
-    ${CGCLEAR}
-    set -e
+    for i in {1..5}; do
+        ${ECHO} "#$i Calling ${CGCLEAR} to clear cgroup mount/setting"
+
+        # if no cgroup mounted, cgclear returns 3 but we do not care
+        set +e
+        CLEAR_RESULT=$(${CGCLEAR} 2>&1)
+        set -e
+
+        # if no output from cgclear, we think we are good
+        if [ -z ${CLEAR_RESULT} ]; then
+            break
+        fi
+        ${ECHO} "cgclear returns: ${CLEAR_RESULT}"
+        # sleep to cgclear once more
+        ${SLEEP} 1
+    done
+
+    if [ ! -z ${CLEAR_RESULT} ]; then
+        ${ECHO} "Failed to clear cgroups, exit $0"
+        exit 1
+    fi
 
     # mount /mnt/cgroup on /sys/fs/cgroup
     if [ ! -d ${CGROUP_BASE} ]; then

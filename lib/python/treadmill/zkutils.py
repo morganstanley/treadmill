@@ -12,7 +12,7 @@ import logging
 import os
 import pickle
 import sys
-import types
+import urllib
 
 import kazoo
 import kazoo.client
@@ -40,13 +40,6 @@ _ZK_PLUGIN_MOD = None
 DEFAULT_ACL = True
 
 
-try:
-    _ZK_PLUGIN_MOD = plugin_manager.load('treadmill.connection.manager',
-                                         'zookeeper')
-except KeyError:
-    _ZK_PLUGIN_MOD = None
-
-
 def _is_valid_perm(perm):
     """Check string to be valid permission spec."""
     for char in perm:
@@ -55,123 +48,108 @@ def _is_valid_perm(perm):
     return True
 
 
-def make_user_acl(user, perm):
-    """Constructs an ACL based on user and permissions.
-
-    ACL properties:
-     - schema: kerberos
-     - principal: user://<user>
-    """
-    assert _is_valid_perm(perm)
-    if _ZK_PLUGIN_MOD and hasattr(_ZK_PLUGIN_MOD, 'make_user_acl'):
-        return _ZK_PLUGIN_MOD.make_user_acl(user, perm)
-    else:
-        return make_anonymous_acl(perm)
-
-
-def make_role_acl(role, perm):
-    """Constructs a file based acl based on role.
-
-    Role file are assumed to be in /treadmill/roles directory.
-
-    Treadmill master runs in chrooted environment, so path to roles files
-    is hardcoded.
-    """
-    assert _is_valid_perm(perm)
-    if _ZK_PLUGIN_MOD and hasattr(_ZK_PLUGIN_MOD, 'make_role_acl'):
-        return _ZK_PLUGIN_MOD.make_role_acl(role, perm)
-    else:
-        return make_anonymous_acl(perm)
-
-
-def make_host_acl(host, perm):
-    """Constucts acl for the current user.
-
-    Given the host as the principal.
-    """
-    assert _is_valid_perm(perm)
-    if _ZK_PLUGIN_MOD and hasattr(_ZK_PLUGIN_MOD, 'make_host_acl'):
-        return _ZK_PLUGIN_MOD.make_host_acl(host, perm)
-    else:
-        return make_user_acl('host/{0}'.format(host), perm)
-
-
-def make_self_acl(perm):
-    """Constucts acl for the current user.
-
-    If the user is root, use host principal.
-    """
-    assert _is_valid_perm(perm)
-    if utils.is_root():
-        return make_host_acl(sysinfo.hostname(), perm)
-
-    user = utils.get_current_username()
-    return make_user_acl(user, perm)
-
-
-def make_anonymous_acl(perm):
+def _make_anonymous_acl(perm):
     """Constructs anonymous (world) acl."""
     if not perm:
         perm = 'r'
 
     assert _is_valid_perm(perm)
-    return kazoo.security.make_acl('world', 'anyone',
-                                   read='r' in perm,
-                                   write='w' in perm,
-                                   create='c' in perm,
-                                   delete='d' in perm,
-                                   admin='a' in perm)
+    return kazoo.security.make_acl(
+        'world', 'anyone',
+        read='r' in perm,
+        write='w' in perm,
+        create='c' in perm,
+        delete='d' in perm,
+        admin='a' in perm
+    )
 
 
-def make_default_acl(acls):
-    """Constructs a default Treadmill acl."""
-    if not DEFAULT_ACL:
-        return acls
+class ZkClient(kazoo.client.KazooClient):
+    """Default ZkClient."""
 
-    realacl = [
-        make_role_acl('readers', 'r'),
-        make_role_acl('admins', 'rwcda'),
-        make_self_acl('rwcda'),
-    ]
-    if acls:
-        realacl.extend(acls)
-    return realacl
-
-
-def make_safe_create(zkclient):
-    """Makes a wrapper for kazoo.client.create enforcing default acl."""
-    _create = zkclient.create
-
-    def safe_create(_self, path, value=b'', acl=None, ephemeral=False,
-                    sequence=False, makepath=False):
+    def create(self, path, value=None, acl=None, ephemeral=False,
+               sequence=False, makepath=False):
         """Safe wrapper around kazoo.client.create"""
-        return _create(path, value=value, acl=make_default_acl(acl),
-                       ephemeral=ephemeral, sequence=sequence,
-                       makepath=makepath)
+        if value is None:
+            value = ''
+        return super().create(
+            path,
+            value=value,
+            acl=self.make_default_acl(acl),
+            ephemeral=ephemeral,
+            sequence=sequence,
+            makepath=makepath
+        )
 
-    return safe_create
-
-
-def make_safe_ensure_path(zkclient):
-    """Makes a wrapper for kazoo.client.ensure_path enforcing default acl."""
-    ensure_path = zkclient.ensure_path
-
-    def safe_ensure_path(_self, path, acl=None):
+    def ensure_path(self, path, acl=None):
         """Safe wrapper around kazoo.client.ensure_path"""
-        return ensure_path(path, acl=make_default_acl(acl))
+        return super().ensure_path(path, acl=self.make_default_acl(acl))
 
-    return safe_ensure_path
-
-
-def make_safe_set_acls(zkclient):
-    """Makes a wrapper for kazoo.client.set_acls enforcing default acl."""
-    set_acls = zkclient.set_acls
-
-    def safe_set_acls(_self, path, acls, version=-1):
+    def set_acls(self, path, acls, version=-1):
         """Safe wrapper around kazoo.client.set_acls"""
-        return set_acls(path, make_default_acl(acls), version=version)
+        return super().set_acls(
+            path,
+            self.make_default_acl(acls),
+            version=version
+        )
 
-    return safe_set_acls
+    def make_anonymous_acl(self, perm):
+        """Constructs anonymous acl."""
+        assert _is_valid_perm(perm)
+        return _make_anonymous_acl(perm)
+
+    def make_user_acl(self, user, perm):
+        """Constructs an ACL based on user and permissions."""
+        assert _is_valid_perm(perm)
+        del user
+        return _make_anonymous_acl(perm)
+
+    def make_host_acl(self, host, perm):
+        """Constructs an ACL based on user and permissions."""
+        assert _is_valid_perm(perm)
+        del host
+        return _make_anonymous_acl(perm)
+
+    def make_role_acl(self, role, perm):
+        """Constructs a file based acl based on role.
+        """
+        assert _is_valid_perm(perm)
+        del role
+        return _make_anonymous_acl(perm)
+
+    def make_self_acl(self, perm):
+        """Constucts acl for the current user.
+
+        If the user is root, use host principal.
+        """
+        assert _is_valid_perm(perm)
+        if utils.is_root():
+            return self.make_host_acl(sysinfo.hostname(), perm)
+
+        user = utils.get_current_username()
+        return self.make_user_acl(user, perm)
+
+    def make_default_acl(self, acls):
+        """Constructs a default Treadmill acl."""
+        if not DEFAULT_ACL:
+            return acls
+
+        realacl = [
+            self.make_role_acl('readers', 'r'),
+            self.make_role_acl('admin', 'rwcda'),
+            self.make_self_acl('rwcda'),
+        ]
+        if acls:
+            realacl.extend(acls)
+        return realacl
+
+    def make_servers_acl(self):
+        """Make servers acl."""
+        return self.make_role_acl('servers', 'rwcda')
+
+    def make_servers_del_acl(self):
+        """Make acl that allow servers role to delete only."""
+        return self.make_role_acl('servers', 'd')
 
 
 def exit_on_lost(state):
@@ -207,10 +185,6 @@ def connect(zkurl, idpath=None, listener=None, max_tries=30,
             **connargs):
     """Establish connection with Zk and return KazooClient.
 
-    Methods that create/modify nodes are wrapped so that default acls are
-    enforced. The goal is to prevent any node to be created with default acl,
-    which is full access to anonymous user.
-
     :param max_tries:
         the maximum number of retries when trying to connect to the the
         servers; default is 10.
@@ -220,28 +194,26 @@ def connect(zkurl, idpath=None, listener=None, max_tries=30,
         while try to keep connecting.
 
     """
-
     client_id = None
     if idpath:
         if os.path.exists(idpath):
             with io.open(idpath, 'rb') as idfile:
                 client_id = pickle.load(idfile)
 
-    zkclient = connect_native(zkurl, client_id=client_id, listener=listener,
-                              timeout=timeout, max_tries=max_tries,
-                              chroot=chroot,
-                              **connargs)
+    zkclient = connect_native(
+        zkurl,
+        client_id=client_id,
+        listener=listener,
+        timeout=timeout, max_tries=max_tries,
+        chroot=chroot,
+        **connargs
+    )
 
     if idpath:
         client_id = zkclient.client_id
         with io.open(idpath, 'wb') as idfile:
             pickle.dump(client_id, idfile)
 
-    zkclient.create = types.MethodType(make_safe_create(zkclient), zkclient)
-    zkclient.ensure_path = types.MethodType(make_safe_ensure_path(zkclient),
-                                            zkclient)
-    zkclient.set_acls = types.MethodType(make_safe_set_acls(zkclient),
-                                         zkclient)
     return zkclient
 
 
@@ -251,13 +223,27 @@ def connect_native(zkurl, client_id=None, listener=None, max_tries=30,
     """Establish connection with Zk and return KazooClient.
     """
     _LOGGER.debug('Connecting to %s', zkurl)
+    parsed = urllib.parse.urlparse(zkurl)
 
-    zkconnstr = zkurl[len('zookeeper://'):]
-    if zkconnstr.find('/') != -1:
-        # Chroot specified in connection.
-        assert chroot is None
-        chroot = zkconnstr[zkconnstr.find('/'):]
-        zkconnstr = zkconnstr[:zkconnstr.find('/')]
+    # Load handler for the scheme. Special handling of "zookeeper" scheme,
+    # allow default if it not specified in the entry points.
+    try:
+        zkclient_cls = plugin_manager.load(
+            'treadmill.zookeeper.client',
+            str(parsed.scheme)
+        )
+    except KeyError:
+        _LOGGER.debug('Unable to load scheme: %s', parsed.scheme)
+        if parsed.scheme == 'zookeeper':
+            zkclient_cls = ZkClient
+        else:
+            _LOGGER.critical(
+                'Unable to load zkclient for scheme: %s', parsed.scheme
+            )
+            raise
+
+    hosts = parsed.netloc
+    chroot = parsed.path
 
     zk_retry = {
         'delay': 0.2,
@@ -272,19 +258,16 @@ def connect_native(zkurl, client_id=None, listener=None, max_tries=30,
         'auth_data': [],
         'connection_retry': zk_retry,
         'command_retry': zk_retry,
+        'hosts': hosts,
     })
 
-    if _ZK_PLUGIN_MOD:
-        _LOGGER.debug('Using treadmill.connection.manager:zookeeper - %s',
-                      _ZK_PLUGIN_MOD.__name__)
-        zkclient = _ZK_PLUGIN_MOD.connect(zkurl, connargs)
-    else:
-        _LOGGER.debug('treadmill.connection.manager:zookeeper is not defined.')
-
-        connargs['hosts'] = zkconnstr
-        _LOGGER.debug('Connecting to zookeeper: %r', connargs)
-        zkclient = kazoo.client.KazooClient(**connargs)
-
+    _LOGGER.debug(
+        'Connecting to zookeeper: [%s:%s]: %r',
+        zkclient_cls.__module__,
+        zkclient_cls.__name__,
+        connargs
+    )
+    zkclient = zkclient_cls(**connargs)
     if listener is None:
         listener = exit_on_disconnect
 
@@ -294,7 +277,7 @@ def connect_native(zkurl, client_id=None, listener=None, max_tries=30,
     # trying max_tries
     zkclient.start(timeout=timeout)
     if chroot:
-        acl = make_default_acl(None)
+        acl = zkclient.make_default_acl(None)
         path = []
         chroot_components = chroot.split('/')
         while chroot_components:
@@ -406,7 +389,7 @@ def create(zkclient, path, data=None, acl=None, sequence=False,
     """Serialize data into Zk node, fail if node exists."""
     payload = _payload(data)
     if default_acl:
-        realacl = make_default_acl(acl)
+        realacl = zkclient.make_default_acl(acl)
     else:
         realacl = acl
 
@@ -427,7 +410,7 @@ def put(zkclient, path, data=None, acl=None, sequence=False, default_acl=True,
     # default acl is not specified, do not log the payload as it may be
     # private.
     if default_acl:
-        realacl = make_default_acl(acl)
+        realacl = zkclient.make_default_acl(acl)
         _LOGGER.debug('put (default_acl=%s): %s acl=%s seq=%s', default_acl,
                       path, realacl, sequence)
     else:
@@ -521,7 +504,7 @@ def ensure_exists(zkclient, path, acl=None, sequence=False, data=None):
     If the path already exists, does not touch the content, but makes sure the
     acl is correct.
     """
-    realacl = make_default_acl(acl)
+    realacl = zkclient.make_default_acl(acl)
     try:
         # new node has default empty data
         newdata = _payload(data)

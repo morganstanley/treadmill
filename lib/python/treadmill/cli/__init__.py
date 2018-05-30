@@ -45,10 +45,9 @@ click.disable_unicode_literals_warning = True
 def init_logger(name):
     """Initialize logger.
     """
-    # Logging configuration must be unicode file
-    conf = treadmill.logging.load_logging_conf(name)
-
     try:
+        # logging configuration files in json format
+        conf = treadmill.logging.load_logging_conf(name)
         logging.config.dictConfig(conf)
     except configparser.Error:
         with tempfile.NamedTemporaryFile(delete=False, mode='w') as f:

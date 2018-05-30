@@ -637,25 +637,6 @@ class PartitionPrettyFormatter(object):
             return format_item(item)
 
 
-class HAProxyPrettyFormatter(object):
-    """Pretty table formatter for HAProxy."""
-
-    @staticmethod
-    def format(item):
-        """Return pretty-formatted item."""
-        schema = [
-            ('server', '_id', None),
-            ('cell', 'cell', None),
-        ]
-
-        format_item = make_dict_to_table(schema)
-        format_list = make_list_to_table(schema)
-
-        if isinstance(item, list):
-            return format_list(item)
-        return format_item(item)
-
-
 class CronPrettyFormatter(object):
     """Pretty table formatter for cron jobs."""
 

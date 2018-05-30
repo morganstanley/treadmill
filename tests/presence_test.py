@@ -93,7 +93,7 @@ class PresenceTest(mockzk.MockZookeeperTestCase):
         self.root = tempfile.mkdtemp()
         self.events_dir = os.path.join(self.root, 'appevents')
         os.mkdir(self.events_dir)
-        self.zkclient = kazoo.client.KazooClient()
+        self.zkclient = treadmill.zkutils.ZkClient()
         super(PresenceTest, self).setUp()
 
     def tearDown(self):
@@ -151,13 +151,13 @@ class PresenceTest(mockzk.MockZookeeperTestCase):
             [
                 mock.call(
                     '/endpoints/foo/test1:tcp:ssh',
-                    b'myhostname:5001',
+                    value=b'myhostname:5001',
                     acl=mock.ANY,
                     ephemeral=True, makepath=True, sequence=False
                 ),
                 mock.call(
                     '/endpoints/foo/test1:tcp:http',
-                    b'myhostname:5000',
+                    value=b'myhostname:5000',
                     acl=mock.ANY,
                     ephemeral=True, makepath=True, sequence=False
                 ),
@@ -184,13 +184,13 @@ class PresenceTest(mockzk.MockZookeeperTestCase):
             [
                 mock.call(
                     '/endpoints/foo/test1:tcp:ssh',
-                    b'myhostname:5001',
+                    value=b'myhostname:5001',
                     acl=mock.ANY,
                     ephemeral=True, makepath=True, sequence=False
                 ),
                 mock.call(
                     '/endpoints/foo/test1:tcp:http',
-                    b'myhostname:5000',
+                    value=b'myhostname:5000',
                     acl=mock.ANY,
                     ephemeral=True, makepath=True, sequence=False
                 ),

@@ -35,8 +35,6 @@ from treadmill import utils
 from treadmill import cli
 
 
-_SERVERS_ACL = zkutils.make_role_acl('servers', 'rwcda')
-
 _MIN_FWD_REFRESH = 5
 
 _RENEW_INTERVAL = 60 * 60
@@ -163,10 +161,17 @@ def init():
         hostport = '%s:%s' % (hostname, port)
 
         endpoint_proid_path = z.path.endpoint_proid(appname)
-        _LOGGER.info('Ensuring %s exists with ACL %r',
-                     endpoint_proid_path, _SERVERS_ACL)
-        zkutils.ensure_exists(context.GLOBAL.zk.conn, endpoint_proid_path,
-                              acl=[_SERVERS_ACL])
+        acl = context.GLOBAL.zk.conn.make_servers_acl()
+        _LOGGER.info(
+            'Ensuring %s exists with ACL %r',
+            endpoint_proid_path,
+            acl
+        )
+        zkutils.ensure_exists(
+            context.GLOBAL.zk.conn,
+            endpoint_proid_path,
+            acl=[acl]
+        )
 
         endpoint_path = z.path.endpoint(appname, 'tcp', endpoint)
         _LOGGER.info('Registering %s %s', endpoint_path, hostport)

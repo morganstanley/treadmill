@@ -1,5 +1,4 @@
 # bootstrap files
-recursive-include lib/python/treadmill/bootstrap/haproxy/linux *
 recursive-include lib/python/treadmill/bootstrap/master/linux *
 recursive-include lib/python/treadmill/bootstrap/node/linux *
 recursive-include lib/python/treadmill/bootstrap/node/windows *

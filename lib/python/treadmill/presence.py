@@ -23,8 +23,6 @@ from treadmill.appcfg import abort as app_abort
 
 _LOGGER = logging.getLogger(__name__)
 
-_SERVERS_ACL = zkutils.make_role_acl('servers', 'rwcda')
-
 _INVALID_IDENTITY = sys.maxsize
 
 # Time to wait when registering endpoints in case previous ephemeral
@@ -36,9 +34,10 @@ _EPHEMERAL_RETRY_COUNT = 13
 def _create_ephemeral_with_retry(zkclient, path, data):
     """Create ephemeral node with retry."""
     prev_data = None
+    acl = zkclient.make_servers_acl()
     for _ in range(0, _EPHEMERAL_RETRY_COUNT):
         try:
-            return zkutils.create(zkclient, path, data, acl=[_SERVERS_ACL],
+            return zkutils.create(zkclient, path, data, acl=[acl],
                                   ephemeral=True)
         except kazoo.client.NodeExistsError:
             prev_data = zkutils.get_default(zkclient, path)
@@ -207,7 +206,7 @@ def register_server(zkclient, hostname, node_info):
 
     zkutils.update(zkclient, server_path, server_data)
 
-    host_acl = zkutils.make_host_acl(hostname, 'rwcda')
+    host_acl = zkclient.make_host_acl(hostname, 'rwcda')
     return zkutils.put(
         zkclient, z.path.server_presence(hostname + '#'), {'seen': False},
         acl=[host_acl], ephemeral=True, sequence=True

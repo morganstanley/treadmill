@@ -13,7 +13,6 @@ import shutil
 import tempfile
 import unittest
 
-import kazoo
 import mock
 
 import treadmill
@@ -33,7 +32,7 @@ class PortScannerTest(unittest.TestCase):
     def setUp(self):
         self.root = tempfile.mkdtemp()
 
-        zkclient = kazoo.client.KazooClient()
+        zkclient = treadmill.zkutils.ZkClient()
         self.scanner = endpoints.PortScanner(self.root, zkclient,
                                              scan_interval=30)
         self.scanner.hostname = 'x.x.com'
@@ -66,7 +65,7 @@ class EndpointPublisherTest(unittest.TestCase):
     @mock.patch('treadmill.watchdog.Watchdog', mock.Mock(autospec=True))
     def setUp(self):
         self.root = tempfile.mkdtemp()
-        zkclient = kazoo.client.KazooClient()
+        zkclient = treadmill.zkutils.ZkClient()
         self.publisher = endpoints.EndpointPublisher(
             self.root,
             zkclient,

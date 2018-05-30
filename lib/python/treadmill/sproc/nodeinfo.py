@@ -27,8 +27,6 @@ from treadmill.rest import error_handlers  # pylint: disable=W0611
 
 _LOGGER = logging.getLogger(__name__)
 
-_SERVERS_ACL = zkutils.make_role_acl('servers', 'rwcda')
-
 
 def init():
     """Top level command handler."""
@@ -65,7 +63,7 @@ def init():
             path = z.path.endpoint(appname, 'tcp', 'nodeinfo')
             _LOGGER.info('register endpoint: %s %s', path, hostport)
             zkutils.create(zkclient, path, hostport,
-                           acl=[_SERVERS_ACL],
+                           acl=[zkclient.make_servers_acl()],
                            ephemeral=True)
 
             # TODO: remove "legacy" endpoint registration once conversion is

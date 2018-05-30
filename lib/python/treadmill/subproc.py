@@ -102,16 +102,15 @@ def resolve(exe):
     else:
         safe_exe = executables[exe]
 
-    if safe_exe:
-        safe_exe = os.path.normpath(safe_exe)
-
     if isinstance(safe_exe, list):
         for choice in safe_exe:
+            choice = os.path.normpath(choice)
             if _check(choice):
                 return choice
         _LOGGER.debug('Cannot resolve: %s', exe)
         return None
     else:
+        safe_exe = os.path.normpath(safe_exe)
         if not _check(safe_exe):
             _LOGGER.debug('Command not found: %s, %s', exe, safe_exe)
             return None
