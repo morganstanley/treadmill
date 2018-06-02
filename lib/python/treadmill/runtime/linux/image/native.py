@@ -45,11 +45,14 @@ def create_docker_environ_dir(container_dir, root_dir, app):
     env_dir = os.path.join(container_dir, _CONTAINER_DOCKER_ENV_DIR)
     env = {}
 
+    treadmill_bind_preload_so = os.path.basename(
+        subproc.resolve('treadmill_bind_preload.so')
+    )
     if app.ephemeral_ports.tcp or app.ephemeral_ports.udp:
         env['LD_PRELOAD'] = os.path.join(
             _manifest.TREADMILL_BIND_PATH,
             '$LIB',
-            'treadmill_bind_preload.so'
+            treadmill_bind_preload_so
         )
 
     supervisor.create_environ_dir(env_dir, env)
@@ -272,9 +275,11 @@ def make_dev(newroot_norm):
         newroot_norm, '/dev/pts',
         gid=st.st_gid, mode='0620', ptmxmode='0666'
     )
+    fs.symlink_safe(newroot_norm + '/dev/ptmx', 'pts/ptmx')
     fs_linux.mount_mqueue(newroot_norm, '/dev/mqueue')
 
-    fs.symlink_safe(newroot_norm + '/dev/ptmx', 'pts/ptmx')
+    # Passthrough container log to host system logger.
+    fs_linux.mount_bind(newroot_norm, '/dev/log', read_only=False)
 
 
 def make_fsroot(root_dir, app):
