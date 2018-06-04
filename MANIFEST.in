@@ -8,5 +8,6 @@ recursive-include lib/python/treadmill/bootstrap/zookeeper/linux *
 # Treadmill resources
 recursive-include lib/python/treadmill/etc/ldap *
 recursive-include lib/python/treadmill/etc/schema *
+recursive-include lib/python/treadmill/etc/kernel_watchdog_tests *
 recursive-include lib/python/treadmill/logging *.json
 recursive-include lib/python/treadmill/templates *

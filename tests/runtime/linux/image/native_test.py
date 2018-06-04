@@ -189,9 +189,9 @@ class NativeImageTest(unittest.TestCase):
         treadmill.fs.linux.mount_mqueue.assert_called_once_with(
             self.root, '/dev/mqueue'
         )
-
         treadmill.fs.linux.mount_bind.assert_has_calls([
-            mock.call(mock.ANY, '/bin', read_only=True, recursive=True)
+            mock.call(self.root, '/dev/log', read_only=False),
+            mock.call(self.root, '/bin', read_only=True, recursive=True)
         ])
 
     @mock.patch('pwd.getpwnam', mock.Mock(
