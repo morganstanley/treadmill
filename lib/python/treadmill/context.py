@@ -199,7 +199,6 @@ class ZkContext(object):
     """
 
     __slots__ = (
-        'proid',
         '_context',
         '_conn',
         '_listeners',
@@ -209,7 +208,6 @@ class ZkContext(object):
         self._context = ctx
         self._conn = None
         self._listeners = []
-        self.proid = None
 
     def add_listener(self, listener):
         """Add a listener.
@@ -238,7 +236,6 @@ class ZkContext(object):
 
         _LOGGER.debug('Connecting to Zookeeper %s', self.url)
 
-        self.proid, _ = self.url[len('zookeeper://'):].split('@')
         plugin = plugin_manager.load('treadmill.context', 'zookeeper')
         self._conn = plugin.connect(self.url)
         if self._listeners:
