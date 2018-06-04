@@ -1470,6 +1470,24 @@ class MasterTest(mockzk.MockZookeeperTestCase):
         )
 
     @mock.patch('kazoo.client.KazooClient.get', mock.Mock(
+        return_value=(None, None)))
+    @mock.patch('kazoo.client.KazooClient.set', mock.Mock())
+    @mock.patch('kazoo.client.KazooClient.create', mock.Mock())
+    @mock.patch('treadmill.zkutils.get', mock.Mock(return_value=None))
+    @mock.patch('treadmill.zkutils.put', mock.Mock(return_value=False))
+    def test_create_server(self):
+        """Tests create server API."""
+        zkclient = treadmill.zkutils.ZkClient()
+        masterapi.create_server(zkclient, 'foo', 'bucket0', '_default')
+        treadmill.zkutils.put.assert_called_with(
+            zkclient,
+            '/servers/foo',
+            {'parent': 'bucket0', 'partition': '_default'},
+            acl=mock.ANY,
+            check_content=True
+        )
+
+    @mock.patch('kazoo.client.KazooClient.get', mock.Mock(
         return_value=('{}', None)))
     @mock.patch('kazoo.client.KazooClient.set', mock.Mock())
     @mock.patch('kazoo.client.KazooClient.create', mock.Mock())

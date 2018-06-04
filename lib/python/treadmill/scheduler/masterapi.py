@@ -164,6 +164,8 @@ def create_server(zkclient, server_id, parent_id, partition):
     zkutils.ensure_exists(zkclient, server_node, acl=[server_acl])
 
     data = zkutils.get(zkclient, server_node)
+    if not data:
+        data = {}
     data.update({
         'parent': parent_id,
         'partition': partition,
