@@ -36,10 +36,11 @@ class API(object):
             if cell:
                 filter_['cell'] = cell
 
+            result = _admin_svr().list(filter_)
             if partition:
-                filter_['partition'] = partition
-
-            return _admin_svr().list(filter_)
+                result = [x for x in result if
+                          (x['partition'] == partition)]
+            return result
 
         @schema.schema({'$ref': 'server.json#/resource_id'})
         def get(rsrc_id):

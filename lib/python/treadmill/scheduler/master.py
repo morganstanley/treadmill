@@ -211,7 +211,7 @@ class Master(loader.Loader):
     def watch(self, path):
         """Constructs a watch on a given path."""
 
-        @self.backend.zkclient.ChildrenWatch(path)
+        @self.backend.ChildrenWatch(path)
         @utils.exit_on_unhandled
         def _watch(children):
             """Watch children events."""
@@ -231,7 +231,7 @@ class Master(loader.Loader):
                 self.process_complete[path].wait()
             else:
                 self.process_complete[path] = \
-                    self.backend.zkclient.handler.event_object()
+                    self.backend.event_object()
 
             _LOGGER.debug('watcher finished: %s', path)
             return True

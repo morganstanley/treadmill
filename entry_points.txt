@@ -200,6 +200,7 @@ rdtscp = treadmill.traits:has_rdtscp
 
 [treadmill.sproc]
 ad = treadmill.sproc.ad
+alert_monitor = treadmill.sproc.alert_monitor
 appcfgmgr = treadmill.sproc.appcfgmgr
 appevents = treadmill.sproc.appevents
 appmonitor = treadmill.sproc.appmonitor
@@ -289,5 +290,9 @@ node-down = treadmill.monitor:MonitorNodeDown
 container-down = treadmill.monitor:MonitorContainerDown
 
 [treadmill.version_monitor]
+
+
+[treadmill.alert.plugins]
+
 
 [treadmill.logging]

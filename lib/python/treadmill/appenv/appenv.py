@@ -29,6 +29,7 @@ class AppEnvironment(object):
     """
 
     __slots__ = (
+        'alerts_dir',
         'apps_dir',
         'app_events_dir',
         'app_types',
@@ -52,6 +53,7 @@ class AppEnvironment(object):
         'watchdog_dir',
     )
 
+    ALERTS_DIR = 'alerts'
     APPS_DIR = 'apps'
     BIN_DIR = 'bin'
     ARCHIVES_DIR = 'archives'
@@ -71,6 +73,7 @@ class AppEnvironment(object):
     def __init__(self, root):
         self.root = root
 
+        self.alerts_dir = os.path.join(self.root, self.ALERTS_DIR)
         self.apps_dir = os.path.join(self.root, self.APPS_DIR)
         self.bin_dir = os.path.join(self.root, self.BIN_DIR)
         self.watchdog_dir = os.path.join(self.root, self.WATCHDOG_DIR)

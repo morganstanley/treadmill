@@ -20,7 +20,9 @@ from treadmill import context
 from treadmill import scheduler as treadmill_sched
 from treadmill import reports
 from treadmill.scheduler import loader
+from treadmill.scheduler import master
 from treadmill.scheduler import zkbackend
+from treadmill.scheduler import fsbackend
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -187,6 +189,41 @@ def explain_group(parent):
     del placement
 
 
+def snapshot_group(parent):
+    """Scheduler snapshot CLI group."""
+
+    @parent.group()
+    def snapshot():
+        """Snapshot scheduler state"""
+        pass
+
+    @snapshot.command()
+    @click.option('--root', help='Output directory.',
+                  required=True)
+    @cli.admin.ON_EXCEPTIONS
+    def take(root):
+        """Take a snapshot of ZK state."""
+
+        fsbackend.snapshot(context.GLOBAL.zk.conn, root)
+
+    @snapshot.command()
+    @click.option('--root', help='Output directory.',
+                  required=True)
+    @cli.admin.ON_EXCEPTIONS
+    def run(root):
+        """Run scheduler with fs backend."""
+        treadmill_sched.DIMENSION_COUNT = 3
+
+        cell_master = master.Master(
+            fsbackend.FsBackend(root),
+            context.GLOBAL.cell
+        )
+        cell_master.run_loop()
+
+    del take
+    del run
+
+
 def init():
     """Return top level command handler."""
 
@@ -205,4 +242,5 @@ def init():
 
     view_group(top)
     explain_group(top)
+    snapshot_group(top)
     return top
