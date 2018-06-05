@@ -479,39 +479,40 @@ class NativeImageTest(unittest.TestCase):
                       os.path.join(etc_dir, 'resolv.conf'))
         ])
 
-    @mock.patch('treadmill.fs.linux.mount_bind', mock.Mock())
+    @mock.patch('os.walk', mock.MagicMock(spec_set=True))
+    @mock.patch('treadmill.fs.linux.mount_bind', mock.Mock(spec_set=True))
     def test__bind_overlay(self):
         """Test binding overlay."""
         # access protected module _bind_overlay
         # pylint: disable=w0212
-        native._bind_overlay(self.container_dir, self.root)
-
         overlay_dir = os.path.join(self.container_dir, 'overlay')
+        # Mock walking the etc overlay directory.
+        os.walk.return_value = [
+            (overlay_dir + '/etc', ['hosts', 'resolv.conf', 'baz'], ['foo']),
+            (overlay_dir + '/etc/foo', ['bar'], []),
+        ]
+
+        native._bind_overlay(self.container_dir, self.root)
 
         treadmill.fs.linux.mount_bind.assert_has_calls(
             [
                 mock.call(self.root, '/etc/hosts',
                           source=os.path.join(overlay_dir, 'etc', 'hosts'),
                           read_only=True, recursive=False),
+                mock.call(self.root, '/etc/resolv.conf',
+                          source=os.path.join(overlay_dir, 'etc/resolv.conf'),
+                          read_only=True, recursive=False),
+                mock.call(self.root, '/etc/baz',
+                          source=os.path.join(overlay_dir, 'etc/baz'),
+                          read_only=True, recursive=False),
+                mock.call(self.root, '/etc/foo/bar',
+                          source=os.path.join(overlay_dir, 'etc/foo/bar'),
+                          read_only=True, recursive=False),
                 mock.call(self.root, '/run/host-aliases',
                           source=os.path.join(
                               overlay_dir, 'run', 'host-aliases'
                           ),
                           read_only=False, recursive=False),
-                mock.call(self.root, '/etc/ld.so.preload',
-                          source=os.path.join(
-                              overlay_dir, 'etc/ld.so.preload'
-                          ),
-                          read_only=True, recursive=False),
-                mock.call(self.root, '/etc/pam.d/sshd',
-                          source=os.path.join(overlay_dir, 'etc/pam.d/sshd'),
-                          read_only=True, recursive=False),
-                mock.call(self.root, '/etc/resolv.conf',
-                          source=os.path.join(overlay_dir, 'etc/resolv.conf'),
-                          read_only=True, recursive=False),
-                mock.call(self.root, '/etc/krb5.keytab',
-                          source=os.path.join(overlay_dir, 'etc/krb5.keytab'),
-                          read_only=True, recursive=False),
                 mock.call('/', '/etc/resolv.conf',
                           source=os.path.join(overlay_dir, 'etc/resolv.conf'),
                           read_only=True, recursive=False)

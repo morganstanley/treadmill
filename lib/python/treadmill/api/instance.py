@@ -40,12 +40,14 @@ def _validate(rsrc):
     """Validate instance manifest."""
     memory_mb = utils.megabytes(rsrc['memory'])
     if memory_mb < 100:
-        raise exc.TreadmillError(
+        raise exc.InvalidInputError(
+            __name__,
             'memory size should be larger than or equal to 100M')
 
     disk_mb = utils.megabytes(rsrc['disk'])
     if disk_mb < 100:
-        raise exc.TreadmillError(
+        raise exc.InvalidInputError(
+            __name__,
             'disk size should be larger than or equal to 100M')
 
 

@@ -301,6 +301,42 @@ def init():
 
         _display_tenant(restapi, allocation)
 
+    def _check_reservation(restapi, tenant):
+        """ check whether there are reservations
+        """
+        try:
+            url = '/allocation/{0}'.format(tenant)
+            allocs = restclient.get(restapi, url).json()
+            reservations = [d['_id'] for d in allocs]
+            if reservations:
+                cli.out('There are undeleted reservations under this '
+                        "allocation %s, please delete them first: ", tenant)
+                for rev in reservations:
+                    cli.out(rev)
+            return reservations
+        except restclient.NotFoundError:
+            # when the user is trying to delete a non-existing tenant
+            raise click.UsageError(
+                'Allocation {} does not exist, '.format(tenant))
+
+    def _tenant_empty(restapi, tenant):
+        """Check whether there are reservations or suballocations under this tenant
+        """
+        # check whether there are subtenants(suballocations)
+        response = restclient.get(restapi, '/tenant/').json()
+        # all suballocations should be named as '<allocation>:*'
+        suballocations = [d['tenant'] for d in response
+                          if d['tenant'].startswith(tenant + ':')]
+        if suballocations:
+            cli.out('There are undeleted suballocations under this '
+                    "allocation %s, please delete them first: ", tenant)
+            for sub in suballocations:
+                cli.out(sub)
+            return suballocations
+
+        # The case there is no subtenant(suballocation)
+        return _check_reservation(restapi, tenant)
+
     @allocation_grp.command()
     @click.argument('item', required=True)
     @cli.handle_exceptions(restclient.CLI_REST_EXCEPTIONS)
@@ -311,21 +347,23 @@ def init():
         path = item.split('/')
         if len(path) == 1:
             # delete a tenant
-            url = '/tenant/%s' % item
-            restclient.delete(restapi, url)
+            if not _tenant_empty(restapi, item):
+                url = '/tenant/%s' % item
+                restclient.delete(restapi, url)
         elif len(path) == 2:
-            # delete an allocation
+            # delete all reservations and all patterns
             url = '/allocation/%s' % item
             restclient.delete(restapi, url)
         elif len(path) == 3:
             # delete a reservation
+            # API automatically clears the pattern under it
             url = '/allocation/%s/%s/reservation/%s' % (path[0],
                                                         path[1],
                                                         path[2])
             restclient.delete(restapi, url)
         else:
             # error
-            click.echo('Wrong format: %s' % item, err=True)
+            click.echo('Wrong format: {}'.format(item), err=True)
 
     del assign
     del reserve

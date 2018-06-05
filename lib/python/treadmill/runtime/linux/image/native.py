@@ -22,7 +22,6 @@ from treadmill import keytabs
 from treadmill import runtime
 from treadmill import subproc
 from treadmill import supervisor
-from treadmill import utils
 
 from treadmill.fs import linux as fs_linux
 
@@ -455,8 +454,7 @@ def _prepare_ldpreload(container_dir, app):
     except IOError as err:
         if err.errno != errno.ENOENT:
             raise
-        _LOGGER.info('/etc/ld.so.preload not found, creating empty.')
-        utils.touch(new_ldpreload)
+        _LOGGER.info('/etc/ld.so.preload not found, skipping.')
 
     ldpreloads = []
     if app.ephemeral_ports.tcp or app.ephemeral_ports.udp:
@@ -554,15 +552,18 @@ def _bind_overlay(container_dir, root_dir):
     #   - /etc/ld.so.preload to enforce necessary system hooks
     #
     overlay_dir = os.path.join(container_dir, 'overlay')
-    for overlay_file in ['etc/hosts',
-                         'etc/krb5.keytab',
-                         'etc/ld.so.preload',
-                         'etc/pam.d/sshd',
-                         'etc/resolv.conf']:
-        fs_linux.mount_bind(
-            root_dir, os.path.join(os.sep, overlay_file),
-            source=os.path.join(overlay_dir, overlay_file),
-            recursive=False, read_only=True)
+    etc_overlay_dir = os.path.join(overlay_dir, 'etc')
+    for (basedir, files, _dirs) in os.walk(etc_overlay_dir):
+        # We bind mount read-only all etc overlay files.
+        for file_ in files:
+            overlay_file = os.path.join(basedir, file_)
+            target_file = os.path.relpath(overlay_file, overlay_dir)
+            fs_linux.mount_bind(
+                root_dir,
+                os.path.join(os.sep, target_file),
+                source=overlay_file,
+                recursive=False, read_only=True
+            )
 
     # Mount host-aliases as read-write
     fs_linux.mount_bind(

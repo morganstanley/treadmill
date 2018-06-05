@@ -14,6 +14,7 @@ import time
 
 import click
 import docker
+import requests
 import six
 
 from treadmill import cli
@@ -24,6 +25,9 @@ from treadmill import supervisor
 from treadmill.appcfg import abort as app_abort
 
 _LOGGER = logging.getLogger(__name__)
+
+# wait for dockerd is ready in seconds
+_MAX_WAIT = 64
 
 
 def _read_environ(envdirs):
@@ -125,9 +129,6 @@ class DockerSprocClient(object):
         else:
             self.param = param
 
-        # wait for dockerd ready
-        time.sleep(1)
-
     def _get_client(self):
         """Gets the docker client.
         """
@@ -135,6 +136,9 @@ class DockerSprocClient(object):
             return self.client
 
         self.client = docker.from_env(**self.param)
+
+        self._wait_client_ready(self.client)
+
         return self.client
 
     def run(self, name, image, cmd, **args):
@@ -185,6 +189,23 @@ class DockerSprocClient(object):
 
         else:
             utils.sys_exit(os.WEXITSTATUS(rc))
+
+    @staticmethod
+    def _wait_client_ready(client):
+        """wait for dockerd ready
+        """
+        wait = 1
+        while True:
+            try:
+                client.ping()
+                break
+            except requests.exceptions.ConnectionError as err:
+                # if wait too long, we quit current process
+                if wait > _MAX_WAIT:
+                    raise err
+                _LOGGER.info('Dockerd not ready, wait %ds', wait)
+                time.sleep(wait)
+                wait *= 2
 
 
 def init():

@@ -33,6 +33,7 @@ def init(api, cors, impl):
         'cpu': fields.String(description='Total cpu capacity'),
         'disk': fields.String(description='Total disk capacity'),
         'memory': fields.String(description='Total memory capacity'),
+        'systems': fields.List(fields.Integer(description='System')),
         'down-threshold': fields.String(description='Server down threshold'),
         'reboot-schedule': fields.String(description='Reboot schedule'),
     })

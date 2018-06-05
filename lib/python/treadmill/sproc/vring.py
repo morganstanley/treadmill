@@ -77,16 +77,9 @@ def init():
                         sys.exit(-1)
                     vring_endpoints.add(rule_endpoint)
 
-            # TODO: discovery is limited to one rule for now.
-            if len(rules) != 1:
-                log.critical('(TODO): multiple rules are not supported.')
-                sys.exit(-1)
-            pattern = rules[0]['pattern']
-
-            app_unique_name = appcfg.manifest_unique_name(app)
-
+            patterns = [rule['pattern'] for rule in rules]
             app_discovery = discovery.Discovery(context.GLOBAL.zk.conn,
-                                                pattern, '*')
+                                                patterns, '*')
             app_discovery.sync()
 
             # Restore default signal mask disabled by python spawning new
@@ -94,6 +87,8 @@ def init():
             #
             # TODO: should this be done as part of ZK connect?
             utils.restore_signals()
+
+            app_unique_name = appcfg.manifest_unique_name(app)
 
             vring.run(
                 routing,

@@ -16,6 +16,8 @@ import click
 
 import six
 
+from treadmill import alert
+from treadmill import appenv
 from treadmill import context
 from treadmill import restclient
 from treadmill import utils
@@ -34,7 +36,23 @@ _INTERVAL = float(60 * 60)
 _DELAY_INTERVAL = float(5 * 60)
 
 
-def reevaluate(api_url, state, zkclient, last_waited):
+def make_alerter(alerts_dir, cell):
+    """Create alert function."""
+
+    def send_alert(instance, summary, **kwargs):
+        """Send alert."""
+        _LOGGER.debug('Sending alert for %s', instance)
+        alert.create(
+            alerts_dir, type_='monitor.suspended',
+            instanceid='{}/{}'.format(cell, instance),
+            summary=summary,
+            **kwargs
+        )
+
+    return send_alert
+
+
+def reevaluate(api_url, alert_f, state, zkclient, last_waited):
     """Evaluate state and adjust app count based on monitor"""
     # Disable too many branches/statements warning.
     #
@@ -66,6 +84,7 @@ def reevaluate(api_url, state, zkclient, last_waited):
         # Either app is not suspended or it is past-due - remove it from
         # suspended dict.
         if suspended.pop(name, None) is not None:
+            alert_f(name, 'Monitor active again', status='clear')
             modified = True
 
         # Max value reached, nothing to do.
@@ -100,10 +119,10 @@ def reevaluate(api_url, state, zkclient, last_waited):
             if allowed <= 0:
                 # in this case available <= 0 as needed >= 1
                 # we got estimated wait time, now + wait seconds
-                print((1 - available) / conf['rate'])
                 waited[name] = now + int((1 - available) / conf['rate'])
                 # new wait item, need modify
                 if name not in last_waited:
+                    alert_f(name, 'Monitor suspended: Rate limited')
                     modified = True
 
                 continue
@@ -119,20 +138,24 @@ def reevaluate(api_url, state, zkclient, last_waited):
 
                 if name in last_waited:
                     # this means app jump out of wait, need to clear it from zk
+                    alert_f(name, 'Monitor active again', status='clear')
                     modified = True
 
                 conf['available'] -= allowed
             except restclient.NotFoundError:
                 _LOGGER.info('App not configured: %s', name)
                 suspended[name] = now + _DELAY_INTERVAL
+                alert_f(name, 'Monitor suspended: App not configured')
                 modified = True
             except restclient.BadRequestError:
                 _LOGGER.exception('Unable to start: %s', name)
                 suspended[name] = now + _DELAY_INTERVAL
+                alert_f(name, 'Monitor suspended: Unable to start')
                 modified = True
             except restclient.ValidationError:
                 _LOGGER.exception('Invalid manifest: %s', name)
                 suspended[name] = now + _DELAY_INTERVAL
+                alert_f(name, 'Monitor suspended: Invalid manifest')
                 modified = True
             except Exception:  # pylint: disable=W0703
                 _LOGGER.exception('Unable to create instances: %s: %s',
@@ -163,10 +186,12 @@ def reevaluate(api_url, state, zkclient, last_waited):
     return waited
 
 
-def _run_sync(api_url):
+def _run_sync(api_url, alerts_dir):
     """Sync app monitor count with instance count."""
 
     zkclient = context.GLOBAL.zk.conn
+
+    alerter = make_alerter(alerts_dir, context.GLOBAL.cell)
 
     state = {
         'scheduled': {},
@@ -243,7 +268,9 @@ def _run_sync(api_url):
     last_waited = masterapi.get_suspended_appmonitors(zkclient)
     while True:
         time.sleep(1)
-        last_waited = reevaluate(api_url, state, zkclient, last_waited)
+        last_waited = reevaluate(
+            api_url, alerter, state, zkclient, last_waited
+        )
 
 
 def init():
@@ -253,16 +280,20 @@ def init():
     @click.option('--no-lock', is_flag=True, default=False,
                   help='Run without lock.')
     @click.option('--api', required=True, help='Cell API url.')
-    def top(no_lock, api):
+    @click.option('--approot', type=click.Path(exists=True),
+                  envvar='TREADMILL_APPROOT', required=True)
+    def top(no_lock, api, approot):
         """Sync LDAP data with Zookeeper data."""
+        tm_env = appenv.AppEnvironment(root=approot)
+
         if not no_lock:
             lock = zkutils.make_lock(context.GLOBAL.zk.conn,
                                      z.path.election(__name__))
             _LOGGER.info('Waiting for leader lock.')
             with lock:
-                _run_sync(api)
+                _run_sync(api, tm_env.alerts_dir)
         else:
             _LOGGER.info('Running without lock.')
-            _run_sync(api)
+            _run_sync(api, tm_env.alerts_dir)
 
     return top

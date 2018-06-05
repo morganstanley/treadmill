@@ -62,6 +62,8 @@ class AppEnvTest(unittest.TestCase):
         # TODO: Renable iptables init in linux AppEnv initialize
         # treadmill.iptables.initialize.assert_called_with('foo')
 
+        self.assertTrue(hasattr(self.tm_env, 'alerts_dir'))
+
 
 if __name__ == '__main__':
     unittest.main()
