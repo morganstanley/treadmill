@@ -349,11 +349,11 @@ def add_linux_services(manifest):
 def add_manifest_features(manifest, runtime):
     """Configure optional container features."""
     for feature in manifest.get('features', []):
-        feature_mod = features.get_feature(feature)()
-
-        if feature_mod is None:
+        if not features.feature_exists(feature):
             _LOGGER.error('Unable to load feature: %s', feature)
             raise Exception('Unsupported feature: ' + feature)
+
+        feature_mod = features.get_feature(feature)()
 
         if not feature_mod.applies(manifest, runtime):
             _LOGGER.error('Feature does not apply: %s', feature)

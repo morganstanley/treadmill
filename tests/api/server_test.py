@@ -36,11 +36,10 @@ class ApiServerTest(unittest.TestCase):
         svr_admin.list.assert_called_with({'cell': 'some-cell'})
 
         self.svr.list(partition='xxx')
-        svr_admin.list.assert_called_with({'partition': 'xxx'})
+        svr_admin.list.assert_called_with({})
 
         self.svr.list('some-cell', 'xxx')
-        svr_admin.list.assert_called_with({'cell': 'some-cell',
-                                           'partition': 'xxx'})
+        svr_admin.list.assert_called_with({'cell': 'some-cell'})
 
     @mock.patch('treadmill.context.AdminContext.conn',
                 mock.Mock(return_value=admin.Admin(None, None)))
