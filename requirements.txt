@@ -33,6 +33,7 @@ tornado>=4.4,<5
 Twisted>=16.4,<18
 websocket-client>=0.40.0,<1
 winkerberos>=0.6 ; sys_platform == 'win32'
+urllib3<1.23
 
 # Until Kazoo SASL patches are upstreamed
 kazoo>=2.2,<3
