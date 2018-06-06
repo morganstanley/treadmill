@@ -61,3 +61,7 @@ class Backend(object):
     def update(self, _path, _data, check_content=False):
         """Set data into ZK node."""
         pass
+
+    def event_object(self):
+        """Create a new event object."""
+        pass

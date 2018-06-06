@@ -23,6 +23,8 @@ class ZkReadonlyBackend(backend.Backend):
 
     def __init__(self, zkclient):
         self.zkclient = zkclient
+        # pylint: disable=C0103
+        self.ChildrenWatch = self.zkclient.ChildrenWatch
         super(ZkReadonlyBackend, self).__init__()
 
     def list(self, path):
@@ -56,6 +58,10 @@ class ZkReadonlyBackend(backend.Backend):
             return self.zkclient.exists(path)
         except kazoo.client.NoNodeError:
             raise backend.ObjectNotFoundError()
+
+    def event_object(self):
+        """Create new event object."""
+        return self.zkclient.handler.event_object()
 
 
 class ZkBackend(ZkReadonlyBackend):
