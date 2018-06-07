@@ -10,6 +10,7 @@ import json
 import logging
 import socket
 import time
+import urllib
 
 import websocket as ws_client
 
@@ -88,7 +89,19 @@ def ws_loop(wsapi, message, snapshot, on_message, on_error=None,
 
             try:
                 _LOGGER.debug('Connecting to %s, [timeout: %s]', api, timeout)
-                ws_conn = ws_client.create_connection(api, timeout=timeout)
+                parsed = urllib.parse.urlparse(api)
+                if ':' in parsed.netloc:
+                    host, _port = parsed.netloc.split(':')
+                else:
+                    host = parsed.netloc
+                # TODO: we never use proxy when connecting to websocket
+                #       server. It is not clear if such behavior need to be
+                #       optional.
+                ws_conn = ws_client.create_connection(
+                    api,
+                    timeout=timeout,
+                    http_no_proxy=[host]
+                )
                 _LOGGER.debug('Connected.')
 
                 _LOGGER.debug('Sending %s', json.dumps(message))
