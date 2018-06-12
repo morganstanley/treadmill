@@ -88,6 +88,22 @@ class TicketLockerTest(unittest.TestCase):
             None,
             tkt_locker.process_request('aaa.xxx.com@y.com', 'foo#1234'))
 
+    def test_process_trusted(self):
+        """Test processing trusted app."""
+        tkt_locker = tickets.TicketLocker(
+            kazoo.client.KazooClient(),
+            self.tkt_dir,
+            trusted={('aaa.xxx.com', 'master'): ['x@r1']}
+        )
+        with io.open(os.path.join(self.tkt_dir, 'x@r1'), 'w+') as f:
+            f.write('x')
+
+        # base64 encoded 'x'.
+        self.assertEqual(
+            {'x@r1': b'eA=='},
+            tkt_locker.process_request('host/aaa.xxx.com@y.com', 'master')
+        )
+
     @mock.patch('kazoo.client.KazooClient.exists',
                 mock.Mock(return_value=True))
     @mock.patch('treadmill.zkutils.get', mock.Mock())
