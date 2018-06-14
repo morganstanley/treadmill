@@ -22,10 +22,17 @@ for SVC in $($LS {{ dir }}/treadmill/init); do
     fi
 done
 
+for PART in "{{ dir }}/bin/parts"/*; do
+    ${GREP} "${PART}\$" "{{ dir }}/.install" >/dev/null
+    if [ $? != 0 ]; then
+        ${ECHO} Removing extra part script: ${PART}.
+        ${RM} -vf "${PART}"
+    fi
+done
+
 $RM -vf {{ dir }}/treadmill/init/*/data/exits/*
 $RM -vf {{ dir }}/treadmill/tombstones/*
 
-# Look at ALL directories, e.g. .mslinks
 for DIR in $(ls -a /); do
     # Ignore . and .. directories
     if [[ "${DIR}" != "." && "${DIR}" != ".." && -d /${DIR} ]]; then
@@ -39,14 +46,16 @@ for DIR in $(ls -a /); do
     fi
 done
 
-# Do a one time generation of the host ticket before starting services. There
-# will be a service in charge or keeping tickets refreshed (not the chroot).
-{{ dir }}/treadmill/bin/host_tickets.sh -o {{ dir }}/treadmill/spool/krb5cc_host
-
 cd {{ dir }}
 
-# Starting svscan
 export PATH={{ _alias.s6 }}/bin:$PATH
+
+# Run parts in chroot.
+${CHROOT} {{ dir }} \
+    {{ _alias.s6_envdir }} /treadmill/env \
+    /treadmill/bin/run_parts.sh /treadmill/bin/parts
+
+# Starting svscan.
 exec \
     ${CHROOT} {{ dir }} \
     {{ _alias.s6_envdir }} /treadmill/env \

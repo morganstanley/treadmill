@@ -54,7 +54,7 @@ class Ticket(object):
     def __init__(self, princ, ticket):
         self.princ = princ
         self.ticket = ticket
-        user, _realm = princ.split('@')
+        user = princ[:princ.find('@') if '@' in princ else len(princ)]
         try:
             self.uid = pwd.getpwnam(user).pw_uid
         except KeyError:
@@ -83,6 +83,7 @@ class Ticket(object):
         if path is None:
             path = self.tkt_path
 
+        _LOGGER.info('Writing ticket: %s', path)
         # TODO: confirm the comment or rewrite using fs.write_safe.
         #
         # The following code will write ticket to destination only of the
