@@ -23,21 +23,14 @@ def init():
 
     @click.command()
     @click.option('--run/--no-run', is_flag=True, default=False)
-    @click.option('--master-id', required=True,
-                  type=click.Choice(['1', '2', '3']))
     @click.pass_context
-    def master(ctx, run, master_id):
+    def master(ctx, run):
         """Installs Treadmill master."""
 
         ctx.obj['PARAMS']['zookeeper'] = context.GLOBAL.zk.url
         ctx.obj['PARAMS']['ldap'] = context.GLOBAL.ldap.url
-        ctx.obj['PARAMS']['master_id'] = master_id
         dst_dir = ctx.obj['PARAMS']['dir']
         profile = ctx.obj['PARAMS'].get('profile')
-
-        for master in ctx.obj['PARAMS']['masters']:  # pylint: disable=E1136
-            if int(master['idx']) == int(master_id):
-                ctx.obj['PARAMS'].update({'me': master})
 
         run_sh = None
         if run:

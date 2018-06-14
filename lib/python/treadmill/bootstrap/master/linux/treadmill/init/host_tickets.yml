@@ -1,11 +1,6 @@
 command: |
-  exec \
-    {{ treadmill }}/bin/treadmill \
-    sproc \
-    trace cleanup
+  exec /treadmill/bin/refresh_host_ticket.sh
 environ_dir: "/treadmill/env"
-environ:
-  KRB5CCNAME: "FILE:/treadmill/spool/tickets/{{ treadmillid }}"
 monitor_policy:
   limit: "{{ restart_limit }}"
   interval: "{{ restart_interval }}"

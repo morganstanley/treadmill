@@ -46,6 +46,9 @@ def detect(traits):
 def create_code(traits):
     """Assign bits to list of traits.
     """
+    if not traits:
+        return {}
+
     result = {}
     code = 1
 

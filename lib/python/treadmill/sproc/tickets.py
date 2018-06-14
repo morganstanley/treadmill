@@ -151,7 +151,9 @@ def init():
                 tickets.request_tickets_from(
                     host, port, appname, tkt_spool_dir
                 )
-
+            # Invoking with --sleep 0 will fetch tickets once and exit.
+            if not sleep:
+                break
             time.sleep(sleep)
 
     @top.command()
