@@ -245,12 +245,14 @@ def update_server_state(zkclient, server_id, state, apps=None):
 
 def get_server(zkclient, server_id, placement=False):
     """Return server object."""
-    data = zkutils.get(zkclient, z.path.server(server_id))
+    data = zkutils.get_default(zkclient, z.path.server(server_id), {})
     if placement:
-        placement_data = zkutils.get_default(zkclient,
-                                             z.path.placement(server_id),
-                                             {})
-        data.update(placement_data)
+        placement_data = zkutils.get_default(
+            zkclient,
+            z.path.placement(server_id)
+        )
+        if placement_data:
+            data.update(placement_data)
 
     return data
 

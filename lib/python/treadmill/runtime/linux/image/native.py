@@ -300,7 +300,6 @@ def make_fsroot(root_dir, app):
         '/bin',
         '/dev',
         '/etc',
-        '/home',
         '/lib',
         '/lib64',
         '/opt',
@@ -346,6 +345,7 @@ def make_fsroot(root_dir, app):
     mounts = [
         '/bin',
         '/etc',  # TODO: Add /etc/opt
+        '/home',
         '/lib',
         '/lib64',
         '/root',
