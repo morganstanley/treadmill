@@ -200,7 +200,7 @@ rdtscp = treadmill.traits:has_rdtscp
 
 [treadmill.sproc]
 ad = treadmill.sproc.ad
-alert_monitor = treadmill.sproc.alert_monitor
+alert-monitor = treadmill.sproc.alert_monitor
 appcfgmgr = treadmill.sproc.appcfgmgr
 appevents = treadmill.sproc.appevents
 appmonitor = treadmill.sproc.appmonitor
