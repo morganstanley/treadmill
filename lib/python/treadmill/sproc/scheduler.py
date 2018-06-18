@@ -18,8 +18,10 @@ def init():
     """Return top level command handler."""
 
     @click.command()
-    @click.argument('events-dir', type=click.Path(exists=True))
-    def run(events_dir):
+    @click.option('--once', is_flag=True, default=False,
+                  help='Run once.')
+    @click.option('--events-dir', type=click.Path(exists=True))
+    def run(once, events_dir):
         """Run Treadmill master scheduler."""
         scheduler.DIMENSION_COUNT = 3
         cell_master = master.Master(
@@ -27,6 +29,6 @@ def init():
             context.GLOBAL.cell,
             events_dir
         )
-        cell_master.run()
+        cell_master.run(once)
 
     return run

@@ -186,7 +186,7 @@ def reevaluate(api_url, alert_f, state, zkclient, last_waited):
     return waited
 
 
-def _run_sync(api_url, alerts_dir):
+def _run_sync(api_url, alerts_dir, once):
     """Sync app monitor count with instance count."""
 
     zkclient = context.GLOBAL.zk.conn
@@ -271,6 +271,8 @@ def _run_sync(api_url, alerts_dir):
         last_waited = reevaluate(
             api_url, alerter, state, zkclient, last_waited
         )
+        if once:
+            break
 
 
 def init():
@@ -282,7 +284,9 @@ def init():
     @click.option('--api', required=True, help='Cell API url.')
     @click.option('--approot', type=click.Path(exists=True),
                   envvar='TREADMILL_APPROOT', required=True)
-    def top(no_lock, api, approot):
+    @click.option('--once', is_flag=True, default=False,
+                  help='Run once.')
+    def top(no_lock, api, approot, once):
         """Sync LDAP data with Zookeeper data."""
         tm_env = appenv.AppEnvironment(root=approot)
 
@@ -291,9 +295,9 @@ def init():
                                      z.path.election(__name__))
             _LOGGER.info('Waiting for leader lock.')
             with lock:
-                _run_sync(api, tm_env.alerts_dir)
+                _run_sync(api, tm_env.alerts_dir, once)
         else:
             _LOGGER.info('Running without lock.')
-            _run_sync(api, tm_env.alerts_dir)
+            _run_sync(api, tm_env.alerts_dir, once)
 
     return top
