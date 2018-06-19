@@ -9,7 +9,7 @@ command: |
       appevents /treadmill/appevents
 environ_dir: "/treadmill/env"
 environ:
-  KRB5CCNAME: "FILE:/treadmill/spool/tickets/{{ treadmillid }}"
+  KRB5CCNAME: "FILE:/var/spool/tickets/{{ treadmillid }}"
 monitor_policy:
   limit: "{{ restart_limit }}"
   interval: "{{ restart_interval }}"
