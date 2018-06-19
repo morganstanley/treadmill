@@ -113,6 +113,7 @@ class NativeImageTest(unittest.TestCase):
         self.assertTrue(isdir('dev/shm'))
         self.assertTrue(isdir('dev/pts'))
         self.assertTrue(isdir('dev/mqueue'))
+        self.assertTrue(isdir('home'))
         self.assertTrue(isdir('opt'))
         self.assertTrue(isdir('run'))
         self.assertTrue(isdir('tmp'))
