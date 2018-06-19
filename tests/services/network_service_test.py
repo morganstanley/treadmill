@@ -523,7 +523,6 @@ class NetworkServiceTest(unittest.TestCase):
             ext_mtu=9000,
         )
         svc._vips = mock.Mock()
-        _mockip = svc._vips.alloc.return_value
         request = {
             'environment': 'dev',
         }

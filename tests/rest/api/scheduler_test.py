@@ -7,7 +7,6 @@ from __future__ import unicode_literals
 import json
 import unittest
 
-
 import flask
 import flask_restplus as restplus
 import mock

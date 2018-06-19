@@ -44,6 +44,34 @@ class RunTest(unittest.TestCase):
                 mock.Mock(return_value=mock.MagicMock()))
     @mock.patch('treadmill.context.Context.cell_api',
                 mock.Mock(return_value=['http://xxx:1234']))
+    def test_run_debug(self):
+        """Test cli.run with debug option."""
+        result = self.runner.invoke(
+            self.cli, ['--cell', 'xx', 'proid.app', '--debug']
+        )
+        self.assertEqual(result.exit_code, 0)
+        args, kwargs = treadmill.restclient.post.call_args
+        _, url = args
+        self.assertIn('debug=true', url)
+
+    @mock.patch('treadmill.restclient.post',
+                mock.Mock(return_value=mock.MagicMock()))
+    @mock.patch('treadmill.context.Context.cell_api',
+                mock.Mock(return_value=['http://xxx:1234']))
+    def test_run_debug_services(self):
+        """Test cli.run with debug services option."""
+        result = self.runner.invoke(
+            self.cli, ['--cell', 'xx', 'proid.app', '--debug-services', 'test']
+        )
+        self.assertEqual(result.exit_code, 0)
+        args, kwargs = treadmill.restclient.post.call_args
+        _, url = args
+        self.assertIn('debug_services=test', url)
+
+    @mock.patch('treadmill.restclient.post',
+                mock.Mock(return_value=mock.MagicMock()))
+    @mock.patch('treadmill.context.Context.cell_api',
+                mock.Mock(return_value=['http://xxx:1234']))
     def test_run_normalparam(self):
         """Test cli.run service with normal parameters."""
         result = self.runner.invoke(

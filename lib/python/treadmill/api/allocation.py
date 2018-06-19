@@ -22,6 +22,7 @@ from treadmill import plugin_manager
 _LOGGER = logging.getLogger(__name__)
 
 _DEFAULT_RANK = 100
+_DEFAULT_PARTITION = admin.DEFAULT_PARTITION
 
 
 def _set_auth_resource(cls, resource):
@@ -216,6 +217,8 @@ class API(object):
                     """Create reservation.
                     """
                     allocation, cell = rsrc_id.rsplit('/', 1)
+                    if 'partition' not in rsrc:
+                        rsrc['partition'] = _DEFAULT_PARTITION
                     _check_capacity(cell, allocation, rsrc)
                     if 'rank' not in rsrc:
                         rsrc['rank'] = _DEFAULT_RANK

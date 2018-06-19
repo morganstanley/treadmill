@@ -54,7 +54,7 @@ class Ticket(object):
     def __init__(self, princ, ticket):
         self.princ = princ
         self.ticket = ticket
-        user, _realm = princ.split('@')
+        user = princ[:princ.find('@') if '@' in princ else len(princ)]
         try:
             self.uid = pwd.getpwnam(user).pw_uid
         except KeyError:
@@ -83,6 +83,7 @@ class Ticket(object):
         if path is None:
             path = self.tkt_path
 
+        _LOGGER.info('Writing ticket: %s', path)
         # TODO: confirm the comment or rewrite using fs.write_safe.
         #
         # The following code will write ticket to destination only of the
@@ -188,11 +189,14 @@ def krbcc_ok(tkt_path):
 class TicketLocker(object):
     """Manages ticket exchange between ticket locker and the container."""
 
-    def __init__(self, zkclient, tkt_spool_dir):
+    def __init__(self, zkclient, tkt_spool_dir, trusted=None):
         self.zkclient = zkclient
         self.tkt_spool_dir = tkt_spool_dir
         self.zkclient.add_listener(zkutils.exit_on_lost)
         self.hostname = sysinfo.hostname()
+        self.trusted = trusted
+        if not self.trusted:
+            self.trusted = {}
 
     def prune_tickets(self):
         """Remove invalid tickets from directory."""
@@ -281,42 +285,51 @@ class TicketLocker(object):
             _LOGGER.error('Host principal expected, got: %s.', princ)
             return None
 
+        tkt_dict = dict()
+        for ticket in self._get_app_tickets(princ, appname):
+            tkt_file = os.path.join(self.tkt_spool_dir, ticket)
+            try:
+                with io.open(tkt_file, 'rb') as f:
+                    encoded = base64.standard_b64encode(f.read())
+                    tkt_dict[ticket] = encoded
+            except (IOError, OSError) as err:
+                if err.errno == errno.ENOENT:
+                    _LOGGER.warning(
+                        'Ticket file does not exist: %s', tkt_file
+                    )
+                else:
+                    raise
+
+        return tkt_dict
+
+    def _get_app_tickets(self, princ, appname):
+        """Get tickets required for the given app."""
+
         hostname = princ[len('host/'):princ.rfind('@')]
+
+        if (hostname, appname) in self.trusted:
+            tkts = self.trusted[(hostname, appname)]
+            _LOGGER.info('Trusted app: %s/%s, tickets: %r',
+                         hostname, appname, tkts)
+            return tkts
 
         if not self.zkclient.exists(z.path.placement(hostname, appname)):
             _LOGGER.error('App %s not scheduled on node %s', appname, hostname)
-            return None
+            return set()
 
-        tkt_dict = dict()
         try:
             appnode = z.path.scheduled(appname)
             app = zkutils.with_retry(zkutils.get, self.zkclient, appnode)
 
-            tickets = set(app.get('tickets', []))
-            _LOGGER.info('App tickets: %s: %r', appname, tickets)
-            for ticket in tickets:
-                tkt_file = os.path.join(self.tkt_spool_dir, ticket)
-                try:
-                    with io.open(tkt_file, 'rb') as f:
-                        encoded = base64.standard_b64encode(f.read())
-                        tkt_dict[ticket] = encoded
-                except (IOError, OSError) as err:
-                    if err.errno == errno.ENOENT:
-                        _LOGGER.warning(
-                            'Ticket file does not exist: %s', tkt_file
-                        )
-                    else:
-                        raise
-
+            return set(app.get('tickets', []))
         except kazoo.client.NoNodeError:
             _LOGGER.info('App does not exist: %s', appname)
-
-        return tkt_dict
+            return set()
 
 
 # Disable warning for too many branches.
 # pylint: disable=R0912
-def run_server(locker):
+def run_server(locker, register=True):
     """Runs tickets server."""
     _LOGGER.info('Tickets server starting.')
 
@@ -328,7 +341,7 @@ def run_server(locker):
 
         @utils.exit_on_unhandled
         def got_line(self, data):
-            """Invoked after authentication is done, with decrypted data as arg.
+            """Invoked after authentication is done, decrypted data as arg.
 
             :param ``bytes`` data:
                 Data received from the client.
@@ -359,61 +372,67 @@ def run_server(locker):
 
     port = reactor.listenTCP(0, TicketLockerServerFactory()).getHost().port
 
-    locker.register_endpoint(port)
+    _LOGGER.info('Running ticket locker on port: %s', port)
+    if register:
+        locker.register_endpoint(port)
     reactor.run()
+
+
+def lockers(zkclient):
+    """Get registered ticket lockers."""
+    endpoints = zkutils.with_retry(zkclient.get_children, z.TICKET_LOCKER)
+    random.shuffle(endpoints)
+    return endpoints
 
 
 def request_tickets(zkclient, appname, tkt_spool_dir, principals):
     """Request tickets from the locker for the given app.
     """
-    # Too many nested blocks.
-    #
-    # pylint: disable=R0101
-    lockers = zkutils.with_retry(zkclient.get_children,
-                                 z.TICKET_LOCKER)
-    random.shuffle(lockers)
-
     expected = set(principals)
-
-    for locker in lockers:
-
+    for locker in lockers(zkclient):
         if not expected:
             _LOGGER.info('Done: all tickets retrieved.')
             return
 
         host, port = locker.split(':')
-        service = 'host@%s' % host
-        _LOGGER.info('connecting: %s:%s, %s', host, port, service)
-        client = gssapiprotocol.GSSAPILineClient(host, int(port), service)
-        try:
-            if client.connect():
-                _LOGGER.debug('connected to: %s:%s, %s', host, port, service)
-                client.write(appname.encode())
-                _LOGGER.debug('sent: %r', appname)
-                while True:
-                    line = client.read()
-                    if not line:
-                        _LOGGER.debug('Got empty response.')
-                        break
+        request_tickets_from(host, port, appname, tkt_spool_dir, expected)
 
-                    princ, encoded = line.split(b':', 1)
-                    princ = princ.decode()
-                    ticket_data = base64.standard_b64decode(encoded)
-                    if ticket_data:
-                        _LOGGER.info('got ticket %s:%s',
-                                     princ,
-                                     hashlib.sha1(encoded).hexdigest())
-                        store_ticket(Ticket(princ, ticket_data),
-                                     tkt_spool_dir)
 
+def request_tickets_from(host, port, appname, tkt_spool_dir, expected=None):
+    """Request tickets from given locker endpoint."""
+    service = 'host@%s' % host
+    _LOGGER.info('connecting: %s:%s, %s', host, port, service)
+    client = gssapiprotocol.GSSAPILineClient(host, int(port), service)
+    try:
+        if client.connect():
+            _LOGGER.debug('connected to: %s:%s, %s', host, port, service)
+            client.write(appname.encode())
+            _LOGGER.debug('sent: %r', appname)
+            while True:
+                line = client.read()
+                if not line:
+                    _LOGGER.debug('Got empty response.')
+                    break
+
+                princ, encoded = line.split(b':', 1)
+                princ = princ.decode()
+                ticket_data = base64.standard_b64decode(encoded)
+                if ticket_data:
+                    _LOGGER.info('got ticket %s:%s',
+                                 princ,
+                                 hashlib.sha1(encoded).hexdigest())
+                    store_ticket(Ticket(princ, ticket_data),
+                                 tkt_spool_dir)
+
+                    if expected is not None:
                         expected.discard(princ)
-                    else:
-                        _LOGGER.info('got ticket %s:None', princ)
-            else:
-                _LOGGER.warning('Cannot connect to %s:%s, %s', host, port,
-                                service)
-        finally:
-            client.disconnect()
+                else:
+                    _LOGGER.info('got ticket %s:None', princ)
+        else:
+            _LOGGER.warning('Cannot connect to %s:%s, %s', host, port,
+                            service)
+    finally:
+        client.disconnect()
 
 
 def store_ticket(tkt, tkt_spool_dir):

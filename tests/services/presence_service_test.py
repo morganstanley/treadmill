@@ -12,24 +12,24 @@ import shutil
 import tempfile
 import unittest
 
-# Disable W0611: Unused import
-import tests.treadmill_test_skip_windows  # pylint: disable=W0611
-
 import kazoo
 import mock
+
+# Disable W0611: Unused import
+import tests.treadmill_test_skip_windows  # pylint: disable=W0611
 
 import treadmill
 from treadmill import services
 from treadmill.services import presence_service
 
-# Test accesses protected members of presence service.
-#
-# pylint:disable=W0212
-
 
 class PresenceServiceTest(unittest.TestCase):
     """Unit tests for the network service implementation.
     """
+    # Test accesses protected members of presence service.
+    #
+    # pylint:disable=W0212
+
     def setUp(self):
         self.root = tempfile.mkdtemp()
 
@@ -109,7 +109,8 @@ class PresenceServiceTest(unittest.TestCase):
                                          'h.hh.com'))
         treadmill.zkutils.create.assert_called_with(
             mock.ANY,
-            '/running/foo.bar#1234', 'h.hh.com', ephemeral=True)
+            '/running/foo.bar#1234', 'h.hh.com', acl=[mock.ANY], ephemeral=True
+        )
 
         # Node exists, session match.
         svc.zkclient.client_id = (12345, '')

@@ -164,7 +164,7 @@ class AppCfgMgrTest(unittest.TestCase):
         treadmill.appcfg.eventfile_unique_name.side_effect = _fake_unique_name
         for app in ('proid.app#0', 'proid.app#1', 'proid.app#2'):
             # Create cache/ entry
-            with io.open(os.path.join(self.cache, app), 'w') as _f:
+            with io.open(os.path.join(self.cache, app), 'w'):
                 pass
             # Create app/ dir
             uniquename = _fake_unique_name(app)
@@ -205,7 +205,7 @@ class AppCfgMgrTest(unittest.TestCase):
         treadmill.appcfg.eventfile_unique_name.side_effect = _fake_unique_name
         for app in ('proid.app#0', 'proid.app#1', 'proid.app#2'):
             # Create cache/ entry
-            with io.open(os.path.join(self.cache, app), 'w') as _f:
+            with io.open(os.path.join(self.cache, app), 'w'):
                 pass
             uniquename = _fake_unique_name(app)
             os.mkdir(os.path.join(self.apps, uniquename))
@@ -291,7 +291,7 @@ class AppCfgMgrTest(unittest.TestCase):
         # Access to a protected member _synchronize of a client class
         # pylint: disable=W0212
 
-        with io.open(os.path.join(self.running, 'xxx'), 'w') as _f:
+        with io.open(os.path.join(self.running, 'xxx'), 'w'):
             pass
 
         self.appcfgmgr._synchronize()
@@ -322,7 +322,7 @@ class AppCfgMgrTest(unittest.TestCase):
             return uniquename
         treadmill.appcfg.eventfile_unique_name.side_effect = _fake_unique_name
         # Create cache/ entry
-        with io.open(os.path.join(self.cache, 'foo#1'), 'w') as _f:
+        with io.open(os.path.join(self.cache, 'foo#1'), 'w'):
             pass
         # Create a broken running/ symlink
         os.symlink(os.path.join(self.apps, 'foo-1-1234'),

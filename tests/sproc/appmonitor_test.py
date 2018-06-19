@@ -9,10 +9,10 @@ from __future__ import unicode_literals
 import time
 import unittest
 
+import mock
+
 # Disable W0611: Unused import
 import tests.treadmill_test_skip_windows  # pylint: disable=W0611
-
-import mock
 
 from treadmill import restclient
 from treadmill import zkutils

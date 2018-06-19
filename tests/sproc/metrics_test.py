@@ -19,7 +19,7 @@ import mock
 import tests.treadmill_test_skip_windows  # pylint: disable=W0611
 
 from treadmill import appenv
-from treadmill.sproc import metrics  # pylint: disable=no-name-in-module
+from treadmill.sproc import metrics
 
 
 class MetricsTest(unittest.TestCase):

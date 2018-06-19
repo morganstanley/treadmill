@@ -248,7 +248,7 @@ class Master(loader.Loader):
         self.backend.update('/', {'timezone': tz})
 
     @utils.exit_on_unhandled
-    def run_loop(self):
+    def run_loop(self, once=False):
         """Run the master loop."""
         self.create_rootns()
         self.store_timezone()
@@ -260,6 +260,9 @@ class Master(loader.Loader):
         last_integrity_check = 0
         last_reboot_check = 0
         last_state_report = 0
+        if once:
+            return
+
         while not self.exit:
             # Process ZK children events queue
             queue_empty = False
@@ -296,13 +299,13 @@ class Master(loader.Loader):
                 time.sleep(_CHECK_EVENT_INTERVAL)
 
     @utils.exit_on_unhandled
-    def run(self):
+    def run(self, once=False):
         """Runs the master (once it is elected leader)."""
         lock = zkutils.make_lock(self.backend.zkclient,
                                  z.path.election(__name__))
         _LOGGER.info('Waiting for leader lock.')
         with lock:
-            self.run_loop()
+            self.run_loop(once)
 
     def tick_reboots(self):
         """Tick partition reboot schedulers."""

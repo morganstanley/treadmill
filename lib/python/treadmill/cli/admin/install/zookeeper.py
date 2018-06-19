@@ -14,7 +14,6 @@ import click
 from treadmill import bootstrap
 from treadmill import context
 
-
 _LOGGER = logging.getLogger(__name__)
 
 

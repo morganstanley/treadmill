@@ -14,12 +14,13 @@ import shutil
 import tempfile
 import unittest
 
-from tests.testutils import mockzk
-
 import kazoo
 import kazoo.client
 import kazoo.exceptions
 import mock
+
+# Disable W0611: Unused import
+from tests.testutils import mockzk
 
 import treadmill
 import treadmill.context

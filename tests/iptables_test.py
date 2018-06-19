@@ -653,10 +653,28 @@ class IptablesTest(unittest.TestCase):
         """
         treadmill.subproc.check_call.return_value = 0
 
-        treadmill.iptables.flush_cnt_conntrack_table('5.5.5.5')
+        treadmill.iptables.flush_cnt_conntrack_table(vip='5.5.5.5')
 
-        treadmill.subproc.check_call.assert_called_with(
-            ['conntrack', '-D', '-g', '5.5.5.5']
+        treadmill.subproc.check_call.assert_has_calls(
+            [
+                mock.call(
+                    [
+                        'conntrack',
+                        '-D',
+                        '--protonum', 'udp',
+                        '--src-nat', '5.5.5.5'
+                    ]
+                ),
+                mock.call(
+                    [
+                        'conntrack',
+                        '-D',
+                        '--protonum', 'udp',
+                        '--dst-nat', '5.5.5.5'
+                    ]
+                ),
+            ],
+            any_order=True
         )
 
         treadmill.subproc.check_call.reset_mock()
@@ -666,8 +684,26 @@ class IptablesTest(unittest.TestCase):
 
         treadmill.iptables.flush_cnt_conntrack_table('4.4.4.4')
 
-        treadmill.subproc.check_call.assert_called_with(
-            ['conntrack', '-D', '-g', '4.4.4.4']
+        treadmill.subproc.check_call.assert_has_calls(
+            [
+                mock.call(
+                    [
+                        'conntrack',
+                        '-D',
+                        '--protonum', 'udp',
+                        '--src-nat', '4.4.4.4'
+                    ]
+                ),
+                mock.call(
+                    [
+                        'conntrack',
+                        '-D',
+                        '--protonum', 'udp',
+                        '--dst-nat', '4.4.4.4'
+                    ]
+                ),
+            ],
+            any_order=True
         )
 
     @mock.patch('treadmill.subproc.check_call', mock.Mock(autospec=True))
@@ -678,8 +714,26 @@ class IptablesTest(unittest.TestCase):
 
         treadmill.iptables.flush_pt_conntrack_table('5.5.5.5')
 
-        treadmill.subproc.check_call.assert_called_with(
-            ['conntrack', '-D', '-s', '5.5.5.5']
+        treadmill.subproc.check_call.assert_has_calls(
+            [
+                mock.call(
+                    [
+                        'conntrack',
+                        '-D',
+                        '--protonum', 'udp',
+                        '--orig-src', '5.5.5.5'
+                    ]
+                ),
+                mock.call(
+                    [
+                        'conntrack',
+                        '-D',
+                        '--protonum', 'udp',
+                        '--orig-dst', '5.5.5.5'
+                    ]
+                ),
+            ],
+            any_order=True
         )
 
         treadmill.subproc.check_call.reset_mock()
@@ -689,8 +743,26 @@ class IptablesTest(unittest.TestCase):
 
         treadmill.iptables.flush_pt_conntrack_table('4.4.4.4')
 
-        treadmill.subproc.check_call.assert_called_with(
-            ['conntrack', '-D', '-s', '4.4.4.4']
+        treadmill.subproc.check_call.assert_has_calls(
+            [
+                mock.call(
+                    [
+                        'conntrack',
+                        '-D',
+                        '--protonum', 'udp',
+                        '--orig-src', '4.4.4.4'
+                    ]
+                ),
+                mock.call(
+                    [
+                        'conntrack',
+                        '-D',
+                        '--protonum', 'udp',
+                        '--orig-dst', '4.4.4.4'
+                    ]
+                ),
+            ],
+            any_order=True
         )
 
     @mock.patch('treadmill.subproc.check_output', mock.Mock())

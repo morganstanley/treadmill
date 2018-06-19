@@ -14,15 +14,14 @@ import time
 import unittest
 import sys
 
-# Disable W0611: Unused import
-import tests.treadmill_test_skip_windows  # pylint: disable=W0611
-
 import mock
 import numpy as np
 import six
 
-from treadmill import scheduler
+# Disable W0611: Unused import
+import tests.treadmill_test_skip_windows  # pylint: disable=W0611
 
+from treadmill import scheduler
 
 _TRAITS = dict()
 
@@ -139,7 +138,7 @@ class AllocationTest(unittest.TestCase):
 
         # Now set max_utilization to 1
         alloc.max_utilization = 1
-        # XXX(boysson: Broken test. Needs upgrade to V3
+        # XXX: Broken test. Needs upgrade to V3
         # XXX:
         # XXX: self.assertEqual(
         # XXX:     2,
@@ -259,12 +258,15 @@ class AllocationTest(unittest.TestCase):
         # Check that utilization of prio 0 apps is always max float.
         self.assertEqual(
             [float('inf')] * 3,
-            [util_b for (_rank,
-                         util_b,
-                         _util_a,
-                         _pending,
-                         _order,
-                         _app) in queue[-3:]]
+            [
+                util_b
+                for (_rank,
+                     util_b,
+                     _util_a,
+                     _pending,
+                     _order,
+                     _app) in queue[-3:]
+            ]
         )
 
     def test_sub_alloc_reservation(self):

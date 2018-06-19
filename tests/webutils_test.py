@@ -14,12 +14,6 @@ import mock
 from treadmill import webutils
 
 
-def trimall(string):
-    """Removes all whitespaces and eol chars from the string."""
-    return ''.join(
-        string.splitlines()).strip().replace(' ', '').replace('\t', '')
-
-
 class WebUtilsTest(unittest.TestCase):
     """Tests for teadmill.webutils."""
 

@@ -140,8 +140,12 @@ class PresenceResourceService(BaseResourceServiceImpl):
         If the node is present, check if the owner session id is ours, if not,
         fail.
         """
+        acl = self.zkclient.make_servers_acl()
+
         try:
-            zkutils.create(self.zkclient, path, data, ephemeral=True)
+            zkutils.create(
+                self.zkclient, path, data, acl=[acl], ephemeral=True
+            )
             _LOGGER.info('Created node: %s', path)
         except kazoo.client.NodeExistsError:
             try:

@@ -724,6 +724,93 @@ def delete_passthrough_rule(passthrough_rule, chain=PREROUTING_PASSTHROUGH):
     )
 
 
+def flush_conntrack_table(src_ip=None, src_port=None,
+                          dst_ip=None, dst_port=None,
+                          reply_src_ip=None, reply_src_port=None,
+                          reply_dst_ip=None, reply_dst_port=None,
+                          src_nat_ip=None, dst_nat_ip=None):
+    """Clear any UDP entry in the conntrack table for a given flow(s).
+
+    This should be run after the forwarding rules have been removed but
+    *before* the VIP is reused.
+
+    :param ``str`` src_ip:
+        Original source IP of the flow(s) to scrub from the conntrack table.
+    :param ``str`` src_port:
+        Original source port of the flow(s) to scrub from the conntrack table.
+    :param ``str`` dst_ip:
+        Original destination IP of the flow(s) to scrub from the conntrack
+        table.
+    :param ``str`` dst_port:
+        Original destination port of the flow(s) to scrub from the conntrack
+        table.
+    :param ``str`` reply_src_ip:
+        Reply source IP of the flow(s) to scrub from the conntrack table.
+    :param ``str`` reply_src_port:
+        Reply source port of the flow(s) to scrub from the conntrack table.
+    :param ``str`` reply_dst_ip:
+        Reply destination IP of the flow(s) to scrub from the conntrack table.
+    :param ``str`` reply_dst_port:
+        Reply destination port of the flow(s) to scrub from the conntrack
+        table.
+    :param ``str`` src_nat_ip:
+        NAT'ed source IP of the flow(s) to scrub from the conntrack table.
+    :param ``str`` dst_nat_ip:
+        NAT'ed destination IP of the flow(s) to scrub from the conntrack table.
+        table.
+    """
+    # This addresses the case for UDP session in particular.
+    #
+    # Since netfilter keeps connection state cache for 180 sec by default, udp
+    # packets will not be routed if the same rule is recreated, rather they
+    # will be routed to previously associated container.
+    #
+    # Deleting connection state will ensure that netfilter connection tracking
+    # works correctly.
+
+    # pylint: disable=too-many-branches
+    flow_selectors = []
+    if src_ip is not None and src_ip != firewall.ANY_IP:
+        flow_selectors.extend(['--orig-src', src_ip])
+    if src_port is not None and src_port != firewall.ANY_PORT:
+        flow_selectors.extend(['--orig-port-src', str(src_port)])
+    if dst_ip is not None and dst_ip != firewall.ANY_IP:
+        flow_selectors.extend(['--orig-dst', dst_ip])
+    if dst_port is not None and dst_port != firewall.ANY_PORT:
+        flow_selectors.extend(['--orig-port-dst', str(dst_port)])
+
+    if reply_src_ip is not None and reply_src_ip != firewall.ANY_IP:
+        flow_selectors.extend(['--reply-src', reply_src_ip])
+    if reply_src_port is not None and reply_src_port != firewall.ANY_PORT:
+        flow_selectors.extend(['--reply-port-src', str(reply_src_port)])
+    if reply_dst_ip is not None and reply_dst_ip != firewall.ANY_IP:
+        flow_selectors.extend(['--reply-dst', reply_dst_ip])
+    if reply_dst_port is not None and reply_dst_port != firewall.ANY_PORT:
+        flow_selectors.extend(['--reply-port-dst', str(reply_dst_port)])
+
+    if src_nat_ip is not None and src_nat_ip != firewall.ANY_IP:
+        flow_selectors.extend(['--src-nat', src_nat_ip])
+    if dst_nat_ip is not None and dst_nat_ip != firewall.ANY_IP:
+        flow_selectors.extend(['--dst-nat', dst_nat_ip])
+
+    assert flow_selectors, 'Provide at least one flow selector element'
+
+    try:
+        subproc.check_call(
+            [
+                'conntrack', '-D',
+                '--protonum', 'udp'
+            ] + flow_selectors
+        )
+    except subproc.CalledProcessError as exc:
+        # return code is 0 if entries were deleted, 1 if no matching
+        # entries were found.
+        if exc.returncode in (0, 1):
+            pass
+        else:
+            raise
+
+
 def flush_cnt_conntrack_table(vip):
     """Clear any entry in the conntrack table for a given VIP.
 
@@ -733,23 +820,8 @@ def flush_cnt_conntrack_table(vip):
     :param ``str`` vip:
         NAT IP to scrub from the conntrack table.
     """
-    # This addresses the case for UDP session in particular.
-    #
-    # Since netfilter keeps connection state cache for 30 sec by default, udp
-    # packets will not be routed if the same rule is recreated, rather they
-    # will be routed to non previously associated container.
-    #
-    # Deleting connection state will ensure that netfilter connection tracking
-    # works correctly.
-    try:
-        subproc.check_call(['conntrack', '-D', '-g', vip])
-    except subproc.CalledProcessError as exc:
-        # return code is 0 if entries were deleted, 1 if no matching
-        # entries were found.
-        if exc.returncode in (0, 1):
-            pass
-        else:
-            raise
+    flush_conntrack_table(src_nat_ip=vip)
+    flush_conntrack_table(dst_nat_ip=vip)
 
 
 def flush_pt_conntrack_table(passthrough_ip):
@@ -760,23 +832,8 @@ def flush_pt_conntrack_table(passthrough_ip):
     :param ``str`` passthrough_ip:
         External IP to scrub from the conntrack table.
     """
-    # This addresses the case for UDP session in particular.
-    #
-    # Since netfilter keeps connection state cache for 30 sec by default, udp
-    # packets will not be routed if the same rule is recreated, rather they
-    # will be routed to non previously associated container.
-    #
-    # Deleting connection state will ensure that netfilter connection tracking
-    # works correctly.
-    try:
-        subproc.check_call(['conntrack', '-D', '-s', passthrough_ip])
-    except subproc.CalledProcessError as exc:
-        # return code is 0 if entries were deleted, 1 if no matching
-        # entries were found.
-        if exc.returncode in (0, 1):
-            pass
-        else:
-            raise
+    flush_conntrack_table(dst_ip=passthrough_ip)
+    flush_conntrack_table(src_ip=passthrough_ip)
 
 
 def add_rule(rule, chain=None):

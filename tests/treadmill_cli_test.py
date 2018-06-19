@@ -8,7 +8,6 @@ from __future__ import unicode_literals
 
 import unittest
 
-
 import click
 import click.testing
 import mock

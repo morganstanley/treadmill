@@ -12,12 +12,12 @@ import shutil
 import tempfile
 import unittest
 
-# Disable W0611: Unused import
-import tests.treadmill_test_skip_windows  # pylint: disable=W0611
-
 import ldap3
 import mock
 import yaml
+
+# Disable W0611: Unused import
+import tests.treadmill_test_skip_windows  # pylint: disable=W0611
 
 from treadmill import utils
 from treadmill.ad import gmsa
@@ -27,9 +27,6 @@ from treadmill.ad import _servers as servers
 class HostGroupWatchTest(unittest.TestCase):
     """Mock test for treadmill.ad.gmsa.HostGroupWatch.
     """
-    # Disable invalid method names for test cases
-    # pylint: disable=C0103
-
     def setUp(self):
         self.root = tempfile.mkdtemp()
         self.placement_dir = os.path.join(self.root, 'placement')
