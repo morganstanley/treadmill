@@ -257,7 +257,7 @@ def validate_disk(_ctx, _param, value):
     if value is None:
         return None
     if not re.search(r'\d+[KkMmGg]$', value):
-        raise click.BadParameter('Disk format: nnn[K|M|Gyy].')
+        raise click.BadParameter('Disk format: nnn[K|M|G].')
     return value
 
 

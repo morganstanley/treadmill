@@ -14,12 +14,12 @@ import sys
 import tempfile
 import unittest
 
+if os.name != 'nt':
+    import select
+
 import mock
 
 from treadmill import dirwatch
-
-if os.name != 'nt':
-    import select
 
 
 class DirWatcherTest(unittest.TestCase):

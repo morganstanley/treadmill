@@ -13,6 +13,7 @@ import shlex
 
 import click
 import six
+from six.moves import urllib_parse
 
 from treadmill import cli
 from treadmill import context
@@ -37,6 +38,8 @@ def _run(apis,
          restart_limit,
          restart_interval,
          endpoint,
+         debug,
+         debug_services,
          appname,
          command):
     """Run Treadmill app."""
@@ -95,8 +98,19 @@ def _run(apis,
             app['cpu'] = str(cpu)
 
     url = '/instance/' + appname
+
+    query = {}
     if count:
-        url += '?count=%d' % count
+        query['count'] = count
+    if debug:
+        query['debug'] = 'true'
+    if debug_services:
+        query['debug_services'] = ','.join(debug_services)
+
+    if query:
+        url = '{}?{}'.format(
+            url, urllib_parse.urlencode(query)
+        )
 
     response = restclient.post(apis, url, payload=app)
     for instance_id in response.json()['instances']:
@@ -136,6 +150,10 @@ def init():
                   help='Service restart limit interval.')
     @click.option('--endpoint', help='Network endpoint.',
                   type=(str, int), multiple=True)
+    @click.option('--debug/--no-debug', help='Do not start services.',
+                  is_flag=True, default=False)
+    @click.option('--debug-services', help='Do not start specified services.',
+                  type=cli.LIST)
     @click.argument('appname')
     @click.argument('command', nargs=-1)
     @cli.handle_exceptions(restclient.CLI_REST_EXCEPTIONS)
@@ -150,6 +168,8 @@ def init():
             restart_limit,
             restart_interval,
             endpoint,
+            debug,
+            debug_services,
             appname,
             command):
         """Schedule Treadmill app.
@@ -164,6 +184,6 @@ def init():
         return _run(
             apis, count, manifest, memory, cpu, disk, tickets,
             service, restart_limit, restart_interval, endpoint,
-            appname, command)
+            debug, debug_services, appname, command)
 
     return run

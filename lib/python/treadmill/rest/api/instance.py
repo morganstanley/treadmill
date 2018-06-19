@@ -22,8 +22,16 @@ def init(api, cors, impl):
         api, __name__, 'Instance REST operations'
     )
 
-    count_parser = api.parser()
-    count_parser.add_argument('count', type=int, default=1, location='args')
+    create_args_parser = api.parser()
+    create_args_parser.add_argument(
+        'count', type=int, default=1, location='args'
+    )
+    create_args_parser.add_argument(
+        'debug', type=bool, default=False, location='args'
+    )
+    create_args_parser.add_argument(
+        'debug_services', type=str, action='split', location='args'
+    )
 
     instances_resp_model = api.model('Instances', {
         'instances': fields.List(fields.String(description='Instances')),
@@ -156,16 +164,22 @@ def init(api, cors, impl):
         @webutils.post_api(api, cors,
                            req_model=app_request_model,
                            resp_model=instances_resp_model,
-                           parser=count_parser)
+                           parser=create_args_parser)
         def post(self, instance_id):
             """Creates Treadmill instance."""
-            args = count_parser.parse_args()
+            args = create_args_parser.parse_args()
             count = args.get('count', 1)
+            debug = args.get('debug', False)
+            debug_services = args.get('debug_services')
+            # FIXME: figure why action='split' doesn't split it.
+            if debug_services:
+                debug_services = debug_services.split(',')
 
             user = flask.g.get('user')
 
             instances = impl.create(
-                instance_id, flask.request.json, count, user
+                instance_id, flask.request.json, count, user,
+                debug, debug_services
             )
             return {'instances': instances}
 

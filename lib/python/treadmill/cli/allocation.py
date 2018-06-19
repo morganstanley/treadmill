@@ -11,7 +11,6 @@ import logging
 import click
 import six
 
-from treadmill import admin
 from treadmill import cli
 from treadmill import context
 from treadmill import restclient
@@ -201,41 +200,37 @@ def init():
             data['cpu'] = cpu
         if disk:
             data['disk'] = disk
-
-        if rank is not None:
-            data['rank'] = rank
-        if rank_adjustment is not None:
-            data['rank_adjustment'] = rank_adjustment
-        if max_utilization is not None:
-            data['max_utilization'] = max_utilization
         if partition:
             data['partition'] = partition
-        if traits:
-            data['traits'] = cli.combine(traits)
 
-        if data:
-            reservation_url = '/allocation/{}/{}/reservation/{}'.format(
-                allocation, env, cell
-            )
+        reservation_url = '/allocation/{}/{}/reservation/{}'.format(
+            allocation, env, cell
+        )
 
-            try:
-                existing = restclient.get(restapi, reservation_url).json()
-                # TODO: need cleaner way of deleting attributes that are not
-                #       valid for update. It is a hack.
-                for attr in list(existing):
-                    if (attr not in
-                            ['memory', 'cpu', 'disk', 'partition']):
-                        del existing[attr]
+        try:
+            existing = restclient.get(restapi, reservation_url).json()
+            if data:
+                # To meet the json schema required in create
+                if 'memory' not in data:
+                    data['memory'] = existing['memory']
+                if 'cpu' not in data:
+                    data['cpu'] = existing['cpu']
+                if 'disk' not in data:
+                    data['disk'] = existing['disk']
+                if 'partition' not in data:
+                    data['partition'] = existing['partition']
+                restclient.put(restapi, reservation_url, payload=data)
+        except restclient.NotFoundError:
+            if rank is not None:
+                data['rank'] = rank
+            if rank_adjustment is not None:
+                data['rank_adjustment'] = rank_adjustment
+            if max_utilization is not None:
+                data['max_utilization'] = max_utilization
+            if traits:
+                data['traits'] = cli.combine(traits)
 
-                existing.update(data)
-                restclient.put(restapi, reservation_url, payload=existing)
-
-            except restclient.NotFoundError:
-                # some attributes need default values when creating
-                if not partition:
-                    data['partition'] = admin.DEFAULT_PARTITION
-
-                restclient.post(restapi, reservation_url, payload=data)
+            restclient.post(restapi, reservation_url, payload=data)
 
         _display_tenant(restapi, allocation)
 
@@ -274,12 +269,10 @@ def init():
         try:
             restclient.get(restapi, reservation_url)
         except restclient.NotFoundError:
-            # TODO: default partition should be resolved in API, not in CLI.
             restclient.post(restapi, reservation_url,
                             payload={'memory': '0M',
                                      'disk': '0M',
-                                     'cpu': '0%',
-                                     'partition': admin.DEFAULT_PARTITION})
+                                     'cpu': '0%'})
 
         url = '/allocation/{}/{}/assignment/{}/{}'.format(
             allocation, env, cell, pattern

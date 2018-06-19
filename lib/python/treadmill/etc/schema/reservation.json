@@ -22,7 +22,7 @@
     },
     "verbs": {
         "create": {
-            "required": [ "memory", "cpu", "disk", "partition" ]
+            "required": [ "memory", "cpu", "disk" ]
         },
         "update": {
             "required": [ "memory", "cpu", "disk", "partition" ]

@@ -392,6 +392,75 @@ class ApiInstanceTest(unittest.TestCase):
         with self.assertRaises(exc.QuotaExceededError):
             self.instance.create('yyy.app', yaml.load(doc), count=101)
 
+    @mock.patch('treadmill.context.AdminContext.conn',
+                mock.Mock(return_value=admin.Admin(None, None)))
+    @mock.patch('treadmill.context.ZkContext.conn', mock.Mock())
+    @mock.patch('treadmill.scheduler.masterapi.create_apps')
+    @mock.patch('treadmill.scheduler.masterapi.get_scheduled_stats',
+                mock.Mock(return_value={}))
+    @mock.patch('treadmill.api.instance._check_required_attributes',
+                mock.Mock())
+    def test_debug_services(self, create_apps_mock):
+        """Test debugging services.
+        """
+        doc = """
+        services:
+        - command: /bin/sleep 10
+          name: sleep1
+          restart:
+            limit: 0
+        - command: /bin/sleep 10
+          name: sleep2
+          restart:
+            limit: 0
+        - command: /bin/sleep 10
+          name: sleep3
+          restart:
+            limit: 0
+        memory: 100M
+        cpu: 10%
+        disk: 100M
+        """
+
+        # Don't debug services (no debug/debug_services).
+        self.instance.create('proid.app', yaml.load(doc))
+
+        create_apps_mock.assert_called_once()
+        args, _kwargs = create_apps_mock.call_args
+        _zkclient, _app_id, app, _count, _created_by = args
+        self.assertEqual(
+            [svc['name'] for svc in app['services'] if svc.get('downed')],
+            []
+        )
+
+        create_apps_mock.reset_mock()
+
+        # Debug all services (debug without debug_services).
+        self.instance.create('proid.app', yaml.load(doc), debug=True)
+
+        create_apps_mock.assert_called_once()
+        args, _kwargs = create_apps_mock.call_args
+        _zkclient, _app_id, app, _count, _created_by = args
+        self.assertEqual(
+            [svc['name'] for svc in app['services'] if svc.get('downed')],
+            ['sleep1', 'sleep2', 'sleep3']
+        )
+
+        create_apps_mock.reset_mock()
+
+        # Debug selected services (debug_services with a list of services).
+        self.instance.create(
+            'proid.app', yaml.load(doc), debug_services=['sleep1', 'sleep2']
+        )
+
+        create_apps_mock.assert_called_once()
+        args, _kwargs = create_apps_mock.call_args
+        _zkclient, _app_id, app, _count, _created_by = args
+        self.assertEqual(
+            [svc['name'] for svc in app['services'] if svc.get('downed')],
+            ['sleep1', 'sleep2']
+        )
+
 
 if __name__ == '__main__':
     unittest.main()
