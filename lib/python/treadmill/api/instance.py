@@ -130,9 +130,15 @@ class API(object):
             created_by={'anyOf': [
                 {'type': 'null'},
                 {'$ref': 'common.json#/user'},
+            ]},
+            debug={'type': 'boolean'},
+            debug_services={'anyOf': [
+                {'type': 'null'},
+                {'type': 'array', 'items': {'type': 'string'}}
             ]}
         )
-        def create(rsrc_id, rsrc, count=1, created_by=None):
+        def create(rsrc_id, rsrc, count=1, created_by=None,
+                   debug=False, debug_services=None):
             """Create (configure) instance."""
             _LOGGER.info('create: count = %s, %s %r, created_by = %s',
                          count, rsrc_id, rsrc, created_by)
@@ -173,6 +179,23 @@ class API(object):
 
             _check_required_attributes(configured)
             _set_defaults(configured, rsrc_id)
+
+            services = {
+                service['name']: service
+                for service in configured.get('services', [])
+            }
+
+            if not debug_services:
+                debug_services = list(services) if debug else []
+
+            for service in debug_services:
+                if service in services:
+                    services[service]['downed'] = True
+                    _LOGGER.info('Configuring service %s as down', service)
+                else:
+                    raise exc.InvalidInputError(
+                        __name__, 'Invalid service %s' % service
+                    )
 
             scheduled = masterapi.create_apps(
                 zkclient, rsrc_id, configured, count, created_by

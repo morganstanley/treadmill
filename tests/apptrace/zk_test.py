@@ -14,10 +14,10 @@ import mock
 import kazoo
 import kazoo.client
 
+from tests.testutils import mockzk
+
 import treadmill
 from treadmill.apptrace import zk
-
-from tests.testutils import mockzk
 
 
 class AppTraceZKTest(mockzk.MockZookeeperTestCase):

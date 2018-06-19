@@ -109,7 +109,8 @@ class PresenceServiceTest(unittest.TestCase):
                                          'h.hh.com'))
         treadmill.zkutils.create.assert_called_with(
             mock.ANY,
-            '/running/foo.bar#1234', 'h.hh.com', ephemeral=True)
+            '/running/foo.bar#1234', 'h.hh.com', acl=[mock.ANY], ephemeral=True
+        )
 
         # Node exists, session match.
         svc.zkclient.client_id = (12345, '')

@@ -34,8 +34,6 @@ logging.getLogger('kazoo.client').setLevel(logging.WARNING)
 
 # This is the maximum time the start will try to connect for, i.e. 30 sec
 ZK_MAX_CONNECTION_START_TIMEOUT = 30
-_VAGRANT_PROFILE = 'vagrant'
-_ZK_PLUGIN_MOD = None
 
 DEFAULT_ACL = True
 

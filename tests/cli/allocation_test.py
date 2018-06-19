@@ -153,6 +153,71 @@ class AllocationTest(unittest.TestCase):
             }
         )
 
+    @mock.patch('treadmill.restclient.put')
+    @mock.patch('treadmill.restclient.post')
+    @mock.patch('treadmill.restclient.get')
+    @mock.patch('treadmill.cli.allocation._display_tenant', mock.Mock())
+    @mock.patch('treadmill.context.Context.admin_api',
+                mock.Mock(return_value=['http://xxx:1234']))
+    def test_allocation_reserve(self, get_mock, post_mock, put_mock):
+        """Test cli.allocation: reserve"""
+        return_mock1 = mock.Mock()
+        return_mock2 = mock.Mock()
+        return_mock1.json.return_value = [{
+            '_id': None,
+            'tenant': 'tent',
+            'systems': [1, 2, 3]}]
+        return_mock2.json.return_value = {"cpu": "0%",
+                                          "disk": "0M",
+                                          "rank_adjustment": 10,
+                                          "partition": "_default",
+                                          "memory": "0M",
+                                          "assignments": [],
+                                          "rank": 100,
+                                          "max_utilization": None,
+                                          "_id": "tent/qa/test-v3",
+                                          "cell": "test-v3",
+                                          "traits": []}
+        get_mock.side_effect = [return_mock1,
+                                treadmill.restclient.NotFoundError,
+                                return_mock1, return_mock2]
+
+        result = self.runner.invoke(
+            self.alloc_cli, ['reserve', 'tent', '--env', 'qa',
+                             '--cell', 'test-v3', '--empty'])
+
+        self.assertEqual(result.exit_code, 0)
+
+        result = self.runner.invoke(
+            self.alloc_cli, ['reserve', 'tent', '--env', 'qa',
+                             '--cell', 'test-v3', '--memory', '125M',
+                             '--partition', 'aq7'])
+        self.assertEqual(result.exit_code, 0)
+
+        call1 = mock.call(['http://xxx:1234'], '/tenant/tent')
+        call2 = mock.call(['http://xxx:1234'],
+                          '/allocation/tent/qa/reservation/test-v3')
+        calls = [call1, call2, call1, call2]
+
+        self.assertEqual(get_mock.call_count, 4)
+        get_mock.assert_has_calls(calls)
+
+        call1 = mock.call(['http://xxx:1234'], '/allocation/tent/qa',
+                          payload={'environment': 'qa'})
+        call2 = mock.call(['http://xxx:1234'],
+                          '/allocation/tent/qa/reservation/test-v3',
+                          payload={'memory': '0M', 'cpu': '0%', 'disk': '0M'})
+        calls = [call1, call2, call1]
+        post_mock.assert_has_calls(calls)
+        self.assertEqual(post_mock.call_count, 3)
+
+        put_mock.assert_called_once_with(['http://xxx:1234'],
+                                         '/allocation/tent/qa/reservation/' +
+                                         'test-v3',
+                                         payload={'memory': '125M',
+                                                  'partition': 'aq7',
+                                                  'cpu': '0%', 'disk': '0M'})
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -69,7 +69,9 @@ class InstanceTest(unittest.TestCase):
             {'instances': ['proid.app#0000000001']}
         )
         self.assertEqual(resp.status_code, http_client.OK)
-        self.impl.create.assert_called_once_with('proid.app', rsrc, 1, None)
+        self.impl.create.assert_called_once_with(
+            'proid.app', rsrc, 1, None, False, None
+        )
 
         self.impl.reset_mock()
         with user_set(self.app, 'foo@BAR.BAZ'):
@@ -80,8 +82,30 @@ class InstanceTest(unittest.TestCase):
             )
             self.assertEqual(resp.status_code, http_client.OK)
             self.impl.create.assert_called_once_with(
-                'proid.app', rsrc, 2, 'foo@BAR.BAZ'
+                'proid.app', rsrc, 2, 'foo@BAR.BAZ', False, None
             )
+
+        self.impl.reset_mock()
+        resp = self.client.post(
+            '/instance/proid.app?count=1&debug=true',
+            data=json.dumps(rsrc),
+            content_type='application/json'
+        )
+        self.assertEqual(resp.status_code, http_client.OK)
+        self.impl.create.assert_called_once_with(
+            'proid.app', rsrc, 1, None, True, None
+        )
+
+        self.impl.reset_mock()
+        resp = self.client.post(
+            '/instance/proid.app?count=1&debug_services=test',
+            data=json.dumps(rsrc),
+            content_type='application/json'
+        )
+        self.assertEqual(resp.status_code, http_client.OK)
+        self.impl.create.assert_called_once_with(
+            'proid.app', rsrc, 1, None, False, ['test']
+        )
 
         self.impl.create.side_effect = exc.InvalidInputError('foo', 'bar')
         resp = self.client.post(

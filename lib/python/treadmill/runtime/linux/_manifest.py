@@ -129,7 +129,7 @@ def _transform_services(manifest):
                 ),
                 'environ': manifest['environ'],
                 'config': None,
-                'downed': False,
+                'downed': service.get('downed', False),
                 'trace': True,
                 'logger': service.get('logger', 's6.app-logger.run'),
             }
