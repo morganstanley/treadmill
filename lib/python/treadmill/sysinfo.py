@@ -154,6 +154,7 @@ def _cpuflags_linux():
             if line.startswith('flags'):
                 flags = line.split(':')[1]
                 return flags.split()
+    return []
 
 
 def _cpuflags_windows():

@@ -9,19 +9,14 @@ from __future__ import unicode_literals
 import json
 import unittest
 
-# don't complain about unused imports
-# pylint: disable=W0611
-
 import flask
 import flask_restplus as restplus
 import mock
 
 from six.moves import http_client
 
-import treadmill
 from treadmill import webutils
-from treadmill.rest import error_handlers  # pylint: disable=no-name-in-module
-from treadmill.rest.api import server  # pylint: disable=no-name-in-module
+from treadmill.rest.api import server
 
 
 class ServerTest(unittest.TestCase):

@@ -205,7 +205,10 @@ class NativeImageTest(unittest.TestCase):
     @mock.patch('treadmill.supervisor.create_scan_dir', mock.Mock())
     @mock.patch('treadmill.utils.create_script', mock.Mock())
     @mock.patch('treadmill.subproc.get_aliases', mock.Mock(return_value={
-        'chroot': '/bin/ls', 'pid1': '/bin/ls'}))
+        's6_svscan': '/path/to/s6-svscan',
+        'chroot': '/bin/chroot',
+        'pid1': '/path/to/pid1'}))
+    @mock.patch('treadmill.subproc._check', mock.Mock(return_value=True))
     def test__create_supervision_tree(self):
         """Test creation of the supervision tree."""
         # Access protected module _create_supervision_tree
@@ -441,7 +444,7 @@ class NativeImageTest(unittest.TestCase):
             42, 42
         )
 
-    @mock.patch('os.path.exists', mock.Mock(return_value=True))
+    @mock.patch('os.path.exists', mock.Mock(return_value=False))
     @mock.patch('shutil.copyfile', mock.Mock())
     @mock.patch('treadmill.fs.mkdir_safe', mock.Mock())
     def test__prepare_pam_sshd(self):
@@ -456,7 +459,7 @@ class NativeImageTest(unittest.TestCase):
             os.path.join(self.tm_env.root, 'etc', 'pam.d', 'sshd')
         )
         shutil.copyfile.assert_has_calls([
-            mock.call(os.path.join(self.tm_env.root, 'etc', 'pam.d', 'sshd'),
+            mock.call('/etc/pam.d/sshd',
                       os.path.join(etc_dir, 'pam.d', 'sshd'))
         ])
 
@@ -488,8 +491,8 @@ class NativeImageTest(unittest.TestCase):
         overlay_dir = os.path.join(self.container_dir, 'overlay')
         # Mock walking the etc overlay directory.
         os.walk.return_value = [
-            (overlay_dir + '/etc', ['hosts', 'resolv.conf', 'baz'], ['foo']),
-            (overlay_dir + '/etc/foo', ['bar'], []),
+            (overlay_dir + '/etc', ['foo'], ['hosts', 'resolv.conf', 'baz']),
+            (overlay_dir + '/etc/foo', [], ['bar']),
         ]
 
         native._bind_overlay(self.container_dir, self.root)

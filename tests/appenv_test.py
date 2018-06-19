@@ -29,7 +29,7 @@ class AppEnvTest(unittest.TestCase):
             # W0221 Arguments number differs from overridden method
             # pylint: disable=W0221
             def _fake_service_factory(impl, *_args, **_kw_args):
-                """Generate a unique mock object for each service implementation.
+                """Generate a unique mock object for each service impl.
                 """
                 return mock.Mock(name=impl)
             mock_resource_service.side_effect = _fake_service_factory

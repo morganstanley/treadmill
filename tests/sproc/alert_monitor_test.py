@@ -10,10 +10,10 @@ import os
 import tempfile
 import unittest
 
+import mock
+
 from treadmill import alert
 from treadmill.sproc import alert_monitor
-
-import mock
 
 
 class AlertMonitorTest(unittest.TestCase):

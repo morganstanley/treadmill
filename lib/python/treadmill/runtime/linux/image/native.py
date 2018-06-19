@@ -201,7 +201,7 @@ def create_supervision_tree(tm_env, container_dir, root_dir, app,
                 for envvar in svc_def.environ
             },
             environment=app.environment,
-            downed=False,
+            downed=svc_def.downed,
             trace=trace if svc_def.trace else None,
             log_run_script=logger_template,
             monitor_policy=monitor_policy
@@ -323,6 +323,8 @@ def make_fsroot(root_dir, app):
         '/var/spool/keytabs',
         '/var/spool/tickets',
         '/var/spool/tokens',
+        # for SSS
+        '/var/lib/sss',
     ]
 
     stickydirs = [
@@ -349,10 +351,15 @@ def make_fsroot(root_dir, app):
         '/root',
         '/sbin',
         '/usr',
+        # for SSS
+        '/var/lib/sss',
         # TODO: Remove below once PAM UDS is implemented
         '/var/tmp/treadmill/env',
         '/var/tmp/treadmill/spool',
     ]
+
+    # Add everything under /opt
+    mounts += glob.glob('/opt/*')
 
     for directory in emptydirs:
         fs.mkdir_safe(newroot_norm + directory)
@@ -553,7 +560,8 @@ def _bind_overlay(container_dir, root_dir):
     #
     overlay_dir = os.path.join(container_dir, 'overlay')
     etc_overlay_dir = os.path.join(overlay_dir, 'etc')
-    for (basedir, files, _dirs) in os.walk(etc_overlay_dir):
+
+    for (basedir, _dirs, files) in os.walk(etc_overlay_dir):
         # We bind mount read-only all etc overlay files.
         for file_ in files:
             overlay_file = os.path.join(basedir, file_)

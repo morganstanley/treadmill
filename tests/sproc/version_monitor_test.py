@@ -1,4 +1,5 @@
-"""Unit test for treadmill.sproc.version_monitor"""
+"""Unit test for treadmill.sproc.version_monitor.
+"""
 
 from __future__ import absolute_import
 from __future__ import division

@@ -7,20 +7,83 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import os
+import io
 import shutil
 import tempfile
 import time
 import unittest
 
-from tests.testutils import mockzk
-
 import mock
 import kazoo
 import kazoo.client
 
+from tests.testutils import mockzk
+
 import treadmill
 from treadmill import exc
 from treadmill import presence
+
+PROCCGROUPS = """#subsys_name	hierarchy	num_cgroups	enabled
+cpuset	6	1	1
+cpu	7	1	1
+cpuacct	7	1	1
+memory	4	1	1
+devices	3	20	1
+freezer	8	1	1
+net_cls	2	1	1
+blkio	10	1	1
+perf_event	11	1	1
+hugetlb	9	1	1
+pids	5	1	1
+net_prio	2	1	1"""
+
+# pylint: disable=C0301
+PROCMOUNTS = """rootfs / rootfs rw 0 0
+sysfs /sys sysfs rw,seclabel,nosuid,nodev,noexec,relatime 0 0
+proc /proc proc rw,nosuid,nodev,noexec,relatime 0 0
+devtmpfs /dev devtmpfs rw,seclabel,nosuid,size=239696k,nr_inodes=59924,mode=755 0 0
+securityfs /sys/kernel/security securityfs rw,nosuid,nodev,noexec,relatime 0 0
+tmpfs /dev/shm tmpfs rw,seclabel,nosuid,nodev 0 0
+devpts /dev/pts devpts rw,seclabel,nosuid,noexec,relatime,gid=5,mode=620,ptmxmode=000 0 0
+tmpfs /run tmpfs rw,seclabel,nosuid,nodev,mode=755 0 0
+tmpfs /sys/fs/cgroup tmpfs ro,seclabel,nosuid,nodev,noexec,mode=755 0 0
+cgroup /sys/fs/cgroup/systemd cgroup rw,nosuid,nodev,noexec,relatime,xattr,release_agent=/usr/lib/systemd/systemd-cgroups-agent,name=systemd 0 0
+pstore /sys/fs/pstore pstore rw,nosuid,nodev,noexec,relatime 0 0
+cgroup /sys/fs/cgroup/net_cls,net_prio cgroup rw,nosuid,nodev,noexec,relatime,net_prio,net_cls 0 0
+cgroup /sys/fs/cgroup/devices cgroup rw,nosuid,nodev,noexec,relatime,devices 0 0
+cgroup /sys/fs/cgroup/memory cgroup rw,nosuid,nodev,noexec,relatime,memory 0 0
+cgroup /sys/fs/cgroup/pids cgroup rw,nosuid,nodev,noexec,relatime,pids 0 0
+cgroup /sys/fs/cgroup/cpuset cgroup rw,nosuid,nodev,noexec,relatime,cpuset 0 0
+cgroup /sys/fs/cgroup/cpu,cpuacct cgroup rw,nosuid,nodev,noexec,relatime,cpuacct,cpu 0 0
+cgroup /sys/fs/cgroup/freezer cgroup rw,nosuid,nodev,noexec,relatime,freezer 0 0
+cgroup /sys/fs/cgroup/hugetlb cgroup rw,nosuid,nodev,noexec,relatime,hugetlb 0 0
+cgroup /sys/fs/cgroup/blkio cgroup rw,nosuid,nodev,noexec,relatime,blkio 0 0
+cgroup /sys/fs/cgroup/perf_event cgroup rw,nosuid,nodev,noexec,relatime,perf_event 0 0
+configfs /sys/kernel/config configfs rw,relatime 0 0
+/dev/mapper/VolGroup00-LogVol00 / xfs rw,seclabel,relatime,attr2,inode64,noquota 0 0
+selinuxfs /sys/fs/selinux selinuxfs rw,relatime 0 0
+systemd-1 /proc/sys/fs/binfmt_misc autofs rw,relatime,fd=33,pgrp=1,timeout=300,minproto=5,maxproto=5,direct 0 0
+debugfs /sys/kernel/debug debugfs rw,relatime 0 0
+mqueue /dev/mqueue mqueue rw,seclabel,relatime 0 0
+hugetlbfs /dev/hugepages hugetlbfs rw,seclabel,relatime 0 0
+sunrpc /var/lib/nfs/rpc_pipefs rpc_pipefs rw,relatime 0 0
+nfsd /proc/fs/nfsd nfsd rw,relatime 0 0
+/dev/sda2 /boot xfs rw,seclabel,relatime,attr2,inode64,noquota 0 0
+vagrant /vagrant vboxsf rw,nodev,relatime 0 0
+home_centos_treadmill /home/centos/treadmill vboxsf rw,nodev,relatime 0 0
+home_centos_treadmill-pid1 /home/centos/treadmill-pid1 vboxsf rw,nodev,relatime 0 0
+tmpfs /run/user/1000 tmpfs rw,seclabel,nosuid,nodev,relatime,size=50040k,mode=700,uid=1000,gid=1000 0 0"""  # noqa: E501
+
+_ORIGINAL_OPEN = open
+
+
+def _open_side_effect(path, *args):
+    if path == '/proc/mounts':
+        return io.StringIO(PROCMOUNTS)
+    elif path == '/proc/cgroups':
+        return io.StringIO(PROCCGROUPS)
+    else:
+        return _ORIGINAL_OPEN(path, *args)
 
 
 class PresenceTest(mockzk.MockZookeeperTestCase):

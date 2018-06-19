@@ -3,7 +3,7 @@ command: |
     {{ treadmill }}/bin/treadmill \
     sproc \
     scheduler \
-        /treadmill/appevents
+        --events-dir /treadmill/appevents
 environ_dir: "/treadmill/env"
 environ:
   KRB5CCNAME: "FILE:/var/spool/tickets/{{ treadmillid }}"

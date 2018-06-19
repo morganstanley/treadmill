@@ -17,13 +17,13 @@ import time
 import unittest
 import zlib
 
-# Disable W0611: Unused import
-import tests.treadmill_test_skip_windows  # pylint: disable=W0611
-from tests.testutils import mockzk
-
 import kazoo
 import mock
 import numpy as np
+
+# Disable W0611: Unused import
+import tests.treadmill_test_skip_windows  # pylint: disable=W0611
+from tests.testutils import mockzk
 
 import treadmill
 import treadmill.exc
@@ -1218,7 +1218,7 @@ class MasterTest(mockzk.MockZookeeperTestCase):
         kazoo.client.KazooClient.set.assert_has_calls(
             [
                 mock.call('/scheduled/foo.bar#1', b'{priority: 10}\n'),
-                mock.call('/scheduled/foo.bar#2', b'{priority: 20}\n')
+                mock.call('/scheduled/foo.bar#2', b'{priority: 20}\n'),
             ],
             any_order=True
         )
@@ -1500,7 +1500,7 @@ class MasterTest(mockzk.MockZookeeperTestCase):
 
         kazoo.client.KazooClient.set.assert_has_calls(
             [
-                mock.call('/servers/foo.ms.com', b'features: [test]\n')
+                mock.call('/servers/foo.ms.com', b'features: [test]\n'),
             ],
             any_order=True
         )

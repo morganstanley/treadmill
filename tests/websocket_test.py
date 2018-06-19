@@ -8,15 +8,12 @@ from __future__ import unicode_literals
 
 import io
 import json
-import unittest
-import tempfile
 import os
 import shutil
-import time
 import sqlite3
-
-# Disable W0611: Unused import
-import tests.treadmill_test_skip_windows  # pylint: disable=W0611
+import tempfile
+import time
+import unittest
 
 import mock
 from tornado import gen
@@ -25,6 +22,9 @@ from tornado.concurrent import Future
 from tornado.testing import AsyncHTTPTestCase
 from tornado.testing import gen_test
 from tornado.websocket import websocket_connect
+
+# Disable W0611: Unused import
+import tests.treadmill_test_skip_windows  # pylint: disable=W0611
 
 from treadmill import websocket
 from treadmill import fs

@@ -33,6 +33,8 @@ from treadmill.syscall import unshare
 
 from treadmill.runtime.linux import _run as app_run
 
+_PATH_EXISTS = os.path.exists
+
 
 class LinuxRuntimeRunTest(unittest.TestCase):
     """Tests for treadmill.runtime.linux._run."""
@@ -393,11 +395,12 @@ class LinuxRuntimeRunTest(unittest.TestCase):
     @mock.patch('treadmill.subproc.check_call', mock.Mock())
     @mock.patch('treadmill.utils.rootdir',
                 mock.Mock(return_value='/treadmill'))
-    @mock.patch('treadmill.subproc.get_aliases',
-                mock.Mock(return_value={
-                    'treadmill_bind_preload.so':
-                        '/some/$LIB/treadmill_bind_preload.so'
-                }))
+    @mock.patch('os.path.exists', mock.Mock(
+        side_effect=lambda path: True if 'root/.etc' in path else
+        _PATH_EXISTS(path)
+    ))
+    @mock.patch('treadmill.subproc.resolve',
+                mock.Mock(return_value='/tmp/treadmill_bind_preload.so'))
     def test_run(self):
         """Tests linux.run sequence, which will result in supervisor exec.
         """

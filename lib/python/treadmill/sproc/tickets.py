@@ -113,11 +113,48 @@ def init():
     @top.command()
     @click.option('--tkt-spool-dir',
                   help='Ticket spool directory.')
-    def locker(tkt_spool_dir):
+    @click.option('--trusted', type=(str, str, str),
+                  help="Trusted app (princ, app, tkt1[,tkt2,...])",
+                  multiple=True)
+    @click.option('--no-register', is_flag=True, default=False,
+                  help='Do no register in Zookeeper.')
+    def locker(tkt_spool_dir, trusted, no_register):
         """Run ticket locker daemon."""
+        trusted_apps = {}
+        for hostname, app, tkts in trusted:
+            tkts = list(set(tkts.split(',')))
+            _LOGGER.info('Trusted: %s/%s : %r', hostname, app, tkts)
+            trusted_apps[(hostname, app)] = tkts
         tkt_locker = tickets.TicketLocker(context.GLOBAL.zk.conn,
-                                          tkt_spool_dir)
-        tickets.run_server(tkt_locker)
+                                          tkt_spool_dir,
+                                          trusted=trusted_apps)
+        tickets.run_server(tkt_locker, register=(not no_register))
+
+    @top.command()
+    @click.option('--appname', required=True,
+                  help='Treadmill app name.')
+    @click.option('--tkt-spool-dir',
+                  help='Ticket spool directory.',
+                  required=True)
+    @click.option('--lockers', help='List of locker host:port',
+                  type=cli.LIST)
+    @click.option('--sleep', type=int, help='Sleep interval.',
+                  default=_RENEW_INTERVAL)
+    def fetch(appname, tkt_spool_dir, lockers, sleep):
+        """Fetch ticket for given app."""
+        while True:
+            if not lockers:
+                lockers = tickets.lockers(context.GLOBAL.zk.conn)
+
+            for locker in lockers:
+                host, port = locker.split(':')
+                tickets.request_tickets_from(
+                    host, port, appname, tkt_spool_dir
+                )
+            # Invoking with --sleep 0 will fetch tickets once and exit.
+            if not sleep:
+                break
+            time.sleep(sleep)
 
     @top.command()
     @click.option('--tkt-spool-dir', help='Ticket spool directory.',

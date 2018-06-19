@@ -10,11 +10,11 @@ import unittest
 import time
 import sqlite3
 
-from tests.testutils import mockzk
-
 import mock
 import kazoo
 import kazoo.client
+
+from tests.testutils import mockzk
 
 import treadmill
 from treadmill.apptrace import zk

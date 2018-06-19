@@ -8,8 +8,8 @@ from __future__ import unicode_literals
 
 import unittest
 
-from ldap3.core import exceptions as ldap_exceptions
 import mock
+from ldap3.core import exceptions as ldap_exceptions
 
 import treadmill
 from treadmill import context

@@ -8,11 +8,11 @@ from __future__ import unicode_literals
 
 import unittest
 
-from tests.testutils import mockzk
-
 import kazoo
 import kazoo.client
 import mock
+
+from tests.testutils import mockzk
 
 from treadmill import discovery
 from treadmill import zknamespace as z
@@ -171,10 +171,12 @@ class DiscoveryTest(mockzk.MockZookeeperTestCase):
                     z.join_zookeeper_path(z.ENDPOINTS, 'proid_A', 'foo')
             ):
                 return (b'xxx:123', None)
-            if fullpath.startswith(
+            elif fullpath.startswith(
                     z.join_zookeeper_path(z.ENDPOINTS, 'proid_B', 'bar')
             ):
                 return (b'yyy:987', None)
+            else:
+                raise ValueError(fullpath)
 
         zkclient.get = zk_get
         self.assertEqual(

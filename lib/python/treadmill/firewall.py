@@ -193,7 +193,7 @@ class SNATRule(object):
         )
 
 
-# TODO(boysson): Fold PassThroughRule a kind of DNAT rule
+# TODO: Fold PassThroughRule a kind of DNAT rule
 class PassThroughRule(object):
     """Definition of a PassThrough rule
 
