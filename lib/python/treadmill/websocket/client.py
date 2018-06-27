@@ -97,9 +97,16 @@ def ws_loop(wsapi, message, snapshot, on_message, on_error=None,
                 # TODO: we never use proxy when connecting to websocket
                 #       server. It is not clear if such behavior need to be
                 #       optional.
+                #
+                #       Need to set both http_proxy_host AND http_no_proxy.
+                #       The code in websocket client only examines _no_proxy if
+                #       http_proxy_host is set. If it is not, it ignores the
+                #       no_proxy setting, and latter on initializes proxy from
+                #       environment variables (BUG).
                 ws_conn = ws_client.create_connection(
                     api,
                     timeout=timeout,
+                    http_proxy_host='__ignored__.yet.must.be.set',
                     http_no_proxy=[host]
                 )
                 _LOGGER.debug('Connected.')
