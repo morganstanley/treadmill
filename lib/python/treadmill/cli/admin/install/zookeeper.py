@@ -24,13 +24,23 @@ def init():
     @click.option('--run/--no-run', is_flag=True, default=False)
     @click.option('--master-id', required=True,
                   type=click.Choice(['1', '2', '3']))
+    @click.option('--data-dir', required=False,
+                  type=click.Path(exists=True),
+                  envvar='TREADMILL_ZOOKEEPER_DATA_DIR',
+                  help='Zookeeper data directory.')
+    @click.option('--krb-realm', help='Kerberos realm',
+                  envvar='TREADMILL_KRB_REALM',
+                  required=True)
     @click.pass_context
-    def zookeeper(ctx, run, master_id):
+    def zookeeper(ctx, run, master_id, data_dir, krb_realm):
         """Installs Treadmill master."""
 
         ctx.obj['PARAMS']['zookeeper'] = context.GLOBAL.zk.url
         ctx.obj['PARAMS']['ldap'] = context.GLOBAL.ldap.url
         ctx.obj['PARAMS']['master_id'] = master_id
+        ctx.obj['PARAMS']['krb_realm'] = krb_realm
+        if data_dir:
+            ctx.obj['PARAMS']['data_dir'] = data_dir
         dst_dir = ctx.obj['PARAMS']['dir']
         profile = ctx.obj['PARAMS'].get('profile')
 
