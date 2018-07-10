@@ -438,7 +438,7 @@ class ResourceService(object):
         This should only be called by the client instance.
         """
         svc_req_lnk = os.path.join(self._rsrc_dir, req_id)
-        _LOGGER.info('Unegistering %r: %r', req_id, svc_req_lnk)
+        _LOGGER.info('Unregistering %r: %r', req_id, svc_req_lnk)
         fs.rm_safe(svc_req_lnk)
 
         return req_id

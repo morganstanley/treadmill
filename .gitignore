@@ -14,6 +14,7 @@ test_container_dir/
 
 # Keep track of .keepme files
 !.keepme
+!.owner
 
 # Preserve tmpwatch files
 !.tmpwatch.exclude

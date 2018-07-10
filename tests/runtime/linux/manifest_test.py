@@ -30,8 +30,6 @@ class Docker2RuntimeManifestTest(unittest.TestCase):
     def tearDown(self):
         pass
 
-    @mock.patch('treadmill.runtime.linux._manifest._get_user_uid_gid',
-                mock.Mock(return_value=(274091, 19290)))
     @mock.patch(
         'treadmill.subproc.resolve', mock.Mock(return_value='/treadmill-bind')
     )
@@ -41,12 +39,12 @@ class Docker2RuntimeManifestTest(unittest.TestCase):
         # pylint: disable=protected-access
 
         cmd = app_manifest._generate_command(
-            'foo', 'sleep 10',
+            {'name': 'foo', 'command': 'sleep 10'},
         )
         self.assertEqual(cmd, ('sleep 10', False))
 
         cmd = app_manifest._generate_command(
-            'foo', 'docker://testwt2',
+            {'name': 'foo', 'image': 'testwt2'},
         )
         self.assertEqual(
             cmd[0],
@@ -54,18 +52,18 @@ class Docker2RuntimeManifestTest(unittest.TestCase):
                 'exec $TREADMILL/bin/treadmill sproc docker'
                 ' --name foo'
                 ' --envdirs /env,/docker/env,/services/foo/env'
-                ' --image testwt2'
                 ' --volume /var/tmp:/var/tmp:rw'
                 ' --volume /var/spool:/var/spool:rw'
                 ' --volume /docker/etc/hosts:/etc/hosts:ro'
                 ' --volume /env:/env:ro'
                 ' --volume /treadmill-bind:/opt/treadmill-bind:ro'
+                ' --image testwt2'
             )
         )
         self.assertTrue(cmd[1])
 
         cmd = app_manifest._generate_command(
-            'foo', 'docker://testwt2 foo bar'
+            {'name': 'foo', 'image': 'testwt2', 'args': ['foo', 'bar']},
         )
         self.assertEqual(
             cmd[0],
@@ -73,14 +71,37 @@ class Docker2RuntimeManifestTest(unittest.TestCase):
                 'exec $TREADMILL/bin/treadmill sproc docker'
                 ' --name foo'
                 ' --envdirs /env,/docker/env,/services/foo/env'
-                ' --image testwt2'
                 ' --volume /var/tmp:/var/tmp:rw'
                 ' --volume /var/spool:/var/spool:rw'
                 ' --volume /docker/etc/hosts:/etc/hosts:ro'
                 ' --volume /env:/env:ro'
                 ' --volume /treadmill-bind:/opt/treadmill-bind:ro'
+                ' --image testwt2'
                 ' --'
                 ' foo bar'
+            )
+        )
+        self.assertTrue(cmd[1])
+
+        cmd = app_manifest._generate_command(
+            {'name': 'foo', 'image': 'testwt2',
+             'args': ['60'], 'command': 'sleep'},
+        )
+        self.assertEqual(
+            cmd[0],
+            (
+                'exec $TREADMILL/bin/treadmill sproc docker'
+                ' --name foo'
+                ' --envdirs /env,/docker/env,/services/foo/env'
+                ' --volume /var/tmp:/var/tmp:rw'
+                ' --volume /var/spool:/var/spool:rw'
+                ' --volume /docker/etc/hosts:/etc/hosts:ro'
+                ' --volume /env:/env:ro'
+                ' --volume /treadmill-bind:/opt/treadmill-bind:ro'
+                ' --entrypoint sleep'
+                ' --image testwt2'
+                ' --'
+                ' 60'
             )
         )
         self.assertTrue(cmd[1])

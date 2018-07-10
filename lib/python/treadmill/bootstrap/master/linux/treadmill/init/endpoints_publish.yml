@@ -1,3 +1,5 @@
+---
+user: "{{ treadmillid }}"
 command: |
     exec \
         {{ treadmill }}/bin/treadmill sproc publish-endpoints \
@@ -5,7 +7,7 @@ command: |
             --instance master-{{ master_id }}
 environ_dir: "/treadmill/env"
 environ:
-  KRB5CCNAME: "FILE:{{ treadmill_host_ticket }}"
+  KRB5CCNAME: "FILE:/var/spool/tickets/{{ treadmillid }}"
 monitor_policy:
   limit: "{{ restart_limit }}"
   interval: "{{ restart_interval }}"

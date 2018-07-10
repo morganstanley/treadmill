@@ -681,6 +681,7 @@ class Node(object):
             return False
 
         if _any_gt(app.demand, self.free_capacity):
+            _LOGGER.info('Not enough free capacity: %s', self.free_capacity)
             return False
 
         return True
@@ -984,10 +985,10 @@ class Server(Node):
     def set_state(self, state, since):
         """Change host state.
         """
-        super(Server, self).set_state(state, since)
-
         if self.state is state:
             return
+
+        super(Server, self).set_state(state, since)
 
         if state == State.up:
             if self.parent:

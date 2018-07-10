@@ -1,3 +1,4 @@
+user: "{{ treadmillid }}"
 command: |
   CHKSUM="/usr/bin/md5sum"
   READLINK="/usr/bin/readlink"

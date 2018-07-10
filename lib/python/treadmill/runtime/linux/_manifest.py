@@ -7,10 +7,8 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import logging
-import pwd
-import socket
+import shlex
 
-from treadmill import cellconfig
 from treadmill import subproc
 from treadmill.appcfg import manifest as app_manifest
 
@@ -20,42 +18,34 @@ TREADMILL_BIND_PATH = '/opt/treadmill-bind'
 
 
 def add_runtime(tm_env, manifest):
-    """Adds linux runtime specific details to the manifest.
-    And add docker runtime specific details to the manifest
+    """Adds linux (docker) runtime specific details to the manifest.
     """
     dockers = _transform_services(manifest)
 
     app_manifest.add_linux_system_services(tm_env, manifest)
     app_manifest.add_linux_services(manifest)
 
-    if dockers:
-        _add_dockerd_services(manifest, tm_env)
-        manifest['docker'] = True
-    else:
-        manifest['docker'] = False
 
-
-def _generate_command(name, raw_cmd):
+def _generate_command(service):
     """Get treadmill docker running command from image
     """
     is_docker = False
-    if raw_cmd.startswith('docker://'):
-        image_cmd = raw_cmd[9:].split(None, 1)
-        if len(image_cmd) > 1:
-            image = image_cmd[0]
-            cmd = image_cmd[1]
-        else:
-            image = image_cmd[0]
-            cmd = None
-        cmd = _get_docker_run_cmd(name, image, cmd)
+    if 'image' in service:
+        cmd = _get_docker_run_cmd(
+            service['name'],
+            service['image'],
+            service.get('args', None),
+            service.get('command', None)
+        )
         is_docker = True
     else:
-        cmd = raw_cmd
+        cmd = service['command']
 
     return (cmd, is_docker)
 
 
-def _get_docker_run_cmd(name, image, command=None, uidgid=None):
+def _get_docker_run_cmd(name, image,
+                        args=None, command=None, uidgid=None):
     """Get docker run cmd from raw command
     """
     # TODO: hardode volume for now
@@ -75,7 +65,6 @@ def _get_docker_run_cmd(name, image, command=None, uidgid=None):
         'exec $TREADMILL/bin/treadmill sproc docker'
         ' --name {name}'
         ' --envdirs /env,/docker/env,/services/{name}/env'
-        ' --image {image}'
     )
 
     for volume in volumes:
@@ -88,13 +77,25 @@ def _get_docker_run_cmd(name, image, command=None, uidgid=None):
     if uidgid is not None:
         tpl += ' --user {uidgid}'.format(uidgid=uidgid)
 
+    # put entrypoint and image in the last
     if command is not None:
+        tpl += ' --entrypoint {entrypoint}'
+        command = shlex.quote(command)
+
+    tpl += ' --image {image}'
+
+    # create args str in treadmill sproc docker
+    if args is not None:
         tpl += ' -- {cmd}'
+        args_str = ' '.join([shlex.quote(arg) for arg in args])
+    else:
+        args_str = None
 
     return tpl.format(
         name=name,
         image=image,
-        cmd=command,
+        entrypoint=command,
+        cmd=args_str,
     )
 
 
@@ -108,8 +109,7 @@ def _transform_services(manifest):
     # Normalize restart count
     services = []
     for service in manifest.get('services', []):
-        (cmd,
-         is_docker) = _generate_command(service['name'], service['command'])
+        (cmd, is_docker) = _generate_command(service)
 
         if is_docker:
             dockers += 1
@@ -137,67 +137,3 @@ def _transform_services(manifest):
 
     manifest['services'] = services
     return dockers
-
-
-def _get_docker_registry(tm_env):
-    """Return the registry to use.
-    """
-    # get registry address from cell_config.yml
-    cell_config = cellconfig.CellConfig(tm_env.root)
-    registry = cell_config.data['docker_registry']
-
-    if ':' in registry:
-        host, _sep, port = registry.partition(':')
-    else:
-        host = registry
-        port = '5000'
-
-    # Ensure we have teh FQDN for the registry host.
-    host = socket.getfqdn(host)
-    return ':'.join([host, port])
-
-
-def _add_dockerd_services(manifest, tm_env):
-    """Configure docker daemon services."""
-    # add dockerd service
-    (_uid, proid_gid) = _get_user_uid_gid(manifest['proid'])
-    dockerd_svc = {
-        'name': 'dockerd',
-        'proid': 'root',
-        'restart': {
-            'limit': 5,
-            'interval': 60,
-        },
-        'command': (
-            'exec {dockerd}'
-            ' --add-runtime docker-runc={docker_runtime}'
-            ' --default-runtime=docker-runc'
-            ' --exec-opt native.cgroupdriver=cgroupfs'
-            ' --bridge=none'
-            ' --ip-forward=false'
-            ' --ip-masq=false'
-            ' --iptables=false'
-            ' --cgroup-parent=docker'
-            ' -G {gid}'
-            ' --insecure-registry {registry}'
-            ' --add-registry {registry}'
-        ).format(
-            dockerd=subproc.resolve('dockerd'),
-            docker_runtime=subproc.resolve('docker_runtime'),
-            gid=proid_gid,
-            registry=_get_docker_registry(tm_env)
-        ),
-        'root': True,
-        'environ': [
-            {'name': 'DOCKER_RAMDISK', 'value': '1'},
-        ],
-        'config': None,
-        'downed': False,
-        'trace': False,
-    }
-    manifest['services'].append(dockerd_svc)
-
-
-def _get_user_uid_gid(username):
-    user_pw = pwd.getpwnam(username)
-    return (user_pw.pw_uid, user_pw.pw_gid)

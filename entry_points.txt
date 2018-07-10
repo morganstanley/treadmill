@@ -19,6 +19,7 @@ dns = treadmill.dnsctx
 
 
 [treadmill.features]
+docker = treadmill.appcfg.features.docker:DockerdFeature
 
 
 [treadmill.image.native.fs]
