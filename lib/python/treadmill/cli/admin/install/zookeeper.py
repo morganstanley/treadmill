@@ -13,6 +13,8 @@ import click
 
 from treadmill import bootstrap
 from treadmill import context
+from treadmill import sysinfo
+from treadmill.syscall import krb5
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -28,17 +30,18 @@ def init():
                   type=click.Path(exists=True),
                   envvar='TREADMILL_ZOOKEEPER_DATA_DIR',
                   help='Zookeeper data directory.')
-    @click.option('--krb-realm', help='Kerberos realm',
-                  envvar='TREADMILL_KRB_REALM',
-                  required=True)
     @click.pass_context
-    def zookeeper(ctx, run, master_id, data_dir, krb_realm):
+    def zookeeper(ctx, run, master_id, data_dir):
         """Installs Treadmill master."""
 
         ctx.obj['PARAMS']['zookeeper'] = context.GLOBAL.zk.url
         ctx.obj['PARAMS']['ldap'] = context.GLOBAL.ldap.url
         ctx.obj['PARAMS']['master_id'] = master_id
-        ctx.obj['PARAMS']['krb_realm'] = krb_realm
+
+        realms = krb5.get_host_realm(sysinfo.hostname())
+        if realms:
+            ctx.obj['PARAMS']['krb_realm'] = realms[0]
+
         if data_dir:
             ctx.obj['PARAMS']['data_dir'] = data_dir
         dst_dir = ctx.obj['PARAMS']['dir']
