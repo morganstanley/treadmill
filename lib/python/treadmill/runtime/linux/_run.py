@@ -127,7 +127,6 @@ def run(tm_env, runtime_config, container_dir, manifest):
     apphook.configure(tm_env, app, container_dir)
 
     # Register presence last, once everything succeeds.
-    presence_req_id = manifest['name']
     presence_req = {
         'endpoints': manifest['endpoints'],
         'vip': manifest['vip'],
@@ -138,8 +137,8 @@ def run(tm_env, runtime_config, container_dir, manifest):
     if manifest.get('identity') is not None:
         presence_req['identity'] = manifest['identity']
 
-    presence_client.put(presence_req_id, presence_req)
-    presence_client.wait(presence_req_id)
+    presence_client.put(unique_name, presence_req)
+    presence_client.wait(unique_name)
 
     subproc.exec_pid1(
         [

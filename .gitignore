@@ -12,6 +12,7 @@ examples/oom/oom
 
 # Keep track of .keepme files
 !.keepme
+!.owner
 
 # Keep svscan dir
 !.s6-svscan

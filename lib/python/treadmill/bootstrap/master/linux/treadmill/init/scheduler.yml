@@ -1,3 +1,5 @@
+---
+user: "{{ treadmillid }}"
 command: |
   exec \
     {{ treadmill }}/bin/treadmill \

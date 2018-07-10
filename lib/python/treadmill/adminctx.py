@@ -51,7 +51,7 @@ def resolve(ctx, attr):
         )
     except ldap_exceptions.LDAPNoSuchObjectResult:
         exception = context.ContextError(
-            'Cell not defined in LDAP {}'.format(ctx.cell)
+            'Cell {} not defined in LDAP'.format(ctx.cell)
         )
         _LOGGER.debug(str(exception))
         raise exception

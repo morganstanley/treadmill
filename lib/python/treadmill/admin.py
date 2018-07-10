@@ -1266,6 +1266,8 @@ class Application(LdapObject):
     _svc_schema = [
         ('service-name', 'name', str),
         ('service-command', 'command', str),
+        ('service-image', 'image', str),
+        ('service-args', 'args', [str]),
         ('service-root', 'root', bool),
     ]
 

@@ -55,11 +55,15 @@ class PresenceServiceTest(unittest.TestCase):
                            'port': 8000,
                            'real_port': 32000}]
         }
-        request_id = 'foo.bar#12345'
+        request_id = 'foo.bar-12345-Uniq1'
         svc.on_create_request(request_id, request)
-        self.assertEqual(svc.state['foo.bar#12345'],
-                         set(['/running/foo.bar#12345',
-                              '/endpoints/foo/bar#12345:tcp:xxx']))
+        self.assertEqual(
+            svc.presence['foo.bar#12345'],
+            {
+                '/running/foo.bar#12345': 'foo.bar-12345-Uniq1',
+                '/endpoints/foo/bar#12345:tcp:xxx': 'foo.bar-12345-Uniq1'
+            }
+        )
 
     @mock.patch('treadmill.zkutils.get', mock.Mock())
     @mock.patch('treadmill.zkutils.create', mock.Mock())
@@ -76,23 +80,47 @@ class PresenceServiceTest(unittest.TestCase):
                            'port': 8000,
                            'real_port': 32000}]
         }
-        request_id = 'foo.bar#12345'
+        request_id = 'foo.bar-12345-Uniq1'
         svc.on_create_request(request_id, request)
-        self.assertEqual(svc.state['foo.bar#12345'],
-                         set(['/running/foo.bar#12345',
-                              '/identity-groups/bla/0',
-                              '/endpoints/foo/bar#12345:tcp:xxx']))
+        self.assertEqual(
+            svc.presence['foo.bar#12345'],
+            {
+                '/running/foo.bar#12345': 'foo.bar-12345-Uniq1',
+                '/identity-groups/bla/0': 'foo.bar-12345-Uniq1',
+                '/endpoints/foo/bar#12345:tcp:xxx': 'foo.bar-12345-Uniq1'
+            }
+        )
 
     @mock.patch('treadmill.zkutils.get', mock.Mock())
     @mock.patch('treadmill.zkutils.create', mock.Mock())
     @mock.patch('treadmill.zkutils.ensure_deleted', mock.Mock())
+    @mock.patch('treadmill.zkutils.get_with_metadata', mock.Mock())
     @mock.patch('treadmill.context.ZkContext.conn', mock.MagicMock())
     def test_on_delete_request(self):
         """Test processing of a delete request.
         """
         svc = presence_service.PresenceResourceService()
-        request_id = 'myproid.test#12345'
-        svc.on_delete_request(request_id)
+        svc.zkclient.client_id = (12345, '')
+        treadmill.zkutils.get_with_metadata.return_value = (
+            'h.hh.com', mock.Mock(owner_session_id=12345)
+        )
+        request = {
+            'endpoints': [{'name': 'xxx',
+                           'port': 8000,
+                           'real_port': 32000}]
+        }
+        svc.on_create_request('foo.bar-12345-Uniq2', request)
+
+        svc.on_delete_request('foo.bar-12345-Uniq1')
+        self.assertIn('foo.bar#12345', svc.presence)
+        treadmill.zkutils.ensure_deleted.assert_not_called()
+
+        svc.on_delete_request('foo.bar-12345-Uniq2')
+        self.assertNotIn('foo.bar#12345', svc.presence)
+        treadmill.zkutils.ensure_deleted.assert_has_calls([
+            mock.call(mock.ANY, '/running/foo.bar#12345'),
+            mock.call(mock.ANY, '/endpoints/foo/bar#12345:tcp:xxx')
+        ], any_order=True)
 
     @mock.patch('kazoo.client.KazooClient.DataWatch', mock.Mock())
     @mock.patch('kazoo.client.KazooClient', mock.MagicMock())

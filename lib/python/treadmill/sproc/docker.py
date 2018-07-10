@@ -50,7 +50,7 @@ def _get_image_user(image_attrs):
     return config.get('User', None)
 
 
-def _create_container(client, name, image_name, cmd, **args):
+def _create_container(client, name, image_name, entrypoint, cmd, **args):
     """Create docker container from given app.
     """
     # if success,  pull returns an image object
@@ -59,7 +59,8 @@ def _create_container(client, name, image_name, cmd, **args):
     container_args = {
         'name': name,
         'image': image_name,
-        'command': list(cmd),
+        'command': cmd,
+        'entrypoint': entrypoint,
         'detach': True,
         'stdin_open': True,
         'tty': True,
@@ -141,7 +142,7 @@ class DockerSprocClient(object):
 
         return self.client
 
-    def run(self, name, image, cmd, **args):
+    def run(self, name, image, entrypoint, cmd, **args):
         """Run
         """
         client = self._get_client()
@@ -153,7 +154,7 @@ class DockerSprocClient(object):
                 args['environment'] = _read_environ(args.pop('envdirs'))
 
             container = _create_container(
-                client, name, image, cmd, **args
+                client, name, image, entrypoint, cmd, **args
             )
 
         except docker.errors.ImageNotFound:
@@ -215,6 +216,8 @@ def init():
     @click.option('--name', required=True, help='name of container')
     @click.option('--image', required=True, help='container image')
     @click.argument('cmd', nargs=-1)
+    @click.option('--entrypoint', type=cli.LIST, required=False,
+                  help='List of entrypoints')
     @click.option('--user', required=False,
                   help='userid in the form UID:GID')
     @click.option('--envdirs', type=cli.LIST, required=False, default='',
@@ -223,12 +226,13 @@ def init():
                   help='Mount the docker image read-only')
     @click.option('--volume', multiple=True, required=False,
                   help='Specify each volume as TARGET:SOURCE:MODE')
-    def configure(name, image, cmd, user, envdirs, read_only, volume):
+    def configure(name, image, cmd, entrypoint,
+                  user, envdirs, read_only, volume):
         """Configure local manifest and schedule app to run."""
         service_client = DockerSprocClient()
         service_client.run(
             # manditory parameters
-            name, image, cmd,
+            name, image, entrypoint, cmd,
             # optional parameters
             user=user,
             envdirs=envdirs,

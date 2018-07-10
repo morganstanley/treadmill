@@ -337,9 +337,11 @@ class Context(object):
                 for plugin in self._plugins:
                     try:
                         self._profile[attr] = plugin.resolve(self, attr)
-                    except ContextError:
-                        _LOGGER.warning('Error resolving attribute - %s: %s',
-                                        plugin, attr)
+                    except ContextError as err:
+                        _LOGGER.warning(
+                            'Error resolving attribute %s in %s: %s',
+                            attr, plugin, err
+                        )
                     except KeyError:
                         # Plugin is not responsible fot the attribute.
                         pass

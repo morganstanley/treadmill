@@ -32,8 +32,14 @@ class VRingTest(unittest.TestCase):
             'yyy.xx.com': '2.2.2.2',
             'zzz.xx.com': '3.3.3.3',
         }
-        socket.gethostbyname.side_effect = \
-            lambda hostname: dns[hostname]
+
+        def _mock_gethostbyname(hostname):
+            res = dns.get(hostname, None)
+            if res is not None:
+                return res
+            raise socket.gaierror(-2, 'Name or service not known')
+        socket.gethostbyname.side_effect = _mock_gethostbyname
+
         treadmill.sysinfo.hostname.return_value = 'zzz.xx.com'
         mock_discovery = treadmill.discovery.Discovery(None, 'a.a', None)
         mock_rulemgr = treadmill.rulefile.RuleMgr('/test', '/owners')
@@ -44,6 +50,9 @@ class VRingTest(unittest.TestCase):
             ('proid.foo#124:tcp:tcp_ep', 'zzz.xx.com:12345'),
             ('proid.foo#124:udp:udp_ep', 'zzz.xx.com:23456'),
             ('proid.foo#124:tcp:other_tcp_ep', 'zzz.xx.com:34567'),
+            ('proid.foo#666:tcp:tcp_ep', 'bad:12345'),
+            ('proid.foo#666:udp:udp_ep', 'bad:23456'),
+            ('proid.foo#666:tcp:other_tcp_ep', 'zzz.xx.com:34567'),
             ('proid.foo#125:tcp:tcp_ep', 'yyy.xx.com:45678'),
             ('proid.foo#125:udp:udp_ep', 'yyy.xx.com:56789'),
             ('proid.foo#125:tcp:other_tcp_ep', 'yyy.xx.com:34567'),

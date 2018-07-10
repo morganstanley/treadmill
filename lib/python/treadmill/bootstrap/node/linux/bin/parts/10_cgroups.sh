@@ -14,6 +14,7 @@ FIND="{{ _alias.find }}"
 GREP="{{ _alias.grep }}"
 LS="{{ _alias.ls }}"
 MKDIR="{{ _alias.mkdir }}"
+MKTEMP="{{ _alias.mktemp }}"
 MOUNT="{{ _alias.mount }}"
 RMDIR="{{ _alias.rmdir }}"
 SLEEP="{{ _alias.sleep }}"
@@ -149,8 +150,6 @@ function init_cgroup_rhel7() {
 function init_cgroup_rhel6() {
     SYS_FS='/sys/fs'
     CGROUP_BASE="${SYS_FS}/cgroup"
-    MOUNTINFO='/proc/self/mountinfo'
-    MNT_BASE='/mnt'
 
     # clear existing cgroup mount/setting
     for i in {1..5}; do
@@ -175,12 +174,14 @@ function init_cgroup_rhel6() {
         exit 1
     fi
 
-    # mount /mnt/cgroup on /sys/fs/cgroup
+    # mount a new on /sys/fs/cgroup
     if [ ! -d ${CGROUP_BASE} ]; then
-        if [ -z "$(${CAT} ${MOUNTINFO}|${GREP} -w ${MNT_BASE})" ]; then
-            ${MOUNT} tmpfs ${MNT_BASE} -t tmpfs -o 'rw,nosuid,nodev,noexec,mode=755'
-        fi
-        ${MKDIR} -vp ${MNT_BASE}/cgroup
+        TMP_DIR=$(${MKTEMP} --tmpdir=/tmp -d)
+
+        ${MOUNT} -n -t tmpfs -o 'rw,nosuid,nodev,noexec,mode=755' \
+            tmpfs ${TMP_DIR} -t tmpfs
+
+        ${MKDIR} -vp ${TMP_DIR}/cgroup
 
         # even FS path is not mounted. it is not a big problem
         SYSFS_PATHS=$(${LS} ${SYS_FS}/)
@@ -190,35 +191,37 @@ function init_cgroup_rhel6() {
                 continue
             fi
 
-            if [ ! -d ${MNT_BASE}/${FSPATH} ]; then
-                ${MKDIR} -vp ${MNT_BASE}/${FSPATH}
-                ${MOUNT} -o bind ${SYS_FS}/${FSPATH} ${MNT_BASE}/${FSPATH}
+            if [ ! -d ${TMP_DIR}/${FSPATH} ]; then
+                ${MKDIR} -vp ${TMP_DIR}/${FSPATH}
+                ${MOUNT} -n --rbind ${SYS_FS}/${FSPATH} ${TMP_DIR}/${FSPATH}
             fi
         done
 
-        # move mount /mnt/cgroup to /sys/fs/cgroup
-        ${MOUNT} --move ${MNT_BASE} ${SYS_FS}
+        # Finally move the tmp mount point to /sys/fs
+        ${MOUNT} -n --move ${TMP_DIR} ${SYS_FS}
+        ${RMDIR} -vf ${TMP_DIR}
     fi
 
     # mount every cgroup to /sys/fs/cgroup
-    AVAILABLES=$(${CAT} /proc/cgroups|${GREP} -v subsys_name|${AWK} '{print $1}')
+    AVAILABLES=$(${CAT} /proc/cgroups | ${GREP} -v '#' | ${AWK} '{print $1}')
     for AVAIL in ${AVAILABLES}; do
-        # we ignore ns cgroup, it is not available in RH6
+        # we ignore ns cgroup, it is not working in RH6
         if [ "x${AVAIL}" == "xns" ]; then
             continue
         fi
 
         if [ ! -d ${CGROUP_BASE}/${AVAIL} ]; then
-            ${MKDIR} ${CGROUP_BASE}/${AVAIL}
+            ${MKDIR} -v ${CGROUP_BASE}/${AVAIL}
         fi
 
         # cgcleared, always mount path
-        ${ECHO} "mounting ${CGROUP_BASE}/${AVAIL}"
-        ${MOUNT} ${AVAIL} ${CGROUP_BASE}/${AVAIL} -o "rw,nosuid,nodev,noexec,relatime,$AVAIL" -t cgroup
+        ${ECHO} "Mounting ${CGROUP_BASE}/${AVAIL}"
+        ${MOUNT} -n -t cgroup -o "rw,nosuid,nodev,noexec,relatime,$AVAIL" \
+            ${AVAIL} ${CGROUP_BASE}/${AVAIL}
     done
 
     # remount as readonly
-    ${MOUNT} -o remount,ro ${SYS_FS}
+    ${MOUNT} -n -o remount,ro ${SYS_FS}
 
     CPUSET_ALL_CORES="$(${CAT} ${CGROUP_BASE}/cpuset/cpuset.cpus)"
     if [ -z "${TREADMILL_CPUSET_CORES}" ]; then

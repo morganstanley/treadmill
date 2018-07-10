@@ -8,6 +8,8 @@ from __future__ import unicode_literals
 
 import unittest
 
+import mock
+
 from treadmill.appcfg import manifest
 
 
@@ -24,8 +26,14 @@ class AppCfgFeaturesTest(unittest.TestCase):
             'features': ['no_such_feature']
         }
 
+        tm_env = mock.Mock(
+            cell='testcell',
+            zkurl='zookeeper://foo@foo:123',
+            apps_dir='apps',
+        )
+
         with self.assertRaises(Exception, msg='foo') as cm:
-            manifest.add_manifest_features(mf, 'linux')
+            manifest.add_manifest_features(mf, 'linux', tm_env)
 
         self.assertIn('Unsupported feature', str(cm.exception))
 

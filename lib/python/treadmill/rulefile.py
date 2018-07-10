@@ -12,7 +12,6 @@ import os
 import re
 
 from treadmill import firewall
-from treadmill import fs
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -105,14 +104,25 @@ class RuleMgr(object):
     )
 
     def __init__(self, base_path, owner_path):
-        # Make sure rules directory exists.
-        fs.mkdir_safe(base_path)
         self._base_path = os.path.realpath(base_path)
         self._owner_path = os.path.realpath(owner_path)
 
+    def _list_rules(self):
+        """Return collection of existing rules.
+        """
+        try:
+            return os.listdir(self._base_path)
+        except OSError as err:
+            if err.errno == errno.ENOENT:
+                _LOGGER.warning('Network rule dir %r does not exist.',
+                                self._base_path)
+                return []
+            else:
+                raise
+
     def initialize(self):
         """Initialize the network folder."""
-        for rule in os.listdir(self._base_path):
+        for rule in self._list_rules():
             os.unlink(os.path.join(self._base_path, rule))
 
     @property
@@ -202,7 +212,7 @@ class RuleMgr(object):
         """
         rules = set()
 
-        for entry in os.listdir(self._base_path):
+        for entry in self._list_rules():
             chain_rule = self.get_rule(entry)
             if chain_rule is not None:
                 rules.add(chain_rule)
@@ -271,7 +281,7 @@ class RuleMgr(object):
     def garbage_collect(self):
         """Garbage collect all rules without owner.
         """
-        for rule in os.listdir(self._base_path):
+        for rule in self._list_rules():
             link = os.path.join(self._base_path, rule)
             try:
                 os.stat(link)

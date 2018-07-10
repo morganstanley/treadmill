@@ -48,7 +48,6 @@ _LINUX_ALIASES = {
     'dmesg': _BIN,
     'docker': _USR_BIN,
     'dockerd': _USR_BIN,
-    'docker_runtime': '/usr/libexec/docker/docker-runc-latest',
     'dumpe2fs': _SBIN,
     'echo': _BIN,
     'expr': _USR_BIN,

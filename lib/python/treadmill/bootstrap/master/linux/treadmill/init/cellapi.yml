@@ -1,3 +1,4 @@
+user: "{{ treadmillid }}"
 command: |
   RM={{ _alias.rm }}
 

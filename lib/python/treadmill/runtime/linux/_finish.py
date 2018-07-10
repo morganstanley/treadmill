@@ -172,7 +172,7 @@ def _cleanup(tm_env, container_dir, app):
     )
 
     # Unregister presence
-    presence_client.delete(app.name)
+    presence_client.delete(unique_name)
 
     # Destroy the volume
     try:
