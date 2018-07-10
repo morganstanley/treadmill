@@ -377,6 +377,7 @@ class ApiAppTest(unittest.TestCase):
                 'services': [{
                     'name': 'test_svc',
                     'command': 'test_cmd',
+                    'args': [],
                     'restart': {'limit': 5, 'interval': 60},
                 }],
                 'args': [],
@@ -439,6 +440,7 @@ class ApiAppTest(unittest.TestCase):
                 'services': [{
                     'name': 'test_svc',
                     'command': 'test_cmd',
+                    'args': [],
                     'restart': {'limit': 5, 'interval': 60},
                 }],
                 'args': [],

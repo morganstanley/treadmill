@@ -10,6 +10,11 @@
                 "pattern": "^[\\w\\-\\.]+$"
             },
             "command": { "type": "string" },
+            "image": { "type": "string" },
+            "args": {
+                "type": "array",
+                "items": { "type": "string" }
+            },
             "restart": {
                 "type": "object",
                 "properties": {
@@ -29,7 +34,10 @@
             },
             "root": { "type": "boolean" }
         },
-        "required": [ "name", "command" ],
+        "anyOf": [
+            { "required": [ "name", "command" ] },
+            { "required": [ "name", "image" ] }
+        ],
         "additionalProperties": false
     },
     "ephemeral_ports": {

@@ -12,6 +12,7 @@ import sys
 
 import kazoo
 
+from treadmill import appcfg
 from treadmill import context
 from treadmill import logcontext as lc
 from treadmill import zkutils
@@ -33,7 +34,7 @@ class PresenceResourceService(BaseResourceServiceImpl):
     __slots__ = (
         'hostname',
         'zkclient',
-        'state',
+        'presence',
     )
 
     PAYLOAD_SCHEMA = (('endpoints', True, list),
@@ -45,7 +46,7 @@ class PresenceResourceService(BaseResourceServiceImpl):
         # TODO: can't find way to pass arguments to the service impl.
         self.zkclient = context.GLOBAL.zk.conn
         self.hostname = sysinfo.hostname()
-        self.state = collections.defaultdict(set)
+        self.presence = collections.defaultdict(dict)
 
     def initialize(self, service_dir):
         super(PresenceResourceService, self).initialize(service_dir)
@@ -67,18 +68,18 @@ class PresenceResourceService(BaseResourceServiceImpl):
         with lc.LogContext(_LOGGER, rsrc_id,
                            adapter_cls=lc.ContainerAdapter) as log:
             log.info('Creating presence: %s', rsrc_data)
+            app_name = appcfg.app_name(rsrc_id)
 
             # Register running.
-            path = z.path.running(rsrc_id)
-            _LOGGER.info('Register running: %s', path)
-            if not self._safe_create(rsrc_id,
-                                     z.path.running(rsrc_id),
-                                     self.hostname):
+            path = z.path.running(app_name)
+            _LOGGER.info('Register running: %s, %s', path, self.hostname)
+            if not self._safe_create(rsrc_id, path, self.hostname):
                 _LOGGER.info('Waiting to expire: %s', path)
                 return None
 
-            self.state[rsrc_id].add(path)
+            self.presence[app_name][path] = rsrc_id
 
+            # Register endpoints.
             for endpoint in rsrc_data.get('endpoints', []):
                 internal_port = endpoint['port']
                 ep_name = endpoint.get('name', str(internal_port))
@@ -86,37 +87,48 @@ class PresenceResourceService(BaseResourceServiceImpl):
                 ep_proto = endpoint.get('proto', 'tcp')
 
                 hostport = self.hostname + ':' + str(ep_port)
-                path = z.path.endpoint(rsrc_id, ep_proto, ep_name)
-                _LOGGER.info('register endpoint: %s %s', path, hostport)
+
+                path = z.path.endpoint(app_name, ep_proto, ep_name)
+                _LOGGER.info('Register endpoint: %s, %s', path, hostport)
                 if not self._safe_create(rsrc_id, path, hostport):
                     _LOGGER.info('Waiting to expire: %s', path)
                     return None
 
-                self.state[rsrc_id].add(path)
+                self.presence[app_name][path] = rsrc_id
 
-        identity_group = rsrc_data.get('identity_group')
-        if identity_group:
-            identity = rsrc_data.get('identity', _INVALID_IDENTITY)
-            _LOGGER.info('Register identity: %s, %s', identity_group, identity)
-            path = z.path.identity_group(identity_group, str(identity))
-            if not self._safe_create(rsrc_id, path,
-                                     {'host': self.hostname, 'app': rsrc_id}):
-                _LOGGER.info('Waiting to expire: %s', path)
-                return None
+            # Register identity.
+            identity_group = rsrc_data.get('identity_group')
+            if identity_group:
+                identity = rsrc_data.get('identity', _INVALID_IDENTITY)
+                identity_data = {'host': self.hostname, 'app': app_name}
 
-            self.state[rsrc_id].add(path)
+                path = z.path.identity_group(identity_group, str(identity))
+                _LOGGER.info('Register identity: %s, %s', path, identity_data)
+                if not self._safe_create(rsrc_id, path, identity_data):
+                    _LOGGER.info('Waiting to expire: %s', path)
+                    return None
+
+                self.presence[app_name][path] = rsrc_id
 
         return {}
 
     def on_delete_request(self, rsrc_id):
         with lc.LogContext(_LOGGER, rsrc_id,
                            adapter_cls=lc.ContainerAdapter) as log:
+            log.info('Deleting presence')
+            app_name = appcfg.app_name(rsrc_id)
 
-            log.info('Deleting presence: %s', rsrc_id)
-            for path in self.state[rsrc_id]:
+            to_delete = [
+                path for path in self.presence[app_name]
+                if self.presence[app_name][path] == rsrc_id
+            ]
+
+            for path in to_delete:
                 self._safe_delete(path)
+                del self.presence[app_name][path]
 
-            del self.state[rsrc_id]
+            if not self.presence[app_name]:
+                del self.presence[app_name]
 
         return True
 

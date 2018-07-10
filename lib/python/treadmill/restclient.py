@@ -12,16 +12,17 @@ import logging
 import os
 import re
 import time
-
+import sys
 import requests
-import requests_unixsocket
 import requests_kerberos
 import simplejson.scanner
 
 from six.moves import http_client
 
-# to support unixscoket for URL
-requests_unixsocket.monkeypatch()
+if sys.platform == "posix":
+    # to support unixscoket for URL
+    import requests_unixsocket
+    requests_unixsocket.monkeypatch()
 
 _NUM_OF_RETRIES = 5
 
@@ -131,7 +132,7 @@ def _handle_error(url, response):
 
 
 def _call(url, method, payload=None, headers=None, auth=_KERBEROS_AUTH,
-          proxies=None, timeout=None, stream=None):
+          proxies=None, timeout=None, stream=None, verify=True):
     """Call REST url with the supplied method and optional payload"""
     _LOGGER.debug('http: %s %s, payload: %s, headers: %s, timeout: %s',
                   method, url, payload, headers, timeout)
@@ -139,7 +140,7 @@ def _call(url, method, payload=None, headers=None, auth=_KERBEROS_AUTH,
     try:
         response = getattr(requests, method.lower())(
             url, json=payload, auth=auth, proxies=proxies, headers=headers,
-            timeout=timeout, stream=stream
+            timeout=timeout, stream=stream, verify=verify
         )
         _LOGGER.debug('response: %r', response)
     except requests.exceptions.ConnectionError:
@@ -160,14 +161,14 @@ def _call(url, method, payload=None, headers=None, auth=_KERBEROS_AUTH,
 
 
 def _call_list(urls, method, payload=None, headers=None, auth=_KERBEROS_AUTH,
-               proxies=None, timeout=None, stream=None):
+               proxies=None, timeout=None, stream=None, verify=True):
     """Call list of supplied URLs, return on first success."""
     _LOGGER.debug('Call %s on %r', method, urls)
     attempts = []
     for url in urls:
         success, response, status_code = _call(url, method, payload, headers,
                                                auth, proxies, timeout=timeout,
-                                               stream=stream)
+                                               stream=stream, verify=verify)
         if success:
             return success, response
 
@@ -176,7 +177,7 @@ def _call_list(urls, method, payload=None, headers=None, auth=_KERBEROS_AUTH,
 
 
 def _call_list_with_retry(urls, method, payload, headers, auth, proxies,
-                          retries, timeout=None, stream=None):
+                          retries, timeout=None, stream=None, verify=True):
     """Call list of supplied URLs with retry."""
     if timeout is None:
         if method == 'get':
@@ -190,7 +191,7 @@ def _call_list_with_retry(urls, method, payload, headers, auth, proxies,
         success, response = _call_list(
             urls, method, payload, headers, auth, proxies,
             timeout=(_DEFAULT_CONNECT_TIMEOUT + retry, timeout),
-            stream=stream
+            stream=stream, verify=verify
         )
         if success:
             return response
@@ -204,7 +205,8 @@ def _call_list_with_retry(urls, method, payload, headers, auth, proxies,
 
 
 def call(api, url, method, payload=None, headers=None, auth=_KERBEROS_AUTH,
-         proxies=None, retries=_NUM_OF_RETRIES, timeout=None, stream=None):
+         proxies=None, retries=_NUM_OF_RETRIES, timeout=None, stream=None,
+         verify=True):
     """Call url(s) with retry."""
     if not api:
         raise NoApiEndpointsError()
@@ -215,15 +217,15 @@ def call(api, url, method, payload=None, headers=None, auth=_KERBEROS_AUTH,
     return _call_list_with_retry(
         [endpoint + url for endpoint in api],
         method, payload, headers, auth, proxies, retries, timeout=timeout,
-        stream=stream)
+        stream=stream, verify=verify)
 
 
 def get(api, url, headers=None, auth=_KERBEROS_AUTH, proxies=None,
-        retries=_NUM_OF_RETRIES, timeout=None, stream=None):
+        retries=_NUM_OF_RETRIES, timeout=None, stream=None, verify=True):
     """Convenience function to get a resoure"""
     return call(api, url, 'get',
                 headers=headers, auth=auth, proxies=proxies, retries=retries,
-                timeout=timeout, stream=stream)
+                timeout=timeout, stream=stream, verify=verify)
 
 
 def post(api, url, payload, headers=None, auth=_KERBEROS_AUTH, proxies=None,

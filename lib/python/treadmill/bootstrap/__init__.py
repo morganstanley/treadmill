@@ -369,15 +369,23 @@ def _install(package, src_dir, dst_dir, params, prefix_len=None, rec=None):
         if pkg_resources.resource_isdir(package_name,
                                         os.path.join(src_dir, item)):
             fs.mkdir_safe(dst_path)
-            try:
-                with io.open(os.path.join(dst_path, '.owner'), 'r') as f:
-                    owner = str(f.read().strip())
+            # Check directory ownership.
+            owner_rsrc = os.path.join(resource_path, '.owner')
+            if pkg_resources.resource_exists(package_name, owner_rsrc):
+                owner = _interpolate(
+                    pkg_resources.resource_string(
+                        package_name, owner_rsrc
+                    ).decode(),
+                    params
+                ).strip()
+
+                try:
                     _LOGGER.info('Setting owner: %r - %r', dst_path, owner)
                     owner_pw = pwd.getpwnam(owner)
                     os.chown(dst_path, owner_pw.pw_uid, owner_pw.pw_gid)
-            except (IOError, OSError) as err:
-                if err.errno != errno.ENOENT:
-                    raise
+                except (IOError, OSError) as err:
+                    if err.errno != errno.ENOENT:
+                        raise
 
             if rec:
                 rec.write('%s\n' % os.path.join(dst_path, ''))
@@ -400,6 +408,8 @@ def _install(package, src_dir, dst_dir, params, prefix_len=None, rec=None):
             )
         else:
             if resource_path.endswith('.swp'):
+                continue
+            if resource_path.endswith('.owner'):
                 continue
 
             resource_str = pkg_resources.resource_string(

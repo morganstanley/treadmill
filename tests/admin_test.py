@@ -290,6 +290,58 @@ class AdminTest(unittest.TestCase):
         # Account for default restart values
         app['services'][1]['restart'] = {'limit': 5, 'interval': 60}
         app['services'][2]['restart']['interval'] = 60
+
+        app['services'][0]['args'] = []
+        app['services'][1]['args'] = []
+        app['services'][2]['args'] = []
+        self.assertEqual(app, admin.Application(None).from_entry(ldap_entry))
+
+    def test_app_to_entry_docker(self):
+        """Tests convertion of app dictionary to ldap entry."""
+        app = {
+            '_id': 'xxx',
+            'cpu': '100%',
+            'memory': '1G',
+            'disk': '1G',
+            'tickets': [],
+            'features': [],
+            'endpoints': [],
+            'environ': [],
+            'services': [
+                {
+                    'name': 'foo',
+                    'image': 'testimage',
+                    'args': ['-n', 'test'],
+                    'command': 'echo',
+                    'restart': {
+                        'limit': 3,
+                        'interval': 30,
+                    },
+                },
+            ]
+        }
+
+        md5_foo = hashlib.md5(b'foo').hexdigest()
+        ldap_entry = {
+            'app': ['xxx'],
+            'cpu': ['100%'],
+            'memory': ['1G'],
+            'disk': ['1G'],
+            'service-name;tm-service-' + md5_foo: ['foo'],
+            'service-command;tm-service-' + md5_foo: ['echo'],
+            'service-args;tm-service-' + md5_foo: ['-n', 'test'],
+            'service-image;tm-service-' + md5_foo: ['testimage'],
+            'service-restart-limit;tm-service-' + md5_foo: ['3'],
+            'service-restart-interval;tm-service-' + md5_foo: ['30'],
+
+        }
+        self.assertEqual(ldap_entry, admin.Application(None).to_entry(app))
+
+        app['affinity_limits'] = {}
+        app['args'] = []
+        app['passthrough'] = []
+        app['ephemeral_ports'] = {}
+
         self.assertEqual(app, admin.Application(None).from_entry(ldap_entry))
 
     def test_app_to_entry_and_back(self):
@@ -312,6 +364,7 @@ class AdminTest(unittest.TestCase):
             'memory': '1G',
             'services': [{'command': '/a',
                           'name': 'a',
+                          'args': [],
                           'restart': {'interval': 30, 'limit': 3}}],
             'disk': '1G',
             'affinity_limits': {},

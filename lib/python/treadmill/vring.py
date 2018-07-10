@@ -80,7 +80,11 @@ def run(routing, endpoints, discovery, rulemgr, ip_owner, rules_owner):
             if host == local_host:
                 continue
 
-            ipaddr = socket.gethostbyname(host)
+            try:
+                ipaddr = socket.gethostbyname(host)
+            except socket.gaierror as err:
+                _LOGGER.warning('Error resolving %r(%s), skipping.', host, err)
+                continue
             public_port = int(public_port)
             vring_route = (proto, ipaddr, public_port)
             _LOGGER.info('add vring route: %r', vring_route)
