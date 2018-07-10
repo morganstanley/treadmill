@@ -1,8 +1,5 @@
+user: "{{ treadmillid }}"
 command: |
-  CHOWN={{ _alias.chown }}
-
-  ${CHOWN} -R {{ treadmillid }} /treadmill/appevents
-
   exec \
       {{ treadmill }}/bin/treadmill \
       sproc \

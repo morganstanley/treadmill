@@ -346,14 +346,14 @@ def add_linux_services(manifest):
     manifest['endpoints'].append(ssh_endpoint)
 
 
-def add_manifest_features(manifest, runtime):
+def add_manifest_features(manifest, runtime, tm_env):
     """Configure optional container features."""
     for feature in manifest.get('features', []):
         if not features.feature_exists(feature):
             _LOGGER.error('Unable to load feature: %s', feature)
             raise Exception('Unsupported feature: ' + feature)
 
-        feature_mod = features.get_feature(feature)()
+        feature_mod = features.get_feature(feature)(tm_env)
 
         if not feature_mod.applies(manifest, runtime):
             _LOGGER.error('Feature does not apply: %s', feature)

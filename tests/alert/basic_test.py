@@ -59,6 +59,15 @@ class TestBasics(unittest.TestCase):
                 alert._to_filename(instanceid='origin', type_='type'),
                 '123.456000-origin-type'
             )
+            # make sure that filename is not interpreted as a directory
+            # even if / (unix) or \ (win) is among the parts constructing it
+            self.assertEqual(
+                alert._to_filename(
+                    instanceid=os.path.join('cell', 'blah'),
+                    type_=os.path.join('ty', 'pe')
+                ),
+                '123.456000-cell_blah-ty_pe'
+            )
 
 
 if __name__ == '__main__':

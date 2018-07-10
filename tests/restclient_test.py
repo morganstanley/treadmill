@@ -104,27 +104,27 @@ class RESTClientTest(unittest.TestCase):
         self.assertEqual(len(err.attempts), 6)
 
         # Requests are done in order, by because other methods are being
-        # callled, to make test simpler, any_order is set to True so that
+        # called, to make test simpler, any_order is set to True so that
         # test will pass.
         requests.get.assert_has_calls([
             mock.call('http://foo.com/baz', json=None, proxies=None,
                       headers=None, auth=mock.ANY, timeout=(.5, 10),
-                      stream=None),
+                      stream=None, verify=True),
             mock.call('http://bar.com/baz', json=None, proxies=None,
                       headers=None, auth=mock.ANY, timeout=(.5, 10),
-                      stream=None),
+                      stream=None, verify=True),
             mock.call('http://foo.com/baz', json=None, proxies=None,
                       headers=None, auth=mock.ANY, timeout=(1.5, 10),
-                      stream=None),
+                      stream=None, verify=True),
             mock.call('http://bar.com/baz', json=None, proxies=None,
                       headers=None, auth=mock.ANY, timeout=(1.5, 10),
-                      stream=None),
+                      stream=None, verify=True),
             mock.call('http://foo.com/baz', json=None, proxies=None,
                       headers=None, auth=mock.ANY, timeout=(2.5, 10),
-                      stream=None),
+                      stream=None, verify=True),
             mock.call('http://bar.com/baz', json=None, proxies=None,
                       headers=None, auth=mock.ANY, timeout=(2.5, 10),
-                      stream=None),
+                      stream=None, verify=True),
         ], any_order=True)
         self.assertEqual(requests.get.call_count, 6)
 
@@ -165,7 +165,7 @@ class RESTClientTest(unittest.TestCase):
         resp_mock.return_value.text = 'foo'
         restclient.get('http://foo.com', '/')
         resp_mock.assert_called_with(
-            'http://foo.com/', stream=None, auth=mock.ANY,
+            'http://foo.com/', stream=None, auth=mock.ANY, verify=True,
             headers=None, json=None, timeout=(0.5, 10), proxies=None
         )
 
@@ -177,7 +177,7 @@ class RESTClientTest(unittest.TestCase):
         resp_mock.return_value.text = 'foo'
         restclient.delete('http://foo.com', '/')
         resp_mock.assert_called_with(
-            'http://foo.com/', stream=None, auth=mock.ANY,
+            'http://foo.com/', stream=None, auth=mock.ANY, verify=True,
             headers=None, json=None, timeout=(0.5, None), proxies=None
         )
 
@@ -189,7 +189,7 @@ class RESTClientTest(unittest.TestCase):
         resp_mock.return_value.text = 'foo'
         restclient.post('http://foo.com', '/', '')
         resp_mock.assert_called_with(
-            'http://foo.com/', stream=None, auth=mock.ANY,
+            'http://foo.com/', stream=None, auth=mock.ANY, verify=True,
             headers=None, json='', timeout=(0.5, None), proxies=None
         )
 
@@ -200,7 +200,7 @@ class RESTClientTest(unittest.TestCase):
         resp_mock.return_value.text = 'foo'
         restclient.put('http://foo.com', '/', '')
         resp_mock.assert_called_with(
-            'http://foo.com/', stream=None, auth=mock.ANY,
+            'http://foo.com/', stream=None, auth=mock.ANY, verify=True,
             headers=None, json='', timeout=(0.5, None), proxies=None
         )
 

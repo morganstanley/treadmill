@@ -33,11 +33,11 @@ class DockerTest(unittest.TestCase):
 
         client = docker.from_env()
 
-        sproc_docker._create_container(client, 'bar', 'foo', ['cmd'])
+        sproc_docker._create_container(client, 'bar', 'foo', None, ['cmd'])
 
         get_call_mock.assert_called_with('bar')
         create_call_mock.assert_called_with(
-            command=['cmd'], detach=True, image='foo',
+            command=['cmd'], detach=True, entrypoint=None, image='foo',
             ipc_mode='host', name='bar', network_mode='host',
             pid_mode='host', stdin_open=True, tty=True
         )
@@ -57,11 +57,13 @@ class DockerTest(unittest.TestCase):
 
         client = docker.from_env()
 
-        sproc_docker._create_container(client, 'bar', 'foo', ['cmd'])
+        sproc_docker._create_container(
+            client, 'bar', 'foo', ['entrypoint'], ['cmd']
+        )
 
         create_call_mock.assert_called_with(
-            command=['cmd'], detach=True, image='foo',
-            ipc_mode='host', name='bar', network_mode='host',
+            command=['cmd'], detach=True, entrypoint=['entrypoint'],
+            image='foo', ipc_mode='host', name='bar', network_mode='host',
             pid_mode='host', stdin_open=True, tty=True, user='1:2'
         )
 

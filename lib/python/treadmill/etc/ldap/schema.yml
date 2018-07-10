@@ -129,6 +129,12 @@ attributeTypes:
   service-command:
     desc: Treadmill command
     type: str
+  service-image:
+    desc: Treadmill docker image
+    type: str
+  service-args:
+    desc: Treadmill docker arguments
+    type: str
   service-name:
     desc: Treadmill service
     type: str
@@ -279,6 +285,8 @@ objectClasses:
     - args
     - service-name
     - service-command
+    - service-image
+    - service-args
     - service-root
     - service-restart-limit
     - service-restart-interval

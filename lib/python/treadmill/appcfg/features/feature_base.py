@@ -14,6 +14,9 @@ import six
 class Feature(object):
     """A manifest feature."""
 
+    def __init__(self, tm_env):
+        self._tm_env = tm_env
+
     @abc.abstractmethod
     def applies(self, manifest, runtime):
         """Configures the manifest with the feature.

@@ -142,7 +142,7 @@ def mount_devpts(newroot, target, **mnt_opts):
     while target.startswith('/'):
         target = target[1:]
 
-    return mount.mount(
+    mount.mount(
         source='devpts',
         target=os.path.join(newroot, target),
         fs_type='devpts',
@@ -152,6 +152,8 @@ def mount_devpts(newroot, target, **mnt_opts):
         ),
         **mnt_opts
     )
+
+    os.chmod(os.path.join(newroot, target, 'ptmx'), 0o666)
 
 
 def mount_mqueue(newroot, target, **mnt_opts):

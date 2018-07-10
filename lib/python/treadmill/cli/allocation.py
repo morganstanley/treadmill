@@ -23,8 +23,8 @@ _LOGGER = logging.getLogger(__name__)
 
 def _display_tenant(restapi, tenant):
     """Display allocations for the given tenant."""
-    tenant_url = '/tenant/%s' % tenant
-    alloc_url = '/allocation/%s' % tenant
+    tenant_url = '/tenant/{}'.format(tenant)
+    alloc_url = '/allocation/{}'.format(tenant)
 
     tenant_obj = restclient.get(restapi, tenant_url).json()
     allocations_obj = restclient.get(restapi, alloc_url).json()
@@ -173,12 +173,14 @@ def init():
                   metavar='G|M',
                   callback=cli.validate_disk)
     @click.option('--traits', help='Requested traits.', type=cli.LIST)
+    @click.option('--delete', help='Delete reservation.',
+                  is_flag=True, default=False)
     @click.argument('allocation', required=True)
     @cli.handle_exceptions(restclient.CLI_REST_EXCEPTIONS)
-    # pylint: disable=R0912
+    # pylint: disable=R0912,too-many-arguments,too-many-locals
     def reserve(allocation, env, cell, partition,
                 rank, rank_adjustment, max_utilization, empty,
-                memory, cpu, disk, traits):
+                memory, cpu, disk, traits, delete):
 
         """Reserve capacity on the cell for given environment."""
         _check_reserve_usage(empty, memory, cpu, disk)
@@ -186,6 +188,16 @@ def init():
         restapi = context.GLOBAL.admin_api(ctx.get('api'))
 
         _check_tenant_exists(restapi, allocation)
+
+        if delete:
+            url = '/allocation/{}/{}/reservation/{}'.format(
+                allocation,
+                env,
+                cell)
+            restclient.delete(restapi, url)
+            _display_tenant(restapi, allocation)
+            return
+
         _make_allocation(restapi, allocation, env)
 
         data = {}
@@ -243,6 +255,7 @@ def init():
                   is_flag=True, default=False)
     @click.argument('allocation', required=True)
     @cli.handle_exceptions(restclient.CLI_REST_EXCEPTIONS)
+    # pylint: disable=too-many-arguments
     def assign(allocation, env, cell, pattern, priority, delete):
         """Assign application pattern:priority to the allocation.
 
@@ -303,7 +316,8 @@ def init():
             reservations = [d['_id'] for d in allocs]
             if reservations:
                 cli.out('There are undeleted reservations under this '
-                        "allocation %s, please delete them first: ", tenant)
+                        "allocation {}, please delete them first: ".format(
+                            tenant))
                 for rev in reservations:
                     cli.out(rev)
             return reservations
@@ -323,7 +337,8 @@ def init():
                           if d['tenant'].startswith(tenant + ':')]
         if suballocations:
             cli.out('There are undeleted suballocations under this '
-                    "allocation %s, please delete them first: ", tenant)
+                    "allocation {}, please delete them first: ".format(
+                        tenant))
             for sub in suballocations:
                 cli.out(sub)
             return suballocations
@@ -342,18 +357,19 @@ def init():
         if len(path) == 1:
             # delete a tenant
             if not _tenant_empty(restapi, item):
-                url = '/tenant/%s' % item
+                url = '/tenant/{}'.format(item)
                 restclient.delete(restapi, url)
         elif len(path) == 2:
             # delete all reservations and all patterns
-            url = '/allocation/%s' % item
+            url = '/allocation/{}'.format(item)
             restclient.delete(restapi, url)
         elif len(path) == 3:
             # delete a reservation
             # API automatically clears the pattern under it
-            url = '/allocation/%s/%s/reservation/%s' % (path[0],
-                                                        path[1],
-                                                        path[2])
+            url = '/allocation/{}/{}/reservation/{}'.format(
+                path[0],
+                path[1],
+                path[2])
             restclient.delete(restapi, url)
         else:
             # error

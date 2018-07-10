@@ -6,6 +6,7 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import os
+import os.path
 import logging
 
 import click
@@ -14,7 +15,6 @@ from treadmill import alert
 from treadmill import appenv
 from treadmill import dirwatch
 from treadmill import fs
-from treadmill import utils
 
 from treadmill import plugin_manager
 
@@ -45,15 +45,18 @@ class _NoOpBackend(object):
 def _get_on_create_handler(alert_backend):
     """Return a func using 'alert_backend' to handle if an alert is created."""
 
-    @utils.exit_on_unhandled
     def _on_created(alert_file):
         """Handler for newly created alerts."""
+
+        # Avoid triggerring on temporary files
+        if os.path.basename(alert_file)[0] == '.':
+            return None
 
         def _delete_alert_file():
             fs.rm_safe(alert_file)
 
         alert_ = alert.read(alert_file)
-        alert_backend.send_event(
+        return alert_backend.send_event(
             on_success_callback=_delete_alert_file, **alert_
         )
 
@@ -76,6 +79,13 @@ def _load_alert_backend(plugin_name):
     return backend
 
 
+def _serve_forever(watcher):
+    """Wait for and handle events until the end of time."""
+    while True:
+        if watcher.wait_for_events():
+            watcher.process_events()
+
+
 def init():
     """App main."""
 
@@ -90,7 +100,6 @@ def init():
     def alert_monitor_cmd(approot, plugin):
         """Publish alerts."""
         tm_env = appenv.AppEnvironment(root=approot)
-
         watcher = dirwatch.DirWatcher(tm_env.alerts_dir)
         watcher.on_created = _get_on_create_handler(
             _load_alert_backend(plugin)
@@ -100,8 +109,6 @@ def init():
         for alert_file in os.listdir(tm_env.alerts_dir):
             watcher.on_created(os.path.join(tm_env.alerts_dir, alert_file))
 
-        while True:
-            if watcher.wait_for_events():
-                watcher.process_events()
+        _serve_forever(watcher)
 
     return alert_monitor_cmd

@@ -108,7 +108,7 @@ def create_environ_dir(container_dir, root_dir, app):
         recursive=False, read_only=True
     )
 
-    if app.docker:
+    if hasattr(app, 'docker') and app.docker:
         create_docker_environ_dir(container_dir, root_dir, app)
 
 
@@ -395,7 +395,7 @@ def make_fsroot(root_dir, app):
                 recursive=True, read_only=True
             )
 
-    if app.docker:
+    if hasattr(app, 'docker') and app.docker:
         _mount_docker_tmpfs(newroot_norm)
 
 
@@ -423,7 +423,7 @@ def create_overlay(tm_env, container_dir, root_dir, app):
     # bind prepared inside container
     _bind_overlay(container_dir, root_dir)
 
-    if app.docker:
+    if hasattr(app, 'docker') and app.docker:
         _bind_overlay_docker(container_dir, root_dir)
 
 

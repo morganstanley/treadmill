@@ -71,6 +71,9 @@ for TOMBSTONEDIR in "{{ dir }}/tombstones"/*/; do
     ${RM} -vf "${TOMBSTONEDIR}"/*
 done
 
+# Cleanup the presence service resources.
+${RM} -vf "{{ dir }}/presence_svc/resources"/*
+
 ###############################################################################
 ${ECHO} -e "\nRunning setup scripts."
 run_parts "{{ dir }}/bin/parts"

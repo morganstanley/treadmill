@@ -1,9 +1,8 @@
+user: "{{ treadmillid }}"
 command: |
-  CHOWN={{ _alias.chown }}
-
-  ${CHOWN} -R {{ treadmillid }} /treadmill/alerts
-
-  exec {{ python }} -m treadmill sproc alert-monitor --approot /treadmill
+  exec \
+      {{ treadmill }}/bin/treadmill \
+      sproc alert-monitor --approot /treadmill
 environ_dir: "/treadmill/env"
 environ:
   KRB5CCNAME: "FILE:/var/spool/tickets/{{ treadmillid }}"

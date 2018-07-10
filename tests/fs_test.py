@@ -306,6 +306,7 @@ class FsLinuxTest(unittest.TestCase):
         )
 
     @mock.patch('treadmill.syscall.mount.mount', mock.Mock(spec_set=True))
+    @mock.patch('os.chmod', mock.Mock(spec_set=True))
     def test_mount_devpts(self):
         """Tests behavior of mount devpts.
         """
@@ -320,6 +321,7 @@ class FsLinuxTest(unittest.TestCase):
             mnt_flags=mock.ANY,
             gid=5, mode='0620', ptmxmode='0666'
         )
+        os.chmod.assert_called_with('/foo/dev/pts/ptmx', 0o666)
         self.assertCountEqual(
             treadmill.syscall.mount.mount.call_args_list[0][1]['mnt_flags'],
             (
