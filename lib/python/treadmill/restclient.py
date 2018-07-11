@@ -12,15 +12,14 @@ import logging
 import os
 import re
 import time
-import sys
 import requests
 import requests_kerberos
 import simplejson.scanner
 
 from six.moves import http_client
 
-if sys.platform == "posix":
-    # to support unixscoket for URL
+if os.name == "posix":
+    # to support unixsocket for URL
     import requests_unixsocket
     requests_unixsocket.monkeypatch()
 
