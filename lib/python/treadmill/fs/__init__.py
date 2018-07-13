@@ -24,9 +24,6 @@ if os.name == 'nt':
     import win32api  # pylint: disable=E0401
     import win32con  # pylint: disable=E0401
 
-if os.name == 'posix':
-    import pwd
-
 from treadmill import exc
 from treadmill import subproc
 
@@ -93,7 +90,7 @@ def write_safe(filename, func, mode='wb', prefix='tmp', permission=None,
     :param permission:
         file permission
     :param owner
-        file owner (uid, gui) tuple or username string.
+        file owner (uid, gui) tuple
     """
     dirname = os.path.dirname(filename)
     try:
