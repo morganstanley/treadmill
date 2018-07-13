@@ -146,6 +146,8 @@ class API(object):
             # Check scheduled quota.
             zkclient = context.GLOBAL.zk.conn
             scheduled_stats = masterapi.get_scheduled_stats(zkclient)
+            if not scheduled_stats:
+                scheduled_stats = {}
 
             total_apps = sum(scheduled_stats.values())
             if total_apps + count > _TOTAL_SCHEDULED_QUOTA:

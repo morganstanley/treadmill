@@ -18,6 +18,7 @@ import kazoo
 import kazoo.exceptions
 import ldap3
 from ldap3.core import exceptions as ldap_exceptions
+import kerberos
 
 import treadmill
 from treadmill import restclient
@@ -45,13 +46,20 @@ def _handle_no_such_ldap_obj(err):
     click.echo('Error: %s does not exist.' % rsrc_type, err=True)
 
 
+def _handle_krb_error(err):
+    """Handle GSSAPI error."""
+    msg = err.args[1][0]
+    click.echo(msg, err=True)
+
+
 ON_EXCEPTIONS = cli.handle_exceptions([
     (ldap_exceptions.LDAPInsufficientAccessRightsResult,
      'Error: access denied.'),
-    (ldap_exceptions.LDAPBindError, 'Error: invalid credentials.'),
+    (ldap_exceptions.LDAPBindError, None),
     (ldap_exceptions.LDAPNoSuchObjectResult, _handle_no_such_ldap_obj),
     (kazoo.exceptions.NoAuthError, 'Error: not authorized.'),
     (kazoo.exceptions.NoNodeError, 'Error: resource does not exist.'),
+    (kerberos.GSSError, _handle_krb_error),
     (restclient.NotAuthorizedError, restclient.handle_not_authorized),
     (restclient.MaxRequestRetriesError, None),
     (dns.exception.Timeout, 'Error: DNS server timeout.'),

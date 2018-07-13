@@ -45,6 +45,8 @@ def _generate_dockerd_service(manifest, tm_env):
         },
         'command': (
             'exec {dockerd}'
+            ' --add-runtime docker-runc={docker_runtime}'
+            ' --default-runtime=docker-runc'
             ' --exec-opt native.cgroupdriver=cgroupfs'
             ' --bridge=none'
             ' --ip-forward=false'
@@ -56,6 +58,7 @@ def _generate_dockerd_service(manifest, tm_env):
             ' --add-registry {registry}'
         ).format(
             dockerd=subproc.resolve('dockerd'),
+            docker_runtime=subproc.resolve('docker_runtime'),
             gid=proid_gid,
             registry=_get_docker_registry(tm_env),
         ),
