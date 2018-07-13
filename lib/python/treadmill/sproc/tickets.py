@@ -24,6 +24,7 @@ import click
 
 from treadmill import appenv
 from treadmill import endpoints
+from treadmill import fs
 from treadmill import tickets
 from treadmill import context
 from treadmill import zknamespace as z
@@ -60,6 +61,9 @@ def _construct_keytab(keytabs):
     kt_target = os.environ.get('KRB5_KTNAME')
     cmd_line = ['kt_add', kt_target] + temp_keytabs + file_keytabs
     subproc.check_call(cmd_line)
+
+    for temp_keytab in temp_keytabs:
+        fs.rm_safe(temp_keytab)
 
 
 def _renew_tickets(tkt_spool_dir):
