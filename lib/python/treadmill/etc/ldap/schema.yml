@@ -132,9 +132,9 @@ attributeTypes:
   service-image:
     desc: Treadmill docker image
     type: str
-  service-args:
-    desc: Treadmill docker arguments
-    type: str
+  service-useshell:
+    desc: Use a shell to interpret the Treadmill command
+    type: bool
   service-name:
     desc: Treadmill service
     type: str
@@ -286,7 +286,7 @@ objectClasses:
     - service-name
     - service-command
     - service-image
-    - service-args
+    - service-useshell
     - service-root
     - service-restart-limit
     - service-restart-interval
