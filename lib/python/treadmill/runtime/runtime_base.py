@@ -24,7 +24,7 @@ _LOGGER = logging.getLogger(__name__)
 
 
 @six.add_metaclass(abc.ABCMeta)
-class RuntimeBase(object):
+class RuntimeBase:
     """Base class for a Treadmill runtime.
 
     :param tm_env:

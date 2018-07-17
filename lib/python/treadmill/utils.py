@@ -244,7 +244,7 @@ def touch(filename):
             raise
 
 
-class FileLock(object):
+class FileLock:
     """Utility file based lock."""
 
     def __init__(self, filename):

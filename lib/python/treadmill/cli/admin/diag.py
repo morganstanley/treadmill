@@ -15,7 +15,7 @@ from treadmill import utils
 from treadmill import cli
 
 
-class PsmemProcPrettyFormatter(object):
+class PsmemProcPrettyFormatter:
     """Pretty table formatter for psmem processes."""
 
     @staticmethod
@@ -39,7 +39,7 @@ class PsmemProcPrettyFormatter(object):
             return format_item(item)
 
 
-class PsmemTotalPrettyFormatter(object):
+class PsmemTotalPrettyFormatter:
     """Pretty table formatter for psmem processes."""
 
     @staticmethod

@@ -165,7 +165,7 @@ def watch_finished_history(zkclient, cell_state):
     _LOGGER.info('Loaded finished snapshots.')
 
 
-class CellState(object):
+class CellState:
     """Cell state."""
 
     __slots__ = (
@@ -217,7 +217,7 @@ class CellState(object):
         return state
 
 
-class API(object):
+class API:
     """Treadmill State REST api."""
 
     _FINISHED_LIMIT = 1000

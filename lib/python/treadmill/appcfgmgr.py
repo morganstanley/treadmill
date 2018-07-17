@@ -56,7 +56,7 @@ _HEARTBEAT_SEC = 30
 _WATCHDOG_TIMEOUT_SEC = _HEARTBEAT_SEC * 4
 
 
-class AppCfgMgr(object):
+class AppCfgMgr:
     """Configure apps from the cache onto the node."""
 
     __slots__ = (

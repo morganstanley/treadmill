@@ -124,9 +124,10 @@ def _api_plugins(plugins):
     ]
 
 
-class API(object):
+class API:
     """Treadmill Allocation REST api.
     """
+    # pylint: disable=too-many-statements
 
     def __init__(self, plugins=None):
 
@@ -184,9 +185,8 @@ class API(object):
             """Delete allocation.
             """
             _admin_alloc().delete(rsrc_id)
-            return None
 
-        class _ReservationAPI(object):
+        class _ReservationAPI:
             """Reservation API.
             """
 
@@ -261,7 +261,7 @@ class API(object):
                 # Must be called last when all methods are set.
                 _set_auth_resource(self, 'reservation')
 
-        class _AssignmentAPI(object):
+        class _AssignmentAPI:
             """Assignment API.
             """
 
@@ -324,7 +324,6 @@ class API(object):
                                           'priority': 0,
                                           '_delete': True}]}
                     )
-                    return None
 
                 self.get = get
                 self.create = create

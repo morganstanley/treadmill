@@ -46,7 +46,7 @@ _MAX_REQUEST_PER_CYCLE = 1
 _SERVICE_NAME = 'Cleanup'
 
 
-class Cleanup(object):
+class Cleanup:
     """Orchestrate the cleanup of apps which are scheduled to be stopped and/or
     removed.
     """

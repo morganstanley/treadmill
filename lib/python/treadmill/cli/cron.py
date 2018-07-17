@@ -26,6 +26,8 @@ _REST_PATH = '/cron/'
 
 def init():
     """Return top level command handler."""
+    # pylint: disable=too-many-statements
+
     ctx = {}
 
     @click.group()

@@ -175,7 +175,7 @@ def mount_mqueue(newroot, target, **mnt_opts):
     )
 
 
-class MountEntry(object):
+class MountEntry:
     """Mount table entry data.
     """
 

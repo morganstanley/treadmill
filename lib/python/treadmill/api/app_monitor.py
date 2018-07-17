@@ -17,7 +17,7 @@ from treadmill.scheduler import masterapi
 _LOGGER = logging.getLogger(__name__)
 
 
-class API(object):
+class API:
     """Treadmill AppMonitor REST api."""
 
     def __init__(self):
@@ -87,7 +87,6 @@ class API(object):
             """Delete configured application monitor."""
             zkclient = context.GLOBAL.zk.conn
             masterapi.delete_appmonitor(zkclient, rsrc_id)
-            return None
 
         self.list = _list
         self.get = get

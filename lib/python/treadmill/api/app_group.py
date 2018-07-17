@@ -13,7 +13,7 @@ from treadmill import schema
 from treadmill import admin
 
 
-class API(object):
+class API:
     """Treadmill AppGroup REST api."""
 
     def __init__(self):
@@ -54,7 +54,6 @@ class API(object):
         def delete(rsrc_id):
             """Delete configured application."""
             _admin_app_group().delete(rsrc_id)
-            return None
 
         def _list(match=None):
             """List configured applications."""

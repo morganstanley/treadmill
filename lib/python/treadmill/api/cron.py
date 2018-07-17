@@ -17,7 +17,7 @@ from treadmill.cron import model as cron_model
 _LOGGER = logging.getLogger(__name__)
 
 
-class API(object):
+class API:
     """Treadmill CRON REST api."""
 
     def __init__(self):

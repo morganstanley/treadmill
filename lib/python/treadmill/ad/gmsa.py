@@ -45,7 +45,7 @@ def _check_ldap3_operation(conn):
     return False
 
 
-class GMSAConfig(object):
+class GMSAConfig:
     """Config for GMSA accounts.
     """
 
@@ -79,7 +79,7 @@ class GMSAConfig(object):
         return match[0]
 
 
-class HostGroupWatch(object):
+class HostGroupWatch:
     """Treadmill GMSA placement watch.
     """
 
@@ -408,7 +408,7 @@ class HostGroupWatch(object):
                 self._dirwatcher.process_events()
 
 
-class HostGroupCheck(object):
+class HostGroupCheck:
     """Check group membership for a GMSA account.
     """
 

@@ -19,7 +19,7 @@ _PLUGINS_NS = 'treadmill.apphooks'
 
 
 @six.add_metaclass(abc.ABCMeta)
-class AppHookPluginBase(object):
+class AppHookPluginBase:
     """The base class of filesystem plugins for the image.
 
     :param tm_env:

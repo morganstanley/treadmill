@@ -24,7 +24,7 @@ JOB_DATA_DIR = 'data'
 JOB_FINISH_TIMEOUT = 0
 
 
-class SpawnPaths(object):
+class SpawnPaths:
     """Treadmill spawn manifest watch."""
 
     __slots__ = (

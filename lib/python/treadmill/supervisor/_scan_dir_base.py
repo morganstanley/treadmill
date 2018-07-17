@@ -24,7 +24,7 @@ _LOGGER = logging.getLogger(__name__)
 
 
 @six.add_metaclass(abc.ABCMeta)
-class ScanDir(object):
+class ScanDir:
     """Models a service directory.
     """
     __slots__ = (

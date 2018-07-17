@@ -113,7 +113,7 @@ def _transform_volumes(volumes):
     return dict_volume
 
 
-class DockerSprocClient(object):
+class DockerSprocClient:
     """Docker Treadmill Sproc client
     """
 

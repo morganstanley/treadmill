@@ -11,7 +11,7 @@ import six
 
 
 @six.add_metaclass(abc.ABCMeta)
-class Feature(object):
+class Feature:
     """A manifest feature."""
 
     def __init__(self, tm_env):

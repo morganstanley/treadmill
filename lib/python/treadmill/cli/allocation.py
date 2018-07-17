@@ -71,6 +71,7 @@ def _make_allocation(restapi, allocation, env):
 
 def init():
     """Return top level command handler."""
+    # pylint: disable=too-many-statements
 
     alloc_formatter = cli.make_formatter('tenant')
     ctx = {}

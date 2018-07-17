@@ -14,7 +14,7 @@ from treadmill.websocket import _utils
 _LOGGER = logging.getLogger(__name__)
 
 
-class EndpointAPI(object):
+class EndpointAPI:
     """Handler for /endpoints topic."""
 
     def __init__(self):

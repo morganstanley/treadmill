@@ -108,6 +108,7 @@ def _reforward_ticket(ticket_file, tkt_final_dir, endpoint):
 
 def init():
     """Top level command handler."""
+    # pylint: disable=too-many-statements
 
     @click.group()
     def top():
@@ -337,14 +338,14 @@ def init():
         watcher.on_created = _on_created
 
         # Make sure to forward all tickets on startup
-        tickets_in_tmp_spool = set([
+        tickets_in_tmp_spool = {
             os.path.basename(path)
             for path in glob.glob(os.path.join(tkt_spool_dir, '*'))
-        ])
-        tickets_in_dst_spool = set([
+        }
+        tickets_in_dst_spool = {
             os.path.basename(path)
             for path in glob.glob(os.path.join(tkt_final_dir, '*'))
-        ])
+        }
 
         for common in tickets_in_tmp_spool & tickets_in_dst_spool:
             dst_path = os.path.join(tkt_final_dir, common)

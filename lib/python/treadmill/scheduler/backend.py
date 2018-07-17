@@ -17,7 +17,7 @@ class ObjectNotFoundError(Exception):
     pass
 
 
-class Backend(object):
+class Backend:
     """Master storage interface."""
 
     def __init__(self):
@@ -27,6 +27,9 @@ class Backend(object):
         """Return path listing."""
         return []
 
+    # Pylint complains about useless return, keep it for clarity.
+    #
+    # pylint: disable=R1711
     def get(self, _path):
         """Return stored object given path."""
         return None

@@ -119,7 +119,7 @@ class PeerCredLineServer(basic.LineReceiver):  # pylint: disable=C0103
         pass
 
 
-class PeerCredLineClient(object):
+class PeerCredLineClient:
     """PeerCred line based syncrounos client."""
 
     def __init__(self, path):

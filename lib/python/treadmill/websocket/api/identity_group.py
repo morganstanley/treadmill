@@ -15,7 +15,7 @@ from treadmill import yamlwrapper as yaml
 _LOGGER = logging.getLogger(__name__)
 
 
-class IdentityGroupAPI(object):
+class IdentityGroupAPI:
     """Handler for /identity-groups topic.
     """
 

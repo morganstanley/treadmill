@@ -71,7 +71,7 @@ def _to_bool(value):
 
     # XXX: This is necessary until previous bad entries are cleaned up.
     s_value = str(value).lower()
-    if s_value == "0" or s_value == "false":
+    if s_value in ('0', 'false'):
         return False
     else:
         return True
@@ -359,6 +359,7 @@ def _dict_normalize(data):
     if isinstance(data, six.string_types):
         return six.text_type(data)
     elif isinstance(data, collections.Mapping):
+        # pylint: disable=consider-using-dict-comprehension
         return dict([
             _dict_normalize(i)
             for i in six.iteritems(data)
@@ -440,7 +441,7 @@ def _diff_entries(old_entry, new_entry):
     return diff
 
 
-class AndQuery(object):
+class AndQuery:
     """And query helper."""
 
     def __init__(self, key, value):
@@ -462,11 +463,12 @@ class AndQuery(object):
         return query
 
 
-class Admin(object):
+class Admin:
     """Manages Treadmill objects in ldap.
     """
     # Allow such names as 'dn', 'ou'
     # pylint: disable=invalid-name
+    # pylint: disable=too-many-statements
 
     def __init__(self, uri, ldap_suffix,
                  user=None, password=None, connect_timeout=5, write_uri=None):
@@ -788,6 +790,7 @@ class Admin(object):
                 obj_classes.append(obj_cls)
 
         if abstract:
+            # pylint: disable=consider-using-dict-comprehension
             attr_types = dict([_attrtype_2_abstract(a) for a in attr_types])
             obj_classes = dict([_objcls_2_abstract(o) for o in obj_classes])
 
@@ -1022,7 +1025,7 @@ class Admin(object):
             return entry.get('olcSyncrepl')
 
 
-class LdapObject(object):
+class LdapObject:
     """Ldap object base class.
     """
     # Allow such names as 'dn', 'ou'

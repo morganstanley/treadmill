@@ -16,7 +16,7 @@ _LOGGER = logging.getLogger(__name__)
 _JINJA2_ENV = jinja2.Environment(loader=jinja2.PackageLoader(__name__))
 
 
-class KernelWatchdog(object):
+class KernelWatchdog:
     """Kernel watchdog."""
 
     def __init__(self, root, reboot_script):
@@ -78,9 +78,7 @@ class KernelWatchdog(object):
                 command=test_script,
                 reboot=self.reboot_script
             )
-            with io.open(
-                os.path.join(self.test_directory, name), 'w'
-            ) as fd:
+            with io.open(os.path.join(self.test_directory, name), 'w') as fd:
                 fd.write(custom_test)
                 os.fchmod(fd.fileno(), 0o755)
 

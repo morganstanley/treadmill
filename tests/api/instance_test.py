@@ -154,20 +154,20 @@ class ApiInstanceTest(unittest.TestCase):
         )
 
         with six.assertRaisesRegex(
-            self, jsonschema.exceptions.ValidationError,
-            'u?\'invalid!\' is not valid'
+                self, jsonschema.exceptions.ValidationError,
+                'u?\'invalid!\' is not valid'
         ):
             self.instance.create('proid.app', {}, created_by='invalid!')
 
         with six.assertRaisesRegex(
-            self, jsonschema.exceptions.ValidationError,
-            '0 is less than the minimum of 1'
+                self, jsonschema.exceptions.ValidationError,
+                '0 is less than the minimum of 1'
         ):
             self.instance.create('proid.app', {}, count=0)
 
         with six.assertRaisesRegex(
-            self, jsonschema.exceptions.ValidationError,
-            '1001 is greater than the maximum of 1000'
+                self, jsonschema.exceptions.ValidationError,
+                '1001 is greater than the maximum of 1000'
         ):
             self.instance.create('proid.app', {}, count=1001)
 
@@ -197,8 +197,8 @@ class ApiInstanceTest(unittest.TestCase):
         )
 
         with six.assertRaisesRegex(
-            self, jsonschema.exceptions.ValidationError,
-            'u?\'invalid!\' is not valid'
+                self, jsonschema.exceptions.ValidationError,
+                'u?\'invalid!\' is not valid'
         ):
             self.instance.delete('proid.app#0000000001', deleted_by='invalid!')
 
@@ -246,20 +246,20 @@ class ApiInstanceTest(unittest.TestCase):
         create_apps_mock.reset_mock()
 
         with six.assertRaisesRegex(
-            self, jsonschema.exceptions.ValidationError,
-            'u?\'invalid!\' is not valid'
+                self, jsonschema.exceptions.ValidationError,
+                'u?\'invalid!\' is not valid'
         ):
             self.instance.create('proid.app', {}, created_by='invalid!')
 
         with six.assertRaisesRegex(
-            self, jsonschema.exceptions.ValidationError,
-            '0 is less than the minimum of 1'
+                self, jsonschema.exceptions.ValidationError,
+                '0 is less than the minimum of 1'
         ):
             self.instance.create('proid.app', {}, count=0)
 
         with six.assertRaisesRegex(
-            self, jsonschema.exceptions.ValidationError,
-            '1001 is greater than the maximum of 1000'
+                self, jsonschema.exceptions.ValidationError,
+                '1001 is greater than the maximum of 1000'
         ):
             self.instance.create('proid.app', {}, count=1001)
 
@@ -305,20 +305,20 @@ class ApiInstanceTest(unittest.TestCase):
         )
 
         with six.assertRaisesRegex(
-            self, jsonschema.exceptions.ValidationError,
-            'u?\'invalid!\' is not valid'
+                self, jsonschema.exceptions.ValidationError,
+                'u?\'invalid!\' is not valid'
         ):
             self.instance.create('proid.app', {}, created_by='invalid!')
 
         with six.assertRaisesRegex(
-            self, jsonschema.exceptions.ValidationError,
-            '0 is less than the minimum of 1'
+                self, jsonschema.exceptions.ValidationError,
+                '0 is less than the minimum of 1'
         ):
             self.instance.create('proid.app', {}, count=0)
 
         with six.assertRaisesRegex(
-            self, jsonschema.exceptions.ValidationError,
-            '1001 is greater than the maximum of 1000'
+                self, jsonschema.exceptions.ValidationError,
+                '1001 is greater than the maximum of 1000'
         ):
             self.instance.create('proid.app', {}, count=1001)
 

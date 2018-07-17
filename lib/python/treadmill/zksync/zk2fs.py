@@ -22,7 +22,7 @@ from treadmill.zksync import utils as zksync_utils
 _LOGGER = logging.getLogger(__name__)
 
 
-class Zk2Fs(object):
+class Zk2Fs:
     """Syncronize Zookeeper with file system."""
 
     def __init__(self, zkclient, fsroot, tmp_dir=None):

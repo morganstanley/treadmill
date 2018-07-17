@@ -41,7 +41,7 @@ class ZkDataEntry(collections.namedtuple('_ZkDataEntry',
     pass
 
 
-class ZkDataCache(object):
+class ZkDataCache:
     """Manage ZK data cached locally.
 
     Files are always added locally first (ensuring proper chksum calculation).

@@ -17,7 +17,7 @@ _LOGGER = logging.getLogger(__name__)
 
 
 @six.add_metaclass(abc.ABCMeta)
-class AppTraceEvent(object):
+class AppTraceEvent:
     """Parent class of all trace events.
 
     Contains the basic attributes of all events as well as the factory method
@@ -315,7 +315,7 @@ class DeletedTraceEvent(AppTraceEvent):
 
     @property
     def event_data(self):
-        return None
+        pass
 
 
 class FinishedTraceEvent(AppTraceEvent):
@@ -548,7 +548,7 @@ class AppTraceEventTypes(enum.Enum):
 
 
 @six.add_metaclass(abc.ABCMeta)
-class AppTraceEventHandler(object):
+class AppTraceEventHandler:
     """Base class for processing events.
     """
 

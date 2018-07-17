@@ -30,7 +30,7 @@ from treadmill import websocket
 from treadmill import fs
 
 
-class DummyHandler(object):
+class DummyHandler:
     """Dummy handler to test pubsub functionality."""
 
     def __init__(self, *_args, **_kwargs):

@@ -49,9 +49,9 @@ class WSRunningAPITest(unittest.TestCase):
         )
 
         with six.assertRaisesRegex(
-            self,
-            jsonschema.exceptions.ValidationError,
-            r"'\*' is not valid"
+                self,
+                jsonschema.exceptions.ValidationError,
+                r"'\*' is not valid"
         ):
             self.api.subscribe({'topic': '/trace',
                                 'filter': '*'})
@@ -69,17 +69,17 @@ class WSRunningAPITest(unittest.TestCase):
         )
 
         with six.assertRaisesRegex(
-            self,
-            jsonschema.exceptions.ValidationError,
-            r"'\*@\*' is not valid"
+                self,
+                jsonschema.exceptions.ValidationError,
+                r"'\*@\*' is not valid"
         ):
             self.api.subscribe({'topic': '/trace',
                                 'filter': '*@*'})
 
         with six.assertRaisesRegex(
-            self,
-            jsonschema.exceptions.ValidationError,
-            r"'\*@\*\.\*' is not valid"
+                self,
+                jsonschema.exceptions.ValidationError,
+                r"'\*@\*\.\*' is not valid"
         ):
             self.api.subscribe({'topic': '/trace',
                                 'filter': '*@*.*'})
@@ -94,9 +94,9 @@ class WSRunningAPITest(unittest.TestCase):
         )
 
         with six.assertRaisesRegex(
-            self,
-            jsonschema.exceptions.ValidationError,
-            "'invalid' does not match"
+                self,
+                jsonschema.exceptions.ValidationError,
+                "'invalid' does not match"
         ):
             self.api.subscribe({'sub-id': 'invalid',
                                 'topic': '/trace',

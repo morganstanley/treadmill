@@ -87,8 +87,9 @@ def _api_plugins(plugins):
     ]
 
 
-class API(object):
+class API:
     """Treadmill Instance REST api."""
+    # pylint: disable=too-many-statements
 
     def __init__(self, plugins=None):
 
