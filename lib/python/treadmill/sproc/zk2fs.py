@@ -107,7 +107,7 @@ def _on_add_trace_db(zk2fs_sync, zkpath, sow_dir, tmp_dir):
     _LOGGER.info('Added trace db snapshot: %s', zkpath)
     data, _metadata = zk2fs_sync.zkclient.get(zkpath)
     with tempfile.NamedTemporaryFile(
-        delete=False, mode='wb', dir=tmp_dir
+            delete=False, mode='wb', dir=tmp_dir
     ) as trace_db:
         trace_db.write(zlib.decompress(data))
     db_name = os.path.basename(zkpath)

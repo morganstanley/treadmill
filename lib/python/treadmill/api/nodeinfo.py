@@ -15,7 +15,7 @@ from treadmill import context
 _LOGGER = logging.getLogger(__name__)
 
 
-class API(object):
+class API:
     """Treadmill Local REST api."""
 
     def __init__(self):

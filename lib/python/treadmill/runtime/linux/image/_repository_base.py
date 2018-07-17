@@ -12,7 +12,7 @@ import six
 
 
 @six.add_metaclass(abc.ABCMeta)
-class ImageRepository(object):
+class ImageRepository:
     """A repository for images."""
 
     __slots__ = (

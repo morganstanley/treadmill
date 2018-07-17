@@ -90,7 +90,7 @@ _PASSTHROUGH_FILE_RE = re.compile((
 ))
 
 
-class RuleMgr(object):
+class RuleMgr:
     """Network rule manager.
 
     :param ``str`` base_path:

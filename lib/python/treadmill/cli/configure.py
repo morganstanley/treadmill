@@ -55,7 +55,6 @@ def _configure(apis, manifest, appname):
 def _delete(apis, appname):
     """Deletes the app by name."""
     restclient.delete(apis, _APP_REST_PATH + appname)
-    return None
 
 
 def _list(apis, match):

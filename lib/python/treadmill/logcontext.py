@@ -90,7 +90,7 @@ class ContainerAdapter(Adapter):
         return parts
 
 
-class LogContext(object):
+class LogContext:
     """
     Context manager wrapping a logger adapter instance.
 

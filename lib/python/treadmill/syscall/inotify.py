@@ -409,7 +409,7 @@ DEFAULT_NUM_EVENTS = 2048
 DEFAULT_EVENT_BUFFER_SIZE = DEFAULT_NUM_EVENTS * INOTIFY_EVENT_HDRSIZE
 
 
-class Inotify(object):
+class Inotify:
     """Inotify system interface."""
 
     def __init__(self, flags):

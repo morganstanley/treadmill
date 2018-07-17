@@ -11,7 +11,7 @@ import logging
 _LOGGER = logging.getLogger(__name__)
 
 
-class Trusted(object):
+class Trusted:
     """Trusted WSGI wrapper.
     """
 

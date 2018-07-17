@@ -51,9 +51,9 @@ class WSEndpointAPITest(unittest.TestCase):
         )
 
         with six.assertRaisesRegex(
-            self,
-            jsonschema.exceptions.ValidationError,
-            'u?\'foo!\' does not match'
+                self,
+                jsonschema.exceptions.ValidationError,
+                'u?\'foo!\' does not match'
         ):
             api.subscribe({'topic': '/endpoints',
                            'filter': 'foo!',
@@ -61,9 +61,9 @@ class WSEndpointAPITest(unittest.TestCase):
                            'endpoint': 'http'})
 
         with six.assertRaisesRegex(
-            self,
-            jsonschema.exceptions.ValidationError,
-            '\'endpoint_name\' was unexpected'
+                self,
+                jsonschema.exceptions.ValidationError,
+                '\'endpoint_name\' was unexpected'
         ):
             api.subscribe({'topic': '/endpoints',
                            'filter': 'foo.*',
@@ -71,9 +71,9 @@ class WSEndpointAPITest(unittest.TestCase):
                            'endpoint_name': 'http'})
 
         with six.assertRaisesRegex(
-            self,
-            jsonschema.exceptions.ValidationError,
-            'None is not of type u?\'string\''
+                self,
+                jsonschema.exceptions.ValidationError,
+                'None is not of type u?\'string\''
         ):
             api.subscribe({'topic': '/endpoints',
                            'filter': 'foo.*',

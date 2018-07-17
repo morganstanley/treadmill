@@ -53,7 +53,7 @@ def create_ldap_connection(domain_controller):
     )
 
 
-class ServersWatch(object):
+class ServersWatch:
     """Treadmill servers watch.
     """
 

@@ -28,7 +28,7 @@ class ServiceType(enum.Enum):
     Bundle = 'bundle'
 
 
-class Service(object):
+class Service:
     """Abstract base class of all services.
     """
     __slots__ = (

@@ -178,7 +178,7 @@ def _all_ge(left, right):
     return _all(operator.ge, left, right)
 
 
-class IdentityGroup(object):
+class IdentityGroup:
     """Identity group.
     """
     __slots__ = (
@@ -235,7 +235,7 @@ class State(enum.Enum):
     frozen = 'frozen'
 
 
-class Affinity(object):
+class Affinity:
     """Model affinity and affinity limits.
     """
     __slots__ = (
@@ -254,7 +254,7 @@ class Affinity(object):
         self.constraints = tuple([self.name] + sorted(self.limits.values()))
 
 
-class Application(object):
+class Application:
     """Application object.
     """
 
@@ -364,7 +364,7 @@ class Application(object):
 
 
 @six.add_metaclass(abc.ABCMeta)
-class Strategy(object):
+class Strategy:
     """Base class for all placement strategies.
     """
 
@@ -444,7 +444,7 @@ class PackStrategy(Strategy):
         return self.suggested_node()
 
 
-class TraitSet(object):
+class TraitSet:
     """Hierarchical set of traits.
     """
     __slots__ = (
@@ -498,7 +498,7 @@ class TraitSet(object):
         return self.self_traits == other.self_traits
 
 
-class AffinityCounter(object):
+class AffinityCounter:
     """Manages affinity count.
     """
     __slots__ = (
@@ -509,7 +509,7 @@ class AffinityCounter(object):
         self.affinity_counter = collections.Counter()
 
 
-class Node(object):
+class Node:
     """Abstract placement node.
     """
 
@@ -993,14 +993,14 @@ class Server(Node):
         if state == State.up:
             if self.parent:
                 self.parent.adjust_capacity_up(self.free_capacity)
-        elif state == State.down or state == State.frozen:
+        elif state in (State.down, State.frozen):
             if self.parent:
                 self.parent.adjust_capacity_down(self.free_capacity)
         else:
             raise Exception('Invalid state: ' % state)
 
 
-class Allocation(object):
+class Allocation:
     """Allocation manages queue of apps sharing same reserved capacity.
 
     In reality allocation is tied to grn via application proid.
@@ -1260,7 +1260,7 @@ class Allocation(object):
         return all_apps
 
 
-class Partition(object):
+class Partition:
     """Cell partition.
     """
 
@@ -1384,7 +1384,7 @@ def reboot_dates(days, start_date=None):
         date += datetime.timedelta(days=1)
 
 
-class RebootBucket(object):
+class RebootBucket:
     """Bucket of servers to be rebooted at the same time.
     """
     __slots__ = (
@@ -1424,7 +1424,7 @@ class RebootBucket(object):
         return len(self.servers)
 
 
-class PlacementFeasibilityTracker(object):
+class PlacementFeasibilityTracker:
     """Tracks similar apps placement failures."""
 
     def __init__(self):

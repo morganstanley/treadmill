@@ -48,7 +48,7 @@ def _write_keytab(fname, data):
     )
 
 
-class KeytabLocker(object):
+class KeytabLocker:
     """Manages keytab exchange.
     """
 

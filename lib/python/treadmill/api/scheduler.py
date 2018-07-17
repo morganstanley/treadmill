@@ -51,7 +51,7 @@ def get_readonly_scheduler():
 def mk_explainapi():
     """API factory function returning _ExplainAPI class."""
 
-    class _ExplainAPI(object):
+    class _ExplainAPI:
         """API object implementing the scheduler explain functionality."""
         def __init__(self):
             self.get = _explain
@@ -59,7 +59,7 @@ def mk_explainapi():
     return _ExplainAPI
 
 
-class API(object):
+class API:
     """Scheduler reports API."""
     def __init__(self):
 

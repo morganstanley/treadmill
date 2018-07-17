@@ -38,17 +38,17 @@ class WSIdentityGroupAPITest(unittest.TestCase):
         )
 
         with six.assertRaisesRegex(
-            self,
-            jsonschema.exceptions.ValidationError,
-            '\'filter\' was unexpected'
+                self,
+                jsonschema.exceptions.ValidationError,
+                '\'filter\' was unexpected'
         ):
             api.subscribe({'topic': '/identity-groups',
                            'filter': 'foo!'})
 
         with six.assertRaisesRegex(
-            self,
-            jsonschema.exceptions.ValidationError,
-            'None is not of type u?\'string\''
+                self,
+                jsonschema.exceptions.ValidationError,
+                'None is not of type u?\'string\''
         ):
             api.subscribe({'topic': '/identity-groups',
                            'identity-group': None})

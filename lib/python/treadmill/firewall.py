@@ -12,7 +12,7 @@ ANY_IP = '0.0.0.0/0'
 ANY_PORT = 0
 
 
-class DNATRule(object):
+class DNATRule:
     """Definition of a DNAT Rule
 
     :param ``str`` new_dst_ip:
@@ -102,7 +102,7 @@ class DNATRule(object):
         )
 
 
-class SNATRule(object):
+class SNATRule:
     """Definition of a SNAT Rule
 
     :param ``str`` new_ip:
@@ -194,7 +194,7 @@ class SNATRule(object):
 
 
 # TODO: Fold PassThroughRule a kind of DNAT rule
-class PassThroughRule(object):
+class PassThroughRule:
     """Definition of a PassThrough rule
 
     :param src_ip:

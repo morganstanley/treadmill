@@ -30,7 +30,7 @@ def _ignore_closed(func):
     return wrapper
 
 
-class ExistingDataWatch(object):
+class ExistingDataWatch:
     """Watches an existing node for data updates and calls the specified
     function each time it changes.
 

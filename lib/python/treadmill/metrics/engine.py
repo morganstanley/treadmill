@@ -36,7 +36,7 @@ def _sys_svcs(root_dir):
         if not (s.endswith('.out') or s.endswith('.err'))])
 
 
-class CgroupReader(object):
+class CgroupReader:
     """Cgroup reader engine to spawn new thread to read cgroup periodically
     """
 

@@ -40,7 +40,7 @@ CORE_RRDS = {'apps': 'treadmill.apps.rrd',
 RRD_SOCKET = '/tmp/treadmill.rrd'
 
 
-class RRDClientLoader(object):
+class RRDClientLoader:
     """Class to load rrd client
     """
     INTERVAL = 5

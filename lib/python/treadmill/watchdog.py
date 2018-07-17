@@ -22,7 +22,7 @@ _LOGGER = logging.getLogger(__name__)
 _DEFAULT_WATCHDOG_TIMEOUT = '30s'
 
 
-class Watchdog(object):
+class Watchdog:
     """Simple file based watchdog system.
     """
 
@@ -104,7 +104,7 @@ class Watchdog(object):
 
         return self.Lease(self.watchdog_path, name, timeout_in_sec, content)
 
-    class Lease(object):
+    class Lease:
         """Watchdog Lease object.
 
         Represent a currently held watchdog lease.

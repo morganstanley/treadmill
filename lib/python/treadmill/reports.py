@@ -272,7 +272,7 @@ def reboots(cell):
     return frame[columns]
 
 
-class ExplainVisitor(object):
+class ExplainVisitor:
     """Scheduler visitor"""
 
     def __init__(self):

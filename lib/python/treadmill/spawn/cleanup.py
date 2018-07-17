@@ -20,7 +20,7 @@ from treadmill.spawn import utils as spawn_utils
 _LOGGER = logging.getLogger(__name__)
 
 
-class Cleanup(object):
+class Cleanup:
     """Treadmill spawn cleanup."""
 
     __slots__ = (

@@ -19,7 +19,7 @@ _STEP_ABORT = 'abort'
 
 
 @six.add_metaclass(abc.ABCMeta)
-class BaseJournaler(object):
+class BaseJournaler:
     """ abstract journaler class """
 
     def __init__(self, user_clbk, **_kwargs):

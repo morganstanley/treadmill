@@ -137,6 +137,7 @@ def _call(url, method, payload=None, headers=None, auth=_KERBEROS_AUTH,
                   method, url, payload, headers, timeout)
 
     try:
+        # pylint: disable=not-callable
         response = getattr(requests, method.lower())(
             url, json=payload, auth=auth, proxies=proxies, headers=headers,
             timeout=timeout, stream=stream, verify=verify

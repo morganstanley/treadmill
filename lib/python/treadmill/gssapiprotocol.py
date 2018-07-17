@@ -132,7 +132,7 @@ class GSSAPILineServer(basic.LineReceiver):  # pylint: disable=C0103
         pass
 
 
-class GSSAPILineClient(object):
+class GSSAPILineClient:
     """GSSAPI line based syncrounos client."""
 
     def __init__(self, host, port, service_name):

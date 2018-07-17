@@ -22,7 +22,7 @@ from treadmill.spawn import utils as spawn_utils
 _LOGGER = logging.getLogger(__name__)
 
 
-class Tree(object):
+class Tree:
     """Treadmill spawn tree."""
 
     __slots__ = (

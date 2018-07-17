@@ -42,7 +42,7 @@ class WindowsResourceService(_base_service.ResourceService):
         """Query the status of the resource service.
         """
         # TODO: implement status for windows
-        return None
+        pass
 
     def _run(self, impl, watchdog_lease):
         """Linux implementation of run.

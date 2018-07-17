@@ -61,7 +61,7 @@ def _get_lease(data):
     return utils.to_seconds(data.get('lease', '0s'))
 
 
-class Loader(object):
+class Loader:
     """Cell scheduler loader."""
     __slots__ = (
         'backend',
@@ -578,9 +578,10 @@ class Loader(object):
 
     def adjust_presence(self, servers):
         """Given current presence set, adjust status."""
-        down_servers = set([
+        down_servers = {
             servername for servername in self.servers
-            if self.servers[servername].state is scheduler.State.down])
+            if self.servers[servername].state is scheduler.State.down
+        }
         up_servers = set(self.servers.keys()) - down_servers
 
         # Server was up, but now is down.

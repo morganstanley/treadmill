@@ -12,7 +12,7 @@ import os
 from . import dirwatch_base
 
 
-class DirWatcherDispatcher(object):
+class DirWatcherDispatcher:
     """Dispatches directory watcher events to multiple handlers.
     """
 

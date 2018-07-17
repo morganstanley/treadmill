@@ -51,7 +51,7 @@ def _create_ephemeral_with_retry(zkclient, path, data):
                                   app_abort.AbortedReason.PRESENCE)
 
 
-class EndpointPresence(object):
+class EndpointPresence:
     """Manages application endpoint registration in Zookeeper."""
 
     def __init__(self, zkclient, manifest, hostname=None, appname=None):
