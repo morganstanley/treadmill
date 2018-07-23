@@ -18,7 +18,8 @@ DEFAULTS = {
             'owner': '{{ owner }}',
             'rootdn': 'cn=Manager,cn=config',
             'rootpw': '{{ rootpw }}',
-            'suffix': 'cn=config'
+            'suffix': 'cn=config',
+            'syncrepl_searchbase': 'cn=treadmill,cn=schema,cn=config'
         },
         {
             'name': '{1}mdb',
@@ -26,7 +27,8 @@ DEFAULTS = {
             'owner': '{{ owner }}',
             'rootdn': 'cn=Manager,{{ suffix }}',
             'rootpw': '{{ rootpw }}',
-            'suffix': '{{ suffix }}'
+            'suffix': '{{ suffix }}',
+            'syncrepl_searchbase': '{{ suffix }}'
         }
     ],
     'log_levels': [16384],

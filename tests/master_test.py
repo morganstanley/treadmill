@@ -625,7 +625,9 @@ class MasterTest(mockzk.MockZookeeperTestCase):
                         memory: 10G
                         cpu: 300%
                         disk: 10G
-                        reboot-schedule: [5, 6]
+                        reboot-schedule:
+                            5: [23, 59, 59]
+                            6: [23, 59, 59]
                     """
                 }
             }
@@ -668,7 +670,8 @@ class MasterTest(mockzk.MockZookeeperTestCase):
                         memory: 10G
                         cpu: 300%
                         disk: 10G
-                        reboot-schedule: [1]
+                        reboot-schedule:
+                            1: [10, 0, 0]
                     """
                 }
             }

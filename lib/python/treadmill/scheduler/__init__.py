@@ -1277,7 +1277,7 @@ class Partition(object):
     )
 
     def __init__(self, max_server_uptime=None, max_lease=None, threshold=None,
-                 label=None, reboot_days=None, now=None):
+                 label=None, reboot_schedule=None, now=None):
         self.label = label
         self.allocation = Allocation(partition=label)
 
@@ -1293,15 +1293,15 @@ class Partition(object):
         self.max_lease = max_lease
         self.threshold = threshold
 
-        if not reboot_days:
+        if not reboot_schedule:
             # reboot every day
-            reboot_days = list(range(7))
+            reboot_schedule = {day: (23, 59, 59) for day in range(7)}
 
         if not now:
             now = time.time()
 
         self._reboot_dates = reboot_dates(
-            reboot_days,
+            reboot_schedule,
             start_date=datetime.date.fromtimestamp(now)
         )
         self._reboot_buckets = []
@@ -1369,18 +1369,22 @@ class PartitionDict(dict):
         return self[label]
 
 
-def reboot_dates(days, start_date=None):
+# pylint: disable=invalid-name
+def reboot_dates(schedule, start_date=None):
     """Generate list of valid reboot dates.
     """
+    date = datetime.date.today()
     if start_date:
         date = start_date
-    else:
-        date = datetime.date.today()
 
     while True:
-        if date.weekday() in days:
+
+        weekday = date.weekday()
+        if weekday in schedule:
+            h, m, s = schedule[weekday]
             yield time.mktime((date.year, date.month, date.day,
-                               23, 59, 59, 0, 0, 0))
+                               h, m, s, 0, 0, 0))
+
         date += datetime.timedelta(days=1)
 
 

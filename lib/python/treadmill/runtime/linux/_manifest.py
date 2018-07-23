@@ -20,39 +20,26 @@ TREADMILL_BIND_PATH = '/opt/treadmill-bind'
 def add_runtime(tm_env, manifest):
     """Adds linux (docker) runtime specific details to the manifest.
     """
-    dockers = _transform_services(manifest)
+    _transform_services(manifest)
 
     app_manifest.add_linux_system_services(tm_env, manifest)
     app_manifest.add_linux_services(manifest)
 
 
-def _generate_command(service):
-    """Get treadmill docker running command from image
-    """
-    is_docker = False
-    if 'image' in service:
-        cmd = _get_docker_run_cmd(
-            service['name'],
-            service['image'],
-            service.get('args', None),
-            service.get('command', None)
-        )
-        is_docker = True
-    else:
-        cmd = service['command']
-
-    return (cmd, is_docker)
-
-
 def _get_docker_run_cmd(name, image,
-                        args=None, command=None, uidgid=None):
+                        uidgid=None,
+                        commands=None,
+                        use_shell=True):
     """Get docker run cmd from raw command
     """
-    # TODO: hardode volume for now
+    tpl = (
+        'exec $TREADMILL/bin/treadmill sproc docker'
+        ' --name {name}'
+        ' --envdirs /env,/docker/env,/services/{name}/env'
+    )
 
+    # FIXME: hardcode volumes for now
     treadmill_bind = subproc.resolve('treadmill_bind_distro')
-
-    # XXX: hardode volume for now
     volumes = [
         ('/var/tmp', '/var/tmp', 'rw'),
         ('/var/spool', '/var/spool', 'rw'),
@@ -60,13 +47,6 @@ def _get_docker_run_cmd(name, image,
         ('/env', '/env', 'ro'),
         (treadmill_bind, TREADMILL_BIND_PATH, 'ro'),
     ]
-
-    tpl = (
-        'exec $TREADMILL/bin/treadmill sproc docker'
-        ' --name {name}'
-        ' --envdirs /env,/docker/env,/services/{name}/env'
-    )
-
     for volume in volumes:
         tpl += ' --volume {source}:{dest}:{mode}'.format(
             source=volume[0],
@@ -77,25 +57,27 @@ def _get_docker_run_cmd(name, image,
     if uidgid is not None:
         tpl += ' --user {uidgid}'.format(uidgid=uidgid)
 
-    # put entrypoint and image in the last
-    if command is not None:
-        tpl += ' --entrypoint {entrypoint}'
-        command = shlex.quote(command)
-
     tpl += ' --image {image}'
 
-    # create args str in treadmill sproc docker
-    if args is not None:
-        tpl += ' -- {cmd}'
-        args_str = ' '.join([shlex.quote(arg) for arg in args])
+    # put entrypoint and image in the last
+    if commands is not None:
+        commands = shlex.split(commands)
+        if not use_shell:
+            tpl += ' --entrypoint {entrypoint}'
+            entrypoint = commands.pop(0)
+        else:
+            entrypoint = None
+        if commands:
+            tpl += ' -- {cmds}'
     else:
-        args_str = None
+        commands = []
+        entrypoint = None
 
     return tpl.format(
         name=name,
         image=image,
-        entrypoint=command,
-        cmd=args_str,
+        entrypoint=entrypoint,
+        cmds=' '.join((shlex.quote(cmd) for cmd in commands))
     )
 
 
@@ -104,15 +86,17 @@ def _transform_services(manifest):
     returns:
         int -- number of docker services in the manifest
     """
-    dockers = 0
-
     # Normalize restart count
     services = []
     for service in manifest.get('services', []):
-        (cmd, is_docker) = _generate_command(service)
-
-        if is_docker:
-            dockers += 1
+        if 'image' in service:
+            cmd = _get_docker_run_cmd(name=service['name'],
+                                      image=service['image'],
+                                      commands=service.get('command', None),
+                                      use_shell=service.get('useshell', False))
+        else:
+            # TODO: Implement use_shell=False for standard commands.
+            cmd = service['command']
 
         services.append(
             {
@@ -136,4 +120,3 @@ def _transform_services(manifest):
         )
 
     manifest['services'] = services
-    return dockers

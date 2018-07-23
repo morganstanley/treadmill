@@ -158,6 +158,12 @@ class ContextTest(unittest.TestCase):
             mock.call('_http._tcp.adminapi.na.region.a.com', mock.ANY),
         ])
 
+    @mock.patch('socket.getfqdn', mock.Mock(return_value='a.b.c.d'))
+    def test_default_domain(self):
+        """Test default resoltion of dns domain."""
+        ctx = context.Context()
+        self.assertEqual(ctx.get('dns_domain'), 'b.c.d')
+
 
 if __name__ == '__main__':
     unittest.main()

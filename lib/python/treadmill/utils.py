@@ -341,13 +341,32 @@ def megabytes(value):
 
 def reboot_schedule(value):
     """Parse reboot schedule spec.
-
-    The reboot schedule format is list of weekdays when reboot can
-    happen. For example "sat,sun" would mean reboot on weekends.
     """
     days = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']
 
-    return [days.index(d) for d in value.lower().split(',')]
+    # pylint: disable=invalid-name
+    def parse_tod(tod):
+        """Parse time of day."""
+        h, m, s = [int(x) for x in tod.split(':')]
+
+        if not 0 <= h <= 23:
+            raise ValueError('Hour out of bounds')
+        if not 0 <= m <= 59:
+            raise ValueError('Minute out of bounds')
+        if not 0 <= s <= 59:
+            raise ValueError('Second out of bounds')
+
+        return (h, m, s)
+
+    def parse_entry(entry):
+        """Parse day specification."""
+        if entry in days:
+            return (days.index(entry), (23, 59, 59))
+        else:
+            day, tod = entry.split('/')
+            return (days.index(day), parse_tod(tod))
+
+    return dict([parse_entry(x) for x in value.split(',')])
 
 
 def validate(struct, schema):

@@ -8,6 +8,7 @@ from __future__ import unicode_literals
 
 import functools
 import logging
+import socket
 
 from treadmill import plugin_manager
 
@@ -283,21 +284,21 @@ class Context(object):
     def _load_profile(self):
         """Loads the profile.
         """
-
-        if not self._profile_name:
-            return
-
         # Load once.
         if self._defaults is not None:
             return
 
-        self._defaults = {}
-        try:
-            profile_mod = plugin_manager.load('treadmill.profiles',
-                                              self._profile_name)
-            self._defaults = profile_mod.PROFILE
-        except KeyError:
-            _LOGGER.warning('Profile not found: %s', self._profile_name)
+        self._defaults = {
+            'dns_domain': '.'.join(socket.getfqdn().split('.')[1:])
+        }
+
+        if self._profile_name:
+            try:
+                profile_mod = plugin_manager.load('treadmill.profiles',
+                                                  self._profile_name)
+                self._defaults.update(profile_mod.PROFILE)
+            except KeyError:
+                _LOGGER.warning('Profile not found: %s', self._profile_name)
 
     def _init_plugins(self):
         """Initialize plugins.
@@ -324,7 +325,6 @@ class Context(object):
     def get(self, attr, default=None, resolve=True, volatile=False):
         """Get attribute from profile or defaults.
         """
-
         if attr in self._profile:
             return self._profile[attr]
 

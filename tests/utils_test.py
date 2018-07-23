@@ -434,6 +434,26 @@ class UtilsTest(unittest.TestCase):
 
         utils.sys_exit.assert_called_with(-1)
 
+    def test_reboot_schedule(self):
+        """Test reboot schedule parsing."""
+        self.assertEqual(
+            utils.reboot_schedule('sun'),
+            {6: (23, 59, 59)}
+        )
+        self.assertEqual(
+            utils.reboot_schedule('sun/2:00:00'),
+            {6: (2, 0, 0)}
+        )
+        self.assertEqual(
+            utils.reboot_schedule('sun/2:05:00'),
+            {6: (2, 5, 0)}
+        )
+        self.assertEqual(
+            utils.reboot_schedule('sat,sun/02:00:00'),
+            {5: (23, 59, 59),
+             6: (2, 0, 0)}
+        )
+
 
 if __name__ == '__main__':
     unittest.main()

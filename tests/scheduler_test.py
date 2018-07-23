@@ -10,9 +10,11 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
+import datetime
+import itertools
+import sys
 import time
 import unittest
-import sys
 
 import mock
 import numpy as np
@@ -22,6 +24,7 @@ import six
 import tests.treadmill_test_skip_windows  # pylint: disable=W0611
 
 from treadmill import scheduler
+from treadmill import utils
 
 _TRAITS = dict()
 
@@ -1591,6 +1594,32 @@ class RebootSchedulerTest(unittest.TestCase):
         self.assertTrue(
             server4.valid_until <
             server4.up_since + scheduler.DEFAULT_SERVER_UPTIME
+        )
+
+    def test_reboot_dates(self):
+        """Test reboot dates generator."""
+
+        # Note: 2018/01/01 is a Monday
+        start_date = datetime.date(2018, 1, 1)
+
+        schedule = utils.reboot_schedule('sat,sun')
+        dates_gen = scheduler.reboot_dates(schedule, start_date)
+        self.assertEqual(
+            list(itertools.islice(dates_gen, 2)),
+            [
+                _time('2018-01-06 23:59:59'),
+                _time('2018-01-07 23:59:59'),
+            ]
+        )
+
+        schedule = utils.reboot_schedule('sat,sun/10:30:00')
+        dates_gen = scheduler.reboot_dates(schedule, start_date)
+        self.assertEqual(
+            list(itertools.islice(dates_gen, 2)),
+            [
+                _time('2018-01-06 23:59:59'),
+                _time('2018-01-07 10:30:00'),
+            ]
         )
 
 
