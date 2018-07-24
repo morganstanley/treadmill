@@ -34,21 +34,18 @@ def init():
     @click.option('-r', '--root', help='Distro root.')
     @click.option('-l', '--location', help='Cell location.')
     @click.option('-u', '--username', help='Cell proid account.')
-    @click.option('--archive-server', help='Archive server.')
-    @click.option('--archive-username', help='Archive username.')
-    @click.option('--ssq-namespace', help='SSQ namespace.')
     @click.option('-d', '--data', help='Cell specific data in YAML',
                   type=click.Path(exists=True, readable=True))
     @click.option('--status', help='Cell status')
     @click.option('--traits', help='Traits enabled for the cell.',
                   type=cli.LIST)
+    @click.option('-a', '--zk-auth-scheme', help='Zookeeper auth scheme')
     @click.option('-m', '--manifest', help='Load cell from manifest file.',
                   type=click.Path(exists=True, readable=True))
     @click.argument('cell')
     @cli.admin.ON_EXCEPTIONS
-    def configure(cell, version, root, location, username, archive_server,
-                  archive_username, ssq_namespace, data, status, traits,
-                  manifest):
+    def configure(cell, version, root, location, username, data, status,
+                  traits, zk_auth_scheme, manifest):
         """Create, get or modify cell configuration"""
         admin_cell = admin.Cell(context.GLOBAL.ldap.conn)
         attrs = {}
@@ -66,16 +63,12 @@ def init():
             attrs['location'] = location
         if username:
             attrs['username'] = username
-        if archive_server:
-            attrs['archive-server'] = archive_server
-        if archive_server:
-            attrs['archive-username'] = archive_username
-        if ssq_namespace:
-            attrs['ssq-namespace'] = ssq_namespace
         if status:
             attrs['status'] = status
         if traits:
             attrs['traits'] = traits
+        if zk_auth_scheme:
+            attrs['zk-auth-scheme'] = zk_auth_scheme
         if data:
             with io.open(data, 'rb') as fd:
                 attrs['data'] = yaml.load(stream=fd)

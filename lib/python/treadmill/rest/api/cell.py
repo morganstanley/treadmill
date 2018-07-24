@@ -40,10 +40,8 @@ def init(api, cors, impl):
     model = {
         '_id': fields.String(description='Name'),
         'username': fields.String(description='Treadmill User ID'),
+        'zk-auth-scheme': fields.String(description='Zookeeper auth scheme'),
         'root': fields.String(description='Treadmill Root'),
-        'archive-server': fields.String(description='Archive Server'),
-        'archive-username': fields.String(description='Archive Username'),
-        'ssq-namespace': fields.String(description='SSQ Namespace'),
         'location': fields.String(description='Location'),
         'version': fields.String(description='Version'),
         'status': fields.String(description='Status'),

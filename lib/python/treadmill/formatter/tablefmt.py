@@ -400,10 +400,8 @@ class CellPrettyFormatter:
             ('version', None, None),
             ('root', None, None),
             ('username', None, None),
+            ('zk-auth-scheme', None, None),
             ('location', None, None),
-            ('archive-server', None, None),
-            ('archive-username', None, None),
-            ('ssq-namespace', None, None),
             ('traits', None, None),
             ('masters', None, masters_tbl),
             ('partitions', None, partitions_tbl),
@@ -418,6 +416,7 @@ class CellPrettyFormatter:
             ('version', None, None),
             ('username', None, None),
             ('root', None, None),
+            ('zk-auth-scheme', None, None),
         ])
 
         if isinstance(item, list):
