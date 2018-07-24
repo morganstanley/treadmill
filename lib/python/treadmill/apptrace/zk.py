@@ -242,9 +242,46 @@ def _upload_batch(zkclient, db_node_path, table, batch):
         zkutils.with_retry(zkutils.ensure_deleted, zkclient, path)
 
 
-def prune_trace(zkclient, max_count):
-    """Prune trace. Cleanup service (running/exited) events.
+def prune_trace_evictions(zkclient, max_count):
+    """Cleanup excessive trace events caused by evictions.
     """
+    assert max_count > 0
+    shards = zkclient.get_children(z.TRACE)
+    for shard in shards:
+        evictions = collections.Counter()
+        events = zkclient.get_children(z.path.trace_shard(shard))
+        for event in sorted(events, reverse=True):
+            instanceid, ts, src, event_type, event_data = event.split(',')
+
+            event_obj = traceevents.AppTraceEvent.from_data(
+                timestamp=ts,
+                source=src,
+                instanceid=instanceid,
+                event_type=event_type,
+                event_data=event_data,
+            )
+            if not event_obj:
+                continue
+
+            # Leave pending/created events.
+            if event_type == 'pending' and 'created' in event_obj.why:
+                continue
+
+            # Prune when number of evictions for an instance reached max_count.
+            if evictions.get(instanceid, 0) >= max_count:
+                path = z.join_zookeeper_path(z.TRACE, shard, event)
+                _LOGGER.info('Pruning trace: %s', path)
+                zkutils.with_retry(zkutils.ensure_deleted, zkclient, path)
+            else:
+                if ((event_type in ['pending', 'scheduled'] and
+                     event_obj.why == 'evicted')):
+                    evictions[instanceid] += 1
+
+
+def prune_trace_service_events(zkclient, max_count):
+    """Cleanup excessive trace events caused by services running and exiting.
+    """
+    assert max_count > 0
     shards = zkclient.get_children(z.TRACE)
     for shard in shards:
         service_events = collections.Counter()
@@ -279,8 +316,10 @@ def cleanup_trace(zkclient, batch_size, expires_after):
     scheduled = zkclient.get_children(z.SCHEDULED)
     shards = zkclient.get_children(z.TRACE)
     traces = []
+    num_events = 0
     for shard in shards:
         events = zkclient.get_children(z.path.trace_shard(shard))
+        num_events += len(events)
         for event in events:
             instanceid, timestamp, _ = event.split(',', 2)
             timestamp = float(timestamp)
@@ -291,6 +330,7 @@ def cleanup_trace(zkclient, batch_size, expires_after):
     # Sort traces from older to latest.
     traces.sort()
 
+    uploaded_events = 0
     for idx in range(0, len(traces), batch_size):
         # Take a slice of batch_size
         batch = traces[idx:idx + batch_size]
@@ -311,6 +351,11 @@ def cleanup_trace(zkclient, batch_size, expires_after):
             'trace',
             db_rows
         )
+
+        uploaded_events += len(db_rows)
+
+    _LOGGER.info('Cleaned up %s trace events, live events: %s',
+                 uploaded_events, num_events - uploaded_events)
 
 
 def cleanup_finished(zkclient, batch_size, expires_after):

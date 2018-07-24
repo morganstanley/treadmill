@@ -21,7 +21,7 @@ from treadmill.syscall import mount
 
 _LOGGER = logging.getLogger(__name__)
 
-_UUID_RE = re.compile(r'.*UUID="(.*?)".*')
+_UUID_RE = re.compile(r'\sUUID="([a-zA-Z0-9-]+)"\s')
 
 
 ###############################################################################
@@ -458,10 +458,17 @@ def blk_fs_info(block_dev):
 
 
 def blk_uuid(block_dev):
-    """Get device uuid
+    """Get device uuid.
+
+    :returns:
+        ``str | None`` - Device UUID or None if it does not have one.
     """
-    output = subproc.check_output(['blkid', block_dev])
-    match_obj = _UUID_RE.match(output)
+    try:
+        output = subproc.check_output(['blkid', block_dev])
+    except subproc.CalledProcessError:
+        _LOGGER.warning('Device %r does not have a UUID', block_dev)
+        return None
+    match_obj = _UUID_RE.search(output)
     if match_obj is None:
         raise ValueError('Invalid device: %s' % block_dev)
     else:

@@ -43,36 +43,20 @@ class ZkDataCacheTest(mockzk.MockZookeeperTestCase):
         if self.root and os.path.isdir(self.root):
             shutil.rmtree(self.root)
 
-    @mock.patch('kazoo.client.KazooClient.get_children',
-                mock.Mock(set_spec=True))
     @mock.patch('treadmill.zkdatacache.ZkDataCache.refresh_cache',
                 mock.Mock(set_spec=True))
     @mock.patch('treadmill.zkdatacache.ZkDataCache.refresh_zk',
                 mock.Mock(set_spec=True))
-    def test_zkclient_prop(self):
-        """Test zkclient property operations
+    def test_zkclient_property_setter(self):
+        """Test zkclient property setter.
         """
         zdc = zkdatacache.ZkDataCache(None, '/zk/path', self.cachedir)
-        mock_zkclient = treadmill.zkutils.ZkClient()
+        zkclient = kazoo.client.KazooClient()
 
-        zdc.zkclient = mock_zkclient
-        mock_zkclient.get_children.assert_called_with('/zk/path')
-        zdc.refresh_zk.assert_called_with(
-            mock_zkclient.get_children.return_value
-        )
-        zdc.refresh_zk.reset_mock()
+        zdc.zkclient = zkclient
 
-        mock_zkclient.get_children.side_effect = (
-            kazoo.exceptions.NoNodeError
-        )
+        zdc.refresh_zk.assert_called_once_with()
 
-        zdc.zkclient = mock_zkclient
-
-        mock_zkclient.get_children.assert_called_with('/zk/path')
-        zdc.refresh_zk.assert_called_with([])
-
-    @mock.patch('kazoo.client.KazooClient.get_children',
-                mock.Mock(set_spec=True))
     @mock.patch('treadmill.zkdatacache.ZkDataCache.refresh_cache',
                 mock.Mock(set_spec=True))
     @mock.patch('treadmill.zkdatacache.ZkDataCache.refresh_zk',
@@ -80,6 +64,7 @@ class ZkDataCacheTest(mockzk.MockZookeeperTestCase):
     def test_init(self):
         """Test different options for the constructor.
         """
+        # Test init without zkclient.
         zdc = zkdatacache.ZkDataCache(None, '/zk/path', self.cachedir)
 
         self.assertEqual(
@@ -92,26 +77,26 @@ class ZkDataCacheTest(mockzk.MockZookeeperTestCase):
         )
         zkdatacache.ZkDataCache.refresh_cache.assert_called_once_with()
         zkdatacache.ZkDataCache.refresh_zk.assert_not_called()
+
         zkdatacache.ZkDataCache.refresh_cache.reset_mock()
         zkdatacache.ZkDataCache.refresh_zk.reset_mock()
 
+        # Test init with zkclient.
         zkclient = kazoo.client.KazooClient()
 
         zdc = zkdatacache.ZkDataCache(zkclient, '/zk/path', self.cachedir)
 
         zkdatacache.ZkDataCache.refresh_cache.assert_called_once_with()
-        zkclient.get_children.assert_called_with(
-            '/zk/path',
-        )
-        zdc.refresh_zk.assert_called_with(zkclient.get_children.return_value)
-        zkdatacache.ZkDataCache.refresh_cache.reset_mock()
-        zkdatacache.ZkDataCache.refresh_zk.reset_mock()
+        zdc.refresh_zk.assert_called_once_with()
 
+    @mock.patch('kazoo.client.KazooClient.get_children',
+                mock.Mock(set_spec=True))
     @mock.patch('treadmill.zkdatacache.ZkDataCache.refresh_cache',
                 mock.Mock(set_spec=True))
     def test_refresh_zk(self):
         """Test parsing data from Zookeeper.
         """
+        # Test calling with a list of nodes.
         zdc = zkdatacache.ZkDataCache(None, '/zk/path', self.cachedir)
 
         zdc.refresh_zk(
@@ -122,6 +107,7 @@ class ZkDataCacheTest(mockzk.MockZookeeperTestCase):
                 'BAR#other_check#00000044',
             ]
         )
+
         self.assertEqual(
             zdc.zkdata,
             {
@@ -159,6 +145,64 @@ class ZkDataCacheTest(mockzk.MockZookeeperTestCase):
                 ],
             }
         )
+
+        # Test getting a list of nodes.
+        zkclient = kazoo.client.KazooClient()
+        zkclient.get_children.return_value = [
+            'TEST#0beec7b5ea3f0fdbc95d0dd47f3c5bc275da8a33#00000042',
+            'TEST#0beec7b5ea3f0fdbc95d0dd47f3c5bc275da8a33#00000043',
+            'FOO#some_check#00000039',
+            'BAR#other_check#00000044',
+        ]
+        zdc = zkdatacache.ZkDataCache(zkclient, '/zk/path', self.cachedir)
+
+        zdc.refresh_zk()
+
+        self.assertEqual(
+            zdc.zkdata,
+            {
+                'TEST': [
+                    zkdatacache.ZkDataEntry(
+                        zname=(
+                            '/zk/path/TEST#'
+                            '0beec7b5ea3f0fdbc95d0dd47f3c5bc275da8a33#00000043'
+                        ),
+                        chksum='0beec7b5ea3f0fdbc95d0dd47f3c5bc275da8a33',
+                        seq=43
+                    ),
+                    zkdatacache.ZkDataEntry(
+                        zname=(
+                            '/zk/path/TEST#'
+                            '0beec7b5ea3f0fdbc95d0dd47f3c5bc275da8a33#00000042'
+                        ),
+                        chksum='0beec7b5ea3f0fdbc95d0dd47f3c5bc275da8a33',
+                        seq=42
+                    ),
+                ],
+                'BAR': [
+                    zkdatacache.ZkDataEntry(
+                        zname='/zk/path/BAR#other_check#00000044',
+                        chksum='other_check',
+                        seq=44
+                    ),
+                ],
+                'FOO': [
+                    zkdatacache.ZkDataEntry(
+                        zname='/zk/path/FOO#some_check#00000039',
+                        chksum='some_check',
+                        seq=39
+                    ),
+                ],
+            }
+        )
+
+        # Test NoNodeError while getting a list of nodes.
+        zkclient.get_children.side_effect = kazoo.exceptions.NoNodeError
+        zdc = zkdatacache.ZkDataCache(zkclient, '/zk/path', self.cachedir)
+
+        zdc.refresh_zk()
+
+        self.assertEqual(zdc.zkdata, {})
 
     @mock.patch('io.open', mock.mock_open(), create=True)
     @mock.patch('os.listdir', mock.Mock(set_spec=True))
@@ -593,8 +637,7 @@ class ZkDataCacheTest(mockzk.MockZookeeperTestCase):
         zdc._trim_cache.assert_called_with('TEST')
 
     @mock.patch('io.open', mock.mock_open(read_data=b'foo'), create=True)
-    @mock.patch('treadmill.zkutils.ZkClient.create', mock.Mock(set_spec=True))
-    @mock.patch('kazoo.client.KazooClient.exists', mock.Mock(set_spec=True))
+    @mock.patch('kazoo.client.KazooClient.create', mock.Mock(set_spec=True))
     @mock.patch('kazoo.client.KazooClient.get_children',
                 mock.Mock(set_spec=True))
     @mock.patch('treadmill.zkutils.ensure_deleted', mock.Mock(set_spec=True))
@@ -603,18 +646,22 @@ class ZkDataCacheTest(mockzk.MockZookeeperTestCase):
         """
         # pylint: disable=protected-access
 
-        zk_content = {
-            'zk': {
-                'path': {
-                    'FOO#chk0#0000000039': b'notbar',
-                    'FOO#chk1#0000000042': b'bar',
-                    'BAR#chk_some#0000000040': b'notfoo',
-                    'BAR#chk_other#0000000041': b'foo',
-                }
-            }
-        }
-        self.make_mock_zk(zk_content)
-        zkclient = treadmill.zkutils.ZkClient()
+        zkclient = kazoo.client.KazooClient()
+        zkclient.get_children.side_effect = [
+            [
+                'FOO#chk0#0000000039',
+                'FOO#chk1#0000000042',
+                'BAR#chk_some#0000000040',
+                'BAR#chk_other#0000000041',
+            ],
+            [
+                'FOO#chk0#0000000039',
+                'FOO#chk1#0000000042',
+                'FOO#chk2#0000000043',
+                'BAR#chk_some#0000000040',
+                'BAR#chk_other#0000000041',
+            ],
+        ]
         zdc = zkdatacache.ZkDataCache(zkclient, '/zk/path', self.cachedir)
         zdc._cached = {
             'FOO': [
@@ -635,14 +682,26 @@ class ZkDataCacheTest(mockzk.MockZookeeperTestCase):
             b'foo',
             makepath=True, sequence=True
         )
-        treadmill.zkutils.ensure_deleted.assert_called_once_with(
-            zkclient, '/zk/path/FOO#chk0#0000000039'
+        self.assertEqual(
+            treadmill.zkutils.ensure_deleted.call_args_list,
+            [
+                mock.call(zkclient, '/zk/path/FOO#chk1#0000000042'),
+                mock.call(zkclient, '/zk/path/FOO#chk0#0000000039'),
+            ]
         )
+
         treadmill.zkutils.ensure_deleted.reset_mock()
+        zkclient.get_children.side_effect = None
         zkclient.create.reset_mock()
 
         # Test expunge pushing.
-        zk_content['zk']['path']['FOO#chk2#0000000043'] = b'foo'
+        zkclient.get_children.return_value = [
+            'FOO#chk0#0000000039',
+            'FOO#chk1#0000000042',
+            'FOO#chk2#0000000043',
+            'BAR#chk_some#0000000040',
+            'BAR#chk_other#0000000041',
+        ]
         zdc.refresh_zk(zkclient.get_children('/zk/path'))
 
         zdc.push(expunge=True)

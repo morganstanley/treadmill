@@ -2,7 +2,7 @@
 # See slapd-config(5) for details on configuration options.
 # This file should NOT be world readable.
 #
-{%- set rid = [1] %}
+{# Most empty lines in this file are meaningful #}
 dn: cn=config
 objectClass: olcGlobal
 cn: config
@@ -11,7 +11,8 @@ olcAttributeOptions: {{ attribute_option }}
 {%- endfor %}
 olcArgsFile: {{ dir }}/run/slapd.args
 olcPidFile: {{ dir }}/run/slapd.pid
-{%- if uri in masters %}
+
+{%- if is_master %}
 {%- for master in masters %}
 olcServerID: {{ loop.index }} {{ master }}
 {%- endfor %}
@@ -28,70 +29,108 @@ cn: schema
 include: {{ schema_file}}
 {%- endfor %}
 
-{%- for backend in backends %}
+{%- macro if_exists(name, value) %}
+{%- if value %}
+{{ name }}: {{ value }}
+{%- endif %}
+{%- endmacro %}{# if_exists() #}
+
+{%- macro access_rights(user) %}
+olcAccess: to *
+{%- if user %}
+  by dn.base=uid={{ user }},cn=gssapi,cn=auth write
+{%- endif %}
+  by users read
+  by * none
+{%- endmacro %}{# access_rights() #}
+
+{%- macro replication_provider(backend, masters, replica_ids) %}
+{#-
+    All master backends are in N-way multi-master replication - olcSyncRepl with syncprov overlay.
+#}
+{%- for master in masters %}
+{% if uri == master %}#{% endif %}olcSyncRepl: rid={{ replica_ids.next() }} provider={{ master }}
+{% if uri == master %}#{% endif %}  searchbase="{{ backend.syncrepl_searchbase }}"
+{% if uri == master %}#{% endif %}  type=refreshAndPersist retry="5 12 60 +" timeout=1
+{% if uri == master %}#{% endif %}  bindmethod=sasl
+{%- endfor %}
+{%- if (masters|length) > 1 %}
+olcMirrorMode: TRUE
+{%- endif %}
+
+dn: olcOverlay=syncprov,olcDatabase={{ backend.name }},cn=config
+objectClass: olcOverlayConfig
+objectClass: olcSyncProvConfig
+olcOverlay: syncprov
+{%- endmacro %}{# replication_provider() #}
+
+{%- macro replication_consumer(backend, masters, replica_ids) %}
+{#-
+    Standard replication consumer - olcSyncRepl with olcUpdateref.
+#}
+{%- for master in masters %}
+olcSyncRepl: rid={{ replica_ids.next() }} provider={{ master }}
+  searchbase="{{ backend.syncrepl_searchbase }}"
+  type=refreshAndPersist retry="5 12 60 +" timeout=1
+  bindmethod=sasl
+{%- endfor %}
+{%- for master in masters %}
+olcUpdateref: {{ master }}
+{%- endfor %}
+{%- endmacro %}{# replication_consumer() #}
+
+{%- macro backend_config(backend, replica_ids) %}
+{#-
+    Render the entry for a database backend
+#}
 
 #
-# backend: {{ backend.name }}
+# backend: {{ backend.name }} ({{ backend.suffix }})
 #
 dn: olcDatabase={{ backend.name }},cn=config
 objectClass: olcDatabaseConfig
-{%- if backend.maxsize %}
-olcDbMaxSize: {{ backend.maxsize }}
-{%- endif %}
-{%- if backend.objectclass %}
-objectClass: {{ backend.objectclass }}
-{%- endif %}
+{{- if_exists('objectClass', backend.objectclass) }}
 olcDatabase: {{ backend.name }}
 {%- if backend.objectclass == "olcMdbConfig" %}
 olcDbDirectory: {{ dir }}/openldap-data
 olcSuffix: {{ backend.suffix }}
 {%- endif %}
+{{- if_exists('olcDbMaxSize', backend.maxsize) }}
+
+{#- Access rights #}
 olcRootDN: {{ backend.rootdn }}
-{%- if rootpw and backend.objectclass != "olcMdbConfig" %}
-olcRootPW: {{ rootpw }}
-{%- endif %}
-{%- if gssapi %}
-olcAccess: to *
-{%- if backend.owner %}
-    by dn.base=uid={{backend.owner}},cn=gssapi,cn=auth write
-{%- endif %}
-    by users read
-    by * none
-{%- endif %}
+{{- if_exists('olcRootPW', rootpw) }}
+{%- if gssapi %}{{ access_rights(backend.owner) }}{%- endif %}
+
+{#- Authentication requirements #}
 {%- if backend.requires %}
 {%- for r in backend.requires %}
 olcRequires: {{ r }}
 {%- endfor %}
 {%- endif %}
-{%- if masters %}
+
+{#- Limits #}
 olcLimits: dn.exact="{{ backend.rootdn }}" time.soft=unlimited time.hard=unlimited size.soft=unlimited size.hard=unlimited size.pr=unlimited size.prtotal=unlimited
 olcLimits: dn.base=uid={{ backend.owner }},cn=gssapi,cn=auth time.soft=unlimited time.hard=unlimited size.soft=unlimited size.hard=unlimited size.pr=unlimited size.prtotal=unlimited
-{%- endif %}
-{%- for master in masters %}
-olcSyncRepl: rid={{ rid|length }} provider={{ master }} bindmethod=sasl
-  searchbase="{{ backend.suffix}}" type=refreshAndPersist retry="5 5 60 +" timeout=1
-{%- if rid.append('1') %}
-{%- endif %}
-{%- endfor %}
 olcSizeLimit: size.soft={{ backend.size_limit | default(500) }} size.hard={{ backend.size_limit | default(500) }} size.pr=unlimited size.prtotal=unlimited
 olcTimeLimit: {{ backend.time_limit | default(3600) }}
-{%- if masters %}
-{%- if uri in masters %}
-# master has mirroring enabled
-olcMirrorMode: TRUE
-{%- else %}
-# slaves send updaterefs
-{%- for master in masters %}
-olcUpdateref: {{ master }}
+
+{#- Indexing #}
+{%- if backend.index %}
+{%- for attr, kind in backend.index.items() %}
+olcDbIndex: {{ attr }} {{ kind }}
 {%- endfor %}
 {%- endif %}
+
+{#- Replication #}
+{%- if is_master %}
+    {{- replication_provider(backend, masters, replica_ids) }}
 {%- else %}
-# standalone has no extra config #
+    {{- replication_consumer(backend, masters, replica_ids) }}
 {%- endif %}
-{% if uri in masters %}
-dn: olcOverlay=syncprov,olcDatabase={{ backend.name }},cn=config
-objectClass: olcOverlayConfig
-objectClass: olcSyncProvConfig
-olcOverlay: syncprov
-{%- endif %}
+{%- endmacro %}{# backend_config() #}
+
+{%- set replica_ids = cycler(*range(1, (backends|length) * (masters|length) + 1 if masters else 2)) %}
+{%- for backend in backends %}
+    {{- backend_config(backend, replica_ids) }}
 {%- endfor %}

@@ -142,15 +142,21 @@ def create_job(scheduler, job_id, job_name, func, func_kwargs, trigger_args):
         raise exc.FoundError('{} already exists'.format(job_id))
 
     _LOGGER.info('Adding job %s', job_id)
-    job = scheduler.add_job(
-        func,
-        trigger='cron',
-        id=job_id,
-        name=job_name,
-        misfire_grace_time=ONE_DAY_IN_SECS,
-        kwargs=func_kwargs,
-        **trigger_args
-    )
+    try:
+        job = scheduler.add_job(
+            func,
+            trigger='cron',
+            id=job_id,
+            name=job_name,
+            misfire_grace_time=ONE_DAY_IN_SECS,
+            kwargs=func_kwargs,
+            **trigger_args
+        )
+    except ValueError as err:
+        raise exc.InvalidInputError(
+            __name__,
+            str(err),
+        )
 
     return job
 
@@ -179,16 +185,22 @@ def update_job(scheduler, job_id, job_name, func, func_kwargs, trigger_args):
     is_paused = _is_paused(job)
 
     _LOGGER.info('Updating job %s', job_id)
-    job = scheduler.add_job(
-        func,
-        trigger='cron',
-        id=job_id,
-        name=job_name,
-        replace_existing=True,
-        misfire_grace_time=ONE_DAY_IN_SECS,
-        kwargs=func_kwargs,
-        **trigger_args
-    )
+    try:
+        job = scheduler.add_job(
+            func,
+            trigger='cron',
+            id=job_id,
+            name=job_name,
+            replace_existing=True,
+            misfire_grace_time=ONE_DAY_IN_SECS,
+            kwargs=func_kwargs,
+            **trigger_args
+        )
+    except ValueError as err:
+        raise exc.InvalidInputError(
+            __name__,
+            str(err),
+        )
 
     if is_paused:
         job.pause()

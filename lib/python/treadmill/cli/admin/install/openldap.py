@@ -55,6 +55,8 @@ def init():
 
         if uri:
             ctx.obj['PARAMS']['uri'] = uri
+            if masters and uri in masters:
+                ctx.obj['PARAMS']['is_master'] = True
         if rootpw:
             ctx.obj['PARAMS']['rootpw'] = rootpw
         if gssapi:

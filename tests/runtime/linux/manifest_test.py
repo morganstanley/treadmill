@@ -33,21 +33,17 @@ class Docker2RuntimeManifestTest(unittest.TestCase):
     @mock.patch(
         'treadmill.subproc.resolve', mock.Mock(return_value='/treadmill-bind')
     )
-    def test_generate_command(self):
+    def test__get_docker_run_cmd(self):
         """Test docker command parsing/generation.
         """
         # pylint: disable=protected-access
 
-        cmd = app_manifest._generate_command(
-            {'name': 'foo', 'command': 'sleep 10'},
-        )
-        self.assertEqual(cmd, ('sleep 10', False))
-
-        cmd = app_manifest._generate_command(
-            {'name': 'foo', 'image': 'testwt2'},
+        cmd = app_manifest._get_docker_run_cmd(
+            name='foo',
+            image='testwt2'
         )
         self.assertEqual(
-            cmd[0],
+            cmd,
             (
                 'exec $TREADMILL/bin/treadmill sproc docker'
                 ' --name foo'
@@ -60,13 +56,14 @@ class Docker2RuntimeManifestTest(unittest.TestCase):
                 ' --image testwt2'
             )
         )
-        self.assertTrue(cmd[1])
 
-        cmd = app_manifest._generate_command(
-            {'name': 'foo', 'image': 'testwt2', 'args': ['foo', 'bar']},
+        cmd = app_manifest._get_docker_run_cmd(
+            name='foo',
+            image='testwt2',
+            commands='/bin/sh -c "echo $foo $bar"',
         )
         self.assertEqual(
-            cmd[0],
+            cmd,
             (
                 'exec $TREADMILL/bin/treadmill sproc docker'
                 ' --name foo'
@@ -78,33 +75,31 @@ class Docker2RuntimeManifestTest(unittest.TestCase):
                 ' --volume /treadmill-bind:/opt/treadmill-bind:ro'
                 ' --image testwt2'
                 ' --'
-                ' foo bar'
+                ' /bin/sh -c \'echo $foo $bar\''
             )
         )
-        self.assertTrue(cmd[1])
 
-        cmd = app_manifest._generate_command(
-            {'name': 'foo', 'image': 'testwt2',
-             'args': ['60'], 'command': 'sleep'},
+        cmd = app_manifest._get_docker_run_cmd(
+            name='bar',
+            image='testwt2',
+            commands='entry_point.sh',
+            use_shell=False
         )
         self.assertEqual(
-            cmd[0],
+            cmd,
             (
                 'exec $TREADMILL/bin/treadmill sproc docker'
-                ' --name foo'
-                ' --envdirs /env,/docker/env,/services/foo/env'
+                ' --name bar'
+                ' --envdirs /env,/docker/env,/services/bar/env'
                 ' --volume /var/tmp:/var/tmp:rw'
                 ' --volume /var/spool:/var/spool:rw'
                 ' --volume /docker/etc/hosts:/etc/hosts:ro'
                 ' --volume /env:/env:ro'
                 ' --volume /treadmill-bind:/opt/treadmill-bind:ro'
-                ' --entrypoint sleep'
                 ' --image testwt2'
-                ' --'
-                ' 60'
+                ' --entrypoint entry_point.sh'
             )
         )
-        self.assertTrue(cmd[1])
 
 
 if __name__ == '__main__':

@@ -29,8 +29,8 @@ class AppTraceZKTest(mockzk.MockZookeeperTestCase):
     @mock.patch('kazoo.client.KazooClient.exists', mock.Mock())
     @mock.patch('kazoo.client.KazooClient.get', mock.Mock())
     @mock.patch('kazoo.client.KazooClient.get_children', mock.Mock())
-    def test_trace_pruning(self):
-        """Tests trace pruning.
+    def test_prune_trace_service_events(self):
+        """Test pruning trace service events.
         """
         zk_content = {
             'trace': {
@@ -69,7 +69,7 @@ class AppTraceZKTest(mockzk.MockZookeeperTestCase):
         self.make_mock_zk(zk_content)
         zkclient = treadmill.zkutils.ZkClient()
 
-        zk.prune_trace(zkclient, 4)
+        zk.prune_trace_service_events(zkclient, 4)
 
         self.assertEqual(kazoo.client.KazooClient.delete.call_args_list, [
             mock.call('/trace/0001/'
@@ -78,6 +78,59 @@ class AppTraceZKTest(mockzk.MockZookeeperTestCase):
                       'app1#001,1001.0,s1,service_exited,uniq1.service1.0.0'),
             mock.call('/trace/0001/'
                       'app1#001,1000.0,s1,service_running,uniq1.service1'),
+        ])
+
+    @mock.patch('kazoo.client.KazooClient.delete', mock.Mock())
+    @mock.patch('kazoo.client.KazooClient.create', mock.Mock())
+    @mock.patch('kazoo.client.KazooClient.exists', mock.Mock())
+    @mock.patch('kazoo.client.KazooClient.get', mock.Mock())
+    @mock.patch('kazoo.client.KazooClient.get_children', mock.Mock())
+    def test_prune_trace_evictions(self):
+        """Test pruning trace evictions.
+        """
+        zk_content = {
+            'trace': {
+                '0001': {
+                    'app1#001,1000.0,s1,pending,monitor:created': {},
+                    'app1#001,1001.0,s1,scheduled,host1': {},
+                    'app1#001,1002.0,host1,configured,uniq1': {},
+                    'app1#001,1003.0,host1,service_running,uniq1.service1': {},
+                    'app1#001,1004.0,s1,pending,evicted': {},
+                    'app1#001,1005.0,s1,scheduled,host2': {},
+                    'app1#001,1006.0,host2,configured,uniq2': {},
+                    'app1#001,1007.0,host2,service_running,uniq2.service1': {},
+                    'app1#001,1008.0,s1,scheduled,host3:evicted': {},
+                    'app1#001,1009.0,host3,configured,uniq3': {},
+                    'app1#001,1010.0,host3,service_running,uniq3.service1': {},
+                    'app1#001,1011.0,s1,pending,evicted': {},
+                    'app1#001,1012.0,s1,scheduled,host4': {},
+                    'app1#001,1013.0,host4,configured,uniq4': {},
+                    'app1#001,1014.0,host4,service_running,uniq4.service1': {},
+                    'app1#001,1015.0,s1,scheduled,host5:evicted': {},
+                    'app1#001,1016.0,host5,configured,uniq5': {},
+                    'app1#001,1017.0,host5,service_running,uniq5.service1': {},
+                },
+                '0002': {
+                    'app1#002,1000.0,s1,pending,monitor:created': {},
+                    'app1#002,1001.0,s1,scheduled,host1': {},
+                    'app1#002,1002.0,host1,configured,uniq1': {},
+                    'app1#002,1003.0,host1,service_running,uniq1.service1': {},
+                },
+            },
+        }
+
+        self.make_mock_zk(zk_content)
+        zkclient = kazoo.client.KazooClient()
+
+        zk.prune_trace_evictions(zkclient, 4)
+
+        self.assertEqual(kazoo.client.KazooClient.delete.call_args_list, [
+            mock.call('/trace/0001/'
+                      'app1#001,1003.0,host1,service_running,uniq1.service1'),
+            mock.call('/trace/0001/'
+                      'app1#001,1002.0,host1,configured,uniq1'),
+            mock.call('/trace/0001/'
+                      'app1#001,1001.0,s1,scheduled,host1'),
         ])
 
     @mock.patch('kazoo.client.KazooClient.delete', mock.Mock())

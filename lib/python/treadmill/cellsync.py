@@ -208,6 +208,7 @@ def sync_partitions():
                 )
             except ValueError:
                 _LOGGER.info('Invalid reboot schedule, ignoring.')
+                del partition['reboot-schedule']
 
         if zkutils.put(zkclient, z.path.partition(zkname),
                        partition, check_content=True):

@@ -13,7 +13,7 @@
             },
             "expression": {
                 "type": "string",
-                "pattern": "^[\\w\\s\\-\\*\\/]+$"
+                "pattern": "^[\\w\\s\\-\\*\\/,]+$"
             },
             "count": {
                 "type": "integer",
