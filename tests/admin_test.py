@@ -291,9 +291,6 @@ class AdminTest(unittest.TestCase):
         app['services'][1]['restart'] = {'limit': 5, 'interval': 60}
         app['services'][2]['restart']['interval'] = 60
 
-        app['services'][0]['args'] = []
-        app['services'][1]['args'] = []
-        app['services'][2]['args'] = []
         self.assertEqual(app, admin.Application(None).from_entry(ldap_entry))
 
     def test_app_to_entry_docker(self):
@@ -311,7 +308,7 @@ class AdminTest(unittest.TestCase):
                 {
                     'name': 'foo',
                     'image': 'testimage',
-                    'args': ['-n', 'test'],
+                    'useshell': True,
                     'command': 'echo',
                     'restart': {
                         'limit': 3,
@@ -329,11 +326,10 @@ class AdminTest(unittest.TestCase):
             'disk': ['1G'],
             'service-name;tm-service-' + md5_foo: ['foo'],
             'service-command;tm-service-' + md5_foo: ['echo'],
-            'service-args;tm-service-' + md5_foo: ['-n', 'test'],
+            'service-useshell;tm-service-' + md5_foo: [True],
             'service-image;tm-service-' + md5_foo: ['testimage'],
             'service-restart-limit;tm-service-' + md5_foo: ['3'],
             'service-restart-interval;tm-service-' + md5_foo: ['30'],
-
         }
         self.assertEqual(ldap_entry, admin.Application(None).to_entry(app))
 
@@ -364,7 +360,6 @@ class AdminTest(unittest.TestCase):
             'memory': '1G',
             'services': [{'command': '/a',
                           'name': 'a',
-                          'args': [],
                           'restart': {'interval': 30, 'limit': 3}}],
             'disk': '1G',
             'affinity_limits': {},

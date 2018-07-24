@@ -129,7 +129,7 @@ class Loader:
             data = self.backend.get(z.path.partition(partition))
 
             self.cell.partitions[partition] = scheduler.Partition(
-                reboot_days=data.get('reboot-schedule'),
+                reboot_schedule=data.get('reboot-schedule'),
                 label=partition
             )
 

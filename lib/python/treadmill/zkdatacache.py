@@ -97,11 +97,7 @@ class ZkDataCache:
         """
         self._zkclient = new_client
         if new_client is not None:
-            try:
-                zknodes = self._zkclient.get_children(self._zkpath)
-            except kazoo.exceptions.NoNodeError:
-                zknodes = []
-            self.refresh_zk(zknodes)
+            self.refresh_zk()
 
     def refresh_cache(self):
         """Refresh the cache from files present in localdir.
@@ -132,12 +128,19 @@ class ZkDataCache:
 
         self._cached = found
 
-    def refresh_zk(self, zknodes):
+    def refresh_zk(self, zknodes=None):
         """Parse data from Zookeeper nodes.
 
         NOTE: This is intended to be called with the output of a
         `:func:get_children` or in the callback of a `:class:ChildrenWatch`.
+        If zknodes is None, get Zookeeper nodes first and then parse data.
         """
+        if zknodes is None:
+            try:
+                zknodes = self._zkclient.get_children(self._zkpath)
+            except kazoo.exceptions.NoNodeError:
+                zknodes = []
+
         data = {}
         for node in zknodes:
             (name, chksum, seq) = node.split('#', 2)
@@ -240,6 +243,9 @@ class ZkDataCache:
                     )
                 new_data = True
 
+        if new_data:
+            self.refresh_zk()
+
         for name, entries in list(six.viewitems(self._zkdata)):
             if name not in self._cached:
                 if expunge:
@@ -271,11 +277,7 @@ class ZkDataCache:
         assert self.zkclient is not None, 'Operation requires a ZK client.'
 
         if refresh:
-            try:
-                zknodes = self._zkclient.get_children(self._zkpath)
-            except kazoo.exceptions.NoNodeError:
-                zknodes = []
-            self.refresh_zk(zknodes)
+            self.refresh_zk()
 
         new_data = False
         for name, entries in six.iteritems(self._zkdata):

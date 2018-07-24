@@ -1063,7 +1063,7 @@ class LdapObject:
     def get(self, ident, dirty=False):
         """Gets object given identity."""
         entry = self.admin.get(
-            self.dn(ident), self._query(), self.attrs(), dirty
+            self.dn(ident), self._query(), self.attrs(), dirty=dirty,
         )
         if entry:
             return self.from_entry(entry, self.dn(ident))
@@ -1270,7 +1270,7 @@ class Application(LdapObject):
         ('service-name', 'name', str),
         ('service-command', 'command', str),
         ('service-image', 'image', str),
-        ('service-args', 'args', [str]),
+        ('service-useshell', 'useshell', bool),
         ('service-root', 'root', bool),
     ]
 

@@ -112,10 +112,14 @@ class Ticket:
                 else:
                     _LOGGER.warning('Invalid or expired ticket: %s',
                                     tkt_file.name)
+                    return False
             except (IOError, OSError):
                 _LOGGER.exception('Error writing ticket file: %s', path)
+                return False
             finally:
                 fs.rm_safe(tkt_file.name)
+
+        return True
 
     def copy(self, dst, src=None):
         """Atomically copy tickets to destination."""
@@ -202,7 +206,9 @@ class TicketLocker:
         """Remove invalid tickets from directory."""
         published_tickets = self.zkclient.get_children(z.TICKETS)
         for tkt in published_tickets:
-            if not krbcc_ok(os.path.join(self.tkt_spool_dir, tkt)):
+            tkt_path = os.path.join(self.tkt_spool_dir, tkt)
+            if not krbcc_ok(tkt_path):
+                fs.rm_safe(tkt_path)
                 zkutils.ensure_deleted(
                     self.zkclient,
                     z.path.tickets(tkt, self.hostname)
@@ -403,6 +409,8 @@ def request_tickets_from(host, port, appname, tkt_spool_dir, expected=None):
     service = 'host@%s' % host
     _LOGGER.info('connecting: %s:%s, %s', host, port, service)
     client = gssapiprotocol.GSSAPILineClient(host, int(port), service)
+    if expected is None:
+        expected = set()
     try:
         if client.connect():
             _LOGGER.debug('connected to: %s:%s, %s', host, port, service)
@@ -421,10 +429,8 @@ def request_tickets_from(host, port, appname, tkt_spool_dir, expected=None):
                     _LOGGER.info('got ticket %s:%s',
                                  princ,
                                  hashlib.sha1(encoded).hexdigest())
-                    store_ticket(Ticket(princ, ticket_data),
-                                 tkt_spool_dir)
-
-                    if expected is not None:
+                    tkt = Ticket(princ, ticket_data)
+                    if store_ticket(tkt, tkt_spool_dir):
                         expected.discard(princ)
                 else:
                     _LOGGER.info('got ticket %s:None', princ)
@@ -445,7 +451,9 @@ def store_ticket(tkt, tkt_spool_dir):
         return False
 
     _LOGGER.info('Refreshing ticket for %r', tkt.princ)
-    tkt.write()
+    if not tkt.write():
+        return False
+
     tkt_spool_path = os.path.join(tkt_spool_dir, tkt.princ)
     tkt.copy(tkt_spool_path)
 

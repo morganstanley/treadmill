@@ -21,7 +21,6 @@ class DockerTest(unittest.TestCase):
     """Test treadmill sproc docker
     """
 
-    @mock.patch('docker.models.images.ImageCollection.pull', mock.Mock())
     @mock.patch('treadmill.sproc.docker._get_image_user',
                 mock.Mock(return_value='user'))
     @mock.patch('docker.models.containers.ContainerCollection.get')
@@ -33,7 +32,9 @@ class DockerTest(unittest.TestCase):
 
         client = docker.from_env()
 
-        sproc_docker._create_container(client, 'bar', 'foo', None, ['cmd'])
+        sproc_docker._create_container(
+            client, 'bar', 'foo', mock.Mock(), None, ['cmd']
+        )
 
         get_call_mock.assert_called_with('bar')
         create_call_mock.assert_called_with(
@@ -42,7 +43,6 @@ class DockerTest(unittest.TestCase):
             pid_mode='host', stdin_open=True, tty=True
         )
 
-    @mock.patch('docker.models.images.ImageCollection.pull', mock.Mock())
     @mock.patch('treadmill.sproc.docker._get_image_user',
                 mock.Mock(return_value=None))
     @mock.patch('docker.models.containers.ContainerCollection.get',
@@ -58,7 +58,7 @@ class DockerTest(unittest.TestCase):
         client = docker.from_env()
 
         sproc_docker._create_container(
-            client, 'bar', 'foo', ['entrypoint'], ['cmd']
+            client, 'bar', 'foo', mock.Mock(), ['entrypoint'], ['cmd']
         )
 
         create_call_mock.assert_called_with(

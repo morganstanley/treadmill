@@ -542,6 +542,41 @@ Directory Hash Seed:      20c6af65-0208-4e71-99cb-d5532c02e3b8
             {}
         )
 
+    @mock.patch('treadmill.subproc.check_output', mock.Mock(spec_set=True))
+    def test_blk_uuid(self):
+        """Test filesystem creation
+        """
+        treadmill.subproc.check_output.side_effect = [
+            (
+                '/dev/test1: '
+                'UUID="de4def96-ff72-4eb9-ad5e-0847257d1866" '
+                'TYPE="xfs" PARTUUID="a34cf35b-104d-49b0-ae11-f664a286af07"'
+            ),
+            'not a uuid',
+            treadmill.subproc.CalledProcessError('no UUID', 'blkid'),
+        ]
+
+        res = treadmill.fs.linux.blk_uuid('/dev/test1')
+        treadmill.subproc.check_output.assert_called_with(
+            [
+                'blkid',
+                '/dev/test1',
+            ]
+        )
+        self.assertEqual(
+            res,
+            'de4def96-ff72-4eb9-ad5e-0847257d1866'
+        )
+
+        self.assertRaises(
+            ValueError,
+            treadmill.fs.linux.blk_uuid,
+            '/dev/test2'
+        )
+
+        res = treadmill.fs.linux.blk_uuid('/dev/test3')
+        self.assertIsNone(res)
+
     @mock.patch('glob.glob',
                 mock.Mock(spec_set=True,
                           return_value=('/sys/class/block/sda2/dev',
