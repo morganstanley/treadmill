@@ -369,6 +369,7 @@ def _install(package, src_dir, dst_dir, params, prefix_len=None, rec=None):
         if pkg_resources.resource_isdir(package_name,
                                         os.path.join(src_dir, item)):
             fs.mkdir_safe(dst_path)
+
             # Check directory ownership.
             owner_rsrc = os.path.join(resource_path, '.owner')
             if pkg_resources.resource_exists(package_name, owner_rsrc):

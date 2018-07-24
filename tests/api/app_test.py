@@ -325,7 +325,29 @@ class ApiAppTest(unittest.TestCase):
             'endpoints': [
                 {'name': 'x', 'port': 1, 'type': 'infra'},
                 {'name': 'y', 'port': 2, 'type': 'infra'},
-            ]
+            ],
+            'services': [
+                {
+                    'name': 'foo',
+                    'image': 'testimage',
+                    'useshell': True,
+                    'command': 'echo',
+                    'restart': {
+                        'limit': 3,
+                        'interval': 30,
+                    },
+                },
+                {
+                    'name': 'bar',
+                    'image': 'testimage',
+                    'useshell': False,
+                    'command': 'echo',
+                    'restart': {
+                        'limit': 3,
+                        'interval': 30,
+                    },
+                },
+            ],
         }
 
         self.app.create('proid.name', payload)
@@ -377,7 +399,6 @@ class ApiAppTest(unittest.TestCase):
                 'services': [{
                     'name': 'test_svc',
                     'command': 'test_cmd',
-                    'args': [],
                     'restart': {'limit': 5, 'interval': 60},
                 }],
                 'args': [],
@@ -440,7 +461,6 @@ class ApiAppTest(unittest.TestCase):
                 'services': [{
                     'name': 'test_svc',
                     'command': 'test_cmd',
-                    'args': [],
                     'restart': {'limit': 5, 'interval': 60},
                 }],
                 'args': [],

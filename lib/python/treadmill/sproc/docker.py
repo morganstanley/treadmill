@@ -50,12 +50,26 @@ def _get_image_user(image_attrs):
     return config.get('User', None)
 
 
-def _create_container(client, name, image_name, entrypoint, cmd, **args):
+def _pull_image(client, image_name):
+    """Pull image from registry
+    """
+    # we intentionally check if image exist so that
+    # we can explictly have pull image event in treadmill trace in the future
+    try:
+        image_meta = client.images.get(image_name)
+        # TODO: send image in place event
+    except docker.errors.ImageNotFound:
+        image_meta = client.images.pull(image_name)
+        # TODO: pull image event
+
+    return image_meta
+
+
+def _create_container(client, name, image_name, image_meta,
+                      entrypoint, cmd, **args):
     """Create docker container from given app.
     """
     # if success,  pull returns an image object
-    image = client.images.pull(image_name)
-
     container_args = {
         'name': name,
         'image': image_name,
@@ -72,7 +86,7 @@ def _create_container(client, name, image_name, entrypoint, cmd, **args):
     }
 
     # assign user argument
-    user = _get_image_user(image.attrs)
+    user = _get_image_user(image_meta.attrs)
     if user is None or user == '':
         uid = os.getuid()
         gid = os.getgid()
@@ -85,11 +99,16 @@ def _create_container(client, name, image_name, entrypoint, cmd, **args):
 
     try:
         # The container might exist already
-        # TODO: start existing container with different ports
         container = client.containers.get(name)
         container.remove(force=True)
+        # TODO: remove container event
     except docker.errors.NotFound:
         pass
+    except docker.errors.APIError as err:
+        raise exc.ContainerSetupError(
+            'Fail to remove container {}: {}'.format(name, err),
+            app_abort.AbortedReason.PRESENCE
+        )
 
     _LOGGER.info('Run docker: %r', container_args)
     return client.containers.create(**container_args)
@@ -146,24 +165,33 @@ class DockerSprocClient(object):
         """Run
         """
         client = self._get_client()
+        if 'volumes' in args:
+            args['volumes'] = _transform_volumes(args['volumes'])
+
+        if 'envdirs' in args:
+            args['environment'] = _read_environ(args.pop('envdirs'))
+
+        # simulate docker pull logic, if tag not provided, assume latest
+        if ':' not in image:
+            image += ':latest'
+
         try:
-            if 'volumes' in args:
-                args['volumes'] = _transform_volumes(args['volumes'])
-
-            if 'envdirs' in args:
-                args['environment'] = _read_environ(args.pop('envdirs'))
-
-            container = _create_container(
-                client, name, image, entrypoint, cmd, **args
-            )
-
+            image_meta = _pull_image(client, image)
         except docker.errors.ImageNotFound:
             raise exc.ContainerSetupError(
-                'Image {0} was not found'.format(image),
+                'Fail to pull {}, check image name or disk size'.format(
+                    image
+                ),
                 app_abort.AbortedReason.IMAGE
             )
 
+        container = _create_container(
+            client, name, image, image_meta, entrypoint, cmd, **args
+        )
+
+        # TODO: start docker container event
         container.start()
+
         container.reload()
         logs_gen = container.logs(
             stdout=True,
@@ -182,7 +210,8 @@ class DockerSprocClient(object):
 
             container.reload()
 
-        rc = container.wait()
+        # container.wait returns dict with key 'StatusCode'
+        rc = container.wait()['StatusCode']
         if os.WIFSIGNALED(rc):
             # Process died with a signal in docker
             sig = os.WTERMSIG(rc)
@@ -216,8 +245,7 @@ def init():
     @click.option('--name', required=True, help='name of container')
     @click.option('--image', required=True, help='container image')
     @click.argument('cmd', nargs=-1)
-    @click.option('--entrypoint', type=cli.LIST, required=False,
-                  help='List of entrypoints')
+    @click.option('--entrypoint', required=False, help='Entrypoint')
     @click.option('--user', required=False,
                   help='userid in the form UID:GID')
     @click.option('--envdirs', type=cli.LIST, required=False, default='',
@@ -229,7 +257,9 @@ def init():
     def configure(name, image, cmd, entrypoint,
                   user, envdirs, read_only, volume):
         """Configure local manifest and schedule app to run."""
-        service_client = DockerSprocClient()
+        # client do not timeout
+        param = {'timeout': None}
+        service_client = DockerSprocClient(param)
         service_client.run(
             # manditory parameters
             name, image, entrypoint, cmd,

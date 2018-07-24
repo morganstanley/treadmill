@@ -22,7 +22,10 @@ _LOGGER = logging.getLogger(__name__)
 # Interval between cleanup - every min
 TRACE_CLEANUP_INTERVAL = 60
 
-# Default max service trace events count.
+# Default max trace evictions count.
+TRACE_EVICTIONS_MAX_COUNT = 10
+
+# Default max trace service events count.
 TRACE_SERVICE_EVENTS_MAX_COUNT = 10
 
 # Number of traces in batch.
@@ -55,8 +58,11 @@ def init():
     @trace.command()
     @click.option('--interval', help='Timeout between checks (sec).',
                   default=TRACE_CLEANUP_INTERVAL)
+    @click.option('--trace-evictions-max-count',
+                  help='Max trace evictions count.',
+                  type=int, default=TRACE_EVICTIONS_MAX_COUNT)
     @click.option('--trace-service-events-max-count',
-                  help='Max service trace events (running/exited) to keep.',
+                  help='Max trace service events count.',
                   type=int, default=TRACE_SERVICE_EVENTS_MAX_COUNT)
     @click.option('--trace-batch-size', help='Batch size.',
                   type=int, default=TRACE_BATCH)
@@ -75,6 +81,7 @@ def init():
     @click.option('--no-lock', is_flag=True, default=False,
                   help='Run without lock.')
     def cleanup(interval,
+                trace_evictions_max_count,
                 trace_service_events_max_count,
                 trace_batch_size,
                 trace_expire_after,
@@ -88,7 +95,11 @@ def init():
         def _cleanup():
             """Do cleanup."""
             while True:
-                zk.prune_trace(
+                zk.prune_trace_evictions(
+                    context.GLOBAL.zk.conn,
+                    trace_evictions_max_count
+                )
+                zk.prune_trace_service_events(
                     context.GLOBAL.zk.conn,
                     trace_service_events_max_count
                 )
