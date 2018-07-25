@@ -32,7 +32,7 @@ _TOMESTONES_PLUGINS = 'treadmill.tombstones'
 EXIT_INFO = 'exitinfo'
 
 
-class Monitor(object):
+class Monitor:
     """Treadmill tombstone monitoring.
 
     Watches a directory for tombstone files and performs an action when it
@@ -147,7 +147,7 @@ class Monitor(object):
 
 
 @six.add_metaclass(abc.ABCMeta)
-class MonitorTombstoneAction(object):
+class MonitorTombstoneAction:
     """Abstract base class for all monitor tombstone actions.
 
     Behavior when a service fails its policy.

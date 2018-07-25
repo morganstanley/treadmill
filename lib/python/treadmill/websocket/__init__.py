@@ -35,6 +35,7 @@ _LOGGER = logging.getLogger(__name__)
 
 def make_handler(pubsub):
     """Make websocket handler factory."""
+    # pylint: disable=too-many-statements
 
     class _WS(tornado.websocket.WebSocketHandler):
         """Base class contructor"""
@@ -193,7 +194,7 @@ def make_handler(pubsub):
     return _WS
 
 
-class DirWatchPubSub(object):
+class DirWatchPubSub:
     """Pubsub dirwatch events."""
 
     def __init__(self, root, impl=None, watches=None):

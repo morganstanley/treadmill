@@ -229,7 +229,7 @@ def mk_metrics_api(tm_env):
     """Factory to create metrics api.
     """
 
-    class _MetricsAPI(object):
+    class _MetricsAPI:
         """Acess to the locally gathered metrics.
         """
 
@@ -326,7 +326,7 @@ def mk_logapi(tm_env):
     """Factory  for log api.
     """
 
-    class _LogAPI(object):
+    class _LogAPI:
         """Access to log files.
         """
 
@@ -459,9 +459,10 @@ def mk_logapi(tm_env):
     return _LogAPI
 
 
-class API(object):
+class API:
     """Treadmill Local REST api.
     """
+    # pylint: disable=too-many-statements
 
     def __init__(self):
 
@@ -587,7 +588,7 @@ class API(object):
                     member = archive.extractfile('state.json')
                     return json.loads(member.read().decode())
 
-        class _ArchiveAPI(object):
+        class _ArchiveAPI:
             """Access to archive files.
             """
 

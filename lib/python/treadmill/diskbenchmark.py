@@ -50,7 +50,7 @@ _BENCHMARK_RESULT_FILE = 'benchmark.result'
 _BENCHMARK_CONFIG_FILE = 'benchmark.ini'
 
 
-class EqualSpaceRemover(object):
+class EqualSpaceRemover:
     """Remove spaces around equal sign in ini config.
     """
 

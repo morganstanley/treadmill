@@ -16,9 +16,8 @@ from treadmill import context
 
 def init():
     """Configures allocations CLI group"""
-    # "too many branches" pylint warning.
-    #
-    # pylint: disable=R0912
+    # pylint: disable=too-many-branches
+    # pylint: disable=too-many-statements
     formatter = cli.make_formatter('allocation')
 
     @click.group()

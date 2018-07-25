@@ -23,7 +23,7 @@ class AuthorizationError(Exception):
         super(AuthorizationError, self).__init__('\n'.join(self.annotations))
 
 
-class NullAuthorizer(object):
+class NullAuthorizer:
     """Passthrough authorization class."""
 
     def __init__(self):
@@ -34,7 +34,7 @@ class NullAuthorizer(object):
         pass
 
 
-class ClientAuthorizer(object):
+class ClientAuthorizer:
     """Loads authorizer implementation plugin."""
 
     def __init__(self, user_clbk, auth=None):

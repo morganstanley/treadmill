@@ -11,7 +11,7 @@ from treadmill import context
 from treadmill import schema
 
 
-class API(object):
+class API:
     """Treadmill Server REST api."""
 
     def __init__(self):

@@ -75,8 +75,9 @@ def replace(path_from, path_to):
         os.replace(path_from, path_to)
 
 
-def write_safe(filename, func, mode='wb', prefix='tmp', permission=None):
-    """Safely write file
+def write_safe(filename, func, mode='wb', prefix='tmp', permission=None,
+               owner=None):
+    """Safely write file.
 
     :param filename:
         full path of file
@@ -88,6 +89,8 @@ def write_safe(filename, func, mode='wb', prefix='tmp', permission=None):
         same as tempfile.NamedTemporaryFile
     :param permission:
         file permission
+    :param owner
+        file owner (uid, gui) tuple
     """
     dirname = os.path.dirname(filename)
     try:
@@ -95,14 +98,23 @@ def write_safe(filename, func, mode='wb', prefix='tmp', permission=None):
     except OSError as err:
         if err.errno != errno.EEXIST:
             raise
-    with tempfile.NamedTemporaryFile(dir=dirname,
-                                     delete=False,
-                                     prefix=prefix,
-                                     mode=mode) as tmpfile:
-        if permission is not None and os.name == 'posix':
-            os.fchmod(tmpfile.fileno(), permission)
-        func(tmpfile)
-    replace(tmpfile.name, filename)
+    try:
+        with tempfile.NamedTemporaryFile(dir=dirname,
+                                         delete=False,
+                                         prefix=prefix,
+                                         mode=mode) as tmpfile:
+            if permission is not None and os.name == 'posix':
+                os.fchmod(tmpfile.fileno(), permission)
+
+            func(tmpfile)
+
+            if owner:
+                uid, gid = owner
+                os.fchown(tmpfile.fileno(), uid, gid)
+
+        replace(tmpfile.name, filename)
+    finally:
+        rm_safe(tmpfile.name)
 
 
 def mkdir_safe(path, mode=0o777):

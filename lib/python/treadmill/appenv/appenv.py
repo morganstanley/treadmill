@@ -19,7 +19,7 @@ _LOGGER = logging.getLogger(__name__)
 
 
 @six.add_metaclass(abc.ABCMeta)
-class AppEnvironment(object):
+class AppEnvironment:
     """Treadmill application environment.
 
     :param root:

@@ -32,8 +32,17 @@ class DirWatcherEvent(enum.Enum):
     MORE_PENDING = 'more events pending'
 
 
+# TODO: new pylint circular complains about useless None return and then about
+#       assigning from function that does not return.
+#
+#       Disabling these for now, code need to be refactored to better reflect
+#       return types.
+#
+# pylint: disable=E1111
+# [ylint: disable=R1711
+
 @six.add_metaclass(abc.ABCMeta)
-class DirWatcher(object):
+class DirWatcher:
     """Directory watcher base, invoking callbacks on file create/delete events.
     """
     __slots__ = (
@@ -61,7 +70,7 @@ class DirWatcher(object):
         :param watch_dir: watch directory real path
         :returns: watch id
         """
-        return
+        raise AssertionError('Abstract method.')
 
     def add_dir(self, directory):
         """Add `directory` to the list of watched directories.
@@ -78,7 +87,7 @@ class DirWatcher(object):
 
         :param watch_id: watch id
         """
-        return
+        raise AssertionError('Abstract method.')
 
     def remove_dir(self, directory):
         """Remove `directory` from the list of watched directories.
@@ -100,7 +109,6 @@ class DirWatcher(object):
     def _noop(event_src):
         """Default NOOP callback"""
         _LOGGER.debug('event on %r', event_src)
-        return None
 
     @abc.abstractmethod
     def _wait_for_events(self, timeout):
@@ -111,7 +119,7 @@ class DirWatcher(object):
         :returns:
             ``True`` if events were received, ``False`` otherwise.
         """
-        return
+        raise AssertionError('Abstract method.')
 
     def wait_for_events(self, timeout=-1):
         """Wait for directory change event for up to ``timeout`` seconds.
@@ -136,7 +144,7 @@ class DirWatcher(object):
 
         :returns: List of ``(DirWatcherEvent, <path>)``
         """
-        return
+        raise AssertionError('Abstract method.')
 
     def process_events(self, max_events=0, resume=False):
         """Process events received.

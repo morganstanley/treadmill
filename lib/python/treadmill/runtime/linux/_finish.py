@@ -239,8 +239,7 @@ def _cleanup_network(tm_env, container_dir, app, network_client):
         # Resolve all the hosts
         # FIXME: There is no guarantie the hosts will resolve to
         #        the same IPs as they did during creation.
-        ips = set([socket.gethostbyname(host)
-                   for host in app.passthrough])
+        ips = {socket.gethostbyname(host) for host in app.passthrough}
         for ip in ips:
             tm_env.rules.unlink_rule(
                 chain=iptables.PREROUTING_PASSTHROUGH,

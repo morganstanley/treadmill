@@ -1104,6 +1104,169 @@ class MasterTest(mockzk.MockZookeeperTestCase):
         self.assertTrue(master.Master.load_apps.called)
 
     @mock.patch('kazoo.client.KazooClient.get', mock.Mock())
+    @mock.patch('kazoo.client.KazooClient.exists', mock.Mock())
+    @mock.patch('kazoo.client.KazooClient.get_children', mock.Mock())
+    @mock.patch('kazoo.client.KazooClient.set', mock.Mock())
+    @mock.patch('kazoo.client.KazooClient.create', mock.Mock())
+    @mock.patch('kazoo.client.KazooClient.exists', mock.Mock())
+    @mock.patch('treadmill.zkutils.ensure_deleted', mock.Mock())
+    @mock.patch('treadmill.zkutils.put', mock.Mock())
+    @mock.patch('time.time', mock.Mock(return_value=100))
+    def test_server_state_events(self):
+        """Tests server_state events."""
+        zk_content = {
+            'placement': {
+                'test.xx.com': {
+                    '.data': """
+                        state: up
+                        since: 100
+                    """,
+                    'xxx.app1#1234': {
+                        '.metadata': {'created': 100},
+                    },
+                    'xxx.app2#2345': {
+                        '.metadata': {'created': 101},
+                    },
+                },
+            },
+            'server.presence': {
+                'test.xx.com': {
+                    '.metadata': {'created': 100},
+                },
+            },
+            'cell': {
+                'pod:pod1': {},
+            },
+            'buckets': {
+                'pod:pod1': {
+                    'traits': None,
+                },
+                'rack:1234': {
+                    'traits': None,
+                    'parent': 'pod:pod1',
+                },
+            },
+            'servers': {
+                'test.xx.com': {
+                    'memory': '16G',
+                    'disk': '128G',
+                    'cpu': '400%',
+                    'parent': 'rack:1234',
+                },
+            },
+            'scheduled': {
+                'xxx.app1#1234': {
+                    'memory': '1G',
+                    'disk': '1G',
+                    'cpu': '100%',
+                },
+                'xxx.app2#2345': {
+                    'memory': '1G',
+                    'disk': '1G',
+                    'cpu': '100%',
+                },
+            },
+            'events': {
+                '000-server_state-12345': {
+                    '.data': """
+                        - test.xx.com
+                        - frozen
+                        - [xxx.app1#1234]
+                    """
+                },
+            },
+        }
+
+        self.make_mock_zk(zk_content)
+
+        self.master.load_buckets()
+        self.master.load_cell()
+        self.master.load_servers()
+        self.master.load_apps()
+        self.master.restore_placements()
+
+        # Set server state to frozen and unschedule app.
+        time.time.return_value = 200
+
+        self.master.process_events(['000-server_state-12345'])
+
+        self.assertEqual(
+            self.master.servers['test.xx.com'].get_state(),
+            (scheduler.State.frozen, 200),
+        )
+        self.assertTrue(self.master.cell.apps['xxx.app1#1234'].unschedule)
+        self.assertFalse(self.master.cell.apps['xxx.app2#2345'].unschedule)
+        treadmill.zkutils.put.assert_called_with(
+            mock.ANY,
+            '/placement/test.xx.com',
+            {'state': 'frozen', 'since': 200},
+            acl=mock.ANY
+        )
+
+        # Reschedule, remove app from the server, delete placement, post event.
+        # App becomes pending, there is no other server where it can be placed.
+        self.master.reschedule()
+        self.assertEqual(
+            self.master.cell.apps['xxx.app1#1234'].server,
+            None
+        )
+        self.assertEqual(
+            self.master.cell.apps['xxx.app2#2345'].server,
+            'test.xx.com'
+        )
+        treadmill.zkutils.ensure_deleted.assert_called_with(
+            mock.ANY,
+            '/placement/test.xx.com/xxx.app1#1234'
+        )
+        event = os.path.join(
+            self.events_dir,
+            '200,xxx.app1#1234,pending,test.xx.com:frozen'
+        )
+        self.assertTrue(os.path.exists(event))
+
+        # Set server state to up.
+        time.time.return_value = 300
+        zk_content['events']['000-server_state-12345']['.data'] = """
+            - test.xx.com
+            - up
+            - []
+        """
+
+        self.master.process_events(['000-server_state-12345'])
+
+        self.assertEqual(
+            self.master.servers['test.xx.com'].get_state(),
+            (scheduler.State.up, 300),
+        )
+        treadmill.zkutils.put.assert_called_with(
+            mock.ANY,
+            '/placement/test.xx.com',
+            {'state': 'up', 'since': 300},
+            acl=mock.ANY
+        )
+
+        # Set server state to down.
+        time.time.return_value = 400
+        zk_content['events']['000-server_state-12345']['.data'] = """
+            - test.xx.com
+            - down
+            - []
+        """
+
+        self.master.process_events(['000-server_state-12345'])
+
+        self.assertEqual(
+            self.master.servers['test.xx.com'].get_state(),
+            (scheduler.State.down, 400),
+        )
+        treadmill.zkutils.put.assert_called_with(
+            mock.ANY,
+            '/placement/test.xx.com',
+            {'state': 'down', 'since': 400},
+            acl=mock.ANY
+        )
+
+    @mock.patch('kazoo.client.KazooClient.get', mock.Mock())
     @mock.patch('kazoo.client.KazooClient.create', mock.Mock())
     @mock.patch('time.time', mock.Mock(return_value=123.34))
     @mock.patch('treadmill.appevents._HOSTNAME', 'xxx')
@@ -1617,6 +1780,206 @@ class MasterTest(mockzk.MockZookeeperTestCase):
         self.assertFalse(treadmill.zkutils.ensure_deleted.called)
         self.assertFalse(treadmill.zkutils.ensure_exists.called)
         self.assertFalse(treadmill.zkutils.put.called)
+
+    @mock.patch('kazoo.client.KazooClient.get', mock.Mock())
+    @mock.patch('kazoo.client.KazooClient.exists', mock.Mock())
+    @mock.patch('kazoo.client.KazooClient.get_children', mock.Mock())
+    @mock.patch('kazoo.client.KazooClient.set', mock.Mock())
+    @mock.patch('kazoo.client.KazooClient.create', mock.Mock())
+    @mock.patch('kazoo.client.KazooClient.exists', mock.Mock())
+    @mock.patch('treadmill.zkutils.ensure_deleted', mock.Mock())
+    @mock.patch('treadmill.zkutils.put', mock.Mock())
+    @mock.patch('time.time', mock.Mock(return_value=100))
+    def test_check_pending_start(self):
+        """Tests checking all scheduled apps that are not running."""
+        # Disable warning accessing protected member.
+        #
+        # pylint: disable=W0212
+        zk_content = {
+            'placement': {
+                'test1.xx.com': {
+                    '.data': """
+                        state: up
+                        since: 100
+                    """,
+                },
+                'test2.xx.com': {
+                    '.data': """
+                        state: up
+                        since: 100
+                    """,
+                    'xxx.app1#1234': {
+                        '.metadata': {'created': 100},
+                    },
+                    'xxx.app2#2345': {
+                        '.metadata': {'created': 101},
+                    },
+                    'xxx.app3#3456': {
+                        '.metadata': {'created': 101},
+                    },
+                },
+            },
+            'server.presence': {
+                'test1.xx.com': {
+                    '.metadata': {'created': 100},
+                },
+                'test2.xx.com': {
+                    '.metadata': {'created': 100},
+                },
+            },
+            'cell': {
+                'pod:pod1': {},
+            },
+            'buckets': {
+                'pod:pod1': {
+                    'traits': None,
+                },
+                'rack:1234': {
+                    'traits': None,
+                    'parent': 'pod:pod1',
+                },
+            },
+            'servers': {
+                'test1.xx.com': {
+                    'memory': '16G',
+                    'disk': '128G',
+                    'cpu': '400%',
+                    'parent': 'rack:1234',
+                },
+                'test2.xx.com': {
+                    'memory': '16G',
+                    'disk': '128G',
+                    'cpu': '400%',
+                    'parent': 'rack:1234',
+                },
+            },
+            'scheduled': {
+                'xxx.app1#1234': {
+                    'memory': '1G',
+                    'disk': '1G',
+                    'cpu': '100%',
+                },
+                'xxx.app2#2345': {
+                    'memory': '1G',
+                    'disk': '1G',
+                    'cpu': '100%',
+                },
+                'xxx.app3#3456': {
+                    'memory': '1G',
+                    'disk': '1G',
+                    'cpu': '100%',
+                },
+            },
+            'running': {
+                'xxx.app2#2345': {},
+            },
+        }
+
+        self.make_mock_zk(zk_content)
+
+        self.master.load_buckets()
+        self.master.load_cell()
+        self.master.load_servers()
+        self.master.load_apps()
+        self.master.restore_placements()
+
+        # app1 and app3 are not running, record server and time.
+        time.time.return_value = 200
+        self.master._check_pending_start()
+
+        self.assertEqual(
+            self.master.pending_start,
+            {
+                'xxx.app1#1234': {'servername': 'test2.xx.com', 'since': 200},
+                'xxx.app3#3456': {'servername': 'test2.xx.com', 'since': 200},
+            }
+        )
+        self.assertEqual(
+            self.master.servers['test1.xx.com'].get_state(),
+            (scheduler.State.up, 100),
+        )
+        self.assertEqual(
+            self.master.servers['test2.xx.com'].get_state(),
+            (scheduler.State.up, 100),
+        )
+
+        # app3 is no longer scheduled, remove.
+        time.time.return_value = 300
+        del zk_content['scheduled']['xxx.app3#3456']
+        self.master.remove_app('xxx.app3#3456')
+        self.master._check_pending_start()
+
+        self.assertEqual(
+            self.master.pending_start,
+            {'xxx.app1#1234': {'servername': 'test2.xx.com', 'since': 200}}
+        )
+
+        # app1 did not start in the required interval, freeze test2.
+        time.time.return_value = 501
+        self.master._check_pending_start()
+
+        self.assertEqual(
+            self.master.servers['test1.xx.com'].get_state(),
+            (scheduler.State.up, 100),
+        )
+        self.assertEqual(
+            self.master.servers['test2.xx.com'].get_state(),
+            (scheduler.State.frozen, 501),
+        )
+        self.assertTrue(self.master.cell.apps['xxx.app1#1234'].unschedule)
+        self.assertFalse(self.master.cell.apps['xxx.app2#2345'].unschedule)
+        treadmill.zkutils.put.assert_called_with(
+            mock.ANY,
+            '/placement/test2.xx.com',
+            {'state': 'frozen', 'since': 501},
+            acl=mock.ANY
+        )
+
+        # Reschedule, move app1 to test1, update placement, post event.
+        # app2 stays on test2, it is already running there.
+        self.master.reschedule()
+        self.assertEqual(
+            self.master.cell.apps['xxx.app1#1234'].server,
+            'test1.xx.com'
+        )
+        self.assertEqual(
+            self.master.cell.apps['xxx.app2#2345'].server,
+            'test2.xx.com'
+        )
+        treadmill.zkutils.ensure_deleted.assert_called_with(
+            mock.ANY,
+            '/placement/test2.xx.com/xxx.app1#1234'
+        )
+        treadmill.zkutils.put.assert_any_call(
+            mock.ANY,
+            '/placement/test1.xx.com/xxx.app1#1234',
+            {'identity': None, 'expires': 501},
+            acl=mock.ANY
+        )
+        event = os.path.join(
+            self.events_dir,
+            '501,xxx.app1#1234,scheduled,test1.xx.com:test2.xx.com:frozen'
+        )
+        self.assertTrue(os.path.exists(event))
+
+        # app1 is not running yet, record new server and time.
+        time.time.return_value = 530
+        self.master._check_pending_start()
+
+        self.assertEqual(
+            self.master.pending_start,
+            {'xxx.app1#1234': {'servername': 'test1.xx.com', 'since': 530}}
+        )
+
+        # All apps are running.
+        time.time.return_value = 1000
+        zk_content['running']['xxx.app1#1234'] = {}
+        self.master._check_pending_start()
+
+        self.assertEqual(
+            self.master.pending_start,
+            {}
+        )
 
 
 if __name__ == '__main__':

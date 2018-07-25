@@ -19,9 +19,8 @@ from treadmill import yamlwrapper as yaml
 
 def init():
     """Configures cell CLI group"""
-    # Disable too many branches warning.
-    #
-    # pylint: disable=R0912
+    # pylint: disable=too-many-branches
+    # pylint: disable=too-many-statements
     formatter = cli.make_formatter('cell')
 
     @click.group()

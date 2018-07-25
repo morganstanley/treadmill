@@ -17,7 +17,7 @@ from treadmill.scheduler import masterapi
 _LOGGER = logging.getLogger(__name__)
 
 
-class API(object):
+class API:
     """Treadmill Identity Group REST api."""
 
     def __init__(self):
@@ -76,7 +76,6 @@ class API(object):
             """Delete configured application group."""
             zkclient = context.GLOBAL.zk.conn
             masterapi.delete_identity_group(zkclient, rsrc_id)
-            return None
 
         self.list = _list
         self.get = get

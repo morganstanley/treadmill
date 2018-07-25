@@ -48,6 +48,8 @@ def load(event):
     :rtype:
         ``dict``
     """
+    # pylint: disable=too-many-statements
+    #
     # TODO: need better input validation / setting defaults process.
     name = os.path.basename(event)
     manifest = read(event, 'yaml')

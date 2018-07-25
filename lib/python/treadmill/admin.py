@@ -71,7 +71,7 @@ def _to_bool(value):
 
     # XXX: This is necessary until previous bad entries are cleaned up.
     s_value = str(value).lower()
-    if s_value == "0" or s_value == "false":
+    if s_value in ('0', 'false'):
         return False
     else:
         return True
@@ -354,23 +354,6 @@ def _grouped_to_list_of_dict(grouped, prefix, schema):
     )
 
 
-def _dict_normalize(data):
-    """Normalize the strings in the dictionary."""
-    if isinstance(data, six.string_types):
-        return six.text_type(data)
-    elif isinstance(data, collections.Mapping):
-        return dict([
-            _dict_normalize(i)
-            for i in six.iteritems(data)
-        ])
-    elif isinstance(data, collections.Iterable):
-        return type(data)([
-            _dict_normalize(i) for i in data
-        ])
-    else:
-        return data
-
-
 def _diff_attribute_values(old_value, new_value):
     """Returns True if the attribute values are different."""
     are_different = len(old_value) != len(new_value)
@@ -440,7 +423,7 @@ def _diff_entries(old_entry, new_entry):
     return diff
 
 
-class AndQuery(object):
+class AndQuery:
     """And query helper."""
 
     def __init__(self, key, value):
@@ -462,11 +445,12 @@ class AndQuery(object):
         return query
 
 
-class Admin(object):
+class Admin:
     """Manages Treadmill objects in ldap.
     """
     # Allow such names as 'dn', 'ou'
     # pylint: disable=invalid-name
+    # pylint: disable=too-many-statements
 
     def __init__(self, uri, ldap_suffix,
                  user=None, password=None, connect_timeout=5, write_uri=None):
@@ -598,7 +582,7 @@ class Admin(object):
         self._test_raise_exceptions(ldap)
 
         for entry in ldap.response:
-            yield entry['dn'], _dict_normalize(entry['attributes'])
+            yield entry['dn'], entry['attributes']
 
     def paged_search(self, search_base, search_filter,
                      search_scope=ldap3.SUBTREE, attributes=None, dirty=False):
@@ -623,7 +607,7 @@ class Admin(object):
         self._test_raise_exceptions(ldap)
 
         for entry in res_gen:
-            yield entry['dn'], _dict_normalize(entry['attributes'])
+            yield entry['dn'], entry['attributes']
 
     def _test_raise_exceptions(self, ldap=None):
         """
@@ -788,8 +772,18 @@ class Admin(object):
                 obj_classes.append(obj_cls)
 
         if abstract:
-            attr_types = dict([_attrtype_2_abstract(a) for a in attr_types])
-            obj_classes = dict([_objcls_2_abstract(o) for o in obj_classes])
+            attr_types = {
+                name: abstract
+                for (name, abstract) in (
+                    _attrtype_2_abstract(a) for a in attr_types
+                )
+            }
+            obj_classes = {
+                name: abstract
+                for (name, abstract) in (
+                    _objcls_2_abstract(o) for o in obj_classes
+                )
+            }
 
         return {'dn': schema_dn,
                 'attributeTypes': attr_types,
@@ -1022,7 +1016,7 @@ class Admin(object):
             return entry.get('olcSyncrepl')
 
 
-class LdapObject(object):
+class LdapObject:
     """Ldap object base class.
     """
     # Allow such names as 'dn', 'ou'

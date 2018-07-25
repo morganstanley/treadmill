@@ -24,7 +24,7 @@ def init():
                   callback=cli.handle_context_opt,
                   expose_value=False)
     @click.option('--api', required=False, help='API url to use.',
-                  envvar='TREADMILL_RESTAPI')
+                  envvar='TREADMILL_ADMINAPI')
     @click.option('--outfmt', type=click.Choice(['json', 'yaml']),
                   default='json')
     def top(api, outfmt):

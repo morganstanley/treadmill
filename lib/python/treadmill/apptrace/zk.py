@@ -27,7 +27,7 @@ from . import events as traceevents
 _LOGGER = logging.getLogger(__name__)
 
 
-class AppTrace(object):
+class AppTrace:
     """Trace application lifecycle events.
 
     Application events are stored under app trace Zookeeper directory.

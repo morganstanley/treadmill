@@ -24,7 +24,7 @@ from treadmill.spawn import instance
 _LOGGER = logging.getLogger(__name__)
 
 
-class ManifestWatch(object):
+class ManifestWatch:
     """Treadmill spawn manifest watch."""
 
     __slots__ = (

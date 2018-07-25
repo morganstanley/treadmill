@@ -77,7 +77,7 @@ def make_discovery_state_watcher(zkclient, state, server):
             return True
 
 
-class API(object):
+class API:
     """Treadmill Endpoint REST api."""
 
     def __init__(self):

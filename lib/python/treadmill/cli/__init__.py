@@ -34,6 +34,7 @@ from treadmill import utils
 from treadmill import context
 from treadmill import plugin_manager
 from treadmill import subproc
+from treadmill import restclient
 
 
 EXIT_CODE_DEFAULT = 1
@@ -162,6 +163,8 @@ def handle_context_opt(ctx, param, value):
     elif opt == 'profile':
         context.GLOBAL.set_profile_name(value)
         init_profile()
+    elif opt == 'api_service_principal':
+        restclient.set_service_principal(value)
     else:
         raise click.UsageError('Invalid option: %s' % param.name)
 

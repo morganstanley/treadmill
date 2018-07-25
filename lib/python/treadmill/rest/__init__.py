@@ -47,7 +47,7 @@ class CompliantJsonEncoder(flask.json.JSONEncoder):
 FLASK_APP.json_encoder = CompliantJsonEncoder
 
 
-class RestServer(object):
+class RestServer:
     """REST Server."""
 
     @abc.abstractmethod

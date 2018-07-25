@@ -51,7 +51,7 @@ class RRDError(Exception):
     """RRD protocol error."""
 
 
-class RRDClient(object):
+class RRDClient:
     """RRD socket client."""
 
     def __init__(self, path):

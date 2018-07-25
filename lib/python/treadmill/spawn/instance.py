@@ -16,7 +16,7 @@ from treadmill import yamlwrapper as yaml
 _LOGGER = logging.getLogger(__name__)
 
 
-class Instance(object):
+class Instance:
     """Treadmill spawn instance"""
 
     __slots__ = (

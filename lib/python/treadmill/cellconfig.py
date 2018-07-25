@@ -16,7 +16,7 @@ _LOGGER = logging.getLogger(__name__)
 FILE_NAME = 'cell_config.yml'
 
 
-class CellConfig(object):
+class CellConfig:
     """Class to help read data from cell_config.yml
     """
 

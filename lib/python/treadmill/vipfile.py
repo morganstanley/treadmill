@@ -19,7 +19,7 @@ from treadmill import fs
 _LOGGER = logging.getLogger(__name__)
 
 
-class VipMgr(object):
+class VipMgr:
     """VIP allocation manager.
 
     :param basepath:
