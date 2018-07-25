@@ -52,7 +52,7 @@ def strip_instance(name):
     return name
 
 
-class State(object):
+class State:
     """Treadmill state class.
 
     :param cell:
@@ -74,8 +74,7 @@ class State(object):
         self.running = lambda: set(
             self.zkclient.get_children(STATE_NODE_MAP[
                 StateEnum.RUNNING.value]))
-        self.started = lambda: set(
-            [strip_instance(a) for a in self.scheduled()])
+        self.started = lambda: {strip_instance(a) for a in self.scheduled()}
 
     def scheduler(self):
         """Returns scheduled state."""

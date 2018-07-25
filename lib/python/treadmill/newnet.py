@@ -56,6 +56,7 @@ def create_newnet(veth, dev_ip, gateway_ip, service_ip=None):
         try:
             unshare.unshare(unshare.CLONE_NEWNET)
         except OSError:
+            _LOGGER.exception('Unable to unshare network subsystem.')
             raise
         finally:
             # prevent child from infinite waiting

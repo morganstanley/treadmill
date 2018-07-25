@@ -48,11 +48,9 @@ class WSRunningAPITest(unittest.TestCase):
             [('/trace/*', 'foo.*#*,*')]
         )
 
-        with six.assertRaisesRegex(
-            self,
-            jsonschema.exceptions.ValidationError,
-            r"'\*' is not valid"
-        ):
+        with six.assertRaisesRegex(self,
+                                   jsonschema.exceptions.ValidationError,
+                                   r"'\*' is not valid"):
             self.api.subscribe({'topic': '/trace',
                                 'filter': '*'})
 
@@ -68,19 +66,15 @@ class WSRunningAPITest(unittest.TestCase):
             [('/trace/*', 'foo@bar.baz#1234,*')]
         )
 
-        with six.assertRaisesRegex(
-            self,
-            jsonschema.exceptions.ValidationError,
-            r"'\*@\*' is not valid"
-        ):
+        with six.assertRaisesRegex(self,
+                                   jsonschema.exceptions.ValidationError,
+                                   r"'\*@\*' is not valid"):
             self.api.subscribe({'topic': '/trace',
                                 'filter': '*@*'})
 
-        with six.assertRaisesRegex(
-            self,
-            jsonschema.exceptions.ValidationError,
-            r"'\*@\*\.\*' is not valid"
-        ):
+        with six.assertRaisesRegex(self,
+                                   jsonschema.exceptions.ValidationError,
+                                   r"'\*@\*\.\*' is not valid"):
             self.api.subscribe({'topic': '/trace',
                                 'filter': '*@*.*'})
 
@@ -93,11 +87,9 @@ class WSRunningAPITest(unittest.TestCase):
             [('/trace/*', 'foo.bar#1234,*')]
         )
 
-        with six.assertRaisesRegex(
-            self,
-            jsonschema.exceptions.ValidationError,
-            "'invalid' does not match"
-        ):
+        with six.assertRaisesRegex(self,
+                                   jsonschema.exceptions.ValidationError,
+                                   "'invalid' does not match"):
             self.api.subscribe({'sub-id': 'invalid',
                                 'topic': '/trace',
                                 'filter': 'foo.bar#1234'})

@@ -295,7 +295,7 @@ def connect_native(zkurl, client_id=None, listener=None, max_tries=30,
     return zkclient
 
 
-class SequenceNodeWatch(object):
+class SequenceNodeWatch:
     """Sequential nodes watcher which keeps track of last node seen."""
 
     def __init__(self, zkclient, func, delim, pattern, include_data):

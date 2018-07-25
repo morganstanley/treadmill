@@ -97,7 +97,7 @@ class ResourceServiceTimeoutError(ResourceServiceError, socket.timeout):
     __slots__ = ()
 
 
-class ResourceServiceClient(object):
+class ResourceServiceClient:
     """Client class for all Treadmill services.
 
     /apps/<container>/rsrc/req-<svc_name>/
@@ -268,7 +268,7 @@ class ResourceServiceClient(object):
 
 
 @six.add_metaclass(abc.ABCMeta)
-class ResourceService(object):
+class ResourceService:
     """Server class for all Treadmill services.
 
     /service_dir/resources/<containerid>-<uid>/ ->
@@ -560,7 +560,7 @@ class ResourceService(object):
 
 
 @six.add_metaclass(abc.ABCMeta)
-class BaseResourceServiceImpl(object):
+class BaseResourceServiceImpl:
     """Base interface of Resource Service implementations.
     """
 
@@ -588,7 +588,7 @@ class BaseResourceServiceImpl(object):
         """Assert that the internal state of the service matches the backend
         state.
         """
-        return
+        pass
 
     @abc.abstractmethod
     def on_create_request(self, rsrc_id, rsrc_data):

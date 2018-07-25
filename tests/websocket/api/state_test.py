@@ -76,11 +76,9 @@ class WSScheduledAPITest(unittest.TestCase):
                            'filter': '*'})
         )
 
-        with six.assertRaisesRegex(
-            self,
-            jsonschema.exceptions.ValidationError,
-            'u?\'foo!\' does not match'
-        ):
+        with six.assertRaisesRegex(self,
+                                   jsonschema.exceptions.ValidationError,
+                                   'u?\'foo!\' does not match'):
             api.subscribe({'topic': '/scheduled',
                            'filter': 'foo!'})
 

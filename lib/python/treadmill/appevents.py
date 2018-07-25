@@ -142,7 +142,7 @@ def post(events_dir, event):
     )
 
 
-class AppEventsWatcher(object):
+class AppEventsWatcher:
     """Publish app events from the queue."""
 
     def __init__(self, zkclient, events_dir):

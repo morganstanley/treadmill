@@ -63,6 +63,18 @@ class ZkReadonlyBackend(backend.Backend):
         """Create new event object."""
         return self.zkclient.handler.event_object()
 
+    def delete(self, path):
+        _LOGGER.debug('delete %r', path)
+
+    def ensure_exists(self, path):
+        _LOGGER.debug('ensure_exists %r', path)
+
+    def put(self, path, value):
+        _LOGGER.debug('put %r: %r', path, value)
+
+    def update(self, path, data, check_content=False):
+        _LOGGER.debug('update %r: %r', path, data)
+
 
 class ZkBackend(ZkReadonlyBackend):
     """Implements RW Zookeeper storage."""

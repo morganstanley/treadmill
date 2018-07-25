@@ -16,7 +16,7 @@ from treadmill.apptrace import events as traceevents
 _LOGGER = logging.getLogger(__name__)
 
 
-class TraceAPI(object):
+class TraceAPI:
     """Handler for /trace topic.
     """
 

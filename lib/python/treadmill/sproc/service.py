@@ -31,6 +31,7 @@ _LOGGER = logging.getLogger(__name__)
 
 def init():
     """Top level command line handler."""
+    # pylint: disable=too-many-statements
 
     local_ctx = {}
 

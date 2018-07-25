@@ -40,7 +40,7 @@ _EVENTS = {'CREATE': dirwatch_base.DirWatcherEvent.CREATED,
 _LOGGER = logging.getLogger(__name__)
 
 
-class WindowsDirInfo(object):
+class WindowsDirInfo:
     """Windows directory watcher info."""
     __slots__ = (
         'id',

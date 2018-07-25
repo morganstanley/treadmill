@@ -11,7 +11,7 @@ import six
 
 
 @six.add_metaclass(abc.ABCMeta)
-class Image(object):
+class Image:
     """Represents an image."""
 
     @abc.abstractmethod

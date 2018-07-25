@@ -16,7 +16,7 @@ from treadmill import yamlwrapper as yaml
 _LOGGER = logging.getLogger(__name__)
 
 
-class RunningAPI(object):
+class RunningAPI:
     """Handler for /running topic.
     """
 
@@ -46,7 +46,7 @@ class RunningAPI(object):
         self.on_event = on_event
 
 
-class ScheduledAPI(object):
+class ScheduledAPI:
     """Handler for /scheduled topic.
     """
 

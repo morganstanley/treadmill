@@ -24,7 +24,7 @@ from treadmill import eventmgr
 from treadmill import yamlwrapper as yaml
 
 
-class MockEventObject(object):
+class MockEventObject:
     """Mock event object."""
 
     def __init__(self):

@@ -31,7 +31,7 @@ def verify_feature(app_features):
             )
 
 
-class API(object):
+class API:
     """Treadmill App REST api."""
 
     def __init__(self):
@@ -94,7 +94,6 @@ class API(object):
         def delete(rsrc_id):
             """Delete configured application."""
             _admin_app().delete(rsrc_id)
-            return None
 
         self.list = _list
         self.get = get

@@ -37,7 +37,7 @@ def _result_to_resource(result):
     return {'targets': targets}
 
 
-class API(object):
+class API:
     """Treadmill API lookup API."""
 
     def __init__(self):
@@ -50,7 +50,7 @@ class API(object):
             """No get method"""
             pass
 
-        class _AdminApiLookupAPI(object):
+        class _AdminApiLookupAPI:
             """Treadmill Admin API Lookup API"""
 
             def __init__(self):
@@ -69,7 +69,7 @@ class API(object):
 
                 _set_auth_resource(self, 'adminapi')
 
-        class _CellApiLookupAPI(object):
+        class _CellApiLookupAPI:
             """Treadmill Cell API Lookup API"""
 
             def __init__(self):
@@ -83,14 +83,14 @@ class API(object):
                         raise NoSuchCellException(cell_name)
 
                 def _list():
-                    return None
+                    return []
 
                 self.get = get
                 self.list = _list
 
                 _set_auth_resource(self, 'cellapi')
 
-        class _StateApiLookupAPI(object):
+        class _StateApiLookupAPI:
             """Treadmill State API Lookup API"""
 
             def __init__(self):
@@ -105,14 +105,14 @@ class API(object):
                         raise NoSuchCellException(cell_name)
 
                 def _list():
-                    return None
+                    return []
 
                 self.get = get
                 self.list = _list
 
                 _set_auth_resource(self, 'statepi')
 
-        class _WsApiLookupAPI(object):
+        class _WsApiLookupAPI:
             """Treadmill WS API Lookup API"""
 
             def __init__(self):
@@ -126,7 +126,7 @@ class API(object):
                         raise NoSuchCellException(cell_name)
 
                 def _list():
-                    return None
+                    return []
 
                 self.get = get
                 self.list = _list

@@ -44,7 +44,7 @@ _STALE_TKTS_PRUNE_INTERVAL = 60
 _DIRWATCH_EVENTS_COUNT = 10
 
 
-class Ticket(object):
+class Ticket:
     """Helper class to manage krb ticket.
 
     princ - fully qualified kerberos principal uid@realm.
@@ -190,7 +190,7 @@ def krbcc_ok(tkt_path):
         return False
 
 
-class TicketLocker(object):
+class TicketLocker:
     """Manages ticket exchange between ticket locker and the container."""
 
     def __init__(self, zkclient, tkt_spool_dir, trusted=None):

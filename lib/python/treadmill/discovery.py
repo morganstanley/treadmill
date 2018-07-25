@@ -28,7 +28,7 @@ def _split_prefix(arg):
     return arg.split('.', 1)
 
 
-class Discovery(object):
+class Discovery:
     """Treadmill endpoint discovery."""
 
     def __init__(self, zkclient, pattern, endpoint):
@@ -133,7 +133,7 @@ class Discovery(object):
     def _prefixes(self):
         """Return the unique application proids based on self.patterns."""
         # Pattern is assumed to be in the form of <proid>.<pattern>
-        return set([_split_prefix(pattern)[0] for pattern in self.patterns])
+        return {_split_prefix(pattern)[0] for pattern in self.patterns}
 
     def _matching_endpoints(self, endpoints):
         """Returns the list of endpoints matching one of the patterns."""
@@ -142,12 +142,8 @@ class Discovery(object):
         match = set()
         for pattern in self.patterns:
             full_pattern = ':'.join([pattern, '*', self.endpoint])
-            match = match | set(
-                [
-                    endpoint for endpoint in endpoints
-                    if fnmatch.fnmatch(endpoint, full_pattern)
-                ]
-            )
+            match = match | {endpoint for endpoint in endpoints
+                             if fnmatch.fnmatch(endpoint, full_pattern)}
 
         return match
 

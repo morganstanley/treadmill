@@ -20,7 +20,7 @@ _FS_PLUGIN_NAMESPACE = 'treadmill.image.{0}.fs'
 
 
 @six.add_metaclass(abc.ABCMeta)
-class FilesystemPluginBase(object):
+class FilesystemPluginBase:
     """The base class of filesystem plugins for the image.
 
     :param tm_env:

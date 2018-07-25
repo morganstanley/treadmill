@@ -142,7 +142,7 @@ def make_list_to_table(schema, header=True, align=None):
     return lambda items: list_to_table(items, schema, header, align)
 
 
-class AppPrettyFormatter(object):
+class AppPrettyFormatter:
     """Pretty table app formatter."""
 
     @staticmethod
@@ -236,7 +236,7 @@ class AppPrettyFormatter(object):
             return format_item(item)
 
 
-class AppMonitorPrettyFormatter(object):
+class AppMonitorPrettyFormatter:
     """Pretty table app monitor formatter."""
 
     @staticmethod
@@ -255,7 +255,7 @@ class AppMonitorPrettyFormatter(object):
             return format_item(item)
 
 
-class IdentityGroupPrettyFormatter(object):
+class IdentityGroupPrettyFormatter:
     """Pretty table identity group formatter."""
 
     @staticmethod
@@ -273,7 +273,7 @@ class IdentityGroupPrettyFormatter(object):
             return format_item(item)
 
 
-class ServerPrettyFormatter(object):
+class ServerPrettyFormatter:
     """Pretty table server formatter."""
 
     @staticmethod
@@ -297,7 +297,7 @@ class ServerPrettyFormatter(object):
             return format_item(item)
 
 
-class ServerNodePrettyFormatter(object):
+class ServerNodePrettyFormatter:
     """Pretty table server (scheduler) node formatter."""
 
     @staticmethod
@@ -322,7 +322,7 @@ class ServerNodePrettyFormatter(object):
             return format_item(item)
 
 
-class LdapSchemaPrettyFormatter(object):
+class LdapSchemaPrettyFormatter:
     """Pretty table ldap schema formatter."""
 
     @staticmethod
@@ -351,7 +351,7 @@ class LdapSchemaPrettyFormatter(object):
         return schema_tbl(item)
 
 
-class BucketPrettyFormatter(object):
+class BucketPrettyFormatter:
     """Pretty table bucket formatter."""
 
     @staticmethod
@@ -370,7 +370,7 @@ class BucketPrettyFormatter(object):
             return format_item(item)
 
 
-class CellPrettyFormatter(object):
+class CellPrettyFormatter:
     """Pretty table cell formatter."""
 
     @staticmethod
@@ -426,7 +426,7 @@ class CellPrettyFormatter(object):
             return format_item(item)
 
 
-class DNSPrettyFormatter(object):
+class DNSPrettyFormatter:
     """Pretty table critical DNS formatter."""
 
     @staticmethod
@@ -455,7 +455,7 @@ class DNSPrettyFormatter(object):
         return format_item(item)
 
 
-class AppGroupPrettyFormatter(object):
+class AppGroupPrettyFormatter:
     """Pretty table App Groups formatter."""
 
     @staticmethod
@@ -477,7 +477,7 @@ class AppGroupPrettyFormatter(object):
             return format_item(item)
 
 
-class TenantPrettyFormatter(object):
+class TenantPrettyFormatter:
     """Pretty table tenant formatter."""
 
     @staticmethod
@@ -500,7 +500,7 @@ class TenantPrettyFormatter(object):
             return format_item(item)
 
 
-class AllocationPrettyFormatter(object):
+class AllocationPrettyFormatter:
     """Pretty table allocation formatter."""
     @staticmethod
     def format(item):
@@ -539,7 +539,7 @@ class AllocationPrettyFormatter(object):
             return format_item(item)
 
 
-class InstanceStatePrettyFormatter(object):
+class InstanceStatePrettyFormatter:
     """Pretty table instance state formatter."""
 
     @staticmethod
@@ -560,7 +560,7 @@ class InstanceStatePrettyFormatter(object):
             return format_item(item)
 
 
-class InstanceFinishedStatePrettyFormatter(object):
+class InstanceFinishedStatePrettyFormatter:
     """Pretty table instance finished state formatter."""
 
     @staticmethod
@@ -583,7 +583,7 @@ class InstanceFinishedStatePrettyFormatter(object):
             return format_item(item)
 
 
-class EndpointPrettyFormatter(object):
+class EndpointPrettyFormatter:
     """Pretty table endpoint formatter."""
 
     @staticmethod
@@ -610,7 +610,7 @@ class EndpointPrettyFormatter(object):
             return format_item(item)
 
 
-class PartitionPrettyFormatter(object):
+class PartitionPrettyFormatter:
     """Pretty table partition formatter."""
 
     @staticmethod
@@ -637,7 +637,7 @@ class PartitionPrettyFormatter(object):
             return format_item(item)
 
 
-class CronPrettyFormatter(object):
+class CronPrettyFormatter:
     """Pretty table formatter for cron jobs."""
 
     @staticmethod
@@ -663,7 +663,7 @@ class CronPrettyFormatter(object):
             return format_item(item)
 
 
-class AllocationQueuePrettyFormatter(object):
+class AllocationQueuePrettyFormatter:
     """Pretty table formatter for allocation queue."""
 
     @staticmethod
@@ -696,7 +696,7 @@ class AllocationQueuePrettyFormatter(object):
             return format_item(item)
 
 
-class PlacementPrettyFormatter(object):
+class PlacementPrettyFormatter:
     """Pretty table formatter for explain-placement."""
 
     @staticmethod
@@ -732,7 +732,7 @@ class PlacementPrettyFormatter(object):
             return format_item(item)
 
 
-class SchedulerServersPrettyFormatter(object):
+class SchedulerServersPrettyFormatter:
     """Pretty table formatter for scheduler view servers."""
 
     @staticmethod
@@ -762,7 +762,7 @@ class SchedulerServersPrettyFormatter(object):
             return format_item(item)
 
 
-class SchedulerAppsPrettyFormatter(object):
+class SchedulerAppsPrettyFormatter:
     """Pretty table formatter for scheduler view apps."""
 
     @staticmethod
@@ -797,7 +797,7 @@ class SchedulerAppsPrettyFormatter(object):
             return format_item(item)
 
 
-class SchedulerAllocsPrettyFormatter(object):
+class SchedulerAllocsPrettyFormatter:
     """Pretty table formatter for scheduler view allocs."""
 
     @staticmethod
@@ -824,7 +824,7 @@ class SchedulerAllocsPrettyFormatter(object):
             return format_item(item)
 
 
-class SchedulerRebootsPrettyFormatter(object):
+class SchedulerRebootsPrettyFormatter:
     """Pretty table formatter for scheduler view reboots."""
 
     @staticmethod

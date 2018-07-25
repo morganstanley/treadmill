@@ -6,8 +6,8 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
+import abc
 import logging
-
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -17,7 +17,7 @@ class ObjectNotFoundError(Exception):
     pass
 
 
-class Backend(object):
+class Backend(metaclass=abc.ABCMeta):
     """Master storage interface."""
 
     def __init__(self):
@@ -27,13 +27,23 @@ class Backend(object):
         """Return path listing."""
         return []
 
-    def get(self, _path):
-        """Return stored object given path."""
-        return None
+    @abc.abstractmethod
+    def get(self, path):
+        """Return stored object given path.
 
-    def get_with_metadata(self, _path):
-        """Return stored object with metadata."""
-        return None, None
+        returns:
+            ``object`` -- Object at path
+        """
+        pass
+
+    @abc.abstractmethod
+    def get_with_metadata(self, path):
+        """Return stored object with metadata.
+
+        returns:
+            (``object``, ``object``) -- Object at path and its metadata.
+        """
+        pass
 
     def get_default(self, path, default=None):
         """Return stored object given path, default if not found."""
@@ -42,26 +52,32 @@ class Backend(object):
         except ObjectNotFoundError:
             return default
 
-    def put(self, _path, _value):
+    @abc.abstractmethod
+    def put(self, path, value):
         """Store object at a given path."""
         pass
 
-    def exists(self, _path):
+    @abc.abstractmethod
+    def exists(self, path):
         """Check if object exists."""
         pass
 
-    def ensure_exists(self, _path):
+    @abc.abstractmethod
+    def ensure_exists(self, path):
         """Ensure storage path exists."""
         pass
 
-    def delete(self, _path):
+    @abc.abstractmethod
+    def delete(self, path):
         """Delete object given the path."""
         pass
 
-    def update(self, _path, _data, check_content=False):
+    @abc.abstractmethod
+    def update(self, path, data, check_content=False):
         """Set data into ZK node."""
         pass
 
+    @abc.abstractmethod
     def event_object(self):
         """Create a new event object."""
         pass

@@ -41,8 +41,10 @@ def _get_docker_run_cmd(name, image,
     # FIXME: hardcode volumes for now
     treadmill_bind = subproc.resolve('treadmill_bind_distro')
     volumes = [
-        ('/var/tmp', '/var/tmp', 'rw'),
+        ('/var/log', '/var/log', 'rw'),
         ('/var/spool', '/var/spool', 'rw'),
+        ('/var/tmp', '/var/tmp', 'rw'),
+        ('/var/run/docker.sock', '/var/run/docker.sock', 'rw'),
         ('/docker/etc/hosts', '/etc/hosts', 'ro'),
         ('/env', '/env', 'ro'),
         (treadmill_bind, TREADMILL_BIND_PATH, 'ro'),

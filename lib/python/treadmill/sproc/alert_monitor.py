@@ -21,7 +21,7 @@ from treadmill import plugin_manager
 _LOGGER = logging.getLogger(__name__)
 
 
-class _NoOpBackend(object):
+class _NoOpBackend:
     """Dummy default alert backend if no plugin can be found."""
 
     # W0613: unused argument ...

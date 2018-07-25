@@ -100,7 +100,7 @@ def init():
                   expose_value=False)
     @click.option('--api', required=False, help='REST API url to use.',
                   metavar='URL',
-                  envvar='TREADMILL_RESTAPI')
+                  envvar='TREADMILL_STATEAPI')
     @click.option('--wsapi', required=False, help='WebSocket API url to use.',
                   metavar='URL',
                   envvar='TREADMILL_WSAPI')

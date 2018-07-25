@@ -34,7 +34,7 @@ _SEP = '~'
 _GC_INTERVAL = 60
 
 
-class EndpointsMgr(object):
+class EndpointsMgr:
     """Endpoints rule manager.
 
     Manages endpoints files for the host. The files are in the format:
@@ -197,7 +197,7 @@ def _namify(appname, proto, endpoint, real_port, pid, port):
                       str(port)])
 
 
-class PortScanner(object):
+class PortScanner:
     """Scan and publish local discovery and port status info."""
 
     def __init__(self, endpoints_dir, zkclient, scan_interval, instance=None):
@@ -279,7 +279,7 @@ class PortScanner(object):
         return real_port_status
 
 
-class EndpointPublisher(object):
+class EndpointPublisher:
     """Manages publishing endpoints to Zookeeper."""
 
     _MAX_REQUEST_PER_CYCLE = 10

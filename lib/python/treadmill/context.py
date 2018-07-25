@@ -43,7 +43,7 @@ def required(msg):
     return _decorator
 
 
-class DnsContext(object):
+class DnsContext:
     """DNS context.
     """
 
@@ -106,7 +106,7 @@ class DnsContext(object):
         return srv_entry
 
 
-class AdminContext(object):
+class AdminContext:
     """Ldap context.
     """
 
@@ -195,7 +195,7 @@ class AdminContext(object):
         return self._conn
 
 
-class ZkContext(object):
+class ZkContext:
     """Zookeeper context.
     """
 
@@ -251,7 +251,7 @@ class ZkContext(object):
         self._conn = zkclient
 
 
-class Context(object):
+class Context:
     """Global connection context.
     """
 

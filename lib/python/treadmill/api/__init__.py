@@ -56,7 +56,7 @@ def normalize_list(rsrc):
     ]
 
 
-class Context(object):
+class Context:
     """API context."""
 
     def __init__(self, authorizer=None, journaler=None):

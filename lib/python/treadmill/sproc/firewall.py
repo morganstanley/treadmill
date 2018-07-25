@@ -132,6 +132,8 @@ def _configure_rules(target):
 def _watcher(root_dir, rules_dir, containers_dir, watchdogs_dir):
     """Treadmill Firewall rule watcher.
     """
+    # pylint: disable=too-many-statements
+
     rules_dir = os.path.join(root_dir, rules_dir)
     containers_dir = os.path.join(root_dir, containers_dir)
     watchdogs_dir = os.path.join(root_dir, watchdogs_dir)
@@ -247,6 +249,7 @@ def _watcher(root_dir, rules_dir, containers_dir, watchdogs_dir):
 
 def init():
     """main command handler."""
+    # pylint: disable=too-many-statements
 
     @click.group()
     def firewall():

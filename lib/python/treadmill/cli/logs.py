@@ -44,6 +44,11 @@ def init():
     @click.command()
     @click.option('--all', 'all_logs', is_flag=True, default=False,
                   help='Download all logs (not just the latest) as a file.')
+    @click.option('--api-service-principal', required=False,
+                  envvar='TREADMILL_API_SERVICE_PRINCIPAL',
+                  callback=cli.handle_context_opt,
+                  help='API service principal for SPNEGO auth (default HTTP)',
+                  expose_value=False)
     @click.option('--api',
                   envvar='TREADMILL_STATEAPI',
                   help='State API url to use.',

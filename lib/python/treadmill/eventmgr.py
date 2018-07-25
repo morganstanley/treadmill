@@ -43,7 +43,7 @@ _WATCHDOG_TIMEOUT_SEC = _HEARTBEAT_SEC * 4
 READY_FILE = '.ready'
 
 
-class EventMgr(object):
+class EventMgr:
     """Mirror Zookeeper scheduler event into node app cache events."""
 
     __slots__ = (

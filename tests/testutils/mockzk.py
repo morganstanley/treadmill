@@ -127,6 +127,7 @@ class MockZookeeperTestCase(unittest.TestCase):
 
         Treats dictionary as tree structure, mapping it into mock Zk instance.
         """
+        # pylint: disable=too-many-statements
         watches = {}
 
         def mock_exists(zkpath, watch=None):

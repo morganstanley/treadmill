@@ -119,7 +119,7 @@ def _path_endpoint_proid(name):
     return '/'.join([ENDPOINTS, proid])
 
 
-class path(object):  # pylint: disable=C0103
+class path:  # pylint: disable=C0103
     """Helper class to manage Zk namespace.
     """
 

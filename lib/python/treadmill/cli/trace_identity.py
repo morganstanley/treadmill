@@ -28,15 +28,12 @@ def init():
                   envvar='TREADMILL_CELL',
                   callback=cli.handle_context_opt,
                   expose_value=False)
-    @click.option('--api', required=False, help='REST API url to use.',
-                  metavar='URL',
-                  envvar='TREADMILL_RESTAPI')
     @click.option('--wsapi', required=False, help='WebSocket API url to use.',
                   metavar='URL',
                   envvar='TREADMILL_WSAPI')
     @click.option('--snapshot', is_flag=True, default=False)
     @click.argument('identity-group')
-    def trace(api, wsapi, snapshot, identity_group):
+    def trace(wsapi, snapshot, identity_group):
         """Trace identity group events.
 
         Invoking treadmill_trace with non existing application instance will
@@ -52,7 +49,6 @@ def init():
         #
         # pylint: disable=R0912
 
-        ctx['api'] = api
         ctx['wsapi'] = wsapi
 
         def on_message(result):

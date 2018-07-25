@@ -14,7 +14,7 @@ from treadmill import journal
 from treadmill.journal import plugin as jplugin
 
 
-class API(object):
+class API:
     """ dummy API to test """
 
     def __init__(self):
