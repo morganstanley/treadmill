@@ -32,7 +32,7 @@ if os.name == 'posix':
 
 _KERBEROS_AUTH = requests_kerberos.HTTPKerberosAuth(
     mutual_authentication=requests_kerberos.DISABLED,
-    principal=_KERBEROS_AUTH_PRINCIPLE
+    principal=_KERBEROS_AUTH_PRINCIPLE,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -52,6 +52,11 @@ def _msg(response):
         return response.text
     except Exception:  # pylint: disable=W0703
         return 'Unexpected error.'
+
+
+def set_service_principal(service):
+    """Set service principal for SPNEGO authentication."""
+    _KERBEROS_AUTH.service = service
 
 
 class NoApiEndpointsError(Exception):
@@ -123,6 +128,7 @@ def _handle_error(url, response):
         ),
         http_client.FAILED_DEPENDENCY: ValidationError(response),
         http_client.UNAUTHORIZED: NotAuthorizedError(response),
+        http_client.FORBIDDEN: NotAuthorizedError(response),
         http_client.BAD_REQUEST: BadRequestError(response),
     }
 

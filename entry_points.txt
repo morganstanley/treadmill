@@ -32,6 +32,7 @@ docker = treadmill.appcfg.features.docker:DockerdFeature
 
 [treadmill.rest.authentication]
 trusted = treadmill.rest.auth.trusted
+spnego = treadmill.rest.auth.spnego
 
 [treadmill.rest.error_handlers]
 

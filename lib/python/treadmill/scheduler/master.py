@@ -14,8 +14,6 @@ import re
 import time
 import zlib
 
-import six
-
 from treadmill import appevents
 from treadmill import scheduler
 from treadmill import utils
@@ -48,14 +46,20 @@ _STATE_REPORT_INTERVAL = 60
 # Interval to sleep before checking if there is new event in the queue.
 _CHECK_EVENT_INTERVAL = 0.5
 
-# Check integrity of the scheduler every 5 minutes.
-_INTEGRITY_INTERVAL = 5 * 60
+# Check integrity of the scheduler interval.
+_INTEGRITY_CHECK_INTERVAL = 30
+
+# Check for expired or missing reboot buckets every 5 minutes.
+_REBOOT_TICK_INTERVAL = 5 * 60
 
 # Check for reboots every hour.
 _REBOOT_CHECK_INTERVAL = 60 * 60
 
 # Max number of events to process before checking if scheduler is due.
 _EVENT_BATCH_COUNT = 20
+
+# Max time for app to register running after being scheduled.
+_APP_START_INTERVAL = 5 * 60
 
 
 class Master(loader.Loader):
@@ -74,11 +78,23 @@ class Master(loader.Loader):
         # Signals that processing of a given event.
         self.process_complete = dict()
 
-        self.event_handlers = {
+        self.watch_event_handlers = {
             z.SERVER_PRESENCE: self.process_server_presence,
             z.SCHEDULED: self.process_scheduled,
             z.EVENTS: self.process_events,
         }
+
+        self.resource_event_handlers = {
+            'allocations': self._handle_allocations_event,
+            'apps': self._handle_apps_event,
+            'servers': self._handle_servers_event,
+            'server_state': self._handle_server_state_event,
+            'cell': lambda _: self.load_cell(),
+            'buckets': lambda _: self.load_buckets(),
+            'identity_groups': lambda _: self.load_identity_groups(),
+        }
+
+        self.pending_start = dict()
 
     def create_rootns(self):
         """Create root nodes and set appropriate acls."""
@@ -128,8 +144,8 @@ class Master(loader.Loader):
         path, children = event
         _LOGGER.info('processing: %r', event)
 
-        assert path in self.event_handlers
-        self.event_handlers[path](children)
+        assert path in self.watch_event_handlers
+        self.watch_event_handlers[path](children)
 
         _LOGGER.info('waiting for completion.')
         self.process_complete[path].set()
@@ -168,45 +184,64 @@ class Master(loader.Loader):
         for prio, seq, resource in ordered:
             _LOGGER.info('event: %s %s %s', prio, seq, resource)
             node_name = '-'.join([prio, resource, seq])
-            if resource == 'allocations':
-                # Changing allocations has potential of complete
-                # reshuffle, so while ineffecient, reload all apps as well.
-                #
-                # If application is assigned to different partition, from
-                # scheduler perspective is no different than host deleted. It
-                # will be detected on schedule and app will be assigned new
-                # host from proper partition.
-                self.load_allocations()
-                self.load_apps()
-            elif resource == 'apps':
-                # The event node contains list of apps to be re-evaluated.
-                apps = self.backend.get_default(
-                    z.path.event(node_name),
-                    default=[])
-                for app in apps:
-                    self.load_app(app)
-            elif resource == 'cell':
-                self.load_cell()
-            elif resource == 'buckets':
-                self.load_buckets()
-            elif resource == 'servers':
-                servers = self.backend.get_default(
-                    z.path.event(node_name),
-                    default=[])
-                if not servers:
-                    # If not specified, reload all. Use union of servers in
-                    # the model and in zookeeper.
-                    servers = (set(self.servers.keys()) ^
-                               set(self.backend.list(z.SERVERS)))
-                self.reload_servers(servers)
-            elif resource == 'identity_groups':
-                self.load_identity_groups()
+            if resource in self.resource_event_handlers:
+                self.resource_event_handlers[resource](node_name)
             else:
                 _LOGGER.warning('Unsupported event resource: %s', resource)
 
         for node in events:
             _LOGGER.info('Deleting event: %s', z.path.event(node))
             self.backend.delete(z.path.event(node))
+
+    def _handle_allocations_event(self, _node_name):
+        # Changing allocations has potential of complete
+        # reshuffle, so while ineffecient, reload all apps as well.
+        #
+        # If application is assigned to different partition, from
+        # scheduler perspective is no different than host deleted. It
+        # will be detected on schedule and app will be assigned new
+        # host from proper partition.
+        self.load_allocations()
+        self.load_apps()
+
+    def _handle_apps_event(self, node_name):
+        # The event node contains list of apps to be re-evaluated.
+        apps = self.backend.get_default(z.path.event(node_name), default=[])
+        for app in apps:
+            self.load_app(app)
+
+    def _handle_servers_event(self, node_name):
+        servers = self.backend.get_default(z.path.event(node_name), default=[])
+        if not servers:
+            # If not specified, reload all.
+            # Use union of servers in the model and in zookeeper.
+            servers = (set(self.servers.keys()) ^
+                       set(self.backend.list(z.SERVERS)))
+        self.reload_servers(servers)
+
+    def _handle_server_state_event(self, node_name):
+        servername, state, apps = tuple(
+            self.backend.get(z.path.event(node_name))
+        )
+        _LOGGER.info('Set server state: %s, %s, %r', servername, state, apps)
+
+        if state == scheduler.State.frozen.value:
+            self._freeze_server(servername, apps)
+        else:
+            server = self.servers.get(servername)
+            if not server:
+                _LOGGER.warning('Server not found: %s', servername)
+                return
+
+            if state == scheduler.State.up.value:
+                server.set_state(scheduler.State.up, time.time())
+            elif state == scheduler.State.down.value:
+                server.set_state(scheduler.State.down, time.time())
+            else:
+                _LOGGER.warning('Unsupported state: %s', state)
+
+        self._record_server_state(servername)
+        self.up_to_date = False
 
     def watch(self, path):
         """Constructs a watch on a given path."""
@@ -259,6 +294,7 @@ class Master(loader.Loader):
         last_sched_time = time.time()
         last_integrity_check = 0
         last_reboot_check = 0
+        last_reboot_tick = 0
         last_state_report = 0
         if once:
             return
@@ -286,14 +322,17 @@ class Master(loader.Loader):
                 last_state_report = time.time()
                 self.save_state_reports()
 
-            if _time_past(last_integrity_check + _INTEGRITY_INTERVAL):
-                assert self.check_integrity()
-                self.tick_reboots()
+            if _time_past(last_integrity_check + _INTEGRITY_CHECK_INTERVAL):
                 last_integrity_check = time.time()
+                self.check_integrity()
+
+            if _time_past(last_reboot_tick + _REBOOT_TICK_INTERVAL):
+                last_reboot_tick = time.time()
+                self.tick_reboots()
 
             if _time_past(last_reboot_check + _REBOOT_CHECK_INTERVAL):
-                self.check_reboot()
                 last_reboot_check = time.time()
+                self.check_reboot()
 
             if queue_empty:
                 time.sleep(_CHECK_EVENT_INTERVAL)
@@ -324,7 +363,7 @@ class Master(loader.Loader):
         now = time.time()
 
         # expired servers rebooted unconditionally, as they are no use anumore.
-        for name, server in six.iteritems(self.servers):
+        for name, server in self.servers.items():
             # Ignore servers that are not yet assigned to the reboot buckets.
             if server.valid_until == 0:
                 _LOGGER.info(
@@ -358,7 +397,7 @@ class Master(loader.Loader):
         """Run scheduler first time and update scheduled data."""
         placement = self.cell.schedule()
 
-        for servername, server in six.iteritems(self.cell.members()):
+        for servername, server in self.cell.members().items():
             placement_node = z.path.placement(servername)
             self.backend.ensure_exists(placement_node)
 
@@ -411,6 +450,8 @@ class Master(loader.Loader):
                 if (before not in self.servers or
                         self.servers[before].state == scheduler.State.down):
                     why = '{server}:down'.format(server=before)
+                elif self.servers[before].state == scheduler.State.frozen:
+                    why = '{server}:frozen'.format(server=before)
                 else:
                     # TODO: it will be nice to put app utilization at the time
                     #       of eviction, but this info is not readily
@@ -444,7 +485,7 @@ class Master(loader.Loader):
         #
         # Remove will trigger rescheduling which will be harmless but
         # strictly speaking unnecessary.
-        for appname, app in six.iteritems(self.cell.apps):
+        for appname, app in self.cell.apps.items():
             if app.schedule_once and app.evicted:
                 _LOGGER.info('Removing schedule_once/evicted app: %s',
                              appname)
@@ -529,3 +570,88 @@ class Master(loader.Loader):
         for app in apps:
             aggregate[app[:app.find('.')]] += 1
         return dict(aggregate)
+
+    def check_integrity(self):
+        """Check cell integrity."""
+        self._check_pending_start()
+
+    def _check_pending_start(self):
+        """Check all scheduled apps that are not running.
+
+        If the app does not start within a given timeout, freeze the server
+        and reschedule app on a different server.
+        """
+        running = set(self.backend.list(z.RUNNING))
+
+        # Remove apps that are no longer scheduled.
+        for appname in list(self.pending_start):
+            if appname not in self.cell.apps:
+                self.pending_start.pop(appname)
+
+        # Check all scheduled apps and see which should be running, but aren't.
+        # Record server and time we see the app. If server changes, reset time.
+        for appname, app in self.cell.apps.items():
+            servername = app.server
+
+            if ((appname not in running and
+                 servername and servername in self.servers and
+                 self.servers[servername].state != scheduler.State.down)):
+                curr = self.pending_start.get(appname)
+                if not curr or curr['servername'] != servername:
+                    self.pending_start[appname] = {
+                        'servername': servername,
+                        'since': time.time()
+                    }
+            else:
+                self.pending_start.pop(appname, None)
+
+        # Check for apps that did not start in the required interval.
+        # Remove them from server, and change server state to frozen.
+        freeze_servers = collections.defaultdict(list)
+
+        for appname, data in self.pending_start.items():
+            if _time_past(data['since'] + _APP_START_INTERVAL):
+                freeze_servers[data['servername']].append(appname)
+
+        for servername, apps in freeze_servers.items():
+            self._freeze_server(servername, apps)
+            self._record_server_state(servername)
+
+        if freeze_servers:
+            self.up_to_date = False
+
+    def _freeze_server(self, servername, apps=None):
+        """Freeze server, optionally unscheduling apps.
+
+        No more apps will be placed on a frozen server.
+        """
+        _LOGGER.info('Freeze server: %s, %r', servername, apps)
+
+        server = self.servers.get(servername)
+        if not server:
+            _LOGGER.warning('Server not found: %s', servername)
+            return
+
+        for appname in apps or []:
+            app = server.apps.get(appname)
+            if not app:
+                _LOGGER.warning('App not found: %s', appname)
+            else:
+                app.unschedule = True
+
+        server.set_state(scheduler.State.frozen, time.time())
+
+    def _record_server_state(self, servername):
+        """Record server state."""
+        server = self.servers.get(servername)
+        if not server:
+            _LOGGER.warning('Server not found: %s', servername)
+            return
+
+        placement_node = z.path.placement(servername)
+        state, since = server.get_state()
+        self.backend.put(
+            placement_node,
+            {'state': state.value,
+             'since': since}
+        )

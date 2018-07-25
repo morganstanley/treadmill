@@ -77,8 +77,13 @@ def init():
     ctx = {}
 
     @click.group(name='allocation')
+    @click.option('--api-service-principal', required=False,
+                  envvar='TREADMILL_API_SERVICE_PRINCIPAL',
+                  callback=cli.handle_context_opt,
+                  help='API service principal for SPNEGO auth (default HTTP)',
+                  expose_value=False)
     @click.option('--api', required=False, help='API url to use.',
-                  envvar='TREADMILL_RESTAPI')
+                  envvar='TREADMILL_ADMINAPI')
     def allocation_grp(api):
         """Manage Treadmill allocations.
 

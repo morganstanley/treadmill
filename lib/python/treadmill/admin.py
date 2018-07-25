@@ -354,24 +354,6 @@ def _grouped_to_list_of_dict(grouped, prefix, schema):
     )
 
 
-def _dict_normalize(data):
-    """Normalize the strings in the dictionary."""
-    if isinstance(data, six.string_types):
-        return six.text_type(data)
-    elif isinstance(data, collections.Mapping):
-        # pylint: disable=consider-using-dict-comprehension
-        return dict([
-            _dict_normalize(i)
-            for i in six.iteritems(data)
-        ])
-    elif isinstance(data, collections.Iterable):
-        return type(data)([
-            _dict_normalize(i) for i in data
-        ])
-    else:
-        return data
-
-
 def _diff_attribute_values(old_value, new_value):
     """Returns True if the attribute values are different."""
     are_different = len(old_value) != len(new_value)
@@ -600,7 +582,7 @@ class Admin:
         self._test_raise_exceptions(ldap)
 
         for entry in ldap.response:
-            yield entry['dn'], _dict_normalize(entry['attributes'])
+            yield entry['dn'], entry['attributes']
 
     def paged_search(self, search_base, search_filter,
                      search_scope=ldap3.SUBTREE, attributes=None, dirty=False):
@@ -625,7 +607,7 @@ class Admin:
         self._test_raise_exceptions(ldap)
 
         for entry in res_gen:
-            yield entry['dn'], _dict_normalize(entry['attributes'])
+            yield entry['dn'], entry['attributes']
 
     def _test_raise_exceptions(self, ldap=None):
         """
@@ -790,9 +772,18 @@ class Admin:
                 obj_classes.append(obj_cls)
 
         if abstract:
-            # pylint: disable=consider-using-dict-comprehension
-            attr_types = dict([_attrtype_2_abstract(a) for a in attr_types])
-            obj_classes = dict([_objcls_2_abstract(o) for o in obj_classes])
+            attr_types = {
+                name: abstract
+                for (name, abstract) in (
+                    _attrtype_2_abstract(a) for a in attr_types
+                )
+            }
+            obj_classes = {
+                name: abstract
+                for (name, abstract) in (
+                    _objcls_2_abstract(o) for o in obj_classes
+                )
+            }
 
         return {'dn': schema_dn,
                 'attributeTypes': attr_types,

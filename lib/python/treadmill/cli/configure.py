@@ -72,8 +72,13 @@ def init():
     """Return top level command handler."""
 
     @click.command()
+    @click.option('--api-service-principal', required=False,
+                  envvar='TREADMILL_API_SERVICE_PRINCIPAL',
+                  callback=cli.handle_context_opt,
+                  help='API service principal for SPNEGO auth (default HTTP)',
+                  expose_value=False)
     @click.option('--api', required=False, help='API url to use.',
-                  envvar='TREADMILL_RESTAPI')
+                  envvar='TREADMILL_ADMINAPI')
     @click.option('-m', '--manifest', help='App manifest file (stream)',
                   type=click.Path(exists=True, readable=True))
     @click.option('--match', help='Application name pattern match')

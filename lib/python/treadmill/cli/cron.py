@@ -31,6 +31,11 @@ def init():
     ctx = {}
 
     @click.group()
+    @click.option('--api-service-principal', required=False,
+                  envvar='TREADMILL_API_SERVICE_PRINCIPAL',
+                  callback=cli.handle_context_opt,
+                  help='API service principal for SPNEGO auth (default HTTP)',
+                  expose_value=False)
     @click.option('--api', help='API url to use.',
                   metavar='URL',
                   envvar='TREADMILL_CELLAPI')

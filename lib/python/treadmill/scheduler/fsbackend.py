@@ -129,9 +129,9 @@ class FsBackend(backend.Backend):
         """Create new event object."""
         return threading.Event()
 
-    def list(self, zkpath):
+    def list(self, path):
         """Return path listing."""
-        dpath = _dpath(self.fsroot, zkpath)
+        dpath = _dpath(self.fsroot, path)
         fs.mkdir_safe(dpath)
         try:
             children = os.listdir(dpath)
@@ -139,14 +139,15 @@ class FsBackend(backend.Backend):
         except OSError:
             raise backend.ObjectNotFoundError()
 
-    def get(self, zkpath):
-        """Return stored object given path."""
-        data, _ = self.get_with_metadata(zkpath)
+    def get(self, path):
+        """Return stored object given path.
+        """
+        data, _ = self.get_with_metadata(path)
         return data
 
-    def get_with_metadata(self, zkpath):
+    def get_with_metadata(self, path):
         """Return stored object with metadata."""
-        fpath = _fpath(self.fsroot, zkpath)
+        fpath = _fpath(self.fsroot, path)
         try:
             stat = os.stat(fpath)
             meta = namedtuple('Metadata', 'ctime')(stat.st_ctime)
@@ -155,28 +156,28 @@ class FsBackend(backend.Backend):
         except OSError:
             raise backend.ObjectNotFoundError()
 
-    def exists(self, zkpath):
+    def exists(self, path):
         """Check if object exists."""
-        fpath = _fpath(self.fsroot, zkpath)
+        fpath = _fpath(self.fsroot, path)
         return os.path.exists(fpath)
 
-    def ensure_exists(self, zkpath):
+    def ensure_exists(self, path):
         """Ensure storage path exists."""
-        fpath = _fpath(self.fsroot, zkpath)
+        fpath = _fpath(self.fsroot, path)
         try:
             fs.mkdir_safe(os.path.dirname(fpath))
             utils.touch(fpath)
         except OSError:
             raise backend.ObjectNotFoundError()
 
-    def delete(self, zkpath):
+    def delete(self, path):
         """Delete object given the path."""
-        fpath = _fpath(self.fsroot, zkpath)
+        fpath = _fpath(self.fsroot, path)
         fs.rm_safe(fpath)
 
-    def put(self, zkpath, value):
+    def put(self, path, value):
         """Store object at a given path."""
-        fpath = _fpath(self.fsroot, zkpath)
+        fpath = _fpath(self.fsroot, path)
         try:
             fs.mkdir_safe(os.path.dirname(fpath))
             with io.open(fpath, 'w') as node:
@@ -184,6 +185,6 @@ class FsBackend(backend.Backend):
         except OSError:
             raise backend.ObjectNotFoundError()
 
-    def update(self, zkpath, data, check_content=True):
+    def update(self, path, data, check_content=True):
         """Set data into ZK node."""
-        return self.put(zkpath, data)
+        return self.put(path, data)
