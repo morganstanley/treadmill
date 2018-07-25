@@ -32,18 +32,14 @@ def init():
                   envvar='TREADMILL_CELL',
                   callback=cli.handle_context_opt,
                   expose_value=False)
-    @click.option('--api', required=False, help='REST API url to use.',
-                  metavar='URL',
-                  envvar='TREADMILL_RESTAPI')
     @click.option('--wsapi', required=False, help='WebSocket API url to use.',
                   metavar='URL',
                   envvar='TREADMILL_WSAPI')
     @click.option('--aliases-dir', required=True,
                   help='Host aliases dir.',
                   default='/run/host-aliases')
-    def host_ring(api, wsapi, aliases_dir):
+    def host_ring(wsapi, aliases_dir):
         """Manage /etc/hosts file inside the container."""
-        ctx['api'] = api
         ctx['wsapi'] = wsapi
         ctx['aliases_dir'] = aliases_dir
 

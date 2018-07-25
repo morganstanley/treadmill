@@ -34,13 +34,18 @@ def init():  # pylint: disable=R0912
     ctx = {}
 
     @click.group()
+    @click.option('--api-service-principal', required=False,
+                  envvar='TREADMILL_API_SERVICE_PRINCIPAL',
+                  callback=cli.handle_context_opt,
+                  help='API service principal for SPNEGO auth (default HTTP)',
+                  expose_value=False)
     @click.option('--cell', required=True,
                   envvar='TREADMILL_CELL',
                   callback=cli.handle_context_opt,
                   expose_value=False)
     @click.option('--api', help='API url to use.',
                   metavar='URL',
-                  envvar='TREADMILL_RESTAPI')
+                  envvar='TREADMILL_CELLAPI')
     def monitor_group(api):
         """Manage Treadmill app monitor configuration"""
         ctx['api'] = api

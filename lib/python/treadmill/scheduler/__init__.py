@@ -275,6 +275,7 @@ class Application:
         'evicted',
         'placement_expiry',
         'renew',
+        'unschedule',
         'final_rank',
         'final_util',
         'constraints',
@@ -303,6 +304,7 @@ class Application:
         self.identity_group_ref = None
         self.schedule_once = schedule_once
         self.evicted = False
+        self.unschedule = False
         self.placement_expiry = None
         self.renew = False
 
@@ -955,6 +957,7 @@ class Server(Node):
 
         app.server = None
         app.evicted = True
+        app.unschedule = False
         app.placement_expiry = None
 
         self.free_capacity += app.demand
@@ -1560,15 +1563,15 @@ class Cell(Bucket):
                         servers[app.server].remove(app.name)
 
     def _handle_inactive_servers(self, servers):
-        """Migrate app from inactive servers.
+        """Migrate apps from inactive servers.
         """
         self.next_event_at = np.inf
         for server in six.itervalues(servers):
             state, since = server.get_state()
+            to_be_moved = []
 
             if state == State.down:
                 _LOGGER.debug('Server state is down: %s', server.name)
-                to_be_moved = []
                 for name, app in six.iteritems(server.apps):
                     if app.data_retention_timeout is None:
                         expires_at = 0
@@ -1584,8 +1587,15 @@ class Cell(Bucket):
                                       name, expires_at)
                         self.next_event_at = min(expires_at,
                                                  self.next_event_at)
-                for name in to_be_moved:
-                    server.remove(name)
+            elif state == State.frozen:
+                _LOGGER.debug('Server state is frozen: %s', server.name)
+                to_be_moved = [
+                    name for name, app in six.iteritems(server.apps)
+                    if app.unschedule
+                ]
+
+            for name in to_be_moved:
+                server.remove(name)
 
     def _find_placements(self, queue, servers):
         """Run the queue and find placements.

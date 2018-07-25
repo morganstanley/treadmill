@@ -33,7 +33,7 @@ def init():
     @click.command()
     @click.option('-p', '--port', help='Port for TCP server')
     @click.option('-s', '--socket', help='Socket for UDS server')
-    @click.option('-a', '--auth', type=click.Choice(['spnego', 'trusted']))
+    @click.option('-a', '--auth', help='Authentication plugin')
     @click.option('-t', '--title', help='API Doc Title',
                   default='Treadmill REST API')
     @click.option('-m', '--modules', help='API modules to load.',

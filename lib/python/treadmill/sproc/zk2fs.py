@@ -106,9 +106,9 @@ def _on_add_trace_db(zk2fs_sync, zkpath, sow_dir, tmp_dir):
     """Called when new trace DB snapshot is added."""
     _LOGGER.info('Added trace db snapshot: %s', zkpath)
     data, _metadata = zk2fs_sync.zkclient.get(zkpath)
-    with tempfile.NamedTemporaryFile(
-            delete=False, mode='wb', dir=tmp_dir
-    ) as trace_db:
+    with tempfile.NamedTemporaryFile(delete=False,
+                                     mode='wb',
+                                     dir=tmp_dir) as trace_db:
         trace_db.write(zlib.decompress(data))
     db_name = os.path.basename(zkpath)
     os.rename(trace_db.name, os.path.join(sow_dir, db_name))
