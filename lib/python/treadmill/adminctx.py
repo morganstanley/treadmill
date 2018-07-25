@@ -40,14 +40,22 @@ def resolve(ctx, attr):
     try:
         admin_cell = admin.Cell(ctx.ldap.conn)
         cell = admin_cell.get(ctx.cell)
+        scheme = cell.get('zk-auth-scheme')
+        if not scheme:
+            scheme = 'zookeeper'
+
         zk_hostports = [
-            '%s:%s' % (master['hostname'], master['zk-client-port'])
+            '{hostname}:{port}'.format(
+                hostname=master['hostname'],
+                port=master['zk-client-port']
+            )
             for master in cell['masters']
         ]
-        return 'zookeeper://%s@%s/treadmill/%s' % (
-            cell['username'],
-            ','.join(zk_hostports),
-            ctx.cell
+        return '{scheme}://{username}@{hostports}/treadmill/{cell}'.format(
+            scheme=scheme,
+            username=cell['username'],
+            hostports=','.join(zk_hostports),
+            cell=ctx.cell
         )
     except ldap_exceptions.LDAPNoSuchObjectResult:
         exception = context.ContextError(

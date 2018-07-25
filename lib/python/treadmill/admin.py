@@ -1469,6 +1469,7 @@ class Cell(LdapObject):
 
     _schema = [
         ('cell', '_id', str),
+        # TODO: archive-*, ssq-* - stale attributes.
         ('archive-server', 'archive-server', str),
         ('archive-username', 'archive-username', str),
         ('location', 'location', str),
@@ -1479,6 +1480,7 @@ class Cell(LdapObject):
         ('data', 'data', dict),
         ('status', 'status', str),
         ('trait', 'traits', [str]),
+        ('zk-auth-scheme', 'zk-auth-scheme', str),
     ]
 
     _oc = 'tmCell'
