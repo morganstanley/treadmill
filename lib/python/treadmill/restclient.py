@@ -273,7 +273,7 @@ def handle_not_authorized(err):
     """Handle REST NotAuthorizedExceptions"""
     msg = str(err)
     msgs = [re.sub(r'failure: ', '    ', line) for line in msg.split(r'\n')]
-    print('Not authorized: ', '\n'.join(msgs))
+    print('Not authorized: {}'.format(','.join(msgs)))
 
 
 CLI_REST_EXCEPTIONS = [
