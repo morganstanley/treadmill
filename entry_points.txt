@@ -55,6 +55,9 @@ server = treadmill.rest.api.server
 state = treadmill.rest.api.state
 tenant = treadmill.rest.api.tenant
 
+# Rest authorization modules.
+authz.group = treadmill.rest.api.authz.group
+
 [treadmill.api]
 allocation = treadmill.api.allocation
 api-lookup = treadmill.api.api_lookup
@@ -73,6 +76,9 @@ scheduler = treadmill.api.scheduler
 server = treadmill.api.server
 state = treadmill.api.state
 tenant = treadmill.api.tenant
+
+# Rest authorization modules.
+authz.group = treadmill.api.authz.group
 
 [treadmill.api.instance.plugins]
 
