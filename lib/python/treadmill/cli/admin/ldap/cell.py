@@ -68,6 +68,8 @@ def init():
         if traits:
             attrs['traits'] = traits
         if zk_auth_scheme:
+            if zk_auth_scheme == '-':
+                zk_auth_scheme = None
             attrs['zk-auth-scheme'] = zk_auth_scheme
         if data:
             with io.open(data, 'rb') as fd:
