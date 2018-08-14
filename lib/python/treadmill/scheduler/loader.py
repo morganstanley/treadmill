@@ -167,7 +167,6 @@ class Loader:
         servers = self.backend.list(z.SERVERS)
         for servername in servers:
             self.load_server(servername)
-            self.set_server_valid_until(servername)
 
     def load_server(self, servername):
         """Load individual server."""
@@ -195,6 +194,7 @@ class Loader:
 
             self.backend.ensure_exists(z.path.placement(servername))
             self.adjust_server_state(servername)
+            self.set_server_valid_until(servername)
 
         except be.ObjectNotFoundError:
             _LOGGER.warning('Server node not found: %s', servername)
@@ -607,7 +607,11 @@ class Loader:
         app2server = dict()
         servers = self.backend.list(z.PLACEMENT)
         for server in servers:
-            apps = self.backend.list(z.path.placement(server))
+            try:
+                apps = self.backend.list(z.path.placement(server))
+            except be.ObjectNotFoundError:
+                continue
+
             for app in apps:
                 if app not in app2server:
                     app2server[app] = server

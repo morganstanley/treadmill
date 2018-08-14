@@ -80,8 +80,8 @@ def init():
         ctx.obj['PARAMS'].update(install_data)
         ctx.obj['PARAMS']['data'] = install_data
 
-        # XXX: hack - templates use treadmillid, but it is defined as
-        #      "username" in cell object.
+        # XXX: templates use treadmillid, but it is defined as "username" in
+        #      cell object.
         ctx.obj['PARAMS']['treadmillid'] = ctx.obj['PARAMS'].get('username')
 
         os.environ['TREADMILL'] = distro

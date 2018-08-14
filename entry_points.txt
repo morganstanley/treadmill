@@ -158,6 +158,7 @@ reaper = treadmill.cli.supervise.reaper
 
 [treadmill.cli.admin]
 blackout = treadmill.cli.admin.blackout
+cell = treadmill.cli.admin.cell
 cron = treadmill.cli.admin.cron
 diag = treadmill.cli.admin.diag
 discovery = treadmill.cli.admin.discovery
@@ -220,6 +221,7 @@ cleanup = treadmill.sproc.cleanup
 configure = treadmill.sproc.configure
 cron = treadmill.sproc.cron
 docker = treadmill.sproc.docker
+docker-authz = treadmill.sproc.docker_authz
 eventdaemon = treadmill.sproc.eventdaemon
 exec = treadmill.sproc.exec
 export-reports = treadmill.sproc.export_reports
@@ -228,7 +230,6 @@ firewall = treadmill.sproc.firewall
 host-aliases = treadmill.sproc.host_aliases
 host-ring = treadmill.sproc.host_ring
 init = treadmill.sproc.init
-kafka = treadmill.sproc.kafka
 kernel-watchdog = treadmill.sproc.kernel_watchdog
 keytabs = treadmill.sproc.keytabs
 metrics = treadmill.sproc.metrics

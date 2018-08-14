@@ -136,7 +136,7 @@ def _ldap_url(ctx):
         '_ldap._tcp.%s.%s' % (ctx.cell, ctx.dns_domain),
         ctx.dns_server
     )
-    return ','.join(_srv_to_urls(ldap_srv_rec, 'ldap'))
+    return _srv_to_urls(ldap_srv_rec, 'ldap')
 
 
 _RESOLVERS = {

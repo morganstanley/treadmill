@@ -11,3 +11,7 @@ recursive-include lib/python/treadmill/etc/schema *
 recursive-include lib/python/treadmill/etc/kernel_watchdog_tests *
 recursive-include lib/python/treadmill/logging *.json
 recursive-include lib/python/treadmill/templates *
+# Treadmill tests data
+recursive-include lib/python/treadmill/bootstrap/master/linux/treadmill/data *
+recursive-include lib/python/treadmill/tests/runtime/linux/image/data *
+recursive-include lib/python/treadmill/tests/data *

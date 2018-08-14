@@ -511,13 +511,10 @@ def control_service(service_dir, actions, wait=None, timeout=0):
     """
     cmd = [_get_cmd('svc')]
 
-    # XXX: A bug in s6 2.6.0.0 causes svc command to hang if the service is not
-    #      supervised. Disable for now.
-    #      This does not happen in winss but we are keeping consitent.
-    # if wait:
-    #     cmd.append('-w' + _get_wait_action(wait).value)
-    #     if timeout > 0:
-    #         cmd.extend(['-T{}'.format(timeout)])
+    if wait:
+        cmd.append('-w' + _get_wait_action(wait).value)
+        if timeout > 0:
+            cmd.extend(['-T{}'.format(timeout)])
 
     action_str = '-'
     for action in utils.get_iterable(actions):
@@ -528,9 +525,6 @@ def control_service(service_dir, actions, wait=None, timeout=0):
 
     try:
         subproc.check_call(cmd)
-        # XXX: Remove below when above bug is fixed.
-        if wait is not None:
-            wait_service(service_dir, wait, timeout=timeout)
 
     except subproc.CalledProcessError as err:
         if err.returncode == ERR_TIMEOUT:

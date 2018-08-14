@@ -1,5 +1,7 @@
 #!/bin/sh
 
+# TODO: quick fix to introduce api plugin for cellapi
+# we need to rewrite spawn services template to generate directory from yaml configure file
 exec 2>&1
 
-exec {{ treadmill }}/bin/treadmill sproc restapi -s {{ dir }}/cellapi.sock --title 'Treadmill_Cell_API' -m instance --backlog 10000 --workers 5 --cors-origin='.*'
+exec {{ treadmill }}/bin/treadmill sproc restapi -s {{ dir }}/cellapi.sock --title 'Treadmill_Cell_API' -m instance --backlog 10000 --workers 5 --cors-origin='.*' --config instance {{ dir }}/cfg/instance.cfg.yml

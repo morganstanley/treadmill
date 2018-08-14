@@ -76,7 +76,7 @@ class HttpExceptionWithResponse(Exception):
 
 
 class NotAuthorizedError(HttpExceptionWithResponse):
-    """Error raised on HTTP 401 (Unauthorized)"""
+    """Error raised on HTTP 403 (FORBIDDEN)"""
 
 
 class BadRequestError(HttpExceptionWithResponse):
@@ -123,10 +123,17 @@ def _handle_error(url, response):
         http_client.NOT_FOUND: NotFoundError(
             'Resource not found: {}'.format(url)
         ),
+        # XXX: Correct code is CONFLICT. Support invalid FOUND during
+        #      migration.
+        http_client.FOUND: AlreadyExistsError(
+            'Resource already exists: {}'.format(url)
+        ),
         http_client.CONFLICT: AlreadyExistsError(
             'Resource already exists: {}'.format(url)
         ),
         http_client.FAILED_DEPENDENCY: ValidationError(response),
+        # XXX: Correct code is FORBIDDEN. Support invalid UNAUTHORIZED during
+        #      migration.
         http_client.UNAUTHORIZED: NotAuthorizedError(response),
         http_client.FORBIDDEN: NotAuthorizedError(response),
         http_client.BAD_REQUEST: BadRequestError(response),
