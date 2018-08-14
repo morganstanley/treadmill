@@ -20,6 +20,10 @@ def models(api):
         'command': fields.String(description='Command'),
         'restart': fields.Nested(restart),
         'root': fields.Boolean(description='Run as root'),
+        'image': fields.String(description='Docker image'),
+        'useshell': fields.Boolean(
+            description='Use a shell to interpret the Treadmill command'
+        ),
     })
     endpoint = api.model('AppEndpoint', {
         'name': fields.String(description='Endpoint Name', required=True),

@@ -129,8 +129,11 @@ def create_bucket(zkclient, bucket_id, parent_id, traits=0):
         'traits': traits,
         'parent': parent_id
     }
-    zkutils.put(zkclient, z.path.bucket(bucket_id), data, check_content=True)
-    create_event(zkclient, 0, 'buckets', None)
+    if zkutils.put(zkclient,
+                   z.path.bucket(bucket_id),
+                   data,
+                   check_content=True):
+        create_event(zkclient, 0, 'buckets', None)
 
 
 def update_bucket_traits(zkclient, bucket_id, traits):

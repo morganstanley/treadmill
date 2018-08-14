@@ -1401,12 +1401,12 @@ class RebootBucket:
 
     def __init__(self, timestamp):
         self.timestamp = timestamp
-        self.servers = []
+        self.servers = set()
 
     def add(self, server):
         """Add server to this bucket.
         """
-        self.servers.append(server)
+        self.servers.add(server)
         server.valid_until = self.timestamp
         _LOGGER.info('Setting valid until on server: %s %s',
                      server.name, server.valid_until)
@@ -1416,7 +1416,7 @@ class RebootBucket:
         """
         try:
             self.servers.remove(server)
-        except ValueError:
+        except KeyError:
             pass
 
     def cost(self, server):

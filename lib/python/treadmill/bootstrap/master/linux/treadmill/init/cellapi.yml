@@ -2,7 +2,7 @@ user: "{{ treadmillid }}"
 command: |
   RM={{ _alias.rm }}
 
-  ${RM} -f /var/spool/cellapi.sock
+  ${RM} -f /tmp/cellapi.sock
 
   exec \
       {{ treadmill }}/bin/treadmill \

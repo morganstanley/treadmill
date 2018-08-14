@@ -162,6 +162,8 @@ class AppPrettyFormatter:
             ('root', None, None),
             ('restart', None, services_restart_tbl),
             ('command', None, _command_fmt),
+            ('shell', 'useshell', None),
+            ('image', None, None),
         ])
 
         endpoints_tbl = make_list_to_table([
