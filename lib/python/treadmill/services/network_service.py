@@ -347,7 +347,7 @@ def _device_from_rsrc_id(app_unique_name):
     :returns:
         ``tuple`` - Pair for device names based on the app_unique_name.
     """
-    # FIXME(boysson): This kind of manipulation should live elsewhere.
+    # FIXME: This kind of manipulation should live elsewhere.
     _, uniqueid = app_unique_name.rsplit('-', 1)
 
     veth0 = '{id:>013s}.0'.format(id=uniqueid)
@@ -365,7 +365,8 @@ def _device_ip(device):
         ``str`` - IPv4 address of the device
     """
     ifaddresses = netifaces.ifaddresses(device)
-    # XXX: (boysson) We are taking the first IPv4 assigned to the device.
+    # FIXME: We are making an assumption and always taking the first IPv4
+    #        assigned to the device.
     return ifaddresses[netifaces.AF_INET][0]['addr']
 
 

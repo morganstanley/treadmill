@@ -463,7 +463,7 @@ class OneshotService(_AtomicService):
         '_up',
         '_down',
     )
-    # XXX timeout-up/timeout-down
+    # TODO: timeout-up/timeout-down
 
     _TYPE = _service_base.ServiceType.Oneshot
 

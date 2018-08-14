@@ -40,8 +40,8 @@ def register(api):
         """Authorization exception handler."""
         _LOGGER.info('Authorization error: %r', err)
         resp = {'message': str(err),
-                'status': http_client.UNAUTHORIZED}
-        return resp, http_client.UNAUTHORIZED, _cors_headers()
+                'status': http_client.FORBIDDEN}
+        return resp, http_client.FORBIDDEN, _cors_headers()
 
     @api.errorhandler(kazoo.exceptions.NoNodeError)
     def _zookeeper_notfound(err):

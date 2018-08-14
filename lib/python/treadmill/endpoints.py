@@ -228,10 +228,13 @@ class PortScanner:
 
         garbage_collect(self.endpoints_dir)
         last_gc = time.time()
-        while True:
+        prev_result = None
 
+        while True:
             result = self._scan()
-            self._publish(result)
+            if result != prev_result:
+                self._publish(result)
+                prev_result = result
 
             if watchdog_lease:
                 watchdog_lease.heartbeat()
