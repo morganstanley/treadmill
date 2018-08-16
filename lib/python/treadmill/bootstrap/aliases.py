@@ -124,7 +124,6 @@ _LINUX_ALIASES = {
     'heredoc': _s6,
     'if': _s6,
     'ifelse': _s6,
-    'import': _s6,
     'importas': _s6,
     'loopwhilex': _s6,
     'openldap': _s6,
@@ -152,6 +151,7 @@ _LINUX_ALIASES = {
 
     # Treadmill spawn.
     # TODO: should be moved to treadmill spawn aliases.
+    'treadmill_spawn_path': None,
     'treadmill_spawn': None,
     'treadmill_spawn_finish': None,
     'treadmill_spawn_run': None,

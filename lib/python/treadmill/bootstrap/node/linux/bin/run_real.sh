@@ -51,8 +51,8 @@ for PART in "{{ dir }}/bin/parts"/*; do
     fi
 done
 
-# Cleanup zkids (FIXME: figure out why we still need this)
-${RM} -vf "{{ dir }}/init*/*/data/zkid.pickle"
+# Cleanup zkids
+${RM} -vf "{{ dir }}"/init*/*/data/zkid.pickle
 
 # Cleanup the watchdog directory.
 ${RM} -vf "{{ dir }}/watchdogs"/*
@@ -73,6 +73,7 @@ done
 
 # Cleanup the presence service resources.
 ${RM} -vf "{{ dir }}/presence_svc/resources"/*
+${RM} -vrf "{{ dir }}/apps"/*/data/resources/presence/*
 
 ###############################################################################
 ${ECHO} -e "\nRunning setup scripts."
@@ -84,6 +85,10 @@ run_parts "{{ dir }}/bin/parts"
     ${ECHO} Start benchmark
     {{ dir }}/bin/benchmark.sh
 {% endif %}
+
+# unset KRB5 environment before boot treadmill services
+unset KRB5CCNAME
+unset KRB5_KTNAME
 
 ###############################################################################
 # Start treadmill

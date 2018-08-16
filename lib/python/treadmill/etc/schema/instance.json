@@ -3,8 +3,7 @@
     "resource_id": { "$ref": "common.json#/instance_id" },
     "resource_ids": {
         "type": "array",
-        "items": { "$ref": "common.json#/instance_id" },
-        "minItems": 1
+        "items": { "$ref": "common.json#/instance_id" }
     },
     "resource": { "$ref": "app.json#/resource" },
     "verbs": {

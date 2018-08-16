@@ -69,7 +69,8 @@ def _to_bool(value):
     if isinstance(value, bool):
         return value
 
-    # XXX: This is necessary until previous bad entries are cleaned up.
+    # XXX: This is necessary until previous bad entries are aacleaned up.
+    _LOGGER.warning('Deprecation warning: bool as str')
     s_value = str(value).lower()
     if s_value in ('0', 'false'):
         return False

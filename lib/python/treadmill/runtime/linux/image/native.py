@@ -358,9 +358,6 @@ def make_fsroot(root_dir, app):
         '/var/tmp/treadmill/spool',
     ]
 
-    # Add everything under /opt
-    mounts += glob.glob('/opt/*')
-
     for directory in emptydirs:
         fs.mkdir_safe(newroot_norm + directory)
 
@@ -592,9 +589,9 @@ def _bind_overlay(container_dir, root_dir):
 def _bind_overlay_docker(container_dir, root_dir):
     """Mount etc/hosts for docker container
     """
-    # XXX: This path is mounted as RW
-    #    because ro volume in treadmill container can not be mounted in docker
-    #   'Error response from daemon: chown /etc/hosts: read-only file system.'
+    # FIXME: This path is mounted as RW because ro volume in treadmill
+    #        container can not be mounted in docker 'Error response from
+    #        daemon: chown /etc/hosts: read-only file system.'
     overlay_dir = os.path.join(container_dir, 'overlay')
 
     fs_linux.mount_bind(
