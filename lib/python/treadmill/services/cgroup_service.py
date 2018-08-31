@@ -80,6 +80,7 @@ class CgroupResourceService(BaseResourceServiceImpl):
             log.info('Creating cgroups: %s:%s', self.SUBSYSTEMS, cgrp)
             for subsystem in self.SUBSYSTEMS:
                 cgutils.create(subsystem, cgrp)
+                cgutils.create(subsystem, os.path.join(cgrp, 'services'))
 
             # blkio settings
             #

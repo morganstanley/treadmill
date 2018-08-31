@@ -217,9 +217,8 @@ def script_write(filename, script):
     with io.open(filename, 'w') as f:
         for chunk in script:
             f.write(chunk)
-        f.write('\n')
         if os.name == 'posix':
-            f.write('\n')
+            f.write('\n\n')
             os.fchmod(f.fileno(), 0o755)
 
 

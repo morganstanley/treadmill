@@ -41,6 +41,23 @@ class DockerdFeature(feature_base.Feature):
 
 
 def _generate_docker_authz_service(manifest, _tm_env):
+
+    # full command include creating rest module cfg file and launch sproc
+    cmd = (
+        'echo "users: [{user}]" > {config};'
+        'exec $TREADMILL/bin/treadmill'
+        ' sproc restapi '
+        ' -m docker_authz.authzreq,docker_authz.authzres,docker_authz.activate'
+        ' --cors-origin=".*" '
+        ' -s {sock} '
+        ' --config docker_authz.authzreq {config}'
+        ' --config docker_authz.authzres {config}'
+    ).format(
+        config='/services/docker-auth/data/users.cfg',
+        sock='/run/docker/plugins/authz.sock',
+        user=manifest['proid'],
+    )
+
     docker_authz_svc = {
         'name': 'docker-auth',
         'proid': 'root',
@@ -48,12 +65,7 @@ def _generate_docker_authz_service(manifest, _tm_env):
             'limit': 5,
             'interval': 60,
         },
-        'command': (
-            'exec $TREADMILL/bin/treadmill'
-            ' sproc docker-authz --user {user}'
-        ).format(
-            user=manifest['proid']
-        ),
+        'command': cmd,
         'root': True,
         'environ': [],
         'config': None,
