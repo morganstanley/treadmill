@@ -144,17 +144,20 @@ def _handle_error(url, response):
 
 
 def _call(url, method, payload=None, headers=None, auth=_KERBEROS_AUTH,
-          proxies=None, timeout=None, stream=None, verify=True):
+          proxies=None, timeout=None, stream=None, verify=True,
+          payload_to_json=True):
     """Call REST url with the supplied method and optional payload"""
     _LOGGER.debug('http: %s %s, payload: %s, headers: %s, timeout: %s',
                   method, url, payload, headers, timeout)
 
+    method_kwargs = dict(auth=auth, proxies=proxies, headers=headers,
+                         timeout=timeout, stream=stream, verify=verify)
+
+    method_kwargs['json' if payload_to_json else 'data'] = payload
+
     try:
         # pylint: disable=not-callable
-        response = getattr(requests, method.lower())(
-            url, json=payload, auth=auth, proxies=proxies, headers=headers,
-            timeout=timeout, stream=stream, verify=verify
-        )
+        response = getattr(requests, method.lower())(url, **method_kwargs)
         _LOGGER.debug('response: %r', response)
     except requests.exceptions.ConnectionError:
         _LOGGER.debug('Connection error: %r', url)
@@ -174,14 +177,17 @@ def _call(url, method, payload=None, headers=None, auth=_KERBEROS_AUTH,
 
 
 def _call_list(urls, method, payload=None, headers=None, auth=_KERBEROS_AUTH,
-               proxies=None, timeout=None, stream=None, verify=True):
+               proxies=None, timeout=None, stream=None, verify=True,
+               payload_to_json=True):
     """Call list of supplied URLs, return on first success."""
     _LOGGER.debug('Call %s on %r', method, urls)
     attempts = []
     for url in urls:
-        success, response, status_code = _call(url, method, payload, headers,
-                                               auth, proxies, timeout=timeout,
-                                               stream=stream, verify=verify)
+        success, response, status_code = _call(
+            url, method, payload, headers, auth, proxies, timeout=timeout,
+            stream=stream, verify=verify,
+            payload_to_json=payload_to_json
+        )
         if success:
             return success, response
 
@@ -190,7 +196,8 @@ def _call_list(urls, method, payload=None, headers=None, auth=_KERBEROS_AUTH,
 
 
 def _call_list_with_retry(urls, method, payload, headers, auth, proxies,
-                          retries, timeout=None, stream=None, verify=True):
+                          retries, timeout=None, stream=None, verify=True,
+                          payload_to_json=True):
     """Call list of supplied URLs with retry."""
     if timeout is None:
         if method == 'get':
@@ -204,7 +211,8 @@ def _call_list_with_retry(urls, method, payload, headers, auth, proxies,
         success, response = _call_list(
             urls, method, payload, headers, auth, proxies,
             timeout=(_DEFAULT_CONNECT_TIMEOUT + retry, timeout),
-            stream=stream, verify=verify
+            stream=stream, verify=verify,
+            payload_to_json=payload_to_json
         )
         if success:
             return response
@@ -219,7 +227,7 @@ def _call_list_with_retry(urls, method, payload, headers, auth, proxies,
 
 def call(api, url, method, payload=None, headers=None, auth=_KERBEROS_AUTH,
          proxies=None, retries=_NUM_OF_RETRIES, timeout=None, stream=None,
-         verify=True):
+         verify=True, payload_to_json=True):
     """Call url(s) with retry."""
     if not api:
         raise NoApiEndpointsError()
@@ -230,7 +238,8 @@ def call(api, url, method, payload=None, headers=None, auth=_KERBEROS_AUTH,
     return _call_list_with_retry(
         [endpoint + url for endpoint in api],
         method, payload, headers, auth, proxies, retries, timeout=timeout,
-        stream=stream, verify=verify)
+        stream=stream, verify=verify,
+        payload_to_json=payload_to_json)
 
 
 def get(api, url, headers=None, auth=_KERBEROS_AUTH, proxies=None,
@@ -242,38 +251,45 @@ def get(api, url, headers=None, auth=_KERBEROS_AUTH, proxies=None,
 
 
 def post(api, url, payload, headers=None, auth=_KERBEROS_AUTH, proxies=None,
-         retries=_NUM_OF_RETRIES, timeout=None):
+         retries=_NUM_OF_RETRIES, timeout=None, verify=True,
+         payload_to_json=True):
     """Convenience function to create or POST a new resoure to url"""
     return call(api, url, 'post', payload=payload,
                 headers=headers, auth=auth, proxies=proxies, retries=retries,
-                timeout=timeout)
+                timeout=timeout, verify=verify,
+                payload_to_json=payload_to_json)
 
 
 def delete(api, url, payload=None, headers=None, auth=_KERBEROS_AUTH,
-           proxies=None, retries=_NUM_OF_RETRIES, timeout=None):
+           proxies=None, retries=_NUM_OF_RETRIES, timeout=None, verify=True,
+           payload_to_json=True):
     """Convenience function to delete a resoure"""
     return call(api, url, 'delete', payload=payload,
                 headers=headers, auth=auth, proxies=proxies, retries=retries,
-                timeout=timeout)
+                timeout=timeout, verify=verify,
+                payload_to_json=payload_to_json)
 
 
 def put(api, url, payload, headers=None, auth=_KERBEROS_AUTH, proxies=None,
-        retries=_NUM_OF_RETRIES, timeout=None):
+        retries=_NUM_OF_RETRIES, timeout=None, verify=True,
+        payload_to_json=True):
     """Convenience function to update a resoure"""
     return call(api, url, 'put', payload=payload,
                 headers=headers, auth=auth, proxies=proxies, retries=retries,
-                timeout=timeout)
+                timeout=timeout, verify=verify,
+                payload_to_json=payload_to_json)
 
 
 def configure(api, url, payload, headers=None, auth=_KERBEROS_AUTH,
-              proxies=None, retries=_NUM_OF_RETRIES, timeout=None):
+              proxies=None, retries=_NUM_OF_RETRIES, timeout=None,
+              verify=True, payload_to_json=True):
     """Create or update resource."""
     try:
         return put(api, url, payload, headers, auth, proxies, retries,
-                   timeout)
+                   timeout, verify, payload_to_json)
     except NotFoundError:
         return post(api, url, payload, headers, auth, proxies, retries,
-                    timeout)
+                    timeout, verify, payload_to_json)
 
 
 def handle_not_authorized(err):

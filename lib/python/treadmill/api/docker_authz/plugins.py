@@ -22,23 +22,23 @@ class AuthzPlugin:
     """Base class of authz plugin
     """
     # pylint: disable=unused-argument
-    def run_req(self, method, url, request):
+    def run_req(self, method, url, request, **kwargs):
         """Request Callback
         """
-        return (200, DEFAULT_ALLOW_MSG)
+        return (True, DEFAULT_ALLOW_MSG)
 
     # pylint: disable=unused-argument
-    def run_res(self, method, url, request, response):
+    def run_res(self, method, url, request, response, **kwargs):
         """Response Callback
         """
-        return (200, DEFAULT_ALLOW_MSG)
+        return (True, DEFAULT_ALLOW_MSG)
 
 
 class DockerInspectUserPlugin(AuthzPlugin):
     """Check user attribute in images via docker inspect
     """
     # pylint: disable=unused-argument
-    def run_res(self, method, url, request, response):
+    def run_res(self, method, url, request, response, **kwargs):
         """cache image users from response body
         """
         match = re.match(r'^/[^/]+/images/(?P<image>.+)/json$', url)
@@ -52,7 +52,7 @@ class DockerInspectUserPlugin(AuthzPlugin):
             else:
                 _LOGGER.info('No user in image %s', image)
 
-        return (200, DEFAULT_ALLOW_MSG)
+        return (True, DEFAULT_ALLOW_MSG)
 
     @staticmethod
     def _get_image_user(response):
@@ -79,11 +79,7 @@ class DockerInspectUserPlugin(AuthzPlugin):
 class DockerRunUserPlugin(AuthzPlugin):
     """Authz plugin to check user for docker run
     """
-    def __init__(self, users):
-        super(DockerRunUserPlugin, self).__init__()
-        self._users = users
-
-    def run_req(self, method, url, request):
+    def run_req(self, method, url, request, **kwargs):
         """Check user from request_id
         request example:
             POST /v1.26/containers/create
@@ -92,7 +88,8 @@ class DockerRunUserPlugin(AuthzPlugin):
             Image: xxx
             ...
         """
-        status = 200
+        users = kwargs.get('users', [])
+        allow = True
         msg = DEFAULT_ALLOW_MSG
 
         if method == 'POST' and 'containers/create' in url:
@@ -101,12 +98,12 @@ class DockerRunUserPlugin(AuthzPlugin):
             image = request.get('Image', '')
             if container_user:
                 # if user name provide, it is equal to user id of container
-                for user in self._users:
+                for user in users:
                     if container_user == '{}:{}'.format(user[0], user[1]):
                         break
                 else:
                     msg = 'user {} not allowed'.format(container_user)
-                    status = 403
+                    allow = False
             else:
                 # no user from docker run, we must ensure user defined in image
                 if image and image in _IMAGE_USER:
@@ -117,19 +114,15 @@ class DockerRunUserPlugin(AuthzPlugin):
                     msg = 'user not provided nor defined in image {}'.format(
                         image
                     )
-                    status = 403
+                    allow = False
 
-        return (status, msg)
+        return (allow, msg)
 
 
 class DockerExecUserPlugin(AuthzPlugin):
     """Authz plugin for docker exec
     """
-    def __init__(self, users):
-        super(DockerExecUserPlugin, self).__init__()
-        self._users = users
-
-    def run_req(self, method, url, request):
+    def run_req(self, method, url, request, **kwargs):
         """Check user from request_id
         request example:
             POST /v1.26/containers/foo/exec
@@ -137,7 +130,8 @@ class DockerExecUserPlugin(AuthzPlugin):
             User: xxxx
             ...
         """
-        status = 200
+        users = kwargs.get('users', [])
+        allow = True
         msg = DEFAULT_ALLOW_MSG
 
         match = re.match(r'^/[^/]+/containers/(?P<container>.+)/exec$', url)
@@ -146,14 +140,14 @@ class DockerExecUserPlugin(AuthzPlugin):
             _container = match.groupdict()['container']
             container_user = request.get('User', '')
             if container_user:
-                for user in self._users:
+                for user in users:
                     if container_user == '{}:{}'.format(user[0], user[1]):
                         break
                 else:
                     msg = 'user {} not allowed'.format(container_user)
-                    status = 403
+                    allow = False
             else:
                 msg = 'Must provide user for exec'
-                status = 403
+                allow = False
 
-        return (status, msg)
+        return (allow, msg)

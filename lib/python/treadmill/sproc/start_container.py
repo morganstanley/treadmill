@@ -14,6 +14,7 @@ import click
 
 from treadmill import subproc
 from treadmill.fs import linux as fs_linux
+from treadmill import pivot_root
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -28,16 +29,9 @@ def init():
         """
         _LOGGER.info('Initializing container: %s', container_root)
 
-        # We only preserve anything mounted on the container root.
-        fs_linux.cleanup_mounts([container_root + '*'], ignore_exc=True)
-        # Mount a proc in the new namespaces
-        fs_linux.mount_procfs(container_root)
-        # remount current proc to /proc
-        # new process entering container namespace can see the correct /proc
-        fs_linux.mount_procfs('/')
-
-        # Chroot into the container
-        os.chroot(container_root)
+        # TODO: we need to abort container if pivot_root.make_root fails
+        # To send abort event to /run/tm_ctl/appevents
+        pivot_root.make_root(container_root)
         os.chdir('/')
 
         # XXX: Debug info

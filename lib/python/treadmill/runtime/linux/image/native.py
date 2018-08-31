@@ -354,8 +354,8 @@ def make_fsroot(root_dir, app):
         # for SSS
         '/var/lib/sss',
         # TODO: Remove below once PAM UDS is implemented
-        '/var/tmp/treadmill/env',
-        '/var/tmp/treadmill/spool',
+        os.path.expandvars('${TREADMILL_APPROOT}/env'),
+        os.path.expandvars('${TREADMILL_APPROOT}/spool'),
     ]
 
     for directory in emptydirs:
@@ -604,7 +604,7 @@ def _bind_overlay_docker(container_dir, root_dir):
 def get_cgroup_path(app):
     """Gets the path of the cgroup."""
     unique_name = appcfg.app_unique_name(app)
-    cgrp = os.path.join('treadmill', 'apps', unique_name)
+    cgrp = os.path.join('treadmill', 'apps', unique_name, 'services')
     return cgrp
 
 

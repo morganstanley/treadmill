@@ -90,7 +90,11 @@ class CGroupServiceTest(unittest.TestCase):
             [
                 mock.call(ss, cgrp)
                 for ss in ['cpu', 'cpuacct', 'cpuset', 'memory', 'blkio']
-            ]
+            ] + [
+                mock.call(ss, os.path.join(cgrp, 'services'))
+                for ss in ['cpu', 'cpuacct', 'cpuset', 'memory', 'blkio']
+            ],
+            any_order=True
         )
 
         # Memory calculation:

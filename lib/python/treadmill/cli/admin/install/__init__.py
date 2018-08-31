@@ -31,7 +31,7 @@ def init():
                   envvar='TREADMILL_CELL',
                   callback=cli.handle_context_opt,
                   is_eager=True,
-                  expose_value=False)
+                  expose_value=True)
     @click.option('--config', required=False,
                   type=click.Path(exists=True, readable=True, allow_dash=True),
                   multiple=True)
@@ -42,14 +42,12 @@ def init():
                   is_eager=True,
                   expose_value=False)
     @click.pass_context
-    def install(ctx, distro, install_dir, config, override):
+    def install(ctx, cell, distro, install_dir, config, override):
         """Installs Treadmill."""
 
-        cell = None if context.GLOBAL.cell == '-' else context.GLOBAL.cell
         profile = context.GLOBAL.get_profile_name()
 
         ctx.obj['PARAMS'] = {
-            'cell': cell,
             'dns_domain': context.GLOBAL.dns_domain,
             'ldap_suffix': context.GLOBAL.ldap_suffix,
             'treadmill': distro,
@@ -57,8 +55,10 @@ def init():
             'profile': profile,
             'python': sys.executable,
             'python_path': os.getenv('PYTHONPATH', ''),
-            'init_hook': os.getenv('TREADMILL_INIT_HOOK', ''),
         }
+        if cell is not None:
+            ctx.obj['PARAMS']['cell'] = context.GLOBAL.cell
+
         install_data = {}
 
         for conf in config:

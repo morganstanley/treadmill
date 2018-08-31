@@ -96,7 +96,7 @@ class LinuxRuntimeFinishTest(unittest.TestCase):
             'task': '001',
             'uniqueid': '0000000ID1234',
             'archive': [
-                '/var/tmp/treadmill'
+                '/var/lib/treadmill'
             ],
             'endpoints': [
                 {
@@ -316,7 +316,7 @@ class LinuxRuntimeFinishTest(unittest.TestCase):
             'task': '001',
             'uniqueid': '0000000001234',
             'archive': [
-                '/var/tmp/treadmill'
+                '/var/lib/treadmill'
             ],
             'endpoints': [
                 {
@@ -427,7 +427,7 @@ class LinuxRuntimeFinishTest(unittest.TestCase):
             'task': '001',
             'uniqueid': '0000000ID1234',
             'archive': [
-                '/var/tmp/treadmill'
+                '/var/lib/treadmill'
             ],
             'endpoints': [
                 {
@@ -560,7 +560,7 @@ class LinuxRuntimeFinishTest(unittest.TestCase):
             'task': '001',
             'uniqueid': '0000000ID1234',
             'archive': [
-                '/var/tmp/treadmill'
+                '/var/lib/treadmill'
             ],
             'endpoints': [
                 {

@@ -6,14 +6,14 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
-import socket
 import base64
+import socket
 
 from ldap3.core.exceptions import LDAPCommunicationError
 from ldap3.protocol.sasl.sasl import send_sasl_negotiation
 from ldap3.protocol.sasl.sasl import abort_sasl_negotiation
-import kerberos
 
+from treadmill import kerberoswrapper as kerberos
 
 NO_SECURITY_LAYER = 1
 INTEGRITY_PROTECTION = 2
