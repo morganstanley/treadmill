@@ -127,6 +127,7 @@ def init(apis, title=None, cors_origin=None, authz_arg=None):
             if not endpoint.startswith('/'):
                 endpoint = '/' + endpoint
 
+            _LOGGER.info('Adding endpoint %s', endpoint)
             endpoints.append(endpoint)
 
         except ImportError as err:

@@ -1,5 +1,5 @@
 command: >
-  {{ treadmill }}/bin/treadmill sproc nodeinfo
+  {{ treadmill }}\scripts\treadmill sproc nodeinfo
   --register
   --cors-origin='.*'
   -m local

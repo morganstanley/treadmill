@@ -1,5 +1,5 @@
 command: >
-  {{ treadmill }}/bin/treadmill sproc service --root-dir {{ dir }}
+  {{ treadmill }}\scripts\treadmill sproc service --root-dir {{ dir }}
   presence --zkid zkid.pickle
 monitor_policy:
   limit: 5

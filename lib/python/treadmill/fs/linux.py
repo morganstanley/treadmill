@@ -26,14 +26,16 @@ _UUID_RE = re.compile(r'\sUUID="([a-zA-Z0-9-]+)"\s')
 
 ###############################################################################
 # Mount utilities
+from treadmill.syscall.mount import mount as mount_filesystem
 
-def umount_filesystem(target_dir):
+
+def umount_filesystem(target_dir, lazy=False):
     """umount filesystem on target directory.
     """
-    return mount.unmount(target=target_dir)
-
-
-from treadmill.syscall.mount import mount as mount_filesystem
+    if lazy:
+        return mount.unmount(target=target_dir, mnt_flags=(mount.MNT_DETACH,))
+    else:
+        return mount.unmount(target=target_dir)
 
 
 def mount_move(target, source):
@@ -310,18 +312,18 @@ class MountEntry:
         return cls(source, target, fs_type, mnt_opts, mount_id, parent_id)
 
 
-def list_mounts():
+def list_mounts(mountinfo='/proc/self/mountinfo'):
     """Read the current process' mounts.
     """
     mounts = []
 
     try:
-        with io.open('/proc/self/mountinfo', 'r') as mf:
+        with io.open(mountinfo, 'r') as mf:
             mounts_lines = mf.readlines()
 
     except EnvironmentError as err:
         if err.errno == errno.ENOENT:
-            _LOGGER.warning('Unable to read "/proc/self/mounts": %s', err)
+            _LOGGER.warning('Unable to read "%s": %s', mountinfo, err)
             return mounts
         else:
             raise
@@ -333,17 +335,21 @@ def list_mounts():
 
 
 ###############################################################################
-def cleanup_mounts(whitelist_patterns, ignore_exc=False):
-    """Prune all mount points except whitelisted ones.
-
-    :param ``bool`` ignore_exc:
-        If True, proceed in a best effort, only logging when unmount fails.
+def generate_sorted_mounts(mountinfo=None):
+    """Get a list of sorted mount entries from down to top
     """
-    _LOGGER.info('Removing all mounts except %r', whitelist_patterns)
+    # create a dict tree for mount_entries
+    # format: mount_id: mount_entry
+    if mountinfo:
+        mount_entries = list_mounts(mountinfo)
+    else:
+        mount_entries = list_mounts()
+
     current_mounts = {
         mount_entry.mount_id: mount_entry
-        for mount_entry in list_mounts()
+        for mount_entry in mount_entries
     }
+
     # We need to iterate over mounts in "layering" order.
     mount_parents = {}
     for mount_entry in current_mounts.values():
@@ -361,8 +367,19 @@ def cleanup_mounts(whitelist_patterns, ignore_exc=False):
             for mount_entry in current_mounts.values()
         ]
     )
+    return [mount[1] for mount in sorted_mounts]
 
-    for _, mount_entry in sorted_mounts:
+
+def cleanup_mounts(whitelist_patterns, ignore_exc=False):
+    """Prune all mount points except whitelisted ones.
+
+    :param ``bool`` ignore_exc:
+        If True, proceed in a best effort, only logging when unmount fails.
+    """
+    _LOGGER.info('Removing all mounts except %r', whitelist_patterns)
+    sorted_mounts = generate_sorted_mounts()
+
+    for mount_entry in sorted_mounts:
         is_valid = any(
             fnmatch.fnmatchcase(mount_entry.target, whitelist_pat)
             for whitelist_pat in whitelist_patterns

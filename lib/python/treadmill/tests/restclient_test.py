@@ -216,6 +216,97 @@ class RESTClientTest(unittest.TestCase):
             headers=None, json='', timeout=(0.5, None), proxies=None
         )
 
+    @mock.patch('requests.get', return_value=mock.MagicMock(requests.Response))
+    def test_verify_get(self, resp_mock):
+        """Tests that 'verify' for get request is set correctly."""
+        resp_mock.return_value.status_code = http_client.OK
+        resp_mock.return_value.text = 'foo'
+        restclient.get('http://foo.com', '/', verify='/path/to/ca/certs')
+        resp_mock.assert_called_with(
+            'http://foo.com/', stream=None, auth=mock.ANY,
+            headers=None, json=None, timeout=(0.5, 10), proxies=None,
+            verify='/path/to/ca/certs'
+        )
+
+    @mock.patch('requests.delete',
+                return_value=mock.MagicMock(requests.Response))
+    def test_verify_delete(self, resp_mock):
+        """Tests that 'verify' for delete request is set correctly."""
+        resp_mock.return_value.status_code = http_client.OK
+        resp_mock.return_value.text = 'foo'
+        restclient.delete('http://foo.com', '/', verify='/path/to/ca/certs')
+        resp_mock.assert_called_with(
+            'http://foo.com/', stream=None, auth=mock.ANY,
+            headers=None, json=None, timeout=(0.5, None), proxies=None,
+            verify='/path/to/ca/certs'
+        )
+
+    @mock.patch('requests.post',
+                return_value=mock.MagicMock(requests.Response))
+    def test_verify_post(self, resp_mock):
+        """Tests that 'verify' for post request is set correctly."""
+        resp_mock.return_value.status_code = http_client.OK
+        resp_mock.return_value.text = 'foo'
+        restclient.post('http://foo.com', '/', '', verify='/path/to/ca/certs')
+        resp_mock.assert_called_with(
+            'http://foo.com/', stream=None, auth=mock.ANY,
+            headers=None, json='', timeout=(0.5, None), proxies=None,
+            verify='/path/to/ca/certs'
+        )
+
+    @mock.patch('requests.put', return_value=mock.MagicMock(requests.Response))
+    def test_verify_put(self, resp_mock):
+        """Tests that 'verify' for put request is set correctly."""
+        resp_mock.return_value.status_code = http_client.OK
+        resp_mock.return_value.text = 'foo'
+        restclient.put('http://foo.com', '/', '', verify='/path/to/ca/certs')
+        resp_mock.assert_called_with(
+            'http://foo.com/', stream=None, auth=mock.ANY,
+            headers=None, json='', timeout=(0.5, None), proxies=None,
+            verify='/path/to/ca/certs'
+        )
+
+    @mock.patch('requests.delete',
+                return_value=mock.MagicMock(requests.Response))
+    def test_raw_payload_delete(self, resp_mock):
+        """Tests that delete can handle not json serializable payload."""
+        resp_mock.return_value.status_code = http_client.OK
+        resp_mock.return_value.text = 'foo'
+        restclient.delete('http://foo.com', '/', 'payload',
+                          payload_to_json=False)
+        resp_mock.assert_called_with(
+            'http://foo.com/', stream=None, auth=mock.ANY,
+            headers=None, timeout=(0.5, None), proxies=None,
+            data='payload', verify=True
+        )
+
+    @mock.patch('requests.post',
+                return_value=mock.MagicMock(requests.Response))
+    def test_raw_payload_post(self, resp_mock):
+        """Tests that post can send payload not in json."""
+        resp_mock.return_value.status_code = http_client.OK
+        resp_mock.return_value.text = 'foo'
+        restclient.post('http://foo.com', '/', 'payload',
+                        payload_to_json=False)
+        resp_mock.assert_called_with(
+            'http://foo.com/', stream=None, auth=mock.ANY,
+            headers=None, timeout=(0.5, None), proxies=None,
+            data='payload', verify=True
+        )
+
+    @mock.patch('requests.put', return_value=mock.MagicMock(requests.Response))
+    def test_raw_payload_put(self, resp_mock):
+        """Tests that put can send payload not in json."""
+        resp_mock.return_value.status_code = http_client.OK
+        resp_mock.return_value.text = 'foo'
+        restclient.put('http://foo.com', '/', 'payload',
+                       payload_to_json=False)
+        resp_mock.assert_called_with(
+            'http://foo.com/', stream=None, auth=mock.ANY,
+            headers=None, timeout=(0.5, None), proxies=None,
+            data='payload', verify=True
+        )
+
 
 if __name__ == '__main__':
     unittest.main()

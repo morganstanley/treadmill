@@ -40,7 +40,7 @@ if os.name == 'nt':
     DEFAULT_INSTALL_DIR = 'c:\\'
     PLATFORM = 'windows'
 else:
-    DEFAULT_INSTALL_DIR = '/var/tmp'
+    DEFAULT_INSTALL_DIR = '/var/lib'
     PLATFORM = 'linux'
 
 _CONTROL_DIR_NAME = supervisor.ScanDir.control_dir_name()
@@ -86,11 +86,12 @@ def _rename_file(src, dst):
     """
 
     fs.replace(src, dst)
-    mode = os.stat(dst).st_mode
-    mode |= (stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH)
-    if _is_executable(dst):
-        mode |= (stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
-    os.chmod(dst, mode)
+    if os.name == 'posix':
+        mode = os.stat(dst).st_mode
+        mode |= (stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH)
+        if _is_executable(dst):
+            mode |= (stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+        os.chmod(dst, mode)
 
 
 def _update(filename, content):

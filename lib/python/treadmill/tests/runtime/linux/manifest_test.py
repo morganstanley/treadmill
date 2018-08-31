@@ -21,7 +21,7 @@ class Docker2RuntimeManifestTest(unittest.TestCase):
 
     def setUp(self):
         self.tm_env = mock.Mock(
-            root='/var/tmp/treadmill/app/approot',
+            root='/var/lib/treadmill/app/approot',
             cell='testcell',
             zkurl='zookeeper://foo@foo:123',
             apps_dir='apps',

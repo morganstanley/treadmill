@@ -1,5 +1,5 @@
 command: >
-  {{ treadmill }}/bin/treadmill sproc init --zkid zkid.pickle
+  {{ treadmill }}\scripts\treadmill sproc init --zkid zkid.pickle
 monitor_policy:
   limit: 5
   interval: 60
