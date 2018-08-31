@@ -1,5 +1,5 @@
 command: >
-  {{ treadmill }}/bin/treadmill sproc eventdaemon
+  {{ treadmill }}\scripts\treadmill sproc eventdaemon
 monitor_policy:
   limit: 5
   interval: 60

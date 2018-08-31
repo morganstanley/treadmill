@@ -8,36 +8,77 @@
 }
 
 {{ _alias.foreground }} {
-    {{ _alias.elglob }} -v SVC_DIRS * {{ _alias.s6_svwait }} -aD -t {{ timeout }} $SVC_DIRS
+    {{ _alias.elglob }} -v SVC_DIRS * {{ _alias.s6_svwait }} -aD -t {{ timeout }} ${SVC_DIRS}
 }
 
 {% if wait_cgroups -%}
-# First try to remove all sub-cgroups
 {{ _alias.foreground }} {
-    {{ _alias.loopwhilex }} -o 1 -x 0
-    {{ _alias.if }} -nt {
-        {{ _alias.find }} {{ wait_cgroups }} -mindepth 1 -depth -type d -ls -delete
-    }
-    {{ _alias.foreground }} {
-        {{ _alias.sleep }} 1s
-    }
-    {{ _alias.exit }} 1
-}
-# Now wait on tasks clearing
-{{ _alias.foreground }} {
-    {{ _alias.loopwhilex }} -o 1 -x 0
-    {{ _alias.if }} -nt {
-        {{ _alias.backtick }} TASKS_COUNT {
-            {{ _alias.awk }} "END {print NR}" {{ wait_cgroups }}/tasks
+    {{ _alias.loopwhilex }}
+        # Wait 1 sec to settle
+        {{ _alias.foreground }} {
+            {{ _alias.sleep }} 1s
         }
-        {{ _alias.importas }} -nu TASKS_COUNT TASKS_COUNT
-        # There will should be a total of 6 tasks for this finish script
-        {{ _alias.expr }} $TASKS_COUNT <= 6
-    }
-    {{ _alias.foreground }} {
-        {{ _alias.sleep }} 1s
-    }
-    {{ _alias.exit }} 1
+        {{ _alias.ifte }}
+        {
+            # 3.7.15+ cgroup layout
+            # First try to remove all sub-cgroups, if we succeed, we are done.
+            {{ _alias.if }} -n {
+                {{ _alias.find }} {{ wait_cgroups }} -mindepth 1 -depth -type d -ls -delete
+            }
+            # Then send a signal to all tasks in those sub-cgroups
+            {{ _alias.foreground }} {
+                {{ _alias.echo }} "Trying to terminate all remaing PIDs"
+            }
+            {{ _alias.foreground }} {
+                {{ _alias.forbacktickx }} -o 0 TASKS_FILE
+                    {
+                        {{ _alias.find }}  {{ wait_cgroups }} -depth -name tasks
+                    }
+                    {{ _alias.importas }} -nu TASKS_FILE TASKS_FILE
+                    {{ _alias.foreground }} {
+                        {{ _alias.echo }} "Processing ${TASKS_FILE}"
+                    }
+                    {{ _alias.redirfd }} -r 0 ${TASKS_FILE}
+                    {{ _alias.foreground }} {
+                        {{ _alias.forstdin }} TASK_PID
+                            {{ _alias.importas }} -nu TASK_PID TASK_PID
+                            {{ _alias.foreground }} {
+                                {{ _alias.echo }} "Terminating ${TASK_PID}"
+                            }
+                            {{ _alias.foreground }} {
+                                {{ _alias.kill }} -TERM ${TASK_PID}
+                            }
+                            {{ _alias.foreground }} {
+                                {{ _alias.kill }} -CONT ${TASK_PID}
+                            }
+                            {{ _alias.exit }} 0
+                    }
+            }
+            {{ _alias.exit }} 0
+        }
+        {
+            # 3.7.14 compatibility
+            # XXX: Remove me
+            {{ _alias.backtick }} BASE_CGROUP {
+                {{ _alias.dirname }} {{ wait_cgroups }}
+            }
+            {{ _alias.importas }} -nu BASE_CGROUP BASE_CGROUP
+            {{ _alias.if }} -n {
+                {{ _alias.backtick }} TASKS_COUNT {
+                    {{ _alias.redirfd }} -r 0 ${BASE_CGROUP}/tasks
+                    {{ _alias.wc }} -l
+                }
+                {{ _alias.importas }} -nu TASKS_COUNT TASKS_COUNT
+                # There will should be a total of 6 tasks for this finish script
+                {{ _alias.foreground }} {
+                    {{ _alias.echo }} "Tasks left in cgroup: ${TASKS_COUNT}"
+                }
+                {{ _alias.expr }} ${TASKS_COUNT} <= 6
+            }
+            {{ _alias.exit }} 0
+        }
+        # Check if wait_cgroups exists
+        {{ _alias.cd }} {{ wait_cgroups }} {{ _alias.exit }} 0
 }
 {%- endif %}
 

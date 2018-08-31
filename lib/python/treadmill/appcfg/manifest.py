@@ -162,10 +162,11 @@ def load(event):
 
 def add_linux_system_services(tm_env, manifest):
     """Configure linux system services."""
+    unique_name = appcfg.manifest_unique_name(manifest)
     container_svcdir = supervisor.open_service(
         os.path.join(
             tm_env.apps_dir,
-            appcfg.manifest_unique_name(manifest)
+            unique_name
         ),
         existing=False
     )
@@ -298,11 +299,13 @@ def add_linux_system_services(tm_env, manifest):
             ' {pid1} -i -m -p'
             ' --propagation slave'
             ' {treadmill}/bin/treadmill sproc'
+            ' --cgroup /apps/{unique_name}/services'
             ' --cell {cell}'
             ' start-container'
             ' --container-root {container_dir}/root'
         ).format(
             treadmill=subproc.resolve('treadmill'),
+            unique_name=unique_name,
             cell=manifest['cell'],
             pid1=subproc.resolve('pid1'),
             container_dir=container_data_dir,

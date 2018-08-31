@@ -54,6 +54,10 @@ scheduler = treadmill.rest.api.scheduler
 server = treadmill.rest.api.server
 state = treadmill.rest.api.state
 tenant = treadmill.rest.api.tenant
+docker_authz.authzreq = treadmill.rest.api.docker_authz.authzreq
+docker_authz.authzres = treadmill.rest.api.docker_authz.authzres
+docker_authz.activate = treadmill.rest.api.docker_authz.activate
+
 
 # Rest authorization modules.
 authz.group = treadmill.rest.api.authz.group
@@ -76,6 +80,9 @@ scheduler = treadmill.api.scheduler
 server = treadmill.api.server
 state = treadmill.api.state
 tenant = treadmill.api.tenant
+docker_authz.authzreq = treadmill.api.docker_authz
+docker_authz.authzres = treadmill.api.docker_authz
+docker_authz.activate = treadmill.api.docker_authz
 
 # Rest authorization modules.
 authz.group = treadmill.api.authz.group
@@ -221,7 +228,6 @@ cleanup = treadmill.sproc.cleanup
 configure = treadmill.sproc.configure
 cron = treadmill.sproc.cron
 docker = treadmill.sproc.docker
-docker-authz = treadmill.sproc.docker_authz
 eventdaemon = treadmill.sproc.eventdaemon
 exec = treadmill.sproc.exec
 export-reports = treadmill.sproc.export_reports

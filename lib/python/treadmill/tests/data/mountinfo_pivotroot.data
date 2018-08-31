@@ -1,0 +1,16 @@
+503 545 8:3 / /.old-pivot rw,noatime master:1 - xfs /dev/sda3 rw,attr2,inode64,noquota
+504 503 0:5 / /.old-pivot/dev rw,nosuid master:2 - devtmpfs devtmpfs rw,size=8123280k
+505 504 0:17 / /.old-pivot/dev/shm rw,nosuid,nodev master:3 - tmpfs tmpfs rw
+509 503 0:3 / /.old-pivot/proc rw,nosuid,nodev,noexec,relatime - proc proc rw
+513 509 0:36 / /.old-pivot/proc/fs/nfsd rw,relatime - nfsd nfsd rw
+514 509 0:44 / /.old-pivot/proc rw,nosuid,nodev,noexec,relatime - proc none rw
+515 514 0:64 / /.old-pivot/proc rw,nosuid,nodev,noexec,relatime - proc none rw
+516 503 0:16 / /.old-pivot/sys rw,nosuid,nodev,noexec,relatime master:6 - sysfs sysfs rw
+518 516 0:19 / /.old-pivot/sys/fs/cgroup ro,nosuid,nodev,noexec master:8 - tmpfs tmpfs ro,mode=755
+533 503 0:18 / /.old-pivot/run rw,nosuid,nodev master:22 - tmpfs tmpfs rw,mode=755
+541 503 8:3 /a /.old-pivot/a rw,noatime master:1 - xfs /dev/sda3 rw,attr2,inode64,noquota
+545 501 253:1 / / rw,relatime - ext4 /dev/treadmill/tm-xJwzL5uecMoXy rw
+546 545 0:52 / /dev rw,nosuid,relatime - tmpfs tmpfs rw,mode=755
+554 545 8:3 /usr/bin /bin ro,relatime master:1 - xfs /dev/sda3 rw,attr2,inode64,noquota
+555 545 8:3 /etc /etc ro,relatime master:1 - xfs /dev/sda3 rw,attr2,inode64,noquota
+556 555 0:55 / /etc/docker rw,nosuid,nodev,noexec,relatime - tmpfs tmpfs rw

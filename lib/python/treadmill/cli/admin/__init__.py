@@ -18,7 +18,6 @@ import kazoo
 import kazoo.exceptions
 import ldap3
 from ldap3.core import exceptions as ldap_exceptions
-import kerberos
 
 import treadmill
 from treadmill import restclient
@@ -26,6 +25,7 @@ from treadmill import cli
 from treadmill import context
 from treadmill import logging as tl
 from treadmill import yamlwrapper as yaml
+from treadmill import kerberoswrapper as kerberos
 
 
 def _handle_no_such_ldap_obj(err):

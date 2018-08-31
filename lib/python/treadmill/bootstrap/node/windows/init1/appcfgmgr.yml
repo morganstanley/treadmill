@@ -1,5 +1,5 @@
 command: >
-  {{ treadmill }}/bin/treadmill sproc appcfgmgr
+  {{ treadmill }}\scripts\treadmill sproc appcfgmgr
 monitor_policy:
   limit: 2
   interval: 60

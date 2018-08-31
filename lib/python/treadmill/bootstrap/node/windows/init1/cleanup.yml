@@ -1,5 +1,5 @@
 command: >
-  {{ treadmill }}/bin/treadmill sproc appevents {{ dir }}\appevents
+  {{ treadmill }}\scripts\treadmill sproc appevents {{ dir }}\appevents
 monitor_policy:
   limit: 5
   interval: 60
