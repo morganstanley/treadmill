@@ -10,6 +10,9 @@ import unittest
 
 import mock
 
+# Disable W0611: Unused import
+import treadmill.tests.treadmill_test_skip_windows  # pylint: disable=W0611
+
 from treadmill.appcfg import features
 
 
@@ -17,8 +20,6 @@ class AppCfgDockerFeatureTest(unittest.TestCase):
     """Test for docker feature
     """
 
-    @mock.patch('treadmill.appcfg.features.docker._get_user_uid_gid',
-                mock.Mock(return_value=(1, 1)))
     @mock.patch('treadmill.subproc.resolve', mock.Mock(return_value='tm'))
     @mock.patch('treadmill.appcfg.features.docker._get_docker_registry',
                 mock.Mock(return_value=iter(['foo:5050', 'bar:5050'])))
@@ -55,7 +56,7 @@ class AppCfgDockerFeatureTest(unittest.TestCase):
              ' --add-runtime docker-runc=tm --default-runtime=docker-runc'
              ' --exec-opt native.cgroupdriver=cgroupfs --bridge=none'
              ' --ip-forward=false --ip-masq=false --iptables=false'
-             ' --cgroup-parent=docker -G 1 --block-registry="*"'
+             ' --cgroup-parent=docker --block-registry="*"'
              ' --insecure-registry foo:5050 --add-registry foo:5050'
              ' --insecure-registry bar:5050 --add-registry bar:5050')
         )

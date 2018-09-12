@@ -81,13 +81,14 @@ class EventMgrTest(mockzk.MockZookeeperTestCase):
             side_effect=lambda func: func({'valid_until': 123.0}, None, None)
         )
 
-        mock_children_watch = mock.Mock(
-            side_effect=lambda func: func(['foo.bar#0'])
-        )
-
         mock_zkclient.get.return_value = ('{}', mock.Mock(ctime=1000))
+        mock_zkclient.exits.return_value = mock.Mock()
+        # Decorator style watch
         mock_zkclient.DataWatch.return_value = mock_data_watch
-        mock_zkclient.ChildrenWatch.return_value = mock_children_watch
+        # Function style watch
+        mock_zkclient.ChildrenWatch.side_effect = lambda _path, func: func(
+            ['foo.bar#0']
+        )
         mock_zkclient.handler.event_object.side_effect = mock_event_object
 
         self.evmgr.run(once=True)
@@ -109,7 +110,7 @@ class EventMgrTest(mockzk.MockZookeeperTestCase):
 
     @mock.patch('time.sleep', mock.Mock())
     @mock.patch('treadmill.context.GLOBAL.zk', mock.Mock())
-    def test_run_not_present(self):
+    def test_run_presence_not_ready(self):
         """Test EventMgr run method - no server presence.
         """
         mock_zkclient = mock.Mock()
@@ -119,13 +120,14 @@ class EventMgrTest(mockzk.MockZookeeperTestCase):
             side_effect=lambda func: func(None, None, None)
         )
 
-        mock_children_watch = mock.Mock(
-            side_effect=lambda func: func(['foo.bar#0'])
-        )
-
         mock_zkclient.get.return_value = ('{}', mock.Mock(ctime=1000))
+        mock_zkclient.exits.return_value = mock.Mock()
+        # Decorator style watch
         mock_zkclient.DataWatch.return_value = mock_data_watch
-        mock_zkclient.ChildrenWatch.return_value = mock_children_watch
+        # Function style watch
+        mock_zkclient.ChildrenWatch.side_effect = lambda _path, func: func(
+            ['foo.bar#0']
+        )
         mock_zkclient.handler.event_object.side_effect = mock_event_object
 
         self.evmgr.run(once=True)
@@ -135,8 +137,8 @@ class EventMgrTest(mockzk.MockZookeeperTestCase):
 
     @mock.patch('time.sleep', mock.Mock())
     @mock.patch('treadmill.context.GLOBAL.zk', mock.Mock())
-    def test_run_not_synchronized(self):
-        """Test EventMgr run method - apps not synchronized.
+    def test_run_placement_not_ready(self):
+        """Test EventMgr run method - no placement.
         """
         mock_zkclient = mock.Mock()
         context.GLOBAL.zk.conn = mock_zkclient
@@ -145,6 +147,7 @@ class EventMgrTest(mockzk.MockZookeeperTestCase):
             side_effect=lambda func: func({'valid_until': 123.0}, None, None)
         )
 
+        mock_zkclient.exists.return_value = None
         mock_zkclient.DataWatch.return_value = mock_data_watch
         mock_zkclient.handler.event_object.side_effect = mock_event_object
 

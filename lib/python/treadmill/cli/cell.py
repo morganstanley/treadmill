@@ -21,7 +21,6 @@ def init():
     """Return top level command handler."""
 
     cell_formatter = cli.make_formatter('cell')
-    ctx = {}
 
     @click.group(name='cell')
     @click.option('--api-service-principal', required=False,
@@ -29,21 +28,14 @@ def init():
                   callback=cli.handle_context_opt,
                   help='API service principal for SPNEGO auth (default HTTP)',
                   expose_value=False)
-    @click.option('--api',
-                  required=False,
-                  help='API url to use.',
-                  envvar='TREADMILL_ADMINAPI')
-    def cell_grp(api):
+    def cell_grp():
         """List & display Treadmill cells."""
-        if api:
-            ctx['api'] = api
 
     @cell_grp.command(name='list')
     @cli.handle_exceptions(restclient.CLI_REST_EXCEPTIONS)
     def _list():
         """List the configured cells."""
-        restapi = context.GLOBAL.admin_api(ctx.get('api'))
-
+        restapi = context.GLOBAL.admin_api()
         cli.out(cell_formatter(restclient.get(restapi, '/cell/').json()))
 
     @cell_grp.command()
@@ -51,8 +43,7 @@ def init():
     @cli.handle_exceptions(restclient.CLI_REST_EXCEPTIONS)
     def configure(name):
         """Display the details of a cell."""
-        restapi = context.GLOBAL.admin_api(ctx.get('api'))
-
+        restapi = context.GLOBAL.admin_api()
         cli.out(cell_formatter(restclient.get(restapi,
                                               '/cell/%s' % name).json()))
 

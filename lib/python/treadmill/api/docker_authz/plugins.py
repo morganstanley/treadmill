@@ -9,12 +9,24 @@ from __future__ import unicode_literals
 import logging
 import re
 
+from treadmill import utils
+
 _LOGGER = logging.getLogger(__name__)
 
 # to store user attribute in different images in dockerd
 _IMAGE_USER = dict()
 
 DEFAULT_ALLOW_MSG = 'Allowed'
+
+
+def _norm(user):
+    """Convert user name to uid:gid
+    """
+    if ':' not in user:
+        (uid, gid) = utils.get_uid_gid(user)
+        return '{}:{}'.format(uid, gid)
+    else:
+        return user
 
 
 class AuthzPlugin:
@@ -98,11 +110,19 @@ class DockerRunUserPlugin(AuthzPlugin):
             image = request.get('Image', '')
             if container_user:
                 # if user name provide, it is equal to user id of container
-                for user in users:
-                    if container_user == '{}:{}'.format(user[0], user[1]):
-                        break
-                else:
-                    msg = 'user {} not allowed'.format(container_user)
+                try:
+                    # if user not found, _norm will raise KeyError
+                    container_user = _norm(container_user)
+
+                    for user in users:
+                        if container_user == '{}:{}'.format(user[0], user[1]):
+                            break
+                    else:
+                        msg = 'user {} not allowed'.format(container_user)
+                        allow = False
+                except KeyError:
+                    msg = 'Can not get uid for {}'.format(container_user)
+                    _LOGGER.error(msg)
                     allow = False
             else:
                 # no user from docker run, we must ensure user defined in image

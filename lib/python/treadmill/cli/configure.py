@@ -77,8 +77,6 @@ def init():
                   callback=cli.handle_context_opt,
                   help='API service principal for SPNEGO auth (default HTTP)',
                   expose_value=False)
-    @click.option('--api', required=False, help='API url to use.',
-                  envvar='TREADMILL_ADMINAPI')
     @click.option('-m', '--manifest', help='App manifest file (stream)',
                   type=click.Path(exists=True, readable=True))
     @click.option('--match', help='Application name pattern match')
@@ -86,9 +84,9 @@ def init():
                   is_flag=True, default=False)
     @click.argument('appname', required=False)
     @cli.handle_exceptions(restclient.CLI_REST_EXCEPTIONS)
-    def configure(api, match, manifest, delete, appname):
+    def configure(match, manifest, delete, appname):
         """Configure a Treadmill app"""
-        restapi = context.GLOBAL.admin_api(api)
+        restapi = context.GLOBAL.admin_api()
         if appname:
             if delete:
                 return _delete(restapi, appname)

@@ -23,6 +23,8 @@ def init():
                   envvar='TREADMILL_CELL',
                   callback=cli.handle_context_opt,
                   expose_value=False)
+    # TODO: it is not clear why this should TREADMIL_ADMINAPI, as this module
+    #       can be used to invoke any API. Leaving it for now.
     @click.option('--api', required=False, help='API url to use.',
                   envvar='TREADMILL_ADMINAPI')
     @click.option('--outfmt', type=click.Choice(['json', 'yaml']),

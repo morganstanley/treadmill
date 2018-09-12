@@ -19,12 +19,6 @@ import treadmill
 from treadmill import supervisor
 from treadmill import subproc
 
-if sys.platform.startswith('linux'):
-    import pwd
-
-# Disable: C0103 because names are too long
-# pylint: disable=C0103
-
 
 def _strip(content):
     """Strips and replaces all spaces before beginning of the text.
@@ -57,12 +51,19 @@ class SupervisorTest(unittest.TestCase):
             os.system('pgrep s6-supervise | xargs kill 2> /dev/null')
 
     @unittest.skipUnless(sys.platform.startswith('linux'), 'Requires Linux')
-    @mock.patch('pwd.getpwnam', mock.Mock(auto_spec=True))
+    @mock.patch(
+        'pwd.getpwnam',
+        mock.Mock(
+            spec_set=True,
+            return_value=collections.namedtuple(
+                'pwnam',
+                ['pw_shell', 'pw_dir']
+            )('test_shell', 'test_home')
+        )
+    )
     def test_create_service(self):
         """Checks various options when creating the service.
         """
-        pwd.getpwnam.return_value = self.mock_pwrow('test_shell', 'test_home')
-
         supervisor.create_service(
             self.root,
             'xx',
@@ -90,11 +91,19 @@ class SupervisorTest(unittest.TestCase):
         self.assertFalse(os.path.exists(os.path.join(service_dir, 'down')))
 
     @unittest.skipUnless(sys.platform.startswith('linux'), 'Requires Linux')
-    @mock.patch('pwd.getpwnam', mock.Mock(auto_spec=True))
+    @mock.patch(
+        'pwd.getpwnam',
+        mock.Mock(
+            spec_set=True,
+            return_value=collections.namedtuple(
+                'pwnam',
+                ['pw_shell', 'pw_dir']
+            )('test_shell', 'test_home')
+        )
+    )
     def test_create_service_optional(self):
         """Checks optional components of create service.
         """
-        pwd.getpwnam.return_value = self.mock_pwrow('test_shell', 'test_home')
         svc_dir = supervisor.create_scan_dir(self.root, 5000)
 
         supervisor.create_service(

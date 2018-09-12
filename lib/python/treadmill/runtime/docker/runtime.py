@@ -84,7 +84,7 @@ def _get_gmsa(tm_env, client, app, container_args):
             break
 
         count += 1
-        time.sleep(1000)
+        time.sleep(1)
 
     if not found:
         raise exc.ContainerSetupError(

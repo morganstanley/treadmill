@@ -16,7 +16,25 @@ from treadmill import subproc
 from treadmill.fs import linux as fs_linux
 from treadmill import pivot_root
 
+from treadmill.appevents import uds
+from treadmill.appcfg import abort as app_abort
+from treadmill.appcfg import manifest as app_manifest
+from treadmill.apptrace import events as traceevents
+
 _LOGGER = logging.getLogger(__name__)
+
+
+def _abort(event, container_root):
+    """we need to consider two cases
+    pivot_root success but mount failure afterwars
+    pivot_root fails directly
+    """
+    if uds.post_ipc(event) == 0:
+        _LOGGER.warning(
+            'Failed to post abort event to socket in new root, trying old path'
+        )
+        old_uds = os.path.join(container_root, 'run/tm_ctl/appevents')
+        uds.post_ipc(event, uds=old_uds)
 
 
 def init():
@@ -24,15 +42,27 @@ def init():
     @click.command(name='start-container')
     @click.option('--container-root', type=click.Path(exists=True),
                   required=True)
-    def start_container(container_root):
+    @click.argument('manifest', type=click.Path(exists=True))
+    def start_container(container_root, manifest):
         """Treadmill container boot process.
         """
         _LOGGER.info('Initializing container: %s', container_root)
+        app = app_manifest.read(manifest)
 
-        # TODO: we need to abort container if pivot_root.make_root fails
-        # To send abort event to /run/tm_ctl/appevents
-        pivot_root.make_root(container_root)
-        os.chdir('/')
+        try:
+            pivot_root.make_root(container_root)
+            os.chdir('/')
+        except Exception as err:  # pylint: disable=broad-except
+            event = traceevents.AbortedTraceEvent(
+                instanceid=app['name'],
+                why=app_abort.AbortedReason.PIVOT_ROOT.value,
+                payload=str(err),
+            )
+
+            _abort(event, container_root)
+
+            # reraise err to exit start_container
+            raise err
 
         # XXX: Debug info
         _LOGGER.debug('Current mounts: %s',

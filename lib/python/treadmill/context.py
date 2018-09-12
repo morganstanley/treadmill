@@ -8,6 +8,7 @@ from __future__ import unicode_literals
 
 import functools
 import logging
+import os
 import socket
 
 from treadmill import plugin_manager
@@ -41,6 +42,58 @@ def required(msg):
         return decorated_function
 
     return _decorator
+
+
+def _norm(cellname):
+    """Normalize cell name."""
+    return cellname.upper().replace('-', '_')
+
+
+class EnvContext:
+    """Environment variable context.
+    """
+
+    __slots__ = (
+        '_context',
+    )
+
+    def __init__(self, ctx):
+        self._context = ctx
+
+    def resolve(self, ctx, attr):
+        """URL Resolve attribute from DNS.
+        """
+        # TODO: consider migrating zk_url adn ldap_url to environment context.
+        #
+        #       The problem is that TREADMILL_ZOOKEEPER is used everywhere,
+        #       and based on the impl, it should be dictionary by cell name.
+        _resolvers = {
+            'admin_api': self._admin_api,
+            'cell_api': self._cell_api,
+            'state_api': self._state_api,
+            'ws_api': self._ws_api,
+        }
+
+        value = _resolvers[attr](ctx)
+        _LOGGER.debug('Environment override for attr: %s - %s', attr, value)
+        return value
+
+    def _admin_api(self, ctx):
+        """Return admin api from environment variable."""
+        del ctx
+        return os.environ['TREADMILL_ADMINAPI'].split(',')
+
+    def _cell_api(self, ctx):
+        """Return cell api from environment variable."""
+        return os.environ['TREADMILL_CELLAPI_' + _norm(ctx.cell)].split(',')
+
+    def _ws_api(self, ctx):
+        """Return websocket api from environment variable."""
+        return os.environ['TREADMILL_WSAPI_' + _norm(ctx.cell)].split(',')
+
+    def _state_api(self, ctx):
+        """Return state api from environment variable."""
+        return os.environ['TREADMILL_STATEAPI_' + _norm(ctx.cell)].split(',')
 
 
 class DnsContext:
@@ -321,6 +374,9 @@ class Context:
             ldap = plugin_manager.load('treadmill.context', 'admin')
             ldap.init(self)
             self._plugins.append(ldap)
+
+        # Last plugin wins, so environment variables are evaluated last.
+        self._plugins.append(EnvContext(self))
 
     def get(self, attr, default=None, resolve=True, volatile=False):
         """Get attribute from profile or defaults.

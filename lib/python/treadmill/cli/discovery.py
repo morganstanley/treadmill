@@ -13,6 +13,7 @@ import sys
 import click
 
 from treadmill import cli
+from treadmill import context
 from treadmill.websocket import client as ws_client
 
 
@@ -22,25 +23,18 @@ _LOGGER = logging.getLogger(__name__)
 def init():
     """Return top level command handler."""
 
-    ctx = {}
-
     @click.command()
     @click.option('--cell', required=True,
                   envvar='TREADMILL_CELL',
                   callback=cli.handle_context_opt,
                   expose_value=False)
-    @click.option('--wsapi', required=False, help='Websocket API.',
-                  metavar='URL',
-                  envvar='TREADMILL_WSAPI')
     @click.option('--check-state', is_flag=True, default=False)
     @click.option('--watch', is_flag=True, default=False)
     @click.option('--separator', default=' ')
     @click.argument('app')
     @click.argument('endpoint', required=False, default='*:*')
-    def discovery(wsapi, check_state, watch, separator, app, endpoint):
+    def discovery(check_state, watch, separator, app, endpoint):
         """Show state of scheduled applications."""
-        ctx['wsapi'] = wsapi
-
         if ':' not in endpoint:
             endpoint = '*:' + endpoint
 
@@ -82,7 +76,7 @@ def init():
 
         try:
             return ws_client.ws_loop(
-                ctx['wsapi'],
+                context.GLOBAL.ws_api(),
                 {'topic': '/endpoints',
                  'filter': app,
                  'proto': proto,
