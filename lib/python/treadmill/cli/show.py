@@ -136,12 +136,9 @@ def init():
                   envvar='TREADMILL_CELL',
                   callback=cli.handle_context_opt,
                   expose_value=False)
-    @click.option('--api', required=False, help='API url to use.',
-                  metavar='URL',
-                  envvar='TREADMILL_STATEAPI')
-    def show(api):
+    def show():
         """Show state of scheduled applications."""
-        ctx['api'] = api
+        pass
 
     @show.command()
     @cli.handle_exceptions(restclient.CLI_REST_EXCEPTIONS)
@@ -151,7 +148,7 @@ def init():
     @click.option('--partition', help='Filter apps by partition')
     def state(match, finished, partition):
         """Show state of Treadmill scheduled instances."""
-        apis = context.GLOBAL.state_api(ctx['api'])
+        apis = context.GLOBAL.state_api()
         return _show_state(apis, match, finished, partition)
 
     @show.command()
@@ -160,7 +157,7 @@ def init():
     @click.option('--partition', help='Filter apps by partition')
     def pending(match, partition):
         """Show pending instances."""
-        apis = context.GLOBAL.state_api(ctx['api'])
+        apis = context.GLOBAL.state_api()
         return _show_list(apis, match, ['pending'], partition=partition)
 
     @show.command()
@@ -169,7 +166,7 @@ def init():
     @click.option('--partition', help='Filter apps by partition')
     def running(match, partition):
         """Show running instances."""
-        apis = context.GLOBAL.state_api(ctx['api'])
+        apis = context.GLOBAL.state_api()
         return _show_list(apis, match, ['running'], partition=partition)
 
     @show.command()
@@ -180,7 +177,7 @@ def init():
                   help='Show details.')
     def finished(match, partition, details):
         """Show finished instances."""
-        apis = context.GLOBAL.state_api(ctx['api'])
+        apis = context.GLOBAL.state_api()
         if details:
             return _show_finished(apis, match, partition)
         return _show_list(
@@ -193,7 +190,7 @@ def init():
     @click.option('--partition', help='Filter apps by partition')
     def scheduled(match, partition):
         """Show scheduled instances."""
-        apis = context.GLOBAL.state_api(ctx['api'])
+        apis = context.GLOBAL.state_api()
         return _show_list(
             apis, match, ['running', 'scheduled'], partition=partition
         )
@@ -204,7 +201,7 @@ def init():
     @click.option('--partition', help='Filter apps by partition')
     def _all(match, partition):
         """Show scheduled instances."""
-        apis = context.GLOBAL.state_api(ctx['api'])
+        apis = context.GLOBAL.state_api()
         return _show_list(
             apis,
             match,
@@ -219,7 +216,7 @@ def init():
     @click.argument('proto', required=False)
     def endpoints(pattern, endpoint, proto):
         """Show application endpoints."""
-        apis = context.GLOBAL.state_api(ctx['api'])
+        apis = context.GLOBAL.state_api()
         return _show_endpoints(apis, pattern, endpoint, proto)
 
     @show.command()
@@ -227,7 +224,7 @@ def init():
     @click.argument('instance_id')
     def instance(instance_id):
         """Show scheduled instance manifest."""
-        apis = context.GLOBAL.cell_api(ctx['api'])
+        apis = context.GLOBAL.cell_api()
         return _show_instance(apis, instance_id)
 
     del _all

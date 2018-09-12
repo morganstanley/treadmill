@@ -26,19 +26,16 @@ def init():
                   envvar='TREADMILL_CELL',
                   callback=cli.handle_context_opt,
                   expose_value=False)
-    @click.option('--api', required=False, help='API url to use.',
-                  metavar='URL',
-                  envvar='TREADMILL_CELLAPI')
     @click.option('--all', 'all_instances', required=False, is_flag=True,
                   help='Stop all instances matching the app provided')
     @click.argument('instances', nargs=-1)
     @cli.handle_exceptions(restclient.CLI_REST_EXCEPTIONS)
-    def stop(api, all_instances, instances):
+    def stop(all_instances, instances):
         """Stop (unschedule, terminate) Treadmill instance(s)."""
         if not instances:
             return None
 
-        apis = context.GLOBAL.cell_api(api)
+        apis = context.GLOBAL.cell_api()
 
         if all_instances:
             endpoint = '/instance/?match=' + instances[0]

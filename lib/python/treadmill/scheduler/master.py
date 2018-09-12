@@ -528,7 +528,7 @@ class Master(loader.Loader):
                 self.events_dir,
                 traceevents.AbortedTraceEvent(
                     instanceid=appname,
-                    why=app_abort.SCHEDULER,
+                    why=app_abort.AbortedReason.SCHEDULER.value,
                     payload=exception
                 )
             )

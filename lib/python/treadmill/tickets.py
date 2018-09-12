@@ -13,7 +13,6 @@ import hashlib
 import io
 import logging
 import os
-import pwd
 import random
 import shutil
 import stat
@@ -56,7 +55,7 @@ class Ticket:
         self.ticket = ticket
         user = princ[:princ.find('@') if '@' in princ else len(princ)]
         try:
-            self.uid = pwd.getpwnam(user).pw_uid
+            self.uid = utils.get_uid_gid(user)[0]
         except KeyError:
             _LOGGER.warning('princ/user does not exist: %s', user)
             self.uid = None

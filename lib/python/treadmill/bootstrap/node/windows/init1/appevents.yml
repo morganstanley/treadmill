@@ -1,5 +1,5 @@
 command: >
-  {{ treadmill }}\scripts\treadmill sproc cleanup watcher
+  {{ treadmill }}\scripts\treadmill sproc appevents {{ dir }}\appevents
 monitor_policy:
   limit: 5
   interval: 60

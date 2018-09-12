@@ -9,6 +9,9 @@ from __future__ import unicode_literals
 import unittest
 import mock
 
+# Disable W0611: Unused import
+import treadmill.tests.treadmill_test_skip_windows  # pylint: disable=W0611
+
 from treadmill.api import docker_authz
 from treadmill.api.docker_authz import plugins
 
@@ -127,7 +130,7 @@ class DockerAuthzAPITest(unittest.TestCase):
     """Test Docker Authz API
     """
 
-    @mock.patch('treadmill.api.docker_authz._get_user_uid_gid',
+    @mock.patch('treadmill.utils.get_uid_gid',
                 mock.Mock(return_value=(123, 456)))
     def test_authzreq(self):
         """Test authzreq
@@ -146,7 +149,38 @@ class DockerAuthzAPITest(unittest.TestCase):
         self.assertEqual(msg, 'Allowed')
         self.assertTrue(allow)
 
-    @mock.patch('treadmill.api.docker_authz._get_user_uid_gid',
+        # {"User": "foo", "Image": "foo"}
+        # get_uid_gid convert name to 123:456
+        body = 'eyJVc2VyIjogImZvbyIsICJJbWFnZSI6ICJmb28ifQo='
+        data = {
+            'RequestBody': body,
+            'RequestMethod': 'POST',
+            'RequestUri': '/v1.26/containers/create',
+        }
+        (allow, msg) = _api.authzreq(data)
+        self.assertTrue(allow)
+
+    @mock.patch('treadmill.utils.get_uid_gid',
+                mock.Mock(side_effect=[(12, 34), (56, 78)]))
+    def test_authzreq_fail(self):
+        """Test authzreq unauthz
+        """
+        _api = docker_authz.API(users=['foo'])
+        # pylint: disable=protected-access
+        self.assertEqual(_api._users, [(12, 34)])
+
+        # {"User": "foo", "Image": "foo"}
+        # get_uid_gid convert name to 56:78
+        body = 'eyJVc2VyIjogImZvbyIsICJJbWFnZSI6ICJmb28ifQo='
+        data = {
+            'RequestBody': body,
+            'RequestMethod': 'POST',
+            'RequestUri': '/v1.26/containers/create',
+        }
+        (allow, msg) = _api.authzreq(data)
+        self.assertFalse(allow)
+
+    @mock.patch('treadmill.utils.get_uid_gid',
                 mock.Mock(return_value=(123, 456)))
     def test_authzres(self):
         """Test different API can handle image user

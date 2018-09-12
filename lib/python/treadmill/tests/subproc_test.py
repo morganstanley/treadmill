@@ -29,5 +29,9 @@ class SubprocTest(unittest.TestCase):
         """Test resolve.
         """
         self.assertEqual(subproc.resolve('foo'), 'bar')
-        self.assertEqual(subproc.resolve('xxx'), '/x/y/z/xxx')
-        self.assertEqual(subproc.resolve('xxx_d'), '/x/y/z')
+        if os.name == 'nt':
+            self.assertEqual(subproc.resolve('xxx'), r'\x\y\z\xxx')
+            self.assertEqual(subproc.resolve('xxx_d'), r'\x\y\z')
+        else:
+            self.assertEqual(subproc.resolve('xxx'), '/x/y/z/xxx')
+            self.assertEqual(subproc.resolve('xxx_d'), '/x/y/z')

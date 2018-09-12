@@ -27,9 +27,10 @@ import time
 import string
 
 if os.name != 'nt':
-    import fcntl
-    import pwd
-    import resource
+    # Pylint warning unable to import because it is on Linux only
+    import fcntl    	# pylint: disable=import-error
+    import pwd      	# pylint: disable=import-error
+    import resource 	# pylint: disable=import-error
 else:
     # Pylint warning unable to import because it is on Windows only
     import win32api  # pylint: disable=E0401
@@ -560,7 +561,7 @@ def drop_privileges(uid_name='nobody'):
         return
 
     # Get the uid/gid from the name
-    running_uid = pwd.getpwnam(uid_name).pw_uid
+    (running_uid, _gid) = get_uid_gid(uid_name)
 
     # Remove group privileges
     os.setgroups([])
@@ -672,7 +673,7 @@ def get_current_username():
     if os.name == 'nt':
         return win32api.GetUserName()
     else:
-        return pwd.getpwuid(os.getuid()).pw_name
+        return get_username(os.getuid())
 
 
 # List of signals that can be manipulated
@@ -789,6 +790,34 @@ def iter_sep(iterable, separator):
     for i in iterable:
         yield i
         yield separator
+
+
+def get_uid_gid(username):
+    """Get linux uid/gid from username
+    """
+    user_pw = pwd.getpwnam(username)
+    return (user_pw.pw_uid, user_pw.pw_gid)
+
+
+def get_username(uid):
+    """Get linux username from uid
+    """
+    return pwd.getpwuid(uid).pw_name
+
+
+def get_usershell(username):
+    """Get linux user shell
+    """
+    user_pw = pwd.getpwnam(username)
+    return user_pw.pw_shell
+
+
+def get_userhome(username):
+    """Get linux user home dir
+    """
+    user_pw = pwd.getpwnam(username)
+    user_pw = pwd.getpwnam(username)
+    return user_pw.pw_dir
 
 
 # Aliases for compatibility

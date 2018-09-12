@@ -28,24 +28,18 @@ def init():
     """Return top level command handler."""
     # pylint: disable=too-many-statements
 
-    ctx = {}
-
     @click.group()
     @click.option('--api-service-principal', required=False,
                   envvar='TREADMILL_API_SERVICE_PRINCIPAL',
                   callback=cli.handle_context_opt,
                   help='API service principal for SPNEGO auth (default HTTP)',
                   expose_value=False)
-    @click.option('--api', help='API url to use.',
-                  metavar='URL',
-                  envvar='TREADMILL_CELLAPI')
     @click.option('--cell', required=True,
                   envvar='TREADMILL_CELL',
                   callback=cli.handle_context_opt,
                   expose_value=False)
-    def cron_group(api):
+    def cron_group():
         """Manage Treadmill cron jobs"""
-        ctx['api'] = api
 
     @cron_group.command()
     @click.argument('job_id')
@@ -58,7 +52,7 @@ def init():
     @_ON_EXCEPTIONS
     def configure(job_id, event, resource, expression, count):
         """Create or modify an existing app start schedule"""
-        restapi = context.GLOBAL.cell_api(ctx['api'])
+        restapi = context.GLOBAL.cell_api()
         url = _REST_PATH + job_id
 
         data = {}
@@ -92,7 +86,7 @@ def init():
     @_ON_EXCEPTIONS
     def _list(match, resource):
         """List out all cron events"""
-        restapi = context.GLOBAL.cell_api(ctx['api'])
+        restapi = context.GLOBAL.cell_api()
         url = _REST_PATH
         query = {}
         if match:
@@ -115,7 +109,7 @@ def init():
     @_ON_EXCEPTIONS
     def delete(job_id):
         """Delete a cron events"""
-        restapi = context.GLOBAL.cell_api(ctx['api'])
+        restapi = context.GLOBAL.cell_api()
         url = _REST_PATH + job_id
         restclient.delete(restapi, url)
 
@@ -124,7 +118,7 @@ def init():
     @_ON_EXCEPTIONS
     def pause(job_id):
         """Pause a cron job"""
-        restapi = context.GLOBAL.cell_api(ctx['api'])
+        restapi = context.GLOBAL.cell_api()
         url = _REST_PATH + job_id + '?pause=true'
         job = restclient.put(restapi, url, {}).json()
         _LOGGER.debug('job: %r', job)
@@ -136,7 +130,7 @@ def init():
     @_ON_EXCEPTIONS
     def resume(job_id):
         """Resume a cron job"""
-        restapi = context.GLOBAL.cell_api(ctx['api'])
+        restapi = context.GLOBAL.cell_api()
         url = _REST_PATH + job_id + '?resume=true'
         job = restclient.put(restapi, url, {}).json()
         _LOGGER.debug('job: %r', job)

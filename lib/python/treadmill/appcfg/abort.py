@@ -32,6 +32,7 @@ class AbortedReason(enum.Enum):
     # W0232: Class has no __init__ method
     # pylint: disable=W0232
     UNKNOWN = 'unknown'
+    UNSUPPORTED = 'unsupported'
     INVALID_TYPE = 'invalid_type'
     TICKETS = 'tickets'
     SCHEDULER = 'scheduler'
@@ -41,6 +42,7 @@ class AbortedReason(enum.Enum):
     PID1 = 'pid1'
     GMSA = 'GMSA'
     TIMEOUT = 'timeout'
+    PIVOT_ROOT = 'pivot_root'
 
     def description(self):
         """Gets the description for the current aborted reason."""
@@ -51,7 +53,9 @@ class AbortedReason(enum.Enum):
             AbortedReason.PORTS: 'ports could not be assigned',
             AbortedReason.IMAGE: 'could not use given image',
             AbortedReason.PID1: 'pid1 failed to start',
-            AbortedReason.GMSA: 'host is not part of GMSA group'
+            AbortedReason.GMSA: 'host is not part of GMSA group',
+            AbortedReason.PIVOT_ROOT: 'pivot_root failure',
+            AbortedReason.UNSUPPORTED: 'unsupported on the node',
         }.get(self, self.value)
 
 

@@ -12,7 +12,6 @@ import hashlib
 import io
 import logging
 import os
-import pwd
 import random
 
 import six
@@ -234,5 +233,5 @@ def make_keytab(kt_target, kt_components, owner=None):
     subproc.check_call(cmd_line)
 
     if owner:
-        uid = pwd.getpwnam(owner).pw_uid
+        (uid, _gid) = utils.get_uid_gid(owner)
         os.chown(kt_target, uid, -1)

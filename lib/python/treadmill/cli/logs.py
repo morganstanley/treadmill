@@ -1,4 +1,4 @@
-"""Trace treadmill application events.
+"""Show Treadmill instance logs.
 """
 
 from __future__ import absolute_import
@@ -21,13 +21,13 @@ from treadmill.websocket import client as wsclient
 _LOGGER = logging.getLogger(__name__)
 
 
-def _find_endpoints(pattern, proto, endpoint, api=None):
+def _find_endpoints(pattern, proto, endpoint):
     """Return all the matching endpoints in the cell.
 
     The return value is a dict with host-endpoint assigments as key-value
     pairs.
     """
-    apis = context.GLOBAL.state_api(api)
+    apis = context.GLOBAL.state_api()
 
     url = '/endpoint/{}/{}/{}'.format(pattern, proto, endpoint)
 
@@ -49,11 +49,6 @@ def init():
                   callback=cli.handle_context_opt,
                   help='API service principal for SPNEGO auth (default HTTP)',
                   expose_value=False)
-    @click.option('--api',
-                  envvar='TREADMILL_STATEAPI',
-                  help='State API url to use.',
-                  metavar='URL',
-                  required=False)
     @click.argument('app-or-svc')
     @click.option('--cell',
                   callback=cli.handle_context_opt,
@@ -72,13 +67,9 @@ def init():
                   help='The container id. Specify this if you look for a '
                        'not-running (terminated) application\'s log',
                   required=False)
-    @click.option('--ws-api',
-                  help='Websocket API url to use.',
-                  metavar='URL',
-                  required=False)
     @cli.handle_exceptions(
         restclient.CLI_REST_EXCEPTIONS + wsclient.CLI_WS_EXCEPTIONS)
-    def logs(all_logs, api, app_or_svc, host, service, uniq, ws_api):
+    def logs(all_logs, app_or_svc, host, service, uniq):
         """View or download application's service logs.
 
         Arguments are expected to be specified a) either as one string or b)
@@ -106,6 +97,8 @@ def init():
         if logname is None:
             cli.bad_exit('Please specify the "service" parameter.')
 
+        ws_api = context.GLOBAL.ws_api()
+
         if host is None:
             instance = None
             if uniq == 'running':
@@ -130,7 +123,6 @@ def init():
                     urllib_parse.quote('root.*'),
                     'tcp',
                     'nodeinfo',
-                    api
                 )
                 if ep['host'] == host
             ]

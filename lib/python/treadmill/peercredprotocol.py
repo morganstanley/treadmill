@@ -36,13 +36,13 @@ from __future__ import unicode_literals
 import logging
 import base64
 import abc
-import pwd
 import socket
 import struct
 
 from twisted.internet import protocol
 from twisted.protocols import basic
 
+from treadmill import utils
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -78,7 +78,7 @@ class PeerCredLineServer(basic.LineReceiver):  # pylint: disable=C0103
         _LOGGER.info('Connection from pid: %d, uid: %d, gid %d', pid, uid, gid)
 
         try:
-            self.username = pwd.getpwuid(uid).pw_name
+            self.username = utils.get_username(uid)
             self.uid = uid
             self.gid = gid
 

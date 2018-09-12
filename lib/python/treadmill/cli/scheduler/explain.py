@@ -28,10 +28,9 @@ def init():
     @click.command()
     @cli.handle_exceptions(_EXCEPTIONS)
     @click.argument('instance')
-    @click.pass_context
-    def explain(ctx, instance):
+    def explain(instance):
         """Explain why an instance is pending."""
-        api_urls = context.GLOBAL.cell_api(ctx.obj.get('api'))
+        api_urls = context.GLOBAL.cell_api()
         path = '/scheduler/explain/{}'.format(urllib.parse.quote(instance))
 
         try:

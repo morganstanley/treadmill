@@ -21,7 +21,7 @@ prettytable>=0.7,<1
 psutil>=4.2,<5
 pykerberos>=1.1,<2 ; sys_platform == 'linux'
 pytz>=2017
-pywin32>=220 ; sys_platform == 'win32'
+pypiwin32>=219 ; sys_platform == 'win32'
 PyYAML>=3,<4
 requests-kerberos>=0.11,<1
 requests-unixsocket>=0.1,<1 ; sys_platform == 'linux'

@@ -96,7 +96,7 @@ def configure(tm_env, event, runtime):
 
     # Write the actual container start script
     if os.name == 'nt':
-        run_script = '{treadmill}/bin/treadmill sproc run .'.format(
+        run_script = '{treadmill}/scripts/treadmill sproc run .'.format(
             treadmill=subproc.resolve('treadmill'),
         )
     else:

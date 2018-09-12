@@ -9,6 +9,7 @@ from __future__ import unicode_literals
 import io
 import os
 import shutil
+import sys
 import tempfile
 import unittest
 
@@ -112,6 +113,8 @@ class AppCfgMgrTest(unittest.TestCase):
         )
         self.assertFalse(res)
 
+    # FIXME: windows does not support symlink for non-privlege user
+    @unittest.skipUnless(sys.platform.startswith('linux'), 'Requires Linux')
     @mock.patch('treadmill.subproc.check_call', mock.Mock())
     @mock.patch('treadmill.utils.rootdir',
                 mock.Mock(return_value='/treadmill'))
@@ -223,6 +226,8 @@ class AppCfgMgrTest(unittest.TestCase):
         treadmill.appcfgmgr.AppCfgMgr._terminate.assert_not_called()
         treadmill.appcfgmgr.AppCfgMgr._refresh_supervisor.assert_called()
 
+    # FIXME: windows does not support symlink for non-privlege user
+    @unittest.skipUnless(sys.platform.startswith('linux'), 'Requires Linux')
     @mock.patch('treadmill.fs.symlink_safe', mock.Mock())
     @mock.patch('treadmill.appcfgmgr.AppCfgMgr._configure', mock.Mock())
     @mock.patch('treadmill.appcfgmgr.AppCfgMgr._terminate', mock.Mock())
@@ -302,6 +307,8 @@ class AppCfgMgrTest(unittest.TestCase):
         treadmill.appcfgmgr.AppCfgMgr._configure.assert_not_called()
         treadmill.appcfgmgr.AppCfgMgr._refresh_supervisor.assert_called()
 
+    # FIXME: windows does not support symlink for non-privlege user
+    @unittest.skipUnless(sys.platform.startswith('linux'), 'Requires Linux')
     @mock.patch('treadmill.appcfgmgr.AppCfgMgr._configure', mock.Mock())
     @mock.patch('treadmill.appcfgmgr.AppCfgMgr._refresh_supervisor',
                 mock.Mock())
@@ -336,6 +343,8 @@ class AppCfgMgrTest(unittest.TestCase):
         )
         treadmill.appcfgmgr.AppCfgMgr._refresh_supervisor.assert_called()
 
+    # FIXME: windows does not support symlink for non-privlege user
+    @unittest.skipUnless(sys.platform.startswith('linux'), 'Requires Linux')
     @mock.patch('treadmill.appcfgmgr.AppCfgMgr._configure', mock.Mock())
     @mock.patch('treadmill.appcfgmgr.AppCfgMgr._refresh_supervisor',
                 mock.Mock())
@@ -377,6 +386,8 @@ class AppCfgMgrTest(unittest.TestCase):
 
     # Disable C0103(invalid-name)
     # pylint: disable=C0103
+    # FIXME: windows does not support symlink for non-privlege user
+    @unittest.skipUnless(sys.platform.startswith('linux'), 'Requires Linux')
     @mock.patch('treadmill.appcfgmgr.AppCfgMgr._configure', mock.Mock())
     @mock.patch('treadmill.appcfgmgr.AppCfgMgr._refresh_supervisor',
                 mock.Mock())
@@ -413,6 +424,8 @@ class AppCfgMgrTest(unittest.TestCase):
         treadmill.appcfgmgr.AppCfgMgr._configure.assert_not_called()
         treadmill.appcfgmgr.AppCfgMgr._refresh_supervisor.assert_called()
 
+    # FIXME: windows does not support symlink for non-privlege user
+    @unittest.skipUnless(sys.platform.startswith('linux'), 'Requires Linux')
     @mock.patch('treadmill.appcfgmgr.AppCfgMgr._configure', mock.Mock())
     @mock.patch('treadmill.appcfgmgr.AppCfgMgr._refresh_supervisor',
                 mock.Mock())

@@ -19,7 +19,6 @@ def init():
     """Return top level command handler."""
 
     server_formatter = cli.make_formatter('server')
-    ctx = {}
 
     @click.group(name='server')
     @click.option(
@@ -29,15 +28,9 @@ def init():
         help='API service principal for SPNEGO auth (default HTTP)',
         expose_value=False
     )
-    @click.option(
-        '--api', required=False,
-        help='API url to use.',
-        envvar='TREADMILL_ADMINAPI'
-    )
-    def server_grp(api):
+    def server_grp():
         """List & display Treadmill servers."""
-        if api:
-            ctx['api'] = api
+        pass
 
     @server_grp.command(name='list')
     @click.option(
@@ -56,7 +49,7 @@ def init():
         if partition is not None:
             query['partition'] = partition
         url = '/server/?{}'.format(urllib_parse.urlencode(query))
-        restapi = context.GLOBAL.admin_api(ctx.get('api'))
+        restapi = context.GLOBAL.admin_api()
         cli.out(server_formatter(restclient.get(restapi, url).json()))
 
     @server_grp.command()
@@ -64,7 +57,7 @@ def init():
     @cli.handle_exceptions(restclient.CLI_REST_EXCEPTIONS)
     def configure(name):
         """Display details of the server."""
-        restapi = context.GLOBAL.admin_api(ctx.get('api'))
+        restapi = context.GLOBAL.admin_api()
         cli.out(
             server_formatter(
                 restclient.get(restapi, '/server/{}'.format(name)).json()
