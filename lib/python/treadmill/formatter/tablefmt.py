@@ -844,3 +844,25 @@ class SchedulerRebootsPrettyFormatter:
             return format_list(item)
         else:
             return format_item(item)
+
+
+class AppDNSPrettyFormatter:
+    """Pretty table App Groups formatter."""
+
+    @staticmethod
+    def format(item):
+        """Return pretty-formatted item."""
+        schema = [('name', '_id', None),
+                  ('scope', None, None),
+                  ('cells', None, None),
+                  ('pattern', None, None),
+                  ('endpoints', None, None),
+                  ('alias', None, None)]
+
+        format_item = make_dict_to_table(schema)
+        format_list = make_list_to_table(schema)
+
+        if isinstance(item, list):
+            return format_list(item)
+
+        return format_item(item)

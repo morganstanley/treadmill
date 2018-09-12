@@ -34,12 +34,16 @@ def post_ipc(event, uds='/run/tm_ctl/appevents'):
         time.time(), instanceid, event_type, event_data
     ).encode()
 
+    sent = 0
     with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as u_sock:
         try:
             u_sock.connect(uds)
             u_sock.sendall(event_str)
+            sent = len(event_str)
 
         except ConnectionRefusedError:
             _LOGGER.error('unable to connect %s', uds)
         except Exception as err:  # pylint: disable=broad-except
             _LOGGER.error('error to send event %s: %r', event_str, err)
+
+    return sent

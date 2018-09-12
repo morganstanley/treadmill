@@ -30,7 +30,7 @@ from treadmill import utils
 from treadmill import yamlwrapper as yaml
 
 if sys.platform.startswith('linux'):
-    import resource
+    import resource	 # pylint: disable=import-error
 
 
 class UtilsTest(unittest.TestCase):

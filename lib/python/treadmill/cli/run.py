@@ -130,9 +130,6 @@ def init():
                   envvar='TREADMILL_CELL',
                   callback=cli.handle_context_opt,
                   expose_value=False)
-    @click.option('--api', required=False, help='API url to use.',
-                  metavar='URL',
-                  envvar='TREADMILL_CELLAPI')
     @click.option('--count', help='Number of instances to start',
                   default=1)
     @click.option('-m', '--manifest', help='App manifest file (stream)',
@@ -162,8 +159,7 @@ def init():
     @click.argument('appname')
     @click.argument('command', nargs=-1)
     @cli.handle_exceptions(restclient.CLI_REST_EXCEPTIONS)
-    def run(api,
-            count,
+    def run(count,
             manifest,
             memory,
             cpu,
@@ -185,7 +181,7 @@ def init():
         When manifest (or other options) are specified, they will be merged
         on top of existing manifest if it exists.
         """
-        apis = context.GLOBAL.cell_api(api)
+        apis = context.GLOBAL.cell_api()
         return _run(
             apis, count, manifest, memory, cpu, disk, tickets,
             service, restart_limit, restart_interval, endpoint,

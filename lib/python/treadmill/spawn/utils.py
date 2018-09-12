@@ -8,8 +8,9 @@ from __future__ import unicode_literals
 
 import logging
 import os
-import pwd
 import zlib
+
+from treadmill import utils
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -18,7 +19,7 @@ def get_user_safe(path):
     """Gets the user of the given path.
     """
     try:
-        return pwd.getpwuid(os.stat(path).st_uid).pw_name
+        return utils.get_username(os.stat(path).st_uid)
     except (OSError, KeyError):
         _LOGGER.warning('Could not get user of path %r', path)
         return None

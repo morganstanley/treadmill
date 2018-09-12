@@ -1,0 +1,42 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "resource_id": {
+        "type": "string",
+        "maxLength": 60,
+        "pattern": "^[a-zA-Z0-9_]+(\\.[a-zA-Z0-9\\-_^#]+)+$"
+    },
+    "resource": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+            "cells": {
+                "type": "array",
+                "items": { "$ref": "file://treadmill/etc/schema/common.json#/cell" },
+                "minItems": 1
+            },
+            "pattern": {
+                "type": "string"
+            },
+            "endpoints": {
+                "type": "array",
+                "items": { "$ref": "file://treadmill/etc/schema/common.json#/endpoint" },
+                "minItems": 0
+            },
+            "alias": {
+                "type": "string",
+                "pattern": "^[a-zA-Z0-9]+(\\.[a-zA-Z0-9\\-]+)+$"
+            },
+            "scope": {
+                "type": "string"
+            }
+        }
+    },
+    "verbs": {
+        "create": {
+            "required": ["scope", "pattern", "alias"]
+        },
+        "update": {
+            "required": []
+        }
+    }
+}

@@ -30,7 +30,6 @@ _REST_PATH = '/identity-group/'
 def init():  # pylint: disable=R0912
     """Configures identity group."""
     formatter = cli.make_formatter('identity-group')
-    ctx = {}
 
     @click.group()
     @click.option('--api-service-principal', required=False,
@@ -42,12 +41,9 @@ def init():  # pylint: disable=R0912
                   envvar='TREADMILL_CELL',
                   callback=cli.handle_context_opt,
                   expose_value=False)
-    @click.option('--api', help='API url to use.',
-                  metavar='URL',
-                  envvar='TREADMILL_CELLAPI')
-    def monitor_group(api):
+    def monitor_group():
         """Manage identity group configuration"""
-        ctx['api'] = api
+        pass
 
     @monitor_group.command()
     @click.option('-n', '--count', type=int, help='Identity count')
@@ -55,7 +51,7 @@ def init():  # pylint: disable=R0912
     @_ON_EXCEPTIONS
     def configure(count, name):
         """Configure application monitor"""
-        restapi = context.GLOBAL.cell_api(ctx['api'])
+        restapi = context.GLOBAL.cell_api()
         url = _REST_PATH + name
 
         if count is not None:
@@ -75,7 +71,7 @@ def init():  # pylint: disable=R0912
     @_ON_EXCEPTIONS
     def _list():
         """List configured identity groups"""
-        restapi = context.GLOBAL.cell_api(ctx['api'])
+        restapi = context.GLOBAL.cell_api()
         response = restclient.get(restapi, '/identity-group/')
         cli.out(formatter(response.json()))
 
@@ -84,7 +80,7 @@ def init():  # pylint: disable=R0912
     @_ON_EXCEPTIONS
     def delete(name):
         """Delete identity group"""
-        restapi = context.GLOBAL.cell_api(ctx['api'])
+        restapi = context.GLOBAL.cell_api()
         url = _REST_PATH + name
         restclient.delete(restapi, url)
 

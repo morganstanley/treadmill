@@ -20,9 +20,9 @@ from treadmill import plugin_manager
 from treadmill import restclient
 
 
-def fetch_report(cell_api, report_type, match=None, partition=None):
+def fetch_report(report_type, match=None, partition=None):
     """Fetch a report of the given type and return it as a DataFrame."""
-    api_urls = context.GLOBAL.cell_api(cell_api)
+    api_urls = context.GLOBAL.cell_api()
     path = '/scheduler/{}'.format(report_type)
 
     query = {}
@@ -76,17 +76,8 @@ def init():
         expose_value=False,
         required=True
     )
-    @click.option(
-        '--api',
-        help='Cell API URL',
-        metavar='URL',
-        envvar='TREADMILL_CELLAPI'
-    )
-    @click.pass_context
-    def run(ctx, api):
+    def run():
         """Report scheduler state."""
-        if not ctx.obj:
-            ctx.obj = {}  # Doesn't seem to exist in testing
-        ctx.obj['api'] = api
+        pass
 
     return run

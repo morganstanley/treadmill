@@ -11,18 +11,20 @@ import glob
 import io
 import logging
 import os
-import pwd
 import shutil
 import stat
 
 from treadmill import appcfg
 from treadmill import cgroups
+from treadmill import exc
 from treadmill import fs
 from treadmill import keytabs
 from treadmill import runtime
 from treadmill import subproc
 from treadmill import supervisor
+from treadmill import utils
 
+from treadmill.appcfg import abort as app_abort
 from treadmill.fs import linux as fs_linux
 
 from . import fs as image_fs
@@ -120,6 +122,22 @@ def create_supervision_tree(tm_env, container_dir, root_dir, app,
     tombstone_ctl_uds = os.path.join(ctl_uds, 'tombstone')
 
     sys_dir = os.path.join(container_dir, 'sys')
+
+    try:
+        old_system_services = [
+            svc_name for svc_name in os.listdir(sys_dir)
+            if (not svc_name.startswith('.') and
+                os.path.isdir(os.path.join(sys_dir, svc_name)))
+        ]
+    except FileNotFoundError:
+        old_system_services = []
+
+    new_system_services = [svc_def.name for svc_def in app.system_services]
+
+    for svc_name in set(old_system_services) - set(new_system_services):
+        _LOGGER.info('Removing old system service: %s', svc_name)
+        fs.rmtree_safe(os.path.join(sys_dir, svc_name))
+
     sys_scandir = supervisor.create_scan_dir(
         sys_dir,
         finish_timeout=6000,
@@ -293,6 +311,8 @@ def make_fsroot(root_dir, app):
        - /var/log (new)
        - /var/spool - create empty with dirs.
      - Bind everything in /var, skipping /spool/tickets
+
+     tm_env is used to deliver abort events
      """
     newroot_norm = fs.norm_safe(root_dir)
 
@@ -393,7 +413,16 @@ def make_fsroot(root_dir, app):
             )
 
     if hasattr(app, 'docker') and app.docker:
-        _mount_docker_tmpfs(newroot_norm)
+        # If unable to mount docker directory, we throw Aborted events
+        try:
+            _mount_docker_tmpfs(newroot_norm)
+        except FileNotFoundError as err:
+            _LOGGER.error('Failed to mount docker tmpfs: %s', err)
+            # this exception is caught by sproc run to generate abort event
+            raise exc.ContainerSetupError(
+                msg=str(err),
+                reason=app_abort.AbortedReason.UNSUPPORTED,
+            )
 
 
 def _mount_docker_tmpfs(newroot_norm):
@@ -492,8 +521,8 @@ def _prepare_hosts(container_dir, app):
         os.path.join(etc_dir, 'hosts')
     )
 
-    pwnam = pwd.getpwnam(app.proid)
-    os.chown(ha_dir, pwnam.pw_uid, pwnam.pw_gid)
+    (uid, gid) = utils.get_uid_gid(app.proid)
+    os.chown(ha_dir, uid, gid)
 
 
 def _prepare_pam_sshd(tm_env, container_dir, app):
@@ -619,6 +648,7 @@ class NativeImage(_image_base.Image):
         self.tm_env = tm_env
 
     def unpack(self, container_dir, root_dir, app):
+
         make_fsroot(root_dir, app)
 
         image_fs.configure_plugins(self.tm_env, container_dir, app)
