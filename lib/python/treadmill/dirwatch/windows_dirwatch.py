@@ -136,7 +136,7 @@ class WindowsDirWatcher(dirwatch_base.DirWatcher):
 
         :param watch_id: watch id
         """
-        info = self.dir_infos.get(watch_id)
+        info = self._dir_infos.get(watch_id)
         if info is not None:
             info.close()
             del self._dir_infos[watch_id]

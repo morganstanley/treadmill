@@ -164,7 +164,7 @@ def _wait_for_ssh(queue, ssh, command, timeout=1, attempts=40):
     queue.task_done()
 
 
-def _wait_for_app(wsapi, ssh, app, command, queue=None):
+def _wait_for_app(ssh, app, command, queue=None):
     """Use websockets to wait for the app to start"""
     # JoinableQueue is filled with a dummy item otherwise queue.join() unblocks
     # immediately wo/ actually letting the ws_loop and _wait_for_ssh to run.
@@ -183,7 +183,7 @@ def _wait_for_app(wsapi, ssh, app, command, queue=None):
     try:
         gevent.spawn(_wait_for_ssh, queue, ssh, command)
         gevent.spawn(ws_client.ws_loop,
-                     wsapi,
+                     context.GLOBAL.ws_api(),
                      {'topic': '/endpoints',
                       'filter': app,
                       'proto': 'tcp',
@@ -202,12 +202,6 @@ def init():
     """Return top level command handler."""
 
     @click.command()
-    @click.option('--wsapi', required=False, help='WS API url to use.',
-                  metavar='URL',
-                  envvar='TREADMILL_WSAPI')
-    @click.option('--api', required=False, help='API url to use.',
-                  metavar='URL',
-                  envvar='TREADMILL_STATEAPI')
     @click.option('--cell', required=True,
                   envvar='TREADMILL_CELL',
                   callback=cli.handle_context_opt,
@@ -218,16 +212,16 @@ def init():
                   type=click.Path(exists=True, readable=True))
     @click.argument('app')
     @click.argument('command', nargs=-1)
-    def ssh(wsapi, api, ssh, app, command, wait):
+    def ssh(ssh, app, command, wait):
         """SSH into Treadmill container."""
         if ssh is None:
             ssh = _DEFAULT_SSH
 
         if wait:
-            _wait_for_app(wsapi, ssh, app, command)
+            _wait_for_app(ssh, app, command)
 
         else:
-            apis = context.GLOBAL.state_api(api)
+            apis = context.GLOBAL.state_api()
 
             url = '/endpoint/{}/tcp/ssh'.format(urllib_parse.quote(app))
 

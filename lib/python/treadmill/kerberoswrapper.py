@@ -12,13 +12,13 @@ import sys
 # on windows the name of the kerberos module is different
 # so sys.modules needs to be updated to be able to 'import kerberos'
 if os.name == 'nt':
-    import winkerberos  # pylint: disable=import-error
+    import winkerberos  	# pylint: disable=import-error
     sys.modules['kerberos'] = winkerberos
 
-import kerberos
+import kerberos             # pylint: disable=import-error
 
 
-GSSError = kerberos.GSSError
+GSSError = kerberos.GSSError 	# pylint: disable=C0103
 GSS_C_MUTUAL_FLAG = kerberos.GSS_C_MUTUAL_FLAG
 GSS_C_SEQUENCE_FLAG = kerberos.GSS_C_SEQUENCE_FLAG
 GSS_C_INTEG_FLAG = kerberos.GSS_C_INTEG_FLAG

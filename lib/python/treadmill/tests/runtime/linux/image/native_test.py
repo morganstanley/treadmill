@@ -199,7 +199,20 @@ class NativeImageTest(unittest.TestCase):
             'pwnam',
             ['pw_uid', 'pw_dir', 'pw_shell']
         )(3, '/', '/bin/sh')))
+    @mock.patch('os.listdir', mock.Mock(
+        side_effect=lambda path: {
+            '/some/dir/sys': ['command0', 'command3', 'command4', '.s6-svscan']
+        }[path]
+    ))
+    @mock.patch('os.path.isdir', mock.Mock(
+        side_effect=lambda path: {
+            '/some/dir/sys/command0': True,
+            '/some/dir/sys/command3': True,
+            '/some/dir/sys/command4': True,
+        }[path]
+    ))
     @mock.patch('treadmill.fs.mkdir_safe', mock.Mock())
+    @mock.patch('treadmill.fs.rmtree_safe', mock.Mock())
     @mock.patch('treadmill.fs.linux.mount_bind', mock.Mock())
     @mock.patch('treadmill.supervisor.create_service', mock.Mock())
     @mock.patch('treadmill.supervisor.create_scan_dir', mock.Mock())
@@ -397,6 +410,10 @@ class NativeImageTest(unittest.TestCase):
                       source=os.path.join(self.root, 'ctl'),
                       read_only=False, recursive=False),
         ])
+
+        treadmill.fs.rmtree_safe.assert_called_once_with(
+            '/some/dir/sys/command0'
+        )
 
     @mock.patch('treadmill.subproc.resolve', mock.Mock())
     def test__prepare_ldpreload(self):

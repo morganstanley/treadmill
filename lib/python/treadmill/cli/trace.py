@@ -32,7 +32,7 @@ _RC_KILLED = 102
 _RC_NO_TRACES = 103
 
 
-def _trace_loop(ctx, app, snapshot):
+def _trace_loop(app, snapshot):
     """Instance trace loop."""
 
     trace_printer = printer.AppTracePrinter()
@@ -73,7 +73,7 @@ def _trace_loop(ctx, app, snapshot):
 
     try:
         ws_client.ws_loop(
-            ctx['wsapi'],
+            context.GLOBAL.ws_api(),
             {'topic': '/trace',
              'filter': app},
             snapshot,
@@ -91,23 +91,15 @@ def _trace_loop(ctx, app, snapshot):
 def init():
     """Return top level command handler."""
 
-    ctx = {}
-
     @click.command()
     @click.option('--cell', required=True,
                   envvar='TREADMILL_CELL',
                   callback=cli.handle_context_opt,
                   expose_value=False)
-    @click.option('--api', required=False, help='REST API url to use.',
-                  metavar='URL',
-                  envvar='TREADMILL_STATEAPI')
-    @click.option('--wsapi', required=False, help='WebSocket API url to use.',
-                  metavar='URL',
-                  envvar='TREADMILL_WSAPI')
     @click.option('--last', is_flag=True, default=False)
     @click.option('--snapshot', is_flag=True, default=False)
     @click.argument('app')
-    def trace(api, wsapi, last, snapshot, app):
+    def trace(last, snapshot, app):
         """Trace application events.
 
         Invoking treadmill_trace with non existing application instance will
@@ -133,11 +125,9 @@ def init():
         # Disable too many branches.
         #
         # pylint: disable=R0912
-        ctx['api'] = api
-        ctx['wsapi'] = wsapi
 
         if '#' not in app:
-            apis = context.GLOBAL.state_api(ctx['api'])
+            apis = context.GLOBAL.state_api()
             url = '/state/?finished=1&match={app}'.format(
                 app=urllib_parse.quote(app)
             )
@@ -161,6 +151,6 @@ def init():
             else:
                 app = app_states[-1]['name']
 
-        return _trace_loop(ctx, app, snapshot)
+        return _trace_loop(app, snapshot)
 
     return trace

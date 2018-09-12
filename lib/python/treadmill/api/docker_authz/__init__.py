@@ -9,18 +9,13 @@ from __future__ import unicode_literals
 import base64
 import json
 import logging
-import pwd
 
+from treadmill import utils
 from treadmill.api.docker_authz import plugins
 
 _LOGGER = logging.getLogger(__name__)
 
 _PLUGIN_NAME = 'authz'
-
-
-def _get_user_uid_gid(username):
-    user_pw = pwd.getpwnam(username)
-    return (user_pw.pw_uid, user_pw.pw_gid)
 
 
 class API:
@@ -35,7 +30,7 @@ class API:
 
     def __init__(self, **kwargs):
         users = kwargs.get('users', [])
-        self._users = [_get_user_uid_gid(user) for user in users]
+        self._users = [utils.get_uid_gid(user) for user in users]
         _LOGGER.debug('Allowed uid, gid: %r', self._users)
 
         # TODO: add schema validation

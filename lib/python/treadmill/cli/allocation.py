@@ -74,7 +74,6 @@ def init():
     # pylint: disable=too-many-statements
 
     alloc_formatter = cli.make_formatter('tenant')
-    ctx = {}
 
     @click.group(name='allocation')
     @click.option('--api-service-principal', required=False,
@@ -82,9 +81,7 @@ def init():
                   callback=cli.handle_context_opt,
                   help='API service principal for SPNEGO auth (default HTTP)',
                   expose_value=False)
-    @click.option('--api', required=False, help='API url to use.',
-                  envvar='TREADMILL_ADMINAPI')
-    def allocation_grp(api):
+    def allocation_grp():
         """Manage Treadmill allocations.
 
         Allocation is a group of applications that share same capacity.
@@ -96,14 +93,13 @@ def init():
         extra capacity is offered to sibling apps first (by environment), and
         then up the tree for applications in parent allocations.
         """
-        if api:
-            ctx['api'] = api
+        pass
 
     @allocation_grp.command(name='list')
     @cli.handle_exceptions(restclient.CLI_REST_EXCEPTIONS)
     def _list():
         """List allocations."""
-        restapi = context.GLOBAL.admin_api(ctx.get('api'))
+        restapi = context.GLOBAL.admin_api()
         response = restclient.get(restapi, '/tenant/')
         cli.out(alloc_formatter(response.json()))
 
@@ -119,7 +115,7 @@ def init():
 
         Allocation name is global, and is associated with list of systems.
         """
-        restapi = context.GLOBAL.admin_api(ctx.get('api'))
+        restapi = context.GLOBAL.admin_api()
         url = '/tenant/{}'.format(allocation)
 
         if systems:
@@ -191,7 +187,7 @@ def init():
         """Reserve capacity on the cell for given environment."""
         _check_reserve_usage(empty, memory, cpu, disk)
 
-        restapi = context.GLOBAL.admin_api(ctx.get('api'))
+        restapi = context.GLOBAL.admin_api()
 
         _check_tenant_exists(restapi, allocation)
 
@@ -276,7 +272,7 @@ def init():
         All application assigned to a capacity are ordered by priority from
         high to low.
         """
-        restapi = context.GLOBAL.admin_api(ctx.get('api'))
+        restapi = context.GLOBAL.admin_api()
 
         _check_tenant_exists(restapi, allocation)
         _make_allocation(restapi, allocation, env)
@@ -357,7 +353,7 @@ def init():
     @cli.handle_exceptions(restclient.CLI_REST_EXCEPTIONS)
     def delete(item):
         """Delete a tenant/allocation/reservation."""
-        restapi = context.GLOBAL.admin_api(ctx.get('api'))
+        restapi = context.GLOBAL.admin_api()
 
         path = item.split('/')
         if len(path) == 1:

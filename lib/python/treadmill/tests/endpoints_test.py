@@ -10,6 +10,7 @@ import glob
 import io
 import os
 import shutil
+import sys
 import tempfile
 import unittest
 
@@ -120,6 +121,8 @@ class EndpointMgrTest(unittest.TestCase):
         if self.root and os.path.isdir(self.root):
             shutil.rmtree(self.root)
 
+    # FIXME: windows does not support symlink for non-privlege user
+    @unittest.skipUnless(sys.platform.startswith('linux'), 'Requires Linux')
     def test_createspec(self):
         """Test creation of endpoint spec."""
         owner = os.path.join(self.root, 'apps', 'app1-12345')
@@ -146,6 +149,8 @@ class EndpointMgrTest(unittest.TestCase):
         endpoints.garbage_collect(os.path.join(self.root, 'endpoints'))
         self.assertRaises(FileNotFoundError, os.readlink, expected)
 
+    # FIXME: windows does not support symlink for non-privlege user
+    @unittest.skipUnless(sys.platform.startswith('linux'), 'Requires Linux')
     def test_unlink_all(self):
         """Test creation of endpoint spec."""
         owner = os.path.join(self.root, 'apps', 'app1-12345')
