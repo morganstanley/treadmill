@@ -12,7 +12,6 @@ import socket
 from ldap3.core.exceptions import LDAPCommunicationError
 from ldap3.protocol.sasl.sasl import send_sasl_negotiation
 from ldap3.protocol.sasl.sasl import abort_sasl_negotiation
-
 from treadmill import kerberoswrapper as kerberos
 
 NO_SECURITY_LAYER = 1

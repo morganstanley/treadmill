@@ -303,12 +303,14 @@ def add_linux_system_services(tm_env, manifest):
             ' --cell {cell}'
             ' start-container'
             ' --container-root {container_dir}/root'
+            ' {manifest}'
         ).format(
             treadmill=subproc.resolve('treadmill'),
             unique_name=unique_name,
             cell=manifest['cell'],
             pid1=subproc.resolve('pid1'),
             container_dir=container_data_dir,
+            manifest=os.path.join(container_data_dir, 'state.json'),
         ),
         'environ': [],
         'config': None,

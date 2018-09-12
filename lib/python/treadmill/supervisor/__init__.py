@@ -68,8 +68,6 @@ if os.name == 'nt':
     from . import winss as sup_impl
     _PREFIX = 'winss'
 else:
-    # Disable C0411: standard import "import pwd" comes before "import enum"
-    import pwd  # pylint: disable=C0411
     from . import s6 as sup_impl
     _PREFIX = 's6'
 
@@ -274,7 +272,8 @@ def _create_service_s6(base_dir,
     # Disable R0912: Too many branches
     # pylint: disable=R0912
     try:
-        user_pw = pwd.getpwnam(userid)
+        home_dir = utils.get_userhome(userid)
+        shell = utils.get_usershell(userid)
 
     except KeyError:
         # Check the identity we are going to run as. It needs to exists on the
@@ -294,7 +293,7 @@ def _create_service_s6(base_dir,
         svc_environ = {}
     else:
         svc_environ = environ.copy()
-    svc_environ['HOME'] = user_pw.pw_dir
+    svc_environ['HOME'] = home_dir
     svc.environ = svc_environ
 
     if environment == 'prod':
@@ -306,7 +305,7 @@ def _create_service_s6(base_dir,
     svc.run_script = utils.generate_template(
         run_script,
         user=userid,
-        shell=user_pw.pw_shell,
+        shell=shell,
         environ_dir=environ_dir,
         trace=trace,
         call_before_run=call_before_run,

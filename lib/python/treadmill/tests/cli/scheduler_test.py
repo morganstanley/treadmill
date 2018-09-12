@@ -73,25 +73,6 @@ class ReportTest(unittest.TestCase):
 
     @mock.patch('treadmill.restclient.get',
                 mock.Mock(return_value=mock.MagicMock(requests.Response)))
-    def test_api_argument(self):
-        """Test behaviour of the --api flag to the scheduler command."""
-        restclient.get.return_value.json.return_value = {
-            'columns': ['valid_until'],
-            'data': [[1500000000]]
-        }
-
-        result = self.runner.invoke(self.scheduler, [
-            '--cell', 'TEST', '--api', 'http://example.ms.com:123', 'servers'
-        ])
-
-        self.assertEqual(result.exit_code, 0)
-        restclient.get.assert_called_with(
-            ['http://example.ms.com:123'],
-            '/scheduler/servers'
-        )
-
-    @mock.patch('treadmill.restclient.get',
-                mock.Mock(return_value=mock.MagicMock(requests.Response)))
     @mock.patch('treadmill.context.Context.cell_api',
                 mock.Mock(return_value=['http://example.com']))
     def test_allocs_report(self):

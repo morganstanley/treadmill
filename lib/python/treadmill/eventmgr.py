@@ -78,14 +78,14 @@ class EventMgr:
         zkclient = context.GLOBAL.zk.conn
         zkclient.add_listener(zkutils.exit_on_lost)
 
-        present = zkclient.handler.event_object()
-        present.clear()
+        presence_ready = zkclient.handler.event_object()
+        presence_ready.clear()
 
-        synchronized = zkclient.handler.event_object()
-        synchronized.clear()
+        placement_ready = zkclient.handler.event_object()
+        placement_ready.clear()
 
         def _is_ready():
-            return present.is_set() and synchronized.is_set()
+            return presence_ready.is_set() and placement_ready.is_set()
 
         @zkclient.DataWatch(z.path.server_presence(self._hostname))
         @utils.exit_on_unhandled
@@ -93,33 +93,46 @@ class EventMgr:
             """Watch server presence."""
             if data is None and event is None:
                 _LOGGER.info('Presence node not found, waiting.')
-                present.clear()
+                presence_ready.clear()
             elif event is not None and event.type == 'DELETED':
                 _LOGGER.info('Presence node deleted.')
-                present.clear()
+                presence_ready.clear()
             else:
                 _LOGGER.info('Presence node found.')
-                present.set()
+                presence_ready.set()
 
             self._cache_notify(_is_ready())
             return True
 
-        @zkclient.ChildrenWatch(z.path.placement(self._hostname))
         @utils.exit_on_unhandled
         def _app_watch(apps):
             """Watch application placement."""
             self._synchronize(
-                zkclient, apps, check_existing=not synchronized.is_set()
+                zkclient, apps, check_existing=not placement_ready.is_set()
             )
-            synchronized.set()
-
-            self._cache_notify(_is_ready())
             return True
 
+        def _check_placement():
+            if placement_ready.is_set():
+                return
+
+            if zkclient.exists(z.path.placement(self._hostname)):
+                _LOGGER.info('Placement node found.')
+                zkclient.ChildrenWatch(
+                    z.path.placement(self._hostname), _app_watch
+                )
+                placement_ready.set()
+                self._cache_notify(_is_ready())
+            else:
+                _LOGGER.info('Placement node not found, waiting.')
+
         while True:
+            _check_placement()
+
             # Refresh watchdog
             watchdog_lease.heartbeat()
             time.sleep(_HEARTBEAT_SEC)
+
             self._cache_notify(_is_ready())
 
             if once:

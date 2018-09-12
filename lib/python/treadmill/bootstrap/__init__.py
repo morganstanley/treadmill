@@ -15,7 +15,6 @@ import sys
 import tempfile
 
 if os.name == 'posix':
-    import pwd
     import stat
 
 import jinja2
@@ -383,8 +382,8 @@ def _install(package, src_dir, dst_dir, params, prefix_len=None, rec=None):
 
                 try:
                     _LOGGER.info('Setting owner: %r - %r', dst_path, owner)
-                    owner_pw = pwd.getpwnam(owner)
-                    os.chown(dst_path, owner_pw.pw_uid, owner_pw.pw_gid)
+                    (uid, gid) = utils.get_uid_gid(owner)
+                    os.chown(dst_path, uid, gid)
                 except (IOError, OSError) as err:
                     if err.errno != errno.ENOENT:
                         raise
