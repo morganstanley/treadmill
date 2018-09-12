@@ -29,7 +29,7 @@ def _filter_by_uniq(in_=None, out_=None, uniq=None):
     return True
 
 
-def _get_instance_trace(instance, uniq, ws_api=None):
+def _get_instance_trace(instance, uniq, ws_api):
     """Get the history of the given instance/uniq."""
     rv = []
     message = {'topic': '/trace', 'filter': instance, 'snapshot': True}
@@ -40,7 +40,7 @@ def _get_instance_trace(instance, uniq, ws_api=None):
     return rv
 
 
-def find_uniq_instance(instance, uniq, ws_api=None):
+def find_uniq_instance(instance, uniq, ws_api):
     """Find the host and container id of a terminated or running app."""
     if uniq == 'running':
         uniq = None
@@ -76,7 +76,7 @@ def _instance_to_host(in_=None, out_=None):
     return False
 
 
-def find_running_instance(app, ws_api=None):
+def find_running_instance(app, ws_api):
     """Find the instance name and host corresponding to a running app."""
     rv = {}
     message = {'topic': '/endpoints',

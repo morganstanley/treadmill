@@ -186,9 +186,14 @@ class TicketLockerTest(unittest.TestCase):
         zkutils.ensure_deleted.assert_called_with(mock.ANY, '/tickets/x@r1/h')
 
     @mock.patch('os.fchown', mock.Mock(spec_set=True))
-    @mock.patch('pwd.getpwnam', mock.Mock(
-        spec_set=True,
-        return_value=collections.namedtuple('pwnam', ['pw_uid'])(3)))
+    @mock.patch(
+        'pwd.getpwnam',
+        mock.Mock(
+            spec_set=True,
+            return_value=collections.namedtuple(
+                'pwnam', ['pw_uid', 'pw_gid'])(3, 4)
+        )
+    )
     @mock.patch('treadmill.fs.rm_safe', mock.Mock(spec_set=True))
     @mock.patch('treadmill.tickets.krbcc_ok', mock.Mock(spec_set=True))
     def test_ticket_write_expired(self):
@@ -205,9 +210,14 @@ class TicketLockerTest(unittest.TestCase):
         treadmill.fs.rm_safe.assert_called_with(mock.ANY)
 
     @mock.patch('os.fchown', mock.Mock(spec_set=True))
-    @mock.patch('pwd.getpwnam', mock.Mock(
-        spec_set=True,
-        return_value=collections.namedtuple('pwnam', ['pw_uid'])(3)))
+    @mock.patch(
+        'pwd.getpwnam',
+        mock.Mock(
+            spec_set=True,
+            return_value=collections.namedtuple(
+                'pwnam', ['pw_uid', 'pw_gid'])(3, 4)
+        )
+    )
     @mock.patch('treadmill.fs.rm_safe', mock.Mock(spec_set=True))
     @mock.patch('treadmill.tickets.krbcc_ok',
                 mock.Mock(spec_set=True, return_value=True))
@@ -225,9 +235,14 @@ class TicketLockerTest(unittest.TestCase):
         treadmill.fs.rm_safe.assert_called_with(mock.ANY)
 
     @mock.patch('os.fchown', mock.Mock(spec_set=True))
-    @mock.patch('pwd.getpwnam', mock.Mock(
-        spec_set=True,
-        return_value=collections.namedtuple('pwnam', ['pw_uid'])(3)))
+    @mock.patch(
+        'pwd.getpwnam',
+        mock.Mock(
+            spec_set=True,
+            return_value=collections.namedtuple(
+                'pwnam', ['pw_uid', 'pw_gid'])(3, 4)
+        )
+    )
     @mock.patch('treadmill.fs.rm_safe', mock.Mock(spec_set=True))
     def test_ticket_copy(self):
         """Test copying tickets.

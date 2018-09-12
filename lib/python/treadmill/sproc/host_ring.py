@@ -32,15 +32,11 @@ def init():
                   envvar='TREADMILL_CELL',
                   callback=cli.handle_context_opt,
                   expose_value=False)
-    @click.option('--wsapi', required=False, help='WebSocket API url to use.',
-                  metavar='URL',
-                  envvar='TREADMILL_WSAPI')
     @click.option('--aliases-dir', required=True,
                   help='Host aliases dir.',
                   default='/run/host-aliases')
-    def host_ring(wsapi, aliases_dir):
+    def host_ring(aliases_dir):
         """Manage /etc/hosts file inside the container."""
-        ctx['wsapi'] = wsapi
         ctx['aliases_dir'] = aliases_dir
 
     @host_ring.command(name='identity-group')
@@ -94,7 +90,7 @@ def init():
 
         try:
             return ws_client.ws_loop(
-                ctx['wsapi'],
+                context.GLOBAL.ws_api(),
                 {'topic': '/identity-groups',
                  'identity-group': identity_group},
                 False,

@@ -12,6 +12,7 @@ import sys
 import click
 
 from treadmill import cli
+from treadmill import context
 from treadmill.websocket import client as ws_client
 
 
@@ -21,19 +22,14 @@ _LOGGER = logging.getLogger(__name__)
 def init():
     """Return top level command handler."""
 
-    ctx = {}
-
     @click.command()
     @click.option('--cell', required=True,
                   envvar='TREADMILL_CELL',
                   callback=cli.handle_context_opt,
                   expose_value=False)
-    @click.option('--wsapi', required=False, help='WebSocket API url to use.',
-                  metavar='URL',
-                  envvar='TREADMILL_WSAPI')
     @click.option('--snapshot', is_flag=True, default=False)
     @click.argument('identity-group')
-    def trace(wsapi, snapshot, identity_group):
+    def trace(snapshot, identity_group):
         """Trace identity group events.
 
         Invoking treadmill_trace with non existing application instance will
@@ -48,8 +44,6 @@ def init():
         # Disable too many branches.
         #
         # pylint: disable=R0912
-
-        ctx['wsapi'] = wsapi
 
         def on_message(result):
             """Callback to process trace message."""
@@ -78,7 +72,7 @@ def init():
 
         try:
             return ws_client.ws_loop(
-                ctx['wsapi'],
+                context.GLOBAL.ws_api(),
                 {'topic': '/identity-groups',
                  'identity-group': identity_group},
                 snapshot,

@@ -31,7 +31,6 @@ _REST_PATH = '/app-monitor/'
 def init():  # pylint: disable=R0912
     """Configures application monitor"""
     formatter = cli.make_formatter('app-monitor')
-    ctx = {}
 
     @click.group()
     @click.option('--api-service-principal', required=False,
@@ -43,12 +42,9 @@ def init():  # pylint: disable=R0912
                   envvar='TREADMILL_CELL',
                   callback=cli.handle_context_opt,
                   expose_value=False)
-    @click.option('--api', help='API url to use.',
-                  metavar='URL',
-                  envvar='TREADMILL_CELLAPI')
-    def monitor_group(api):
+    def monitor_group():
         """Manage Treadmill app monitor configuration"""
-        ctx['api'] = api
+        pass
 
     @monitor_group.command()
     @click.option('-n', '--count', type=int, help='Instance count')
@@ -56,7 +52,7 @@ def init():  # pylint: disable=R0912
     @_ON_EXCEPTIONS
     def configure(count, name):
         """Configure application monitor"""
-        restapi = context.GLOBAL.cell_api(ctx['api'])
+        restapi = context.GLOBAL.cell_api()
         url = _REST_PATH + name
 
         if count is not None:
@@ -77,7 +73,7 @@ def init():  # pylint: disable=R0912
     @_ON_EXCEPTIONS
     def _list(match):
         """List configured app monitors"""
-        restapi = context.GLOBAL.cell_api(ctx['api'])
+        restapi = context.GLOBAL.cell_api()
         url = _REST_PATH
         if match:
             query = {'match': match}
@@ -91,7 +87,7 @@ def init():  # pylint: disable=R0912
     @_ON_EXCEPTIONS
     def delete(name):
         """Delete app monitor"""
-        restapi = context.GLOBAL.cell_api(ctx['api'])
+        restapi = context.GLOBAL.cell_api()
         url = _REST_PATH + name
         restclient.delete(restapi, url)
 

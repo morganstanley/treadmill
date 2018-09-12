@@ -22,10 +22,9 @@ def init():
     @click.option('--match', help='Server name pattern match')
     @click.option('--partition', help='Partition name pattern match')
     @click.option('--full', is_flag=True, default=False)
-    @click.pass_context
-    def apps(ctx, match, partition, full):
+    def apps(match, partition, full):
         """View apps report."""
-        report = fetch_report(ctx.obj.get('api'), 'apps', match, partition)
+        report = fetch_report('apps', match, partition)
         # Replace integer N/As
         for col in ['identity', 'expires', 'lease', 'data_retention']:
             report.loc[report[col] == -1, col] = ''

@@ -158,6 +158,28 @@ class ContextTest(unittest.TestCase):
             mock.call('_http._tcp.adminapi.na.region.a.com', mock.ANY),
         ])
 
+    @mock.patch.dict(
+        'os.environ', {
+            'TREADMILL_ADMINAPI': 'http://x:123',
+            'TREADMILL_CELLAPI_FOO_1': 'http://x:123,http://y:345',
+            'TREADMILL_WSAPI_FOO_1': 'ws://x:123',
+            'TREADMILL_STATEAPI_FOO_1': 'http://x:123',
+        }
+    )
+    def test_env_resolve(self):
+        """Tests resolving APIs from environment vars."""
+        context.GLOBAL.cell = 'foo-1'
+        self.assertEqual(context.GLOBAL.admin_api(), ['http://x:123'])
+        self.assertEqual(
+            context.GLOBAL.cell_api(), ['http://x:123', 'http://y:345']
+        )
+        self.assertEqual(
+            context.GLOBAL.ws_api(), ['ws://x:123']
+        )
+        self.assertEqual(
+            context.GLOBAL.state_api(), ['http://x:123']
+        )
+
     @mock.patch('socket.getfqdn', mock.Mock(return_value='a.b.c.d'))
     def test_default_domain(self):
         """Test default resoltion of dns domain."""

@@ -6,7 +6,6 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import logging
-import pwd
 import socket
 
 from treadmill import cellconfig
@@ -29,7 +28,7 @@ class DockerdFeature(feature_base.Feature):
         # when they are stable
 
         manifest['services'].append(
-            _generate_dockerd_service(manifest, self._tm_env)
+            _generate_dockerd_service(self._tm_env)
         )
         manifest['services'].append(
             _generate_docker_authz_service(manifest, self._tm_env)
@@ -75,10 +74,9 @@ def _generate_docker_authz_service(manifest, _tm_env):
     return docker_authz_svc
 
 
-def _generate_dockerd_service(manifest, tm_env):
+def _generate_dockerd_service(tm_env):
     """Configure docker daemon services."""
     # add dockerd service
-    (_uid, proid_gid) = _get_user_uid_gid(manifest['proid'])
 
     # we disable advanced network features
     command = (
@@ -94,12 +92,10 @@ def _generate_dockerd_service(manifest, tm_env):
         ' --ip-masq=false'
         ' --iptables=false'
         ' --cgroup-parent=docker'
-        ' -G {gid}'
         ' --block-registry="*"'
     ).format(
         dockerd=subproc.resolve('dockerd'),
         docker_runtime=subproc.resolve('docker_runtime'),
-        gid=proid_gid,
     )
 
     # we only allow pull image from specified registry
@@ -118,19 +114,12 @@ def _generate_dockerd_service(manifest, tm_env):
         },
         'command': command,
         'root': True,
-        'environ': [
-            {'name': 'DOCKER_RAMDISK', 'value': '1'},
-        ],
+        'environ': [],
         'config': None,
         'downed': False,
         'trace': False,
     }
     return dockerd_svc
-
-
-def _get_user_uid_gid(username):
-    user_pw = pwd.getpwnam(username)
-    return (user_pw.pw_uid, user_pw.pw_gid)
 
 
 def _get_docker_registry(tm_env):

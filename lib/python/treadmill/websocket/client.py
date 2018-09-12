@@ -14,8 +14,6 @@ import urllib
 
 import websocket as ws_client
 
-from treadmill import context
-
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -77,14 +75,13 @@ def _ws_events(ws_conn, message, snapshot, since, on_message, on_error):
         ws_conn.close()
 
 
-def ws_loop(wsapi, message, snapshot, on_message, on_error=None,
+def ws_loop(apis, message, snapshot, on_message, on_error=None,
             timeout=_DEFAULT_TIMEOUT):
     """Instance trace loop."""
     ws_conn = None
     since = 0
 
     while True:
-        apis = context.GLOBAL.ws_api(wsapi)
         for api in apis:
 
             try:

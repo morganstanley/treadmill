@@ -20,7 +20,7 @@ from six.moves import http_client
 
 if os.name == "posix":
     # to support unixsocket for URL
-    import requests_unixsocket
+    import requests_unixsocket 	# pylint: disable=import-error
     requests_unixsocket.monkeypatch()
 
 _NUM_OF_RETRIES = 5

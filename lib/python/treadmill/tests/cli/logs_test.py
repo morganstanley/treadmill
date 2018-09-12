@@ -57,7 +57,7 @@ class LogsTest(unittest.TestCase):
         # in the result
         self.assertEqual(str(result.exception).find('foo'), -1)
         self.assertEqual(result.exit_code, 1)
-        self.assertTrue('Could not connect to the websocket API' in
+        self.assertTrue('Cannot resolve websocket api' in
                         result.output)
 
 

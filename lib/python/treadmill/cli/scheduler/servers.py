@@ -21,10 +21,9 @@ def init():
     @cli.handle_exceptions(restclient.CLI_REST_EXCEPTIONS)
     @click.option('--match', help='Server name pattern match')
     @click.option('--partition', help='Partition name pattern match')
-    @click.pass_context
-    def servers(ctx, match, partition):
+    def servers(match, partition):
         """View servers report."""
-        report = fetch_report(ctx.obj.get('api'), 'servers', match, partition)
+        report = fetch_report('servers', match, partition)
         report['valid_until'] = pd.to_datetime(report['valid_until'], unit='s')
         print_report(report)
 
