@@ -130,7 +130,8 @@ def _create_container(tm_env, conf, client, app):
         'mem_limit': app.memory,
         'storage_opt': {
             'size': app.disk
-        }
+        },
+        'ulimits':[{'core': 'unlimited'}, {'nofile': 33000}]
     }
 
     if os.name == 'nt':

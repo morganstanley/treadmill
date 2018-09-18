@@ -81,6 +81,9 @@ def _create_container(client, name, image_name, image_meta,
         'network_mode': 'host',
         'pid_mode': 'host',
         'ipc_mode': 'host',
+        'ulimits': [{'Name': 'nproc', 'Soft': 32400, 'Hard': 32400},
+                    {'Name': 'nofile', 'Soft': 32400, 'Hard': 32400},
+                    {'Name': 'core', 'Soft': -1, 'Hard': -1}],
         # XXX: uts mode not supported by python lib yet
         # 'uts_mode': 'host',
     }

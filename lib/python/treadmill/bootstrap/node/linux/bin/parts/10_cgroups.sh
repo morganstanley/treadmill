@@ -135,10 +135,11 @@ function init_cgroup_rhel7() {
     ${ECHO} ${SYSTEM_CPUSET_CORES} >${CGROUP_BASE}/cpuset/system.slice/cpuset.cpus
     ${ECHO} ${TREADMILL_CPUSET_CORES} >${CGROUP_BASE}/cpuset/${TREADMILL_ROOT_CGROUP}/cpuset.cpus
 
-    ${ECHO} "Setting system memory: ${SYSTEM_MEMORY}"
-    ${ECHO} "Setting Treadmill memory: ${TREADMILL_MEMORY}"
-    ${ECHO} ${SYSTEM_MEMORY} >${CGROUP_BASE}/memory/system.slice/memory.limit_in_bytes
-    ${ECHO} ${TREADMILL_MEMORY} >${CGROUP_BASE}/memory/${TREADMILL_ROOT_CGROUP}/memory.limit_in_bytes
+    #Temporarily disabling memory cgroup
+    #${ECHO} "Setting system memory: ${SYSTEM_MEMORY}"
+    #${ECHO} "Setting Treadmill memory: ${TREADMILL_MEMORY}"
+    #${ECHO} ${SYSTEM_MEMORY} >${CGROUP_BASE}/memory/system.slice/memory.limit_in_bytes
+    #${ECHO} ${TREADMILL_MEMORY} >${CGROUP_BASE}/memory/${TREADMILL_ROOT_CGROUP}/memory.limit_in_bytes
 
     systemctl set-property --runtime system.slice CPUAccounting=true
     systemctl set-property --runtime system.slice MemoryAccounting=true
