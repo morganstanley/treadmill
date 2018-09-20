@@ -54,8 +54,8 @@ class CellsyncTest(unittest.TestCase):
             makepath=True, ephemeral=False, acl=mock.ANY, sequence=False
         )
 
-    @mock.patch('treadmill.admin.Server', mock.Mock(spec_set=True))
-    @mock.patch('treadmill.context.GLOBAL', mock.Mock(cell='test'))
+    @mock.patch('treadmill.context.AdminContext.server')
+    @mock.patch('treadmill.context.GLOBAL.zk', mock.Mock())
     @mock.patch('treadmill.scheduler.masterapi.create_bucket',
                 mock.Mock(spec_set=True))
     @mock.patch('treadmill.scheduler.masterapi.cell_insert_bucket',
@@ -68,12 +68,12 @@ class CellsyncTest(unittest.TestCase):
                 mock.Mock(spec_set=True))
     @mock.patch('treadmill.scheduler.masterapi.delete_server',
                 mock.Mock(spec_set=True))
-    def test_sync_server_topology(self):
+    def test_sync_server_topology(self, server_factory):
         """"Test syncing LDAP servers to Zookeeper.
         """
-
+        treadmill.context.GLOBAL.cell = 'test'
         mock_zkclient = treadmill.context.GLOBAL.zk.conn
-        mock_admsrv = treadmill.admin.Server.return_value
+        mock_admsrv = server_factory.return_value
 
         mock_admsrv.list.return_value = [
             {'_id': 'foo'},

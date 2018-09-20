@@ -149,21 +149,22 @@ class ApiStateTest(unittest.TestCase):
             ]
         )
 
-    @mock.patch('treadmill.admin.Server.list', mock.Mock(
-        return_value=[
-            {'cell': 'x', 'traits': [], '_id': 'baz1', 'partition': 'part1'},
-            {'cell': 'x', 'traits': [], '_id': 'baz2', 'partition': 'part2'}
-        ]
-    ))
-    @mock.patch('treadmill.context.GLOBAL', mock.Mock())
+    @mock.patch('treadmill.context.AdminContext.server')
+    @mock.patch('treadmill.context.Context.cell', mock.Mock())
+    @mock.patch('treadmill.context.Context.zk', mock.Mock())
     @mock.patch('treadmill.api.state.watch_running', mock.Mock())
     @mock.patch('treadmill.api.state.watch_placement', mock.Mock())
     @mock.patch('treadmill.api.state.watch_finished', mock.Mock())
     @mock.patch('treadmill.api.state.watch_finished_history', mock.Mock())
     @mock.patch('treadmill.api.state.CellState')
-    def test_list_partition(self, cell_state_cls_mock):
+    def test_list_partition(self, cell_state_cls_mock, server_factory):
         """Tests for treadmill.api.state.list() with partition"""
         cell_state_cls_mock.return_value = self.cell_state
+        admin_srv = server_factory.return_value
+        admin_srv.list.return_value = [ 
+            {'cell': 'x', 'traits': [], '_id': 'baz1', 'partition': 'part1'},
+            {'cell': 'x', 'traits': [], '_id': 'baz2', 'partition': 'part2'}
+        ]
 
         state_api = state.API()
 

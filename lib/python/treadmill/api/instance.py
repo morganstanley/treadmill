@@ -9,7 +9,6 @@ from __future__ import unicode_literals
 import fnmatch
 import logging
 
-from treadmill import admin
 from treadmill import context
 from treadmill import exc
 from treadmill import schema
@@ -160,7 +159,7 @@ class API:
                 raise exc.QuotaExceededError(
                     'Proid scheduled apps quota exceeded.')
 
-            admin_app = admin.Application(context.GLOBAL.ldap.conn)
+            admin_app = context.GLOBAL.ldap.application()
             if not rsrc:
                 configured = admin_app.get(rsrc_id)
             else:

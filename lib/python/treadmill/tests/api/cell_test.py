@@ -10,7 +10,7 @@ import unittest
 
 import mock
 
-from treadmill import admin
+import treadmill
 from treadmill.api import cell
 
 
@@ -23,33 +23,32 @@ class ApiCellTest(unittest.TestCase):
     def tearDown(self):
         pass
 
-    @mock.patch('treadmill.context.AdminContext.conn',
-                mock.Mock(return_value=admin.Admin(None, None)))
-    @mock.patch('treadmill.admin.Cell.list', mock.Mock(return_value=[]))
+    @mock.patch('treadmill.context.AdminContext.cell',
+                mock.Mock(return_value=mock.Mock(**{'list.return_value': []})))
     def test_list(self):
         """Dummy test for treadmill.api.cell._list()"""
         self.cell.list()
-        cell_admin = admin.Cell(None)
+        cell_admin = treadmill.context.AdminContext.cell.return_value
         self.assertTrue(cell_admin.list.called)
 
-    @mock.patch('treadmill.context.AdminContext.conn',
-                mock.Mock(return_value=admin.Admin(None, None)))
-    @mock.patch('treadmill.admin.Cell.get',
-                mock.Mock(return_value={'cell': 'ny-999-cell'}))
+    @mock.patch('treadmill.context.AdminContext.cell',
+                mock.Mock(return_value=mock.Mock(**{
+                    'get.return_value': {'cell': 'ny-999-cell'}
+                })))
     def test_get(self):
         """Dummy test for treadmill.api.cell.get()"""
-        cell_admin = admin.Cell(None)
+        cell_admin = treadmill.context.AdminContext.cell.return_value
         self.cell.get('some-cell')
         cell_admin.get.assert_called_with('some-cell')
 
-    @mock.patch('treadmill.context.AdminContext.conn',
-                mock.Mock(return_value=admin.Admin(None, None)))
-    @mock.patch('treadmill.admin.Cell.get',
-                mock.Mock(return_value={'cell': 'ny-999-cell'}))
-    @mock.patch('treadmill.admin.Cell.create', mock.Mock())
+    @mock.patch('treadmill.context.AdminContext.cell',
+                mock.Mock(return_value=mock.Mock(**{
+                    'get.return_value': {'cell': 'ny-999-cell'},
+                    'create.return_value': mock.Mock(),
+                })))
     def test_create(self):
         """Dummy test for treadmill.api.cell.create()"""
-        cell_admin = admin.Cell(None)
+        cell_admin = treadmill.context.AdminContext.cell.return_value
         self.cell.create('some-cell', {'location': 'ny',
                                        'treadmillid': 'treadmld',
                                        'version': 'v3'})

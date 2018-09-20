@@ -22,6 +22,7 @@ import jinja2
 import six
 
 import treadmill.ldap3kerberos
+from . import exc as admin_exceptions
 
 # pylint: disable=too-many-lines
 # pylint: disable=C0302
@@ -62,6 +63,21 @@ _TREADMILL_OBJCLS_OID_PREFIX = '1.3.6.1.4.1.360.10.6.2.'
 
 DEFAULT_PARTITION = '_default'
 DEFAULT_TENANT = '_default'
+
+
+def _wrap_excs(func):
+    """Decorator to wrap transofrm LDAP exceptions to Admin exceptions."""
+
+    def wrapper(*args, **kwargs):
+        """Wrapper that does the exception translation."""
+        try:
+            return func(*args, **kwargs)
+        except ldap_exceptions.LDAPNoSuchObjectResult:
+            raise admin_exceptions.NoSuchObjectResult()
+        except ldap_exceptions.LDAPEntryAlreadyExistsResult:
+            raise admin_exceptions.AlreadyExistsResult()
+
+    return wrapper
 
 
 def _to_bool(value):
@@ -1052,6 +1068,7 @@ class LdapObject:
 
         return dn
 
+    @_wrap_excs
     def get(self, ident, dirty=False):
         """Gets object given identity."""
         entry = self.admin.get(
@@ -1062,6 +1079,7 @@ class LdapObject:
         else:
             return None
 
+    @_wrap_excs
     def create(self, ident, attrs):
         """Create new ldap record."""
         entry = _remove_empty(self.to_entry(attrs))
@@ -1075,6 +1093,7 @@ class LdapObject:
 
         self.admin.create(self.dn(ident), entry)
 
+    @_wrap_excs
     def list(self, attrs, generator=False, dirty=False):
         """List records, given attribute filter."""
         query = self._query()
@@ -1102,28 +1121,33 @@ class LdapObject:
             return (self.from_entry(entry, dn) for dn, entry in result)
         return [self.from_entry(entry, dn) for dn, entry in result]
 
+    @_wrap_excs
     def update(self, ident, attrs):
         """Updates LDAP record."""
         dn = self.dn(ident)
         new_entry = self.to_entry(attrs)
         self.admin.update(dn, new_entry)
 
+    @_wrap_excs
     def replace(self, ident, attrs):
         """Replaces LDAP record."""
         self.delete(ident)
         self.create(ident, attrs)
 
+    @_wrap_excs
     def remove(self, ident, attrs):
         """Updates LDAP record."""
         dn = self.dn(ident)
         new_entry = self.to_entry(attrs)
         self.admin.remove(dn, new_entry)
 
+    @_wrap_excs
     def delete(self, ident):
         """Deletes LDAP record."""
         assert ident is not None
         self.admin.delete(self.dn(ident))
 
+    @_wrap_excs
     def children(self, ident, clazz, dirty=False):
         """Selects all children given the children type."""
         dn = self.dn(ident)

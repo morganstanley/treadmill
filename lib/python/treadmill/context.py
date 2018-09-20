@@ -242,10 +242,58 @@ class AdminContext:
         if self._conn:
             return self._conn
 
+        admin_url = self._context.admin_url
+        _LOGGER.debug('debug: %s', admin_url)
         plugin = plugin_manager.load('treadmill.context', 'admin')
-        self._conn = plugin.connect(self.url, self.write_url, self.ldap_suffix,
-                                    self.user, self.password)
+#        self._conn = plugin.connect(self.url, self.write_url, self.ldap_suffix,
+#                                    self.user, self.password)
+        self._conn = plugin.connect2(admin_url)
         return self._conn
+
+    def partition(self):
+        """Return admin Partition object.
+        """
+        return self.conn.partition()
+
+    def allocation(self):
+        """Return admin Allocation object.
+        """
+        return self.conn.allocation()
+
+    def cellAllocation(self):
+        """Return admin CellAllocation object.
+        """
+        return self.conn.cellAllocation()
+
+    def tenant(self):
+        """Return admin Tenant object.
+        """
+        return self.conn.tenant()
+
+    def cell(self):
+        """Return admin Cell object.
+        """
+        return self.conn.cell()
+
+    def application(self):
+        """Return admin Application object.
+        """
+        return self.conn.application()
+
+    def appGroup(self):
+        """Return admin AppGroup object.
+        """
+        return self.conn.appGroup()
+
+    def dns(self):
+        """Return admin DNS object.
+        """
+        return self.conn.dns()
+
+    def server(self):
+        """Return admin Server object.
+        """
+        return self.conn.server()
 
 
 class ZkContext:
@@ -481,6 +529,19 @@ class Context:
         """Sets DNS server.
         """
         return self.set('dns_server', value)
+
+    @property
+    @required('Cannot resolve admin url.')
+    def admin_url(self):
+        """Returns admin url.
+        """
+        return self.get('admin_url')
+
+    @admin_url.setter
+    def admin_url(self, value):
+        """Sets admin url.
+        """
+        return self.set('admin_url', value)
 
     @property
     @required('Cannot resolve LDAP suffix.')

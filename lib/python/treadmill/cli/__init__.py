@@ -158,6 +158,8 @@ def handle_context_opt(ctx, param, value):
         context.GLOBAL.ldap.user = value
     elif opt == 'ldap_pwd':
         context.GLOBAL.ldap.password = _read_password(value)
+    elif opt == 'admin_url':
+        context.GLOBAL.admin_url = value
     elif opt == 'zookeeper':
         context.GLOBAL.zk.url = value
     elif opt == 'profile':

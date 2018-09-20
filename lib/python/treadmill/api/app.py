@@ -14,7 +14,6 @@ import jsonschema.exceptions
 
 from treadmill import context
 from treadmill import schema
-from treadmill import admin
 
 from treadmill.appcfg import features
 
@@ -38,7 +37,7 @@ class API:
 
         def _admin_app():
             """Lazily return admin object."""
-            return admin.Application(context.GLOBAL.ldap.conn)
+            return context.GLOBAL.ldap.application()
 
         def _list(match=None):
             """List configured applications."""

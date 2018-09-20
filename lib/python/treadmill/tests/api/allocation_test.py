@@ -10,7 +10,7 @@ import unittest
 
 import mock
 
-from treadmill import admin
+import treadmill
 from treadmill.api import allocation
 
 
@@ -25,33 +25,32 @@ class ApiAllocationTest(unittest.TestCase):
     def tearDown(self):
         pass
 
-    @mock.patch('treadmill.context.AdminContext.conn',
-                mock.Mock(return_value=admin.Admin(None, None)))
-    @mock.patch('treadmill.admin.Allocation.list',
-                mock.Mock(return_value=[]))
-    @mock.patch('treadmill.admin.CellAllocation.list',
-                mock.Mock(return_value=[]))
+    @mock.patch('treadmill.context.AdminContext.allocation',
+                mock.Mock(return_value=mock.Mock()))
+    @mock.patch('treadmill.context.AdminContext.cellAllocation',
+                mock.Mock(return_value=mock.Mock(**{'list.return_value': []})))
     def test_list(self):
         """Dummy test for treadmill.api.allocation._list()"""
-        alloc_admin = admin.Allocation(None)
+        alloc_admin = treadmill.context.AdminContext.allocation.return_value
+        alloc_admin.list.return_value = []
         self.alloc.list()
         alloc_admin.list.assert_called_with({})
 
-    @mock.patch('treadmill.context.AdminContext.conn',
-                mock.Mock(return_value=admin.Admin(None, None)))
-    @mock.patch('treadmill.admin.Allocation.create',
-                mock.Mock(return_value={}))
-    @mock.patch('treadmill.admin.Allocation.get',
-                mock.Mock(return_value={'environment': 'prod'}))
-    @mock.patch('treadmill.admin.CellAllocation.create',
-                mock.Mock(return_value={}))
-    @mock.patch('treadmill.admin.CellAllocation.get',
-                mock.Mock(return_value={}))
+    @mock.patch('treadmill.context.AdminContext.allocation',
+                mock.Mock(return_value=mock.Mock(**{
+                    'create.return_value': {},
+                    'get.return_value': {'environment': 'prod'},
+                })))
+    @mock.patch('treadmill.context.AdminContext.cellAllocation',
+                mock.Mock(return_value=mock.Mock(**{
+                    'create.return_value': {},
+                    'get.return_value': {},
+                })))
     @mock.patch('treadmill.api.allocation._check_capacity',
                 mock.Mock(return_value=True))
     def test_reservation(self):
         """Dummy test for treadmill.api.allocation.create()"""
-        alloc_admin = admin.CellAllocation(None)
+        alloc_admin = treadmill.context.AdminContext.cellAllocation.return_value
         self.alloc.reservation.create(
             'tenant/alloc/cellname',
             {'memory': '1G',
