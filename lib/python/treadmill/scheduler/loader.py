@@ -14,7 +14,6 @@ import time
 
 import six
 
-from treadmill import admin
 from treadmill import reports
 from treadmill import scheduler
 from treadmill import traits
@@ -23,6 +22,9 @@ from treadmill import zknamespace as z
 
 from . import backend as be
 
+
+_DEFAULT_PARTITION = '_default'
+_DEFAULT_TENANT = '_default'
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -114,8 +116,8 @@ class Loader:
     def load_partitions(self):
         """Load partitions."""
         # Create default partition.
-        self.cell.partitions[admin.DEFAULT_PARTITION] = scheduler.Partition(
-            label=admin.DEFAULT_PARTITION
+        self.cell.partitions[_DEFAULT_PARTITION] = scheduler.Partition(
+            label=_DEFAULT_PARTITION
         )
 
         partitions = self.backend.list(z.PARTITIONS)
@@ -271,7 +273,7 @@ class Loader:
         if not label:
             # TODO: it will be better to have separate module for constants
             #       and avoid unnecessary cross imports.
-            label = admin.DEFAULT_PARTITION
+            label = _DEFAULT_PARTITION
         up_since = data.get('up_since', int(time.time()))
 
         traitz = data.get('traits', [])
@@ -389,9 +391,9 @@ class Loader:
 
     def find_default_assignment(self, name):
         """Finds (creates) default assignment."""
-        alloc = self.cell.partitions[admin.DEFAULT_PARTITION].allocation
+        alloc = self.cell.partitions[_DEFAULT_PARTITION].allocation
 
-        unassigned = alloc.get_sub_alloc(admin.DEFAULT_TENANT)
+        unassigned = alloc.get_sub_alloc(_DEFAULT_TENANT)
 
         proid, _rest = name.split('.', 1)
         proid_alloc = unassigned.get_sub_alloc(proid)

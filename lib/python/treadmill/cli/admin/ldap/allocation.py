@@ -7,9 +7,8 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import click
-from ldap3.core import exceptions as ldap_exceptions
+from treadmill.admin import exc as admin_exceptions
 
-from treadmill import admin
 from treadmill import cli
 from treadmill import context
 
@@ -32,7 +31,7 @@ def init():
     @cli.admin.ON_EXCEPTIONS
     def configure(environment, allocation):
         """Create, get or modify allocation configuration"""
-        admin_alloc = admin.Allocation(context.GLOBAL.ldap.conn)
+        admin_alloc = context.GLOBAL.ldap.allocation()
 
         attrs = {}
         if environment:
@@ -41,12 +40,12 @@ def init():
         if attrs:
             try:
                 admin_alloc.create(allocation, attrs)
-            except ldap_exceptions.LDAPEntryAlreadyExistsResult:
+            except admin_exceptions.AlreadyExistsResult:
                 admin_alloc.update(allocation, attrs)
 
         try:
             cli.out(formatter(admin_alloc.get(allocation, dirty=True)))
-        except ldap_exceptions.LDAPNoSuchObjectResult:
+        except admin_exceptions.NoSuchObjectResult:
             click.echo('Allocation does not exist: %s' % allocation, err=True)
 
     @allocation.command()
@@ -70,7 +69,7 @@ def init():
     def reserve(allocation, cell, memory, cpu, disk, rank, rank_adjustment,
                 max_utilization, traits, partition, delete):
         """Reserve capacity on a given cell"""
-        admin_cell_alloc = admin.CellAllocation(context.GLOBAL.ldap.conn)
+        admin_cell_alloc = context.GLOBAL.ldap.cellAllocation()
         if delete:
             admin_cell_alloc.delete([cell, allocation])
             return
@@ -97,13 +96,13 @@ def init():
 
         try:
             admin_cell_alloc.create([cell, allocation], data)
-        except ldap_exceptions.LDAPEntryAlreadyExistsResult:
+        except admin_exceptions.AlreadyExistsResult:
             admin_cell_alloc.update([cell, allocation], data)
 
         try:
-            admin_alloc = admin.Allocation(context.GLOBAL.ldap.conn)
+            admin_alloc = context.GLOBAL.ldap.allocation()
             cli.out(formatter(admin_alloc.get(allocation, dirty=True)))
-        except ldap_exceptions.LDAPNoSuchObjectResult:
+        except admin_exceptions.NoSuchObjectResult:
             click.echo('Allocation does not exist: %s' % allocation, err=True)
 
     @allocation.command()
@@ -118,7 +117,7 @@ def init():
     @cli.admin.ON_EXCEPTIONS
     def assign(allocation, cell, priority, pattern, delete):
         """Manage application assignments"""
-        admin_cell_alloc = admin.CellAllocation(context.GLOBAL.ldap.conn)
+        admin_cell_alloc = context.GLOBAL.ldap.cellAllocation()
         assignment = {'pattern': pattern, 'priority': priority}
         if delete:
             assignment['_delete'] = True
@@ -129,20 +128,20 @@ def init():
         else:
             try:
                 admin_cell_alloc.create([cell, allocation], data)
-            except ldap_exceptions.LDAPEntryAlreadyExistsResult:
+            except admin_exceptions.AlreadyExistsResult:
                 admin_cell_alloc.update([cell, allocation], data)
 
         try:
-            admin_alloc = admin.Allocation(context.GLOBAL.ldap.conn)
+            admin_alloc = context.GLOBAL.ldap.allocation()
             cli.out(formatter(admin_alloc.get(allocation, dirty=True)))
-        except ldap_exceptions.LDAPNoSuchObjectResult:
+        except admin_exceptions.NoSuchObjectResult:
             click.echo('Allocation does not exist: %s' % allocation, err=True)
 
     @allocation.command(name='list')
     @cli.admin.ON_EXCEPTIONS
     def _list():
         """List configured allocations"""
-        admin_alloc = admin.Allocation(context.GLOBAL.ldap.conn)
+        admin_alloc = context.GLOBAL.ldap.allocation()
         cli.out(formatter(admin_alloc.list({})))
 
     @allocation.command()
@@ -150,10 +149,10 @@ def init():
     @cli.admin.ON_EXCEPTIONS
     def delete(allocation):
         """Delete an allocation"""
-        admin_alloc = admin.Allocation(context.GLOBAL.ldap.conn)
+        admin_alloc = context.GLOBAL.ldap.allocation()
         try:
             admin_alloc.delete(allocation)
-        except ldap_exceptions.LDAPNoSuchObjectResult:
+        except admin_exceptions.NoSuchObjectResult:
             click.echo('Allocation does not exist: %s' % allocation, err=True)
 
     del assign

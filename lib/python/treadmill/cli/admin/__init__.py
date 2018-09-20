@@ -100,6 +100,11 @@ def init():
                   callback=cli.handle_context_opt,
                   is_eager=True,
                   expose_value=False)
+    @click.option('--admin-url', required=False,
+                  envvar='TREADMILL_ADMIN_URL',
+                  callback=cli.handle_context_opt,
+                  is_eager=True,
+                  expose_value=False)
     @click.pass_context
     def run(ctx):
         """Admin commands."""

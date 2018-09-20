@@ -14,10 +14,10 @@ import logging
 import jsonschema
 import kazoo
 import kazoo.exceptions
-from ldap3.core import exceptions as ldap_exceptions
 
 from six.moves import http_client
 
+from treadmill.admin import exc as admin_exceptions
 from treadmill import authz
 from treadmill import exc
 from treadmill import webutils
@@ -76,18 +76,18 @@ def register(api):
         }
         return resp, http_client.INTERNAL_SERVER_ERROR, _cors_headers()
 
-    @api.errorhandler(ldap_exceptions.LDAPEntryAlreadyExistsResult)
-    def _ldap_found_exc(err):
-        """LDAP exception handler."""
-        _LOGGER.info('Ldap already exists error: %r', err)
+    @api.errorhandler(admin_exceptions.AlreadyExistsResult)
+    def _admin_found_exc(err):
+        """Admin exception handler."""
+        _LOGGER.info('Already exists error: %r', err)
         resp = {'message': err.result,
                 'status': http_client.CONFLICT}
         return resp, http_client.CONFLICT, _cors_headers()
 
-    @api.errorhandler(ldap_exceptions.LDAPNoSuchObjectResult)
-    def _ldap_not_found_exc(err):
-        """LDAP exception handler."""
-        _LOGGER.exception('Ldap no such object error: %r', err)
+    @api.errorhandler(admin_exceptions.NoSuchObjectResult)
+    def _admin_not_found_exc(err):
+        """Admin exception handler."""
+        _LOGGER.exception('Admin no such object error: %r', err)
         resp = {'message': str(err),
                 'status': http_client.NOT_FOUND}
         return resp, http_client.NOT_FOUND, _cors_headers()

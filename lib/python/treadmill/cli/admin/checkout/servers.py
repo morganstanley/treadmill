@@ -8,7 +8,6 @@ from __future__ import unicode_literals
 
 import click
 
-from treadmill import admin
 from treadmill import context
 from treadmill import checkout
 from treadmill import zknamespace as z
@@ -64,7 +63,7 @@ def _metadata():
         ]
     }
 
-    admin_cell = admin.Cell(context.GLOBAL.ldap.conn)
+    admin_cell = context.GLOBAL.ldap.cell()
     cell = admin_cell.get(context.GLOBAL.cell)
 
     partitions = cell.get('partitions', [{'_id': '_default'}])
@@ -114,7 +113,7 @@ def init():
 
         def _check(conn, **_kwargs):
             """Server state: """
-            admin_srv = admin.Server(context.GLOBAL.ldap.conn)
+            admin_srv = context.GLOBAL.ldap.server()
             servers_in_ldap = {
                 server['_id']: server['partition']
                 for server in admin_srv.list({'cell': context.GLOBAL.cell})

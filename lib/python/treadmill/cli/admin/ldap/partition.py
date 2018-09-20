@@ -9,11 +9,10 @@ from __future__ import unicode_literals
 import logging
 
 import click
-from ldap3.core import exceptions as ldap_exceptions
 
 import six
 
-from treadmill import admin
+from treadmill.admin import exc as admin_exceptions
 from treadmill import cli
 from treadmill import context
 
@@ -25,7 +24,7 @@ _MINIMUM_THRESHOLD = 5
 
 def _resolve_partition_threshold(cell, partition, value):
     """Resolve threshold % to an integer."""
-    admin_srv = admin.Server(context.GLOBAL.ldap.conn)
+    admin_srv = context.GLOBAL.ldap.server()
     servers = admin_srv.list({'cell': cell})
 
     total = 0
@@ -72,7 +71,7 @@ def init():
         #
         # pylint: disable=R0912
         cell = context.GLOBAL.cell
-        admin_part = admin.Partition(context.GLOBAL.ldap.conn)
+        admin_part = context.GLOBAL.ldap.partition()
 
         attrs = {}
         if memory:
@@ -99,14 +98,14 @@ def init():
         if attrs:
             try:
                 admin_part.create([partition, cell], attrs)
-            except ldap_exceptions.LDAPEntryAlreadyExistsResult:
+            except admin_exceptions.AlreadyExistsResult:
                 admin_part.update([partition, cell], attrs)
 
         try:
             cli.out(formatter(admin_part.get(
                 [partition, cell], dirty=bool(attrs)
             )))
-        except ldap_exceptions.LDAPNoSuchObjectResult:
+        except admin_exceptions.NoSuchObjectResult:
             click.echo('Partition does not exist: %s' % partition, err=True)
 
     @partition.command(name='list')
@@ -114,7 +113,7 @@ def init():
     def _list():
         """List partitions"""
         cell = context.GLOBAL.cell
-        admin_cell = admin.Cell(context.GLOBAL.ldap.conn)
+        admin_cell = context.GLOBAL.ldap.cell()
         partitions = admin_cell.partitions(cell)
 
         cli.out(formatter(partitions))
@@ -125,11 +124,11 @@ def init():
     def delete(label):
         """Delete a partition"""
         cell = context.GLOBAL.cell
-        admin_part = admin.Partition(context.GLOBAL.ldap.conn)
+        admin_part = context.GLOBAL.ldap.partition()
 
         try:
             admin_part.delete([label, cell])
-        except ldap_exceptions.LDAPNoSuchObjectResult:
+        except admin_exceptions.NoSuchObjectResult:
             click.echo('Partition does not exist: %s' % label, err=True)
 
     del configure

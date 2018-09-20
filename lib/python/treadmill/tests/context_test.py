@@ -9,7 +9,7 @@ from __future__ import unicode_literals
 import unittest
 
 import mock
-from ldap3.core import exceptions as ldap_exceptions
+from treadmill.admin import exc as admin_exceptions
 
 import treadmill
 from treadmill import context
@@ -24,11 +24,11 @@ class ContextTest(unittest.TestCase):
     def tearDown(self):
         pass
 
-    @mock.patch('treadmill.admin.Admin.connect', mock.Mock())
-    @mock.patch('treadmill.admin.Cell.get', mock.Mock())
+    @mock.patch('treadmill.context.AdminContext.cell')
     @mock.patch('treadmill.dnsutils.query', mock.Mock(return_value=[]))
-    def test_ldap_resolve(self):
+    def test_ldap_resolve(self, cell_factory):
         """Test lazy resolve logic."""
+        cell_admin = cell_factory.return_value
         # missing search base.
         # TODO: renable this test once we can firgure out why ctx0.ldap.conn is
         # mocked when running with nosetest and Train
@@ -47,8 +47,8 @@ class ContextTest(unittest.TestCase):
         ctx2.cell = 'somecell'
         ctx2.ldap_suffix = 'dc=test'
         ctx2.ldap.url = 'ldap://foo:1234'
-        treadmill.admin.Cell.get.side_effect =\
-            ldap_exceptions.LDAPNoSuchObjectResult
+        cell_admin.get.side_effect =\
+            admin_exceptions.NoSuchObjectResult
 
         self.assertIsNone(ctx2.get('zk_url'))
 
@@ -60,8 +60,8 @@ class ContextTest(unittest.TestCase):
         ctx3.ldap_suffix = 'dc=test'
         ctx3.ldap.url = 'ldap://foo:1234'
 
-        treadmill.admin.Cell.get.side_effect = None
-        treadmill.admin.Cell.get.return_value = {
+        cell_admin.get.side_effect = None
+        cell_admin.get.return_value = {
             'username': 'tmtest',
             'masters': [
                 {'hostname': 'xxx', 'zk-client-port': 123},
@@ -75,7 +75,6 @@ class ContextTest(unittest.TestCase):
             ctx3.zk.url
         )
 
-    @mock.patch('treadmill.admin.Admin.connect', mock.Mock())
     @mock.patch('treadmill.dnsutils.txt', mock.Mock(return_value=[]))
     @mock.patch('treadmill.dnsutils.srv', mock.Mock(return_value=[]))
     @mock.patch('treadmill.zkutils.connect', mock.Mock())

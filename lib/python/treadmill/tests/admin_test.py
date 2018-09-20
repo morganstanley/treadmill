@@ -14,7 +14,7 @@ import mock
 import six
 
 import treadmill
-from treadmill import admin
+from treadmill.admin import admin
 
 # Disable wrong import order warning.
 import treadmill.tests.treadmill_ldap_patch  # pylint: disable=C0411
@@ -496,7 +496,7 @@ class AdminTest(unittest.TestCase):
             cell_admin.from_entry(cell_admin.to_entry(cell))
         )
 
-    @mock.patch('treadmill.admin._TREADMILL_ATTR_OID_PREFIX', '1.2.3.')
+    @mock.patch('treadmill.admin.admin._TREADMILL_ATTR_OID_PREFIX', '1.2.3.')
     def test_attrtype_to_str(self):
         """Tests conversion of attribute type to LDIF string."""
         # pylint: disable=protected-access
@@ -522,7 +522,7 @@ class AdminTest(unittest.TestCase):
             ')'
         ))
 
-    @mock.patch('treadmill.admin._TREADMILL_OBJCLS_OID_PREFIX', '1.2.3.')
+    @mock.patch('treadmill.admin.admin._TREADMILL_OBJCLS_OID_PREFIX', '1.2.3.')
     def test_objcls_to_str(self):
         """Tests conversion of object class to LDIF string."""
         # pylint: disable=protected-access
@@ -714,11 +714,12 @@ class AllocationTest(unittest.TestCase):
         }
         self.assertEqual(ldap_entry, self.alloc.to_entry(obj))
 
-    @mock.patch('treadmill.admin.Admin.paged_search', mock.Mock())
-    @mock.patch('treadmill.admin.LdapObject.get', mock.Mock(return_value={}))
+    @mock.patch('treadmill.admin.admin.Admin.paged_search', mock.Mock())
+    @mock.patch('treadmill.admin.admin.LdapObject.get',
+                mock.Mock(return_value={}))
     def test_get(self):
         """Tests loading cell allocations."""
-        treadmill.admin.Admin.paged_search.return_value = [
+        treadmill.admin.admin.Admin.paged_search.return_value = [
             ('cell=xxx,allocation=prod1,...',
              {'cell': ['xxx'],
               'memory': ['1G'],
@@ -732,7 +733,7 @@ class AllocationTest(unittest.TestCase):
               'pattern;tm-alloc-assignment-345': ['ppp.ddd']})
         ]
         obj = self.alloc.get('foo:bar/prod1')
-        treadmill.admin.Admin.paged_search.assert_called_with(
+        treadmill.admin.admin.Admin.paged_search.assert_called_with(
             attributes=mock.ANY,
             search_base='allocation=prod1,tenant=bar,tenant=foo,'
                         'ou=allocations,ou=treadmill,dc=xx,dc=com',

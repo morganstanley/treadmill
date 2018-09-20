@@ -9,10 +9,9 @@ from __future__ import unicode_literals
 from collections import defaultdict
 import logging
 
-from ldap3.core import exceptions as ldap_exceptions
 import six
 
-from treadmill import admin
+from treadmill.admin import exc as admin_exceptions
 from treadmill import context
 from treadmill import exc
 from treadmill import schema
@@ -22,7 +21,7 @@ from treadmill import plugin_manager
 _LOGGER = logging.getLogger(__name__)
 
 _DEFAULT_RANK = 100
-_DEFAULT_PARTITION = admin.DEFAULT_PARTITION
+_DEFAULT_PARTITION = '_default'
 
 
 def _set_auth_resource(cls, resource):
@@ -51,13 +50,13 @@ def _reservation_list(allocs, cell_allocs):
 def _admin_partition():
     """Lazily return admin partition object.
     """
-    return admin.Partition(context.GLOBAL.ldap.conn)
+    return context.GLOBAL.ldap.partition()
 
 
 def _admin_cell_alloc():
     """Lazily return admin cell allocation object.
     """
-    return admin.CellAllocation(context.GLOBAL.ldap.conn)
+    return context.GLOBAL.ldap.cellAllocation()
 
 
 def _partition_free(partition, cell):
@@ -65,7 +64,7 @@ def _partition_free(partition, cell):
     """
     try:
         part_obj = _admin_partition().get([partition, cell])
-    except ldap_exceptions.LDAPNoSuchObjectResult:
+    except admin_exceptions.NoSuchObjectResult:
         # pretend partition has zero capacity
         part_obj = {'cpu': '0%', 'memory': '0G', 'disk': '0G'}
 
@@ -90,7 +89,7 @@ def _check_capacity(cell, allocation, rsrc):
         old = _admin_cell_alloc().get([cell, allocation])
         if old['partition'] != rsrc['partition']:
             old = {'cpu': '0%', 'memory': '0G', 'disk': '0G'}
-    except ldap_exceptions.LDAPNoSuchObjectResult:
+    except admin_exceptions.NoSuchObjectResult:
         old = {'cpu': '0%', 'memory': '0G', 'disk': '0G'}
 
     free = _partition_free(rsrc['partition'], cell)
@@ -136,12 +135,12 @@ class API:
         def _admin_alloc():
             """Lazily return admin allocation object.
             """
-            return admin.Allocation(context.GLOBAL.ldap.conn)
+            return context.GLOBAL.ldap.allocation()
 
         def _admin_tnt():
             """Lazily return admin tenant object.
             """
-            return admin.Tenant(context.GLOBAL.ldap.conn)
+            return context.GLOBAL.ldap.tenant()
 
         def _list(tenant_id=None):
             """List allocations.

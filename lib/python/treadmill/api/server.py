@@ -6,7 +6,6 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
-from treadmill import admin
 from treadmill import context
 from treadmill import schema
 
@@ -18,7 +17,7 @@ class API:
 
         def _admin_svr():
             """Lazily return admin object."""
-            return admin.Server(context.GLOBAL.ldap.conn)
+            return context.GLOBAL.ldap.server()
 
         @schema.schema(
             cell={'anyOf': [

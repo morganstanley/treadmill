@@ -10,7 +10,6 @@ import fnmatch
 
 from treadmill import context
 from treadmill import schema
-from treadmill import admin
 
 
 class API:
@@ -21,7 +20,7 @@ class API:
 
         def _admin_app_group():
             """Lazily return admin object."""
-            return admin.AppGroup(context.GLOBAL.ldap.conn)
+            return context.GLOBAL.ldap.appGroup()
 
         @schema.schema({'$ref': 'app_group.json#/resource_id'})
         def get(rsrc_id):
