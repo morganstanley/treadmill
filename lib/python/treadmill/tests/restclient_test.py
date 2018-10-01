@@ -102,10 +102,12 @@ class RESTClientTest(unittest.TestCase):
 
     @mock.patch('time.sleep', mock.Mock())
     @mock.patch('treadmill.restclient._handle_error', mock.Mock())
-    @mock.patch('requests.get', mock.Mock())
-    def test_retry(self):
+    @mock.patch('requests.get',
+                return_value=mock.MagicMock(requests.Response))
+    def test_retry(self, resp_mock):
         """Tests retry logic."""
 
+        resp_mock.return_value.status_code = http_client.INTERNAL_SERVER_ERROR
         with self.assertRaises(restclient.MaxRequestRetriesError) as cm:
             restclient.get(
                 ['http://foo.com', 'http://bar.com'],
@@ -121,22 +123,22 @@ class RESTClientTest(unittest.TestCase):
         requests.get.assert_has_calls([
             mock.call('http://foo.com/baz', json=None, proxies=None,
                       headers=None, auth=mock.ANY, timeout=(.5, 10),
-                      stream=None, verify=True),
+                      stream=None, verify=True, allow_redirects=True),
             mock.call('http://bar.com/baz', json=None, proxies=None,
                       headers=None, auth=mock.ANY, timeout=(.5, 10),
-                      stream=None, verify=True),
+                      stream=None, verify=True, allow_redirects=True),
             mock.call('http://foo.com/baz', json=None, proxies=None,
                       headers=None, auth=mock.ANY, timeout=(1.5, 10),
-                      stream=None, verify=True),
+                      stream=None, verify=True, allow_redirects=True),
             mock.call('http://bar.com/baz', json=None, proxies=None,
                       headers=None, auth=mock.ANY, timeout=(1.5, 10),
-                      stream=None, verify=True),
+                      stream=None, verify=True, allow_redirects=True),
             mock.call('http://foo.com/baz', json=None, proxies=None,
                       headers=None, auth=mock.ANY, timeout=(2.5, 10),
-                      stream=None, verify=True),
+                      stream=None, verify=True, allow_redirects=True),
             mock.call('http://bar.com/baz', json=None, proxies=None,
                       headers=None, auth=mock.ANY, timeout=(2.5, 10),
-                      stream=None, verify=True),
+                      stream=None, verify=True, allow_redirects=True),
         ], any_order=True)
         self.assertEqual(requests.get.call_count, 6)
 
@@ -178,7 +180,8 @@ class RESTClientTest(unittest.TestCase):
         restclient.get('http://foo.com', '/')
         resp_mock.assert_called_with(
             'http://foo.com/', stream=None, auth=mock.ANY, verify=True,
-            headers=None, json=None, timeout=(0.5, 10), proxies=None
+            headers=None, json=None, timeout=(0.5, 10), proxies=None,
+            allow_redirects=True,
         )
 
     @mock.patch('requests.delete',
@@ -190,7 +193,8 @@ class RESTClientTest(unittest.TestCase):
         restclient.delete('http://foo.com', '/')
         resp_mock.assert_called_with(
             'http://foo.com/', stream=None, auth=mock.ANY, verify=True,
-            headers=None, json=None, timeout=(0.5, None), proxies=None
+            headers=None, json=None, timeout=(0.5, None), proxies=None,
+            allow_redirects=True
         )
 
     @mock.patch('requests.post',
@@ -202,7 +206,8 @@ class RESTClientTest(unittest.TestCase):
         restclient.post('http://foo.com', '/', '')
         resp_mock.assert_called_with(
             'http://foo.com/', stream=None, auth=mock.ANY, verify=True,
-            headers=None, json='', timeout=(0.5, None), proxies=None
+            headers=None, json='', timeout=(0.5, None), proxies=None,
+            allow_redirects=True
         )
 
     @mock.patch('requests.put', return_value=mock.MagicMock(requests.Response))
@@ -213,7 +218,8 @@ class RESTClientTest(unittest.TestCase):
         restclient.put('http://foo.com', '/', '')
         resp_mock.assert_called_with(
             'http://foo.com/', stream=None, auth=mock.ANY, verify=True,
-            headers=None, json='', timeout=(0.5, None), proxies=None
+            headers=None, json='', timeout=(0.5, None), proxies=None,
+            allow_redirects=True
         )
 
     @mock.patch('requests.get', return_value=mock.MagicMock(requests.Response))
@@ -225,7 +231,7 @@ class RESTClientTest(unittest.TestCase):
         resp_mock.assert_called_with(
             'http://foo.com/', stream=None, auth=mock.ANY,
             headers=None, json=None, timeout=(0.5, 10), proxies=None,
-            verify='/path/to/ca/certs'
+            verify='/path/to/ca/certs', allow_redirects=True
         )
 
     @mock.patch('requests.delete',
@@ -238,7 +244,7 @@ class RESTClientTest(unittest.TestCase):
         resp_mock.assert_called_with(
             'http://foo.com/', stream=None, auth=mock.ANY,
             headers=None, json=None, timeout=(0.5, None), proxies=None,
-            verify='/path/to/ca/certs'
+            verify='/path/to/ca/certs', allow_redirects=True
         )
 
     @mock.patch('requests.post',
@@ -251,7 +257,7 @@ class RESTClientTest(unittest.TestCase):
         resp_mock.assert_called_with(
             'http://foo.com/', stream=None, auth=mock.ANY,
             headers=None, json='', timeout=(0.5, None), proxies=None,
-            verify='/path/to/ca/certs'
+            verify='/path/to/ca/certs', allow_redirects=True
         )
 
     @mock.patch('requests.put', return_value=mock.MagicMock(requests.Response))
@@ -263,7 +269,7 @@ class RESTClientTest(unittest.TestCase):
         resp_mock.assert_called_with(
             'http://foo.com/', stream=None, auth=mock.ANY,
             headers=None, json='', timeout=(0.5, None), proxies=None,
-            verify='/path/to/ca/certs'
+            verify='/path/to/ca/certs', allow_redirects=True
         )
 
     @mock.patch('requests.delete',
@@ -277,7 +283,7 @@ class RESTClientTest(unittest.TestCase):
         resp_mock.assert_called_with(
             'http://foo.com/', stream=None, auth=mock.ANY,
             headers=None, timeout=(0.5, None), proxies=None,
-            data='payload', verify=True
+            data='payload', verify=True, allow_redirects=True
         )
 
     @mock.patch('requests.post',
@@ -291,7 +297,7 @@ class RESTClientTest(unittest.TestCase):
         resp_mock.assert_called_with(
             'http://foo.com/', stream=None, auth=mock.ANY,
             headers=None, timeout=(0.5, None), proxies=None,
-            data='payload', verify=True
+            data='payload', verify=True, allow_redirects=True
         )
 
     @mock.patch('requests.put', return_value=mock.MagicMock(requests.Response))
@@ -304,7 +310,7 @@ class RESTClientTest(unittest.TestCase):
         resp_mock.assert_called_with(
             'http://foo.com/', stream=None, auth=mock.ANY,
             headers=None, timeout=(0.5, None), proxies=None,
-            data='payload', verify=True
+            data='payload', verify=True, allow_redirects=True
         )
 
 

@@ -6,16 +6,19 @@ from __future__ import unicode_literals
 
 import logging
 import re
+import time
 
 import click
 import kazoo
 
+from treadmill import cli
+from treadmill import context
 from treadmill import presence
 from treadmill import utils
-from treadmill import zkutils
-from treadmill import context
-from treadmill import cli
 from treadmill import zknamespace as z
+from treadmill import zkutils
+
+from treadmill.scheduler import masterapi
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -109,25 +112,6 @@ def _blackout_server(zkclient, server, reason):
     presence.kill_node(zkclient, server)
 
 
-def _blackout_app(zkclient, app, clear):
-    """Blackout app."""
-    # list current blacklist
-    blacklisted_node = z.path.blackedout_app(app)
-    if clear:
-        zkutils.ensure_deleted(zkclient, blacklisted_node)
-    else:
-        zkutils.ensure_exists(zkclient, blacklisted_node)
-
-
-def _list_blackedout_apps(zkclient):
-    """List blackedout apps."""
-    try:
-        for blacklisted in zkclient.get_children(z.BLACKEDOUT_APPS):
-            print(blacklisted)
-    except kazoo.client.NoNodeError:
-        pass
-
-
 def init():
     """Top level command handler."""
 
@@ -159,15 +143,31 @@ def init():
             _list_server_blackouts(context.GLOBAL.zk.conn, fmt)
 
     @blackout.command(name='app')
-    @click.option('--app', help='App name to blackout.')
+    @click.option('--app', help='App name/pattern to blackout.')
+    @click.option('--reason', help='Blackout reason.')
     @click.option('--clear', is_flag=True, default=False,
                   help='Clear blackout.')
-    def app_cmd(app, clear):
+    def app_cmd(app, reason, clear):
         """Manage app blackouts."""
-        if app:
-            _blackout_app(context.GLOBAL.zk.conn, app, clear)
+        zkclient = context.GLOBAL.zk.conn
 
-        _list_blackedout_apps(context.GLOBAL.zk.conn)
+        blacklist = zkutils.get_default(zkclient, z.BLACKEDOUT_APPS)
+        if not blacklist:
+            blacklist = {}
+
+        if app:
+            if clear:
+                blacklist.pop(app, None)
+            else:
+                if not reason:
+                    raise click.UsageError('--reason is required.')
+                blacklist[app] = {'reason': reason, 'when': time.time()}
+            zkutils.put(zkclient, z.BLACKEDOUT_APPS, data=blacklist)
+            masterapi.create_event(zkclient, 0, 'apps_blacklist', None)
+
+        for blacklisted, details in sorted(blacklist.items()):
+            when = utils.strftime_utc(details['when'])
+            cli.out('[%s] %s %s', when, blacklisted, details['reason'])
 
     del server_cmd
     del app_cmd

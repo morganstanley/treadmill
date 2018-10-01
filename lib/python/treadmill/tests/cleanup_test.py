@@ -30,7 +30,9 @@ class CleanupTest(unittest.TestCase):
         self.cleanup_dir = os.path.join(self.root, 'cleanup')
         self.cleaning_dir = os.path.join(self.root, 'cleaning')
         self.cleanup_apps_dir = os.path.join(self.root, 'cleanup_apps')
-        self.cleanup_tombstone_dir = os.path.join(self.root, 'tombstones')
+        self.cleanup_tombstone_dir = os.path.join(
+            self.root, 'tombstones', 'cleanup'
+        )
 
         for tmp_dir in [self.cleanup_dir, self.cleaning_dir,
                         self.cleanup_apps_dir]:
@@ -89,8 +91,10 @@ class CleanupTest(unittest.TestCase):
             monitor_policy={
                 'limit': 5,
                 'interval': 60,
-                'tombstone': os.path.join(self.cleanup_tombstone_dir,
-                                          'proid.app#0000000000001'),
+                'tombstone': {
+                    'path': self.cleanup_tombstone_dir,
+                    'id': 'proid.app#0000000000001',
+                },
                 'skip_path': os.path.join(self.cleanup_dir,
                                           'proid.app#0000000000001')
             },

@@ -15,16 +15,18 @@ if ($skip_path -and (Test-Path -PathType Any $skip_path)) {
     exit 0
 }
 
+# get exit info
+$rc = [int] $env:SUPERVISE_RUN_EXIT_CODE
+if ($rc -eq $null) {
+    $rc = 0
+}
+$now = ([DateTime]::UtcNow - [DateTime]::new(1970, 1, 1, 0, 0, 0, 0, 'Utc')).TotalSeconds
+$exit_info = '{0:0000000000},{1:000},000' -f $now, $rc
+
+# append info to data\exits\log and keep the last $limit number of record
 if ($limit -gt 0) {
     New-Item -ItemType Directory -Force -Path 'data\exits' | Out-Null
 
-    $rc = [int] $env:SUPERVISE_RUN_EXIT_CODE
-    if ($rc -eq $null) {
-        $rc = 0
-    }
-    $now = ([DateTime]::UtcNow - [DateTime]::new(1970, 1, 1, 0, 0, 0, 0, 'Utc')).TotalSeconds
-
-    $exit_info = '{0:0000000000},{1:000},000' -f $now, $rc
     Add-Content 'data\exits\log' $exit_info
 
     $all_exits = Get-Content 'data\exits\log'
@@ -41,12 +43,13 @@ if ($limit -gt 0) {
     if (($now - $last) -gt $interval) {
         exit 0
     }
+    $exit_info = $all_exits[0]
 }
 
 if ($ignore_exitinfo) {
     $tombstone_file = '{0}\{1}' -f $tombstone_path, $tombstone_id
 } else {
-    $tombstone_file = '{0}\{1},{2}' -f $tombstone_path, $tombstone_id, $all_exits[0]
+    $tombstone_file = '{0}\{1},{2}' -f $tombstone_path, $tombstone_id, $exit_info
 }
 New-Item $tombstone_file -force -type file | Out-Null
 exit 125
