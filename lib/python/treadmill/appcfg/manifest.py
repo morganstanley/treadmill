@@ -183,15 +183,14 @@ def add_linux_system_services(tm_env, manifest):
                     'interval': 60,
                 },
                 'command': (
+                    'unset TREADMILL_ZOOKEEPER; '
                     'exec {treadmill}/bin/treadmill sproc'
-                    ' --zookeeper {zkurl}'
                     ' --cell {cell}'
                     ' vring'
                     ' --approot {tm_root}'
                     ' {manifest}'
                 ).format(
                     treadmill=subproc.resolve('treadmill'),
-                    zkurl=manifest['zookeeper'],
                     cell=cell,
                     tm_root=tm_env.root,
                     manifest=os.path.join(container_data_dir, 'state.json')

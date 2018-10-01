@@ -279,6 +279,7 @@ class Application:
         'final_rank',
         'final_util',
         'constraints',
+        'blacklisted',
     )
 
     def __init__(self, name, priority, demand, affinity,
@@ -307,6 +308,7 @@ class Application:
         self.unschedule = False
         self.placement_expiry = None
         self.renew = False
+        self.blacklisted = False
 
     def shape(self):
         """Return tuple of application (constraints, demand).
@@ -1566,13 +1568,13 @@ class Cell(Bucket):
         """Migrate apps from inactive servers.
         """
         self.next_event_at = np.inf
-        for server in six.itervalues(servers):
+        for server in servers.values():
             state, since = server.get_state()
             to_be_moved = []
 
             if state == State.down:
                 _LOGGER.debug('Server state is down: %s', server.name)
-                for name, app in six.iteritems(server.apps):
+                for name, app in server.apps.items():
                     if app.data_retention_timeout is None:
                         expires_at = 0
                     else:
@@ -1580,8 +1582,7 @@ class Cell(Bucket):
 
                     if expires_at <= time.time():
                         _LOGGER.debug('Expired placement: %s', name)
-                        app.release_identity()
-                        to_be_moved.append(name)
+                        to_be_moved.append(app)
                     else:
                         _LOGGER.debug('Keep placement: %s until %s',
                                       name, expires_at)
@@ -1589,13 +1590,23 @@ class Cell(Bucket):
                                                  self.next_event_at)
             elif state == State.frozen:
                 _LOGGER.debug('Server state is frozen: %s', server.name)
-                to_be_moved = [
-                    name for name, app in six.iteritems(server.apps)
-                    if app.unschedule
-                ]
+                to_be_moved = [app for app in server.apps.values()
+                               if app.unschedule]
 
-            for name in to_be_moved:
-                server.remove(name)
+            for app in to_be_moved:
+                server.remove(app.name)
+                app.release_identity()
+
+    def _handle_blacklisted_apps(self, queue, servers):
+        """Remove blacklisted apps from servers.
+        """
+        for app in queue:
+            if app.blacklisted and app.server:
+                server = servers[app.server]
+                _LOGGER.info('Removing blacklisted app %s from %s',
+                             app.name, server.name)
+                server.remove(app.name)
+                app.release_identity()
 
     def _find_placements(self, queue, servers):
         """Run the queue and find placements.
@@ -1613,6 +1624,10 @@ class Cell(Bucket):
 
         for app in queue:
             _LOGGER.debug('scheduling %s', app.name)
+
+            if app.blacklisted:
+                _LOGGER.info('App %s is blacklisted', app.name)
+                continue
 
             if app.final_rank == _UNPLACED_RANK:
                 if app.server:
@@ -1749,10 +1764,12 @@ class Cell(Bucket):
         before = [(app.name, app.server, app.placement_expiry)
                   for app in all_apps]
 
+        queue = self.apps.values()
         servers = self.members()
-        self._fix_invalid_placements(six.viewvalues(self.apps), servers)
+        self._fix_invalid_placements(queue, servers)
         self._handle_inactive_servers(servers)
-        self._fix_invalid_identities(six.viewvalues(self.apps), servers)
+        self._handle_blacklisted_apps(queue, servers)
+        self._fix_invalid_identities(queue, servers)
 
         for label, partition in six.iteritems(self.partitions):
             allocation = partition.allocation

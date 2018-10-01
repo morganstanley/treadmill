@@ -143,15 +143,41 @@ def _handle_error(url, response):
         raise handlers[response.status_code]
 
 
+def _is_info(status_code):
+    """Check if status code is informational: 100 <= 200"""
+    return 100 <= status_code < 200
+
+
+def _is_success(status_code):
+    """Check if status code is success."""
+    return 200 <= status_code < 300
+
+
+def _is_redirect(status_code):
+    """Check if status code is redirect."""
+    return 300 <= status_code < 400
+
+
+def _is_client_error(status_code):
+    """Check if status code is client error."""
+    return 400 <= status_code < 500
+
+
+def _is_server_error(status_code):
+    """Check if status code is server error."""
+    return status_code >= 500
+
+
 def _call(url, method, payload=None, headers=None, auth=_KERBEROS_AUTH,
           proxies=None, timeout=None, stream=None, verify=True,
-          payload_to_json=True):
+          payload_to_json=True, allow_redirects=True):
     """Call REST url with the supplied method and optional payload"""
     _LOGGER.debug('http: %s %s, payload: %s, headers: %s, timeout: %s',
                   method, url, payload, headers, timeout)
 
     method_kwargs = dict(auth=auth, proxies=proxies, headers=headers,
-                         timeout=timeout, stream=stream, verify=verify)
+                         timeout=timeout, stream=stream, verify=verify,
+                         allow_redirects=allow_redirects)
 
     method_kwargs['json' if payload_to_json else 'data'] = payload
 
@@ -166,11 +192,17 @@ def _call(url, method, payload=None, headers=None, auth=_KERBEROS_AUTH,
         _LOGGER.debug('Request timeout: %r', timeout)
         return False, None, http_client.REQUEST_TIMEOUT
 
-    if response.status_code == http_client.OK:
-        return True, response, http_client.OK
+    if _is_success(response.status_code) or _is_info(response.status_code):
+        return True, response, response.status_code
 
-    # Raise an appropirate exception for certain status codes (and never retry)
-    _handle_error(url, response)
+    if _is_client_error(response.status_code):
+        _handle_error(url, response)
+        # if above line does not raise, return response and do not retry.
+        return True, response, response.status_code
+
+    # Server errors will be retried:
+    if _is_server_error(response.status_code):
+        return False, response, response.status_code
 
     # Everything else can be retried, just as connection error and req. timeout
     return False, response, response.status_code
@@ -178,7 +210,7 @@ def _call(url, method, payload=None, headers=None, auth=_KERBEROS_AUTH,
 
 def _call_list(urls, method, payload=None, headers=None, auth=_KERBEROS_AUTH,
                proxies=None, timeout=None, stream=None, verify=True,
-               payload_to_json=True):
+               payload_to_json=True, allow_redirects=True):
     """Call list of supplied URLs, return on first success."""
     _LOGGER.debug('Call %s on %r', method, urls)
     attempts = []
@@ -186,7 +218,8 @@ def _call_list(urls, method, payload=None, headers=None, auth=_KERBEROS_AUTH,
         success, response, status_code = _call(
             url, method, payload, headers, auth, proxies, timeout=timeout,
             stream=stream, verify=verify,
-            payload_to_json=payload_to_json
+            payload_to_json=payload_to_json,
+            allow_redirects=allow_redirects,
         )
         if success:
             return success, response
@@ -197,7 +230,7 @@ def _call_list(urls, method, payload=None, headers=None, auth=_KERBEROS_AUTH,
 
 def _call_list_with_retry(urls, method, payload, headers, auth, proxies,
                           retries, timeout=None, stream=None, verify=True,
-                          payload_to_json=True):
+                          payload_to_json=True, allow_redirects=True):
     """Call list of supplied URLs with retry."""
     if timeout is None:
         if method == 'get':
@@ -212,7 +245,8 @@ def _call_list_with_retry(urls, method, payload, headers, auth, proxies,
             urls, method, payload, headers, auth, proxies,
             timeout=(_DEFAULT_CONNECT_TIMEOUT + retry, timeout),
             stream=stream, verify=verify,
-            payload_to_json=payload_to_json
+            payload_to_json=payload_to_json,
+            allow_redirects=allow_redirects,
         )
         if success:
             return response
@@ -227,7 +261,7 @@ def _call_list_with_retry(urls, method, payload, headers, auth, proxies,
 
 def call(api, url, method, payload=None, headers=None, auth=_KERBEROS_AUTH,
          proxies=None, retries=_NUM_OF_RETRIES, timeout=None, stream=None,
-         verify=True, payload_to_json=True):
+         verify=True, payload_to_json=True, allow_redirects=True):
     """Call url(s) with retry."""
     if not api:
         raise NoApiEndpointsError()
@@ -239,45 +273,51 @@ def call(api, url, method, payload=None, headers=None, auth=_KERBEROS_AUTH,
         [endpoint + url for endpoint in api],
         method, payload, headers, auth, proxies, retries, timeout=timeout,
         stream=stream, verify=verify,
-        payload_to_json=payload_to_json)
+        payload_to_json=payload_to_json,
+        allow_redirects=allow_redirects)
 
 
 def get(api, url, headers=None, auth=_KERBEROS_AUTH, proxies=None,
-        retries=_NUM_OF_RETRIES, timeout=None, stream=None, verify=True):
+        retries=_NUM_OF_RETRIES, timeout=None, stream=None, verify=True,
+        allow_redirects=True):
     """Convenience function to get a resoure"""
     return call(api, url, 'get',
                 headers=headers, auth=auth, proxies=proxies, retries=retries,
-                timeout=timeout, stream=stream, verify=verify)
+                timeout=timeout, stream=stream, verify=verify,
+                allow_redirects=allow_redirects)
 
 
 def post(api, url, payload, headers=None, auth=_KERBEROS_AUTH, proxies=None,
          retries=_NUM_OF_RETRIES, timeout=None, verify=True,
-         payload_to_json=True):
+         payload_to_json=True, allow_redirects=True):
     """Convenience function to create or POST a new resoure to url"""
     return call(api, url, 'post', payload=payload,
                 headers=headers, auth=auth, proxies=proxies, retries=retries,
                 timeout=timeout, verify=verify,
-                payload_to_json=payload_to_json)
+                payload_to_json=payload_to_json,
+                allow_redirects=allow_redirects)
 
 
 def delete(api, url, payload=None, headers=None, auth=_KERBEROS_AUTH,
            proxies=None, retries=_NUM_OF_RETRIES, timeout=None, verify=True,
-           payload_to_json=True):
+           payload_to_json=True, allow_redirects=True):
     """Convenience function to delete a resoure"""
     return call(api, url, 'delete', payload=payload,
                 headers=headers, auth=auth, proxies=proxies, retries=retries,
                 timeout=timeout, verify=verify,
-                payload_to_json=payload_to_json)
+                payload_to_json=payload_to_json,
+                allow_redirects=allow_redirects)
 
 
 def put(api, url, payload, headers=None, auth=_KERBEROS_AUTH, proxies=None,
         retries=_NUM_OF_RETRIES, timeout=None, verify=True,
-        payload_to_json=True):
+        payload_to_json=True, allow_redirects=True):
     """Convenience function to update a resoure"""
     return call(api, url, 'put', payload=payload,
                 headers=headers, auth=auth, proxies=proxies, retries=retries,
                 timeout=timeout, verify=verify,
-                payload_to_json=payload_to_json)
+                payload_to_json=payload_to_json,
+                allow_redirects=allow_redirects)
 
 
 def configure(api, url, payload, headers=None, auth=_KERBEROS_AUTH,

@@ -72,6 +72,7 @@ class Loader:
         'assignments',
         'partitions',
         'trait_codes',
+        'apps_blacklist',
     )
 
     def __init__(self, backend, cellname):
@@ -83,6 +84,7 @@ class Loader:
         self.assignments = collections.defaultdict(list)
         self.partitions = dict()
         self.trait_codes = dict()
+        self.apps_blacklist = list()
 
     def load_model(self):
         """Load cell state from Zookeeper."""
@@ -93,6 +95,7 @@ class Loader:
         self.load_servers()
         self.load_allocations()
         self.load_strategies()
+        self.load_apps_blacklist()
         self.load_apps()
         self.load_identity_groups()
         self.restore_placements()
@@ -398,6 +401,19 @@ class Loader:
 
         return 1, proid_alloc
 
+    def load_apps_blacklist(self):
+        """Load applications blacklist."""
+        _LOGGER.info('Loading apps blacklist')
+        blacklist = self.backend.get_default(z.BLACKEDOUT_APPS)
+        self.apps_blacklist = list(blacklist) if blacklist else list()
+
+    def _is_blacklisted(self, appname):
+        basename, instanceid = appname.split('#')
+        for blacklisted in self.apps_blacklist:
+            if fnmatch.fnmatch(basename, blacklisted):
+                return True
+        return False
+
     def load_apps(self):
         """Load application data."""
         apps = self.backend.list(z.SCHEDULED)
@@ -406,7 +422,6 @@ class Loader:
 
     def load_app(self, appname):
         """Load single application data."""
-        # TODO: need to check if app is blacklisted.
         manifest = self.backend.get_default(z.path.scheduled(appname))
         if not manifest:
             self.remove_app(appname)
@@ -439,6 +454,8 @@ class Loader:
                                         schedule_once=schedule_once,
                                         data_retention_timeout=data_retention,
                                         lease=lease)
+
+        app.blacklisted = self._is_blacklisted(appname)
 
         self.cell.add_app(allocation, app)
 

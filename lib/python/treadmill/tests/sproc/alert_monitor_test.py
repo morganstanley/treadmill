@@ -15,7 +15,6 @@ import click.testing
 import mock
 
 from treadmill import alert
-from treadmill import fs
 from treadmill.sproc import alert_monitor
 
 
@@ -89,9 +88,6 @@ class AlertMonitorTest(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as dir_name:
             mock_appenv.AppEnvironment.return_value.alerts_dir = dir_name
-            fs.mkfile_safe(os.path.join(dir_name, '.keepme'))
-            with open(os.path.join(dir_name, 'mock_alert'), 'w') as f:
-                f.write('{"type_": "mock"}')
 
             alert_monitor_cli = alert_monitor.init()
             run = click.testing.CliRunner().invoke(
@@ -99,10 +95,19 @@ class AlertMonitorTest(unittest.TestCase):
             )
 
         self.assertEqual(run.exit_code, 0, str(run))
-        mock_backend.send_event.assert_called_once_with(
-            type_='mock',
-            on_success_callback=mock.ANY
-        )
+
+    def test_remove_extra_alerts(self):
+        """Test _remove_extra_alerts().
+        """
+        # pylint: disable=protected-access
+        with tempfile.TemporaryDirectory() as dir_name:
+            for file_ in ['mock_alert_1', 'mock_alert_2']:
+                with open(os.path.join(dir_name, file_), 'w') as f:
+                    f.write('{"type_": "mock"}')
+
+            alert_monitor._remove_extra_alerts(dir_name, max_queue_length=1)
+
+            self.assertEqual(os.listdir(dir_name), ['mock_alert_2'])
 
 
 if __name__ == '__main__':
