@@ -86,6 +86,7 @@ class Master(loader.Loader):
 
         self.resource_event_handlers = {
             'allocations': self._handle_allocations_event,
+            'apps_blacklist': self._handle_apps_blacklist_event,
             'apps': self._handle_apps_event,
             'servers': self._handle_servers_event,
             'server_state': self._handle_server_state_event,
@@ -203,6 +204,11 @@ class Master(loader.Loader):
         # host from proper partition.
         self.load_allocations()
         self.load_apps()
+
+    def _handle_apps_blacklist_event(self, _node_name):
+        self.load_apps_blacklist()
+        for appname, app in self.cell.apps.items():
+            app.blacklisted = self._is_blacklisted(appname)
 
     def _handle_apps_event(self, node_name):
         # The event node contains list of apps to be re-evaluated.
@@ -452,6 +458,8 @@ class Master(loader.Loader):
                     why = '{server}:down'.format(server=before)
                 elif self.servers[before].state == scheduler.State.frozen:
                     why = '{server}:frozen'.format(server=before)
+                elif self.cell.apps[app].blacklisted:
+                    why = 'blacklisted'
                 else:
                     # TODO: it will be nice to put app utilization at the time
                     #       of eviction, but this info is not readily

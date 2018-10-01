@@ -6,6 +6,7 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
+import glob
 import json
 import os
 import shutil
@@ -253,6 +254,60 @@ class MasterTest(mockzk.MockZookeeperTestCase):
             [(mock.ANY, 42, leaf_alloc)],
             assignments['treadmill-users']
         )
+
+    @mock.patch('kazoo.client.KazooClient.get', mock.Mock())
+    @mock.patch('kazoo.client.KazooClient.get_children', mock.Mock())
+    def test_load_apps_blacklist(self):
+        """Tests loading application blacklist."""
+        zk_content = {
+            'blackedout.apps': {
+                '.data': """
+                    xxx.*: {reason: test, when: 1234567890.0}
+                    yyy.app3: {reason: test, when: 1234567890.0}
+                """,
+            },
+            'scheduled': {
+                'xxx.app1#1234': {
+                    'memory': '1G',
+                    'disk': '1G',
+                    'cpu': '100%',
+                },
+                'xxx.app2#2345': {
+                    'memory': '1G',
+                    'disk': '1G',
+                    'cpu': '100%',
+                },
+                'yyy.app3#3456': {
+                    'memory': '1G',
+                    'disk': '1G',
+                    'cpu': '100%',
+                },
+                'yyy.app4#4567': {
+                    'memory': '1G',
+                    'disk': '1G',
+                    'cpu': '100%',
+                },
+                'zzz.app5#5678': {
+                    'memory': '1G',
+                    'disk': '1G',
+                    'cpu': '100%',
+                },
+            },
+        }
+        self.make_mock_zk(zk_content)
+
+        self.master.load_apps_blacklist()
+        self.assertEqual(
+            sorted(self.master.apps_blacklist),
+            ['xxx.*', 'yyy.app3']
+        )
+
+        self.master.load_apps()
+        self.assertTrue(self.master.cell.apps['xxx.app1#1234'].blacklisted)
+        self.assertTrue(self.master.cell.apps['xxx.app2#2345'].blacklisted)
+        self.assertTrue(self.master.cell.apps['yyy.app3#3456'].blacklisted)
+        self.assertFalse(self.master.cell.apps['yyy.app4#4567'].blacklisted)
+        self.assertFalse(self.master.cell.apps['zzz.app5#5678'].blacklisted)
 
     @mock.patch('kazoo.client.KazooClient.get', mock.Mock())
     @mock.patch('kazoo.client.KazooClient.get_children', mock.Mock())
@@ -1041,6 +1096,72 @@ class MasterTest(mockzk.MockZookeeperTestCase):
         self.assertIn('xxx.app2#2345',
                       self.master.servers['test1.xx.com'].apps)
         self.assertIsNone(self.master.cell.apps['xxx.app1#1234'].server)
+
+    @mock.patch('kazoo.client.KazooClient.get', mock.Mock())
+    @mock.patch('kazoo.client.KazooClient.exists', mock.Mock())
+    @mock.patch('kazoo.client.KazooClient.get_children', mock.Mock())
+    @mock.patch('kazoo.client.KazooClient.set', mock.Mock())
+    @mock.patch('kazoo.client.KazooClient.create', mock.Mock())
+    @mock.patch('kazoo.client.KazooClient.exists', mock.Mock())
+    @mock.patch('treadmill.zkutils.ensure_deleted', mock.Mock())
+    @mock.patch('treadmill.zkutils.put', mock.Mock())
+    @mock.patch('time.time', mock.Mock(return_value=100))
+    def test_apps_blacklist_events(self):
+        """Tests apps_blacklist events."""
+        zk_content = {
+            'scheduled': {
+                'xxx.app1#1234': {
+                    'memory': '1G',
+                    'disk': '1G',
+                    'cpu': '100%',
+                },
+                'xxx.app2#2345': {
+                    'memory': '1G',
+                    'disk': '1G',
+                    'cpu': '100%',
+                },
+                'yyy.app3#3456': {
+                    'memory': '1G',
+                    'disk': '1G',
+                    'cpu': '100%',
+                },
+                'yyy.app4#4567': {
+                    'memory': '1G',
+                    'disk': '1G',
+                    'cpu': '100%',
+                },
+                'zzz.app5#5678': {
+                    'memory': '1G',
+                    'disk': '1G',
+                    'cpu': '100%',
+                },
+            },
+            'events': {
+                '000-apps_blacklist-12345': None,
+            },
+        }
+
+        self.make_mock_zk(zk_content)
+
+        self.master.load_apps()
+        self.assertFalse(self.master.cell.apps['xxx.app1#1234'].blacklisted)
+        self.assertFalse(self.master.cell.apps['xxx.app2#2345'].blacklisted)
+        self.assertFalse(self.master.cell.apps['yyy.app3#3456'].blacklisted)
+        self.assertFalse(self.master.cell.apps['yyy.app4#4567'].blacklisted)
+        self.assertFalse(self.master.cell.apps['zzz.app5#5678'].blacklisted)
+
+        zk_content['blackedout.apps'] = {
+            '.data': """
+                xxx.*: {reason: test, when: 1234567890.0}
+                yyy.app3: {reason: test, when: 1234567890.0}
+            """
+        }
+        self.master.process_events(['000-apps_blacklist-12345'])
+        self.assertTrue(self.master.cell.apps['xxx.app1#1234'].blacklisted)
+        self.assertTrue(self.master.cell.apps['xxx.app2#2345'].blacklisted)
+        self.assertTrue(self.master.cell.apps['yyy.app3#3456'].blacklisted)
+        self.assertFalse(self.master.cell.apps['yyy.app4#4567'].blacklisted)
+        self.assertFalse(self.master.cell.apps['zzz.app5#5678'].blacklisted)
 
     @mock.patch('kazoo.client.KazooClient.get', mock.Mock())
     @mock.patch('kazoo.client.KazooClient.get_children', mock.Mock())
@@ -1990,6 +2111,194 @@ class MasterTest(mockzk.MockZookeeperTestCase):
         self.assertEqual(
             self.master.pending_start,
             {}
+        )
+
+    @mock.patch('kazoo.client.KazooClient.get', mock.Mock())
+    @mock.patch('kazoo.client.KazooClient.exists', mock.Mock())
+    @mock.patch('kazoo.client.KazooClient.get_children', mock.Mock())
+    @mock.patch('kazoo.client.KazooClient.set', mock.Mock())
+    @mock.patch('kazoo.client.KazooClient.create', mock.Mock())
+    @mock.patch('kazoo.client.KazooClient.exists', mock.Mock())
+    @mock.patch('treadmill.zkutils.ensure_deleted', mock.Mock())
+    @mock.patch('treadmill.zkutils.put', mock.Mock())
+    def test_blacklisted(self):
+        """Tests handling of blacklisted apps."""
+        # Disable warning accessing protected member.
+        #
+        # pylint: disable=W0212
+        zk_content = {
+            'blackedout.apps': {
+                '.data': """
+                    xxx.*: {reason: test, when: 1234567890.0}
+                    yyy.app3: {reason: test, when: 1234567890.0}
+                """,
+            },
+            'placement': {
+                'test.xx.com': {
+                    '.data': """
+                        state: up
+                        since: 100
+                    """,
+                    'xxx.app1#1234': {
+                        '.metadata': {'created': 100},
+                    },
+                    'xxx.app2#2345': {
+                        '.metadata': {'created': 101},
+                    },
+                },
+            },
+            'server.presence': {
+                'test.xx.com': {
+                    '.metadata': {'created': 100},
+                },
+            },
+            'cell': {
+                'pod:pod1': {},
+            },
+            'buckets': {
+                'pod:pod1': {
+                    'traits': None,
+                },
+                'rack:1234': {
+                    'traits': None,
+                    'parent': 'pod:pod1',
+                },
+            },
+            'servers': {
+                'test.xx.com': {
+                    'memory': '16G',
+                    'disk': '128G',
+                    'cpu': '400%',
+                    'parent': 'rack:1234',
+                },
+            },
+            'scheduled': {
+                'xxx.app1#1234': {
+                    'memory': '1G',
+                    'disk': '1G',
+                    'cpu': '100%',
+                },
+                'xxx.app2#2345': {
+                    'memory': '1G',
+                    'disk': '1G',
+                    'cpu': '100%',
+                },
+                'yyy.app3#3456': {
+                    'memory': '1G',
+                    'disk': '1G',
+                    'cpu': '100%',
+                },
+                'yyy.app4#4567': {
+                    'memory': '1G',
+                    'disk': '1G',
+                    'cpu': '100%',
+                },
+                'zzz.app5#5678': {
+                    'memory': '1G',
+                    'disk': '1G',
+                    'cpu': '100%',
+                },
+            },
+        }
+
+        self.make_mock_zk(zk_content)
+
+        self.master.load_buckets()
+        self.master.load_cell()
+        self.master.load_servers()
+        self.master.load_apps_blacklist()
+        self.master.load_apps()
+        self.master.restore_placements()
+
+        # xxx.app1, xxx.app2 and yyy.app3 are blacklisted.
+        self.master.reschedule()
+
+        self.assertEqual(self.master.cell.apps['xxx.app1#1234'].server, None)
+        self.assertEqual(self.master.cell.apps['xxx.app2#2345'].server, None)
+        self.assertEqual(self.master.cell.apps['yyy.app3#3456'].server, None)
+        self.assertEqual(
+            self.master.cell.apps['yyy.app4#4567'].server,
+            'test.xx.com'
+        )
+        self.assertEqual(
+            self.master.cell.apps['zzz.app5#5678'].server,
+            'test.xx.com'
+        )
+        treadmill.zkutils.ensure_deleted.assert_has_calls([
+            mock.call(mock.ANY, '/placement/test.xx.com/xxx.app1#1234'),
+            mock.call(mock.ANY, '/placement/test.xx.com/xxx.app2#2345'),
+        ], any_order=True)
+        event = os.path.join(self.events_dir, '*,xxx.app*,pending,blacklisted')
+        self.assertEqual(len(glob.glob(event)), 2)
+
+        # Add zzz.app5 to blacklist.
+        treadmill.zkutils.ensure_deleted.reset_mock()
+        treadmill.zkutils.put.reset_mock()
+
+        zk_content['blackedout.apps'] = {
+            '.data': """
+                xxx.*: {reason: test, when: 1234567890.0}
+                yyy.app3: {reason: test, when: 1234567890.0}
+                zzz.app5: {reason: test, when: 1234567890.0}
+            """
+        }
+        zk_content['events'] = {
+            '000-apps_blacklist-12345': None,
+        }
+        self.master.process_events(['000-apps_blacklist-12345'])
+
+        self.master.reschedule()
+
+        self.assertEqual(self.master.cell.apps['xxx.app1#1234'].server, None)
+        self.assertEqual(self.master.cell.apps['xxx.app2#2345'].server, None)
+        self.assertEqual(self.master.cell.apps['yyy.app3#3456'].server, None)
+        self.assertEqual(
+            self.master.cell.apps['yyy.app4#4567'].server,
+            'test.xx.com'
+        )
+        self.assertEqual(self.master.cell.apps['zzz.app5#5678'].server, None)
+        treadmill.zkutils.ensure_deleted.assert_called_with(
+            mock.ANY,
+            '/placement/test.xx.com/zzz.app5#5678'
+        )
+        event = os.path.join(
+            self.events_dir, '*,zzz.app5#5678,pending,blacklisted'
+        )
+        self.assertEqual(len(glob.glob(event)), 1)
+
+        # Clear blackout for zzz.app5.
+        treadmill.zkutils.ensure_deleted.reset_mock()
+        treadmill.zkutils.put.reset_mock()
+
+        zk_content['blackedout.apps'] = {
+            '.data': """
+                xxx.*: {reason: test, when: 1234567890.0}
+                yyy.app3: {reason: test, when: 1234567890.0}
+            """
+        }
+        zk_content['events'] = {
+            '000-apps_blacklist-12345': None,
+        }
+        self.master.process_events(['000-apps_blacklist-12345'])
+
+        self.master.reschedule()
+
+        self.assertEqual(self.master.cell.apps['xxx.app1#1234'].server, None)
+        self.assertEqual(self.master.cell.apps['xxx.app2#2345'].server, None)
+        self.assertEqual(self.master.cell.apps['yyy.app3#3456'].server, None)
+        self.assertEqual(
+            self.master.cell.apps['yyy.app4#4567'].server,
+            'test.xx.com'
+        )
+        self.assertEqual(
+            self.master.cell.apps['zzz.app5#5678'].server,
+            'test.xx.com'
+        )
+        treadmill.zkutils.put.assert_any_call(
+            mock.ANY,
+            '/placement/test.xx.com/zzz.app5#5678',
+            mock.ANY,
+            acl=mock.ANY
         )
 
 

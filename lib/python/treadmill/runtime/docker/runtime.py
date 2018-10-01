@@ -100,6 +100,19 @@ def _get_gmsa(tm_env, client, app, container_args):
     container_args['hostname'] = app.proid
 
 
+def _log_port_mapping_config(ports):
+    if ports:
+        port_str = ' '.join(
+            ['{}:{}'.format(c_port, h_port)
+             for c_port, h_port in ports.items()]
+        )
+    else:
+        port_str = 'none'
+
+    _LOGGER.info(
+        'port mapping config (container port/proto : host port): %s', port_str)
+
+
 def _create_container(tm_env, conf, client, app):
     """Create docker container from given app.
     """
@@ -107,6 +120,8 @@ def _create_container(tm_env, conf, client, app):
     for endpoint in app.endpoints:
         port_key = '{0}/{1}'.format(endpoint.port, endpoint.proto)
         ports[port_key] = endpoint.real_port
+
+    _log_port_mapping_config(ports)
 
     # app.image contains a uri which starts with docker://
     image_name = app.image[9:]

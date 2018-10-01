@@ -88,12 +88,15 @@ class Cleanup:
             return
 
         _LOGGER.info('Configure cleaning app: %s', name)
+
+        bin_name = 'scripts' if os.name == 'nt' else 'bin'
         command = (
-            '{treadmill}/bin/treadmill sproc cleanup instance'
+            '{treadmill}/{bin}/treadmill sproc cleanup instance'
             ' --approot {tm_root}'
             ' {instance}'
         ).format(
             treadmill=subproc.resolve('treadmill'),
+            bin=bin_name,
             tm_root=self.tm_env.root,
             instance=name
         )
@@ -109,8 +112,10 @@ class Cleanup:
             monitor_policy={
                 'limit': 5,
                 'interval': 60,
-                'tombstone': os.path.join(self.tm_env.cleanup_tombstone_dir,
-                                          name),
+                'tombstone': {
+                    'path': self.tm_env.cleanup_tombstone_dir,
+                    'id': name,
+                },
                 'skip_path': os.path.join(self.tm_env.cleanup_dir, name)
             },
             log_run_script=None,
