@@ -176,12 +176,17 @@ class GSSAPILineClient:
             _LOGGER.warning('Exception reading line from socket.')
             return None
 
-    def connect(self):
+    def connect(self, timeout=None):
         """Connect and authenticate to the server."""
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
         server_address = (self.host, self.port)
-        self.sock.connect(server_address)
+        if(timeout):
+            self.sock.settimeout(timeout)
+            self.sock.connect(server_address)
+            self.sock.settimeout(None)
+        else:
+            self.sock.connect(server_address)
         self.stream = self.sock.makefile(mode='rwb')
 
         service_name = gssapi.Name(
