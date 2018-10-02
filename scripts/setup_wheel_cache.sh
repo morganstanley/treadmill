@@ -43,6 +43,7 @@ CAN_BUILD_WHEELS="
     pykerberos
     pyyaml
     requests-unixsocket
+    scandir
     simplejson
     tornado
     twisted
