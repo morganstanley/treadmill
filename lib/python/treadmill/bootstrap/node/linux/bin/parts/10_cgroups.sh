@@ -18,6 +18,7 @@ MKTEMP="{{ _alias.mktemp }}"
 MOUNT="{{ _alias.mount }}"
 RMDIR="{{ _alias.rmdir }}"
 SLEEP="{{ _alias.sleep }}"
+TRUE="{{ _alias.true }}"
 
 set -e
 
@@ -86,12 +87,12 @@ function init_cgroup_rhel7() {
         fi
 
         for P in $(${CAT} ${CGROUP}/tasks); do
-            # Skipt kernel processes.
+            # Skip kernel processes.
             if [ -z "$(${CAT} /proc/${P}/cmdline)" ]; then
                 continue
             fi
             ${ECHO} "Moving ${P} to ${CGROUP}/system.slice"
-            ${ECHO} ${P} >${CGROUP}/system.slice/tasks
+            ${ECHO} ${P} >${CGROUP}/system.slice/tasks || ${TRUE}
         done
     done
 
@@ -259,12 +260,12 @@ function init_cgroup_rhel6() {
         fi
 
         for P in $(${CAT} ${CGROUP}/tasks); do
-            # Skipt kernel processes.
+            # Skip kernel processes.
             if [ -z "$(${CAT} /proc/${P}/cmdline)" ]; then
                 continue
             fi
             ${ECHO} "Moving ${P} to ${CGROUP}/system.slice"
-            ${ECHO} ${P} >${CGROUP}/system.slice/tasks
+            ${ECHO} ${P} >${CGROUP}/system.slice/tasks || ${TRUE}
         done
     done
 
