@@ -12,10 +12,10 @@ import fnmatch
 
 import six
 import kazoo
-import yaml
 
 from treadmill import context
 from treadmill import utils
+from treadmill import yamlwrapper as yaml
 from treadmill import zknamespace as z
 from treadmill import zkwatchers
 

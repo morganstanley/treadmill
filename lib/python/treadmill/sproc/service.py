@@ -245,12 +245,8 @@ def init():
         root_dir = local_ctx['root-dir']
         watchdogs_dir = local_ctx['watchdogs-dir']
 
-        # Explicitely create global zk connection, so that zk session id is
-        # preserved.
-        context.GLOBAL.zk.conn = zkutils.connect(
-            context.GLOBAL.zk.url,
-            idpath=zkid
-        )
+        context.GLOBAL.zk.idpath = zkid
+        context.GLOBAL.zk.add_listener(zkutils.exit_on_lost)
 
         def sigterm_handler(_signo, _stack_frame):
             """Handle sigterm.
@@ -260,7 +256,8 @@ def init():
             """
             _LOGGER.info('Got SIGTERM, closing zk session and rm: %s', zkid)
             fs.rm_safe(zkid)
-            context.GLOBAL.zk.conn.stop()
+            if context.GLOBAL.zk.has_conn():
+                context.GLOBAL.zk.conn.stop()
 
         signal.signal(utils.term_signal(), sigterm_handler)
 

@@ -367,11 +367,7 @@ def reboot_schedule(value):
             day, tod = entry.split('/')
             return (days.index(day), parse_tod(tod))
 
-    return {
-        day: time
-        for x in value.split(',')
-        for day, time in [parse_entry(x)]
-    }
+    return dict([parse_entry(x) for x in value.split(',')])
 
 
 def validate(struct, schema):

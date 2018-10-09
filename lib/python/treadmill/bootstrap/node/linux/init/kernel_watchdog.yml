@@ -3,8 +3,7 @@ command: |
     {{ treadmill }}/bin/treadmill \
     sproc --cgroup {{ name }} \
     kernel-watchdog \
-        --kernel-watchdog-root {{ dir }}/kernel_watchdog \
-        --reboot-script {{ dir }}/bin/reboot.sh
+        --kernel-watchdog-root {{ dir }}/kernel_watchdog
 environ_dir: "{{ dir }}/env"
 call_before_finish: "{{ dir }}/bin/stop_watchdog.sh"
 monitor_policy:

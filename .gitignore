@@ -1,23 +1,18 @@
-# Ignore compiled/temporary files
-__pycache__
-*.py[co]
 .*
+*.pyc
 
-build/
-dist/
 docs/api
 docs/build
-docs/_build
+dist/
 venv/
-wheels/
 test_container_dir/
+
+# Examples
+examples/oom/oom
 
 # Keep track of .keepme files
 !.keepme
 !.owner
-
-# Preserve tmpwatch files
-!.tmpwatch.exclude
 
 # Keep svscan dir
 !.s6-svscan
@@ -34,3 +29,10 @@ lib/python/*.egg-info/*
 
 # Preserve tmpwatch files
 !.tmpwatch.exclude
+
+# Keep msdlbuildignore
+!.msdlbuildignore
+
+# Ignore build files
+lint.log
+pep8.log

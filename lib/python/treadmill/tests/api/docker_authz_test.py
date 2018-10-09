@@ -6,8 +6,8 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
-import unittest
 import mock
+import unittest
 
 # Disable W0611: Unused import
 import treadmill.tests.treadmill_test_skip_windows  # pylint: disable=W0611
@@ -120,6 +120,30 @@ class DockerAuthzPluginTest(unittest.TestCase):
             '/v1.26/containers/create',
             {
                 'Image': 'foo'
+            },
+            users=users
+        )
+        self.assertTrue(allow)
+
+        # disallow run user different from image user
+        (allow, msg) = plugin.run_req(
+            'POST',
+            '/v1.26/containers/create',
+            {
+                'Image': 'foo',
+                'User': 'whoami',
+            },
+            users=users
+        )
+        self.assertFalse(allow)
+
+        # allow run user same as image user
+        (allow, msg) = plugin.run_req(
+            'POST',
+            '/v1.26/containers/create',
+            {
+                'Image': 'foo',
+                'User': '5:5',
             },
             users=users
         )

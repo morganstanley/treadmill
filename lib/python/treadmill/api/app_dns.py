@@ -124,6 +124,7 @@ class API:
         def delete(rsrc_id):
             """Delete configured application."""
             _admin_app_group().delete(rsrc_id)
+            return None
 
         def _list():
             """List configured applications."""
