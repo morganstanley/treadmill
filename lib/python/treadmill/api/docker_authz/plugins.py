@@ -19,6 +19,12 @@ _IMAGE_USER = dict()
 DEFAULT_ALLOW_MSG = 'Allowed'
 
 
+class NotAllowedError(Exception):
+    """General not allowed excpetion for plugins
+    """
+    pass
+
+
 def _norm(user):
     """Convert user name to uid:gid
     """
@@ -91,6 +97,27 @@ class DockerInspectUserPlugin(AuthzPlugin):
 class DockerRunUserPlugin(AuthzPlugin):
     """Authz plugin to check user for docker run
     """
+
+    @staticmethod
+    def _get_image_user(image):
+        if image and image in _IMAGE_USER:
+            return _IMAGE_USER[image]
+        else:
+            return None
+
+    @staticmethod
+    def _user_in_whitelist(container_user, whitelist):
+        """check container user in whitelist
+        """
+        # if user not found, _norm will raise KeyError
+        container_user = _norm(container_user)
+
+        for user in whitelist:
+            if container_user == '{}:{}'.format(user[0], user[1]):
+                return
+
+        raise NotAllowedError()
+
     def run_req(self, method, url, request, **kwargs):
         """Check user from request_id
         request example:
@@ -106,29 +133,35 @@ class DockerRunUserPlugin(AuthzPlugin):
 
         if method == 'POST' and 'containers/create' in url:
             # User name and image name defined in request body
-            container_user = request.get('User', '')
+            run_user = request.get('User', '')
             image = request.get('Image', '')
-            if container_user:
-                # if user name provide, it is equal to user id of container
-                try:
-                    # if user not found, _norm will raise KeyError
-                    container_user = _norm(container_user)
+            # run_user provided by 'docker run --user USER'
+            if run_user:
+                image_user = self._get_image_user(image)
 
-                    for user in users:
-                        if container_user == '{}:{}'.format(user[0], user[1]):
-                            break
-                    else:
-                        msg = 'user {} not allowed'.format(container_user)
+                # first check if docker user equals to image user
+                # if it is, we directly allow it
+                if image_user is None or image_user != run_user:
+
+                    # now check if docker user same as treadmill container user
+                    try:
+                        self._user_in_whitelist(run_user, users)
+                    except NotAllowedError:
+                        msg = 'user {} not allowed'.format(run_user)
                         allow = False
-                except KeyError:
-                    msg = 'Can not get uid for {}'.format(container_user)
-                    _LOGGER.error(msg)
-                    allow = False
+                    except KeyError:
+                        msg = 'Can not get uid for {}'.format(run_user)
+                        allow = False
+                else:
+                    _LOGGER.info(
+                        'user %s same as defined in image', image_user
+                    )
             else:
                 # no user from docker run, we must ensure user defined in image
-                if image and image in _IMAGE_USER:
+                image_user = self._get_image_user(image)
+                if image_user is not None:
                     msg = 'Run as {} defined in image {}'.format(
-                        _IMAGE_USER[image], image
+                        image_user, image
                     )
                 else:
                     msg = 'user not provided nor defined in image {}'.format(

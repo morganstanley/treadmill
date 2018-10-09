@@ -20,7 +20,7 @@ class AuthorizationError(Exception):
 
     def __init__(self, annotations):
         self.annotations = annotations
-        super(AuthorizationError, self).__init__('\n'.join(self.annotations))
+        super(AuthorizationError, self).__init__(', '.join(annotations))
 
 
 class NullAuthorizer:
@@ -61,12 +61,11 @@ class ClientAuthorizer:
         if nargs > 1:
             data['payload'] = args[1]
 
-        # POST http://auth_server/user/action/resource
-        # {'pk': 'foo', 'payload': { ... }}
-        response = restclient.post(api=self.remote,
-                                   url=url,
-                                   payload=data,
-                                   auth=None)
+        response = restclient.post(
+            [self.remote],
+            url,
+            payload=data,
+        )
         authd = response.json()
         _LOGGER.debug('client authorize ressult %r', authd)
 

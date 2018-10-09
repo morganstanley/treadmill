@@ -29,6 +29,13 @@ _LOGGER = logging.getLogger(__name__)
 def register(api):
     """Register common error handlers."""
 
+    # TODO: flask.errorhandler is **flaky**. This whole error handling method
+    #       needs to be re-written.
+    #
+    #       Depending on some randomness, they are either registered, or not.
+    #
+    #       Example of randomness can be calling "print" inside the handler,
+    #       or similar non-significant code changes.
     def _cors_headers():
         return webutils.cors_make_headers(base_origin='.*',
                                           max_age=21600,
@@ -38,7 +45,7 @@ def register(api):
     @api.errorhandler(authz.AuthorizationError)
     def _authorization_exc(err):
         """Authorization exception handler."""
-        _LOGGER.info('Authorization error: %r', err)
+        _LOGGER.info('Authorization error: %r', str(err))
         resp = {'message': str(err),
                 'status': http_client.FORBIDDEN}
         return resp, http_client.FORBIDDEN, _cors_headers()
@@ -150,17 +157,3 @@ def register(api):
             'status': http_client.INTERNAL_SERVER_ERROR
         }
         return resp, http_client.INTERNAL_SERVER_ERROR, _cors_headers()
-
-    def _internal_server_error(err):
-        """Unhandled exception handler."""
-        _LOGGER.exception('exception: %r', err)
-        resp = {
-            'message': str(err),
-            'status': http_client.INTERNAL_SERVER_ERROR
-        }
-        return resp, http_client.INTERNAL_SERVER_ERROR, _cors_headers()
-
-    @api.errorhandler(Exception)
-    def _unhandled_exc(err):
-        """Unhandled exception handler."""
-        return _internal_server_error(err)

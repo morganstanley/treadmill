@@ -9,10 +9,13 @@ from __future__ import unicode_literals
 import six
 
 import yaml
+from yaml import YAMLError
 try:
-    from yaml import CLoader as Loader
+    from yaml import CSafeLoader as Loader
+    from yaml import CSafeDumper as Dumper
 except ImportError:
-    from yaml import Loader
+    from yaml import SafeLoader as Loader
+    from yaml import SafeDumper as Dumper
 
 
 def _repr_bytes(dumper, data):
@@ -62,6 +65,9 @@ yaml.add_representer(type(None), _repr_none)
 def dump(*args, **kwargs):
     """Delegate to yaml dumps.
     """
+    if kwargs is None:
+        kwargs = {}
+    kwargs['Dumper'] = Dumper
     return yaml.dump(*args, **kwargs)
 
 
@@ -83,4 +89,9 @@ def load_all(*args, **kwargs):
     return yaml.load_all(*args, **kwargs)
 
 
-YAMLError = yaml.YAMLError
+__all__ = [
+    'dump',
+    'load',
+    'load_all',
+    'YAMLError'
+]
