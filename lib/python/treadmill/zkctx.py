@@ -13,10 +13,10 @@ from treadmill import zkutils
 _LOGGER = logging.getLogger(__name__)
 
 
-def connect(zkurl):
+def connect(zkurl, idpath=None):
     """Returns connection to Zookeeper.
     """
-    return zkutils.connect(zkurl, listener=zkutils.exit_never)
+    return zkutils.connect(zkurl, idpath=idpath, listener=zkutils.exit_never)
 
 
 def resolve(_ctx, attr):

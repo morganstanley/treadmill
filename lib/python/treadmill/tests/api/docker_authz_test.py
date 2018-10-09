@@ -125,6 +125,30 @@ class DockerAuthzPluginTest(unittest.TestCase):
         )
         self.assertTrue(allow)
 
+        # disallow run user different from image user
+        (allow, msg) = plugin.run_req(
+            'POST',
+            '/v1.26/containers/create',
+            {
+                'Image': 'foo',
+                'User': 'whoami',
+            },
+            users=users
+        )
+        self.assertFalse(allow)
+
+        # allow run user same as image user
+        (allow, msg) = plugin.run_req(
+            'POST',
+            '/v1.26/containers/create',
+            {
+                'Image': 'foo',
+                'User': '5:5',
+            },
+            users=users
+        )
+        self.assertTrue(allow)
+
 
 class DockerAuthzAPITest(unittest.TestCase):
     """Test Docker Authz API

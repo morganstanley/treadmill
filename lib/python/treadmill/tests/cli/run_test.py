@@ -130,40 +130,42 @@ class RunTest(unittest.TestCase):
                 mock.Mock(return_value=['http://xxx:1234']))
     def test_run_withmanifest(self):
         """Test cli.run no manifest."""
+        manifest = {
+            'memory': '1G',
+            'disk': '1G',
+            'cpu': '100%',
+        }
 
         with tempfile.NamedTemporaryFile(delete=False, mode='w') as f:
-
-            manifest = {
-                'memory': '1G',
-                'disk': '1G',
-                'cpu': '100%',
-            }
-
             yaml.dump(manifest, stream=f)
-            expected_payload = dict(manifest)
-            result = self.runner.invoke(self.cli, [
-                '--cell', 'xx', 'proid.app',
-                '--manifest', f.name,
-            ])
-            self.assertEqual(result.exit_code, 0)
-            treadmill.restclient.post.assert_called_with(
-                ['http://xxx:1234'],
-                '/instance/proid.app?count=1',
-                payload=expected_payload
-            )
 
-            expected_payload['memory'] = '333M'
-            result = self.runner.invoke(self.cli, [
-                '--cell', 'xx', 'proid.app',
-                '--memory', '333M',
-                '--manifest', f.name,
-            ])
-            self.assertEqual(result.exit_code, 0)
-            treadmill.restclient.post.assert_called_with(
-                ['http://xxx:1234'],
-                '/instance/proid.app?count=1',
-                payload=expected_payload
-            )
+        result = self.runner.invoke(self.cli, [
+            '--cell', 'xx', 'proid.app',
+            '--manifest', f.name,
+        ])
+
+        self.assertEqual(result.exit_code, 0)
+        treadmill.restclient.post.assert_called_with(
+            ['http://xxx:1234'],
+            '/instance/proid.app?count=1',
+            payload=manifest
+        )
+
+        # Test manifest parameter override
+        manifest['memory'] = '333M'
+
+        result = self.runner.invoke(self.cli, [
+            '--cell', 'xx', 'proid.app',
+            '--memory', '333M',
+            '--manifest', f.name,
+        ])
+
+        self.assertEqual(result.exit_code, 0)
+        treadmill.restclient.post.assert_called_with(
+            ['http://xxx:1234'],
+            '/instance/proid.app?count=1',
+            payload=manifest
+        )
 
 
 if __name__ == '__main__':
