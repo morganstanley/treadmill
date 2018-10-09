@@ -46,6 +46,8 @@ from twisted.protocols import basic
 
 _LOGGER = logging.getLogger(__name__)
 
+_CONNECT_TIMEOUT = 10
+
 
 class GSSError(Exception):
     """GSS error."""
@@ -146,10 +148,13 @@ class GSSAPILineServer(basic.LineReceiver):  # pylint: disable=C0103
 class GSSAPILineClient:
     """GSSAPI line based syncrounos client."""
 
-    def __init__(self, host, port, service_name):
+    def __init__(self, host, port, service_name, connect_timeout=None):
         self.host = host
         self.port = port
         self.service_name = service_name
+        self.connect_timeout = connect_timeout
+        if self.connect_timeout is None:
+            self.connect_timeout = _CONNECT_TIMEOUT
 
         self.sock = None
         self.stream = None
@@ -181,7 +186,14 @@ class GSSAPILineClient:
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
         server_address = (self.host, self.port)
-        self.sock.connect(server_address)
+        try:
+            self.sock.settimeout(self.connect_timeout)
+            self.sock.connect(server_address)
+        except socket.error:
+            _LOGGER.debug('Connection timeout: %s:%s', self.host, self.port)
+            return False
+
+        self.sock.settimeout(None)
         self.stream = self.sock.makefile(mode='rwb')
 
         service_name = gssapi.Name(

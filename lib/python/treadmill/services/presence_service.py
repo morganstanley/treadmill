@@ -33,7 +33,6 @@ class PresenceResourceService(BaseResourceServiceImpl):
 
     __slots__ = (
         'hostname',
-        'zkclient',
         'presence',
     )
 
@@ -43,10 +42,14 @@ class PresenceResourceService(BaseResourceServiceImpl):
 
     def __init__(self):
         super(PresenceResourceService, self).__init__()
-        # TODO: can't find way to pass arguments to the service impl.
-        self.zkclient = context.GLOBAL.zk.conn
         self.hostname = sysinfo.hostname()
         self.presence = collections.defaultdict(dict)
+
+    @property
+    def zkclient(self):
+        """Lazily creates Zookeeper client.
+        """
+        return context.GLOBAL.zk.conn
 
     def initialize(self, service_dir):
         super(PresenceResourceService, self).initialize(service_dir)

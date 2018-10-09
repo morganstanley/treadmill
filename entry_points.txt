@@ -60,6 +60,9 @@ docker_authz.authzres = treadmill.rest.api.docker_authz.authzres
 docker_authz.activate = treadmill.rest.api.docker_authz.activate
 
 
+# Rest authorization modules.
+authz.group = treadmill.rest.api.authz.group
+
 [treadmill.api]
 allocation = treadmill.api.allocation
 api-lookup = treadmill.api.api_lookup
@@ -82,6 +85,9 @@ tenant = treadmill.api.tenant
 docker_authz.authzreq = treadmill.api.docker_authz
 docker_authz.authzres = treadmill.api.docker_authz
 docker_authz.activate = treadmill.api.docker_authz
+
+# Rest authorization modules.
+authz.group = treadmill.api.authz.group
 
 [treadmill.api.instance.plugins]
 

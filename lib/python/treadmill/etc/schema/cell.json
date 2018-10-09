@@ -5,13 +5,11 @@
         "type": "object",
         "additionalProperties": false,
         "properties": {
-            "archive_server": { "type": "string" },
-            "archive_username": { "type": "string" },
             "location": { "$ref": "common.json#/location" },
-            "ssq_namespace": { "type": "string" },
             "treadmill_root": { "type": "string" },
             "treadmillid": { "$ref": "common.json#/proid" },
-            "version": { "type": "string" }
+            "version": { "type": "string" },
+            "zk_auth_scheme": { "type": "string" }
         }
     },
     "verbs": {

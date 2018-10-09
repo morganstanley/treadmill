@@ -4,6 +4,7 @@
 import codecs
 import io
 import logging
+import multiprocessing
 import os
 
 import jinja2
@@ -19,13 +20,13 @@ _JINJA2_ENV = jinja2.Environment(loader=jinja2.PackageLoader(__name__))
 class KernelWatchdog:
     """Kernel watchdog."""
 
-    def __init__(self, root, reboot_script):
+    def __init__(self, root):
         """
         :param root: watchdog base directory
         :param reboot_script: reboot script
         """
         self.root = root
-        self.reboot_script = reboot_script
+        self.cpu_count = multiprocessing.cpu_count()
         self.pid_file = '/var/run/watchdog.pid'
         self.config_file = os.path.join(self.root, 'watchdog.conf')
         self.script_directory = os.path.join(self.root, 'script')
@@ -76,11 +77,11 @@ class KernelWatchdog:
             ).render(
                 name=name,
                 command=test_script,
-                reboot=self.reboot_script
             )
             with io.open(os.path.join(self.test_directory, name), 'w') as fd:
                 fd.write(custom_test)
                 os.fchmod(fd.fileno(), 0o755)
 
-        _LOGGER.info('Starting up kernel watchdog')
+        _LOGGER.info('Starting up kernel watchdog (ncpu=%d)', self.cpu_count)
+        os.environ['WATCHDOGD_NCPU'] = str(self.cpu_count)
         subproc.exec_fghack(self.start_command)
