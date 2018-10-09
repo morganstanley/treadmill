@@ -1,18 +1,33 @@
 #!/bin/ksh
 
-# load getting higher
-LOAD_THRESHOLD_ARR=(1000 800 500)
+# NOTE: This script is carefully crafted to not execute any other binary.
+
+set -e
+
+if [ -z ${WATCHDOGD_NCPU} ]; then
+    echo "ERROR: CPU core count \$WATCHDOGD_NCPU not defined!!"
+    exit 1
+fi
+
+# Calculate load threshold based on number of CPU
+LOAD_THRESHOLD_ARR=(
+    $(( 100.0 * ${WATCHDOGD_NCPU} ))
+    $((  75.0 * ${WATCHDOGD_NCPU} ))
+    $((  50.0 * ${WATCHDOGD_NCPU} ))
+)
 
 high_load=0
-load_arr=(`cat /proc/loadavg`)
+load_arr=($(</proc/loadavg))
+
 for i in {0..2}; do
-    if [ ${load_arr[$i]} -ge ${LOAD_THRESHOLD_ARR[$i]} ]; then
+    if [ $(( ${load_arr[$i]} >= ${LOAD_THRESHOLD_ARR[$i]} )) -eq 1 ]; then
         high_load=$((high_load + 1))
     fi
 done
 
 if [ $high_load -eq 3 ]; then
-    exit 1
+    echo FAILED: load:${load_arr[0..2]}
+    exit -1
 else
     exit 0
 fi

@@ -26,15 +26,11 @@ def init():
         '--kernel-watchdog-root', required=True,
         help='Base directory of kernel watchdog setup.'
     )
-    @click.option(
-        '--reboot-script', required=True,
-        help='Reboot script.'
-    )
-    def top(kernel_watchdog_root, reboot_script):
+    def top(kernel_watchdog_root):
         """Run kernel watchdog.
         """
         kernel_watchdog = kw.KernelWatchdog(
-            kernel_watchdog_root, reboot_script
+            kernel_watchdog_root
         )
         try:
             kernel_watchdog.start()

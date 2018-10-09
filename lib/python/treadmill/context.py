@@ -256,12 +256,14 @@ class ZkContext:
         '_context',
         '_conn',
         '_listeners',
+        'idpath',
     )
 
     def __init__(self, ctx):
         self._context = ctx
         self._conn = None
         self._listeners = []
+        self.idpath = None
 
     def add_listener(self, listener):
         """Add a listener.
@@ -291,7 +293,7 @@ class ZkContext:
         _LOGGER.debug('Connecting to Zookeeper %s', self.url)
 
         plugin = plugin_manager.load('treadmill.context', 'zookeeper')
-        self._conn = plugin.connect(self.url)
+        self._conn = plugin.connect(self.url, idpath=self.idpath)
         if self._listeners:
             for listener in self._listeners:
                 self._conn.add_listener(listener)
@@ -302,6 +304,11 @@ class ZkContext:
     def conn(self, zkclient):
         """Explicitely set connection."""
         self._conn = zkclient
+
+    def has_conn(self):
+        """Returns True if Zookeeper client has been created, False otherwise.
+        """
+        return self._conn is not None
 
 
 class Context:

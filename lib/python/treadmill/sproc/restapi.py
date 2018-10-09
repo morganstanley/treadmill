@@ -13,13 +13,12 @@ import time
 import socket as sock
 
 import click
-import yaml
-
-from treadmill import context
-from treadmill import rest
-from treadmill import zkutils
 
 from treadmill import cli
+from treadmill import context
+from treadmill import rest
+from treadmill import yamlwrapper as yaml
+from treadmill import zkutils
 from treadmill.rest import api
 from treadmill.rest import error_handlers  # pylint: disable=W0611
 

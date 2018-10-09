@@ -12,6 +12,7 @@ attributeTypes:
   app:
     desc: Treadmill application
     type: str
+  # TODO: archive-* - obsolete attributes.
   archive-server:
     desc: Treadmill server
     type: str
@@ -98,6 +99,9 @@ attributeTypes:
   master-zk-jmx-port:
     desc: Zookeeper jmx port
     type: int
+  zk-auth-scheme:
+    desc: Zookeeper authentication scheme
+    type: str
   max-utilization:
     desc: Treadmill max utilization
     type: str
@@ -147,6 +151,7 @@ attributeTypes:
   service-restart-interval:
     desc: Treadmill restart count limit interval
     type: int
+  # TODO: stale attribute - remove.
   ssq-namespace:
     desc: Treadmill SSQ namespace
     type: str
@@ -317,9 +322,11 @@ objectClasses:
     must:
     - cell
     may:
+    # TODO: archive-* - obsolete.
     - archive-server
     - archive-username
     - location
+    # TODO: ssq-* - obsolete.
     - ssq-namespace
     - username
     - version
@@ -330,6 +337,7 @@ objectClasses:
     - master-zk-jmx-port
     - master-zk-followers-port
     - master-zk-election-port
+    - zk-auth-scheme
     - data
     - status
     - trait

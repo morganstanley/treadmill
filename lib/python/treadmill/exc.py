@@ -23,6 +23,7 @@ class TreadmillError(Exception):
     def message(self):
         """The :class:`~TreadmillError`'s message.
         """
+        # pylint: disable=unsubscriptable-object
         return self.args[0]
 
     def __init__(self, msg):
