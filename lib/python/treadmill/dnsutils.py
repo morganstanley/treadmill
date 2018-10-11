@@ -138,7 +138,7 @@ def cname(label, dns_server=None):
     return [str(rec) for rec in query(label, dns.rdatatype.CNAME, dns_server)]
 
 
-def srv(label, dns_server=None, ignore_additional=False):
+def srv(label, dns_server=None, ignore_additional=True):
     """Resolve a CNAME resource record
 
     :param label: label to lookup
