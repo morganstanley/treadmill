@@ -47,7 +47,7 @@ class ManifestWatchTest(unittest.TestCase):
     @mock.patch('os.chmod', mock.Mock())
     @mock.patch('treadmill.fs.mkdir_safe', mock.Mock())
     @mock.patch('treadmill.fs.symlink_safe', mock.Mock())
-    @mock.patch('treadmill.utils.create_script', mock.Mock())
+    @mock.patch('treadmill.templates.create_script', mock.Mock())
     @mock.patch('treadmill.spawn.manifest_watch.ManifestWatch._scan',
                 mock.Mock())
     @mock.patch('treadmill.subproc.get_aliases', mock.Mock(return_value={}))
@@ -58,7 +58,7 @@ class ManifestWatchTest(unittest.TestCase):
         watch._create_instance('test.yml')
 
         self.assertEqual(4, treadmill.fs.mkdir_safe.call_count)
-        self.assertEqual(2, treadmill.utils.create_script.call_count)
+        self.assertEqual(2, treadmill.templates.create_script.call_count)
         self.assertEqual(1, treadmill.fs.symlink_safe.call_count)
         io.open.assert_has_calls(
             [

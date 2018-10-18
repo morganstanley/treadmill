@@ -82,7 +82,9 @@ def init():
                         zk_presence_path)
 
             utils.report_ready(notification_fd)
+
             _init_network()
+
             _start_init1(tm_env)
             _LOGGER.info('Ready.')
 

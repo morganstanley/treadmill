@@ -14,6 +14,7 @@ import pkg_resources
 
 from treadmill import context
 from treadmill import plugin_manager
+from treadmill import subproc
 from treadmill import sysinfo
 from treadmill import zkutils
 from treadmill import zknamespace as z
@@ -74,10 +75,6 @@ def init():
             version.update(plugin())
 
         _save_version(zkclient, hostname, version)
-
-        while True:
-            time.sleep(100000)
-
-        _LOGGER.info('service shutdown.')
+        subproc.safe_exec(['sleep', 'inf'])
 
     return version_monitor

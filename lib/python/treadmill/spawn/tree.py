@@ -15,6 +15,7 @@ from treadmill import fs
 from treadmill import spawn
 from treadmill import subproc
 from treadmill import supervisor
+from treadmill import templates
 from treadmill import utils
 from treadmill import zknamespace
 from treadmill.spawn import utils as spawn_utils
@@ -67,7 +68,7 @@ class Tree:
             fs.mkdir_safe(running)
             fs.mkdir_safe(svscan)
 
-            utils.create_script(
+            templates.create_script(
                 os.path.join(app, 'run'),
                 's6.svscan.run',
                 max=self.max_per_bucket,
@@ -75,14 +76,14 @@ class Tree:
                 _alias=subproc.get_aliases()
             )
 
-            utils.create_script(
+            templates.create_script(
                 os.path.join(log, 'run'),
                 's6.logger.run',
                 logdir='.',
                 _alias=subproc.get_aliases()
             )
 
-            utils.create_script(
+            templates.create_script(
                 os.path.join(svscan, 'finish'),
                 's6.svscan.finish',
                 timeout=4800,

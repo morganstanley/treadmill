@@ -260,6 +260,19 @@ class RuntimeTest(unittest.TestCase):
         self.assertFalse(os.path.exists(file1))
         self.assertTrue(os.path.exists(file2))
 
+    def test_load_app_safe(self):
+        """Test loading corrupted or invalid app manifest."""
+        data_dir = os.path.join(self.root, 'xxx.yyy-1234-qwerty', 'data')
+        fs.mkdir_safe(data_dir)
+        io.open(os.path.join(data_dir, 'state.json'), 'w').close()
+
+        app = treadmill.runtime.load_app_safe('xxx.yyy-1234-qwerty', data_dir)
+
+        self.assertEqual(app.name, 'xxx.yyy#1234')
+        self.assertEqual(app.app, 'xxx.yyy')
+        self.assertEqual(app.task, '1234')
+        self.assertEqual(app.uniqueid, 'qwerty')
+
 
 if __name__ == '__main__':
     unittest.main()

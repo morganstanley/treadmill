@@ -133,7 +133,11 @@ class DockerRuntimeTest(unittest.TestCase):
             mem_limit='512M',
             storage_opt={
                 'size': '20G'
-            }
+            },
+            ulimits=[
+                {'core': 'unlimited'},
+                {'nofile': 32768},
+            ],
         )
 
     def test__check_aborted(self):

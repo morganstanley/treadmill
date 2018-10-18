@@ -40,14 +40,17 @@ def _build_resource_to_address_map(answer):
     return mapping
 
 
-def _build_result_set(answer):
+def _build_result_set(answer, ignore_additional):
     """Return a list of SRV instances for a DNS answer.
     :rtype: list of srvlookup.SRV
     """
     if not answer:
         return []
 
-    resource_map = _build_resource_to_address_map(answer)
+    if ignore_additional:
+        resource_map = {}
+    else:
+        resource_map = _build_resource_to_address_map(answer)
     result_set = []
     for resource in answer:
         target = resource.target.to_text()
@@ -135,7 +138,7 @@ def cname(label, dns_server=None):
     return [str(rec) for rec in query(label, dns.rdatatype.CNAME, dns_server)]
 
 
-def srv(label, dns_server=None):
+def srv(label, dns_server=None, ignore_additional=True):
     """Resolve a CNAME resource record
 
     :param label: label to lookup
@@ -146,7 +149,8 @@ def srv(label, dns_server=None):
 
     :return: a list of tuples (ip, port, prio, weight)
     """
-    return _build_result_set(query(label, dns.rdatatype.SRV, dns_server))
+    return _build_result_set(query(label, dns.rdatatype.SRV, dns_server),
+                             ignore_additional)
 
 
 def txt(label, dns_server=None):

@@ -51,6 +51,14 @@ foo: bar
         self.assertTrue(len(uniqueid1) <= 13)
         self.assertNotEqual(uniqueid1, uniqueid2)
 
+    def test_app_unique_id(self):
+        """Test returning the unique id from app unique name.
+        """
+        self.assertEqual(
+            appcfg.app_unique_id('proid.myapp-0-00000000AAAAA'),
+            '00000000AAAAA'
+        )
+
 
 if __name__ == '__main__':
     unittest.main()

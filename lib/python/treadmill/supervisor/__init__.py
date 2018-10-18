@@ -55,11 +55,10 @@ import logging
 import os
 import time
 
-import jinja2
-
 from treadmill import fs
 from treadmill import utils
 from treadmill import subproc
+from treadmill import templates
 
 from . import _service_base
 from . import _utils as supervisor_utils
@@ -74,8 +73,6 @@ else:
 
 _LOGGER = logging.getLogger(__name__)
 
-JINJA2_ENV = jinja2.Environment(loader=jinja2.PackageLoader(__name__))
-
 # svc exits 111 if it cannot send a command.
 ERR_COMMAND = 111
 
@@ -86,6 +83,11 @@ ERR_NO_SUP = 100
 ERR_TIMEOUT = 99
 
 EXITS_DIR = 'exits'
+
+
+class InvalidServiceDirError(ValueError):
+    """Invalid service directory."""
+    pass
 
 
 def open_service(service_dir, existing=True):
@@ -104,7 +106,9 @@ def open_service(service_dir, existing=True):
         )
         if svc_data is None:
             if existing:
-                raise ValueError('Invalid Service directory: %r' % service_dir)
+                raise InvalidServiceDirError(
+                    'Invalid Service directory: %r' % service_dir
+                )
             else:
                 svc_type = _service_base.ServiceType.LongRun
                 svc_basedir = os.path.dirname(service_dir)
@@ -142,32 +146,32 @@ def _create_scan_dir_s6(scan_dir, finish_timeout, wait_cgroups=None,
     if not isinstance(scan_dir, sup_impl.ScanDir):
         scan_dir = sup_impl.ScanDir(scan_dir)
 
-    svscan_finish_script = utils.generate_template(
+    svscan_finish_script = templates.generate_template(
         's6.svscan.finish',
         timeout=finish_timeout,
         wait_cgroups=wait_cgroups,
         _alias=subproc.get_aliases()
     )
     scan_dir.finish = svscan_finish_script
-    svscan_sigterm_script = utils.generate_template(
+    svscan_sigterm_script = templates.generate_template(
         's6.svscan.sigterm',
         kill_svc=kill_svc,
         _alias=subproc.get_aliases()
     )
     scan_dir.sigterm = svscan_sigterm_script
-    svscan_sighup_script = utils.generate_template(
+    svscan_sighup_script = templates.generate_template(
         's6.svscan.sighup',
         kill_svc=kill_svc,
         _alias=subproc.get_aliases()
     )
     scan_dir.sighup = svscan_sighup_script
-    svscan_sigint_script = utils.generate_template(
+    svscan_sigint_script = templates.generate_template(
         's6.svscan.sigint',
         kill_svc=kill_svc,
         _alias=subproc.get_aliases()
     )
     scan_dir.sigint = svscan_sigint_script
-    svscan_sigquit_script = utils.generate_template(
+    svscan_sigquit_script = templates.generate_template(
         's6.svscan.sigquit',
         kill_svc=kill_svc,
         _alias=subproc.get_aliases()
@@ -193,14 +197,14 @@ def _create_scan_dir_winss(scan_dir, finish_timeout, kill_svc=None, **kwargs):
     if not isinstance(scan_dir, sup_impl.ScanDir):
         scan_dir = sup_impl.ScanDir(scan_dir)
 
-    svscan_finish_script = utils.generate_template(
+    svscan_finish_script = templates.generate_template(
         'winss.svscan.finish',
         timeout=finish_timeout,
         scan_dir=scan_dir.directory,
         _alias=subproc.get_aliases()
     )
     scan_dir.finish = svscan_finish_script
-    svscan_sigterm_script = utils.generate_template(
+    svscan_sigterm_script = templates.generate_template(
         'winss.svscan.sigterm',
         kill_svc=kill_svc,
         _alias=subproc.get_aliases()
@@ -302,7 +306,7 @@ def _create_service_s6(base_dir,
         ionice_prio = 6
 
     # Setup the run script
-    svc.run_script = utils.generate_template(
+    svc.run_script = templates.generate_template(
         run_script,
         user=userid,
         shell=shell,
@@ -314,7 +318,7 @@ def _create_service_s6(base_dir,
 
     if monitor_policy is not None or call_before_finish is not None:
         # Setup the finish script
-        svc.finish_script = utils.generate_template(
+        svc.finish_script = templates.generate_template(
             finish_script,
             monitor_policy=monitor_policy,
             trace=trace,
@@ -327,7 +331,7 @@ def _create_service_s6(base_dir,
             logger_args = '-b -p T n20 s1000000'
 
         # Setup the log run script
-        svc.log_run_script = utils.generate_template(
+        svc.log_run_script = templates.generate_template(
             log_run_script,
             logdir=os.path.relpath(
                 os.path.join(svc.data_dir, 'log'),
@@ -393,7 +397,7 @@ def _create_service_winss(base_dir,
     svc.environ = svc_environ
 
     # Setup the run script
-    svc.run_script = utils.generate_template(
+    svc.run_script = templates.generate_template(
         run_script,
         app_run_script=app_run_script,
         _alias=subproc.get_aliases()
@@ -401,7 +405,7 @@ def _create_service_winss(base_dir,
 
     if monitor_policy is not None:
         # Setup the finish script
-        svc.finish_script = utils.generate_template(
+        svc.finish_script = templates.generate_template(
             finish_script,
             monitor_policy=monitor_policy,
             _alias=subproc.get_aliases()
@@ -412,7 +416,7 @@ def _create_service_winss(base_dir,
 
     if log_run_script is not None:
         # Setup the log run script
-        svc.log_run_script = utils.generate_template(
+        svc.log_run_script = templates.generate_template(
             log_run_script,
             logdir=os.path.relpath(
                 logdir,

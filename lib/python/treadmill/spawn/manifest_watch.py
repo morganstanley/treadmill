@@ -17,6 +17,7 @@ from treadmill import fs
 from treadmill import dirwatch
 from treadmill import subproc
 from treadmill import supervisor
+from treadmill import templates
 from treadmill import utils
 from treadmill.spawn import utils as spawn_utils
 from treadmill.spawn import instance
@@ -79,7 +80,7 @@ class ManifestWatch:
         fs.mkdir_safe(job)
         fs.mkdir_safe(data_dir)
 
-        utils.create_script(
+        templates.create_script(
             os.path.join(job, 'run'),
             'spawn.run',
             id=inst.id,
@@ -88,7 +89,7 @@ class ManifestWatch:
             **subproc.get_aliases()
         )
 
-        utils.create_script(
+        templates.create_script(
             os.path.join(job, 'finish'),
             'spawn.finish',
             id=inst.id,

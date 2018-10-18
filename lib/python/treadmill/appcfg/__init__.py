@@ -144,3 +144,8 @@ def app_name(uniquename):
     appname = uniquename.rsplit('-', 1)[0]
     parts = appname.rsplit('-', 1)
     return '#'.join(parts)
+
+
+def app_unique_id(uniquename):
+    """Returns the unique id from app unique name."""
+    return uniquename.rsplit('-', 1)[1]

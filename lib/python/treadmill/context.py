@@ -442,6 +442,12 @@ class Context:
     def get_profile_name(self):
         """Returns profile name.
         """
+        if not self._profile_name:
+            # If profile is not ambigous, use it.
+            profiles = plugin_manager.names('treadmill.profiles')
+            if len(profiles) == 1:
+                self._profile_name = profiles[0]
+
         return self._profile_name
 
     @property

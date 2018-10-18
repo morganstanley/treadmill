@@ -6,6 +6,7 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
+
 import errno
 import glob
 import logging
@@ -26,14 +27,12 @@ from treadmill import plugin_manager
 from treadmill.appcfg import abort as app_abort
 from treadmill.appcfg import manifest as app_manifest
 
-
 STATE_JSON = 'state.json'
 
 _LOGGER = logging.getLogger(__name__)
 
 _ARCHIVE_LIMIT = utils.size_to_bytes('1G')
 _RUNTIME_NAMESPACE = 'treadmill.runtime'
-
 
 if os.name == 'posix':
     # Disable C0413: should be placed at the top of the module.
@@ -69,8 +68,26 @@ def get_runtime(runtime_name, tm_env, container_dir, param=None):
     return runtime_cls(tm_env, container_dir, param)
 
 
+def load_app_safe(container, container_dir, app_json=STATE_JSON):
+    """Load app manifest as object.
+
+    If app manifest is corrupted or invalid, return object with key attributes.
+    """
+    try:
+        return load_app(container_dir, app_json=app_json)
+    except ValueError as err:
+        _LOGGER.error('Manifest file is corrupted or invalid: %s', err)
+        appname = appcfg.app_name(container)
+        return utils.to_obj({
+            'name': appname,
+            'app': appcfg.appname_basename(appname),
+            'task': appcfg.appname_task_id(appname),
+            'uniqueid': appcfg.app_unique_id(container),
+        })
+
+
 def load_app(container_dir, app_json=STATE_JSON):
-    """Load app from original manifest."""
+    """Load app manifest as object."""
     manifest_file = os.path.join(container_dir, app_json)
 
     try:
@@ -82,7 +99,7 @@ def load_app(container_dir, app_json=STATE_JSON):
         if err.errno != errno.ENOENT:
             raise
 
-        _LOGGER.critical('Manifest file does not exist: %r', manifest_file)
+        _LOGGER.info('Manifest file does not exist: %s', manifest_file)
         return None
 
 

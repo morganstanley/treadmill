@@ -360,16 +360,15 @@ class ApiAppTest(unittest.TestCase):
         admin_mock.dn.return_value = (
             'app=app.foo,ou=apps,ou=treadmill,dc=ms,dc=com'
         )
-        checksum = '6bf2b2db162e3043738a5c1d4e62bef5'
         entry = {
             'app': ['foo.app'],
             'cpu': ['100%'],
             'disk': ['1G'],
             'memory': ['1G'],
-            'service-name;tm-service-%s' % checksum: ['test_svc'],
-            'service-command;tm-service-%s' % checksum: ['test_cmd'],
-            'service-restart-limit;tm-service-%s' % checksum: ['5'],
-            'service-restart-interval;tm-service-%s' % checksum: ['60'],
+            'service-name;tm-service-0': ['test_svc'],
+            'service-command;tm-service-0': ['test_cmd'],
+            'service-restart-limit;tm-service-0': ['5'],
+            'service-restart-interval;tm-service-0': ['60'],
         }
         admin_mock.get.return_value = entry
 
@@ -419,16 +418,15 @@ class ApiAppTest(unittest.TestCase):
         admin_mock.dn.return_value = (
             'app=app.foo,ou=apps,ou=treadmill,dc=ms,dc=com'
         )
-        checksum = '6bf2b2db162e3043738a5c1d4e62bef5'
         entry = {
             'app': ['foo.app'],
             'cpu': ['100%'],
             'disk': ['1G'],
             'memory': ['1G'],
-            'service-name;tm-service-%s' % checksum: ['test_svc'],
-            'service-command;tm-service-%s' % checksum: ['test_cmd'],
-            'service-restart-limit;tm-service-%s' % checksum: ['5'],
-            'service-restart-interval;tm-service-%s' % checksum: ['60'],
+            'service-name;tm-service-0': ['test_svc'],
+            'service-command;tm-service-0': ['test_cmd'],
+            'service-restart-limit;tm-service-0': ['5'],
+            'service-restart-interval;tm-service-0': ['60'],
         }
         admin_mock.get.return_value = entry
 

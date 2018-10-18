@@ -23,15 +23,11 @@ class API:
     """
 
     _plugins = [
-        plugins.DockerInspectUserPlugin(),
         plugins.DockerRunUserPlugin(),
         plugins.DockerExecUserPlugin(),
     ]
 
-    def __init__(self, **kwargs):
-        users = kwargs.get('users', [])
-        self._users = [utils.get_uid_gid(user) for user in users]
-        _LOGGER.debug('Allowed uid, gid: %r', self._users)
+    def __init__(self, **_kwargs):
 
         # TODO: add schema validation
         def authzreq(data):
@@ -47,7 +43,6 @@ class API:
             for plugin in self._plugins:
                 (allow, msg) = plugin.run_req(
                     data['RequestMethod'], data['RequestUri'], request_obj,
-                    users=self._users
                 )
 
                 if not allow:
@@ -87,7 +82,6 @@ class API:
                 (allow, msg) = plugin.run_res(
                     data['RequestMethod'], data['RequestUri'],
                     request_obj, response_obj,
-                    users=self._users,
                 )
 
                 if not allow:
