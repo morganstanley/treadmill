@@ -20,3 +20,4 @@
 dn: cn=treadmill,cn=schema,cn=config
 objectClass: olcSchemaConfig
 cn: treadmill
+entryCSN: 19700000000000.000000Z#000000#000#000000

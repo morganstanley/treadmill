@@ -19,22 +19,20 @@ import os
 import pkgutil
 import re
 import sys
-import tempfile
 import traceback
 
 import click
-import pkg_resources
 
 import six
 from six.moves import configparser
 
 import treadmill
 
-from treadmill import utils
-from treadmill import context
+from treadmill import restclientopts
 from treadmill import plugin_manager
+from treadmill import context
+from treadmill import utils
 from treadmill import subproc
-from treadmill import restclient
 
 
 EXIT_CODE_DEFAULT = 1
@@ -51,6 +49,10 @@ def init_logger(name):
         conf = treadmill.logging.load_logging_conf(name)
         logging.config.dictConfig(conf)
     except configparser.Error:
+        # TODO: Incidentally, tempfile adds 2M memory, and it is used only
+        #       in case of exception. Need to move this elsewhere.
+        import tempfile
+
         with tempfile.NamedTemporaryFile(delete=False, mode='w') as f:
             traceback.print_exc(file=f)
             click.echo('Error parsing log conf: {name}'.format(name=name),
@@ -164,7 +166,7 @@ def handle_context_opt(ctx, param, value):
         context.GLOBAL.set_profile_name(value)
         init_profile()
     elif opt == 'api_service_principal':
-        restclient.set_service_principal(value)
+        restclientopts.AUTH_PRINCIPAL = value
     else:
         raise click.UsageError('Invalid option: %s' % param.name)
 
@@ -353,6 +355,8 @@ def handle_exceptions(exclist):
                 sys.exit(EXIT_CODE_DEFAULT)
 
             except Exception as unhandled:  # pylint: disable=W0703
+                # TODO: see similar comment as to why lazy import tempfile.
+                import tempfile
 
                 with tempfile.NamedTemporaryFile(delete=False, mode='w') as f:
                     traceback.print_exc(file=f)

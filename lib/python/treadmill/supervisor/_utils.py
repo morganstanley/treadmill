@@ -18,10 +18,26 @@ _ENV_KEY_RE = re.compile(r'^[A-Za-z][A-Za-z0-9_.]*$')
 _LOGGER = logging.getLogger(__name__)
 
 
-def data_read(filename):
-    """Read a file.
+def _write(filename, func, mode='wb', permission=None):
+    with io.open(filename, mode) as f:
+        if func is not None:
+            func(f)
+            f.flush()
+            os.fsync(f.fileno())
+        if permission is not None and os.name == 'posix':
+            os.fchmod(f.fileno(), permission)
 
-    :returns ``unicode``:
+
+def _write_data(filename, data, mode='wb', permission=None):
+    _write(filename, lambda f: f.write(data), mode=mode, permission=permission)
+
+
+def data_read(filename):
+    """Read string from a file with leading and trailing whitespace removed.
+
+    :param ``str`` filename:
+        File to read from.
+    :returns ``str``:
         File content.
     """
     with io.open(filename) as f:
@@ -30,16 +46,17 @@ def data_read(filename):
 
 
 def data_write(filename, data):
-    """Writes a file.
+    """Write string to a file with newline added.
 
-    :param``unicode`` data:
-        File content.
+    :param ``str`` filename:
+        File to write to.
+    :param ``str`` data:
+        File content. If None, create an empty file.
     """
-    with io.open(filename, 'w') as f:
-        if data is not None:
-            f.write(data + '\n')
-        if os.name == 'posix':
-            os.fchmod(f.fileno(), 0o644)
+    if data is not None:
+        _write_data(filename, data + '\n', mode='w', permission=0o644)
+    else:
+        _write(filename, None, mode='w', permission=0o644)
 
 
 def environ_dir_write(env_dir, env, update=False):
@@ -65,23 +82,25 @@ def environ_dir_write(env_dir, env, update=False):
             _LOGGER.warning('Ignoring invalid environ variable %r', key)
             continue
 
-        with io.open(os.path.join(env_dir, key), 'wb') as f:
-            if value is not None:
-                # Make sure we have utf8 strings
-                if hasattr(value, 'decode'):
-                    value = value.decode()
-                value = '{}'.format(value)
-                # The value must be properly escaped, all tailing newline
-                # should be removed and the newlines replaced with \0
-                data = (
-                    value
-                    .encode(encoding='utf8', errors='replace')
-                    .rstrip(b'\n')
-                    .replace(b'\n', b'\x00')
-                )
-                f.write(data)
-                if os.name == 'posix':
-                    os.fchmod(f.fileno(), 0o644)
+        if value is not None:
+            # Make sure we have utf8 strings
+            if hasattr(value, 'decode'):
+                value = value.decode()
+            value = '{}'.format(value)
+            # The value must be properly escaped, all tailing newline
+            # should be removed and the newlines replaced with \0
+            data = (
+                value
+                .encode(encoding='utf8', errors='replace')
+                .rstrip(b'\n')
+                .replace(b'\n', b'\x00')
+            )
+            _write_data(
+                os.path.join(env_dir, key),
+                data,
+                mode='wb',
+                permission=0o644
+            )
 
 
 def environ_dir_read(env_dir):
@@ -114,7 +133,7 @@ def set_list_read(filename):
     """Read a list of values, one per line.
 
     :param ``str`` filename:
-        Name of the file to read.
+        File to read from.
     :returns ``set``:
         Set of values read from ``filename``. Value can be unicode.
     """
@@ -138,14 +157,16 @@ def set_list_write(filename, entries):
     """Write a list of values to a file. One per line.
 
     :param ``str`` filename:
-        Name of the file to read.
+        File to write to.
     :param ``set`` entries:
         Set of unicode values to write into ``filename``.
     """
-    with io.open(filename, 'wb') as f:
-        f.writelines(entries)
-        if os.name == 'posix':
-            os.fchmod(f.fileno(), 0o644)
+    _write(
+        filename,
+        lambda f: f.writelines(entries),
+        mode='wb',
+        permission=0o644
+    )
 
 
 def value_read(filename, default=0):
@@ -178,10 +199,7 @@ def value_write(filename, value):
     :param ``int`` value:
         Value to write in the file.
     """
-    with io.open(filename, 'w') as f:
-        f.write('%d\n' % value)
-        if os.name == 'posix':
-            os.fchmod(f.fileno(), 0o644)
+    data_write(filename, '%d' % value)
 
 
 def script_read(filename):
@@ -214,12 +232,15 @@ def script_write(filename, script):
         else:
             script = io.StringIO(script)
 
-    with io.open(filename, 'w') as f:
+    def _chunks_write(f):
         for chunk in script:
             f.write(chunk)
+        f.write('\n')
         if os.name == 'posix':
-            f.write('\n\n')
+            f.write('\n')
             os.fchmod(f.fileno(), 0o755)
+
+    _write(filename, _chunks_write, mode='w', permission=0o755)
 
 
 __all__ = (

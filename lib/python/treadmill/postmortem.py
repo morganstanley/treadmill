@@ -6,6 +6,7 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
+import datetime
 import glob
 import logging
 import os
@@ -18,7 +19,7 @@ import six
 
 from treadmill import fs
 from treadmill import subproc
-from treadmill import utils
+
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -34,9 +35,14 @@ _LVDISPLAY = 'lvdisplay'
 _MAX_ARCHIVES = 3
 
 
+def _datetime_utcnow():
+    """Wrapper for datetime.datetime.utcnow for testability."""
+    return datetime.datetime.utcnow()
+
+
 def run(treadmill_root):
     """Run postmortem"""
-    filetime = utils.datetime_utcnow().strftime('%Y%m%d_%H%M%SUTC')
+    filetime = _datetime_utcnow().strftime('%Y%m%d_%H%M%SUTC')
     hostname = socket.gethostname()
     postmortem_dir = os.path.join(treadmill_root, 'postmortem')
     fs.mkdir_safe(postmortem_dir)

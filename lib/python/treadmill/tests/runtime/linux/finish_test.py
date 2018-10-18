@@ -63,7 +63,7 @@ class LinuxRuntimeFinishTest(unittest.TestCase):
 
     @mock.patch('shutil.copy', mock.Mock())
     @mock.patch('treadmill.appevents.post', mock.Mock())
-    @mock.patch('treadmill.utils.datetime_utcnow', mock.Mock(
+    @mock.patch('treadmill.postmortem._datetime_utcnow', mock.Mock(
         return_value=datetime.datetime(2015, 1, 22, 14, 14, 36, 537918)))
     @mock.patch('treadmill.appcfg.manifest.read', mock.Mock())
     @mock.patch('treadmill.sysinfo.hostname',
@@ -526,7 +526,7 @@ class LinuxRuntimeFinishTest(unittest.TestCase):
     @mock.patch('shutil.copy', mock.Mock())
     @mock.patch('treadmill.appevents.post', mock.Mock())
     @mock.patch('treadmill.apphook.cleanup', mock.Mock())
-    @mock.patch('treadmill.utils.datetime_utcnow', mock.Mock(
+    @mock.patch('treadmill.postmortem._datetime_utcnow', mock.Mock(
         return_value=datetime.datetime(2015, 1, 22, 14, 14, 36, 537918)))
     @mock.patch('treadmill.appcfg.manifest.read', mock.Mock())
     @mock.patch('treadmill.sysinfo.hostname',

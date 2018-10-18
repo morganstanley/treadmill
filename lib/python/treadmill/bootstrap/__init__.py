@@ -32,6 +32,7 @@ from treadmill import supervisor
 from treadmill import utils
 from treadmill import yamlwrapper as yaml
 from treadmill import subproc
+from treadmill import logging as tm_logging
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -543,6 +544,18 @@ def install(package, dst_dir, params, run=None, profile=None):
                 '.'.join([profile, PLATFORM]), dst_dir, interpolated,
                 rec=rec
             )
+
+    # Extract logging configuration.
+    logconf_dir = os.path.join(dst_dir, 'logging')
+    fs.mkdir_safe(logconf_dir)
+    tm_logging.write_configs(logconf_dir)
+
+    # Write entry-point cache
+    distributions = pkg_resources.AvailableDistributions()
+
+    plugin_manager.dump_cache(
+        os.path.join(dst_dir, 'plugins.json'), distributions
+    )
 
     if run:
         _run(run)

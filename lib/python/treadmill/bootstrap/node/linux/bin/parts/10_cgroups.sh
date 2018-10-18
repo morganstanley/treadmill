@@ -200,7 +200,7 @@ function init_cgroup_rhel6() {
 
         # Finally move the tmp mount point to /sys/fs
         ${MOUNT} -n --move ${TMP_DIR} ${SYS_FS}
-        ${RMDIR} -vf ${TMP_DIR}
+        ${RMDIR} -v ${TMP_DIR}
     fi
 
     # mount every cgroup to /sys/fs/cgroup

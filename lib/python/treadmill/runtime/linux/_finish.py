@@ -35,56 +35,42 @@ _LOGGER = logging.getLogger(__name__)
 def finish(tm_env, container_dir):
     """Frees allocated resources and mark then as available.
     """
-    with lc.LogContext(_LOGGER, os.path.basename(container_dir),
-                       lc.ContainerAdapter):
+    container = os.path.basename(container_dir)
+    with lc.LogContext(_LOGGER, container, lc.ContainerAdapter):
         _LOGGER.info('finishing %r', container_dir)
 
         data_dir = os.path.join(container_dir, 'data')
 
-        app = runtime.load_app(data_dir)
-        if app is not None:
-            _cleanup(tm_env, data_dir, app)
-        else:
-            app = runtime.load_app(data_dir, appcfg.APP_JSON)
-
-        if app is not None:
-            # Check if application reached restart limit inside the container.
-            #
-            # The container directory will be moved, this check is done first.
-            #
-            # If restart limit was reached, application node will be removed
-            # from Zookeeper at the end of the cleanup process, indicating to
-            # the scheduler that the server is ready to accept new load.
-            exitinfo, aborted, oom, terminated = _collect_exit_info(data_dir)
-
-            # All resources are cleaned up. If the app terminated inside the
-            # container, remove the node from Zookeeper, which will notify the
-            # scheduler that it is safe to reuse the host for other load.
-            if aborted is not None:
-                app_abort.report_aborted(tm_env, app.name,
-                                         why=aborted.get('why'),
-                                         payload=aborted.get('payload'))
-
-            elif oom:
-                _post_oom_event(tm_env, app)
-
-            elif terminated:
-                # Terminated (or evicted).
-                # Don't post event, this is handled by the master.
-                _LOGGER.info('Terminated: %s', app.name)
-
-            else:
-                # Container finished because service exited.
-                # It is important that this is checked last.
-                if exitinfo is not None:
-                    _post_exit_event(tm_env, app, exitinfo)
-
-        # cleanup monitor with container information
+        appname = appcfg.app_name(container)
+        app = runtime.load_app_safe(container, data_dir)
         if app:
+            _cleanup(tm_env, data_dir, app)
             apphook.cleanup(tm_env, app, container_dir)
 
+        # All resources are cleaned up. If the app terminated inside the
+        # container, remove the node from Zookeeper, which will notify the
+        # scheduler that it is safe to reuse the host for other load.
+        exitinfo, aborted, oom, terminated = _collect_finish_info(data_dir)
 
-def _collect_exit_info(container_dir):
+        if aborted is not None:
+            _post_aborted_event(tm_env, appname, aborted)
+
+        elif oom:
+            _post_oom_event(tm_env, appname)
+
+        elif terminated:
+            # Terminated (or evicted).
+            # Don't post event, this is handled by the scheduler.
+            _LOGGER.info('Terminated: %s', appname)
+
+        else:
+            # Container finished because service exited.
+            # It is important that this is checked last.
+            if exitinfo is not None:
+                _post_exit_event(tm_env, appname, exitinfo)
+
+
+def _collect_finish_info(container_dir):
     """Read exitinfo, aborted, oom and terminated files to check how container
     finished.
 
@@ -94,23 +80,26 @@ def _collect_exit_info(container_dir):
         oom (True if container was killed due to oom event or False otherwise),
         terminated (True if container was terminated/evicted, False otherwise).
     """
-    exitinfo = aborted = None
-
+    exitinfo = None
     exitinfo_file = os.path.join(container_dir, 'exitinfo')
     try:
         with io.open(exitinfo_file) as f:
-            exitinfo = json.load(f)
+            try:
+                exitinfo = json.load(f)
+            except ValueError:
+                _LOGGER.warning('Invalid exitinfo file: %s', exitinfo_file)
+                exitinfo = {}
     except IOError:
         _LOGGER.debug('exitinfo file does not exist: %s', exitinfo_file)
 
+    aborted = None
     aborted_file = os.path.join(container_dir, 'aborted')
     try:
         with io.open(aborted_file) as f:
             try:
                 aborted = json.load(f)
             except ValueError:
-                _LOGGER.warning('Invalid json in aborted file: %s',
-                                aborted_file)
+                _LOGGER.warning('Invalid aborted file: %s', aborted_file)
                 aborted = app_abort.ABORTED_UNKNOWN
     except IOError:
         _LOGGER.debug('aborted file does not exist: %s', aborted_file)
@@ -128,23 +117,33 @@ def _collect_exit_info(container_dir):
     return exitinfo, aborted, oom, terminated
 
 
-def _post_oom_event(tm_env, app):
-    """Post oom as killed container."""
+def _post_aborted_event(tm_env, appname, aborted):
+    """Port aborted event."""
+    app_abort.report_aborted(
+        tm_env,
+        appname,
+        why=aborted.get('why'),
+        payload=aborted.get('payload')
+    )
+
+
+def _post_oom_event(tm_env, appname):
+    """Post killed event due to oom."""
     appevents.post(
         tm_env.app_events_dir,
         events.KilledTraceEvent(
-            instanceid=app.name,
+            instanceid=appname,
             is_oom=True,
         )
     )
 
 
-def _post_exit_event(tm_env, app, exitinfo):
-    """Post exit event based on exit reason."""
+def _post_exit_event(tm_env, appname, exitinfo):
+    """Post finished event based on exit info."""
     appevents.post(
         tm_env.app_events_dir,
         events.FinishedTraceEvent(
-            instanceid=app.name,
+            instanceid=appname,
             rc=exitinfo.get('return_code', 256),
             signal=exitinfo.get('signal', 256),
             payload=exitinfo
@@ -183,7 +182,7 @@ def _cleanup(tm_env, container_dir, app):
         else:
             raise
 
-    if not app.shared_network:
+    if hasattr(app, 'shared_network') and not app.shared_network:
         _cleanup_network(tm_env, container_dir, app, network_client)
 
     # Add metrics to archive

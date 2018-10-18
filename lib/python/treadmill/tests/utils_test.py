@@ -27,6 +27,7 @@ import six
 
 from treadmill import exc
 from treadmill import utils
+from treadmill import templates
 from treadmill import yamlwrapper as yaml
 
 if sys.platform.startswith('linux'):
@@ -53,7 +54,7 @@ class UtilsTest(unittest.TestCase):
         """
         script_file = os.path.join(self.root, 'script')
         # Function we are testing
-        utils.create_script(
+        templates.create_script(
             script_file,
             's6.run',
             user='testproid',
@@ -86,7 +87,7 @@ class UtilsTest(unittest.TestCase):
                 stat.S_IRGRP |
                 stat.S_IROTH)
 
-        utils.create_script(
+        templates.create_script(
             script_file,
             's6.run',
             mode=mode,
@@ -242,7 +243,7 @@ class UtilsTest(unittest.TestCase):
         if os.name == 'posix':
             # xxxx is in path, but not executable.
             self.assertEqual('xxxx', utils.find_in_path('xxxx'))
-            os.chmod(os.path.join(temp_dir, 'xxxx'), int(utils._EXEC_MODE))
+            os.chmod(os.path.join(temp_dir, 'xxxx'), int(templates._EXEC_MODE))
 
         self.assertEqual(
             os.path.join(temp_dir, 'xxxx'),

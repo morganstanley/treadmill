@@ -6,6 +6,7 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
+import io
 import logging
 
 import click
@@ -16,6 +17,7 @@ import six
 from treadmill import admin
 from treadmill import cli
 from treadmill import context
+from treadmill import yamlwrapper as yaml
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -63,10 +65,12 @@ def init():
     @click.option('-t', '--down-threshold', help='Down threshold.')
     @click.option('-r', '--reboot-schedule', help='Reboot schedule.',
                   callback=cli.validate_reboot_schedule)
+    @click.option('--data', help='Cell specific data in YAML',
+                  type=click.Path(exists=True, readable=True))
     @click.argument('partition')
     @cli.admin.ON_EXCEPTIONS
     def configure(memory, cpu, disk, systems,
-                  down_threshold, reboot_schedule, partition):
+                  down_threshold, reboot_schedule, data, partition):
         """Create, get or modify partition configuration"""
         # Disable too many branches.
         #
@@ -95,6 +99,9 @@ def init():
                 attrs['down-threshold'] = int(down_threshold)
         if reboot_schedule:
             attrs['reboot-schedule'] = reboot_schedule
+        if data:
+            with io.open(data, 'rb') as fd:
+                attrs['data'] = yaml.load(stream=fd)
 
         if attrs:
             try:

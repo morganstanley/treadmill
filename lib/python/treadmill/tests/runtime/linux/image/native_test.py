@@ -216,7 +216,7 @@ class NativeImageTest(unittest.TestCase):
     @mock.patch('treadmill.fs.linux.mount_bind', mock.Mock())
     @mock.patch('treadmill.supervisor.create_service', mock.Mock())
     @mock.patch('treadmill.supervisor.create_scan_dir', mock.Mock())
-    @mock.patch('treadmill.utils.create_script', mock.Mock())
+    @mock.patch('treadmill.templates.create_script', mock.Mock())
     @mock.patch('treadmill.subproc.get_aliases', mock.Mock(return_value={
         's6_svscan': '/path/to/s6-svscan',
         'chroot': '/bin/chroot',

@@ -61,7 +61,7 @@ docker_authz.activate = treadmill.rest.api.docker_authz.activate
 
 
 # Rest authorization modules.
-authz.group = treadmill.rest.api.authz.group
+authz-group = treadmill.rest.api.authz.group
 
 [treadmill.api]
 allocation = treadmill.api.allocation
@@ -87,7 +87,7 @@ docker_authz.authzres = treadmill.api.docker_authz
 docker_authz.activate = treadmill.api.docker_authz
 
 # Rest authorization modules.
-authz.group = treadmill.api.authz.group
+authz-group = treadmill.api.authz.group
 
 [treadmill.api.instance.plugins]
 
@@ -176,6 +176,7 @@ discovery = treadmill.cli.admin.discovery
 http = treadmill.cli.admin.http
 install = treadmill.cli.admin.install
 invoke = treadmill.cli.admin.invoke
+krb = treadmill.cli.admin.krb
 ldap = treadmill.cli.admin.ldap
 logs = treadmill.cli.admin.logs
 master = treadmill.cli.admin.master
@@ -196,6 +197,9 @@ openldap = treadmill.cli.admin.install.openldap
 spawn = treadmill.cli.admin.install.spawn
 tkt-fwd = treadmill.cli.admin.install.tkt_fwd
 zookeeper = treadmill.cli.admin.install.zookeeper
+
+[treadmill.cli.admin.krb]
+forward = treadmill.cli.admin.krb.forward
 
 [treadmill.cli.admin.ldap]
 allocation = treadmill.cli.admin.ldap.allocation

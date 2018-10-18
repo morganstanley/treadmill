@@ -31,7 +31,7 @@ class DockerdFeature(feature_base.Feature):
             _generate_dockerd_service(self._tm_env)
         )
         manifest['services'].append(
-            _generate_docker_authz_service(manifest, self._tm_env)
+            _generate_docker_authz_service()
         )
         manifest['environ'].append(
             {'name': 'DOCKER_HOST', 'value': 'tcp://127.0.0.1:2375'}
@@ -39,22 +39,17 @@ class DockerdFeature(feature_base.Feature):
         manifest['docker'] = True
 
 
-def _generate_docker_authz_service(manifest, _tm_env):
+def _generate_docker_authz_service():
 
     # full command include creating rest module cfg file and launch sproc
     cmd = (
-        'echo "users: [{user}]" > {config};'
         'exec $TREADMILL/bin/treadmill'
         ' sproc restapi '
         ' -m docker_authz.authzreq,docker_authz.authzres,docker_authz.activate'
         ' --cors-origin=".*" '
         ' -s {sock} '
-        ' --config docker_authz.authzreq {config}'
-        ' --config docker_authz.authzres {config}'
     ).format(
-        config='/services/docker-auth/data/users.cfg',
         sock='/run/docker/plugins/authz.sock',
-        user=manifest['proid'],
     )
 
     docker_authz_svc = {
