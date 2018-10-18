@@ -18,22 +18,14 @@ import simplejson.scanner
 
 from six.moves import http_client
 
+from treadmill import restclientopts
+
 if os.name == "posix":
     # to support unixsocket for URL
     import requests_unixsocket 	# pylint: disable=import-error
     requests_unixsocket.monkeypatch()
 
 _NUM_OF_RETRIES = 5
-
-_KERBEROS_AUTH_PRINCIPLE = None
-if os.name == 'posix':
-    # kerberos 1.2.5 doesn't accept None principal. Remove this once fixed.
-    _KERBEROS_AUTH_PRINCIPLE = ''
-
-_KERBEROS_AUTH = requests_kerberos.HTTPKerberosAuth(
-    mutual_authentication=requests_kerberos.DISABLED,
-    principal=_KERBEROS_AUTH_PRINCIPLE,
-)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -44,6 +36,22 @@ _DEFAULT_CONNECT_TIMEOUT = .5
 _CONNECTION_ERROR_STATUS_CODE = 599
 
 
+def _krb_auth():
+    """Returns kerberos auth object."""
+    auth_principle = None
+    if os.name == 'posix':
+        # kerberos 1.2.5 doesn't accept None principal. Remove this once fixed.
+        auth_principle = ''
+
+    if restclientopts.AUTH_PRINCIPAL:
+        auth_principle = restclientopts.AUTH_PRINCIPAL
+
+    return requests_kerberos.HTTPKerberosAuth(
+        mutual_authentication=requests_kerberos.DISABLED,
+        principal=auth_principle,
+    )
+
+
 def _msg(response):
     """Get response error message."""
     try:
@@ -52,11 +60,6 @@ def _msg(response):
         return response.text
     except Exception:  # pylint: disable=W0703
         return 'Unexpected error.'
-
-
-def set_service_principal(service):
-    """Set service principal for SPNEGO authentication."""
-    _KERBEROS_AUTH.service = service
 
 
 class NoApiEndpointsError(Exception):
@@ -168,12 +171,15 @@ def _is_server_error(status_code):
     return status_code >= 500
 
 
-def _call(url, method, payload=None, headers=None, auth=_KERBEROS_AUTH,
+def _call(url, method, payload=None, headers=None, auth=None,
           proxies=None, timeout=None, stream=None, verify=True,
           payload_to_json=True, allow_redirects=True):
     """Call REST url with the supplied method and optional payload"""
     _LOGGER.debug('http: %s %s, payload: %s, headers: %s, timeout: %s',
                   method, url, payload, headers, timeout)
+
+    if auth is None:
+        auth = _krb_auth()
 
     method_kwargs = dict(auth=auth, proxies=proxies, headers=headers,
                          timeout=timeout, stream=stream, verify=verify,
@@ -208,7 +214,7 @@ def _call(url, method, payload=None, headers=None, auth=_KERBEROS_AUTH,
     return False, response, response.status_code
 
 
-def _call_list(urls, method, payload=None, headers=None, auth=_KERBEROS_AUTH,
+def _call_list(urls, method, payload=None, headers=None, auth=None,
                proxies=None, timeout=None, stream=None, verify=True,
                payload_to_json=True, allow_redirects=True):
     """Call list of supplied URLs, return on first success."""
@@ -259,7 +265,7 @@ def _call_list_with_retry(urls, method, payload, headers, auth, proxies,
         time.sleep(1)
 
 
-def call(api, url, method, payload=None, headers=None, auth=_KERBEROS_AUTH,
+def call(api, url, method, payload=None, headers=None, auth=None,
          proxies=None, retries=_NUM_OF_RETRIES, timeout=None, stream=None,
          verify=True, payload_to_json=True, allow_redirects=True):
     """Call url(s) with retry."""
@@ -277,7 +283,7 @@ def call(api, url, method, payload=None, headers=None, auth=_KERBEROS_AUTH,
         allow_redirects=allow_redirects)
 
 
-def get(api, url, headers=None, auth=_KERBEROS_AUTH, proxies=None,
+def get(api, url, headers=None, auth=None, proxies=None,
         retries=_NUM_OF_RETRIES, timeout=None, stream=None, verify=True,
         allow_redirects=True):
     """Convenience function to get a resoure"""
@@ -287,7 +293,7 @@ def get(api, url, headers=None, auth=_KERBEROS_AUTH, proxies=None,
                 allow_redirects=allow_redirects)
 
 
-def post(api, url, payload, headers=None, auth=_KERBEROS_AUTH, proxies=None,
+def post(api, url, payload, headers=None, auth=None, proxies=None,
          retries=_NUM_OF_RETRIES, timeout=None, verify=True,
          payload_to_json=True, allow_redirects=True):
     """Convenience function to create or POST a new resoure to url"""
@@ -298,7 +304,7 @@ def post(api, url, payload, headers=None, auth=_KERBEROS_AUTH, proxies=None,
                 allow_redirects=allow_redirects)
 
 
-def delete(api, url, payload=None, headers=None, auth=_KERBEROS_AUTH,
+def delete(api, url, payload=None, headers=None, auth=None,
            proxies=None, retries=_NUM_OF_RETRIES, timeout=None, verify=True,
            payload_to_json=True, allow_redirects=True):
     """Convenience function to delete a resoure"""
@@ -309,7 +315,7 @@ def delete(api, url, payload=None, headers=None, auth=_KERBEROS_AUTH,
                 allow_redirects=allow_redirects)
 
 
-def put(api, url, payload, headers=None, auth=_KERBEROS_AUTH, proxies=None,
+def put(api, url, payload, headers=None, auth=None, proxies=None,
         retries=_NUM_OF_RETRIES, timeout=None, verify=True,
         payload_to_json=True, allow_redirects=True):
     """Convenience function to update a resoure"""
@@ -320,7 +326,7 @@ def put(api, url, payload, headers=None, auth=_KERBEROS_AUTH, proxies=None,
                 allow_redirects=allow_redirects)
 
 
-def configure(api, url, payload, headers=None, auth=_KERBEROS_AUTH,
+def configure(api, url, payload, headers=None, auth=None,
               proxies=None, retries=_NUM_OF_RETRIES, timeout=None,
               verify=True, payload_to_json=True):
     """Create or update resource."""

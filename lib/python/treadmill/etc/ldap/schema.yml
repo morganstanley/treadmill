@@ -276,6 +276,7 @@ objectClasses:
     - system
     - down-threshold
     - reboot-schedule
+    - data
   tmApp:
     desc: Treadmill Application
     must:

@@ -6,7 +6,6 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
-import hashlib
 import unittest
 
 import ldap3
@@ -231,45 +230,37 @@ class AdminTest(unittest.TestCase):
             'shared_network': True
         }
 
-        md5_a = hashlib.md5(b'a').hexdigest()
-        md5_b = hashlib.md5(b'b').hexdigest()
-        md5_c = hashlib.md5(b'c').hexdigest()
-        md5_x = hashlib.md5(b'x').hexdigest()
-        md5_y = hashlib.md5(b'y').hexdigest()
-        md5_srv = hashlib.md5(b'server').hexdigest()
-        md5_rack = hashlib.md5(b'rack').hexdigest()
-
         ldap_entry = {
             'app': ['xxx'],
             'cpu': ['100%'],
             'memory': ['1G'],
             'disk': ['1G'],
             'ticket': ['a', 'b'],
-            'service-name;tm-service-' + md5_a: ['a'],
-            'service-name;tm-service-' + md5_b: ['b'],
-            'service-name;tm-service-' + md5_c: ['c'],
-            'service-restart-limit;tm-service-' + md5_a: ['3'],
-            'service-restart-limit;tm-service-' + md5_b: ['5'],
-            'service-restart-limit;tm-service-' + md5_c: ['0'],
-            'service-restart-interval;tm-service-' + md5_a: ['30'],
-            'service-restart-interval;tm-service-' + md5_b: ['60'],
-            'service-restart-interval;tm-service-' + md5_c: ['60'],
-            'service-command;tm-service-' + md5_a: ['/a'],
-            'service-command;tm-service-' + md5_b: ['/b'],
-            'service-command;tm-service-' + md5_c: ['/c'],
-            'endpoint-name;tm-endpoint-' + md5_x: ['x'],
-            'endpoint-name;tm-endpoint-' + md5_y: ['y'],
-            'endpoint-port;tm-endpoint-' + md5_x: ['1'],
-            'endpoint-port;tm-endpoint-' + md5_y: ['2'],
-            'endpoint-type;tm-endpoint-' + md5_x: ['infra'],
-            'endpoint-type;tm-endpoint-' + md5_y: ['infra'],
-            'endpoint-proto;tm-endpoint-' + md5_x: ['udp'],
-            'envvar-name;tm-envvar-' + md5_a: ['a'],
-            'envvar-value;tm-envvar-' + md5_a: ['b'],
-            'affinity-level;tm-affinity-' + md5_srv: ['server'],
-            'affinity-limit;tm-affinity-' + md5_srv: ['1'],
-            'affinity-level;tm-affinity-' + md5_rack: ['rack'],
-            'affinity-limit;tm-affinity-' + md5_rack: ['2'],
+            'service-name;tm-service-0': ['a'],
+            'service-name;tm-service-1': ['b'],
+            'service-name;tm-service-2': ['c'],
+            'service-restart-limit;tm-service-0': ['3'],
+            'service-restart-limit;tm-service-1': ['5'],
+            'service-restart-limit;tm-service-2': ['0'],
+            'service-restart-interval;tm-service-0': ['30'],
+            'service-restart-interval;tm-service-1': ['60'],
+            'service-restart-interval;tm-service-2': ['60'],
+            'service-command;tm-service-0': ['/a'],
+            'service-command;tm-service-1': ['/b'],
+            'service-command;tm-service-2': ['/c'],
+            'endpoint-name;tm-endpoint-0': ['x'],
+            'endpoint-name;tm-endpoint-1': ['y'],
+            'endpoint-port;tm-endpoint-0': ['1'],
+            'endpoint-port;tm-endpoint-1': ['2'],
+            'endpoint-type;tm-endpoint-0': ['infra'],
+            'endpoint-type;tm-endpoint-1': ['infra'],
+            'endpoint-proto;tm-endpoint-0': ['udp'],
+            'envvar-name;tm-envvar-0': ['a'],
+            'envvar-value;tm-envvar-0': ['b'],
+            'affinity-level;tm-affinity-0': ['rack'],
+            'affinity-limit;tm-affinity-0': ['2'],
+            'affinity-level;tm-affinity-1': ['server'],
+            'affinity-limit;tm-affinity-1': ['1'],
             'ephemeral-ports-tcp': ['5'],
             'ephemeral-ports-udp': ['10'],
             'shared-ip': [True],
@@ -316,18 +307,17 @@ class AdminTest(unittest.TestCase):
             ]
         }
 
-        md5_foo = hashlib.md5(b'foo').hexdigest()
         ldap_entry = {
             'app': ['xxx'],
             'cpu': ['100%'],
             'memory': ['1G'],
             'disk': ['1G'],
-            'service-name;tm-service-' + md5_foo: ['foo'],
-            'service-command;tm-service-' + md5_foo: ['echo'],
-            'service-useshell;tm-service-' + md5_foo: [True],
-            'service-image;tm-service-' + md5_foo: ['testimage'],
-            'service-restart-limit;tm-service-' + md5_foo: ['3'],
-            'service-restart-interval;tm-service-' + md5_foo: ['30'],
+            'service-name;tm-service-0': ['foo'],
+            'service-command;tm-service-0': ['echo'],
+            'service-useshell;tm-service-0': [True],
+            'service-image;tm-service-0': ['testimage'],
+            'service-restart-limit;tm-service-0': ['3'],
+            'service-restart-interval;tm-service-0': ['30'],
         }
         self.assertEqual(ldap_entry, admin.Application(None).to_entry(app))
 

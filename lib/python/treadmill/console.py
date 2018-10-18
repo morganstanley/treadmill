@@ -14,6 +14,7 @@ import click
 from treadmill import cli
 from treadmill import logging as tl
 
+
 # Disable click warning for importing unicode_literals in python 2
 click.disable_unicode_literals_warning = True
 

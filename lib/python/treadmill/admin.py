@@ -11,7 +11,6 @@ import sys
 import collections
 import copy
 import json
-import hashlib
 import itertools
 import logging
 import shlex
@@ -115,7 +114,7 @@ def _entry_2_dict(entry, schema):
     }
 
 
-def _dict_2_entry(obj, schema, option=None, option_value=None):
+def _dict_2_entry(obj, schema, option=None, option_idx=None):
     """Converts dict to ldap entry."""
     # TODO: refactor to eliminate too many branches warning.
     #
@@ -132,13 +131,11 @@ def _dict_2_entry(obj, schema, option=None, option_value=None):
 
         value = obj[obj_field]
         if option is not None:
-            # We calculate the checksum of the stringification of the value
-            checksum = hashlib.md5(six.text_type(option_value).encode())
-            ldap_field = ';'.join(
-                [
-                    ldap_field,
-                    '{}-{}'.format(option, checksum.hexdigest())
-                ]
+            assert option_idx is not None
+            ldap_field = '{attribute};{option_prefix}-{option_idx:x}'.format(
+                attribute=ldap_field,
+                option_prefix=option,
+                option_idx=option_idx
             )
 
         if delete:
@@ -1391,12 +1388,16 @@ class Application(LdapObject):
         if 'ephemeral_ports_udp' in obj:
             del obj['ephemeral_ports_udp']
 
-        for service in obj.get('services', []):
+        services_iter = sorted(
+            obj.get('services', []),
+            key=lambda service: service['name']
+        )
+        for idx, service in enumerate(services_iter):
             service_entry = _dict_2_entry(
                 service,
                 Application._svc_schema,
                 'tm-service',
-                service['name']
+                idx
             )
             # Account for default restart settings
             service_restart = self._default_svc_restart.copy()
@@ -1408,44 +1409,75 @@ class Application(LdapObject):
                     service_restart,
                     Application._svc_restart_schema,
                     'tm-service',
-                    service['name']
+                    idx
                 )
             )
             entry.update(service_entry)
 
-        for endpoint in obj.get('endpoints', []):
-            endpoint_entry = _dict_2_entry(endpoint,
-                                           Application._endpoint_schema,
-                                           'tm-endpoint',
-                                           endpoint['name'])
-            entry.update(endpoint_entry)
+        endpoints_iter = sorted(
+            obj.get('endpoints', []),
+            key=lambda endpoint: endpoint['name']
+        )
+        for idx, endpoint in enumerate(endpoints_iter):
+            entry.update(
+                _dict_2_entry(
+                    endpoint,
+                    Application._endpoint_schema,
+                    'tm-endpoint',
+                    idx
+                )
+            )
 
-        for envvar in obj.get('environ', []):
-            environ_entry = _dict_2_entry(envvar,
-                                          Application._environ_schema,
-                                          'tm-envvar',
-                                          envvar['name'])
-            entry.update(environ_entry)
+        environ_iter = sorted(
+            obj.get('environ', []),
+            key=lambda env: env['name']
+        )
+        for idx, envvar in enumerate(environ_iter):
+            entry.update(
+                _dict_2_entry(
+                    envvar,
+                    Application._environ_schema,
+                    'tm-envvar',
+                    idx
+                )
+            )
 
-        aff_lim = [{'level': aff, 'limit': obj['affinity_limits'][aff]}
-                   for aff in obj.get('affinity_limits', {})]
-
-        for limit in aff_lim:
-            aff_lim_entry = _dict_2_entry(limit,
-                                          Application._affinity_schema,
-                                          'tm-affinity',
-                                          limit['level'])
-
-            entry.update(aff_lim_entry)
+        aff_lim_iter = sorted(
+            [
+                {
+                    'level': aff,
+                    'limit': obj['affinity_limits'][aff]
+                }
+                for aff in obj.get('affinity_limits', {})
+            ],
+            key=lambda limit: limit['level']
+        )
+        for idx, limit in enumerate(aff_lim_iter):
+            entry.update(
+                _dict_2_entry(
+                    limit,
+                    Application._affinity_schema,
+                    'tm-affinity',
+                    idx
+                )
+            )
 
         vring = obj.get('vring')
         if vring:
             entry.update(_dict_2_entry(vring, Application._vring_schema))
-            for rule in vring.get('rules', []):
-                entry.update(_dict_2_entry(rule,
-                                           Application._vring_rule_schema,
-                                           'tm-vring-rule',
-                                           rule['pattern']))
+            rules_iter = sorted(
+                vring.get('rules', []),
+                key=lambda rule: rule['pattern']
+            )
+            for idx, rule in enumerate(rules_iter):
+                entry.update(
+                    _dict_2_entry(
+                        rule,
+                        Application._vring_rule_schema,
+                        'tm-vring-rule',
+                        idx
+                    )
+                )
 
         return entry
 
@@ -1527,11 +1559,14 @@ class Cell(LdapObject):
         entry = super(Cell, self).to_entry(obj)
 
         for master in obj.get('masters', []):
-            master_entry = _dict_2_entry(master,
-                                         Cell._master_host_schema,
-                                         'tm-master',
-                                         master['idx'])
-            entry.update(master_entry)
+            entry.update(
+                _dict_2_entry(
+                    master,
+                    Cell._master_host_schema,
+                    'tm-master',
+                    master['idx']
+                )
+            )
 
         return entry
 
@@ -1709,12 +1744,20 @@ class CellAllocation(LdapObject):
     def to_entry(self, obj):
         """Converts app dictionary to LDAP entry."""
         entry = super(CellAllocation, self).to_entry(obj)
-        for assignment in obj.get('assignments', []):
-            assign_entry = _dict_2_entry(assignment,
-                                         CellAllocation._assign_schema,
-                                         'tm-alloc-assignment',
-                                         assignment['pattern'])
-            entry.update(assign_entry)
+        assignments_iter = sorted(
+            obj.get('assignments', []),
+            key=lambda assignment: assignment['pattern']
+        )
+
+        for idx, assignment in enumerate(assignments_iter):
+            entry.update(
+                _dict_2_entry(
+                    assignment,
+                    CellAllocation._assign_schema,
+                    'tm-alloc-assignment',
+                    idx
+                )
+            )
 
         return entry
 
@@ -1805,7 +1848,8 @@ class Partition(LdapObject):
         ('memory', 'memory', str),
         ('system', 'systems', [int]),
         ('down-threshold', 'down-threshold', int),
-        ('reboot-schedule', 'reboot-schedule', str)
+        ('reboot-schedule', 'reboot-schedule', str),
+        ('data', 'data', dict),
     ]
 
     _oc = 'tmPartition'

@@ -1,3 +1,6 @@
+"""IPTables empty restore template."""
+
+T = """
 *raw
 :OUTPUT ACCEPT [0:0]
 :PREROUTING ACCEPT [0:0]
@@ -19,4 +22,4 @@ COMMIT
 :POSTROUTING ACCEPT [0:0]
 :PREROUTING ACCEPT [0:0]
 COMMIT
-
+"""

@@ -8,10 +8,10 @@ from __future__ import unicode_literals
 
 
 import codecs
+import io
 import json
 import logging
-
-import pkg_resources
+import os
 
 from treadmill import plugin_manager
 
@@ -34,6 +34,8 @@ def set_log_level(log_level):
 def _load_logging_file(plugin_name, name):
     """Load logging config json file from treadmill_xx/logging/xxx.json
     """
+    import pkg_resources
+
     utf8_reader = codecs.getreader('utf8')
     log_conf_file = utf8_reader(
         pkg_resources.resource_stream(plugin_name, name)
@@ -50,13 +52,28 @@ def _package_root(name):
 def load_logging_conf(name):
     """load plugin log conf from various modules
     """
+    # Shortcut - check if logging already exists.
+    logconf_path = os.path.join(
+        os.environ.get('TREADMILL_APPROOT', ''),
+        'logging',
+        name
+    )
+
+    if os.path.exists(logconf_path):
+        with io.open(logconf_path) as f:
+            return json.loads(f.read())
+
     # load core logging config first
     conf = _load_logging_file(__name__, name)
     # get 'treadmill' default log configure
     default_conf = conf['loggers'].get(_package_root(__name__), {})
 
     # then load plugin component config
+    import pkg_resources
+
     for plugin in plugin_manager.load_all(__name__):
+
+        contents = pkg_resources.resource_listdir(__name__, '.')
         try:
             plugin_conf = _load_logging_file(plugin.__name__, name)
 
@@ -70,3 +87,25 @@ def load_logging_conf(name):
             conf['loggers'][plugin_package_root_name] = default_conf
 
     return conf
+
+
+def list_logging_conf():
+    """List all defined logging configurations."""
+    import pkg_resources
+
+    configs = set()
+    for plugin in plugin_manager.load_all(__name__):
+        configs.update({
+            cfg for cfg in pkg_resources.resource_listdir(__name__, '.')
+            if cfg.endswith('.json')
+        })
+
+    return configs
+
+
+def write_configs(logconf_dir):
+    """Load and write logging configs."""
+    for name in list_logging_conf():
+        conf = load_logging_conf(name)
+        with io.open(os.path.join(logconf_dir, name), 'w') as f:
+            f.write(json.dumps(conf))

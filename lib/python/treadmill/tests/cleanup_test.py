@@ -17,6 +17,7 @@ import mock
 import treadmill
 import treadmill.runtime.runtime_base
 from treadmill import cleanup
+from treadmill import supervisor
 
 
 class CleanupTest(unittest.TestCase):
@@ -272,6 +273,30 @@ class CleanupTest(unittest.TestCase):
         )
         mock_runtime.finish.assert_not_called()
 
+        treadmill.fs.rm_safe.assert_called_with(
+            os.path.join(self.cleanup_dir, 'proid.app#0000000000001')
+        )
+
+    @mock.patch('os.readlink', mock.Mock())
+    @mock.patch('os.path.exists', mock.Mock())
+    @mock.patch('shutil.rmtree', mock.Mock())
+    @mock.patch('treadmill.runtime.get_runtime', mock.Mock(
+        side_effect=supervisor.InvalidServiceDirError
+    ))
+    @mock.patch('treadmill.fs.rm_safe', mock.Mock())
+    def test_invoke_invalid(self):
+        """Tests invoking the cleanup action when the app dir is invalid.
+        """
+        os.readlink.side_effect = [
+            os.path.join(self.cleanup_apps_dir, 'proid.app#0000000000001')
+        ]
+        os.path.exists.side_effect = [True]
+
+        self.cleanup.invoke('test', 'proid.app#0000000000001')
+
+        shutil.rmtree.assert_called_with(
+            os.path.join(self.cleanup_apps_dir, 'proid.app#0000000000001')
+        )
         treadmill.fs.rm_safe.assert_called_with(
             os.path.join(self.cleanup_dir, 'proid.app#0000000000001')
         )

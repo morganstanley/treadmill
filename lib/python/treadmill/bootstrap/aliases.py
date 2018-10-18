@@ -96,6 +96,7 @@ _LINUX_ALIASES = {
     'tail': _USR_BIN,
     'tar': _BIN,
     'touch': _BIN,
+    'true': _BIN,
     'tune2fs': _SBIN,
     'umount': _BIN,
     'unshare': _USR_BIN,
