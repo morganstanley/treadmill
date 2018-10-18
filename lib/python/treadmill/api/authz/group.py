@@ -6,8 +6,10 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
-import grp
+import grp      # pylint: disable=import-error
 import logging
+import pwd      # pylint: disable=import-error
+import os
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -30,6 +32,11 @@ class API:
         for group in groups:
             _LOGGER.info('Using authorization template: %s', group)
 
+        exclude = kwargs.get('exclude', {})
+        _LOGGER.info('Unrestricted whitelist: %s', exclude)
+
+        me = pwd.getpwuid(os.getuid())[0]
+
         # TODO: add schema validation.
         def authorize(user, action, resource, resource_id, payload):
             """Authorize user/action/resource"""
@@ -37,6 +44,21 @@ class API:
             _LOGGER.info(
                 'Authorize: %s %s %s %s', user, action, resource, resource_id
             )
+
+            if '{}:{}'.format(resource, action) in exclude:
+                _LOGGER.info(
+                    'Access allowed based on exclusion whitelist: %s:%s',
+                    action,
+                    resource
+                )
+                return True, []
+
+            username = user.partition('@')[0]
+
+            # Special rule - authorize self.
+            if username == me:
+                _LOGGER.info('Authorized self: %s', username)
+                return True, []
 
             proid = None
             if resource_id:
@@ -54,7 +76,6 @@ class API:
 
                 try:
                     group = grp.getgrnam(group_name)
-                    username = user.partition('@')[0]
                     members = group.gr_mem
                     _LOGGER.info(
                         'Authorized: User %s is member of %s.',

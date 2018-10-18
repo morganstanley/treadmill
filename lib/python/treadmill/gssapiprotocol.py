@@ -40,7 +40,6 @@ import socket
 
 import gssapi
 
-from twisted.internet import protocol
 from twisted.protocols import basic
 
 
@@ -58,6 +57,8 @@ class GSSError(Exception):
 #
 class GSSAPILineServer(basic.LineReceiver):  # pylint: disable=C0103
     """Line based GSSAPI server."""
+
+    from twisted.internet import protocol
 
     __slots__ = (
         '_ctx',

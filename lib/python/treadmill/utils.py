@@ -7,18 +7,14 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import collections
-import datetime
 import errno
 import functools
-import hashlib
 import io
 import json
 import logging
 import os
 import signal
-import stat
 import sys
-import tempfile
 import time
 
 # Pylint warning re string being deprecated
@@ -34,12 +30,10 @@ if os.name != 'nt':
 else:
     # Pylint warning unable to import because it is on Windows only
     import win32api  # pylint: disable=E0401
-    import win32con  # pylint: disable=E0401
     import win32security  # pylint: disable=E0401
 
 # disable standard import "import ipaddress" comes before "import win32api"
 import ipaddress  # pylint: disable=C0411
-import jinja2
 import six
 
 from six.moves import urllib_parse
@@ -50,67 +44,8 @@ from treadmill import osnoop
 
 _LOGGER = logging.getLogger(__name__)
 
-_JINJA2_ENV = jinja2.Environment(loader=jinja2.PackageLoader(__name__))
-
-_EXEC_MODE = (stat.S_IRUSR |
-              stat.S_IRGRP |
-              stat.S_IROTH |
-              stat.S_IWUSR |
-              stat.S_IXUSR |
-              stat.S_IXGRP |
-              stat.S_IXOTH)
 
 _DEFAULT_BASE_ALPHABET = string.digits + string.ascii_lowercase
-
-
-def generate_template(templatename, **kwargs):
-    """This renders a JINJA template as a generator.
-
-    The templates exist in our lib/python/treadmill/templates directory.
-
-    :param ``str`` templatename:
-        The name of the template file.
-    :param ``dict`` kwargs:
-        key/value passed into the template.
-    """
-    template = _JINJA2_ENV.get_template(templatename)
-    return template.generate(**kwargs)
-
-
-def create_script(filename, templatename, mode=_EXEC_MODE, **kwargs):
-    """This Creates a file from a JINJA template.
-
-    The templates exist in our lib/python/treadmill/templates directory.
-
-    :param ``str`` filename:
-        Name of the file to generate.
-    :param ``str`` templatename:
-        The name of the template file.
-    :param ``int`` mode:
-        The mode for the file (Defaults to +x).
-    :param ``dict`` kwargs:
-        key/value passed into the template.
-    """
-    filepath = os.path.dirname(filename)
-    with tempfile.NamedTemporaryFile(dir=filepath,
-                                     delete=False,
-                                     mode='w') as f:
-        for data in generate_template(templatename, **kwargs):
-            f.write(data)
-        if os.name == 'posix':
-            # cast to int required in order for default _EXEC_MODE to work
-            os.fchmod(f.fileno(), int(mode))
-    if sys.version_info[0] < 3:
-        # TODO: os.rename cannot replace on windows
-        # (use os.replace in python 3.4)
-        # copied from fs as utils cannot have this dependency
-        if os.name == 'nt':
-            win32api.MoveFileEx(f.name, filename,
-                                win32con.MOVEFILE_REPLACE_EXISTING)
-        else:
-            os.rename(f.name, filename)
-    else:
-        os.replace(f.name, filename)
 
 
 def ip2int(ip_addr):
@@ -211,6 +146,11 @@ def sys_exit(code):
 
 def hashcmp(file1, file2):
     """Compare two files based on sha1 hash value."""
+
+    # TODO: this function seem to be unused. keeping for now, will need add
+    #       assert later and see what plugin might break.
+    import hashlib
+
     sha1 = hashlib.sha1()
     sha2 = hashlib.sha1()
 
@@ -467,11 +407,6 @@ def tail(filename, nlines=10):
         return []
 
 
-def datetime_utcnow():
-    """Wrapper for datetime.datetime.utcnow for testability."""
-    return datetime.datetime.utcnow()
-
-
 def strftime_utc(epoch):
     """Convert seconds from epoch into UTC time string."""
     return time.strftime('%a, %d %b %Y %H:%M:%S+0000', time.gmtime(epoch))
@@ -686,6 +621,16 @@ else:
 
 
 @osnoop.windows
+def get_ulimit(u_type):
+    """get ulimit value
+    resource type name nofile => RLIMIT_NOFILE
+    return tuple of (soft_limit, hard_limit)
+    """
+    type_name = 'RLIMIT_{}'.format(u_type.upper())
+    return resource.getrlimit(getattr(resource, type_name))
+
+
+@osnoop.windows
 def closefrom(firstfd):
     """Close all file descriptors from `firstfd` on.
     """
@@ -820,27 +765,18 @@ def get_userhome(username):
     return user_pw.pw_dir
 
 
-# Aliases for compatibility
-# wrong-import-order,ungrouped-imports
-from shutil import which  # pylint: disable=C0411,C0412
-from tempfile import TemporaryDirectory  # pylint: disable=C0411,C0412
-
-
 __all__ = [
     'bytes_to_readable',
     'cidr_range',
     'closefrom',
     'compose',
     'cpu_units',
-    'create_script',
-    'datetime_utcnow',
     'drop_privileges',
     'encode_uri_parts',
     'equals_list2dict',
     'exit_on_unhandled',
     'find_in_path',
     'from_base_n',
-    'generate_template',
     'get_current_username',
     'get_iterable',
     'hashcmp',
@@ -865,12 +801,10 @@ __all__ = [
     'sys_exit',
     'tail',
     'tail_stream',
-    'TemporaryDirectory',
     'term_signal',
     'touch',
     'to_base_n',
     'to_obj',
     'to_seconds',
     'validate',
-    'which',
 ]

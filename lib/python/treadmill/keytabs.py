@@ -15,16 +15,14 @@ import os
 import random
 
 import six
-from twisted.internet import reactor
-from twisted.internet import protocol
 
 from treadmill import fs
-from treadmill import gssapiprotocol
 from treadmill import subproc
 from treadmill import sysinfo
 from treadmill import utils
 from treadmill import zknamespace as z
 from treadmill import zkutils
+
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -110,6 +108,10 @@ class KeytabLocker:
 def run_server(locker):
     """Runs keytab server.
     """
+    from treadmill import gssapiprotocol
+    from twisted.internet import protocol
+    from twisted.internet import reactor
+
     _LOGGER.info('Keytab locker server starting.')
 
     # no __init__ method.
@@ -173,6 +175,8 @@ def run_server(locker):
 def _get_keytabs_from(host, port, spool_dir):
     """Get keytabs from keytab locker server.
     """
+    from treadmill import gssapiprotocol
+
     service = 'host@%s' % host
     _LOGGER.info('connecting: %s:%s, %s', host, port, service)
     client = gssapiprotocol.GSSAPILineClient(host, int(port), service)

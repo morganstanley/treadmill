@@ -618,7 +618,7 @@ class PartitionPrettyFormatter:
     def format(item):
         """Return pretty-formatted item."""
 
-        schema = [
+        list_schema = [
             ('id', 'partition', None),
             ('cell', None, None),
             ('cpu', None, None),
@@ -628,9 +628,12 @@ class PartitionPrettyFormatter:
             ('down threshold', 'down-threshold', None),
             ('reboot schedule', 'reboot-schedule', None),
         ]
+        item_schema = list_schema + [
+            ('data', None, yaml.dump)
+        ]
 
-        format_item = make_dict_to_table(schema)
-        format_list = make_list_to_table(schema)
+        format_item = make_dict_to_table(item_schema)
+        format_list = make_list_to_table(list_schema)
 
         if isinstance(item, list):
             return format_list(item)

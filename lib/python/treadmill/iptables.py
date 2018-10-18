@@ -20,14 +20,20 @@ try:
 except ImportError:
     import xml.etree.ElementTree as etree
 
-import jinja2
-
 from treadmill import firewall
 from treadmill import subproc
 
-_LOGGER = logging.getLogger(__name__)
+from treadmill import templates
+from treadmill.templates.ipset_host_restore import T as IPSET_HOST_RESTORE
+from treadmill.templates.iptables_empty_restore import T \
+    as IPTABLES_EMPTY_RESTORE
+from treadmill.templates.iptables_filter_table_restore import T \
+    as IPTABLES_FILTER_TABLE_RESTORE
+from treadmill.templates.iptables_host_restore import T \
+    as IPTABLES_HOST_RESTORE
 
-JINJA2_ENV = jinja2.Environment(loader=jinja2.PackageLoader(__name__))
+
+_LOGGER = logging.getLogger(__name__)
 
 #: Chain where to add outgoing traffic DNAT rule (used inside container)
 OUTPUT = 'OUTPUT'
@@ -87,32 +93,6 @@ _CONNTRACK_PROD_MARK = '0x1/0xffffffff'
 #: Mark to use on NONPROD traffic
 _CONNTRACK_NONPROD_MARK = '0x2/0xffffffff'
 
-#: Iptables tables initial state template.
-#: To be used with `iptables-restore`
-#:
-#: We set up 2 rule sets, TM_MARK_NONPROD and TM_MARK_PROD, in the `mangle`
-#: table that will mark all packets as PROD or NONPROD using conntrack marking.
-#: Then in the TM_MARK chain, we dispatch traffic coming from containers and
-#: external hosts through the appropriate chain.
-#:
-#: In the `nat` table, we create two rule sets, TM_POSTROUTING_NONPROD and
-#: TM_POSTROUTING_PROD, that will put all outgoing connections into a
-#: predetermined port range depending on the above mark.
-#:
-_IPTABLES_TABLES = JINJA2_ENV.get_template('iptables-host-restore')
-
-#: IPSet initial state template
-_IPSET_SETS = JINJA2_ENV.get_template('ipset-host-restore')
-
-#: Iptables chain implementing environment filtering.
-_IPTABLES_FILTER_TABLE = JINJA2_ENV.get_template(
-    'iptables-filter-table-restore'
-)
-
-#: Iptables tables, generated with `iptables-save`, used to set the initial
-#: state of the Treadmill container rules.
-#:
-_IPTABLES_EMPTY_TABLES = JINJA2_ENV.get_template('iptables-empty-restore')
 
 #: Regular expression scrapping DNAT rules
 _DNAT_RULE_RE = re.compile(
@@ -207,7 +187,8 @@ def initialize(external_ip):
     flush_set(SET_INFRA_SVC)
     flush_set(SET_VRING_CONTAINERS)
 
-    iptables_state = _IPTABLES_TABLES.render(
+    iptables_state = templates.render(
+        IPTABLES_HOST_RESTORE,
         any_container=_SET_CONTAINERS,
         dnat_chain=PREROUTING_DNAT,
         external_ip=external_ip,
@@ -234,7 +215,8 @@ def initialize(external_ip):
 def ipsets_ensure_exist():
     """Initialize all used IPSets.
     """
-    ipset_rules = _IPSET_SETS.render(
+    ipset_rules = templates.render(
+        IPSET_HOST_RESTORE,
         any_container=_SET_CONTAINERS,
         infra_services=SET_INFRA_SVC,
         passthroughs=SET_PASSTHROUGHS,
@@ -259,7 +241,8 @@ def filter_table_set(filter_in_nonprod_chain, filter_out_nonprod_chain):
     :param filter_out_nonprod_chain:
         non-prod -> prod/nonprod FORWARD filter rules.
     """
-    filtering_table = _IPTABLES_FILTER_TABLE.render(
+    filtering_table = templates.render(
+        IPTABLES_FILTER_TABLE_RESTORE,
         any_container=_SET_CONTAINERS,
         infra_services=SET_INFRA_SVC,
         nonprod_mark=_CONNTRACK_NONPROD_MARK,
@@ -284,7 +267,7 @@ def initialize_container():
 
     It is assumed that none but Treadmill manages these tables.
     """
-    _iptables_restore(_IPTABLES_EMPTY_TABLES.render())
+    _iptables_restore(templates.render(IPTABLES_EMPTY_RESTORE))
 
 
 def add_raw_rule(table, chain, rule, safe=False):

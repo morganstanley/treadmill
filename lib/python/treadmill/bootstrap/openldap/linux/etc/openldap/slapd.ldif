@@ -6,6 +6,7 @@
 dn: cn=config
 objectClass: olcGlobal
 cn: config
+entryCSN: 19700000000000.000000Z#000000#000#000000
 {%- for attribute_option in attribute_options %}
 olcAttributeOptions: {{ attribute_option }}
 {%- endfor %}
@@ -25,6 +26,7 @@ olcIdleTimeout: {{ idletimout | default(0) }}
 dn: cn=schema,cn=config
 objectClass: olcSchemaConfig
 cn: schema
+entryCSN: 19700000000000.000000Z#000000#000#000000
 {% for schema_file in schemas %}
 include: {{ schema_file}}
 {%- endfor %}
@@ -62,6 +64,7 @@ dn: olcOverlay=syncprov,olcDatabase={{ backend.name }},cn=config
 objectClass: olcOverlayConfig
 objectClass: olcSyncProvConfig
 olcOverlay: syncprov
+entryCSN: 19700000000000.000000Z#000000#000#000000
 {%- endmacro %}{# replication_provider() #}
 
 {%- macro replication_consumer(backend, masters, replica_ids) %}
@@ -89,6 +92,7 @@ olcUpdateref: {{ master }}
 #
 dn: olcDatabase={{ backend.name }},cn=config
 objectClass: olcDatabaseConfig
+entryCSN: 19700000000000.000000Z#000000#000#000000
 {{- if_exists('objectClass', backend.objectclass) }}
 olcDatabase: {{ backend.name }}
 {%- if backend.objectclass == "olcMdbConfig" %}

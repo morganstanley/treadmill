@@ -12,6 +12,8 @@ import socket
 import sys
 import time
 
+from urllib.parse import urlparse
+
 import click
 import docker
 import requests
@@ -28,6 +30,7 @@ _LOGGER = logging.getLogger(__name__)
 
 # wait for dockerd is ready in seconds
 _MAX_WAIT = 64
+_DEFAULT_ULIMIT = ['core', 'data', 'fsize', 'nproc', 'nofile', 'rss', 'stack']
 
 
 def _read_environ(envdirs):
@@ -65,14 +68,45 @@ def _pull_image(client, image_name):
     return image_meta
 
 
-def _create_container(client, name, image_name, image_meta,
-                      entrypoint, cmd, **args):
+def _load_image(client, load):
+    """Load image from local disk
+    """
+    with open(load, 'rb') as f:
+        # load returns image list
+        return client.images.load(data=f)[0]
+
+
+def _init_ulimit(ulimit):
+    """init ulimit value
+    """
+    total_result = []
+
+    if not ulimit:
+        for u_type in _DEFAULT_ULIMIT:
+            (soft_limit, hard_limit) = utils.get_ulimit(u_type)
+            total_result.append(
+                {'Name': u_type, 'Soft': soft_limit, 'Hard': hard_limit}
+            )
+
+        return total_result
+
+    for u_string in ulimit:
+        (u_type, soft_limit, hard_limit) = u_string.split(':', 3)
+        total_result.append(
+            {'Name': u_type, 'Soft': int(soft_limit), 'Hard': int(hard_limit)}
+        )
+
+    return total_result
+
+
+def _create_container(client, name, image_meta,
+                      entrypoint, cmd, ulimit, **args):
     """Create docker container from given app.
     """
     # if success,  pull returns an image object
     container_args = {
         'name': name,
-        'image': image_name,
+        'image': image_meta.id,
         'command': cmd,
         'entrypoint': entrypoint,
         'detach': True,
@@ -81,6 +115,7 @@ def _create_container(client, name, image_name, image_meta,
         'network_mode': 'host',
         'pid_mode': 'host',
         'ipc_mode': 'host',
+        'ulimits': ulimit,
         # XXX: uts mode not supported by python lib yet
         # 'uts_mode': 'host',
     }
@@ -132,6 +167,61 @@ def _transform_volumes(volumes):
     return dict_volume
 
 
+def _parse_image_name(image):
+    """Parse image name from manifest
+    """
+    url = urlparse(image)
+
+    scheme = url.scheme if url.scheme else 'docker'
+    path = url.path
+
+    if url.netloc:
+        path = url.netloc + path
+
+    # change /meta/proj => meta/proj
+    if scheme == 'docker' and path[0] == '/':
+        path = path[1:]
+
+    return (scheme, path)
+
+
+def _fetch_image(client, image):
+    """Fetch image from local file or registry
+    returns image metadata object
+    """
+    (scheme, path) = _parse_image_name(image)
+
+    if scheme == 'file':
+        try:
+            image_meta = _load_image(client, path)
+        except docker.errors.ImageNotFound:
+            raise exc.ContainerSetupError(
+                'Failed to load image file {}'.format(image),
+                app_abort.AbortedReason.IMAGE
+            )
+    elif scheme == 'docker':
+        # simulate docker pull logic, if tag not provided, assume latest
+        if ':' not in path:
+            path += ':latest'
+
+        try:
+            image_meta = _pull_image(client, path)
+        except docker.errors.ImageNotFound:
+            raise exc.ContainerSetupError(
+                'Fail to pull {}, check image name or disk size'.format(
+                    image
+                ),
+                app_abort.AbortedReason.IMAGE
+            )
+    else:
+        raise exc.ContainerSetupError(
+            'Unrecognized image name {}'.format(image),
+            app_abort.AbortedReason.IMAGE
+        )
+
+    return image_meta
+
+
 class DockerSprocClient:
     """Docker Treadmill Sproc client
     """
@@ -162,7 +252,7 @@ class DockerSprocClient:
         return self.client
 
     def run(self, name, image, entrypoint, cmd, **args):
-        """Run
+        """Load Docker image and Run
         """
         client = self._get_client()
         if 'volumes' in args:
@@ -171,22 +261,12 @@ class DockerSprocClient:
         if 'envdirs' in args:
             args['environment'] = _read_environ(args.pop('envdirs'))
 
-        # simulate docker pull logic, if tag not provided, assume latest
-        if ':' not in image:
-            image += ':latest'
+        ulimit = _init_ulimit(args.pop('ulimit'))
 
-        try:
-            image_meta = _pull_image(client, image)
-        except docker.errors.ImageNotFound:
-            raise exc.ContainerSetupError(
-                'Fail to pull {}, check image name or disk size'.format(
-                    image
-                ),
-                app_abort.AbortedReason.IMAGE
-            )
+        image_meta = _fetch_image(client, image)
 
         container = _create_container(
-            client, name, image, image_meta, entrypoint, cmd, **args
+            client, name, image_meta, entrypoint, cmd, ulimit, **args
         )
 
         # TODO: start docker container event
@@ -204,7 +284,7 @@ class DockerSprocClient:
         while container.status == 'running':
             try:
                 for log_lines in logs_gen:
-                    sys.stderr.write(log_lines)
+                    print(log_lines, file=sys.stderr, end='', flush=True)
             except socket.error:
                 pass
 
@@ -254,8 +334,10 @@ def init():
                   help='Mount the docker image read-only')
     @click.option('--volume', multiple=True, required=False,
                   help='Specify each volume as TARGET:SOURCE:MODE')
+    @click.option('--ulimit', multiple=True, required=False,
+                  help='Specify ulimit value as TYPE:SOFT_LIMIT:HARD_LIMIT')
     def configure(name, image, cmd, entrypoint,
-                  user, envdirs, read_only, volume):
+                  user, envdirs, read_only, volume, ulimit):
         """Configure local manifest and schedule app to run."""
         # client do not timeout
         param = {'timeout': None}
@@ -268,6 +350,7 @@ def init():
             envdirs=envdirs,
             read_only=read_only,
             volumes=volume,
+            ulimit=ulimit,
         )
 
     return configure

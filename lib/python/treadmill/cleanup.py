@@ -23,6 +23,7 @@ from __future__ import unicode_literals
 import glob
 import logging
 import os
+import shutil
 import time
 
 from treadmill import dirwatch
@@ -169,6 +170,10 @@ class Cleanup:
                     app_runtime.get_runtime(
                         runtime, self.tm_env, container_dir, runtime_param
                     ).finish()
+                except supervisor.InvalidServiceDirError:
+                    log.info('Container dir is invalid, removing: %s',
+                             container_dir)
+                    shutil.rmtree(container_dir)
                 except Exception:  # pylint: disable=W0703
                     if not os.path.exists(container_dir):
                         log.info('Container dir does not exist: %s',

@@ -8,6 +8,7 @@ from __future__ import unicode_literals
 
 import logging
 import os
+import shutil
 import socket
 import subprocess
 import sys
@@ -66,7 +67,7 @@ def run_unix(host, port, ssh, command):
     if not host or not port:
         return -2
 
-    if not utils.which(ssh):
+    if not shutil.which(ssh):
         cli.bad_exit('{} cannot be found in the PATH'.format(ssh))
 
     ssh = [ssh,
@@ -86,7 +87,7 @@ def run_putty(host, port, sshcmd, command):
     # Trick putty into storing ssh key automatically.
     plink = os.path.join(os.path.dirname(sshcmd), 'plink.exe')
 
-    if not utils.which(plink):
+    if not shutil.which(plink):
         cli.bad_exit('{} cannot be found in the PATH'.format(plink))
 
     store_key_cmd = [plink, '-P', port,
@@ -117,7 +118,7 @@ def run_putty(host, port, sshcmd, command):
             devnull['fd'] = os.open(os.devnull, os.O_RDWR)
         return devnull['fd']
 
-    if not utils.which(sshcmd):
+    if not shutil.which(sshcmd):
         cli.bad_exit('{} cannot be found in the PATH'.format(sshcmd))
 
     _LOGGER.debug('Starting ssh: %s', ssh)

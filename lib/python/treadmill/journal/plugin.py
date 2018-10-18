@@ -43,8 +43,8 @@ class BaseJournaler:
         timestamp = self._get_timestamp()
 
         _LOGGER.debug(
-            'Log Journal %s: %s %s %s %s %s %r', _STEP_BEGIN,
-            transaction_id, resource, action, pk, user, payload
+            'Log Journal %s: %s %s %s %s %s', _STEP_BEGIN,
+            transaction_id, resource, action, pk, user
         )
 
         return self._log_exec(_STEP_BEGIN, transaction_id,
@@ -62,8 +62,8 @@ class BaseJournaler:
         timestamp = self._get_timestamp()
 
         _LOGGER.debug(
-            'Log Journal %s: %s %s %s %s %s %r', _STEP_END,
-            transaction_id, resource, action, pk, user, result
+            'Log Journal %s: %s %s %s %s %s', _STEP_END,
+            transaction_id, resource, action, pk, user
         )
 
         return self._log_exec(_STEP_END, transaction_id,
@@ -82,8 +82,8 @@ class BaseJournaler:
         timestamp = self._get_timestamp()
 
         _LOGGER.debug(
-            'Log Journal %s: %s %s %s %s %s %r', _STEP_ABORT,
-            transaction_id, resource, action, pk, user, payload
+            'Log Journal %s: %s %s %s %s %s', _STEP_ABORT,
+            transaction_id, resource, action, pk, user
         )
 
         return self._log_exec(_STEP_ABORT, transaction_id,
