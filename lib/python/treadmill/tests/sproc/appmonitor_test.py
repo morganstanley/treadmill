@@ -231,6 +231,54 @@ class AppMonitorTest(unittest.TestCase):
         )
         self.assertEqual(last_waited, {})
 
+    @mock.patch('time.time', mock.Mock())
+    @mock.patch('treadmill.restclient.post', mock.Mock())
+    @mock.patch('treadmill.restclient.delete', mock.Mock())
+    def test_policy(self):
+        """Test scale policy."""
+        zkclient = mock.Mock()
+        alerter = mock.Mock()
+
+        state = {
+            'scheduled': {
+                'foo.bar': ['foo.bar#1', 'foo.bar#2'],
+            },
+            'monitors': {
+                'foo.bar': {
+                    'count': 2,
+                    'available': 2,
+                    'rate': 1.0,
+                    'last_update': 100,
+                },
+            },
+            'suspended': {},
+        }
+        time.time.return_value = 101
+        parametrizes = (
+            ('fifo', 'foo.bar#3', 'foo.bar#1', True),
+            ('lifo', 'foo.bar#4', 'foo.bar#4', True),
+            ('unknown', 'foo.bar#5', None, False),
+        )
+
+        for (policy, created, deleted, api_is_called) in parametrizes:
+            state['monitors']['foo.bar']['policy'] = policy
+            state['scheduled']['foo.bar'].append(created)
+            appmonitor.reevaluate(
+                '/cellapi.sock', alerter, state, zkclient, {}
+            )
+
+            if api_is_called:
+                restclient.post.assert_called_with(
+                    ['/cellapi.sock'],
+                    '/instance/_bulk/delete', payload={'instances': [deleted]},
+                    headers={'X-Treadmill-Trusted-Agent': 'monitor'}
+                )
+                state['scheduled']['foo.bar'].remove(deleted)
+                restclient.post.reset_mock()
+
+            else:
+                restclient.post.assert_not_called()
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -13,10 +13,12 @@ import logging
 import os
 import random
 import socket
-import stat
 import tarfile
 
 import six
+
+if os.name == 'posix':
+    import stat
 
 from treadmill import appcfg
 from treadmill import exc

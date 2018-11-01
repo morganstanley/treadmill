@@ -6,10 +6,10 @@ from __future__ import unicode_literals
 
 import logging
 import re
+import time
 
 import click
 import kazoo
-import time
 
 from treadmill import cli
 from treadmill import context

@@ -91,7 +91,7 @@ class UtilsTest(unittest.TestCase):
                 self.assertEqual(f.read(), 'script\n\n')
                 self.assertEqual(os.stat(filename).st_mode, 0o100755)
             else:
-                self.assertEqual(f.read(), 'script\n')
+                self.assertEqual(f.read(), 'script')
 
 
 if __name__ == '__main__':

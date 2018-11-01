@@ -5,12 +5,13 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
-import jinja2
 import os
 import re
-import stat
+import stat  # pylint: disable=wrong-import-order
 import sys
 import tempfile
+
+import jinja2
 
 if os.name == 'nt':
     # Pylint warning unable to import because it is on Windows only

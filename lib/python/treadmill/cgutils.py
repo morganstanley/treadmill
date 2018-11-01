@@ -398,6 +398,12 @@ def set_cpu_shares(cgrp, shares):
     return cgroups.set_value('cpu', cgrp, 'cpu.shares', shares)
 
 
+def get_memory_limit(cgrp):
+    """Get memory size hard limit
+    """
+    return cgroups.get_value('memory', cgrp, 'memory.limit_in_bytes')
+
+
 def get_cpuset_cores(cgrp):
     """Get list of enabled cores."""
     cores = []

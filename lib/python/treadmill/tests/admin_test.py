@@ -20,6 +20,8 @@ import treadmill.tests.treadmill_ldap_patch  # pylint: disable=C0411
 treadmill.tests.treadmill_ldap_patch.monkey_patch()
 
 
+# pylint: disable=too-many-lines
+
 class AdminTest(unittest.TestCase):
     """Tests supervisor routines."""
 
@@ -121,10 +123,109 @@ class AdminTest(unittest.TestCase):
             }
         )
 
+    def test__entry_plain_keys(self):
+        """Test entry extraction.
+        """
+        # pylint: disable=protected-access
+        self.assertEqual(
+            admin._entry_plain_keys(
+                {
+                    'test-key;tm-test-0': ['a'],
+                    'test-b;tm-test-0': ['a', 'b'],
+                    'test-c;tm-test-0': ['42'],
+                    'test-d;tm-test-0': [True],
+                    'test-key;tm-test-1': ['b'],
+                    'test-b;tm-test-1': ['c'],
+                    'test-c;tm-test-1': ['43'],
+                    'test-d;tm-test-1': [False],
+                    'test-key;tm-test-2': ['c'],
+                    'test-b;tm-test-2': [],
+                    'test-c;tm-test-2': ['44'],
+                    'test-d;tm-test-2': [True],
+                }
+            ),
+            [
+                'test-b',
+                'test-c',
+                'test-d',
+                'test-key',
+            ]
+        )
+
+    def test__to_obj_list(self):
+        """Test object list LDAP serialization.
+        """
+        # pylint: disable=protected-access
+        schema = [
+            ('test-key', 'key', str),
+            ('test-b', 'b', [str]),
+            ('test-c', 'c', int),
+            ('test-d', 'd', bool),
+        ]
+
+        self.assertEqual(
+            admin._to_obj_list(
+                [],
+                'key',
+                'tm-test',
+                schema
+            ),
+            {
+                'test-key': [],
+                'test-b': [],
+                'test-c': [],
+                'test-d': [],
+            }
+        )
+
+        self.assertEqual(
+            admin._to_obj_list(
+                [
+                    {
+                        'key': 'a',
+                        'b': ['a', 'b'],
+                        'c': 42,
+                        'd': True,
+                    },
+                    {
+                        'key': 'b',
+                        'b': ['c'],
+                        'c': 43,
+                        'd': False,
+                    },
+                    {
+                        'key': 'c',
+                        'b': [],
+                        'c': 44,
+                        'd': True,
+                    },
+                ],
+                'key',
+                'tm-test',
+                schema
+            ),
+            {
+                'test-key;tm-test-0': ['a'],
+                'test-b;tm-test-0': ['a', 'b'],
+                'test-c;tm-test-0': ['42'],
+                'test-d;tm-test-0': [True],
+                'test-key;tm-test-1': ['b'],
+                'test-b;tm-test-1': ['c'],
+                'test-c;tm-test-1': ['43'],
+                'test-d;tm-test-1': [False],
+                'test-key;tm-test-2': ['c'],
+                # FIXME: LDAP Admin serialization "optimizes" out empty lists.
+                # 'test-b;tm-test-2': [],
+                'test-c;tm-test-2': ['44'],
+                'test-d;tm-test-2': [True],
+
+            }
+        )
+
     def test_group_by_opt(self):
         """Tests group by attribute option."""
         # Disable W0212: Test access protected members of admin module.
-        # pylint: disable=W0212
+        # pylint: disable=protected-access
         self.assertEqual(
             admin._group_entry_by_opt(
                 {
@@ -194,7 +295,10 @@ class AdminTest(unittest.TestCase):
             'tickets': ['a', None, 'b'],
             'features': [],
             'args': [],
-            'environ': [{'name': 'a', 'value': 'b'}],
+            'environ': [
+                {'name': 'BAR', 'value': '34567'},
+                {'name': 'FOO', 'value': '12345'},
+            ],
             'services': [
                 {
                     'name': 'a',
@@ -255,8 +359,10 @@ class AdminTest(unittest.TestCase):
             'endpoint-type;tm-endpoint-0': ['infra'],
             'endpoint-type;tm-endpoint-1': ['infra'],
             'endpoint-proto;tm-endpoint-0': ['udp'],
-            'envvar-name;tm-envvar-0': ['a'],
-            'envvar-value;tm-envvar-0': ['b'],
+            'envvar-name;tm-envvar-0': ['BAR'],
+            'envvar-value;tm-envvar-0': ['34567'],
+            'envvar-name;tm-envvar-1': ['FOO'],
+            'envvar-value;tm-envvar-1': ['12345'],
             'affinity-level;tm-affinity-0': ['rack'],
             'affinity-limit;tm-affinity-0': ['2'],
             'affinity-level;tm-affinity-1': ['server'],
@@ -310,14 +416,26 @@ class AdminTest(unittest.TestCase):
         ldap_entry = {
             'app': ['xxx'],
             'cpu': ['100%'],
-            'memory': ['1G'],
             'disk': ['1G'],
-            'service-name;tm-service-0': ['foo'],
+            'memory': ['1G'],
+            # Affinities
+            'affinity-level': [],
+            'affinity-limit': [],
+            # Endpoints
+            'endpoint-name': [],
+            'endpoint-port': [],
+            'endpoint-proto': [],
+            'endpoint-type': [],
+            # Envvars
+            'envvar-name': [],
+            'envvar-value': [],
+            # Services
             'service-command;tm-service-0': ['echo'],
-            'service-useshell;tm-service-0': [True],
             'service-image;tm-service-0': ['testimage'],
-            'service-restart-limit;tm-service-0': ['3'],
+            'service-name;tm-service-0': ['foo'],
             'service-restart-interval;tm-service-0': ['30'],
+            'service-restart-limit;tm-service-0': ['3'],
+            'service-useshell;tm-service-0': [True],
         }
         self.assertEqual(ldap_entry, admin.Application(None).to_entry(app))
 
@@ -652,6 +770,63 @@ class AdminTest(unittest.TestCase):
             [('bar', ['z', 'a']), ('exp', [3, 4]), ('foo', 1), ('lot', 2)]
         )
 
+    @mock.patch('treadmill.admin.Admin.modify', mock.Mock())
+    @mock.patch('treadmill.admin.Admin.paged_search', mock.Mock())
+    def test_update(self):
+        """Tests update logic.
+        """
+        mock_admin = admin.Admin(None, 'dc=test,dc=com')
+        treadmill.admin.Admin.paged_search.return_value = [
+            (
+                'cell=xxx,allocation=prod1,...',
+                {
+                    'disk': ['2G'],
+                    'trait': ['a', 'b'],
+                    'priority;tm-alloc-assignment-123': [80],
+                    'pattern;tm-alloc-assignment-123': ['ppp.ttt'],
+                    'priority;tm-alloc-assignment-345': [60],
+                    'pattern;tm-alloc-assignment-345': ['ppp.ddd'],
+                }
+            )
+        ]
+
+        mock_admin.update(
+            'cell=xxx,allocation=prod1,...',
+            {
+                'disk': ['1G'],
+                'trait': ['a'],
+                'priority;tm-alloc-assignment-0': [80],
+                'pattern;tm-alloc-assignment-0': ['ppp.ttt'],
+                'priority;tm-alloc-assignment-345': [30],
+                'pattern;tm-alloc-assignment-345': ['ppp.ddd'],
+            }
+        )
+
+        treadmill.admin.Admin.paged_search.assert_called_once_with(
+            search_base=mock.ANY,
+            search_scope=mock.ANY,
+            search_filter=mock.ANY,
+            attributes=[
+                'disk',
+                'pattern',
+                'priority',
+                'trait',
+            ],
+            dirty=False,
+        )
+        treadmill.admin.Admin.modify.assert_called_once_with(
+            'cell=xxx,allocation=prod1,...',
+            {
+                'disk': [('MODIFY_REPLACE', ['1G'])],
+                'trait': [('MODIFY_REPLACE', ['a'])],
+                'priority;tm-alloc-assignment-123': [('MODIFY_DELETE', [])],
+                'pattern;tm-alloc-assignment-123': [('MODIFY_DELETE', [])],
+                'pattern;tm-alloc-assignment-0': [('MODIFY_ADD', ['ppp.ttt'])],
+                'priority;tm-alloc-assignment-0': [('MODIFY_ADD', [80])],
+                'priority;tm-alloc-assignment-345': [('MODIFY_REPLACE', [30])]
+            }
+        )
+
 
 class TenantTest(unittest.TestCase):
     """Tests Tenant ldapobject routines."""
@@ -765,23 +940,49 @@ class CellAllocationTest(unittest.TestCase):
             'max_utilization': 4.2,
             'traits': ['a', 'b'],
         }
-        ldap_entry = {
-            'cell': ['somecell'],
-            'cpu': ['100%'],
-            'memory': ['10G'],
-            'disk': ['100G'],
-            'rank': ['100'],
-            'rank-adjustment': ['10'],
-            'partition': ['_default'],
-            'max-utilization': ['4.2'],
-            'trait': ['a', 'b'],
-        }
-        self.assertEqual(ldap_entry, self.cell_alloc.to_entry(obj))
+        self.assertEqual(
+            self.cell_alloc.to_entry(obj),
+            {
+                'cell': ['somecell'],
+                'cpu': ['100%'],
+                'memory': ['10G'],
+                'disk': ['100G'],
+                'rank': ['100'],
+                'rank-adjustment': ['10'],
+                'partition': ['_default'],
+                'max-utilization': ['4.2'],
+                'trait': ['a', 'b'],
+                # Assignments
+                'pattern': [],
+                'priority': [],
+            }
+        )
 
         obj.update({
-            'assignments': [],
+            'assignments': [
+                {'pattern': 'foo.*', 'priority': 1},
+                {'pattern': 'bar.*', 'priority': 2},
+            ],
         })
-        self.assertEqual(obj, self.cell_alloc.from_entry(ldap_entry))
+        self.assertEqual(
+            self.cell_alloc.to_entry(obj),
+            {
+                'cell': ['somecell'],
+                'cpu': ['100%'],
+                'memory': ['10G'],
+                'disk': ['100G'],
+                'rank': ['100'],
+                'rank-adjustment': ['10'],
+                'partition': ['_default'],
+                'max-utilization': ['4.2'],
+                'trait': ['a', 'b'],
+                # Assignments
+                'pattern;tm-alloc-assignment-0': ['bar.*'],
+                'priority;tm-alloc-assignment-0': ['2'],
+                'pattern;tm-alloc-assignment-1': ['foo.*'],
+                'priority;tm-alloc-assignment-1': ['1'],
+            }
+        )
 
 
 class PartitionTest(unittest.TestCase):

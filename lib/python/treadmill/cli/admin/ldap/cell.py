@@ -113,6 +113,11 @@ def init():
                election_port, kafka_client_port):
         """Add master server to a cell"""
         admin_cell = admin.Cell(context.GLOBAL.ldap.conn)
+        cell_attrs = admin_cell.get(cell)
+        masters = cell_attrs.get('masters', [])
+        # remove current idx from masters
+        masters = [master for master in masters if master['idx'] != idx]
+
         data = {
             'idx': int(idx),
             'hostname': hostname,
@@ -123,11 +128,11 @@ def init():
         }
         if kafka_client_port is not None:
             data['kafka-client-port'] = kafka_client_port
+        masters.append(data)
 
         attrs = {
-            'masters': [data]
+            'masters': masters
         }
-
         try:
             admin_cell.update(cell, attrs)
             cli.out(formatter(admin_cell.get(cell, dirty=True)))

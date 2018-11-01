@@ -23,7 +23,8 @@ def init(api, cors, impl):
 
     model = {
         '_id': fields.String(description='Name'),
-        'count': fields.Integer(description='Count', required=True),
+        'count': fields.Integer(description='Count'),
+        'policy': fields.String(description='Scale Policy'),
     }
 
     req_monitor_model = api.model(

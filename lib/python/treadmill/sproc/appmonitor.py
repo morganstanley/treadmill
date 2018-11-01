@@ -162,7 +162,19 @@ def reevaluate(api_url, alert_f, state, zkclient, last_waited):
                                   name, needed)
 
         elif count < current_count:
-            extra = grouped[name][:current_count - count]
+            extra = []
+            policy = conf.get('policy')
+            if policy is None:
+                policy = 'fifo'
+
+            if policy == 'fifo':
+                extra = grouped[name][:current_count - count]
+            elif policy == 'lifo':
+                extra = grouped[name][count - current_count:]
+            else:
+                _LOGGER.warning('Invalid scale policy: %s', policy)
+                continue
+
             try:
                 response = restclient.post(
                     [api_url], '/instance/_bulk/delete',
@@ -231,7 +243,9 @@ def _run_sync(api_url, alerts_dir, once):
                 return
 
             try:
-                count = yaml.load(data)['count']
+                loaded = yaml.load(data)
+                count = loaded['count']
+                policy = loaded.get('policy')
             except Exception:  # pylint: disable=W0703
                 _LOGGER.exception('Invalid monitor: %s', name)
                 return
@@ -241,6 +255,7 @@ def _run_sync(api_url, alerts_dir, once):
                 'count': count,
                 'available': 2.0 * count,
                 'last_update': time.time(),
+                'policy': policy,
                 'rate': (2.0 * count / _INTERVAL)
             }
 

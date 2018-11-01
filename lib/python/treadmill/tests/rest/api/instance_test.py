@@ -144,7 +144,10 @@ class InstanceTest(unittest.TestCase):
         )
         self.assertEqual(resp.status_code, http_client.OK)
         self.assertEqual(self.impl.bulk_delete.call_args_list, [
-            mock.call(['proid.app#0000000001', 'proid.app#0000000002'], None),
+            mock.call(
+                'proid',
+                ['proid.app#0000000001', 'proid.app#0000000002'],
+                None),
         ])
 
         self.impl.reset_mock()
@@ -161,6 +164,7 @@ class InstanceTest(unittest.TestCase):
             self.assertEqual(resp.status_code, http_client.OK)
             self.assertEqual(self.impl.bulk_delete.call_args_list, [
                 mock.call(
+                    'proid',
                     ['proid.app#0000000001', 'proid.app#0000000002'],
                     'foo@BAR.BAZ'
                 ),
@@ -184,7 +188,7 @@ class InstanceTest(unittest.TestCase):
         )
         self.assertEqual(resp.status_code, http_client.OK)
         self.assertEqual(self.impl.bulk_update.call_args_list, [
-            mock.call([
+            mock.call('proid', [
                 {'_id': 'proid.app#0000000001',
                  'priority': 10},
                 {'_id': 'proid.app#0000000002',

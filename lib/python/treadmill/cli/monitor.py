@@ -28,6 +28,12 @@ _ON_EXCEPTIONS = cli.handle_exceptions(_EXCEPTIONS)
 _REST_PATH = '/app-monitor/'
 
 
+def _check_configure_usage(count):
+    """Checks options constraints for configure verb."""
+    if count is None:
+        raise click.UsageError('Require --count on configure creation')
+
+
 def init():  # pylint: disable=R0912
     """Configures application monitor"""
     formatter = cli.make_formatter('app-monitor')
@@ -48,21 +54,41 @@ def init():  # pylint: disable=R0912
 
     @monitor_group.command()
     @click.option('-n', '--count', type=int, help='Instance count')
+    @click.option('-p', '--policy', type=click.Choice(['fifo', 'lifo']),
+                  help='Instance scale policy: fifo (remove oldest first), '
+                       'lifo (remove latest first)')
     @click.argument('name')
     @_ON_EXCEPTIONS
-    def configure(count, name):
+    def configure(count, name, policy):
         """Configure application monitor"""
+
         restapi = context.GLOBAL.cell_api()
         url = _REST_PATH + name
 
+        options = {}
         if count is not None:
-            data = {'count': count}
+            options['count'] = count
+        if policy is not None:
+            options['policy'] = policy
+
+        # reconfigure if any of the parameters is specified
+        if options:
+            existing = None
             try:
+                existing = restclient.get(restapi, url).json()
+            except restclient.NotFoundError:
+                _LOGGER.debug('App monitor not found: %s', name)
+
+            if existing is None:
+                _check_configure_usage(count)
+
                 _LOGGER.debug('Creating app monitor: %s', name)
-                restclient.post(restapi, url, payload=data)
-            except restclient.AlreadyExistsError:
+                restclient.post(restapi, url, payload=options)
+
+            else:
+                existing.update(options)
                 _LOGGER.debug('Updating app monitor: %s', name)
-                restclient.put(restapi, url, payload=data)
+                restclient.put(restapi, url, payload=existing)
 
         _LOGGER.debug('Retrieving app monitor: %s', name)
         monitor_entry = restclient.get(restapi, url)
