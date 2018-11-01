@@ -121,10 +121,6 @@ def _dict_2_entry(obj, schema, option=None, option_idx=None):
     # pylint: disable=R0912
     entry = dict()
 
-    delete = False
-    if '_delete' in obj:
-        delete = True
-
     for ldap_field, obj_field, field_type in schema:
         if obj_field not in obj:
             continue
@@ -137,10 +133,6 @@ def _dict_2_entry(obj, schema, option=None, option_idx=None):
                 option_prefix=option,
                 option_idx=option_idx
             )
-
-        if delete:
-            entry[ldap_field] = []
-            continue
 
         if value is None:
             entry[ldap_field] = []
@@ -172,6 +164,47 @@ def _dict_2_entry(obj, schema, option=None, option_idx=None):
             else:
                 entry[ldap_field] = [six.text_type(value)]
 
+    return entry
+
+
+def _empty_list_entry(schema):
+    """Generate an empty list entry for the provided schema.
+    """
+    entry = {}
+    for ldap_field, _obj_field, _field_type in schema:
+        entry[ldap_field] = []
+
+    return entry
+
+
+def _to_obj_list(obj_list, key, prefix, schema):
+    """Convert a (keyed) object list, into an entry.
+
+    :param ``list`` obj_list:
+        List of object
+    :param ``str`` key:
+        Key attribute in each object
+    :param ``str`` prefix:
+        LDAP attribute prefix (AttributeOption)
+    :param schema:
+        Object's schema
+    """
+    obj_iter = sorted(
+        obj_list,
+        key=lambda obj: obj[key]
+    )
+    if not obj_iter:
+        entry = _empty_list_entry(schema)
+    else:
+        entry = {}
+        for idx, obj in enumerate(obj_iter):
+            entry.update(
+                _dict_2_entry(
+                    obj,
+                    schema, prefix,
+                    idx
+                )
+            )
     return entry
 
 
@@ -306,6 +339,15 @@ def _objcls_2_str(name, obj_cls):
             oid_pfx=_TREADMILL_OBJCLS_OID_PREFIX
         )
     )
+
+
+def _entry_plain_keys(entry):
+    """Return an entry keys, stripping all options.
+    """
+    return sorted({
+        k.split(';', 1)[0]
+        for k in entry.keys()
+    })
 
 
 def _group_entry_by_opt(entry):
@@ -789,7 +831,8 @@ class Admin:
 
     @staticmethod
     def _schema_attrtype_diff(old_attr_types, new_attr_types):
-        """Construct difference between old/new attr type list."""
+        """Construct difference between old/new attr type list.
+        """
         to_add = dict()
         to_del = dict()
 
@@ -826,7 +869,8 @@ class Admin:
 
     @staticmethod
     def _schema_objcls_diff(old_ocs, new_ocs):
-        """Construct difference between old/new attr type list."""
+        """Construct difference between old/new attr type list.
+        """
         to_add = dict()
         to_del = dict()
 
@@ -988,7 +1032,11 @@ class Admin:
     def update(self, dn, new_entry):
         """Creates LDAP record."""
         _LOGGER.debug('update: %s - %s', dn, new_entry)
-        old_entry = self.get(dn, '(objectClass=*)', new_entry.keys())
+        old_entry = self.get(
+            dn,
+            '(objectClass=*)',
+            _entry_plain_keys(new_entry)
+        )
         diff = _diff_entries(old_entry, new_entry)
 
         self.modify(dn, diff)
@@ -1388,96 +1436,88 @@ class Application(LdapObject):
         if 'ephemeral_ports_udp' in obj:
             del obj['ephemeral_ports_udp']
 
+        # FIXME: Service serialization is more complex because we do some
+        # normalization in there which has no place in this function. Move the
+        # "default restart" stuff and convert to use the _to_obj_list function.
         services_iter = sorted(
             obj.get('services', []),
             key=lambda service: service['name']
         )
-        for idx, service in enumerate(services_iter):
-            service_entry = _dict_2_entry(
-                service,
-                Application._svc_schema,
-                'tm-service',
-                idx
+        if not services_iter:
+            entry.update(
+                _empty_list_entry(
+                    Application._svc_schema +
+                    Application._svc_restart_schema
+                )
             )
-            # Account for default restart settings
-            service_restart = self._default_svc_restart.copy()
-            service_restart.update(
-                service.get('restart', {})
-            )
-            service_entry.update(
-                _dict_2_entry(
-                    service_restart,
-                    Application._svc_restart_schema,
+        else:
+            for idx, service in enumerate(services_iter):
+                service_entry = _dict_2_entry(
+                    service,
+                    Application._svc_schema,
                     'tm-service',
                     idx
                 )
-            )
-            entry.update(service_entry)
-
-        endpoints_iter = sorted(
-            obj.get('endpoints', []),
-            key=lambda endpoint: endpoint['name']
-        )
-        for idx, endpoint in enumerate(endpoints_iter):
-            entry.update(
-                _dict_2_entry(
-                    endpoint,
-                    Application._endpoint_schema,
-                    'tm-endpoint',
-                    idx
+                # Account for default restart settings
+                service_restart = self._default_svc_restart.copy()
+                service_restart.update(
+                    service.get('restart', {})
                 )
-            )
-
-        environ_iter = sorted(
-            obj.get('environ', []),
-            key=lambda env: env['name']
-        )
-        for idx, envvar in enumerate(environ_iter):
-            entry.update(
-                _dict_2_entry(
-                    envvar,
-                    Application._environ_schema,
-                    'tm-envvar',
-                    idx
+                service_entry.update(
+                    _dict_2_entry(
+                        service_restart,
+                        Application._svc_restart_schema,
+                        'tm-service',
+                        idx
+                    )
                 )
-            )
+                entry.update(service_entry)
 
-        aff_lim_iter = sorted(
-            [
-                {
-                    'level': aff,
-                    'limit': obj['affinity_limits'][aff]
-                }
-                for aff in obj.get('affinity_limits', {})
-            ],
-            key=lambda limit: limit['level']
-        )
-        for idx, limit in enumerate(aff_lim_iter):
-            entry.update(
-                _dict_2_entry(
-                    limit,
-                    Application._affinity_schema,
-                    'tm-affinity',
-                    idx
-                )
+        # Add endpoints
+        entry.update(
+            _to_obj_list(
+                obj.get('endpoints', []),
+                'name',
+                'tm-endpoint',
+                Application._endpoint_schema
             )
+        )
+        # Add environ variables
+        entry.update(
+            _to_obj_list(
+                obj.get('environ', []),
+                'name',
+                'tm-envvar',
+                Application._environ_schema,
+            )
+        )
+        # Add affinity limits
+        entry.update(
+            _to_obj_list(
+                [
+                    {
+                        'level': aff,
+                        'limit': obj['affinity_limits'][aff]
+                    }
+                    for aff in obj.get('affinity_limits', {})
+                ],
+                'level',
+                'tm-affinity',
+                Application._affinity_schema,
+            )
+        )
 
         vring = obj.get('vring')
         if vring:
             entry.update(_dict_2_entry(vring, Application._vring_schema))
-            rules_iter = sorted(
-                vring.get('rules', []),
-                key=lambda rule: rule['pattern']
-            )
-            for idx, rule in enumerate(rules_iter):
-                entry.update(
-                    _dict_2_entry(
-                        rule,
-                        Application._vring_rule_schema,
-                        'tm-vring-rule',
-                        idx
-                    )
+            entry.update(
+                _to_obj_list(
+                    vring.get('rules', []),
+                    'pattern',
+                    'tm-vring-rule',
+                    Application._vring_rule_schema
                 )
+            )
 
         return entry
 
@@ -1744,20 +1784,14 @@ class CellAllocation(LdapObject):
     def to_entry(self, obj):
         """Converts app dictionary to LDAP entry."""
         entry = super(CellAllocation, self).to_entry(obj)
-        assignments_iter = sorted(
-            obj.get('assignments', []),
-            key=lambda assignment: assignment['pattern']
-        )
-
-        for idx, assignment in enumerate(assignments_iter):
-            entry.update(
-                _dict_2_entry(
-                    assignment,
-                    CellAllocation._assign_schema,
-                    'tm-alloc-assignment',
-                    idx
-                )
+        entry.update(
+            _to_obj_list(
+                obj.get('assignments', []),
+                'pattern',
+                'tm-alloc-assignment',
+                CellAllocation._assign_schema,
             )
+        )
 
         return entry
 

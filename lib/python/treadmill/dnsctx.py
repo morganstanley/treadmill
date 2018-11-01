@@ -88,20 +88,24 @@ def _admin_api(ctx, scope=None):
     # Default.
     #
     def _lookup(ctx, scope):
-        if scope:
-            srv = '_http._tcp.adminapi.{scope}'.format(scope=scope)
+        if scope == 'global':
+            return _api(ctx, '_http._tcp.adminapi', 'http')
         else:
-            srv = '_http._tcp.adminapi'
-
-        return _api(ctx, srv, 'http')
+            return _api(
+                ctx,
+                '_http._tcp.adminapi.{scope}'.format(scope=scope),
+                'http'
+            )
 
     if scope is not None:
         return _lookup(ctx, scope)
+
     else:
-        api_scopes = ctx.get('api_scope', [])
-        # Append global scope for admin api by default.
-        api_scopes.append(None)
-        for api_scope in api_scopes:
+        scopes = ctx.get('api_scope', [])
+        if 'global' not in scopes:
+            scopes.append('global')
+
+        for api_scope in scopes:
             try:
                 result = _lookup(ctx, api_scope)
                 if result:

@@ -58,7 +58,10 @@ def _create_environ(app):
 
     for endpoint in app.endpoints:
         envname = 'TREADMILL_ENDPOINT_{0}'.format(endpoint.name.upper())
-        appenv[envname] = str(endpoint.real_port)
+        # real_port is not available at this time on Windows, docker will
+        # randomly pick one for us, we will query it later
+        if hasattr(endpoint, 'real_port'):
+            appenv[envname] = str(endpoint.real_port)
 
     appenv['TREADMILL_EPHEMERAL_TCP_PORTS'] = ' '.join(
         [str(port) for port in app.ephemeral_ports.tcp]
@@ -119,9 +122,8 @@ def _create_container(tm_env, conf, client, app):
     ports = {}
     for endpoint in app.endpoints:
         port_key = '{0}/{1}'.format(endpoint.port, endpoint.proto)
-        ports[port_key] = endpoint.real_port
-
-    _log_port_mapping_config(ports)
+        # let docker pick the host port for us, we will query it later
+        ports[port_key] = None
 
     # app.image contains a uri which starts with docker://
     image_name = app.image[9:]
@@ -146,10 +148,6 @@ def _create_container(tm_env, conf, client, app):
         'storage_opt': {
             'size': app.disk
         },
-        'ulimits': [
-            {'core': 'unlimited'},
-            {'nofile': 32768},
-        ],
     }
 
     if os.name == 'nt':
@@ -164,6 +162,32 @@ def _create_container(tm_env, conf, client, app):
         pass
 
     return client.containers.create(**container_args)
+
+
+def _update_ports_in_manifest(container, manifest):
+    """ update endpoint['real_port'] in manifest according to
+        container setting
+    """
+    # wait until container is actually running  even when container.status is
+    # 'running', container.attrs['State']['Running'] can be False,
+    # and container.attrs['NetworkSettings']['Ports'] doesn't exist unitl
+    # container.attrs['State']['Running'] is True
+    container.reload()
+    while container.status == 'running':
+        if container.attrs['State']['Running']:
+            # then query port mapping settings and update manifest
+            mapping = container.attrs['NetworkSettings']['Ports']
+            if mapping:
+                for ep in manifest['endpoints']:
+                    port_key = '{0}/{1}'.format(ep['port'], ep['proto'])
+                    ep['real_port'] = mapping[port_key][0]['HostPort']
+
+            _log_port_mapping_config(mapping)
+
+            break
+
+        time.sleep(1)
+        container.reload()
 
 
 def _check_aborted(container_dir):
@@ -237,9 +261,8 @@ class DockerRuntime(runtime_base.RuntimeBase):
                            lc.ContainerAdapter) as log:
             log.info('Running %r', self._service.directory)
 
-            _sockets = runtime.allocate_network_ports(
-                '0.0.0.0', manifest
-            )
+            manifest['ephemeral_ports']['tcp'] = []
+            manifest['ephemeral_ports']['udp'] = []
 
             app = runtime.save_app(manifest, self._service.data_dir)
 
@@ -268,6 +291,8 @@ class DockerRuntime(runtime_base.RuntimeBase):
 
             container.start()
             container.reload()
+
+            _update_ports_in_manifest(container, manifest)
 
             _LOGGER.info('Container is running.')
             app_presence.register_endpoints()

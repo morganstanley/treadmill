@@ -271,6 +271,7 @@ class API:
                 def get(rsrc_id):
                     """Get assignment configuration.
                     """
+                    # FIXME: Pattern is ignored, returns all cell assignments.
                     allocation, cell, _pattern = rsrc_id.rsplit('/', 2)
                     return _admin_cell_alloc().get(
                         [cell, allocation]).get('assignments', [])
@@ -302,27 +303,52 @@ class API:
                 def update(rsrc_id, rsrc):
                     """Update assignment.
                     """
+                    admin_cell_alloc = _admin_cell_alloc()
+
                     allocation, cell, pattern = rsrc_id.rsplit('/', 2)
                     priority = rsrc.get('priority', 0)
+
+                    assignments = admin_cell_alloc.get(
+                        [cell, allocation]
+                    ).get('assignments', [])
+
+                    assignment_attrs = {'priority': priority}
+                    for assignment in assignments:
+                        if assignment['pattern'] == pattern:
+                            assignment.update(assignment_attrs)
+                            break
+                    else:
+                        assignments.append(
+                            {'pattern': pattern, 'priority': priority}
+                        )
+
                     _admin_cell_alloc().update(
                         [cell, allocation],
-                        {'assignments': [{'pattern': pattern,
-                                          'priority': priority}]}
+                        {'assignments': assignments}
                     )
-                    return _admin_cell_alloc().get(
-                        [cell, allocation], dirty=True
-                    ).get('assignments', [])
+                    return assignments
 
                 @schema.schema({'$ref': 'assignment.json#/resource_id'})
                 def delete(rsrc_id):
                     """Delete assignment.
                     """
+                    admin_cell_alloc = _admin_cell_alloc()
+
                     allocation, cell, pattern = rsrc_id.rsplit('/', 2)
+
+                    assignments = admin_cell_alloc.get(
+                        [cell, allocation]
+                    ).get('assignments', [])
+
+                    new_assignments = [
+                        assignment
+                        for assignment in assignments
+                        if assignment['pattern'] != pattern
+                    ]
+
                     _admin_cell_alloc().update(
                         [cell, allocation],
-                        {'assignments': [{'pattern': pattern,
-                                          'priority': 0,
-                                          '_delete': True}]}
+                        {'assignments': new_assignments}
                     )
 
                 self.get = get

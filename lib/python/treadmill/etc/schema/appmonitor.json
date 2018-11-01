@@ -9,7 +9,10 @@
                 "minimum": 0,
                 "maximum": 1000
             },
-            "required": [ "count" ],
+            "policy": {
+                "type": ["string", "null"],
+                "enum": ["fifo", "lifo", null]
+            },
             "additionalProperties": false
         }
     },
@@ -18,7 +21,10 @@
             "required": ["count"]
         },
         "update": {
-            "required": ["count"]
+            "anyOf": [
+                { "required": ["count"] },
+                { "required": ["policy"] }
+            ]
         }
     }
 }

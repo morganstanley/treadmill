@@ -38,9 +38,11 @@ class API:
         me = pwd.getpwuid(os.getuid())[0]
 
         # TODO: add schema validation.
-        def authorize(user, action, resource, resource_id, payload):
+        def authorize(user, action, resource, payload):
             """Authorize user/action/resource"""
-            del payload
+
+            resource_id = payload.get('pk')
+
             _LOGGER.info(
                 'Authorize: %s %s %s %s', user, action, resource, resource_id
             )

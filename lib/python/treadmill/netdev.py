@@ -20,8 +20,6 @@ from treadmill import subproc
 _LOGGER = logging.getLogger(__name__)
 
 _SYSFS_NET = '/sys/class/net'
-_BRCTL_EXE = 'brctl'
-_IP_EXE = 'ip'
 
 _PROC_CONF_PROXY_ARP = '/proc/sys/net/ipv4/conf/{dev}/proxy_arp'
 _PROC_CONF_FORWARDING = '/proc/sys/net/ipv4/conf/{dev}/forwarding'
@@ -123,7 +121,7 @@ def link_set_up(devname):
     """
     subproc.check_call(
         [
-            _IP_EXE, 'link',
+            'ip', 'link',
             'set',
             'dev', devname,
             'up'
@@ -139,7 +137,7 @@ def link_set_down(devname):
     """
     subproc.check_call(
         [
-            _IP_EXE, 'link',
+            'ip', 'link',
             'set',
             'dev', devname,
             'down'
@@ -155,7 +153,7 @@ def link_set_name(devname, newname):
     """
     subproc.check_call(
         [
-            _IP_EXE, 'link',
+            'ip', 'link',
             'set',
             'dev', devname,
             'name', newname,
@@ -171,7 +169,7 @@ def link_set_alias(devname, alias):
     """
     subproc.check_call(
         [
-            _IP_EXE, 'link',
+            'ip', 'link',
             'set',
             'dev', devname,
             'alias', alias,
@@ -187,7 +185,7 @@ def link_set_mtu(devname, mtu):
     """
     subproc.check_call(
         [
-            _IP_EXE, 'link',
+            'ip', 'link',
             'set',
             'dev', devname,
             'mtu', six.text_type(mtu),
@@ -203,7 +201,7 @@ def link_set_netns(devname, namespace):
     """
     subproc.check_call(
         [
-            _IP_EXE, 'link',
+            'ip', 'link',
             'set',
             'dev', devname,
             'netns', six.text_type(namespace),
@@ -221,7 +219,7 @@ def link_set_addr(devname, macaddr):
     """
     subproc.check_call(
         [
-            _IP_EXE, 'link',
+            'ip', 'link',
             'set',
             'dev', devname,
             'address', macaddr,
@@ -239,7 +237,7 @@ def link_add_veth(veth0, veth1):
     """
     subproc.check_call(
         [
-            _IP_EXE, 'link',
+            'ip', 'link',
             'add', 'name', veth0,
             'type', 'veth',
             'peer', 'name', veth1
@@ -255,7 +253,7 @@ def link_del_veth(devname):
     """
     subproc.check_call(
         [
-            _IP_EXE, 'link',
+            'ip', 'link',
             'delete',
             'dev', devname,
             'type', 'veth',
@@ -305,85 +303,90 @@ def route_add(dest, via=None, devname=None, src=None, route_scope=None):
     subproc.check_call(route)
 
 
-def bridge_create(devname):
+def bridge_create(brname):
     """Create a new network bridge device.
 
-    :param ``str`` devname:
+    :param ``str`` brname:
         The name of the network device.
     """
     subproc.check_call(
         [
-            _BRCTL_EXE,
-            'addbr',
-            devname
+            'ip', 'link',
+            'add',
+            'name', brname,
+            'type', 'bridge',
         ],
     )
 
 
-def bridge_delete(devname):
+def bridge_delete(brname):
     """Delete a new network bridge device.
 
-    :param ``str`` devname:
+    :param ``str`` brname:
         The name of the network device.
     """
     subproc.check_call(
         [
-            _BRCTL_EXE,
-            'delbr',
-            devname
+            'ip', 'link',
+            'del',
+            'dev', brname,
+            'type', 'bridge',
         ],
     )
 
 
-def bridge_setfd(devname, forward_delay):
+def bridge_setfd(brname, forward_delay):
     """Configure the forward-delay of a bridge device.
 
-    :param ``str`` devname:
+    :param ``str`` brname:
         The name of the network device.
     """
     subproc.check_call(
         [
-            _BRCTL_EXE,
-            'setfd',
-            devname,
-            six.text_type(forward_delay),
+            'ip', 'link',
+            'set',
+            'dev', brname,
+            'type', 'bridge',
+            'forward_delay', six.text_type(forward_delay),
         ],
     )
 
 
-def bridge_addif(devname, interface):
+def bridge_addif(brname, interface):
     """Add an interface to a bridge device.
 
-    :param ``str`` devname:
+    :param ``str`` brname:
+        The name of the bridge device.
+    :param ``str`` interface:
         The name of the network device.
     """
     subproc.check_call(
         [
-            _BRCTL_EXE,
-            'addif',
-            devname,
-            interface,
+            'ip', 'link',
+            'set',
+            'dev', interface,
+            'master', brname,
         ],
     )
 
 
-def bridge_delif(devname, interface):
+def bridge_delif(interface):
     """Remove an interface from a bridge device.
 
-    :param ``str`` devname:
+    :param ``str`` brname:
         The name of the network device.
     """
     subproc.check_call(
         [
-            _BRCTL_EXE,
-            'delif',
-            devname,
-            interface,
+            'ip', 'link',
+            'set',
+            'dev', interface,
+            'nomaster',
         ],
     )
 
 
-def bridge_forward_delay(devname):
+def bridge_forward_delay(brname):
     """Read a bridge device's forward delay timer.
 
     :returns ``int``:
@@ -391,10 +394,10 @@ def bridge_forward_delay(devname):
     :raises:
         OSError, IOError (ENOENT) if the device doesn't exist.
     """
-    return int(_get_dev_attr(devname, 'bridge/forward_delay'))
+    return int(_get_dev_attr(brname, 'bridge/forward_delay'))
 
 
-def bridge_brif(devname):
+def bridge_brif(brname):
     """Read a bridge device's slave devices.
 
     :returns ``list``:
@@ -403,7 +406,7 @@ def bridge_brif(devname):
         OSError, IOError (ENOENT) if the device doesn't exist or if the device
         is not a bridge.
     """
-    return list(_get_dev_attr(devname, 'brif', dirattr=True))
+    return list(_get_dev_attr(brname, 'brif', dirattr=True))
 
 
 def _get_dev_attr(devname, attr, dirattr=False):
@@ -419,6 +422,60 @@ def _get_dev_attr(devname, attr, dirattr=False):
             attr = f.read().strip()
 
     return attr
+
+
+def gre_create(grename, devname,
+               localaddr,
+               remoteaddr=None,
+               key=None):
+    """Create a new  GRE interface.
+    """
+    cmd = [
+        'ip', 'tunnel',
+        'add', grename,
+        'mode', 'gre',
+        'dev', devname,
+        'local', localaddr,
+    ]
+    if remoteaddr is not None:
+        cmd += ['remote', remoteaddr]
+
+    if key is not None:
+        cmd += ['key', hex(key)]
+
+    subproc.check_call(cmd)
+
+
+def gre_change(grename,
+               remoteaddr=None,
+               key=None):
+    """Change an existing GRE interface.
+    """
+    assert remoteaddr or key
+    cmd = [
+        'ip', 'tunnel',
+        'change', grename,
+        'mode', 'gre',
+    ]
+    if remoteaddr is not None:
+        cmd += ['remote', remoteaddr]
+
+    if key is not None:
+        cmd += ['key', hex(key)]
+
+    subproc.check_call(cmd)
+
+
+def gre_delete(grename):
+    """Delete a GRE interface.
+    """
+    subproc.check_call(
+        [
+            'ip', 'tunnel',
+            'del', grename,
+            'mode', 'gre',
+        ],
+    )
 
 
 def dev_conf_route_localnet_set(eth, enabled):

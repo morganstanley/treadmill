@@ -11,11 +11,10 @@ import io
 import logging
 import os
 import re
-import stat
+import stat  # pylint: disable=wrong-import-order
 import time
 
 from treadmill import fs
-
 
 _LOGGER = logging.getLogger(__name__)
 

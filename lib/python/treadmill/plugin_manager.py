@@ -6,13 +6,15 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
+# XXX: importlib not regarded as standard lib on windows
 import collections
+import fnmatch
+import importlib  # pylint: disable=wrong-import-order
+import io
 import json
 import logging
-import importlib
-import io
 import os
-import fnmatch
+
 
 _LOGGER = logging.getLogger(__name__)
 

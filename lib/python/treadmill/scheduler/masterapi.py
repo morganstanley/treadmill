@@ -314,10 +314,18 @@ def get_appmonitor(zkclient, monitor_id,
             return None
 
 
-def update_appmonitor(zkclient, monitor_id, count):
+def update_appmonitor(zkclient, monitor_id, count, policy=None):
     """Configures app monitor."""
+    data = get_appmonitor(zkclient, monitor_id)
+    if data is None:
+        data = {}
+
+    if count is not None:
+        data['count'] = count
+    if policy is not None:
+        data['policy'] = policy
+
     node = z.path.appmonitor(monitor_id)
-    data = {'count': count}
     zkutils.put(zkclient, node, data, check_content=True)
 
     # return data directly. As check_content=True, we believe data is correct
