@@ -65,7 +65,7 @@ class API:
             """Create (configure) application monitor."""
             zkclient = context.GLOBAL.zk.conn
             return masterapi.update_appmonitor(
-                zkclient, rsrc_id, rsrc['count']
+                zkclient, rsrc_id, rsrc['count'], rsrc.get('policy'),
             )
 
         @schema.schema(
@@ -77,7 +77,7 @@ class API:
             """Update application configuration."""
             zkclient = context.GLOBAL.zk.conn
             return masterapi.update_appmonitor(
-                zkclient, rsrc_id, rsrc['count']
+                zkclient, rsrc_id, rsrc.get('count'), rsrc.get('policy'),
             )
 
         @schema.schema(

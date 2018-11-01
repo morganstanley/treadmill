@@ -1,3 +1,3 @@
 """Global options for restclient."""
 
-AUTH_PRINCIPAL = None
+AUTH_PRINCIPAL = 'HTTP'

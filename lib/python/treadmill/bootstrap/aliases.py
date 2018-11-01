@@ -34,7 +34,6 @@ _LINUX_ALIASES = {
     'basename': _BIN,
     'bc': _USR_BIN,
     'blkid': _SBIN,
-    'brctl': _USR_SBIN,
     'cat': _BIN,
     'cgclear': _SBIN,
     'chmod': _BIN,

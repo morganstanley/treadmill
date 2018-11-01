@@ -43,12 +43,10 @@ def _krb_auth():
         # kerberos 1.2.5 doesn't accept None principal. Remove this once fixed.
         auth_principle = ''
 
-    if restclientopts.AUTH_PRINCIPAL:
-        auth_principle = restclientopts.AUTH_PRINCIPAL
-
     return requests_kerberos.HTTPKerberosAuth(
         mutual_authentication=requests_kerberos.DISABLED,
         principal=auth_principle,
+        service=restclientopts.AUTH_PRINCIPAL
     )
 
 

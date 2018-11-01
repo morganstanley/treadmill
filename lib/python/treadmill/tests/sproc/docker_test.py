@@ -1,4 +1,4 @@
-"""Unit test for treadmill.sproc.appmonitor.
+"""Unit test for treadmill.sproc.docker
 """
 
 from __future__ import absolute_import

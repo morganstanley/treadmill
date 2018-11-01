@@ -11,7 +11,7 @@ import io
 import os
 import shutil
 import signal
-import stat
+import stat  # pylint: disable=wrong-import-order
 import sys
 import tempfile
 import time

@@ -299,8 +299,6 @@ def _node_info_linux(tm_env, runtime):
             'network': network_status,
             'localdisk': localdisk_status,
         })
-    elif runtime == 'docker':
-        info = _get_docker_node_info(info)
     else:
         raise NotImplementedError(
             'Runtime {0} is not supported on Linux'.format(runtime)

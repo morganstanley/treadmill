@@ -219,11 +219,12 @@ class API:
             return masterapi.get_app(context.GLOBAL.zk.conn, rsrc_id)
 
         @schema.schema(
+            {'$ref': 'common.json#/proid'},
             {'type': 'array',
              'items': {'$ref': 'instance.json#/verbs/update'},
              'minItems': 1}
         )
-        def bulk_update(updates):
+        def bulk_update(proid, updates):
             """Bulk update instance priorities."""
             _LOGGER.info('update: %r', updates)
 
@@ -234,7 +235,17 @@ class API:
                             __name__,
                             'delta is missing _id attribute: {}'.format(rsrc)
                         )
+
                     rsrc_id = rsrc['_id']
+                    if proid != rsrc_id.partition('.')[0]:
+                        raise exc.InvalidInputError(
+                            __name__,
+                            'instance id does not match proid: {} {}'.format(
+                                proid,
+                                rsrc_id
+                            )
+                        )
+
                     delta = {rsrc_id: rsrc['priority']}
                     masterapi.update_app_priorities(
                         context.GLOBAL.zk.conn,
@@ -263,16 +274,26 @@ class API:
             )
 
         @schema.schema(
+            {'$ref': 'common.json#/proid'},
             {'$ref': 'instance.json#/resource_ids'},
             deleted_by={'anyOf': [
                 {'type': 'null'},
                 {'$ref': 'common.json#/user'},
             ]}
         )
-        def bulk_delete(rsrc_ids, deleted_by=None):
+        def bulk_delete(proid, rsrc_ids, deleted_by=None):
             """Bulk delete with resource instance IDs
             """
             _LOGGER.info('delete: %r, deleted_by = %s', rsrc_ids, deleted_by)
+            for rsrc_id in rsrc_ids:
+                if proid != rsrc_id.partition('.')[0]:
+                    raise exc.InvalidInputError(
+                        __name__,
+                        'instance id does not match proid: {} {}'.format(
+                            proid,
+                            rsrc_id
+                        )
+                    )
 
             masterapi.delete_apps(
                 context.GLOBAL.zk.conn, rsrc_ids, deleted_by

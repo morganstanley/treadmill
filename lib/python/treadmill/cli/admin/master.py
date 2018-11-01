@@ -217,16 +217,34 @@ def monitor_group(parent):
         pass
 
     @monitor.command()
-    @click.option('-n', '--count', type=int)
+    @click.option('-n', '--count', type=int, help='Instance count')
+    @click.option('-p', '--policy', type=click.Choice(['fifo', 'lifo']),
+                  help='Instance scale policy: fifo (remove oldest first), '
+                       'lifo (remove newest first)')
     @click.argument('app')
     @cli.admin.ON_EXCEPTIONS
-    def configure(app, count):
+    def configure(app, count, policy):
         """Create, get or modify an app monitor configuration"""
         zkclient = context.GLOBAL.zk.conn
+
+        options = {}
         if count is not None:
-            data = masterapi.update_appmonitor(zkclient, app, count)
+            options['count'] = count
+        if policy is not None:
+            options['policy'] = policy
+
+        existing = masterapi.get_appmonitor(zkclient, app)
+
+        # reconfigure if any of the parameters is specified
+        if options:
+            if count is None and existing is not None:
+                count = existing.get('count')
+            if policy is None and existing is not None:
+                policy = existing.get('policy')
+            data = masterapi.update_appmonitor(zkclient, app, count, policy)
+
         else:
-            data = masterapi.get_appmonitor(zkclient, app)
+            data = existing
 
         cli.out(formatter(data))
 

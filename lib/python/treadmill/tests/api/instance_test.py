@@ -322,6 +322,7 @@ class ApiInstanceTest(unittest.TestCase):
         delete_apps_mock.return_value = None
 
         self.instance.bulk_delete(
+            'proid',
             ['proid.app#0000000001', 'proid.app#0000000002']
         )
         delete_apps_mock.assert_called_once_with(
@@ -337,10 +338,10 @@ class ApiInstanceTest(unittest.TestCase):
         """
         update_apps_mock.return_value = None
 
-        self.instance.bulk_update([
-            {'_id': 'proid.app#0000000001',
-             'priority': 1},
-        ])
+        self.instance.bulk_update(
+            'proid',
+            [{'_id': 'proid.app#0000000001', 'priority': 1}]
+        )
         update_apps_mock.assert_called_with(
             mock.ANY, {'proid.app#0000000001': 1}
         )
