@@ -50,6 +50,7 @@ TREADMILL = '/treadmill'
 VERSION = '/version'
 VERSION_HISTORY = '/version.history'
 VERSION_ID = '/version-id'
+WARPGATE = '/warpgate'
 ZOOKEEPER = '/zookeeper'
 
 TRACE_SHARDS_COUNT = 256
@@ -152,6 +153,7 @@ class path:  # pylint: disable=C0103
     version = make_path_f(VERSION)
     version_history = make_path_f(VERSION_HISTORY)
     version_id = make_path_f(VERSION_ID)
+    warpgate = make_path_f(WARPGATE)
     zookeeper = make_path_f(ZOOKEEPER)
     election = make_path_f(ELECTION)
     finished = make_path_f(FINISHED)

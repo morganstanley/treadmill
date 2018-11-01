@@ -310,7 +310,7 @@ class NetDevTest(unittest.TestCase):
 
         treadmill.subproc.check_call.assert_called_with(
             [
-                'brctl', 'addbr', 'foo',
+                'ip', 'link', 'add', 'name', 'foo', 'type', 'bridge',
             ],
         )
 
@@ -322,7 +322,7 @@ class NetDevTest(unittest.TestCase):
 
         treadmill.subproc.check_call.assert_called_with(
             [
-                'brctl', 'delbr', 'foo',
+                'ip', 'link', 'del', 'dev', 'foo', 'type', 'bridge',
             ],
         )
 
@@ -334,7 +334,8 @@ class NetDevTest(unittest.TestCase):
 
         treadmill.subproc.check_call.assert_called_with(
             [
-                'brctl', 'setfd', 'foo', '2'
+                'ip', 'link', 'set', 'dev', 'foo', 'type', 'bridge',
+                'forward_delay', '2',
             ],
         )
 
@@ -346,7 +347,7 @@ class NetDevTest(unittest.TestCase):
 
         treadmill.subproc.check_call.assert_called_with(
             [
-                'brctl', 'addif', 'foo', 'bar',
+                'ip', 'link', 'set', 'dev', 'bar', 'master', 'foo',
             ],
         )
 
@@ -354,11 +355,11 @@ class NetDevTest(unittest.TestCase):
     def test_bridge_delif(self):
         """Test bridge interface removal.
         """
-        netdev.bridge_delif('foo', 'bar')
+        netdev.bridge_delif('bar')
 
         treadmill.subproc.check_call.assert_called_with(
             [
-                'brctl', 'delif', 'foo', 'bar',
+                'ip', 'link', 'set', 'dev', 'bar', 'nomaster',
             ],
         )
 
@@ -386,6 +387,81 @@ class NetDevTest(unittest.TestCase):
         self.assertEqual(
             res,
             ['a', 'b', 'c']
+        )
+
+    @mock.patch('treadmill.subproc.check_call', mock.Mock())
+    def test_gre_create(self):
+        """Test bridge interface removal.
+        """
+        netdev.gre_create('bar', 'basedev', '1.2.3.4')
+
+        treadmill.subproc.check_call.assert_called_with(
+            [
+                'ip', 'tunnel',
+                'add', 'bar',
+                'mode', 'gre',
+                'dev', 'basedev',
+                'local', '1.2.3.4',
+            ],
+        )
+        treadmill.subproc.check_call.reset_mock()
+
+        netdev.gre_create('bar', 'basedev',
+                          '1.2.3.4', '4.3.2.1',
+                          66)
+
+        treadmill.subproc.check_call.assert_called_with(
+            [
+                'ip', 'tunnel',
+                'add', 'bar',
+                'mode', 'gre',
+                'dev', 'basedev',
+                'local', '1.2.3.4',
+                'remote', '4.3.2.1',
+                'key', '0x42',
+            ],
+        )
+        treadmill.subproc.check_call.reset_mock()
+
+    @mock.patch('treadmill.subproc.check_call', mock.Mock())
+    def test_gre_change(self):
+        """Test bridge interface removal.
+        """
+        netdev.gre_change('bar', key=4242)
+
+        treadmill.subproc.check_call.assert_called_with(
+            [
+                'ip', 'tunnel',
+                'change', 'bar',
+                'mode', 'gre',
+                'key', '0x1092',
+            ],
+        )
+
+        netdev.gre_change('bar', remoteaddr='4.4.4.4', key=4242)
+
+        treadmill.subproc.check_call.assert_called_with(
+            [
+                'ip', 'tunnel',
+                'change', 'bar',
+                'mode', 'gre',
+                'remote', '4.4.4.4',
+                'key', '0x1092',
+            ],
+        )
+
+    @mock.patch('treadmill.subproc.check_call', mock.Mock())
+    def test_gre_delete(self):
+        """Test bridge interface removal.
+        """
+        netdev.gre_delete('bar')
+
+        treadmill.subproc.check_call.assert_called_with(
+            [
+                'ip', 'tunnel',
+                'del', 'bar',
+                'mode', 'gre',
+            ],
         )
 
     @mock.patch('io.open', mock.mock_open())

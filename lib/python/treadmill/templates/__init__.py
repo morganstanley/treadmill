@@ -7,7 +7,7 @@ from __future__ import unicode_literals
 
 import os
 import re
-import stat
+import stat  # pylint: disable=wrong-import-order
 import sys
 import tempfile
 

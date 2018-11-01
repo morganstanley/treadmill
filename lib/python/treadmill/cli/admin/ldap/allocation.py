@@ -119,18 +119,36 @@ def init():
     def assign(allocation, cell, priority, pattern, delete):
         """Manage application assignments"""
         admin_cell_alloc = admin.CellAllocation(context.GLOBAL.ldap.conn)
-        assignment = {'pattern': pattern, 'priority': priority}
-        if delete:
-            assignment['_delete'] = True
+        try:
+            cell_alloc = admin_cell_alloc.get([cell, allocation])
+        except ldap_exceptions.LDAPNoSuchObjectResult:
+            cell_alloc = {}
 
-        data = {'assignments': [assignment]}
+        assignments = cell_alloc.get('assignments', [])
+
         if delete:
-            admin_cell_alloc.update([cell, allocation], data)
+            new_assigments = [
+                assignment
+                for assignment in assignments
+                if assignment['pattern'] != pattern
+            ]
+            assignments = new_assigments
         else:
-            try:
-                admin_cell_alloc.create([cell, allocation], data)
-            except ldap_exceptions.LDAPEntryAlreadyExistsResult:
-                admin_cell_alloc.update([cell, allocation], data)
+            assignment_attrs = {'priority': priority}
+            for assignment in assignments:
+                if assignment['pattern'] == pattern:
+                    assignment.update(assignment_attrs)
+                    break
+            else:
+                assignments.append(
+                    {'pattern': pattern, 'priority': priority}
+                )
+
+        cell_alloc_attrs = {'assignments': assignments}
+        if cell_alloc:
+            admin_cell_alloc.update([cell, allocation], cell_alloc_attrs)
+        else:
+            admin_cell_alloc.create([cell, allocation], cell_alloc_attrs)
 
         try:
             admin_alloc = admin.Allocation(context.GLOBAL.ldap.conn)

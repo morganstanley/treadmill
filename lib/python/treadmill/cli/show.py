@@ -221,6 +221,11 @@ def init():
 
     @show.command()
     @cli.handle_exceptions(restclient.CLI_REST_EXCEPTIONS)
+    @click.option('--api-service-principal', required=False,
+                  envvar='TREADMILL_API_SERVICE_PRINCIPAL',
+                  callback=cli.handle_context_opt,
+                  help='API service principal for SPNEGO auth (default HTTP)',
+                  expose_value=False)
     @click.argument('instance_id')
     def instance(instance_id):
         """Show scheduled instance manifest."""

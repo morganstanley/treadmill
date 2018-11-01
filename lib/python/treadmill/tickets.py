@@ -15,7 +15,7 @@ import logging
 import os
 import random
 import shutil
-import stat
+import stat  # pylint: disable=wrong-import-order
 import tempfile
 import time
 
@@ -385,7 +385,9 @@ def run_server(locker, register=True):
 
 def lockers(zkclient):
     """Get registered ticket lockers."""
-    endpoints = zkutils.with_retry(zkclient.get_children, z.TICKET_LOCKER)
+    endpoints = zkutils.with_retry(
+        zkclient.get_children, z.path.ticket_locker()
+    )
     random.shuffle(endpoints)
     return endpoints
 

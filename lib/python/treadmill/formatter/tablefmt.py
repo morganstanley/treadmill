@@ -246,6 +246,7 @@ class AppMonitorPrettyFormatter:
         """Return pretty-formatted item."""
         schema = [('monitor', '_id', None),
                   ('count', 'count', None),
+                  ('policy', 'policy', None),
                   ('suspend until', 'suspend_until', fmt_time)]
 
         format_item = make_dict_to_table(schema)

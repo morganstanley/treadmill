@@ -20,6 +20,7 @@ dns = treadmill.dnsctx
 
 [treadmill.features]
 docker = treadmill.appcfg.features.docker:DockerdFeature
+warpgate = treadmill.appcfg.features.warpgate:WarpgateFeature
 
 
 [treadmill.image.native.fs]
@@ -263,6 +264,8 @@ tickets = treadmill.sproc.tickets
 trace = treadmill.sproc.trace
 version-monitor = treadmill.sproc.version_monitor
 vring = treadmill.sproc.vring
+warpgate-policy-server = treadmill.sproc.warpgate_policy_server
+warpgate = treadmill.sproc.warpgate
 websocket = treadmill.sproc.websocket
 zk2fs = treadmill.sproc.zk2fs
 

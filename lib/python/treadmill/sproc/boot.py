@@ -9,7 +9,6 @@ from __future__ import unicode_literals
 import logging
 
 import click
-import six
 
 from treadmill import appenv
 from treadmill import cgutils
@@ -74,63 +73,75 @@ def init():
     return boot
 
 
-def _cgroup_init(treadmill_core_cpu_shares,
-                 treadmill_core_cpuset_cpus,
-                 treadmill_apps_cpuset_cpus,
-                 treadmill_core_memory_limit):
+def _get_cgroup_memory(treadmill_core_memory_limit):
+    """get cgroup memory parameter for treadmill core/apps group
+    """
+    total_physical_mem = sysinfo.mem_info().total * 1024
+    total_treadmill_mem = cgutils.get_memory_limit('treadmill')
 
-    # TODO: Refactor this whole function:
-    #       * It should be mostly folded into cgutils
-    #       * There is no need to read sysinfo for CPUs, use cpuset cgroup.
-    #       * There is no need to read bogomips for relative weight core/apps.
-    #       * There is no need to read physical memory here, use cgroups.
-
-    # calculate CPU shares allocation
-    total_cores = sysinfo.cpu_count()
-    total_cpu_shares = sysinfo.bogomips(six.moves.range(total_cores))
-    if treadmill_core_cpu_shares is not None:
-        core_cpu_shares = int(
-            total_cpu_shares *
-            utils.cpu_units(treadmill_core_cpu_shares) / 100.0
+    if total_treadmill_mem > total_physical_mem:
+        _LOGGER.warning(
+            'memory limit for treadmill group > physical, use physical %s',
+            utils.bytes_to_readable(total_treadmill_mem, 'B'),
         )
-        apps_cpu_shares = total_cpu_shares - core_cpu_shares
-    else:
-        core_cpu_shares = apps_cpu_shares = None
-
-    _LOGGER.info(
-        'Configuring CPU shares: '
-        'total: %d, '
-        'treadmill core: %r, '
-        'treadmill apps: %r',
-        total_cpu_shares,
-        core_cpu_shares,
-        apps_cpu_shares
-    )
+        total_treadmill_mem = total_physical_mem
 
     # calculate memory allocation
-    total_physical_mem = sysinfo.mem_info().total * 1024
     if treadmill_core_memory_limit is not None:
         core_memory = utils.size_to_bytes(treadmill_core_memory_limit)
-        # XXX: tm_mem = utils.size_to_bytes(treadmill_mem)
-        # XXX: if tm_mem <= 0:
-        # XXX:     real_tm_mem = total_physical_mem - abs(tm_mem)
-        # XXX: else:
-        # XXX:     real_tm_mem = tm_mem
-        treadmill_memory = total_physical_mem
+        treadmill_memory = total_treadmill_mem
         apps_memory = treadmill_memory - core_memory
     else:
         core_memory = apps_memory = None
 
     _LOGGER.info(
         'Configuring memory limits: '
-        'total: %s, '
-        'treadmill core: %r, '
-        'treadmill apps: %r',
+        'phycial total: %s, '
+        'treadmill total: %s, '
+        'treadmill core: %s, '
+        'treadmill apps: %s',
         utils.bytes_to_readable(total_physical_mem, 'B'),
+        utils.bytes_to_readable(total_treadmill_mem, 'B'),
         utils.bytes_to_readable(core_memory, 'B'),
         utils.bytes_to_readable(apps_memory, 'B')
     )
 
+    return (core_memory, apps_memory)
+
+
+def _get_cgroup_cpu_shares(treadmill_core_cpu_shares,
+                           treadmill_apps_cpuset_cpus):
+    """get cgroup cpu shares parameter for treadmill core/apps group
+    """
+    # TODO: Refactor this whole function:
+    #       * There is no need to read bogomips for relative weight core/apps.
+    total_app_cpus = _total_cpu_cores(treadmill_apps_cpuset_cpus)
+    apps_cpu_shares = sysinfo.bogomips(total_app_cpus)
+
+    if treadmill_core_cpu_shares is not None:
+        # in worst case, treadmill/core runs x% percent of treadmill/apps time
+        core_cpu_shares = int(
+            apps_cpu_shares *
+            utils.cpu_units(treadmill_core_cpu_shares) / 100.0
+        )
+    else:
+        core_cpu_shares = None
+
+    _LOGGER.info(
+        'Configuring CPU shares: '
+        'treadmill core: %r, '
+        'treadmill apps: %r',
+        core_cpu_shares,
+        apps_cpu_shares
+    )
+
+    return (core_cpu_shares, apps_cpu_shares)
+
+
+def _get_cgroup_cpuset_cpus(treadmill_core_cpuset_cpus,
+                            treadmill_apps_cpuset_cpus):
+    """get cgroup cpuset cpus parameter for treadmill core/apps group
+    """
     # calculate cpuset cores allocation
     if treadmill_core_cpuset_cpus is not None:
         core_cpuset_cpus = _parse_cpuset_cpus(
@@ -153,6 +164,28 @@ def _cgroup_init(treadmill_core_cpu_shares,
         apps_cpuset_cpus
     )
 
+    return (core_cpuset_cpus, apps_cpuset_cpus)
+
+
+def _cgroup_init(treadmill_core_cpu_shares,
+                 treadmill_core_cpuset_cpus,
+                 treadmill_apps_cpuset_cpus,
+                 treadmill_core_memory_limit):
+
+    # calculate memory limit
+    (core_memory,
+     apps_memory) = _get_cgroup_memory(treadmill_core_memory_limit)
+
+    # calculate CPU shares allocation
+    (core_cpu_shares,
+     apps_cpu_shares) = _get_cgroup_cpu_shares(treadmill_core_cpu_shares,
+                                               treadmill_apps_cpuset_cpus)
+
+    # calculate cpu cores allocation
+    (core_cpuset_cpus,
+     apps_cpuset_cpus) = _get_cgroup_cpuset_cpus(treadmill_core_cpuset_cpus,
+                                                 treadmill_apps_cpuset_cpus)
+
     cgutils.create_treadmill_cgroups(
         core_cpu_shares,
         apps_cpu_shares,
@@ -161,6 +194,30 @@ def _cgroup_init(treadmill_core_cpu_shares,
         core_memory,
         apps_memory
     )
+
+
+def _total_cpu_cores(cpuset_cpus):
+    """Parse cpuset cores to get total core index
+    """
+    total_cores = sysinfo.cpu_count()
+    if not cpuset_cpus or cpuset_cpus == '-':
+        return set(range(total_cores))
+
+    cores_max = sysinfo.cpu_count() - 1
+    total_cores = set()
+    for entry in cpuset_cpus.split(','):
+        if '-' not in entry:
+            total_cores.add(int(entry))
+        else:
+            items = entry.split('-')
+            # add max value if missing
+            if items[1] == '':
+                items[1] = cores_max
+
+            for i in range(int(items[0]), int(items[1]) + 1):
+                total_cores.add(i)
+
+    return total_cores
 
 
 def _parse_cpuset_cpus(cpuset_cpus):

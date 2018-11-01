@@ -1,4 +1,4 @@
-"""Cell API tests.
+"""Group Authz API tests.
 """
 
 from __future__ import absolute_import
@@ -7,7 +7,6 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 from collections import namedtuple
-
 import unittest
 
 import mock
@@ -35,14 +34,22 @@ class GroupAuthzTest(unittest.TestCase):
         # set templates directly.
         grp_authz = group.API(groups=['treadmill.{proid}'])
         mock_getgrnam.return_value = _MockGrp(['u1'])
-        authorized, why = grp_authz.authorize(
-            'u1@realm', 'create', 'r1', 'proidX.a', {}
+
+        authorized, _ = grp_authz.authorize(
+            'u1@realm', 'create', 'r1', {'pk': 'proidX.a'}
         )
         self.assertTrue(authorized)
         mock_getgrnam.assert_called_with('treadmill.proidX')
 
-        authorized, why = grp_authz.authorize(
-            'u2@realm', 'create', 'r1', 'proidX.a', {}
+        authorized, _ = grp_authz.authorize(
+            'u1@realm', 'bulk_delete', 'r1', {'pk': 'proidX',
+                                              'rsrc': '[whatever]'}
+        )
+        self.assertTrue(authorized)
+        mock_getgrnam.assert_called_with('treadmill.proidX')
+
+        authorized, _ = grp_authz.authorize(
+            'u2@realm', 'create', 'r1', {'pk': 'proidX.a'}
         )
         self.assertFalse(authorized)
 

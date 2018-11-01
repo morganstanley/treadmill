@@ -127,18 +127,53 @@ class DockerRuntimeTest(unittest.TestCase):
             command=[],
             detach=True,
             tty=True,
-            ports={'80/tcp': '12345'},
+            ports={'80/tcp': None},
             network='nat2',
             cpu_shares=128,
             mem_limit='512M',
             storage_opt={
                 'size': '20G'
-            },
-            ulimits=[
-                {'core': 'unlimited'},
-                {'nofile': 32768},
-            ],
+            }
         )
+
+    @mock.patch('treadmill.runtime.docker.runtime._log_port_mapping_config',
+                mock.Mock())
+    def test__update_ports_in_manifest(self):
+        """Tests _update_ports_in_manifest"""
+        # mock container
+        container = mock.Mock()
+        type(container).status = mock.PropertyMock(
+            side_effect=['running', 'running', 'exited']
+        )
+        type(container).attrs = mock.PropertyMock(
+            side_effect=[
+                {'State': {'Running': False}},
+                {'State': {'Running': True}},
+                {
+                    'State': {'Running': True},
+                    'NetworkSettings': {
+                        'Ports': {
+                            '80/tcp': [{'HostPort': '22345'}]
+                        }
+                    }
+                }
+            ]
+        )
+
+        # simplified manifest
+        manifest = {
+            'endpoints': [
+                {
+                    'port': '80',
+                    'proto': 'tcp'
+                }
+            ]
+        }
+
+        # Access to a protected member
+        # pylint: disable=W0212
+        runtime._update_ports_in_manifest(container, manifest)
+        self.assertEqual(manifest['endpoints'][0]['real_port'], '22345')
 
     def test__check_aborted(self):
         """Tests checking aborted."""
@@ -158,6 +193,8 @@ class DockerRuntimeTest(unittest.TestCase):
 
     @mock.patch('treadmill.runtime.allocate_network_ports', mock.Mock())
     @mock.patch('treadmill.runtime.docker.runtime._create_container',
+                mock.Mock())
+    @mock.patch('treadmill.runtime.docker.runtime._update_ports_in_manifest',
                 mock.Mock())
     @mock.patch('treadmill.presence.EndpointPresence',
                 mock.Mock(set_spec=True))

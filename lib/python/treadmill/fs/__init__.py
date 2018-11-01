@@ -11,11 +11,11 @@ import glob
 import io
 import logging
 import os
-import stat
+import stat  # pylint: disable=wrong-import-order
+import shutil
 import sys
 import tarfile
 import tempfile
-import shutil
 
 import six
 

@@ -9,7 +9,7 @@ flask-restplus>=0.10,<1
 Flask>=0.12,<1
 gevent>=1.1
 gssapi>=1.2
-ipaddress>=1.0
+ipaddress>=1.0 ; python_version <= '3.3'
 Jinja2>=2.9,<3
 jsonschema>=2.5,<3
 ldap3>=2.3,<3

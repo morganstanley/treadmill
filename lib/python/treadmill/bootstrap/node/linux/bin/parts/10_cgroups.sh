@@ -23,24 +23,73 @@ TRUE="{{ _alias.true }}"
 set -e
 
 TREADMILL_ROOT_CGROUP="treadmill"
+# XXX: our systemd version too low to support "infinity"
+U64_MAX="9223372036854775807"
 
 ###############################################################################
 TREADMILL_CPUSHARE="{{ treadmill_cpu_shares }}"
+# For cpu share of treadmill apps and cores
 TREADMILL_CPUSHARE="${TREADMILL_CPUSHARE%%%}"
+# For cpu share of system process
 SYSTEM_CPUSHARE="$((100-${TREADMILL_CPUSHARE}))"
 
 ###############################################################################
+# For core number used by treadmill apps and cores
 TREADMILL_CPUSET_CORES="{{ treadmill_cpuset_cores }}"
+# For core number used by system process
 SYSTEM_CPUSET_CORES="{{ system_cpuset_cores }}"
 
 ###############################################################################
+# get total physical memory in Bytes
+PHYSICAL_MEMORY_KB="$(${GREP} MemTotal /proc/meminfo | ${AWK} '{print $2}')"
+PHYSICAL_MEMORY="$((1024*$PHYSICAL_MEMORY_KB))"
+
+###############################################################################
+# normalize treadmill memory as byte
+function to_bytes() {
+    local readable=$1
+    local negative=0
+    if [ "${readable##-}" != "${readable}" ]; then
+        readable="${readable##-}"
+        negative=1
+    fi
+
+    if [ "${readable%%G}" != "${readable}" ]; then
+        readable="$((${readable%%G}*1024*1024*1024))"
+    fi
+    if [ "${readable%%M}" != "${readable}" ]; then
+        readable="$((${readable%%M}*1024*1024))"
+    fi
+    if [ "${readable%%K}" != "${readable}" ]; then
+        readable="$((${readable%%K}*1024))"
+    fi
+
+    if [ "$negative" == "1" ]; then
+        echo "-${readable}"
+    else
+        echo "${readable}"
+    fi
+}
 TREADMILL_MEMORY="{{ treadmill_mem }}"
-if [ "${TREADMILL_MEMORY##-}" != "${TREADMILL_MEMORY}" ]; then
-    SYSTEM_MEMORY="${TREADMILL_MEMORY##-}"
+TREADMILL_MEMORY=$(to_bytes "${TREADMILL_MEMORY}")
+
+# 0 is debug mode, which does not apply memory limit, use it carefully
+if [ "${TREADMILL_MEMORY}" == "0" ]; then
     TREADMILL_MEMORY="-1"
-else
     SYSTEM_MEMORY="-1"
+    SYSTEM_MEMORY_LIMIT="${U64_MAX}"
+elif [ "${TREADMILL_MEMORY##-}" != "${TREADMILL_MEMORY}" ]; then
+    # if treadmill_memory is a negative value,
+    # set system memory size and calculate real treadmill memory size
+    SYSTEM_MEMORY="${TREADMILL_MEMORY##-}"
+    SYSTEM_MEMORY_LIMIT="${SYSTEM_MEMORY}"
+    TREADMILL_MEMORY="$((${PHYSICAL_MEMORY}-${SYSTEM_MEMORY}))"
+else
+    # if treadmill_memory is a positve value, calculate system memory size
+    SYSTEM_MEMORY="$((${PHYSICAL_MEMORY}-${TREADMILL_MEMORY}))"
+    SYSTEM_MEMORY_LIMIT="${SYSTEM_MEMORY}"
 fi
+
 ###############################################################################
 
 
@@ -141,18 +190,15 @@ function init_cgroup_rhel7() {
     ${ECHO} ${SYSTEM_MEMORY} >${CGROUP_BASE}/memory/system.slice/memory.limit_in_bytes
     ${ECHO} ${TREADMILL_MEMORY} >${CGROUP_BASE}/memory/${TREADMILL_ROOT_CGROUP}/memory.limit_in_bytes
 
+    # maggic string "infinity" for -1 (not limited)
     systemctl set-property --runtime system.slice CPUAccounting=true
     systemctl set-property --runtime system.slice MemoryAccounting=true
-    systemctl set-property --runtime system.slice MemoryLimit=${SYSTEM_MEMORY}
+    systemctl set-property --runtime system.slice MemoryLimit=${SYSTEM_MEMORY_LIMIT}
     systemctl set-property --runtime system.slice BlockIOAccounting=true
 }
 
 ###############################################################################
-function init_cgroup_rhel6() {
-    SYS_FS='/sys/fs'
-    CGROUP_BASE="${SYS_FS}/cgroup"
-
-    # clear existing cgroup mount/setting
+function clear_cgroup() {
     for i in {1..5}; do
         ${ECHO} "#$i Calling ${CGCLEAR} to clear cgroup mount/setting"
 
@@ -174,8 +220,12 @@ function init_cgroup_rhel6() {
         ${ECHO} "Failed to clear cgroups, exit $0"
         exit 1
     fi
+}
 
-    # mount a new on /sys/fs/cgroup
+# remount cgroups to specific path
+function remount_cgroup() {
+    local SYS_FS=$1
+    local CGROUP_BASE="${SYS_FS}/cgroup"
     if [ ! -d ${CGROUP_BASE} ]; then
         TMP_DIR=$(${MKTEMP} --tmpdir=/tmp -d)
 
@@ -223,7 +273,18 @@ function init_cgroup_rhel6() {
 
     # remount as readonly
     ${MOUNT} -n -o remount,ro ${SYS_FS}
+}
 
+function init_cgroup_rhel6() {
+    SYS_FS='/sys/fs'
+    CGROUP_BASE="${SYS_FS}/cgroup"
+
+    # clear existing cgroup mount/setting
+    clear_cgroup
+    # remount cgroups to /sys/fs/cgroup
+    remount_cgroup "${SYS_FS}"
+
+    # get total cpu cores
     CPUSET_ALL_CORES="$(${CAT} ${CGROUP_BASE}/cpuset/cpuset.cpus)"
     if [ -z "${TREADMILL_CPUSET_CORES}" ]; then
         TREADMILL_CPUSET_CORES=${CPUSET_ALL_CORES}
@@ -296,6 +357,11 @@ function init_cgroup_rhel6() {
     ${ECHO} "Setting Treadmill CPU shares: ${TREADMILL_CPUSHARE}%"
     ${ECHO} ${SYSTEM_CPUSHARE} >${CGROUP_BASE}/cpu/system.slice/cpu.shares
     ${ECHO} ${TREADMILL_CPUSHARE} >${CGROUP_BASE}/cpu/${TREADMILL_ROOT_CGROUP}/cpu.shares
+
+    ${ECHO} "Setting system memory: ${SYSTEM_MEMORY}"
+    ${ECHO} "Setting Treadmill memory: ${TREADMILL_MEMORY}"
+    ${ECHO} ${SYSTEM_MEMORY} >${CGROUP_BASE}/memory/system.slice/memory.limit_in_bytes
+    ${ECHO} ${TREADMILL_MEMORY} >${CGROUP_BASE}/memory/${TREADMILL_ROOT_CGROUP}/memory.limit_in_bytes
 }
 
 ###############################################################################

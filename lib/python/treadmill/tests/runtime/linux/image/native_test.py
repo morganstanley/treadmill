@@ -6,15 +6,14 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
+import collections
+from collections import namedtuple
 import io
 import os
 import shutil
-import stat
+import stat  # pylint: disable=wrong-import-order
 import tempfile
 import unittest
-
-import collections
-from collections import namedtuple
 
 import mock
 
