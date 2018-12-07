@@ -22,8 +22,8 @@ TRUE="{{ _alias.true }}"
 
 set -e
 
-TREADMILL_ROOT_CGROUP="treadmill"
-# XXX: our systemd version too low to support "infinity"
+TREADMILL_ROOT_CGROUP="{{ treadmill_root_cgroup }}"
+# XXX: older versions of systemd do not support "infinity"
 U64_MAX="9223372036854775807"
 
 ###############################################################################
@@ -73,21 +73,14 @@ function to_bytes() {
 TREADMILL_MEMORY="{{ treadmill_mem }}"
 TREADMILL_MEMORY=$(to_bytes "${TREADMILL_MEMORY}")
 
-# 0 is debug mode, which does not apply memory limit, use it carefully
-if [ "${TREADMILL_MEMORY}" == "0" ]; then
-    TREADMILL_MEMORY="-1"
-    SYSTEM_MEMORY="-1"
-    SYSTEM_MEMORY_LIMIT="${U64_MAX}"
-elif [ "${TREADMILL_MEMORY##-}" != "${TREADMILL_MEMORY}" ]; then
-    # if treadmill_memory is a negative value,
-    # set system memory size and calculate real treadmill memory size
-    SYSTEM_MEMORY="${TREADMILL_MEMORY##-}"
-    SYSTEM_MEMORY_LIMIT="${SYSTEM_MEMORY}"
-    TREADMILL_MEMORY="$((${PHYSICAL_MEMORY}-${SYSTEM_MEMORY}))"
-else
-    # if treadmill_memory is a positve value, calculate system memory size
-    SYSTEM_MEMORY="$((${PHYSICAL_MEMORY}-${TREADMILL_MEMORY}))"
-    SYSTEM_MEMORY_LIMIT="${SYSTEM_MEMORY}"
+# if do not specify system_mem, we do not limit it
+SYSTEM_MEMORY="{{ system_mem or -1 }}"
+SYSTEM_MEMORY_LIMIT="{{ system_mem or '${U64_MAX}' }}"
+
+if [ "${TREADMILL_MEMORY##-}" != "${TREADMILL_MEMORY}" ]; then
+    # if treadmill_memory is a negative value, e.g. -2G
+    # then ${real treadmill memory} = $server_memory - 2G
+    TREADMILL_MEMORY="$((${PHYSICAL_MEMORY}+${TREADMILL_MEMORY}))"
 fi
 
 ###############################################################################
@@ -204,7 +197,7 @@ function clear_cgroup() {
 
         # if no cgroup mounted, cgclear returns 3 but we do not care
         set +e
-        CLEAR_RESULT=$(${CGCLEAR} 2>&1)
+        CLEAR_RESULT="$(${CGCLEAR} 2>&1)"
         set -e
 
         # if no output from cgclear, we think we are good
@@ -314,7 +307,7 @@ function init_cgroup_rhel6() {
 
         # set cpuset.cpus and cpuset.mems otherwise tasks is not writable
         if [ ${CGROUP%%cpuset/} != ${CGROUP} ]; then
-            ${ECHO} "Setting Treadmill CPU set: ${TREADMILL_CPUSET_CORES}"
+            ${ECHO} "Setting system CPU set: ${SYSTEM_CPUSET_CORES}"
             ${ECHO} ${SYSTEM_CPUSET_CORES} >${CGROUP}/system.slice/cpuset.cpus
             ${ECHO} "Setting system CPU set mem: ${cpuset_mems}"
             ${ECHO} ${cpuset_mems} >${CGROUP}/system.slice/cpuset.mems
@@ -341,7 +334,7 @@ function init_cgroup_rhel6() {
         fi
 
         if [ ${CGROUP%%cpuset/} != ${CGROUP} ]; then
-            ${ECHO} "Setting system CPU set: ${SYSTEM_CPUSET_CORES}"
+            ${ECHO} "Setting Treadmill CPU set: ${TREADMILL_CPUSET_CORES}"
             ${ECHO} ${TREADMILL_CPUSET_CORES} >${CGROUP}/${TREADMILL_ROOT_CGROUP}/cpuset.cpus
             ${ECHO} "Setting Treadmill CPU set mem: ${cpuset_mems}"
             ${ECHO} ${cpuset_mems} >${CGROUP}/${TREADMILL_ROOT_CGROUP}/cpuset.mems

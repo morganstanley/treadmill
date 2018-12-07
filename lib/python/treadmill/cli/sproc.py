@@ -19,7 +19,7 @@ _LOGGER = logging.getLogger(__name__)
 
 
 @osnoop.windows
-def _configure_service_cgroups(cgroup):
+def _configure_service_cgroups(cgroup, root_cgroup):
     """Configure service specific cgroups."""
     from treadmill import cgroups
     from treadmill import cgutils
@@ -28,9 +28,11 @@ def _configure_service_cgroups(cgroup):
         cgroup = os.path.basename(os.path.realpath('.'))
 
     if os.path.isabs(cgroup):
-        group = os.path.join('treadmill', cgroup.lstrip('/'))
+        group = os.path.join(root_cgroup, cgroup.lstrip('/'))
     else:
-        group = os.path.join('treadmill/core', cgroup)
+        group = os.path.join(
+            cgutils.core_group_name(root_cgroup), cgroup
+        )
     parent = os.path.dirname(group)
 
     # create group directory
@@ -80,11 +82,14 @@ def init():
                   envvar='TREADMILL_ZOOKEEPER',
                   callback=cli.handle_context_opt,
                   expose_value=False)
+    @click.option('--root-cgroup', default='treadmill',
+                  envvar='TREADMILL_ROOT_CGROUP', required=False)
     @click.pass_context
-    def run(ctx, cgroup, logging_conf):
+    def run(ctx, cgroup, logging_conf, root_cgroup):
         """Run system processes"""
         # Default logging to daemon.conf, at CRITICAL, unless --debug
         cli.init_logger(logging_conf)
+        ctx.obj['ROOT_CGROUP'] = root_cgroup
 
         log_level = None
         if ctx.obj.get('logging.debug'):
@@ -95,6 +100,6 @@ def init():
         tl.set_log_level(log_level)
 
         if cgroup:
-            _configure_service_cgroups(cgroup)
+            _configure_service_cgroups(cgroup, root_cgroup)
 
     return run

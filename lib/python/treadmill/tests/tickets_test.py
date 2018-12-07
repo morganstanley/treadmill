@@ -22,7 +22,7 @@ import treadmill.tests.treadmill_test_skip_windows  # pylint: disable=W0611
 
 import treadmill
 from treadmill import tickets
-from treadmill import zkutils
+from treadmill.tickets import locker
 
 
 class TicketLockerTest(unittest.TestCase):
@@ -90,8 +90,8 @@ class TicketLockerTest(unittest.TestCase):
     def test_process_request(self):
         """Test processing ticket request."""
         treadmill.zkutils.get.return_value = {'tickets': ['tkt1']}
-        tkt_locker = tickets.TicketLocker(kazoo.client.KazooClient(),
-                                          '/var/spool/tickets')
+        tkt_locker = locker.TicketLocker(kazoo.client.KazooClient(),
+                                         '/var/spool/tickets')
 
         # With no ticket in /var/spool/tickets, result will be empty dict
         self.assertEqual(
@@ -108,7 +108,7 @@ class TicketLockerTest(unittest.TestCase):
 
     def test_process_trusted(self):
         """Test processing trusted app."""
-        tkt_locker = tickets.TicketLocker(
+        tkt_locker = locker.TicketLocker(
             kazoo.client.KazooClient(),
             self.tkt_dir,
             trusted={('aaa.xxx.com', 'master'): ['x@r1']}
@@ -128,62 +128,13 @@ class TicketLockerTest(unittest.TestCase):
     def test_process_request_noapp(self):
         """Test processing ticket request."""
         treadmill.zkutils.get.side_effect = kazoo.client.NoNodeError
-        tkt_locker = tickets.TicketLocker(kazoo.client.KazooClient(),
-                                          '/var/spool/tickets')
+        tkt_locker = locker.TicketLocker(kazoo.client.KazooClient(),
+                                         '/var/spool/tickets')
 
         # With no node node error, result will be empty dict.
         self.assertEqual(
             {},
             tkt_locker.process_request('host/aaa.xxx.com@y.com', 'foo#1234'))
-
-    @mock.patch('kazoo.client.KazooClient.get_children',
-                mock.Mock(return_value=[]))
-    @mock.patch('treadmill.subproc.check_output',
-                mock.Mock(return_value='klist-output'))
-    @mock.patch('treadmill.zkutils.put', mock.Mock())
-    @mock.patch('treadmill.zkutils.ensure_exists', mock.Mock())
-    @mock.patch('treadmill.sysinfo.hostname', mock.Mock(return_value='h'))
-    def test_publish(self):
-        """Test tickets publishing."""
-        tkt_locker = tickets.TicketLocker(kazoo.client.KazooClient(),
-                                          self.tkt_dir)
-        io.open(os.path.join(self.tkt_dir, 'x@r1'), 'w+').close()
-        io.open(os.path.join(self.tkt_dir, 'x@r2'), 'w+').close()
-        io.open(os.path.join(self.tkt_dir, 'x@r3'), 'w+').close()
-
-        tkt_locker.publish_tickets(['@r1', '@r2'], once=True)
-        treadmill.zkutils.put.assert_has_calls([
-            mock.call(mock.ANY, '/tickets/x@r1/h', 'klist-output',
-                      ephemeral=True),
-            mock.call(mock.ANY, '/tickets/x@r2/h', 'klist-output',
-                      ephemeral=True),
-        ], any_order=True)
-
-    @mock.patch('treadmill.zkutils.ensure_deleted', mock.Mock())
-    @mock.patch('kazoo.client.KazooClient.get_children',
-                mock.Mock(return_value=['x@r1']))
-    @mock.patch('treadmill.tickets.krbcc_ok', mock.Mock())
-    @mock.patch('treadmill.sysinfo.hostname', mock.Mock(return_value='h'))
-    @mock.patch('treadmill.fs.rm_safe', mock.Mock())
-    def test_prune(self):
-        """Test pruning published tickets."""
-        tkt_locker = tickets.TicketLocker(kazoo.client.KazooClient(),
-                                          self.tkt_dir)
-        tickets.krbcc_ok.return_value = True
-        tkt_locker.prune_tickets()
-
-        tickets.krbcc_ok.assert_called_with(
-            os.path.join(self.tkt_dir, 'x@r1'))
-        self.assertFalse(zkutils.ensure_deleted.called)
-
-        tickets.krbcc_ok.reset_mock()
-        tickets.krbcc_ok.return_value = False
-        tkt_locker.prune_tickets()
-
-        tkt_path = os.path.join(self.tkt_dir, 'x@r1')
-        tickets.krbcc_ok.assert_called_with(tkt_path)
-        treadmill.fs.rm_safe.assert_called_with(tkt_path)
-        zkutils.ensure_deleted.assert_called_with(mock.ANY, '/tickets/x@r1/h')
 
     @mock.patch('os.fchown', mock.Mock(spec_set=True))
     @mock.patch(

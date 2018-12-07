@@ -32,7 +32,11 @@ class VipFileTest(unittest.TestCase):
         for owner in six.moves.range(0, 15):
             with io.open(os.path.join(owner_dirs, str(owner)), 'w'):
                 pass
-        self.vips = vipfile.VipMgr(self.vips_dir, owner_dirs)
+        self.vips = vipfile.VipMgr(
+            cidr='10.0.0.0/8',
+            path=self.vips_dir,
+            owner_path=owner_dirs
+        )
 
     def tearDown(self):
         if self.root and os.path.isdir(self.root):

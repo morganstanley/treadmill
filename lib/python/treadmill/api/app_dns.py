@@ -8,7 +8,6 @@ from __future__ import unicode_literals
 import copy
 import logging
 
-from treadmill import admin
 from treadmill import context
 from treadmill import schema
 from treadmill import utils
@@ -75,7 +74,7 @@ class API:
 
         def _admin_app_group():
             """Lazily return admin object."""
-            return admin.AppGroup(context.GLOBAL.ldap.conn)
+            return context.GLOBAL.admin.app_group()
 
         @schema.schema({'$ref': 'app_dns.json#/resource_id'})
         def get(rsrc_id):
@@ -124,6 +123,7 @@ class API:
         def delete(rsrc_id):
             """Delete configured application."""
             _admin_app_group().delete(rsrc_id)
+            return None
 
         def _list():
             """List configured applications."""

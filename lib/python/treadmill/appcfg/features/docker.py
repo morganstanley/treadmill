@@ -8,7 +8,7 @@ from __future__ import unicode_literals
 import logging
 import socket
 
-from treadmill import cellconfig
+from treadmill import nodedata
 from treadmill import subproc
 from treadmill.appcfg.features import feature_base
 
@@ -44,10 +44,10 @@ def _generate_docker_authz_service():
     # full command include creating rest module cfg file and launch sproc
     cmd = (
         'exec $TREADMILL/bin/treadmill'
-        ' sproc restapi '
+        ' sproc restapi'
         ' -m docker_authz.authzreq,docker_authz.authzres,docker_authz.activate'
-        ' --cors-origin=".*" '
-        ' -s {sock} '
+        ' --cors-origin=".*"'
+        ' -s {sock}'
     ).format(
         sock='/run/docker/plugins/authz.sock',
     )
@@ -120,9 +120,9 @@ def _generate_dockerd_service(tm_env):
 def _get_docker_registry(tm_env):
     """Return the registry to use.
     """
-    # get registry address from cell_config.yml
-    cell_config = cellconfig.CellConfig(tm_env.root)
-    registries = cell_config.data['docker_registries']
+    # get registry address from node.json
+    data = nodedata.get(tm_env.configs_dir)
+    registries = data['docker_registries']
 
     for registry in registries:
         if ':' in registry:

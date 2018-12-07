@@ -1,0 +1,18 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "message": {
+        "type": "object",
+        "properties": {
+            "sub-id": { "$ref": "common.json#/message/sub-id" },
+            "topic": { "$ref": "common.json#/message/topic" },
+            "since": { "$ref": "common.json#/message/since" },
+            "snapshot": { "$ref": "common.json#/message/snapshot" },
+            "filter": {
+                "type": "string",
+                "format": "hostname"
+            }
+        },
+        "additionalProperties": false,
+        "required": [ "topic", "filter" ]
+    }
+}

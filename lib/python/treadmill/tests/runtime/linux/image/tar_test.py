@@ -112,7 +112,7 @@ class TarImageTest(unittest.TestCase):
         )
 
         self.assertIsNotNone(img)
-        img.unpack(self.container_dir, self.root, self.app)
+        img.unpack(self.container_dir, self.root, self.app, {})
 
     def test_get_tar__invalid_sha256(self):
         """Validates getting a test tar file with an invalid sha256 hash_code.

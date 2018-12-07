@@ -22,6 +22,6 @@ def init():
     @cli.admin.ON_EXCEPTIONS
     def _init():
         """Initializes the LDAP directory structure"""
-        return context.GLOBAL.ldap.conn.init()
+        return context.GLOBAL.admin.conn.init()
 
     return _init

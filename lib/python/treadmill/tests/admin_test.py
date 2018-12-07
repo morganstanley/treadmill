@@ -13,7 +13,7 @@ import mock
 import six
 
 import treadmill
-from treadmill import admin
+from treadmill.admin import _ldap as admin
 
 # Disable wrong import order warning.
 import treadmill.tests.treadmill_ldap_patch  # pylint: disable=C0411
@@ -331,7 +331,8 @@ class AdminTest(unittest.TestCase):
                 'udp': 10,
             },
             'shared_ip': True,
-            'shared_network': True
+            'shared_network': True,
+            'traits': ['foo'],
         }
 
         ldap_entry = {
@@ -340,6 +341,7 @@ class AdminTest(unittest.TestCase):
             'memory': ['1G'],
             'disk': ['1G'],
             'ticket': ['a', 'b'],
+            'trait': ['foo'],
             'service-name;tm-service-0': ['a'],
             'service-name;tm-service-1': ['b'],
             'service-name;tm-service-2': ['c'],
@@ -399,6 +401,7 @@ class AdminTest(unittest.TestCase):
             'features': [],
             'endpoints': [],
             'environ': [],
+            'traits': ['foo'],
             'services': [
                 {
                     'name': 'foo',
@@ -418,6 +421,7 @@ class AdminTest(unittest.TestCase):
             'cpu': ['100%'],
             'disk': ['1G'],
             'memory': ['1G'],
+            'trait': ['foo'],
             # Affinities
             'affinity-level': [],
             'affinity-limit': [],
@@ -456,10 +460,12 @@ class AdminTest(unittest.TestCase):
                           'name': 'a',
                           'restart': {'interval': 30, 'limit': 3}}],
             'endpoints': [{'name': 'y', 'port': 2}],
+            'traits': [],
         }
 
         expected = {
             'tickets': [],
+            'traits': [],
             'features': [],
             'endpoints': [{'name': 'y', 'port': 2}],
             'environ': [],
@@ -604,7 +610,7 @@ class AdminTest(unittest.TestCase):
             cell_admin.from_entry(cell_admin.to_entry(cell))
         )
 
-    @mock.patch('treadmill.admin._TREADMILL_ATTR_OID_PREFIX', '1.2.3.')
+    @mock.patch('treadmill.admin._ldap._TREADMILL_ATTR_OID_PREFIX', '1.2.3.')
     def test_attrtype_to_str(self):
         """Tests conversion of attribute type to LDIF string."""
         # pylint: disable=protected-access
@@ -630,7 +636,7 @@ class AdminTest(unittest.TestCase):
             ')'
         ))
 
-    @mock.patch('treadmill.admin._TREADMILL_OBJCLS_OID_PREFIX', '1.2.3.')
+    @mock.patch('treadmill.admin._ldap._TREADMILL_OBJCLS_OID_PREFIX', '1.2.3.')
     def test_objcls_to_str(self):
         """Tests conversion of object class to LDIF string."""
         # pylint: disable=protected-access
@@ -770,13 +776,13 @@ class AdminTest(unittest.TestCase):
             [('bar', ['z', 'a']), ('exp', [3, 4]), ('foo', 1), ('lot', 2)]
         )
 
-    @mock.patch('treadmill.admin.Admin.modify', mock.Mock())
-    @mock.patch('treadmill.admin.Admin.paged_search', mock.Mock())
+    @mock.patch('treadmill.admin._ldap.Admin.modify', mock.Mock())
+    @mock.patch('treadmill.admin._ldap.Admin.paged_search', mock.Mock())
     def test_update(self):
         """Tests update logic.
         """
         mock_admin = admin.Admin(None, 'dc=test,dc=com')
-        treadmill.admin.Admin.paged_search.return_value = [
+        mock_admin.paged_search.return_value = [
             (
                 'cell=xxx,allocation=prod1,...',
                 {
@@ -802,7 +808,7 @@ class AdminTest(unittest.TestCase):
             }
         )
 
-        treadmill.admin.Admin.paged_search.assert_called_once_with(
+        mock_admin.paged_search.assert_called_once_with(
             search_base=mock.ANY,
             search_scope=mock.ANY,
             search_filter=mock.ANY,
@@ -814,7 +820,7 @@ class AdminTest(unittest.TestCase):
             ],
             dirty=False,
         )
-        treadmill.admin.Admin.modify.assert_called_once_with(
+        mock_admin.modify.assert_called_once_with(
             'cell=xxx,allocation=prod1,...',
             {
                 'disk': [('MODIFY_REPLACE', ['1G'])],
@@ -879,11 +885,14 @@ class AllocationTest(unittest.TestCase):
         }
         self.assertEqual(ldap_entry, self.alloc.to_entry(obj))
 
-    @mock.patch('treadmill.admin.Admin.paged_search', mock.Mock())
-    @mock.patch('treadmill.admin.LdapObject.get', mock.Mock(return_value={}))
+    @mock.patch('treadmill.admin._ldap.Admin.paged_search', mock.Mock())
+    @mock.patch('treadmill.admin._ldap.LdapObject.get',
+                mock.Mock(return_value={}))
     def test_get(self):
         """Tests loading cell allocations."""
-        treadmill.admin.Admin.paged_search.return_value = [
+        # Disable warning about accessing protected member _ldap
+        # pylint: disable=W0212
+        treadmill.admin._ldap.Admin.paged_search.return_value = [
             ('cell=xxx,allocation=prod1,...',
              {'cell': ['xxx'],
               'memory': ['1G'],
@@ -897,7 +906,7 @@ class AllocationTest(unittest.TestCase):
               'pattern;tm-alloc-assignment-345': ['ppp.ddd']})
         ]
         obj = self.alloc.get('foo:bar/prod1')
-        treadmill.admin.Admin.paged_search.assert_called_with(
+        treadmill.admin._ldap.Admin.paged_search.assert_called_with(
             attributes=mock.ANY,
             search_base='allocation=prod1,tenant=bar,tenant=foo,'
                         'ou=allocations,ou=treadmill,dc=xx,dc=com',
@@ -1009,6 +1018,14 @@ class PartitionTest(unittest.TestCase):
             'disk': '100G',
             'down-threshold': 42,
             'systems': [],
+            'limits': [
+                {
+                    'trait': 'foo',
+                    'cpu': '10%',
+                    'disk': '1G',
+                    'memory': '1G',
+                }
+            ]
         }
 
         ldap_entry = {
@@ -1017,6 +1034,11 @@ class PartitionTest(unittest.TestCase):
             'cpu': ['42%'],
             'disk': ['100G'],
             'down-threshold': ['42'],
+            # allocation limits
+            'allocation-limit-trait;tm-alloc-limit-0': ['foo'],
+            'allocation-limit-cpu;tm-alloc-limit-0': ['10%'],
+            'allocation-limit-disk;tm-alloc-limit-0': ['1G'],
+            'allocation-limit-memory;tm-alloc-limit-0': ['1G'],
         }
 
         self.assertEqual(ldap_entry, self.part.to_entry(obj))

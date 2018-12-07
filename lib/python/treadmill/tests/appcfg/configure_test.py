@@ -17,7 +17,7 @@ import mock
 import treadmill
 
 from treadmill.appcfg import configure as app_cfg
-from treadmill.apptrace import events
+from treadmill.trace.app import events
 
 
 class AppCfgConfigureTest(unittest.TestCase):
@@ -42,7 +42,7 @@ class AppCfgConfigureTest(unittest.TestCase):
     @mock.patch('pwd.getpwnam', mock.Mock(auto_spec=True))
     @mock.patch('shutil.copyfile', mock.Mock(auto_spec=True))
     @mock.patch('treadmill.appcfg.manifest.load', auto_spec=True)
-    @mock.patch('treadmill.appevents.post', mock.Mock(auto_spec=True))
+    @mock.patch('treadmill.trace.post', mock.Mock(auto_spec=True))
     @mock.patch('treadmill.fs.write_safe', mock.mock_open())
     @mock.patch('treadmill.subproc.get_aliases', mock.Mock(return_value={}))
     @mock.patch('treadmill.subproc.resolve', mock.Mock(return_value='mock'))
@@ -124,7 +124,7 @@ class AppCfgConfigureTest(unittest.TestCase):
             os.path.join(app_dir, 'data', 'manifest.yml')
         )
 
-        treadmill.appevents.post.assert_called_with(
+        treadmill.trace.post.assert_called_with(
             mock.ANY,
             events.ConfiguredTraceEvent(
                 instanceid='proid.myapp#0',
@@ -138,7 +138,7 @@ class AppCfgConfigureTest(unittest.TestCase):
     @mock.patch('shutil.copyfile', mock.Mock(auto_spec=True))
     @mock.patch('shutil.rmtree', mock.Mock())
     @mock.patch('treadmill.appcfg.manifest.load', auto_spec=True)
-    @mock.patch('treadmill.appevents.post', mock.Mock(auto_spec=True))
+    @mock.patch('treadmill.trace.post', mock.Mock(auto_spec=True))
     @mock.patch('treadmill.fs.write_safe', mock.mock_open())
     @mock.patch('treadmill.subproc.get_aliases', mock.Mock(return_value={}))
     @mock.patch('treadmill.subproc.resolve', mock.Mock(return_value='mock'))
@@ -220,7 +220,7 @@ class AppCfgConfigureTest(unittest.TestCase):
         treadmill.fs.write_safe.assert_not_called()
         shutil.rmtree.assert_called_with(app_dir)
 
-        treadmill.appevents.post.assert_not_called()
+        treadmill.trace.post.assert_not_called()
 
 
 if __name__ == '__main__':

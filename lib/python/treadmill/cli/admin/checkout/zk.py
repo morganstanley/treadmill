@@ -8,7 +8,6 @@ from __future__ import unicode_literals
 
 import click
 
-from treadmill import admin
 from treadmill import context
 from treadmill import zkadmin
 
@@ -53,7 +52,7 @@ def init():
 
         def _check(conn, **_kwargs):
             """Zookeeper state."""
-            admin_cell = admin.Cell(context.GLOBAL.ldap.conn)
+            admin_cell = context.GLOBAL.admin.cell()
             cell = admin_cell.get(context.GLOBAL.cell)
 
             conn.execute(

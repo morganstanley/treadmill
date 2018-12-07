@@ -22,6 +22,8 @@ from treadmill.appcfg import features
 
 _LOGGER = logging.getLogger(__name__)
 
+_SSHD_PORT = 22
+
 
 def read(filename, file_format='json'):
     """Standard way of reading a manifest.
@@ -331,9 +333,10 @@ def add_linux_services(manifest):
         },
         'command': (
             'exec {sshd} -D -f /etc/ssh/sshd_config'
-            ' -p $TREADMILL_ENDPOINT_SSH'
+            ' -p {sshd_port}'
         ).format(
-            sshd=subproc.resolve('sshd')
+            sshd=subproc.resolve('sshd'),
+            sshd_port=_SSHD_PORT
         ),
         'root': True,
         'environ': [],
@@ -346,7 +349,7 @@ def add_linux_services(manifest):
     ssh_endpoint = {
         'name': 'ssh',
         'proto': 'tcp',
-        'port': 0,
+        'port': _SSHD_PORT,
         'type': 'infra',
     }
     manifest['endpoints'].append(ssh_endpoint)

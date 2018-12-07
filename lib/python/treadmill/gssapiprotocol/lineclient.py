@@ -9,7 +9,7 @@ import logging
 import base64
 import socket
 
-import gssapi
+import gssapi  # pylint: disable=import-error
 
 
 _LOGGER = logging.getLogger(__name__)

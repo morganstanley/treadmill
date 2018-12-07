@@ -130,7 +130,7 @@ class AppCfgRuntimeManifestTest(unittest.TestCase):
             [
                 {
                     'name': 'ssh',
-                    'port': 0,
+                    'port': 22,
                     'proto': 'tcp',
                     'type': 'infra',
                 },
@@ -241,7 +241,7 @@ class AppCfgRuntimeManifestTest(unittest.TestCase):
                     'command': (
                         'exec /path/to/sshd'
                         ' -D -f /etc/ssh/sshd_config'
-                        ' -p $TREADMILL_ENDPOINT_SSH'
+                        ' -p 22'
                     ),
                     'name': 'sshd',
                     'proid': 'root',
@@ -284,7 +284,7 @@ class AppCfgRuntimeManifestTest(unittest.TestCase):
                 {
                     'name': 'ssh',
                     'type': 'infra',
-                    'port': 0,
+                    'port': 22,
                     'proto': 'tcp',
                 },
             ]

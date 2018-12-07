@@ -10,11 +10,10 @@ import io
 import logging
 
 import click
-from ldap3.core import exceptions as ldap_exceptions
 
 import six
 
-from treadmill import admin
+from treadmill.admin import exc as admin_exceptions
 from treadmill import cli
 from treadmill import context
 from treadmill import yamlwrapper as yaml
@@ -27,7 +26,7 @@ _MINIMUM_THRESHOLD = 5
 
 def _resolve_partition_threshold(cell, partition, value):
     """Resolve threshold % to an integer."""
-    admin_srv = admin.Server(context.GLOBAL.ldap.conn)
+    admin_srv = context.GLOBAL.admin.server()
     servers = admin_srv.list({'cell': cell})
 
     total = 0
@@ -76,7 +75,7 @@ def init():
         #
         # pylint: disable=R0912
         cell = context.GLOBAL.cell
-        admin_part = admin.Partition(context.GLOBAL.ldap.conn)
+        admin_part = context.GLOBAL.admin.partition()
 
         attrs = {}
         if memory:
@@ -106,14 +105,80 @@ def init():
         if attrs:
             try:
                 admin_part.create([partition, cell], attrs)
-            except ldap_exceptions.LDAPEntryAlreadyExistsResult:
+            except admin_exceptions.AlreadyExistsResult:
                 admin_part.update([partition, cell], attrs)
 
         try:
             cli.out(formatter(admin_part.get(
                 [partition, cell], dirty=bool(attrs)
             )))
-        except ldap_exceptions.LDAPNoSuchObjectResult:
+        except admin_exceptions.NoSuchObjectResult:
+            click.echo('Partition does not exist: %s' % partition, err=True)
+
+    @partition.command()
+    @click.argument('partition', required=False)
+    @click.option('--server', required=False)
+    @cli.admin.ON_EXCEPTIONS
+    def get(partition, server):
+        """Get partition"""
+        cell = context.GLOBAL.cell
+        admin_part = context.GLOBAL.admin.partition()
+        admin_srv = context.GLOBAL.admin.server()
+
+        if partition:
+            # Get partition by name.
+            cli.out(formatter(admin_part.get([partition, cell])))
+        elif server:
+            # Get partition by server name.
+            srv = admin_srv.get(server)
+            if srv['cell'] != cell:
+                cli.bad_exit('Server does not belong to %s: %s',
+                             cell, srv['cell'])
+            cli.out(formatter(admin_part.get([srv['partition'], cell])))
+        else:
+            cli.bad_exit('Partition or server name is required')
+
+    @partition.command()
+    @click.option('-t', '--trait', help='Trait.',
+                  required=True)
+    @click.option('-m', '--memory', help='Memory.',
+                  default='0G', callback=cli.validate_memory)
+    @click.option('-c', '--cpu', help='CPU.',
+                  default='0%', callback=cli.validate_cpu)
+    @click.option('-d', '--disk', help='Disk.',
+                  default='0G', callback=cli.validate_disk)
+    @click.option('--delete', help='Delete assignment.',
+                  is_flag=True, default=False)
+    @click.argument('partition')
+    @cli.admin.ON_EXCEPTIONS
+    def limit(trait, memory, cpu, disk, delete, partition):
+        """Create or delete partition allocation limits."""
+        cell = context.GLOBAL.cell
+        admin_part = context.GLOBAL.admin.partition()
+        part = admin_part.get([partition, cell])
+        limits = part.get('limits', [])
+        # remove any pre-exsting limit for this trait
+        limits = [limit for limit in limits if limit['trait'] != trait]
+
+        if not delete:
+            data = {
+                'trait': trait,
+                'cpu': cpu,
+                'memory': memory,
+                'disk': disk,
+            }
+            limits.append(data)
+
+        attrs = {
+            'limits': limits
+        }
+
+        try:
+            admin_part.update([partition, cell], attrs)
+            cli.out(formatter(admin_part.get(
+                [partition, cell], dirty=bool(attrs)
+            )))
+        except admin_exceptions.NoSuchObjectResult:
             click.echo('Partition does not exist: %s' % partition, err=True)
 
     @partition.command(name='list')
@@ -121,7 +186,7 @@ def init():
     def _list():
         """List partitions"""
         cell = context.GLOBAL.cell
-        admin_cell = admin.Cell(context.GLOBAL.ldap.conn)
+        admin_cell = context.GLOBAL.admin.cell()
         partitions = admin_cell.partitions(cell)
 
         cli.out(formatter(partitions))
@@ -132,14 +197,16 @@ def init():
     def delete(label):
         """Delete a partition"""
         cell = context.GLOBAL.cell
-        admin_part = admin.Partition(context.GLOBAL.ldap.conn)
+        admin_part = context.GLOBAL.admin.partition()
 
         try:
             admin_part.delete([label, cell])
-        except ldap_exceptions.LDAPNoSuchObjectResult:
+        except admin_exceptions.NoSuchObjectResult:
             click.echo('Partition does not exist: %s' % label, err=True)
 
     del configure
+    del get
+    del limit
     del _list
     del delete
 

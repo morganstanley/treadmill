@@ -17,7 +17,7 @@ from treadmill import utils
 from treadmill import zknamespace as z
 from treadmill import yamlwrapper as yaml
 
-from treadmill.apptrace import (events, zk)
+from treadmill.trace.app import (events, zk)
 
 _LOGGER = logging.getLogger(__name__)
 

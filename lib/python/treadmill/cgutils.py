@@ -29,6 +29,18 @@ class TreadmillCgroupError(exc.TreadmillError):
     pass
 
 
+def core_group_name(prefix):
+    """Get parent group name of treadmill core service
+    """
+    return os.path.join(prefix, 'core')
+
+
+def apps_group_name(prefix):
+    """Get parent group name of treadmill apps
+    """
+    return os.path.join(prefix, 'apps')
+
+
 def set_memory_hardlimit(cgrp, limit):
     """Set the cgroup hard-limits to the desired value.
 
@@ -74,53 +86,55 @@ def set_memory_hardlimit(cgrp, limit):
             raise
 
 
-def create_treadmill_cgroups(core_cpu_shares,
-                             apps_cpu_shares,
-                             core_cpuset_cpus,
-                             apps_cpuset_cpus,
-                             core_memory,
-                             apps_memory):
+def create_treadmill_cgroups(core_cpu_shares, apps_cpu_shares,
+                             core_cpuset_cpus, apps_cpuset_cpus,
+                             core_memory, apps_memory,
+                             cgroup_prefix):
     """This is the core cgroup setup. Should be applied to a cleaned env.
     """
+    # generate core/apps group name: treadmill, treadmill.slice etc
+    core_group = core_group_name(cgroup_prefix)
+    apps_group = apps_group_name(cgroup_prefix)
+
     # CPU and CPU Accounting (typically joined).
-    create('cpu', 'treadmill/core')
-    create('cpu', 'treadmill/apps')
-    create('cpuacct', 'treadmill/core')
-    create('cpuacct', 'treadmill/apps')
+    create('cpu', core_group)
+    create('cpu', apps_group)
+    create('cpuacct', core_group)
+    create('cpuacct', apps_group)
 
     if core_cpu_shares is not None:
-        cgroups.set_value('cpu', 'treadmill/core',
+        cgroups.set_value('cpu', core_group,
                           'cpu.shares', core_cpu_shares)
-        cgroups.set_value('cpu', 'treadmill/apps',
+        cgroups.set_value('cpu', apps_group,
                           'cpu.shares', apps_cpu_shares)
 
     # CPU sets
-    create('cpuset', 'treadmill/core')
-    create('cpuset', 'treadmill/apps')
-    cgroups.inherit_value('cpuset', 'treadmill/core', 'cpuset.mems')
-    cgroups.inherit_value('cpuset', 'treadmill/apps', 'cpuset.mems')
+    create('cpuset', core_group)
+    create('cpuset', apps_group)
+    cgroups.inherit_value('cpuset', core_group, 'cpuset.mems')
+    cgroups.inherit_value('cpuset', apps_group, 'cpuset.mems')
 
     # cgroup combines duplicate cores automatically
     if core_cpuset_cpus is not None:
-        cgroups.set_value('cpuset', 'treadmill/core',
+        cgroups.set_value('cpuset', core_group,
                           'cpuset.cpus', core_cpuset_cpus)
-        cgroups.set_value('cpuset', 'treadmill/apps',
+        cgroups.set_value('cpuset', apps_group,
                           'cpuset.cpus', apps_cpuset_cpus)
     else:
-        cgroups.inherit_value('cpuset', 'treadmill/core', 'cpuset.cpus')
-        cgroups.inherit_value('cpuset', 'treadmill/apps', 'cpuset.cpus')
+        cgroups.inherit_value('cpuset', core_group, 'cpuset.cpus')
+        cgroups.inherit_value('cpuset', apps_group, 'cpuset.cpus')
 
     # Memory
-    create('memory', 'treadmill/core')
-    create('memory', 'treadmill/apps')
+    create('memory', core_group)
+    create('memory', apps_group)
 
     if core_memory is not None:
-        set_memory_hardlimit('treadmill/core', core_memory)
-        cgroups.set_value('memory', 'treadmill/core',
+        set_memory_hardlimit(core_group, core_memory)
+        cgroups.set_value('memory', core_group,
                           'memory.soft_limit_in_bytes', core_memory)
 
-        set_memory_hardlimit('treadmill/apps', apps_memory)
-        cgroups.set_value('memory', 'treadmill/apps',
+        set_memory_hardlimit(apps_group, apps_memory)
+        cgroups.set_value('memory', apps_group,
                           'memory.soft_limit_in_bytes', apps_memory)
 
 
@@ -207,10 +221,11 @@ def kill_apps_in_cgroup(subsystem, cgrp, delete_cgrp=False):
             delete(subsystem, cgrp)
 
 
-def total_soft_memory_limits():
+def total_soft_memory_limits(cgroup_prefix):
     """Add up soft memory limits."""
     total_mem = 0
-    path = cgroups.makepath('memory', 'treadmill/apps/*',
+    apps_group = apps_group_name(cgroup_prefix)
+    path = cgroups.makepath('memory', '{}/*'.format(apps_group),
                             'memory.soft_limit_in_bytes')
     mem_files = glob.glob(path)
     for mem_file in mem_files:
@@ -254,7 +269,7 @@ def get_memory_oom_eventfd(cgrp):
     return efd
 
 
-def reset_memory_limit_in_bytes():
+def reset_memory_limit_in_bytes(cgroup_prefix):
     """Recalculate the hard memory limits.
 
     If any app uses more than the value we are trying to resize to, it will be
@@ -263,10 +278,11 @@ def reset_memory_limit_in_bytes():
     :returns:
         List of unique application names to expunge from the system.
     """
-    total_soft_mem = float(total_soft_memory_limits())
-    total_hard_mem = cgroups.get_value('memory', 'treadmill/apps',
+    total_soft_mem = float(total_soft_memory_limits(cgroup_prefix))
+    apps_group = apps_group_name(cgroup_prefix)
+    total_hard_mem = cgroups.get_value('memory', apps_group,
                                        'memory.limit_in_bytes')
-    basepath = cgroups.makepath('memory', 'treadmill/apps')
+    basepath = cgroups.makepath('memory', apps_group)
 
     _LOGGER.info('total_soft_mem: %r, total_hard_mem: %r',
                  total_soft_mem, total_hard_mem)
@@ -276,7 +292,7 @@ def reset_memory_limit_in_bytes():
         if not os.path.isdir(os.path.join(basepath, f)):
             continue
 
-        cgrp = os.path.join('treadmill', 'apps', f)
+        cgrp = os.path.join(apps_group, f)
         soft_limit = float(cgroups.get_value('memory', cgrp,
                                              'memory.soft_limit_in_bytes'))
 
@@ -315,10 +331,11 @@ def get_stat(subsystem, cgrp):
     return stats
 
 
-def app_cgrp_count():
+def app_cgrp_count(cgroup_prefix):
     """Get the number of apps in treadmill/apps"""
     appcount = 0
-    basepath = cgroups.makepath('memory', 'treadmill/apps')
+    apps_group = apps_group_name(cgroup_prefix)
+    basepath = cgroups.makepath('memory', apps_group)
     files = os.listdir(basepath)
     for appname in files:
         fullpath = os.path.join(basepath, appname)
@@ -352,9 +369,10 @@ def stat(subsystem, cgrp, pseudofile):
     return os.stat(path)
 
 
-def apps():
+def apps(cgroup_prefix):
     """Returns list of apps in apps cgroup."""
-    basepath = cgroups.makepath('cpu', 'treadmill/apps')
+    apps_group = apps_group_name(cgroup_prefix)
+    basepath = cgroups.makepath('cpu', apps_group)
     files = os.listdir(basepath)
     return [appname for appname in files
             if os.path.isdir(os.path.join(basepath, appname))]

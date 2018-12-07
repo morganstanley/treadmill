@@ -22,8 +22,10 @@ def init():
     @click.option('--treadmill-root', type=click.Path(exists=True),
                   envvar='TREADMILL_APPROOT', required=True,
                   help='Treadmill root path.')
-    def collect(treadmill_root):
+    @click.option('--root-cgroup', default='treadmill',
+                  envvar='TREADMILL_ROOT_CGROUP', required=False)
+    def collect(treadmill_root, root_cgroup):
         """Collect Treadmill node data"""
-        postmortem.run(treadmill_root)
+        postmortem.run(treadmill_root, root_cgroup)
 
     return collect

@@ -1,6 +1,7 @@
 command: >
   {{ treadmill }}\scripts\treadmill sproc nodeinfo
   --register
+  --port 48945
   --cors-origin='.*'
   -m local
 monitor_policy:

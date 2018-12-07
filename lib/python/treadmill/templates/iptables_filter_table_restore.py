@@ -28,6 +28,7 @@ T = """
 {% if filter_in_nonprod_chain -%}
 :TM_FILTER_IN_NONPROD - [0:0]
 -F TM_FILTER_IN_NONPROD
+-A TM_FILTER_IN_NONPROD -m set --match-set {{any_container}} src -j RETURN
 {%- for filter_rule in filter_in_nonprod_chain %}
 -A TM_FILTER_IN_NONPROD {{filter_rule}}
 {%- endfor -%}
@@ -36,6 +37,7 @@ T = """
 {% if filter_out_nonprod_chain -%}
 :TM_FILTER_OUT_NONPROD - [0:0]
 -F TM_FILTER_OUT_NONPROD
+-A TM_FILTER_OUT_NONPROD -m set --match-set {{any_container}} dst -j RETURN
 {%- for filter_rule in filter_out_nonprod_chain %}
 -A TM_FILTER_OUT_NONPROD {{filter_rule}}
 {%- endfor -%}
@@ -44,15 +46,17 @@ T = """
 :TM_FILTER - [0:0]
 -F TM_FILTER
 -A TM_FILTER -m state --state ESTABLISHED,RELATED -j ACCEPT
+-A TM_FILTER -m state --state INVALID -j DROP_N_LOG_FORWARD
 -A TM_FILTER -m state --state NEW -m set \
     --match-set {{infra_services}} dst,dst -j ACCEPT
 -A TM_FILTER -j {{ filter_exception_chain }}
 -A TM_FILTER -m state --state NEW -m connmark --mark {{nonprod_mark}} -m set \
     --match-set {{prod_containers}} dst -j REJECT_N_LOG_FORWARD
--A TM_FILTER -m state --state NEW -m connmark --mark {{nonprod_mark}} -m set \
-    ! --match-set {{any_container}} dst -j TM_FILTER_OUT_NONPROD
--A TM_FILTER -m state --state NEW -m set \
-    --match-set {{nonprod_containers}} dst -j TM_FILTER_IN_NONPROD
+-A TM_FILTER -m state --state NEW -m connmark --mark {{nonprod_mark}} \
+    -j TM_FILTER_OUT_NONPROD
+-A TM_FILTER -m state --state NEW \
+    -m set --match-set {{nonprod_containers}} dst \
+    -j TM_FILTER_IN_NONPROD
 
 :FORWARD ACCEPT [0:0]
 -F FORWARD

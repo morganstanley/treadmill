@@ -76,6 +76,13 @@ def init():
         expose_value=False,
         required=True
     )
+    @click.option(
+        '--api-service-principal', required=False,
+        envvar='TREADMILL_API_SERVICE_PRINCIPAL',
+        callback=cli.handle_context_opt,
+        help='API service principal for SPNEGO auth (default HTTP)',
+        expose_value=False
+    )
     def run():
         """Report scheduler state."""
         pass

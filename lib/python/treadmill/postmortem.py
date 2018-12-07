@@ -17,6 +17,10 @@ import tarfile
 import time
 import six
 
+if os.name == 'posix':
+    from treadmill import cgroups
+    from treadmill import cgutils
+
 from treadmill import fs
 from treadmill import subproc
 
@@ -40,7 +44,7 @@ def _datetime_utcnow():
     return datetime.datetime.utcnow()
 
 
-def run(treadmill_root):
+def run(treadmill_root, cgroup_prefix):
     """Run postmortem"""
     filetime = _datetime_utcnow().strftime('%Y%m%d_%H%M%SUTC')
     hostname = socket.gethostname()
@@ -54,7 +58,7 @@ def run(treadmill_root):
     _LOGGER.info('Collection postmortem: %s', postmortem_archive)
 
     with tarfile.open(postmortem_archive, 'w:gz') as f:
-        collect(treadmill_root, f)
+        collect(treadmill_root, f, cgroup_prefix)
 
     if os.name == 'posix':
         os.chmod(postmortem_archive, 0o644)
@@ -79,7 +83,7 @@ def _safe_copy(src, dest):
         _LOGGER.warning('skip %s => %s', src, dest)
 
 
-def collect(approot, archive):
+def collect(approot, archive, cgroup_prefix):
     """Collect node information in case of blackout.
 
     :param approot:
@@ -97,7 +101,7 @@ def collect(approot, archive):
     collect_running_app(approot, archive)
     if os.name == 'posix':
         collect_sysctl(archive)
-        collect_cgroup(archive)
+        collect_cgroup(archive, cgroup_prefix)
         collect_localdisk(archive)
         collect_network(archive)
         collect_message(archive)
@@ -169,15 +173,17 @@ def collect_sysctl(archive):
     _add_output(archive, [_SYSCTL, '-a'])
 
 
-def collect_cgroup(archive):
+def collect_cgroup(archive, cgroup_prefix):
     """Get host treadmill cgroups inforamation."""
+    core_group = cgutils.core_group_name(cgroup_prefix)
     _add_glob(
         archive,
-        os.path.join('/cgroup', '*', 'treadmill', 'core', '*')
+        os.path.join(cgroups.CGROOT, '*', core_group, '*')
     )
+    apps_group = cgutils.apps_group_name(cgroup_prefix)
     _add_glob(
         archive,
-        os.path.join('/cgroup', '*', 'treadmill', 'apps', '*', '*')
+        os.path.join(cgroups.CGROOT, '*', apps_group, '*', '*')
     )
 
 

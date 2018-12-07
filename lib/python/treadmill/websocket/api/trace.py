@@ -8,10 +8,10 @@ from __future__ import unicode_literals
 
 import logging
 
-from treadmill import apptrace
 from treadmill import schema
+from treadmill.trace.app import events as app_events
+from treadmill.trace.app import zk as app_zk
 from treadmill.websocket import _utils
-from treadmill.apptrace import events as traceevents
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -20,9 +20,9 @@ class TraceAPI:
     """Handler for /trace topic.
     """
 
-    def __init__(self, sow=None):
-        self.sow = sow
-        self.sow_table = apptrace.TRACE_SOW_TABLE
+    def __init__(self):
+        self.sow = app_zk.TRACE_SOW_DIR
+        self.sow_table = app_zk.TRACE_SOW_TABLE
 
         @schema.schema({'$ref': 'websocket/trace.json#/message'})
         def subscribe(message):
@@ -50,7 +50,7 @@ class TraceAPI:
              event_type,
              event_data) = event.split(',', 4)
 
-            trace_event = traceevents.AppTraceEvent.from_data(
+            trace_event = app_events.AppTraceEvent.from_data(
                 timestamp=float(timestamp),
                 source=src_host,
                 instanceid=instanceid,
@@ -73,4 +73,4 @@ class TraceAPI:
 def init():
     """API module init.
     """
-    return [('/trace', TraceAPI(sow=apptrace.TRACE_SOW_DIR), ['/trace/*'])]
+    return [('/trace', TraceAPI(), ['/trace/*'])]

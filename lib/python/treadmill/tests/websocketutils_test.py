@@ -23,7 +23,7 @@ def _ret_event(event):
 class WebsocketutilsTest(unittest.TestCase):
     """Mock test for treadmill.websocketutils"""
 
-    @mock.patch('treadmill.apptrace.events.AppTraceEvent.from_dict',
+    @mock.patch('treadmill.trace.app.events.AppTraceEvent.from_dict',
                 mock.Mock(side_effect=_ret_event))
     def test_helper_funcs(self):
         """Test the logs() command handler."""

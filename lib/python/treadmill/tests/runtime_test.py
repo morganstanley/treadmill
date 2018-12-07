@@ -204,6 +204,13 @@ class RuntimeTest(unittest.TestCase):
         _touch_file('sys/bla/data/log/xxx')
         _touch_file('services/xxx/data/log/current')
         _touch_file('services/xxx/data/log/whatever')
+        _touch_file('services/xxx/data/log/@1.s')
+        _touch_file('services/xxx/data/log/@2.u')
+        _touch_file('services/yyy/data/log/current')
+        _touch_file('services/yyy/data/log/@3.s')
+        _touch_file('services/yyy/data/log/@4.s')
+        _touch_file('services/zzz/data/log/current')
+        fs.mkdir_safe(os.path.join(data_dir, 'services/empty/data/log'))
         _touch_file('a.json')
         _touch_file('a.rrd')
         _touch_file('log/current')
@@ -221,13 +228,48 @@ class RuntimeTest(unittest.TestCase):
         )
         tar.close()
 
-        tar = tarfile.open(app_archive)
-        files = sorted([member.name for member in tar.getmembers()])
-        self.assertEqual(
-            files,
-            ['services/xxx/data/log/current']
+        with tarfile.open(app_archive) as tar:
+            files = sorted([member.name for member in tar.getmembers()])
+            self.assertEqual(
+                files,
+                sorted([
+                    'services/xxx/data/log/@2.u',
+                    'services/xxx/data/log/current',
+                    'services/yyy/data/log/current',
+                    'services/yyy/data/log/@4.s',
+                    'services/zzz/data/log/current'
+                ])
+            )
+
+        os.unlink(sys_archive)
+        os.unlink(app_archive)
+        shutil.rmtree(data_dir)
+
+        # empty log dir, no rotated file
+        _touch_file('services/xxx/data/log/current')
+        fs.mkdir_safe(os.path.join(data_dir, 'services/empty/data/log'))
+
+        treadmill.runtime.archive_logs(
+            self.tm_env, 'xxx.yyy-1234-qwerty', data_dir
         )
-        tar.close()
+        with tarfile.open(app_archive) as tar:
+            self.assertEqual([member.name for member in tar.getmembers()],
+                             ['services/xxx/data/log/current'])
+
+        os.unlink(sys_archive)
+        os.unlink(app_archive)
+        shutil.rmtree(data_dir)
+
+        # empty log dir, no "current" file
+        _touch_file('services/xxx/data/log/@1.s')
+        fs.mkdir_safe(os.path.join(data_dir, 'services/empty/data/log'))
+
+        treadmill.runtime.archive_logs(
+            self.tm_env, 'xxx.yyy-1234-qwerty', data_dir
+        )
+        with tarfile.open(app_archive) as tar:
+            self.assertEqual([member.name for member in tar.getmembers()],
+                             ['services/xxx/data/log/@1.s'])
 
     def test__archive_cleanup(self):
         """Tests cleanup of local logs."""

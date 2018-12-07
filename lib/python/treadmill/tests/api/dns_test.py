@@ -8,7 +8,7 @@ import unittest
 
 import mock
 
-from treadmill import admin
+import treadmill
 from treadmill.api import dns
 
 
@@ -21,22 +21,21 @@ class ApiDNSTest(unittest.TestCase):
     def tearDown(self):
         pass
 
-    @mock.patch('treadmill.context.AdminContext.conn',
-                mock.Mock(return_value=admin.Admin(None, None)))
-    @mock.patch('treadmill.admin.DNS.list', mock.Mock(return_value=[]))
+    @mock.patch('treadmill.context.AdminContext.dns',
+                mock.Mock(return_value=mock.Mock(**{'list.return_value': []})))
     def test_list(self):
         """Dummy test for treadmill.api.cell._list()"""
         self.dns.list()
-        dns_admin = admin.DNS(None)
+        dns_admin = treadmill.context.AdminContext.dns.return_value
         self.assertTrue(dns_admin.list.called)
 
-    @mock.patch('treadmill.context.AdminContext.conn',
-                mock.Mock(return_value=admin.Admin(None, None)))
-    @mock.patch('treadmill.admin.DNS.get',
-                mock.Mock(return_value={'location': 'as'}))
+    @mock.patch('treadmill.context.AdminContext.dns',
+                mock.Mock(return_value=mock.Mock(**{
+                    'get.return_value': {'location': 'as'}
+                })))
     def test_get(self):
         """Dummy test for treadmill.api.cell.get()"""
-        dns_admin = admin.DNS(None)
+        dns_admin = treadmill.context.AdminContext.dns.return_value
         self.dns.get('as')
         dns_admin.get.assert_called_with('as')
 

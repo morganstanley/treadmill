@@ -16,7 +16,6 @@ import stat
 
 from treadmill import appcfg
 from treadmill import cgroups
-from treadmill import exc
 from treadmill import fs
 from treadmill import keytabs
 from treadmill import runtime
@@ -24,47 +23,17 @@ from treadmill import subproc
 from treadmill import supervisor
 from treadmill import utils
 
-from treadmill.appcfg import abort as app_abort
 from treadmill.fs import linux as fs_linux
 
+from . import _docker
 from . import fs as image_fs
 from . import _image_base
 from . import _repository_base
-
-from .. import _manifest
 
 
 _LOGGER = logging.getLogger(__name__)
 
 _CONTAINER_ENV_DIR = 'env'
-_CONTAINER_DOCKER_ENV_DIR = os.path.join('docker', 'env')
-_CONTAINER_DOCKER_ETC_DIR = os.path.join('docker', 'etc')
-
-
-def create_docker_environ_dir(container_dir, root_dir, app):
-    """Creates environ dir for docker"""
-    env_dir = os.path.join(container_dir, _CONTAINER_DOCKER_ENV_DIR)
-    env = {}
-
-    treadmill_bind_preload_so = os.path.basename(
-        subproc.resolve('treadmill_bind_preload.so')
-    )
-    if app.ephemeral_ports.tcp or app.ephemeral_ports.udp:
-        env['LD_PRELOAD'] = os.path.join(
-            _manifest.TREADMILL_BIND_PATH,
-            '$LIB',
-            treadmill_bind_preload_so
-        )
-
-    supervisor.create_environ_dir(env_dir, env)
-
-    # Bind the environ directory in the container volume
-    fs.mkdir_safe(os.path.join(root_dir, _CONTAINER_DOCKER_ENV_DIR))
-    fs_linux.mount_bind(
-        root_dir, os.path.join(os.sep, _CONTAINER_DOCKER_ENV_DIR),
-        source=os.path.join(container_dir, _CONTAINER_DOCKER_ENV_DIR),
-        recursive=False, read_only=True
-    )
 
 
 def create_environ_dir(container_dir, root_dir, app):
@@ -110,8 +79,8 @@ def create_environ_dir(container_dir, root_dir, app):
         recursive=False, read_only=True
     )
 
-    if hasattr(app, 'docker') and app.docker:
-        create_docker_environ_dir(container_dir, root_dir, app)
+    # envs variables that will be applied in docker container
+    _docker.create_docker_environ_dir(container_dir, root_dir, app)
 
 
 def create_supervision_tree(tm_env, container_dir, root_dir, app,
@@ -387,9 +356,11 @@ def make_fsroot(root_dir, app):
     # /var/empty must be owned by root and not group or world-writable.
     os.chmod(os.path.join(newroot_norm, 'var/empty'), 0o711)
 
+    # Mount a new sysfs for the container, bring in the /sys/fs subtree from
+    # the host.
+    fs_linux.mount_sysfs(newroot_norm)
     fs_linux.mount_bind(
-        newroot_norm, os.path.join(os.sep, 'sys'),
-        source='/sys',
+        newroot_norm, os.path.join(os.sep, 'sys', 'fs'),
         recursive=True, read_only=False
     )
 
@@ -412,24 +383,8 @@ def make_fsroot(root_dir, app):
                 recursive=True, read_only=True
             )
 
-    if hasattr(app, 'docker') and app.docker:
-        # If unable to mount docker directory, we throw Aborted events
-        try:
-            _mount_docker_tmpfs(newroot_norm)
-        except FileNotFoundError as err:
-            _LOGGER.error('Failed to mount docker tmpfs: %s', err)
-            # this exception is caught by sproc run to generate abort event
-            raise exc.ContainerSetupError(
-                msg=str(err),
-                reason=app_abort.AbortedReason.UNSUPPORTED,
-            )
-
-
-def _mount_docker_tmpfs(newroot_norm):
-    """Mount tmpfs for docker
-    """
-    # /etc/docker as temp fs as dockerd create /etc/docker/key.json
-    fs_linux.mount_tmpfs(newroot_norm, '/etc/docker')
+    # /etc/docker is a file neceesary for docker daemon
+    _docker.mount_docker_daemon_path(newroot_norm, app)
 
 
 def create_overlay(tm_env, container_dir, root_dir, app):
@@ -449,8 +404,8 @@ def create_overlay(tm_env, container_dir, root_dir, app):
     # bind prepared inside container
     _bind_overlay(container_dir, root_dir)
 
-    if hasattr(app, 'docker') and app.docker:
-        _bind_overlay_docker(container_dir, root_dir)
+    # create directory to be mounted in docker container
+    _docker.overlay_docker(container_dir, root_dir, app)
 
 
 def _prepare_krb(tm_env, container_dir, root_dir, app):
@@ -615,28 +570,6 @@ def _bind_overlay(container_dir, root_dir):
     )
 
 
-def _bind_overlay_docker(container_dir, root_dir):
-    """Mount etc/hosts for docker container
-    """
-    # FIXME: This path is mounted as RW because ro volume in treadmill
-    #        container can not be mounted in docker 'Error response from
-    #        daemon: chown /etc/hosts: read-only file system.'
-    overlay_dir = os.path.join(container_dir, 'overlay')
-
-    fs_linux.mount_bind(
-        root_dir, os.path.join(os.sep, _CONTAINER_DOCKER_ETC_DIR, 'hosts'),
-        source=os.path.join(overlay_dir, 'etc/hosts'),
-        recursive=False, read_only=False
-    )
-
-
-def get_cgroup_path(app):
-    """Gets the path of the cgroup."""
-    unique_name = appcfg.app_unique_name(app)
-    cgrp = os.path.join('treadmill', 'apps', unique_name, 'services')
-    return cgrp
-
-
 class NativeImage(_image_base.Image):
     """Represents a native image."""
 
@@ -647,7 +580,7 @@ class NativeImage(_image_base.Image):
     def __init__(self, tm_env):
         self.tm_env = tm_env
 
-    def unpack(self, container_dir, root_dir, app):
+    def unpack(self, container_dir, root_dir, app, app_cgroups):
 
         make_fsroot(root_dir, app)
 
@@ -659,7 +592,7 @@ class NativeImage(_image_base.Image):
         shutil.copy(os.path.join(container_dir, runtime.STATE_JSON),
                     os.path.join(root_dir, appcfg.APP_JSON))
 
-        cgrp = get_cgroup_path(app)
+        cgrp = os.path.join(app_cgroups['memory'], 'services')
 
         create_environ_dir(container_dir, root_dir, app)
 

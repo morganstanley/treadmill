@@ -1,30 +1,9 @@
 #!/bin/sh
 
-MKDIR={{ mkdir }}
-RM={{ rm }}
-MV={{ mv }}
-ECHO={{ echo }}
+# S6 needs to be in the PATH to function.
+export PATH="{{ _alias.s6 }}/bin:${PATH}"
 
-if [[ ! -d '{{ dir_config }}/cn=config' ]]
-then
-    $MKDIR -p {{ dir }}/run
-    $MKDIR -p {{ dir }}/openldap-data
-
-    {{ slapadd }} -F {{ dir_config }} \
-        -n 0 -l {{ dir_config }}/slapd.ldif -d -1
-    {{ slapadd }} -F {{ dir_config }} \
-        -n 0 -l {{ dir_config }}/schema/treadmill.ldif -d -1
-
-    if [[ "$?" != 0 ]]
-    then
-        $RM -rvf '{{ dir_config }}/cn=config'
-        $ECHO ERROR - slapadd failed. exiting.
-        exit 1
-    fi
-fi
-
-exec {{ slapd }} \
-    -h {{ uri }} -F {{ dir_config }} \
-{%- for log_level in log_levels %}
-    -d {{ log_level }} \
-{%- endfor %}
+# Exec into real run script with environment setup.
+exec \
+    "{{ _alias.s6_envdir }}" "{{ dir }}/env" \
+        "{{ dir }}/bin/run_real.sh"

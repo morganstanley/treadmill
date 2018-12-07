@@ -16,7 +16,7 @@ import treadmill.tests.treadmill_test_skip_windows   # pylint: disable=W0611
 from treadmill.runtime.linux import _manifest as app_manifest
 
 
-class Docker2RuntimeManifestTest(unittest.TestCase):
+class LinuxRuntimeManifestTest(unittest.TestCase):
     """Tests for treadmill.runtime.linux._manifest."""
 
     def setUp(self):
@@ -29,6 +29,85 @@ class Docker2RuntimeManifestTest(unittest.TestCase):
 
     def tearDown(self):
         pass
+
+    def test__transform_service(self):
+        """Test normalization of container services.
+        """
+        # pylint: disable=protected-access
+
+        manifest = {}
+        app_manifest._transform_services(manifest)
+        self.assertEqual(
+            manifest,
+            {
+                'services': []
+            }
+        )
+
+        manifest = {
+            'proid': 'me',
+            'environ': [
+                {
+                    'name': 'FOO',
+                    'value': 'lala'
+                },
+            ],
+            'services': [
+                {
+                    'name': 'test1',
+                    'command': '/bin/true',
+                    'restart': {
+                        'limit': 42,
+                        'interval': 1
+                    },
+                    'environ': [
+                        {
+                            'name': 'BAR',
+                            'value': 'lolo',
+                        }
+                    ]
+                }
+            ]
+        }
+        app_manifest._transform_services(manifest)
+        self.assertEqual(
+            manifest,
+            {
+                'environ': [
+                    {
+                        'name': 'FOO',
+                        'value': 'lala'
+                    }
+                ],
+                'proid': 'me',
+                'services': [
+                    {
+                        'command': '/bin/true',
+                        'config': None,
+                        'downed': False,
+                        'environ': [
+                            {
+                                'name': 'FOO',
+                                'value': 'lala'
+                            },
+                            {
+                                'name': 'BAR',
+                                'value': 'lolo'
+                            }
+                        ],
+                        'logger': 's6.app-logger.run',
+                        'name': 'test1',
+                        'proid': 'me',
+                        'restart': {
+                            'interval': 1,
+                            'limit': 42
+                        },
+                        'root': False,
+                        'trace': True
+                    }
+                ]
+            }
+        )
 
     @mock.patch(
         'treadmill.subproc.resolve', mock.Mock(return_value='/treadmill-bind')
@@ -52,6 +131,8 @@ class Docker2RuntimeManifestTest(unittest.TestCase):
                 ' --volume /var/spool:/var/spool:rw'
                 ' --volume /var/tmp:/var/tmp:rw'
                 ' --volume /docker/etc/hosts:/etc/hosts:ro'
+                ' --volume /docker/etc/passwd:/etc/passwd:ro'
+                ' --volume /docker/etc/group:/etc/group:ro'
                 ' --volume /env:/env:ro'
                 ' --volume /treadmill-bind:/opt/treadmill-bind:ro'
                 ' --image testwt2'
@@ -73,6 +154,8 @@ class Docker2RuntimeManifestTest(unittest.TestCase):
                 ' --volume /var/spool:/var/spool:rw'
                 ' --volume /var/tmp:/var/tmp:rw'
                 ' --volume /docker/etc/hosts:/etc/hosts:ro'
+                ' --volume /docker/etc/passwd:/etc/passwd:ro'
+                ' --volume /docker/etc/group:/etc/group:ro'
                 ' --volume /env:/env:ro'
                 ' --volume /treadmill-bind:/opt/treadmill-bind:ro'
                 ' --image testwt2'
@@ -97,6 +180,8 @@ class Docker2RuntimeManifestTest(unittest.TestCase):
                 ' --volume /var/spool:/var/spool:rw'
                 ' --volume /var/tmp:/var/tmp:rw'
                 ' --volume /docker/etc/hosts:/etc/hosts:ro'
+                ' --volume /docker/etc/passwd:/etc/passwd:ro'
+                ' --volume /docker/etc/group:/etc/group:ro'
                 ' --volume /env:/env:ro'
                 ' --volume /treadmill-bind:/opt/treadmill-bind:ro'
                 ' --image testwt2'

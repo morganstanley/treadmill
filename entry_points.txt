@@ -45,6 +45,7 @@ app-group = treadmill.rest.api.app_group
 app-dns = treadmill.rest.api.app_dns
 app-monitor = treadmill.rest.api.app_monitor
 cell = treadmill.rest.api.cell
+cgroup = treadmill.rest.api.cgroup
 cron = treadmill.rest.api.cron
 dns = treadmill.rest.api.dns
 endpoint = treadmill.rest.api.endpoint
@@ -72,6 +73,7 @@ app-group = treadmill.api.app_group
 app-dns = treadmill.api.app_dns
 app-monitor = treadmill.api.app_monitor
 cell = treadmill.api.cell
+cgroup = treadmill.api.cgroup
 cron = treadmill.api.cron
 dns = treadmill.api.dns
 endpoint = treadmill.api.endpoint
@@ -99,6 +101,7 @@ endpoint = treadmill.websocket.api.endpoint
 identity-group = treadmill.websocket.api.identity_group
 state = treadmill.websocket.api.state
 trace = treadmill.websocket.api.trace
+server-trace = treadmill.websocket.api.server_trace
 
 
 [treadmill.formatters]
@@ -152,6 +155,7 @@ ssh = treadmill.cli.ssh
 stop = treadmill.cli.stop
 supervise = treadmill.cli.supervise
 trace = treadmill.cli.trace
+trace-server = treadmill.cli.trace_server
 trace-identity = treadmill.cli.trace_identity
 app-dns = treadmill.cli.app_dns
 
@@ -187,6 +191,7 @@ scheduler = treadmill.cli.admin.scheduler
 show = treadmill.cli.admin.show
 ssh = treadmill.cli.admin.ssh
 trace = treadmill.cli.admin.trace
+trace-server = treadmill.cli.admin.trace_server
 wait = treadmill.cli.admin.wait
 checkout = treadmill.cli.admin.checkout
 check-aliases = treadmill.cli.admin.check_aliases
@@ -201,6 +206,13 @@ zookeeper = treadmill.cli.admin.install.zookeeper
 
 [treadmill.cli.admin.krb]
 forward = treadmill.cli.admin.krb.forward
+
+[treadmill.cli.admin.node]
+benchmark = treadmill.cli.admin.node.benchmark
+lvm = treadmill.cli.admin.node.lvm
+
+[treadmill.cli.admin.diag]
+psmem = treadmill.cli.admin.diag.psmem
 
 [treadmill.cli.admin.ldap]
 allocation = treadmill.cli.admin.ldap.allocation
@@ -227,12 +239,10 @@ rdtscp = treadmill.traits:has_rdtscp
 ad = treadmill.sproc.ad
 alert-monitor = treadmill.sproc.alert_monitor
 appcfgmgr = treadmill.sproc.appcfgmgr
-appevents = treadmill.sproc.appevents
 appmonitor = treadmill.sproc.appmonitor
 boot = treadmill.sproc.boot
 cellsync = treadmill.sproc.cellsync
 cgroup = treadmill.sproc.cgroup
-cgroup-server = treadmill.sproc.cgroup_server
 cleanup = treadmill.sproc.cleanup
 configure = treadmill.sproc.configure
 cron = treadmill.sproc.cron
@@ -268,6 +278,7 @@ warpgate-policy-server = treadmill.sproc.warpgate_policy_server
 warpgate = treadmill.sproc.warpgate
 websocket = treadmill.sproc.websocket
 zk2fs = treadmill.sproc.zk2fs
+events-publisher = treadmill.sproc.events_publisher
 
 
 [treadmill.cron]
@@ -315,7 +326,7 @@ container-cleanup = treadmill.monitor:MonitorContainerCleanup
 node-down = treadmill.monitor:MonitorNodeDown
 container-down = treadmill.monitor:MonitorContainerDown
 
-[treadmill.version_monitor]
+[treadmill.version]
 
 
 [treadmill.alert.plugins]

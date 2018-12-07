@@ -5,7 +5,7 @@ import logging
 import re
 
 import base64
-import gssapi
+import gssapi  # pylint: disable=import-error
 
 from werkzeug import local
 from werkzeug.wrappers import BaseRequest, BaseResponse
