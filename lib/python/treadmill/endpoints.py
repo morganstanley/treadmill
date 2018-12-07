@@ -65,6 +65,15 @@ class EndpointsMgr:
         """
         return self._base_path
 
+    def get_spec(self, proto=None, endpoint=None):
+        """Get endpoint spec with partial pattern match.
+        """
+        pattern = (None, proto, endpoint, None, None, None)
+        for spec in self.get_specs():
+            if all(p is None or s == p for s, p in zip(spec, pattern)):
+                return spec
+        return None
+
     def get_specs(self):
         """Scrapes the spec directory for spec file.
 
@@ -103,20 +112,27 @@ class EndpointsMgr:
             port=port
         )
         rule_file = os.path.join(self._base_path, filename)
-        try:
-            os.symlink(
-                owner,
-                rule_file
-            )
-            _LOGGER.info('Created %r for %r', filename, appname)
 
-        except OSError as err:
-            if err.errno == errno.EEXIST:
-                existing_owner = os.path.basename(os.readlink(rule_file))
-                if existing_owner != appname:
+        # just create a regular file if no owner is supplied on Windows
+        if owner is None:
+            if not os.path.exists(rule_file):
+                with open(rule_file, 'w'):
+                    pass
+                _LOGGER.info('File created %r for %r', filename, appname)
+        else:
+            try:
+                os.symlink(
+                    owner,
+                    rule_file
+                )
+                _LOGGER.info('Symlink created %r for %r', filename, appname)
+            except OSError as err:
+                if err.errno == errno.EEXIST:
+                    existing_owner = os.path.basename(os.readlink(rule_file))
+                    if existing_owner != appname:
+                        raise
+                else:
                     raise
-            else:
-                raise
 
     def unlink_spec(self, appname, proto, endpoint, real_port, pid,
                     port, owner):
@@ -132,11 +148,13 @@ class EndpointsMgr:
         )
         spec_file = os.path.join(self._base_path, filename)
         try:
-            existing_owner = os.readlink(spec_file)
-            if os.path.basename(existing_owner) != os.path.basename(owner):
-                _LOGGER.critical('%r tried to free %r that it does not own',
-                                 owner, filename)
-                return
+            if owner:
+                existing_owner = os.readlink(spec_file)
+                if os.path.basename(existing_owner) != os.path.basename(owner):
+                    _LOGGER.critical(
+                        '%r tried to free %r that it does not own',
+                        owner, filename)
+                    return
             os.unlink(spec_file)
             _LOGGER.debug('Removed %r', filename)
 

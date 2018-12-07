@@ -3,7 +3,7 @@
     "resource_id": {
         "type": "string",
         "maxLength": 60,
-        "pattern": "^[a-zA-Z0-9_]+(\\.[a-zA-Z0-9\\-_^#]+)+$"
+        "pattern": "^[a-zA-Z0-9_-]+(\\.[a-zA-Z0-9\\-_^#]+)+$"
     },
     "resource": {
         "type": "object",
@@ -16,7 +16,7 @@
             },
             "pattern": {
                 "type": "string",
-                "pattern": "^[a-zA-Z0-9]+\\..+$"
+                "pattern": "^[a-zA-Z0-9_-]+\\..+$"
             },
             "pending": {
                 "type": "integer",

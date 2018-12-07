@@ -9,9 +9,9 @@ from __future__ import unicode_literals
 import unittest
 import threading
 
-import mock
 import kazoo.client
 import kazoo.exceptions
+import mock
 
 from treadmill import zkwatchers
 

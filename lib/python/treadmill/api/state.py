@@ -18,7 +18,6 @@ import fnmatch
 import collections
 import time
 
-from treadmill import admin
 from treadmill import context
 from treadmill import schema
 from treadmill import utils
@@ -246,7 +245,7 @@ class API:
     @staticmethod
     def _get_server_info():
         """Get server information"""
-        return admin.Server(context.GLOBAL.ldap.conn).list({
+        return context.GLOBAL.admin.server().list({
             'cell': context.GLOBAL.cell
         })
 

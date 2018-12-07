@@ -12,11 +12,11 @@ import mock
 import jsonschema
 import six
 
-from treadmill import admin
 from treadmill import exc
 from treadmill import yamlwrapper as yaml
 from treadmill.api import instance
 from treadmill.scheduler import masterapi
+from treadmill.admin import ldapbackend
 
 
 def _create_apps(_zkclient, _app_id, app, _count, _created_by):
@@ -29,8 +29,8 @@ class ApiInstanceTest(unittest.TestCase):
     def setUp(self):
         self.instance = instance.API()
 
-    @mock.patch('treadmill.context.AdminContext.conn',
-                mock.Mock(return_value=admin.Admin(None, None)))
+    @mock.patch('treadmill.context.AdminContext._conn',
+                ldapbackend.AdminLdapBackend('', ''))
     @mock.patch('treadmill.context.ZkContext.conn', mock.Mock())
     @mock.patch('treadmill.scheduler.masterapi.create_apps', mock.Mock())
     @mock.patch('treadmill.api.instance._check_required_attributes',
@@ -48,6 +48,8 @@ class ApiInstanceTest(unittest.TestCase):
         memory: 150M
         cpu: 10%
         disk: 100M
+        traits:
+        - foo
         """
 
         masterapi.create_apps.side_effect = _create_apps
@@ -59,8 +61,8 @@ class ApiInstanceTest(unittest.TestCase):
         self.assertEqual(new_doc['services'][0]['restart']['interval'], 60)
         self.assertTrue(masterapi.create_apps.called)
 
-    @mock.patch('treadmill.context.AdminContext.conn',
-                mock.Mock(return_value=admin.Admin(None, None)))
+    @mock.patch('treadmill.context.AdminContext._conn',
+                ldapbackend.AdminLdapBackend('', ''))
     @mock.patch('treadmill.context.ZkContext.conn', mock.Mock())
     @mock.patch('treadmill.scheduler.masterapi.create_apps', mock.Mock())
     @mock.patch('treadmill.scheduler.masterapi.get_scheduled_stats',
@@ -82,29 +84,29 @@ class ApiInstanceTest(unittest.TestCase):
         with self.assertRaises(exc.TreadmillError):
             self.instance.create('proid.app', yaml.load(doc))
 
-    @mock.patch('treadmill.context.AdminContext.conn',
-                mock.Mock(return_value=admin.Admin(None, None)))
     @mock.patch('treadmill.context.ZkContext.conn', mock.Mock())
-    @mock.patch('treadmill.admin.Application.get',
-                mock.Mock(return_value={
-                    '_id': 'proid.app',
-                    'tickets': ['foo@bar.baz'],
-                    'cpu': '10%',
-                    'memory': '100M',
-                    'disk': '100M',
-                    'endpoints': [{'name': 'http', 'port': 8888}],
-                    'services': [{
-                        'command': 'python -m SimpleHTTPServer 8888',
-                        'name': 'web_server',
-                        'restart': {'interval': 60, 'limit': 3}
-                    }],
-                    'features': [],
-                    'ephemeral_ports': {},
-                    'passthrough': [],
-                    'args': [],
-                    'environ': [],
-                    'affinity_limits': {}
-                }))
+    @mock.patch('treadmill.context.AdminContext.application',
+                mock.Mock(return_value=mock.Mock(**{
+                    'get.return_value': {
+                        '_id': 'proid.app',
+                        'tickets': ['foo@bar.baz'],
+                        'cpu': '10%',
+                        'memory': '100M',
+                        'disk': '100M',
+                        'endpoints': [{'name': 'http', 'port': 8888}],
+                        'services': [{
+                            'command': 'python -m SimpleHTTPServer 8888',
+                            'name': 'web_server',
+                            'restart': {'interval': 60, 'limit': 3}
+                        }],
+                        'features': [],
+                        'ephemeral_ports': {},
+                        'passthrough': [],
+                        'args': [],
+                        'environ': [],
+                        'affinity_limits': {}
+                    }
+                })))
     @mock.patch('treadmill.scheduler.masterapi.create_apps')
     @mock.patch('treadmill.api.instance._check_required_attributes',
                 mock.Mock())
@@ -168,8 +170,6 @@ class ApiInstanceTest(unittest.TestCase):
                                    '1001 is greater than the maximum of 1000'):
             self.instance.create('proid.app', {}, count=1001)
 
-    @mock.patch('treadmill.context.AdminContext.conn',
-                mock.Mock(return_value=admin.Admin(None, None)))
     @mock.patch('treadmill.context.ZkContext.conn', mock.Mock())
     @mock.patch('treadmill.scheduler.masterapi.delete_apps')
     def test_instance_delete(self, delete_apps_mock):
@@ -198,17 +198,17 @@ class ApiInstanceTest(unittest.TestCase):
                                    'u?\'invalid!\' is not valid'):
             self.instance.delete('proid.app#0000000001', deleted_by='invalid!')
 
-    @mock.patch('treadmill.context.AdminContext.conn',
-                mock.Mock(return_value=admin.Admin(None, None)))
     @mock.patch('treadmill.context.ZkContext.conn', mock.Mock())
-    @mock.patch('treadmill.admin.Application.get',
-                mock.Mock(return_value={
-                    '_id': 'proid.app',
-                    'cpu': '10%',
-                    'memory': '100M',
-                    'disk': '100M',
-                    'image': 'docker://foo',
-                }))
+    @mock.patch('treadmill.context.AdminContext.application',
+                mock.Mock(return_value=mock.Mock(**{
+                    'get.return_value': {
+                        '_id': 'proid.app',
+                        'cpu': '10%',
+                        'memory': '100M',
+                        'disk': '100M',
+                        'image': 'docker://foo',
+                    }
+                })))
     @mock.patch('treadmill.scheduler.masterapi.create_apps')
     @mock.patch('treadmill.api.instance._check_required_attributes',
                 mock.Mock())
@@ -256,8 +256,8 @@ class ApiInstanceTest(unittest.TestCase):
                                    '1001 is greater than the maximum of 1000'):
             self.instance.create('proid.app', {}, count=1001)
 
-    @mock.patch('treadmill.context.AdminContext.conn',
-                mock.Mock(return_value=admin.Admin(None, None)))
+    @mock.patch('treadmill.context.AdminContext._conn',
+                ldapbackend.AdminLdapBackend('', ''))
     @mock.patch('treadmill.context.ZkContext.conn', mock.Mock())
     @mock.patch('treadmill.scheduler.masterapi.create_apps')
     @mock.patch('treadmill.api.instance._check_required_attributes',
@@ -290,6 +290,7 @@ class ApiInstanceTest(unittest.TestCase):
             'args': [],
             'environ': [],
             'affinity_limits': {},
+            'traits': [],
         }
 
         self.instance.create('proid.app', ephemeral_app)
@@ -312,8 +313,6 @@ class ApiInstanceTest(unittest.TestCase):
                                    '1001 is greater than the maximum of 1000'):
             self.instance.create('proid.app', {}, count=1001)
 
-    @mock.patch('treadmill.context.AdminContext.conn',
-                mock.Mock(return_value=admin.Admin(None, None)))
     @mock.patch('treadmill.context.ZkContext.conn', mock.Mock())
     @mock.patch('treadmill.scheduler.masterapi.delete_apps')
     def test_instance_bulk_delete(self, delete_apps_mock):
@@ -329,8 +328,6 @@ class ApiInstanceTest(unittest.TestCase):
             mock.ANY, ['proid.app#0000000001', 'proid.app#0000000002'], None
         )
 
-    @mock.patch('treadmill.context.AdminContext.conn',
-                mock.Mock(return_value=admin.Admin(None, None)))
     @mock.patch('treadmill.context.ZkContext.conn', mock.Mock())
     @mock.patch('treadmill.scheduler.masterapi.update_app_priorities')
     def test_instance_bulk_update(self, update_apps_mock):
@@ -346,8 +343,6 @@ class ApiInstanceTest(unittest.TestCase):
             mock.ANY, {'proid.app#0000000001': 1}
         )
 
-    @mock.patch('treadmill.context.AdminContext.conn',
-                mock.Mock(return_value=admin.Admin(None, None)))
     @mock.patch('treadmill.context.ZkContext.conn', mock.Mock())
     @mock.patch('treadmill.scheduler.masterapi.create_apps', mock.Mock())
     @mock.patch('treadmill.scheduler.masterapi.get_scheduled_stats')
@@ -383,8 +378,8 @@ class ApiInstanceTest(unittest.TestCase):
         with self.assertRaises(exc.QuotaExceededError):
             self.instance.create('yyy.app', yaml.load(doc), count=101)
 
-    @mock.patch('treadmill.context.AdminContext.conn',
-                mock.Mock(return_value=admin.Admin(None, None)))
+    @mock.patch('treadmill.context.AdminContext._conn',
+                ldapbackend.AdminLdapBackend('', ''))
     @mock.patch('treadmill.context.ZkContext.conn', mock.Mock())
     @mock.patch('treadmill.scheduler.masterapi.create_apps')
     @mock.patch('treadmill.scheduler.masterapi.get_scheduled_stats',

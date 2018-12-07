@@ -20,14 +20,16 @@ def init():
     @click.command()
     @click.option('--once', is_flag=True, default=False,
                   help='Run once.')
-    @click.option('--events-dir', type=click.Path(exists=True))
-    def run(once, events_dir):
+    @click.option('--app-events-dir', type=click.Path(exists=True))
+    @click.option('--server-events-dir', type=click.Path(exists=True))
+    def run(once, app_events_dir, server_events_dir):
         """Run Treadmill master scheduler."""
         scheduler.DIMENSION_COUNT = 3
         cell_master = master.Master(
             zkbackend.ZkBackend(context.GLOBAL.zk.conn),
             context.GLOBAL.cell,
-            events_dir
+            app_events_dir,
+            server_events_dir
         )
         cell_master.run(once)
 

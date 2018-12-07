@@ -9,6 +9,18 @@ attributeTypes:
   allocation:
     desc: Treadmill allocation
     type: str
+  allocation-limit-trait:
+    desc: Treadmill allocation trait limit
+    type: str
+  allocation-limit-cpu:
+    desc: Treadmill allocation CPU limit
+    type: str
+  allocation-limit-memory:
+    desc: Treadmill allocation memory limit
+    type: str
+  allocation-limit-disk:
+    desc: Treadmill allocation disk limit
+    type: str
   app:
     desc: Treadmill application
     type: str
@@ -273,6 +285,10 @@ objectClasses:
     - cpu
     - disk
     - memory
+    - allocation-limit-trait
+    - allocation-limit-cpu
+    - allocation-limit-disk
+    - allocation-limit-memory
     - system
     - down-threshold
     - reboot-schedule
@@ -318,6 +334,7 @@ objectClasses:
     - schedule-once
     - data-retention-timeout
     - lease
+    - trait
   tmCell:
     desc: Treadmill Cell
     must:

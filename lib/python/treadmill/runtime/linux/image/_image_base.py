@@ -15,7 +15,7 @@ class Image:
     """Represents an image."""
 
     @abc.abstractmethod
-    def unpack(self, container_dir, root_dir, app):
+    def unpack(self, container_dir, root_dir, app, app_cgroups):
         """Unpacks the image to the root dir.
 
         :param container_dir:
@@ -29,6 +29,10 @@ class Image:
         :param app:
             The application manifest
         :type app:
+            ``dict``
+        :param app_cgroups:
+            The paths of app cgroups
+        :type app_cgroups:
             ``dict``
         """
         pass

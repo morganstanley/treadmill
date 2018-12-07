@@ -18,6 +18,7 @@ import mock
 
 import treadmill
 import treadmill.runtime.runtime_base
+from treadmill import appenv
 from treadmill import endpoints
 
 
@@ -120,6 +121,34 @@ class EndpointMgrTest(unittest.TestCase):
     def tearDown(self):
         if self.root and os.path.isdir(self.root):
             shutil.rmtree(self.root)
+
+    def test_get_spec(self):
+        """Test get endpoint spec with partial pattern match.
+        """
+        tm_env = appenv.AppEnvironment(root=self.root)
+        endpoints_mgr = endpoints.EndpointsMgr(tm_env.endpoints_dir)
+
+        # pylint: disable=W0212
+        self.assertIsNone(endpoints_mgr.get_spec())
+
+        endpoints_mgr.create_spec(
+            appname='appname##0000000001',
+            proto='tcp',
+            endpoint='nodeinfo',
+            real_port=12345,
+            pid=5213,
+            port=8000,
+            owner=None,
+        )
+        self.assertIsNotNone(endpoints_mgr.get_spec(proto='tcp'))
+        self.assertEqual(
+            endpoints_mgr.get_spec(proto='tcp'),
+            endpoints_mgr.get_spec(endpoint='nodeinfo'),
+        )
+        self.assertEqual(
+            endpoints_mgr.get_spec(proto='tcp'),
+            endpoints_mgr.get_spec(proto='tcp', endpoint='nodeinfo'),
+        )
 
     # FIXME: windows does not support symlink for non-privlege user
     @unittest.skipUnless(sys.platform.startswith('linux'), 'Requires Linux')

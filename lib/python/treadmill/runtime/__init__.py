@@ -9,6 +9,7 @@ from __future__ import unicode_literals
 
 import errno
 import glob
+import itertools
 import logging
 import os
 import random
@@ -286,8 +287,15 @@ def archive_logs(tm_env, name, container_dir):
         _add(f, os.path.join(container_dir, 'log', 'current'))
 
     with tarfile.open(app_archive_name, 'w:gz') as f:
-        logs = glob.glob(
-            os.path.join(container_dir, 'services', '*', 'data', 'log',
-                         'current'))
-        for log in logs:
-            _add(f, log)
+        log_dirs = os.path.join(container_dir, 'services', '*', 'data', 'log')
+        current = glob.glob(os.path.join(log_dirs, 'current'))
+        rotated = glob.glob(os.path.join(log_dirs, '@*.[su]'))
+
+        # include only the most recently rotated log file and the current one
+        to_archive = sum([
+            sorted(files)[-1:]
+            for _, files in itertools.groupby(rotated, os.path.dirname)
+        ], current)
+
+        for file_ in to_archive:
+            _add(f, file_)

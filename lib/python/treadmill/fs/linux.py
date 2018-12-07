@@ -115,6 +115,27 @@ def mount_procfs(newroot, target='/proc'):
     )
 
 
+def mount_sysfs(newroot, target='/sys'):
+    """Mounts sysfs on directory.
+    """
+    while target.startswith('/'):
+        target = target[1:]
+
+    mnt_flags = [
+        mount.MS_NODEV,
+        mount.MS_NOEXEC,
+        mount.MS_NOSUID,
+        mount.MS_RELATIME,
+    ]
+
+    return mount.mount(
+        source='sysfs',
+        target=os.path.join(newroot, target),
+        fs_type='sysfs',
+        mnt_flags=mnt_flags,
+    )
+
+
 def mount_tmpfs(newroot, target, nodev=True, noexec=True, nosuid=True,
                 relatime=True, **mnt_opts):
     """Mounts directory on tmpfs.
@@ -548,6 +569,7 @@ __all__ = [
     'mount_bind',
     'mount_filesystem',
     'mount_procfs',
+    'mount_sysfs',
     'mount_tmpfs',
     'umount_filesystem',
 ]

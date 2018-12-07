@@ -11,10 +11,12 @@ import time
 
 import click
 
-from treadmill.apptrace import zk
 from treadmill import context
 from treadmill import zknamespace as z
 from treadmill import zkutils
+
+from treadmill.trace.app import zk as app_zk
+from treadmill.trace.server import zk as server_zk
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -95,31 +97,40 @@ def init():
         def _cleanup():
             """Do cleanup."""
             while True:
-                zk.prune_trace_evictions(
+                app_zk.prune_trace_evictions(
                     context.GLOBAL.zk.conn,
                     trace_evictions_max_count
                 )
-                zk.prune_trace_service_events(
+                app_zk.prune_trace_service_events(
                     context.GLOBAL.zk.conn,
                     trace_service_events_max_count
                 )
-                zk.cleanup_trace(
+                app_zk.cleanup_trace(
                     context.GLOBAL.zk.conn,
                     trace_batch_size,
                     trace_expire_after
                 )
-                zk.cleanup_finished(
+                app_zk.cleanup_finished(
                     context.GLOBAL.zk.conn,
                     finished_batch_size,
                     finished_expire_after
                 )
-                zk.cleanup_trace_history(
+                app_zk.cleanup_trace_history(
                     context.GLOBAL.zk.conn,
                     trace_history_max_count
                 )
-                zk.cleanup_finished_history(
+                app_zk.cleanup_finished_history(
                     context.GLOBAL.zk.conn,
                     finished_history_max_count
+                )
+
+                server_zk.cleanup_server_trace(
+                    context.GLOBAL.zk.conn,
+                    trace_batch_size
+                )
+                server_zk.cleanup_server_trace_history(
+                    context.GLOBAL.zk.conn,
+                    trace_history_max_count
                 )
 
                 _LOGGER.info('Finished cleanup, sleep %s sec', interval)

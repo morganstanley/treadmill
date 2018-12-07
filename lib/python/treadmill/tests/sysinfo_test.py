@@ -230,7 +230,7 @@ power management: [8]
             'size': 100 * 1024**2,
         }
 
-        res = sysinfo.node_info(mock_tm_env, 'linux')
+        res = sysinfo.node_info(mock_tm_env, 'linux', 'treadmill')
 
         mock_tm_env.svc_localdisk.status.assert_called_with(timeout=30)
         mock_tm_env.svc_cgroup.status.assert_called_with(timeout=30)

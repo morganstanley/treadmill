@@ -202,7 +202,8 @@ class CGutilsTest(unittest.TestCase):
                                          treadmill_core_cpuset_cpus,
                                          treadmill_app_cpuset_cpus,
                                          treadmill_core_mem,
-                                         treadmill_apps_mem)
+                                         treadmill_apps_mem,
+                                         'treadmill')
 
         calls = [mock.call('cpu', 'treadmill/core'),
                  mock.call('cpu', 'treadmill/apps'),
@@ -256,7 +257,7 @@ class CGutilsTest(unittest.TestCase):
     def test_reset_mem_limit_in_bytes(self):
         """Make sure we are setting hardlimits right.
         """
-        cgutils.reset_memory_limit_in_bytes()
+        cgutils.reset_memory_limit_in_bytes('treadmill')
         mock_calls = [mock.call('memory',
                                 'treadmill/apps',
                                 'memory.limit_in_bytes'),
@@ -303,7 +304,7 @@ class CGutilsTest(unittest.TestCase):
         treadmill.cgutils.set_memory_hardlimit.side_effect = \
             cgutils.TreadmillCgroupError('test')
 
-        res = cgutils.reset_memory_limit_in_bytes()
+        res = cgutils.reset_memory_limit_in_bytes('treadmill')
 
         self.assertEqual(res, ['a'])
 

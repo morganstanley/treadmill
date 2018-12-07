@@ -1,0 +1,12 @@
+command: |
+  exec \
+    {{ treadmill }}/bin/treadmill \
+    sproc --cgroup {{ name }} \
+    metrics \
+        --step 30
+environ_dir: "{{ dir }}/env"
+monitor_policy:
+  limit: 5
+  interval: 60
+  tombstone:
+    path: "{{ dir }}/tombstones/init"

@@ -6,7 +6,6 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
-from treadmill import admin
 from treadmill import context
 from treadmill import schema
 
@@ -18,7 +17,7 @@ class API:
 
         def _admin_cell():
             """Lazily return admin object."""
-            return admin.Cell(context.GLOBAL.ldap.conn)
+            return context.GLOBAL.admin.cell()
 
         def _list():
             """List cells."""

@@ -76,6 +76,8 @@ COMMIT
     --to-source {{external_ip}}:{{prod_low|int}}-{{prod_high|int}}
 -A TM_POSTROUTING_PROD -p tcp -j SNAT \
     --to-source {{external_ip}}:{{prod_low|int}}-{{prod_high|int}}
+-A TM_POSTROUTING_PROD -p gre -j SNAT \
+    --to-source {{external_ip}}
 
 :TM_POSTROUTING_NONPROD - [0:0]
 -F TM_POSTROUTING_NONPROD
@@ -85,6 +87,8 @@ COMMIT
     --to-source {{external_ip}}:{{nonprod_low|int}}-{{nonprod_high|int}}
 -A TM_POSTROUTING_NONPROD -p tcp -j SNAT \
     --to-source {{external_ip}}:{{nonprod_low|int}}-{{nonprod_high|int}}
+-A TM_POSTROUTING_NONPROD -p gre -j SNAT \
+    --to-source {{external_ip}}
 
 :TM_POSTROUTING_CONTAINER - [0:0]
 -F TM_POSTROUTING_CONTAINER

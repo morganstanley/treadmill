@@ -13,9 +13,9 @@ import tempfile
 import time
 import unittest
 
-import mock
 import kazoo
 import kazoo.client
+import mock
 
 import treadmill
 from treadmill import exc

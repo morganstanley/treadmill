@@ -26,7 +26,7 @@ from treadmill import fs
 from treadmill import iptables
 from treadmill import utils
 
-from treadmill.apptrace import events
+from treadmill.trace.app import events
 from treadmill.runtime.linux import _finish as app_finish
 
 
@@ -62,7 +62,7 @@ class LinuxRuntimeFinishTest(unittest.TestCase):
             shutil.rmtree(self.root)
 
     @mock.patch('shutil.copy', mock.Mock())
-    @mock.patch('treadmill.appevents.post', mock.Mock())
+    @mock.patch('treadmill.trace.post', mock.Mock())
     @mock.patch('treadmill.postmortem._datetime_utcnow', mock.Mock(
         return_value=datetime.datetime(2015, 1, 22, 14, 14, 36, 537918)))
     @mock.patch('treadmill.appcfg.manifest.read', mock.Mock())
@@ -261,7 +261,7 @@ class LinuxRuntimeFinishTest(unittest.TestCase):
         treadmill.iptables.flush_cnt_conntrack_table.assert_called_with(
             '192.168.0.2'
         )
-        treadmill.appevents.post.assert_called_with(
+        treadmill.trace.post.assert_called_with(
             mock.ANY,
             events.FinishedTraceEvent(
                 instanceid='proid.myapp#001',
@@ -287,7 +287,7 @@ class LinuxRuntimeFinishTest(unittest.TestCase):
         treadmill.runtime.archive_logs.assert_called()
 
     @mock.patch('shutil.copy', mock.Mock())
-    @mock.patch('treadmill.appevents.post', mock.Mock())
+    @mock.patch('treadmill.trace.post', mock.Mock())
     @mock.patch('treadmill.apphook.cleanup', mock.Mock())
     @mock.patch('treadmill.appcfg.manifest.read', mock.Mock())
     @mock.patch('treadmill.sysinfo.hostname',
@@ -373,7 +373,7 @@ class LinuxRuntimeFinishTest(unittest.TestCase):
             )
         app_finish.finish(self.tm_env, app_dir)
 
-        treadmill.appevents.post.assert_called_with(
+        treadmill.trace.post.assert_called_with(
             mock.ANY,
             events.FinishedTraceEvent(
                 instanceid='proid.myapp#001',
@@ -399,7 +399,7 @@ class LinuxRuntimeFinishTest(unittest.TestCase):
         treadmill.runtime.archive_logs.assert_called()
 
     @mock.patch('shutil.copy', mock.Mock())
-    @mock.patch('treadmill.appevents.post', mock.Mock())
+    @mock.patch('treadmill.trace.post', mock.Mock())
     @mock.patch('treadmill.appcfg.manifest.read', mock.Mock())
     @mock.patch('treadmill.apphook.cleanup', mock.Mock())
     @mock.patch('treadmill.sysinfo.hostname',
@@ -481,7 +481,7 @@ class LinuxRuntimeFinishTest(unittest.TestCase):
 
         app_finish.finish(self.tm_env, app_dir)
 
-        treadmill.appevents.post.assert_called_with(
+        treadmill.trace.post.assert_called_with(
             mock.ANY,
             events.AbortedTraceEvent(
                 instanceid='proid.myapp#001',
@@ -499,14 +499,14 @@ class LinuxRuntimeFinishTest(unittest.TestCase):
             os.path.join(data_dir, 'metrics.rrd')
         )
 
-        treadmill.appevents.post.reset()
+        treadmill.trace.post.reset()
 
         with io.open(os.path.join(data_dir, 'aborted'), 'w') as aborted:
             aborted.write('')
 
         app_finish.finish(self.tm_env, app_dir)
 
-        treadmill.appevents.post.assert_called_with(
+        treadmill.trace.post.assert_called_with(
             mock.ANY,
             events.AbortedTraceEvent(
                 instanceid='proid.myapp#001',
@@ -524,7 +524,7 @@ class LinuxRuntimeFinishTest(unittest.TestCase):
         app_finish.finish(self.tm_env, self.root)
 
     @mock.patch('shutil.copy', mock.Mock())
-    @mock.patch('treadmill.appevents.post', mock.Mock())
+    @mock.patch('treadmill.trace.post', mock.Mock())
     @mock.patch('treadmill.apphook.cleanup', mock.Mock())
     @mock.patch('treadmill.postmortem._datetime_utcnow', mock.Mock(
         return_value=datetime.datetime(2015, 1, 22, 14, 14, 36, 537918)))
@@ -631,7 +631,7 @@ class LinuxRuntimeFinishTest(unittest.TestCase):
         # Cleanup the cgroup resource
         mock_cgroup_client.delete.assert_called_with(app_unique_name)
 
-        treadmill.appevents.post.assert_called_with(
+        treadmill.trace.post.assert_called_with(
             mock.ANY,
             events.FinishedTraceEvent(
                 instanceid='proid.myapp#001',
@@ -659,7 +659,7 @@ class LinuxRuntimeFinishTest(unittest.TestCase):
     @mock.patch('treadmill.runtime.load_app', mock.Mock())
     @mock.patch('treadmill.runtime.linux._finish._cleanup', mock.Mock())
     @mock.patch('treadmill.apphook.cleanup', mock.Mock())
-    @mock.patch('treadmill.appevents.post', mock.Mock())
+    @mock.patch('treadmill.trace.post', mock.Mock())
     def test_finish_exitinfo_event(self):
         """Test posting finished event.
         """
@@ -672,14 +672,14 @@ class LinuxRuntimeFinishTest(unittest.TestCase):
 
         app_finish.finish(self.tm_env, app_dir)
 
-        args, _kwargs = treadmill.appevents.post.call_args
+        args, _kwargs = treadmill.trace.post.call_args
         _events_dir, event = args
         self.assertIsInstance(event, events.FinishedTraceEvent)
 
     @mock.patch('treadmill.runtime.load_app', mock.Mock())
     @mock.patch('treadmill.runtime.linux._finish._cleanup', mock.Mock())
     @mock.patch('treadmill.apphook.cleanup', mock.Mock())
-    @mock.patch('treadmill.appevents.post', mock.Mock())
+    @mock.patch('treadmill.trace.post', mock.Mock())
     def test_finish_aborted_event(self):
         """Test posting aborted event.
         """
@@ -692,14 +692,14 @@ class LinuxRuntimeFinishTest(unittest.TestCase):
 
         app_finish.finish(self.tm_env, app_dir)
 
-        args, _kwargs = treadmill.appevents.post.call_args
+        args, _kwargs = treadmill.trace.post.call_args
         _events_dir, event = args
         self.assertIsInstance(event, events.AbortedTraceEvent)
 
     @mock.patch('treadmill.runtime.load_app', mock.Mock())
     @mock.patch('treadmill.runtime.linux._finish._cleanup', mock.Mock())
     @mock.patch('treadmill.apphook.cleanup', mock.Mock())
-    @mock.patch('treadmill.appevents.post', mock.Mock())
+    @mock.patch('treadmill.trace.post', mock.Mock())
     def test_finish_oom_event(self):
         """Test posting oom event.
         """
@@ -711,14 +711,14 @@ class LinuxRuntimeFinishTest(unittest.TestCase):
 
         app_finish.finish(self.tm_env, app_dir)
 
-        args, _kwargs = treadmill.appevents.post.call_args
+        args, _kwargs = treadmill.trace.post.call_args
         _events_dir, event = args
         self.assertIsInstance(event, events.KilledTraceEvent)
 
     @mock.patch('treadmill.runtime.load_app', mock.Mock())
     @mock.patch('treadmill.runtime.linux._finish._cleanup', mock.Mock())
     @mock.patch('treadmill.apphook.cleanup', mock.Mock())
-    @mock.patch('treadmill.appevents.post', mock.Mock())
+    @mock.patch('treadmill.trace.post', mock.Mock())
     def test_terminated_no_event(self):
         """Test that event won't be posted if container is terminated/evicted.
         """
@@ -733,7 +733,7 @@ class LinuxRuntimeFinishTest(unittest.TestCase):
 
         app_finish.finish(self.tm_env, app_dir)
 
-        treadmill.appevents.post.assert_not_called()
+        treadmill.trace.post.assert_not_called()
 
     def test__copy_metrics(self):
         """Test that metrics are copied safely.

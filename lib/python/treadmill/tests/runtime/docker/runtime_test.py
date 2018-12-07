@@ -21,7 +21,7 @@ from treadmill import fs
 from treadmill import rulefile
 from treadmill import utils
 from treadmill.appcfg import abort as app_abort
-from treadmill.apptrace import events
+from treadmill.trace.app import events
 from treadmill.runtime.docker import runtime
 
 
@@ -111,10 +111,18 @@ class DockerRuntimeTest(unittest.TestCase):
     @mock.patch('treadmill.runtime.docker.runtime._get_gmsa', mock.Mock())
     def test__create_container(self, client):
         """Tests creating a docker container using the api."""
+
+        volume_mapping = {
+            'app\\data\\container_data': {
+                'bind': 'c:\\container_data',
+                'mode': 'ro'
+            }
+        }
+
         # Access to a protected member
         # pylint: disable=W0212
         runtime._create_container(self.tm_env, {'network': 'nat2'}, client,
-                                  self.app)
+                                  self.app, volume_mapping)
 
         client.images.pull.assert_called_with(
             'test'
@@ -133,13 +141,15 @@ class DockerRuntimeTest(unittest.TestCase):
             mem_limit='512M',
             storage_opt={
                 'size': '20G'
-            }
+            },
+            volumes=volume_mapping
         )
 
     @mock.patch('treadmill.runtime.docker.runtime._log_port_mapping_config',
                 mock.Mock())
-    def test__update_ports_in_manifest(self):
-        """Tests _update_ports_in_manifest"""
+    # pylint: disable=C0103
+    def test__update_network_info_in_manifest(self):
+        """Tests _update_network_info_in_manifest"""
         # mock container
         container = mock.Mock()
         type(container).status = mock.PropertyMock(
@@ -172,7 +182,7 @@ class DockerRuntimeTest(unittest.TestCase):
 
         # Access to a protected member
         # pylint: disable=W0212
-        runtime._update_ports_in_manifest(container, manifest)
+        runtime._update_network_info_in_manifest(container, manifest)
         self.assertEqual(manifest['endpoints'][0]['real_port'], '22345')
 
     def test__check_aborted(self):
@@ -194,12 +204,13 @@ class DockerRuntimeTest(unittest.TestCase):
     @mock.patch('treadmill.runtime.allocate_network_ports', mock.Mock())
     @mock.patch('treadmill.runtime.docker.runtime._create_container',
                 mock.Mock())
-    @mock.patch('treadmill.runtime.docker.runtime._update_ports_in_manifest',
-                mock.Mock())
+    @mock.patch(
+        'treadmill.runtime.docker.runtime._update_network_info_in_manifest',
+        mock.Mock())
     @mock.patch('treadmill.presence.EndpointPresence',
                 mock.Mock(set_spec=True))
     @mock.patch('treadmill.context.GLOBAL.zk', mock.Mock())
-    @mock.patch('treadmill.appevents.post', mock.Mock())
+    @mock.patch('treadmill.trace.post', mock.Mock())
     @mock.patch('docker.from_env', mock.Mock())
     def test__run(self):
         """Tests docker runtime run."""
@@ -221,7 +232,7 @@ class DockerRuntimeTest(unittest.TestCase):
 
         runtime._create_container.assert_called_once()
         container.start.assert_called_once()
-        treadmill.appevents.post.assert_called_with(
+        treadmill.trace.post.assert_called_with(
             self.tm_env.app_events_dir,
             events.ServiceRunningTraceEvent(
                 instanceid='proid.app#001',
@@ -275,7 +286,7 @@ class DockerRuntimeTest(unittest.TestCase):
     @mock.patch('treadmill.presence.EndpointPresence',
                 mock.Mock(set_spec=True))
     @mock.patch('treadmill.context.GLOBAL.zk', mock.Mock())
-    @mock.patch('treadmill.appevents.post', mock.Mock())
+    @mock.patch('treadmill.trace.post', mock.Mock())
     @mock.patch('docker.from_env', mock.Mock())
     def test__finish(self):
         """Tests docker runtime finish."""
@@ -306,7 +317,7 @@ class DockerRuntimeTest(unittest.TestCase):
         docker_runtime._finish()
 
         container.remove.assert_called_with(force=True)
-        treadmill.appevents.post.assert_called_with(
+        treadmill.trace.post.assert_called_with(
             self.tm_env.app_events_dir,
             events.FinishedTraceEvent(
                 instanceid='proid.app#001',
@@ -316,7 +327,7 @@ class DockerRuntimeTest(unittest.TestCase):
             )
         )
 
-        treadmill.appevents.post.reset_mock()
+        treadmill.trace.post.reset_mock()
         type(container).attrs = mock.PropertyMock(return_value={
             'State': {
                 'OOMKilled': True
@@ -325,7 +336,7 @@ class DockerRuntimeTest(unittest.TestCase):
 
         docker_runtime._finish()
 
-        treadmill.appevents.post.assert_called_with(
+        treadmill.trace.post.assert_called_with(
             self.tm_env.app_events_dir,
             events.KilledTraceEvent(
                 instanceid='proid.app#001',

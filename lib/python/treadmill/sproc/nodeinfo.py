@@ -19,6 +19,7 @@ from treadmill import endpoints
 from treadmill import rest
 from treadmill import sysinfo
 from treadmill import utils
+from treadmill import yamlwrapper as yaml
 from treadmill import zknamespace as z
 from treadmill import zkutils
 from treadmill.rest import api
@@ -40,10 +41,13 @@ def init():
     @click.option('-a', '--auth', type=click.Choice(['spnego']))
     @click.option('-m', '--modules', help='API modules to load.',
                   required=False, type=cli.LIST)
+    @click.option('--config', help='API configuration.', multiple=True,
+                  type=(str, click.File()))
     @click.option('-t', '--title', help='API Doc Title',
                   default='Treadmill Nodeinfo REST API')
     @click.option('-c', '--cors-origin', help='CORS origin REGEX')
-    def server(approot, register, port, auth, modules, title, cors_origin):
+    def server(approot, register, port, auth, modules, config, title,
+               cors_origin):
         """Runs nodeinfo server."""
         if port == 0:
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -69,12 +73,17 @@ def init():
             # TODO: remove "legacy" endpoint registration once conversion is
             #       complete.
             tm_env = appenv.AppEnvironment(approot)
-            # TODO: need to figure out how to handle windows.
-            assert os.name != 'nt'
+
             endpoints_mgr = endpoints.EndpointsMgr(tm_env.endpoints_dir)
             endpoints_mgr.unlink_all(
                 app_pattern, endpoint='nodeinfo', proto='tcp'
             )
+
+            # On Linux endpoint for nodeinfo is a symlink pointing to
+            # /proc/{pid}, on Windows it's just a regular file
+            owner = '/proc/{}'.format(os.getpid()) if os.name == 'posix' \
+                else None
+
             endpoints_mgr.create_spec(
                 appname=appname,
                 endpoint='nodeinfo',
@@ -82,7 +91,7 @@ def init():
                 real_port=port,
                 pid=os.getpid(),
                 port=port,
-                owner='/proc/{}'.format(os.getpid()),
+                owner=owner,
             )
 
         _LOGGER.info('Starting nodeinfo server on port: %s', port)
@@ -92,6 +101,14 @@ def init():
         api_paths = []
         if modules:
             api_modules = {module: None for module in modules}
+            for module, cfg in config:
+                if module not in api_modules:
+                    raise click.UsageError(
+                        'Orphan config: %s, not in: %r' % (module, api_modules)
+                    )
+                api_modules[module] = yaml.load(stream=cfg)
+                cfg.close()
+
             api_paths = api.init(
                 api_modules,
                 title.replace('_', ' '),

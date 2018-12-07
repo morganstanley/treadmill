@@ -29,7 +29,8 @@ class CgroupResourceService(BaseResourceServiceImpl):
 
     __slots__ = (
         '_cgroups',
-        '_tm_env'
+        '_tm_env',
+        '_cgroup_prefix',
     )
 
     SUBSYSTEMS = ('cpu', 'cpuacct', 'cpuset', 'memory', 'blkio', 'devices')
@@ -37,10 +38,11 @@ class CgroupResourceService(BaseResourceServiceImpl):
     PAYLOAD_SCHEMA = (('memory', True, str),
                       ('cpu', True, int))
 
-    def __init__(self, tm_env):
+    def __init__(self, tm_env, cgroup_prefix):
         super(CgroupResourceService, self).__init__()
         self._tm_env = tm_env
         self._cgroups = {}
+        self._cgroup_prefix = cgroup_prefix
 
     def initialize(self, service_dir):
         super(CgroupResourceService, self).initialize(service_dir)
@@ -73,7 +75,8 @@ class CgroupResourceService(BaseResourceServiceImpl):
         memory_limit = rsrc_data['memory']
         cpu_limit = rsrc_data['cpu']
 
-        cgrp = os.path.join('treadmill', 'apps', instance_id)
+        apps_group = cgutils.apps_group_name(self._cgroup_prefix)
+        cgrp = os.path.join(apps_group, instance_id)
 
         with lc.LogContext(_LOGGER, rsrc_id,
                            adapter_cls=lc.ContainerAdapter) as log:
@@ -143,7 +146,8 @@ class CgroupResourceService(BaseResourceServiceImpl):
 
     def on_delete_request(self, rsrc_id):
         instance_id = rsrc_id
-        cgrp = os.path.join('treadmill/apps', instance_id)
+        apps_group = cgutils.apps_group_name(self._cgroup_prefix)
+        cgrp = os.path.join(apps_group, instance_id)
 
         with lc.LogContext(_LOGGER, rsrc_id,
                            adapter_cls=lc.ContainerAdapter) as log:

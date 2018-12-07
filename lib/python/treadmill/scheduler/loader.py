@@ -14,7 +14,6 @@ import time
 
 import six
 
-from treadmill import admin
 from treadmill import reports
 from treadmill import scheduler
 from treadmill import traits
@@ -23,6 +22,9 @@ from treadmill import zknamespace as z
 
 from . import backend as be
 
+
+_DEFAULT_PARTITION = '_default'
+_DEFAULT_TENANT = '_default'
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -73,6 +75,7 @@ class Loader:
         'partitions',
         'trait_codes',
         'apps_blacklist',
+        'servers_blacklist',
     )
 
     def __init__(self, backend, cellname):
@@ -85,6 +88,7 @@ class Loader:
         self.partitions = dict()
         self.trait_codes = dict()
         self.apps_blacklist = list()
+        self.servers_blacklist = set()
 
     def load_model(self):
         """Load cell state from Zookeeper."""
@@ -92,6 +96,7 @@ class Loader:
         self.load_partitions()
         self.load_buckets()
         self.load_cell()
+        self.load_servers_blacklist()
         self.load_servers()
         self.load_allocations()
         self.load_strategies()
@@ -117,8 +122,8 @@ class Loader:
     def load_partitions(self):
         """Load partitions."""
         # Create default partition.
-        self.cell.partitions[admin.DEFAULT_PARTITION] = scheduler.Partition(
-            label=admin.DEFAULT_PARTITION
+        self.cell.partitions[_DEFAULT_PARTITION] = scheduler.Partition(
+            label=_DEFAULT_PARTITION
         )
 
         partitions = self.backend.list(z.PARTITIONS)
@@ -164,6 +169,16 @@ class Loader:
             parent = self.load_bucket(parent_name)
             parent.add_node(bucket)
         return bucket
+
+    def load_servers_blacklist(self):
+        """Load servers blacklist."""
+        _LOGGER.info('Loading servers blacklist')
+        try:
+            self.servers_blacklist = set(
+                self.backend.list(z.BLACKEDOUT_SERVERS)
+            )
+        except be.ObjectNotFoundError:
+            self.servers_blacklist = set()
 
     def load_servers(self):
         """Load server topology."""
@@ -274,7 +289,7 @@ class Loader:
         if not label:
             # TODO: it will be better to have separate module for constants
             #       and avoid unnecessary cross imports.
-            label = admin.DEFAULT_PARTITION
+            label = _DEFAULT_PARTITION
         up_since = data.get('up_since', int(time.time()))
 
         traitz = data.get('traits', [])
@@ -317,15 +332,13 @@ class Loader:
 
         is_up = self.backend.exists(z.path.server_presence(servername))
 
-        placement_node = z.path.placement(servername)
-
         # Restore state as it was stored in server placement node.
-        state_since = self.backend.get_default(placement_node)
-        if not state_since:
-            state_since = {'state': 'down', 'since': time.time()}
-
-        state = scheduler.State(state_since['state'])
-        since = state_since['since']
+        placement_node = z.path.placement(servername)
+        placement_data = self.backend.get_default(placement_node)
+        if not placement_data:
+            placement_data = {'state': 'down', 'since': time.time()}
+        state = scheduler.State(placement_data['state'])
+        since = placement_data['since']
         server.set_state(state, since)
 
         # If presence does not exist - adjust state to down.
@@ -335,10 +348,9 @@ class Loader:
             if server.state is not scheduler.State.frozen:
                 server.state = scheduler.State.up
 
-        # Record server state:
-        state, since = server.get_state()
-        self.backend.put(
-            placement_node, {'state': state.value, 'since': since})
+        # If state was adjusted - record new state.
+        if server.state is not state:
+            self._record_server_state(servername)
 
     def load_allocations(self):
         """Load allocations and assignments map."""
@@ -392,9 +404,9 @@ class Loader:
 
     def find_default_assignment(self, name):
         """Finds (creates) default assignment."""
-        alloc = self.cell.partitions[admin.DEFAULT_PARTITION].allocation
+        alloc = self.cell.partitions[_DEFAULT_PARTITION].allocation
 
-        unassigned = alloc.get_sub_alloc(admin.DEFAULT_TENANT)
+        unassigned = alloc.get_sub_alloc(_DEFAULT_TENANT)
 
         proid, _rest = name.split('.', 1)
         proid_alloc = unassigned.get_sub_alloc(proid)
@@ -447,12 +459,16 @@ class Loader:
             affinity_limits = manifest.get('affinity_limits', None)
             identity_group = manifest.get('identity_group')
             schedule_once = manifest.get('schedule_once')
+            traitz = manifest.get('traits', [])
             app = scheduler.Application(appname, priority, demand,
                                         affinity=affinity,
                                         affinity_limits=affinity_limits,
                                         identity_group=identity_group,
                                         schedule_once=schedule_once,
                                         data_retention_timeout=data_retention,
+                                        traits=traits.encode(
+                                            self.trait_codes, traitz
+                                        ),
                                         lease=lease)
 
         app.blacklisted = self._is_blacklisted(appname)
@@ -686,3 +702,7 @@ class Loader:
                 z.path.state_report(report_type),
                 reports.serialize_dataframe(report)
             )
+
+    def _record_server_state(self, servername):
+        """Record server state."""
+        pass

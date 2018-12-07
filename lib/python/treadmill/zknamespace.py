@@ -7,8 +7,7 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import functools
-
-import six
+import hashlib
 
 ALLOCATIONS = '/allocations'
 APPGROUPS = '/app-groups'
@@ -39,6 +38,8 @@ SCHEDULED_STATS = '/scheduled-stats'
 SCHEDULER = '/scheduler'
 SERVERS = '/servers'
 SERVER_PRESENCE = '/server.presence'
+SERVER_TRACE = '/server-trace'
+SERVER_TRACE_HISTORY = '/server-trace.history'
 STATE_REPORTS = '/reports'
 STRATEGIES = '/strategies'
 TICKET_LOCKER = '/ticket-locker'
@@ -54,6 +55,7 @@ WARPGATE = '/warpgate'
 ZOOKEEPER = '/zookeeper'
 
 TRACE_SHARDS_COUNT = 256
+SERVER_TRACE_SHARDS_COUNT = 256
 
 
 def join_zookeeper_path(root, *child):
@@ -68,19 +70,23 @@ def make_path_f(zkpath):
     return staticmethod(functools.partial(join_zookeeper_path, zkpath))
 
 
-@staticmethod
-def _path_trace_shard(shard_id):
-    """Returns path of a trace shard.
-    """
-    shard = '{:04X}'.format(int(shard_id) % TRACE_SHARDS_COUNT)
-    return '/'.join([TRACE, shard])
+def _trace_shards(trace_root, shards_count):
+    return ['/'.join([trace_root, '{:04X}'.format(idx)])
+            for idx in range(0, shards_count)]
+
+
+def _path_trace_shard(trace_root, shard, object_name, event=None):
+    if event:
+        node_name = '%s,%s' % (object_name, event)
+        return '/'.join([trace_root, shard, node_name])
+    else:
+        return '/'.join([trace_root, shard])
 
 
 def trace_shards():
     """Return list of trace shards.
     """
-    return ['/'.join([TRACE, '{:04X}'.format(idx)])
-            for idx in six.moves.range(0, TRACE_SHARDS_COUNT)]
+    return _trace_shards(TRACE, TRACE_SHARDS_COUNT)
 
 
 @staticmethod
@@ -89,11 +95,22 @@ def _path_trace(instancename, event=None):
     """
     instance_id = instancename[instancename.find('#') + 1:]
     shard = '{:04X}'.format(int(instance_id) % TRACE_SHARDS_COUNT)
-    if event:
-        nodename = '%s,%s' % (instancename, event)
-        return '/'.join([TRACE, shard, nodename])
-    else:
-        return '/'.join([TRACE, shard])
+    return _path_trace_shard(TRACE, shard, instancename, event=event)
+
+
+def server_trace_shards():
+    """Return list of server trace shards.
+    """
+    return _trace_shards(SERVER_TRACE, SERVER_TRACE_SHARDS_COUNT)
+
+
+@staticmethod
+def _path_server_trace(servername, event=None):
+    """Returns path of a trace object for given server name.
+    """
+    server_id = int(hashlib.md5(servername.encode()).hexdigest(), 16)
+    shard = '{:04X}'.format(server_id % SERVER_TRACE_SHARDS_COUNT)
+    return _path_trace_shard(SERVER_TRACE, shard, servername, event=event)
 
 
 @staticmethod
@@ -160,6 +177,8 @@ class path:  # pylint: disable=C0103
     finished_history = make_path_f(FINISHED_HISTORY)
     trace_history = make_path_f(TRACE_HISTORY)
     trace_shard = make_path_f(TRACE)
+    server_trace_history = make_path_f(SERVER_TRACE_HISTORY)
+    server_trace_shard = make_path_f(SERVER_TRACE)
     state_report = make_path_f(STATE_REPORTS)
     globals = make_path_f(GLOBALS)
 
@@ -167,3 +186,4 @@ class path:  # pylint: disable=C0103
     endpoint = _path_endpoint
     endpoint_proid = _path_endpoint_proid
     trace = _path_trace
+    server_trace = _path_server_trace

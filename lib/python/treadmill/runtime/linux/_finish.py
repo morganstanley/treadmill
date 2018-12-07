@@ -14,7 +14,6 @@ import os
 import shutil
 import socket
 
-from treadmill import appevents
 from treadmill import appcfg
 from treadmill import apphook
 from treadmill import firewall
@@ -24,9 +23,10 @@ from treadmill import plugin_manager
 from treadmill import runtime
 from treadmill import rrdutils
 from treadmill import services
+from treadmill import trace
 
 from treadmill.appcfg import abort as app_abort
-from treadmill.apptrace import events
+from treadmill.trace.app import events
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -129,7 +129,7 @@ def _post_aborted_event(tm_env, appname, aborted):
 
 def _post_oom_event(tm_env, appname):
     """Post killed event due to oom."""
-    appevents.post(
+    trace.post(
         tm_env.app_events_dir,
         events.KilledTraceEvent(
             instanceid=appname,
@@ -140,7 +140,7 @@ def _post_oom_event(tm_env, appname):
 
 def _post_exit_event(tm_env, appname, exitinfo):
     """Post finished event based on exit info."""
-    appevents.post(
+    trace.post(
         tm_env.app_events_dir,
         events.FinishedTraceEvent(
             instanceid=appname,

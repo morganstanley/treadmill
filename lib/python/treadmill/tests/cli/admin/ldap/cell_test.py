@@ -10,7 +10,6 @@ import click
 import click.testing
 import mock
 
-from treadmill import admin
 from treadmill import plugin_manager
 
 
@@ -25,23 +24,24 @@ class AdminLdapCellTest(unittest.TestCase):
         )
         self.cell_cli = self.cell_mod.init()
 
-    @mock.patch('treadmill.context.AdminContext.conn',
-                mock.Mock(return_value=admin.Admin(None, None)))
-    @mock.patch('treadmill.admin.Cell.create',
-                mock.Mock(return_value=None))
-    @mock.patch('treadmill.admin.Cell.get',
-                mock.Mock(return_value={
-                    'version': '1.0.0',
-                    'location': 'na.ny',
-                    'username': 'treadmill',
-                    'root': '/opt/treadmill',
-                    '_id': 'mycell',
-                }))
-    @mock.patch('treadmill.admin.Allocation.get',
-                mock.Mock(return_value={}))
-    def test_cell_configure(self):
+    @mock.patch('treadmill.context.AdminContext.cell')
+    @mock.patch('treadmill.context.AdminContext.allocation',
+                mock.Mock(return_value=mock.Mock(**{
+                    'get.return_value': {}
+                })))
+    def test_cell_configure(self, cell_factory):
         """test cell create
         """
+        admin_cell = cell_factory.return_value
+        admin_cell.create.return_value = None
+        admin_cell.get.return_value = {
+            'version': '1.0.0',
+            'location': 'na.ny',
+            'username': 'treadmill',
+            'root': '/opt/treadmill',
+            '_id': 'mycell',
+        }
+
         res = self.runner.invoke(
             self.cell_cli,
             [
@@ -54,7 +54,7 @@ class AdminLdapCellTest(unittest.TestCase):
             ]
         )
         self.assertEqual(res.exit_code, 0)
-        admin.Cell.create.assert_called_once_with(
+        admin_cell.create.assert_called_once_with(
             'mycell',
             {
                 'version': '1.0.0',
@@ -64,21 +64,20 @@ class AdminLdapCellTest(unittest.TestCase):
             }
         )
 
-    @mock.patch('treadmill.context.AdminContext.conn',
-                mock.Mock(return_value=admin.Admin(None, None)))
-    @mock.patch('treadmill.admin.Cell.update',
-                mock.Mock(return_value=None))
-    @mock.patch('treadmill.admin.Cell.get',
-                mock.Mock(return_value={
-                    'version': '1.0.0',
-                    'location': 'na.ny',
-                    'username': 'treadmill',
-                    'root': '/opt/treadmill',
-                    '_id': 'mycell',
-                }))
-    def test_cell_insert_new(self):
+    @mock.patch('treadmill.context.AdminContext.cell')
+    def test_cell_insert_new(self, cell_factory):
         """test cell create
         """
+        admin_cell = cell_factory.return_value
+        admin_cell.update.return_value = None
+        admin_cell.get.return_value = {
+            'version': '1.0.0',
+            'location': 'na.ny',
+            'username': 'treadmill',
+            'root': '/opt/treadmill',
+            '_id': 'mycell',
+        }
+
         res = self.runner.invoke(
             self.cell_cli,
             [
@@ -93,7 +92,7 @@ class AdminLdapCellTest(unittest.TestCase):
             ]
         )
         self.assertEqual(res.exit_code, 0)
-        admin.Cell.update.assert_called_once_with(
+        admin_cell.update.assert_called_once_with(
             'mycell',
             {
                 'masters': [{
@@ -107,22 +106,21 @@ class AdminLdapCellTest(unittest.TestCase):
             }
         )
 
-    @mock.patch('treadmill.context.AdminContext.conn',
-                mock.Mock(return_value=admin.Admin(None, None)))
-    @mock.patch('treadmill.admin.Cell.update',
-                mock.Mock(return_value=None))
-    @mock.patch('treadmill.admin.Cell.get',
-                mock.Mock(return_value={
-                    'version': '1.0.0',
-                    'location': 'na.ny',
-                    'username': 'treadmill',
-                    'root': '/opt/treadmill',
-                    '_id': 'mycell',
-                    'masters': [{'idx': '1'}],
-                }))
-    def test_cell_insert_existing(self):
+    @mock.patch('treadmill.context.AdminContext.cell')
+    def test_cell_insert_existing(self, cell_factory):
         """test cell create
         """
+        admin_cell = cell_factory.return_value
+        admin_cell.update.return_value = None
+        admin_cell.get.return_value = {
+            'version': '1.0.0',
+            'location': 'na.ny',
+            'username': 'treadmill',
+            'root': '/opt/treadmill',
+            '_id': 'mycell',
+            'masters': [{'idx': '1'}],
+        }
+
         res = self.runner.invoke(
             self.cell_cli,
             [
@@ -137,7 +135,7 @@ class AdminLdapCellTest(unittest.TestCase):
             ]
         )
         self.assertEqual(res.exit_code, 0)
-        admin.Cell.update.assert_called_once_with(
+        admin_cell.update.assert_called_once_with(
             'mycell',
             {
                 'masters': [{

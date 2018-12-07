@@ -12,14 +12,14 @@ import os
 import shutil
 
 from treadmill import appcfg
-from treadmill import appevents
 from treadmill import fs
 from treadmill import supervisor
+from treadmill import trace
 from treadmill import utils
 from treadmill import subproc
 
 from treadmill.appcfg import manifest as app_manifest
-from treadmill.apptrace import events
+from treadmill.trace.app import events
 from treadmill import runtime as app_runtime
 
 _LOGGER = logging.getLogger(__name__)
@@ -49,6 +49,8 @@ def load_runtime_manifest(tm_env, event, runtime):
     # apply runtime manipulation on manifest data
     runtime_cls = app_runtime.get_runtime_cls(runtime)
     runtime_cls.manifest(tm_env, manifest_data)
+
+    app_manifest.add_manifest_features(manifest_data, runtime_cls.name, tm_env)
     return manifest_data
 
 
@@ -150,7 +152,7 @@ def configure(tm_env, event, runtime):
         permission=0o644
     )
 
-    appevents.post(
+    trace.post(
         tm_env.app_events_dir,
         events.ConfiguredTraceEvent(
             instanceid=app.name,

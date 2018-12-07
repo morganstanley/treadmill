@@ -9,7 +9,7 @@ import logging
 import base64
 import abc
 
-import gssapi
+import gssapi  # pylint: disable=import-error
 
 from twisted.protocols import basic
 

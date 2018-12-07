@@ -10,8 +10,8 @@ import logging
 import os
 import time
 
-import click
 import kazoo
+import click
 
 import pandas as pd
 

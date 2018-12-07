@@ -9,9 +9,9 @@ from __future__ import absolute_import
 
 import logging
 
-from ldap3.core import exceptions as ldap_exceptions
+from treadmill.admin import exc as admin_exceptions
 
-from treadmill import admin
+from treadmill.admin import ldapbackend
 from treadmill import context
 
 
@@ -21,8 +21,8 @@ _LOGGER = logging.getLogger(__name__)
 def connect(uri, write_uri, ldap_suffix, user, password):
     """Connect to from parent context parameters."""
     _LOGGER.debug('Connecting to LDAP %s, %s', uri, ldap_suffix)
-    conn = admin.Admin(uri, ldap_suffix, write_uri=write_uri,
-                       user=user, password=password)
+    conn = ldapbackend.AdminLdapBackend(uri, ldap_suffix, write_uri=write_uri,
+                                        user=user, password=password)
     conn.connect()
     return conn
 
@@ -38,7 +38,7 @@ def resolve(ctx, attr):
     #                on first connection attempt, and keep resolve
     #                exception free.
     try:
-        admin_cell = admin.Cell(ctx.ldap.conn)
+        admin_cell = ctx.ldap.cell()
         cell = admin_cell.get(ctx.cell)
         scheme = cell.get('zk-auth-scheme')
         if not scheme:
@@ -57,7 +57,7 @@ def resolve(ctx, attr):
             hostports=','.join(zk_hostports),
             cell=ctx.cell
         )
-    except ldap_exceptions.LDAPNoSuchObjectResult:
+    except admin_exceptions.NoSuchObjectResult:
         exception = context.ContextError(
             'Cell {} not defined in LDAP'.format(ctx.cell)
         )

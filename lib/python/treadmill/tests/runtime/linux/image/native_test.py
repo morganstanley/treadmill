@@ -92,9 +92,10 @@ class NativeImageTest(unittest.TestCase):
     @mock.patch('os.makedev', mock.Mock(spec_set=True))
     @mock.patch('treadmill.fs.symlink_safe', mock.Mock(spec_set=True))
     @mock.patch('treadmill.fs.linux.mount_bind', mock.Mock(spec_set=True))
-    @mock.patch('treadmill.fs.linux.mount_tmpfs', mock.Mock(spec_set=True))
     @mock.patch('treadmill.fs.linux.mount_devpts', mock.Mock(spec_set=True))
     @mock.patch('treadmill.fs.linux.mount_mqueue', mock.Mock(spec_set=True))
+    @mock.patch('treadmill.fs.linux.mount_sysfs', mock.Mock(spec_set=True))
+    @mock.patch('treadmill.fs.linux.mount_tmpfs', mock.Mock(spec_set=True))
     def test_make_fsroot(self):
         """Validates directory layout in chrooted environment."""
         native.make_fsroot(self.root, self.app)
@@ -166,6 +167,7 @@ class NativeImageTest(unittest.TestCase):
             ]
         )
 
+        treadmill.fs.linux.mount_sysfs.assert_called_once_with(self.root)
         self.assertEqual(
             treadmill.fs.linux.mount_tmpfs.call_args_list,
             [
@@ -188,10 +190,17 @@ class NativeImageTest(unittest.TestCase):
         treadmill.fs.linux.mount_mqueue.assert_called_once_with(
             self.root, '/dev/mqueue'
         )
-        treadmill.fs.linux.mount_bind.assert_has_calls([
-            mock.call(self.root, '/dev/log', read_only=False),
-            mock.call(self.root, '/bin', read_only=True, recursive=True)
-        ])
+        treadmill.fs.linux.mount_bind.assert_has_calls(
+            [
+                mock.call(self.root, '/dev/log',
+                          read_only=False),
+                mock.call(self.root, '/bin',
+                          read_only=True, recursive=True),
+                mock.call(self.root, '/sys/fs',
+                          read_only=False, recursive=True),
+            ],
+            any_order=True
+        )
 
     @mock.patch('pwd.getpwnam', mock.Mock(
         return_value=namedtuple(
