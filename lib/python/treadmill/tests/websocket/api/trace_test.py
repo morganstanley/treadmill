@@ -10,14 +10,13 @@ import unittest
 
 import jsonschema
 import mock
-import six
 
-from treadmill.apptrace import events
+from treadmill.trace.app import events
 from treadmill.websocket.api import trace
 
 
-class WSRunningAPITest(unittest.TestCase):
-    """Tests for running websocket API."""
+class WSTraceAPITest(unittest.TestCase):
+    """Tests for trace websocket API."""
 
     def setUp(self):
         self.api = trace.TraceAPI()
@@ -48,9 +47,8 @@ class WSRunningAPITest(unittest.TestCase):
             [('/trace/*', 'foo.*#*,*')]
         )
 
-        with six.assertRaisesRegex(self,
-                                   jsonschema.exceptions.ValidationError,
-                                   r"'\*' is not valid"):
+        with self.assertRaisesRegex(jsonschema.exceptions.ValidationError,
+                                    r"'\*' is not valid"):
             self.api.subscribe({'topic': '/trace',
                                 'filter': '*'})
 
@@ -66,15 +64,13 @@ class WSRunningAPITest(unittest.TestCase):
             [('/trace/*', 'foo@bar.baz#1234,*')]
         )
 
-        with six.assertRaisesRegex(self,
-                                   jsonschema.exceptions.ValidationError,
-                                   r"'\*@\*' is not valid"):
+        with self.assertRaisesRegex(jsonschema.exceptions.ValidationError,
+                                    r"'\*@\*' is not valid"):
             self.api.subscribe({'topic': '/trace',
                                 'filter': '*@*'})
 
-        with six.assertRaisesRegex(self,
-                                   jsonschema.exceptions.ValidationError,
-                                   r"'\*@\*\.\*' is not valid"):
+        with self.assertRaisesRegex(jsonschema.exceptions.ValidationError,
+                                    r"'\*@\*\.\*' is not valid"):
             self.api.subscribe({'topic': '/trace',
                                 'filter': '*@*.*'})
 
@@ -87,14 +83,13 @@ class WSRunningAPITest(unittest.TestCase):
             [('/trace/*', 'foo.bar#1234,*')]
         )
 
-        with six.assertRaisesRegex(self,
-                                   jsonschema.exceptions.ValidationError,
-                                   "'invalid' does not match"):
+        with self.assertRaisesRegex(jsonschema.exceptions.ValidationError,
+                                    "'invalid' does not match"):
             self.api.subscribe({'sub-id': 'invalid',
                                 'topic': '/trace',
                                 'filter': 'foo.bar#1234'})
 
-    @mock.patch('treadmill.apptrace.events.AppTraceEvent',
+    @mock.patch('treadmill.trace.app.events.AppTraceEvent',
                 mock.Mock(set_spec=True))
     def test_on_event(self):
         """Tests payload generation."""

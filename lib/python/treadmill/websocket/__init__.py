@@ -280,7 +280,7 @@ class DirWatchPubSub:
             when = time.time()
             content = None
         else:
-            if '/trace/' in path:
+            if '/trace/' in path or '/server-trace/' in path:
                 # Specialized handling of trace files (no need to stat/read).
                 # If file was already deleted (trace cleanup), don't ignore it.
                 _, timestamp, _ = filename.split(',', 2)

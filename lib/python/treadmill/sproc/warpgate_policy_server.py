@@ -1,4 +1,4 @@
-"""Warpgate policy server.
+"""Warpgate policy server CLI.
 """
 
 from __future__ import absolute_import
@@ -7,59 +7,15 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import logging
-import random
+import socket
 
 import click
-from twisted.internet import protocol
-from twisted.internet import reactor
 
-from treadmill import context
-from treadmill import sysinfo
-from treadmill import zknamespace as z
-from treadmill import zkutils
-from treadmill.gssapiprotocol import jsonserver
+from treadmill import cli
+from treadmill.warpgate import policy_server
 
 
 _LOGGER = logging.getLogger(__name__)
-
-
-class WarpgatePolicyServer(jsonserver.GSSAPIJsonServer):
-    """Warpgate policy server."""
-
-    def on_request(self, request):
-        """Process policy request."""
-        # TODO: this is stub, request is unused.
-        del request
-
-        peer = self.peer()
-        # Stub response.
-        return {
-            'warpgate': {
-                'peer': peer,
-                'session': random.randint(0, 1024)
-            }
-        }
-
-
-class WarpgatePolicyServerFactory(protocol.Factory):
-    """Warpgate policy server factory."""
-
-    def buildProtocol(self, addr):  # pylint: disable=C0103
-        return WarpgatePolicyServer()
-
-
-def _register_endpoint(zkclient, port):
-    """Register policy server endpoint in Zookeeper."""
-    hostname = sysinfo.hostname()
-    zkclient.ensure_path(z.path.warpgate())
-
-    node_path = z.path.warpgate('%s:%s' % (hostname, port))
-    _LOGGER.info('registering locker: %s', node_path)
-    if zkclient.exists(node_path):
-        _LOGGER.info('removing previous node %s', node_path)
-        zkutils.ensure_deleted(zkclient, node_path)
-
-    zkutils.put(zkclient, node_path, {}, acl=None, ephemeral=True)
 
 
 def init():
@@ -67,18 +23,32 @@ def init():
 
     @click.command()
     @click.option('--port', type=int, help='Port to listen.', default=0)
-    @click.option('--register', is_flag=True, default=False,
-                  help='Register warpgate endpoint in Zookeeper.')
-    def warpgate_policy_server(port, register):
+    @click.option('--tun-dev', type=str, required=True,
+                  help='Device to use when establishing tunnels.')
+    @click.option('--tun-addr', type=str, required=False,
+                  help='Local IP address to use when establishing tunnels.')
+    @click.option('--tun-cidrs', type=cli.LIST, required=True,
+                  help='CIDRs block assigned to the tunnels.')
+    @click.option('--policies-dir', type=str, required=True,
+                  help='Directory where to look for policies')
+    @click.option('--state-dir', type=str, required=False,
+                  default='/var/run/warpgate',
+                  help='Directory where running state is kept')
+    def warpgate_policy_server(port, tun_dev, tun_addr, tun_cidrs,
+                               policies_dir, state_dir):
         """Run warpgate policy server."""
 
-        real_port = reactor.listenTCP(
-            port, WarpgatePolicyServerFactory()).getHost().port
-        _LOGGER.info('Starting warpgate policy server on port: %s', real_port)
-
-        if register:
-            _register_endpoint(context.GLOBAL.zk.conn, real_port)
-
-        reactor.run()
+        myhostname = socket.getfqdn()
+        policy_server.run_server(
+            admin_address=myhostname,
+            admin_port=port,
+            tun_devname=tun_dev,
+            tun_address=(
+                tun_addr if tun_addr else socket.gethostbyname(myhostname)
+            ),
+            tun_cidrs=tun_cidrs,
+            policies_dir=policies_dir,
+            state_dir=state_dir
+        )
 
     return warpgate_policy_server

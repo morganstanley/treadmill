@@ -8,7 +8,7 @@ import unittest
 
 import mock
 
-from treadmill import admin
+import treadmill
 from treadmill.api import tenant
 
 
@@ -21,33 +21,33 @@ class ApiTenantTest(unittest.TestCase):
     def tearDown(self):
         pass
 
-    @mock.patch('treadmill.context.AdminContext.conn',
-                mock.Mock(return_value=admin.Admin(None, None)))
-    @mock.patch('treadmill.admin.Tenant.list', mock.Mock(return_value=[]))
+    @mock.patch('treadmill.context.AdminContext.tenant',
+                mock.Mock(return_value=mock.Mock()))
     def test_list(self):
         """Dummy test for treadmill.api.tenant._list()"""
+        tnt_admin = treadmill.context.AdminContext.tenant.return_value
+        tnt_admin.list.return_value = []
         self.tnt.list()
-        tnt_admin = admin.Tenant(None)
         self.assertTrue(tnt_admin.list.called)
 
-    @mock.patch('treadmill.context.AdminContext.conn',
-                mock.Mock(return_value=admin.Admin(None, None)))
-    @mock.patch('treadmill.admin.Tenant.get',
-                mock.Mock(return_value={'tenant': '111'}))
+    @mock.patch('treadmill.context.AdminContext.tenant',
+                mock.Mock(return_value=mock.Mock(**{
+                    'get.return_value': {'tenant': '111'}
+                })))
     def test_get(self):
         """Dummy test for treadmill.api.tenant.get()"""
-        tnt_admin = admin.Tenant(None)
+        tnt_admin = treadmill.context.AdminContext.tenant.return_value
         self.tnt.get('some_tenant')
         tnt_admin.get.assert_called_with('some_tenant')
 
-    @mock.patch('treadmill.context.AdminContext.conn',
-                mock.Mock(return_value=admin.Admin(None, None)))
-    @mock.patch('treadmill.admin.Tenant.get',
-                mock.Mock(return_value={'tenant': '111'}))
-    @mock.patch('treadmill.admin.Tenant.create', mock.Mock())
+    @mock.patch('treadmill.context.AdminContext.tenant',
+                mock.Mock(return_value=mock.Mock(**{
+                    'get.return_value': {'tenant': '111'},
+                    'create.return_value': mock.Mock()
+                })))
     def test_create(self):
         """Dummy test for treadmill.api.tenant.create()"""
-        tnt_admin = admin.Tenant(None)
+        tnt_admin = treadmill.context.AdminContext.tenant.return_value
         self.tnt.create('some_tenant', {'systems': [1, 2, 3]})
         tnt_admin.get.assert_called_with('some_tenant', dirty=True)
 

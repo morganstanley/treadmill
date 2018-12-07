@@ -10,8 +10,8 @@ import logging
 
 import fnmatch
 
-import six
 import kazoo
+import six
 
 from treadmill import context
 from treadmill import utils

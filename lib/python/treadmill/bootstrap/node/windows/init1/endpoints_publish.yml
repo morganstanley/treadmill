@@ -1,0 +1,7 @@
+command: >
+  {{ treadmill }}\scripts\treadmill sproc publish-endpoints --approot {{ dir }}
+monitor_policy:
+  limit: 5
+  interval: 60
+  tombstone:
+    path: "{{ dir }}/tombstones/init"

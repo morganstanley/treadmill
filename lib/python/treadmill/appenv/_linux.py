@@ -32,7 +32,6 @@ class LinuxAppEnvironment(appenv.AppEnvironment):
     __slots__ = (
         'ctl_dir',
         'endpoints',
-        'endpoints_dir',
         'metrics_dir',
         'mounts_dir',
         'rules',
@@ -62,14 +61,12 @@ class LinuxAppEnvironment(appenv.AppEnvironment):
     RULES_DIR = 'rules'
     CTL_DIR = 'ctl'
     SERVICES_DIR = 'services'
-    ENDPOINTS_DIR = 'endpoints'
 
     def __init__(self, root):
 
         super(LinuxAppEnvironment, self).__init__(root)
 
         self.ctl_dir = os.path.join(self.root, self.CTL_DIR)
-        self.endpoints_dir = os.path.join(self.root, self.ENDPOINTS_DIR)
         self.metrics_dir = os.path.join(self.root, self.METRICS_DIR)
         self.mounts_dir = os.path.join(self.root, self.MOUNTS_DIR)
         self.rules_dir = os.path.join(self.root, self.RULES_DIR)

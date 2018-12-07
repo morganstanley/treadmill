@@ -621,6 +621,22 @@ class NodeTest(unittest.TestCase):
         self.assertIn(apps_a[0].name, srv_a.apps)
         self.assertIn(apps_a[1].name, srv_a.apps)
 
+        apps_b = app_list(10, 'app_b', 50, [2, 2], traits=_traits2int(['b']))
+
+        # srv_b is the only one with trait  'b'.
+        self.assertTrue(top.put(apps_b[0]))
+        self.assertTrue(top.put(apps_b[1]))
+        self.assertIn(apps_b[0].name, srv_b.apps)
+        self.assertIn(apps_b[1].name, srv_b.apps)
+
+        apps_ab = app_list(10, 'app_ab', 50, [2, 2], traits=_traits2int(['b']))
+        for app in apps_ab:
+            alloc_a.add(app)
+
+        # there is no server with both 'a' and 'b' traits.
+        self.assertFalse(top.put(apps_ab[0]))
+        self.assertFalse(top.put(apps_ab[1]))
+
         alloc_0 = scheduler.Allocation(traits=_traits2int(['0']))
         apps_0 = app_list(10, 'app_0', 50, [2, 2])
         for app in apps_0:
@@ -631,6 +647,16 @@ class NodeTest(unittest.TestCase):
         self.assertTrue(top.put(apps_0[1]))
         self.assertIn(apps_0[0].name, srv_a.apps)
         self.assertIn(apps_0[1].name, srv_b.apps)
+
+        apps_a0 = app_list(10, 'app_a0', 50, [2, 2], traits=_traits2int(['a']))
+        for app in apps_a0:
+            alloc_0.add(app)
+
+        # srv_a is the only one with traits 'a' and '0'.
+        self.assertTrue(top.put(apps_a0[0]))
+        self.assertTrue(top.put(apps_a0[1]))
+        self.assertIn(apps_a0[0].name, srv_a.apps)
+        self.assertIn(apps_a0[1].name, srv_a.apps)
 
         # Prev implementation propagated traits from parent to children,
         # so "right" trait propagated to leaf servers.

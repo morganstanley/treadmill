@@ -8,8 +8,8 @@ import logging
 import re
 import time
 
-import click
 import kazoo
+import click
 
 from treadmill import cli
 from treadmill import context

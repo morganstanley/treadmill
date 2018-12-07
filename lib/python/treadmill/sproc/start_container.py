@@ -15,11 +15,11 @@ import click
 from treadmill import subproc
 from treadmill.fs import linux as fs_linux
 from treadmill import pivot_root
+from treadmill import trace
 
-from treadmill.appevents import uds
 from treadmill.appcfg import abort as app_abort
 from treadmill.appcfg import manifest as app_manifest
-from treadmill.apptrace import events as traceevents
+from treadmill.trace.app import events as traceevents
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -29,12 +29,12 @@ def _abort(event, container_root):
     pivot_root success but mount failure afterwars
     pivot_root fails directly
     """
-    if uds.post_ipc(event) == 0:
+    if trace.post_ipc('/run/tm_ctl/appevents', event) == 0:
         _LOGGER.warning(
             'Failed to post abort event to socket in new root, trying old path'
         )
         old_uds = os.path.join(container_root, 'run/tm_ctl/appevents')
-        uds.post_ipc(event, uds=old_uds)
+        trace.post_ipc(old_uds, event)
 
 
 def init():

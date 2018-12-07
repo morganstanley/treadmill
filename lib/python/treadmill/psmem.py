@@ -15,13 +15,14 @@ import io
 import logging
 import os
 import sys
+import mmap
 
 from treadmill import sysinfo
 
 _LOGGER = logging.getLogger(__name__)
 
 # Pagesize in K.
-_PAGESIZE = os.sysconf(os.sysconf_names['SC_PAGE_SIZE']) // 1024
+_PAGESIZE = mmap.PAGESIZE // 1024
 
 _KERNEL_VER = sysinfo.kernel_ver()
 

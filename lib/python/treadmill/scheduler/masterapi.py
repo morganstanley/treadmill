@@ -12,11 +12,11 @@ import os
 import kazoo
 import six
 
-from treadmill import appevents
+from treadmill import trace
 from treadmill import zknamespace as z
 from treadmill import zkutils
 
-from treadmill.apptrace import events as traceevents
+from treadmill.trace.app import events as app_events
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -59,9 +59,9 @@ def create_apps(zkclient, app_id, app, count, created_by=None):
         instance_id = os.path.basename(node_path)
         instance_ids.append(instance_id)
 
-        appevents.post_zk(
+        trace.post_zk(
             zkclient,
-            traceevents.PendingTraceEvent(
+            app_events.PendingTraceEvent(
                 instanceid=instance_id,
                 why='%s:created' % created_by if created_by else 'created',
                 payload=''
@@ -76,9 +76,9 @@ def delete_apps(zkclient, app_ids, deleted_by=None):
     for app_id in app_ids:
         zkutils.ensure_deleted(zkclient, _app_node(app_id))
 
-        appevents.post_zk(
+        trace.post_zk(
             zkclient,
-            traceevents.PendingDeleteTraceEvent(
+            app_events.PendingDeleteTraceEvent(
                 instanceid=app_id,
                 why='%s:deleted' % deleted_by if deleted_by else 'deleted'
             )

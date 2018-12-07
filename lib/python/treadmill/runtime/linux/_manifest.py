@@ -6,6 +6,7 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
+import copy
 import logging
 import shlex
 
@@ -45,6 +46,8 @@ def _get_docker_run_cmd(name, image,
         ('/var/spool', '/var/spool', 'rw'),
         ('/var/tmp', '/var/tmp', 'rw'),
         ('/docker/etc/hosts', '/etc/hosts', 'ro'),
+        ('/docker/etc/passwd', '/etc/passwd', 'ro'),
+        ('/docker/etc/group', '/etc/group', 'ro'),
         ('/env', '/env', 'ro'),
         (treadmill_bind, TREADMILL_BIND_PATH, 'ro'),
     ]
@@ -99,6 +102,9 @@ def _transform_services(manifest):
             # TODO: Implement use_shell=False for standard commands.
             cmd = service['command']
 
+        service_env = copy.copy(manifest['environ'])
+        service_env.extend(service.get('environ', []))
+
         services.append(
             {
                 'name': service['name'],
@@ -112,7 +118,7 @@ def _transform_services(manifest):
                     'root' if service.get('root', False)
                     else manifest['proid']
                 ),
-                'environ': manifest['environ'],
+                'environ': service_env,
                 'config': None,
                 'downed': service.get('downed', False),
                 'trace': True,

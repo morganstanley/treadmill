@@ -9,10 +9,9 @@ from __future__ import unicode_literals
 from collections import defaultdict
 import logging
 
-from ldap3.core import exceptions as ldap_exceptions
 import six
 
-from treadmill import admin
+from treadmill.admin import exc as admin_exceptions
 from treadmill import context
 from treadmill import exc
 from treadmill import schema
@@ -22,7 +21,8 @@ from treadmill import plugin_manager
 _LOGGER = logging.getLogger(__name__)
 
 _DEFAULT_RANK = 100
-_DEFAULT_PARTITION = admin.DEFAULT_PARTITION
+_DEFAULT_PARTITION = '_default'
+_DEFAULT_PRIORITY = 1
 
 
 def _set_auth_resource(cls, resource):
@@ -51,64 +51,118 @@ def _reservation_list(allocs, cell_allocs):
 def _admin_partition():
     """Lazily return admin partition object.
     """
-    return admin.Partition(context.GLOBAL.ldap.conn)
+    return context.GLOBAL.admin.partition()
 
 
 def _admin_cell_alloc():
     """Lazily return admin cell allocation object.
     """
-    return admin.CellAllocation(context.GLOBAL.ldap.conn)
+    return context.GLOBAL.admin.cell_allocation()
 
 
-def _partition_free(partition, cell):
+def _partition_get(partition, cell):
     """Calculate free capacity for given partition.
     """
     try:
-        part_obj = _admin_partition().get([partition, cell])
-    except ldap_exceptions.LDAPNoSuchObjectResult:
+        return _admin_partition().get([partition, cell])
+    except admin_exceptions.NoSuchObjectResult:
         # pretend partition has zero capacity
-        part_obj = {'cpu': '0%', 'memory': '0G', 'disk': '0G'}
-
-    allocs = _admin_cell_alloc().list({'cell': cell, 'partition': partition})
-
-    cpu = utils.cpu_units(part_obj['cpu'])
-    memory = utils.size_to_bytes(part_obj['memory'])
-    disk = utils.size_to_bytes(part_obj['disk'])
-
-    for alloc in allocs:
-        cpu -= utils.cpu_units(alloc['cpu'])
-        memory -= utils.size_to_bytes(alloc['memory'])
-        disk -= utils.size_to_bytes(alloc['disk'])
-
-    return {'cpu': cpu, 'memory': memory, 'disk': disk}
+        return {'cpu': '0%', 'memory': '0G', 'disk': '0G', 'limits': []}
 
 
 def _check_capacity(cell, allocation, rsrc):
-    """Check that there is enough free space for the allocation.
     """
-    try:
-        old = _admin_cell_alloc().get([cell, allocation])
-        if old['partition'] != rsrc['partition']:
-            old = {'cpu': '0%', 'memory': '0G', 'disk': '0G'}
-    except ldap_exceptions.LDAPNoSuchObjectResult:
-        old = {'cpu': '0%', 'memory': '0G', 'disk': '0G'}
+    """
+    partition = rsrc['partition']
+    allocs = _admin_cell_alloc().list({'cell': cell, 'partition': partition})
+    part_obj = _partition_get(partition, cell)
+    old_id = '{0}/{1}'.format(allocation, cell)
 
-    free = _partition_free(rsrc['partition'], cell)
+    # check overall allocation limit first
+    free_overall = _calc_free(part_obj, allocs, old_id)
+    _check_limit(free_overall, rsrc)
 
-    if (free['cpu'] + utils.cpu_units(old['cpu']) <
-            utils.cpu_units(rsrc['cpu'])):
+    # get applicable allocation limits by trait
+    limits = [
+        limit
+        for limit in part_obj['limits']
+        if limit['trait'] in rsrc['traits']
+    ]
+
+    # check trait based allocation limits
+    free_by_trait = _calc_free_traits(limits, allocs, old_id)
+    for limit in limits:
+        _check_limit(
+            free_by_trait[limit['trait']],
+            rsrc,
+            ' (trait: %s)' % limit['trait']
+        )
+
+
+def _check_limit(limit, request, extra_info=''):
+    """Check capacity limit for reqested allocation.
+    """
+    if utils.cpu_units(request['cpu']) > limit['cpu']:
         raise exc.InvalidInputError(
-            __name__, 'Not enough cpu capacity in partition.')
+            __name__, 'Not enough cpu capacity in partition.' + extra_info)
 
-    if (free['memory'] + utils.size_to_bytes(old['memory']) <
-            utils.size_to_bytes(rsrc['memory'])):
+    if utils.size_to_bytes(request['disk']) > limit['disk']:
         raise exc.InvalidInputError(
-            __name__, 'Not enough memory capacity in partition.')
+            __name__, 'Not enough disk capacity in partition.' + extra_info)
 
-    if (free['disk'] + utils.size_to_bytes(old['disk']) <
-            utils.size_to_bytes(rsrc['disk'])):
+    if utils.size_to_bytes(request['memory']) > limit['memory']:
         raise exc.InvalidInputError(
-            __name__, 'Not enough disk capacity in partition.')
+            __name__, 'Not enough memory capacity in partition.' + extra_info)
+
+
+def _calc_free(limit, allocs, old_id):
+    """Calculate free capacity in partition.
+
+    Note: allocation with old_id is not counted.
+    """
+    free = {
+        'cpu': utils.cpu_units(limit['cpu']),
+        'disk': utils.size_to_bytes(limit['disk']),
+        'memory': utils.size_to_bytes(limit['memory']),
+    }
+
+    for alloc in allocs:
+        # skip allocation with old_id
+        if alloc['_id'] == old_id:
+            continue
+
+        free['cpu'] -= utils.cpu_units(alloc['cpu'])
+        free['disk'] -= utils.size_to_bytes(alloc['disk'])
+        free['memory'] -= utils.size_to_bytes(alloc['memory'])
+
+    return free
+
+
+def _calc_free_traits(limits, allocs, old_id):
+    """Calculate free capacity in partition by trait.
+
+    Note: allocation with old_id is not counted.
+    """
+    free = {}
+    for limit in limits:
+        free[limit['trait']] = {
+            'cpu': utils.cpu_units(limit['cpu']),
+            'disk': utils.size_to_bytes(limit['disk']),
+            'memory': utils.size_to_bytes(limit['memory']),
+        }
+
+    for alloc in allocs:
+        # skip allocation with old_id
+        if alloc['_id'] == old_id:
+            continue
+
+        for trait in alloc['traits']:
+            if trait in free:
+                free[trait]['cpu'] -= utils.cpu_units(alloc['cpu'])
+                free[trait]['disk'] -= utils.size_to_bytes(alloc['cpu'])
+                free[trait]['memory'] -= utils.size_to_bytes(alloc['cpu'])
+
+    return free
 
 
 def _api_plugins(plugins):
@@ -136,12 +190,12 @@ class API:
         def _admin_alloc():
             """Lazily return admin allocation object.
             """
-            return admin.Allocation(context.GLOBAL.ldap.conn)
+            return context.GLOBAL.admin.allocation()
 
         def _admin_tnt():
             """Lazily return admin tenant object.
             """
-            return admin.Tenant(context.GLOBAL.ldap.conn)
+            return context.GLOBAL.admin.tenant()
 
         def _list(tenant_id=None):
             """List allocations.
@@ -237,14 +291,22 @@ class API:
                                {'$ref': 'reservation.json#/verbs/create'}]}
                 )
                 def update(rsrc_id, rsrc):
-                    """Create reservation.
+                    """Update reservation.
                     """
                     allocation, cell = rsrc_id.rsplit('/', 1)
                     _check_capacity(cell, allocation, rsrc)
-                    _admin_cell_alloc().update([cell, allocation], rsrc)
-                    return _admin_cell_alloc().get(
+                    admin_cell_alloc = _admin_cell_alloc()
+
+                    cell_alloc = admin_cell_alloc.get(
                         [cell, allocation], dirty=True
                     )
+                    _LOGGER.debug('Old reservation: %r', cell_alloc)
+
+                    cell_alloc.update(rsrc)
+                    _LOGGER.debug('New reservation: %r', cell_alloc)
+
+                    admin_cell_alloc.update([cell, allocation], cell_alloc)
+                    return cell_alloc
 
                 @schema.schema({'$ref': 'reservation.json#/resource_id'})
                 def delete(rsrc_id):
@@ -285,7 +347,7 @@ class API:
                     """Create assignment.
                     """
                     allocation, cell, pattern = rsrc_id.rsplit('/', 2)
-                    priority = rsrc.get('priority', 0)
+                    priority = rsrc.get('priority', _DEFAULT_PRIORITY)
                     _admin_cell_alloc().create(
                         [cell, allocation],
                         {'assignments': [{'pattern': pattern,
@@ -309,7 +371,7 @@ class API:
                     priority = rsrc.get('priority', 0)
 
                     assignments = admin_cell_alloc.get(
-                        [cell, allocation]
+                        [cell, allocation], dirty=True
                     ).get('assignments', [])
 
                     assignment_attrs = {'priority': priority}
@@ -337,7 +399,7 @@ class API:
                     allocation, cell, pattern = rsrc_id.rsplit('/', 2)
 
                     assignments = admin_cell_alloc.get(
-                        [cell, allocation]
+                        [cell, allocation], dirty=True
                     ).get('assignments', [])
 
                     new_assignments = [

@@ -101,4 +101,6 @@ exec \
     ${IONICE} -c2 -n0 \
     ${PID1} -m -p --propagation slave \
     ${ENVDIR} "{{ dir }}/env" \
-    {{ treadmill }}/bin/treadmill sproc boot
+    {{ treadmill }}/bin/treadmill sproc \
+    --root-cgroup {{ treadmill_root_cgroup }} \
+    boot

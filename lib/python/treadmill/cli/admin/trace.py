@@ -11,7 +11,7 @@ import click
 from treadmill import context
 
 from treadmill import cli
-from treadmill.apptrace import (zk, printer)
+from treadmill.trace.app import (zk, printer)
 
 
 def init():
@@ -56,10 +56,10 @@ def init():
         else:
             instance_id = app
 
-        trace = zk.AppTrace(
+        trace = zk.AppTraceLoop(
             context.GLOBAL.zk.conn,
             instance_id,
-            callback=printer.AppTracePrinter()
+            event_handler=printer.AppTracePrinter()
         )
 
         trace.run(snapshot=snapshot)

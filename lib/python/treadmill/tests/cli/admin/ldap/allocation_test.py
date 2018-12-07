@@ -10,7 +10,7 @@ import click
 import click.testing
 import mock
 
-from treadmill import admin
+import treadmill
 from treadmill import plugin_manager
 
 
@@ -25,19 +25,22 @@ class AdminLdapAllocationTest(unittest.TestCase):
         )
         self.alloc_cli = self.alloc_mod.init()
 
-    @mock.patch('treadmill.context.AdminContext.conn',
-                mock.Mock(return_value=admin.Admin(None, None)))
-    @mock.patch('treadmill.admin.CellAllocation.update',
-                mock.Mock(return_value=None))
-    @mock.patch('treadmill.admin.CellAllocation.get',
-                mock.Mock(return_value={
-                    'assignments': [{'pattern': 'foo.bar*', 'priority': 1}]
-                }))
-    @mock.patch('treadmill.admin.Allocation.get',
-                mock.Mock(return_value={}))
+    @mock.patch('treadmill.context.AdminContext.cell_allocation',
+                mock.Mock(return_value=mock.Mock(**{
+                    'update.return_value': None,
+                    'get.return_value': {
+                        'assignments': [{'pattern': 'foo.bar*', 'priority': 1}]
+                    },
+                })))
+    @mock.patch('treadmill.context.AdminContext.allocation',
+                mock.Mock(return_value=mock.Mock(**{
+                    'get.return_value': {},
+                })))
     def test_assign_update(self):
         """Test updating assignment, append assignment to existing assignments.
         """
+        ca_admin = treadmill.context.AdminContext.cell_allocation.return_value
+
         res = self.runner.invoke(
             self.alloc_cli,
             [
@@ -50,7 +53,7 @@ class AdminLdapAllocationTest(unittest.TestCase):
         )
 
         self.assertEqual(res.exit_code, 0)
-        admin.CellAllocation.update.assert_called_once_with(
+        ca_admin.update.assert_called_once_with(
             ['cell', 'test/dev'],
             {
                 'assignments': [
@@ -60,17 +63,20 @@ class AdminLdapAllocationTest(unittest.TestCase):
             }
         )
 
-    @mock.patch('treadmill.context.AdminContext.conn',
-                mock.Mock(return_value=admin.Admin(None, None)))
-    @mock.patch('treadmill.admin.CellAllocation.update',
-                mock.Mock(return_value=None))
-    @mock.patch('treadmill.admin.CellAllocation.get',
-                mock.Mock(return_value={'cell': 'cell'}))
-    @mock.patch('treadmill.admin.Allocation.get',
-                mock.Mock(return_value={}))
+    @mock.patch('treadmill.context.AdminContext.cell_allocation',
+                mock.Mock(return_value=mock.Mock(**{
+                    'update.return_value': None,
+                    'get.return_value': {'cell': 'cell'},
+                })))
+    @mock.patch('treadmill.context.AdminContext.allocation',
+                mock.Mock(return_value=mock.Mock(**{
+                    'get.return_value': {},
+                })))
     def test_assign_update_empty(self):
         """Test updating assignment, append assignment to empty cell alloc.
         """
+        ca_admin = treadmill.context.AdminContext.cell_allocation.return_value
+
         res = self.runner.invoke(
             self.alloc_cli,
             [
@@ -83,24 +89,27 @@ class AdminLdapAllocationTest(unittest.TestCase):
         )
 
         self.assertEqual(res.exit_code, 0)
-        admin.CellAllocation.update.assert_called_once_with(
+        ca_admin.update.assert_called_once_with(
             ['cell', 'test/dev'],
             {'assignments': [{'pattern': 'foo.bar*', 'priority': 1}]}
         )
 
-    @mock.patch('treadmill.context.AdminContext.conn',
-                mock.Mock(return_value=admin.Admin(None, None)))
-    @mock.patch('treadmill.admin.CellAllocation.update',
-                mock.Mock(return_value=None))
-    @mock.patch('treadmill.admin.CellAllocation.get',
-                mock.Mock(return_value={
-                    'assignments': [{'pattern': 'foo.bar*', 'priority': 1}]
-                }))
-    @mock.patch('treadmill.admin.Allocation.get',
-                mock.Mock(return_value={}))
+    @mock.patch('treadmill.context.AdminContext.cell_allocation',
+                mock.Mock(return_value=mock.Mock(**{
+                    'update.return_value': None,
+                    'get.return_value': {
+                        'assignments': [{'pattern': 'foo.bar*', 'priority': 1}]
+                    },
+                })))
+    @mock.patch('treadmill.context.AdminContext.allocation',
+                mock.Mock(return_value=mock.Mock(**{
+                    'get.return_value': {},
+                })))
     def test_assign_update_priority(self):
         """Test updating assignment, update priority of an existing assignment.
         """
+        ca_admin = treadmill.context.AdminContext.cell_allocation.return_value
+
         res = self.runner.invoke(
             self.alloc_cli,
             [
@@ -113,27 +122,30 @@ class AdminLdapAllocationTest(unittest.TestCase):
         )
 
         self.assertEqual(res.exit_code, 0)
-        admin.CellAllocation.update.assert_called_once_with(
+        ca_admin.update.assert_called_once_with(
             ['cell', 'test/dev'],
             {'assignments': [{'pattern': 'foo.bar*', 'priority': 100}]}
         )
 
-    @mock.patch('treadmill.context.AdminContext.conn',
-                mock.Mock(return_value=admin.Admin(None, None)))
-    @mock.patch('treadmill.admin.CellAllocation.update',
-                mock.Mock(return_value=None))
-    @mock.patch('treadmill.admin.CellAllocation.get',
-                mock.Mock(return_value={
-                    'assignments': [
-                        {'pattern': 'foo.bar*', 'priority': 1},
-                        {'pattern': 'foo.baz*', 'priority': 1},
-                    ]
-                }))
-    @mock.patch('treadmill.admin.Allocation.get',
-                mock.Mock(return_value={}))
+    @mock.patch('treadmill.context.AdminContext.cell_allocation',
+                mock.Mock(return_value=mock.Mock(**{
+                    'update.return_value': None,
+                    'get.return_value': {
+                        'assignments': [
+                            {'pattern': 'foo.bar*', 'priority': 1},
+                            {'pattern': 'foo.baz*', 'priority': 1},
+                        ]
+                    },
+                })))
+    @mock.patch('treadmill.context.AdminContext.allocation',
+                mock.Mock(return_value=mock.Mock(**{
+                    'get.return_value': {},
+                })))
     def test_assign_delete(self):
         """Test deleting assignment.
         """
+        ca_admin = treadmill.context.AdminContext.cell_allocation.return_value
+
         res = self.runner.invoke(
             self.alloc_cli,
             [
@@ -147,7 +159,7 @@ class AdminLdapAllocationTest(unittest.TestCase):
         )
 
         self.assertEqual(res.exit_code, 0)
-        admin.CellAllocation.update.assert_called_once_with(
+        ca_admin.update.assert_called_once_with(
             ['cell', 'test/dev'],
             {
                 'assignments': [
@@ -156,22 +168,25 @@ class AdminLdapAllocationTest(unittest.TestCase):
             }
         )
 
-    @mock.patch('treadmill.context.AdminContext.conn',
-                mock.Mock(return_value=admin.Admin(None, None)))
-    @mock.patch('treadmill.admin.Allocation.get',
-                mock.Mock(return_value={}))
-    @mock.patch('treadmill.admin.CellAllocation.update',
-                mock.Mock(return_value=None))
-    @mock.patch('treadmill.admin.CellAllocation.get',
-                mock.Mock(return_value={
-                    'assignments': [
-                        {'pattern': 'foo.bar*', 'priority': 1},
-                        {'pattern': 'foo.baz*', 'priority': 1},
-                    ]
-                }))
+    @mock.patch('treadmill.context.AdminContext.cell_allocation',
+                mock.Mock(return_value=mock.Mock(**{
+                    'update.return_value': None,
+                    'get.return_value': {
+                        'assignments': [
+                            {'pattern': 'foo.bar*', 'priority': 1},
+                            {'pattern': 'foo.baz*', 'priority': 1},
+                        ]
+                    },
+                })))
+    @mock.patch('treadmill.context.AdminContext.allocation',
+                mock.Mock(return_value=mock.Mock(**{
+                    'get.return_value': {},
+                })))
     def test_assign_delete_nonexistent(self):
         """Test deleting nonexistent assignment.
         """
+        ca_admin = treadmill.context.AdminContext.cell_allocation.return_value
+
         res = self.runner.invoke(
             self.alloc_cli,
             [
@@ -186,7 +201,7 @@ class AdminLdapAllocationTest(unittest.TestCase):
 
         self.assertEqual(res.exit_code, 0)
         # Assignment should be untouched
-        admin.CellAllocation.update.assert_called_once_with(
+        ca_admin.update.assert_called_once_with(
             ['cell', 'test/dev'],
             {
                 'assignments': [

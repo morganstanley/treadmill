@@ -14,14 +14,15 @@ import re
 import time
 import zlib
 
-from treadmill import appevents
 from treadmill import scheduler
+from treadmill import trace
 from treadmill import utils
 from treadmill import zknamespace as z
 from treadmill import zkutils
 
 from treadmill.appcfg import abort as app_abort
-from treadmill.apptrace import events as traceevents
+from treadmill.trace.app import events as app_events
+from treadmill.trace.server import events as server_events
 
 from . import loader
 
@@ -65,12 +66,14 @@ _APP_START_INTERVAL = 5 * 60
 class Master(loader.Loader):
     """Treadmill master scheduler."""
 
-    def __init__(self, backend, cellname, events_dir=None):
+    def __init__(self, backend, cellname,
+                 app_events_dir=None, server_events_dir=None):
 
         super(Master, self).__init__(backend, cellname)
 
         self.backend = backend
-        self.events_dir = events_dir
+        self.app_events_dir = app_events_dir
+        self.server_events_dir = server_events_dir
 
         self.queue = collections.deque()
         self.up_to_date = False
@@ -82,6 +85,7 @@ class Master(loader.Loader):
             z.SERVER_PRESENCE: self.process_server_presence,
             z.SCHEDULED: self.process_scheduled,
             z.EVENTS: self.process_events,
+            z.BLACKEDOUT_SERVERS: self.process_blackedout_servers,
         }
 
         self.resource_event_handlers = {
@@ -128,6 +132,8 @@ class Master(loader.Loader):
             z.EVENTS,
             z.RUNNING,
             z.SERVER_PRESENCE,
+            z.SERVER_TRACE,
+            z.SERVER_TRACE_HISTORY,
             z.VERSION,
             z.VERSION_HISTORY,
             z.REBOOTS,
@@ -137,6 +143,9 @@ class Master(loader.Loader):
             self.backend.ensure_exists(path)
 
         for path in z.trace_shards():
+            self.backend.ensure_exists(path)
+
+        for path in z.server_trace_shards():
             self.backend.ensure_exists(path)
 
     @utils.exit_on_unhandled
@@ -193,6 +202,32 @@ class Master(loader.Loader):
         for node in events:
             _LOGGER.info('Deleting event: %s', z.path.event(node))
             self.backend.delete(z.path.event(node))
+
+    def process_blackedout_servers(self, servers):
+        """Callback invoked when server blacklist is modified."""
+        events = []
+        servers_blacklist = set(servers)
+
+        for servername in servers_blacklist - self.servers_blacklist:
+            _LOGGER.info('Server blackout: %s', servername)
+            events.append(
+                server_events.ServerBlackoutTraceEvent(
+                    servername=servername
+                )
+            )
+
+        for servername in self.servers_blacklist - servers_blacklist:
+            _LOGGER.info('Server blackout cleared: %s', servername)
+            events.append(
+                server_events.ServerBlackoutClearedTraceEvent(
+                    servername=servername
+                )
+            )
+
+        for event in events:
+            if self.server_events_dir:
+                trace.post(self.server_events_dir, event)
+        self.servers_blacklist = servers_blacklist
 
     def _handle_allocations_event(self, _node_name):
         # Changing allocations has potential of complete
@@ -282,6 +317,7 @@ class Master(loader.Loader):
         self.watch(z.SERVER_PRESENCE)
         self.watch(z.SCHEDULED)
         self.watch(z.EVENTS)
+        self.watch(z.BLACKEDOUT_SERVERS)
 
     def store_timezone(self):
         """Store local timezone in root ZK node."""
@@ -510,20 +546,20 @@ class Master(loader.Loader):
     def _update_task(self, appname, server, why):
         """Creates/updates application task with the new placement."""
         # Servers in the cell have full control over task node.
-        if self.events_dir:
+        if self.app_events_dir:
             if server:
-                appevents.post(
-                    self.events_dir,
-                    traceevents.ScheduledTraceEvent(
+                trace.post(
+                    self.app_events_dir,
+                    app_events.ScheduledTraceEvent(
                         instanceid=appname,
                         where=server,
                         why=why
                     )
                 )
             else:
-                appevents.post(
-                    self.events_dir,
-                    traceevents.PendingTraceEvent(
+                trace.post(
+                    self.app_events_dir,
+                    app_events.PendingTraceEvent(
                         instanceid=appname,
                         why=why
                     )
@@ -531,10 +567,10 @@ class Master(loader.Loader):
 
     def _abort_task(self, appname, exception):
         """Set task into aborted state in case of scheduling error."""
-        if self.events_dir:
-            appevents.post(
-                self.events_dir,
-                traceevents.AbortedTraceEvent(
+        if self.app_events_dir:
+            trace.post(
+                self.app_events_dir,
+                app_events.AbortedTraceEvent(
                     instanceid=appname,
                     why=app_abort.AbortedReason.SCHEDULER.value,
                     payload=exception
@@ -551,10 +587,10 @@ class Master(loader.Loader):
         if app.server:
             self.backend.delete(z.path.placement(app.server, appname))
 
-        if self.events_dir:
-            appevents.post(
-                self.events_dir,
-                traceevents.DeletedTraceEvent(
+        if self.app_events_dir:
+            trace.post(
+                self.app_events_dir,
+                app_events.DeletedTraceEvent(
                     instanceid=appname
                 )
             )
@@ -651,6 +687,8 @@ class Master(loader.Loader):
 
     def _record_server_state(self, servername):
         """Record server state."""
+        super(Master, self)._record_server_state(servername)
+
         server = self.servers.get(servername)
         if not server:
             _LOGGER.warning('Server not found: %s', servername)
@@ -663,3 +701,12 @@ class Master(loader.Loader):
             {'state': state.value,
              'since': since}
         )
+
+        if self.server_events_dir:
+            trace.post(
+                self.server_events_dir,
+                server_events.ServerStateTraceEvent(
+                    servername=servername,
+                    state=state.value
+                )
+            )

@@ -54,7 +54,7 @@ olcAccess: to *
 {% if uri == master %}#{% endif %}olcSyncRepl: rid={{ replica_ids.next() }} provider={{ master }}
 {% if uri == master %}#{% endif %}  searchbase="{{ backend.syncrepl_searchbase }}"
 {% if uri == master %}#{% endif %}  type=refreshAndPersist retry="5 12 60 +" timeout=1
-{% if uri == master %}#{% endif %}  bindmethod=sasl
+{% if uri == master %}#{% endif %}  bindmethod=sasl saslmech=gssapi
 {%- endfor %}
 {%- if (masters|length) > 1 %}
 olcMirrorMode: TRUE
@@ -75,7 +75,7 @@ entryCSN: 19700000000000.000000Z#000000#000#000000
 olcSyncRepl: rid={{ replica_ids.next() }} provider={{ master }}
   searchbase="{{ backend.syncrepl_searchbase }}"
   type=refreshAndPersist retry="5 12 60 +" timeout=1
-  bindmethod=sasl
+  bindmethod=sasl saslmech=gssapi
 {%- endfor %}
 {%- for master in masters %}
 olcUpdateref: {{ master }}

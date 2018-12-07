@@ -18,7 +18,7 @@ from treadmill import context
 from treadmill import restclient
 from treadmill.websocket import client as ws_client
 
-from treadmill.apptrace import (events, printer)
+from treadmill.trace.app import (events, printer)
 
 _LOGGER = logging.getLogger(__name__)
 

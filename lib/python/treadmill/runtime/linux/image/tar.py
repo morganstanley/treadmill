@@ -74,7 +74,7 @@ class TarImage(_image_base.Image):
         self.tm_env = tm_env
         self.image_path = image_path
 
-    def unpack(self, container_dir, root_dir, app):
+    def unpack(self, container_dir, root_dir, app, _app_cgroups):
         _LOGGER.debug('Extracting tar file %r to %r.', self.image_path,
                       root_dir)
         with tarfile.open(self.image_path) as tar:

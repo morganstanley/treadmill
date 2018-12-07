@@ -255,7 +255,7 @@ def _get_docker_node_info(info):
     return info
 
 
-def _node_info_linux(tm_env, runtime):
+def _node_info_linux(tm_env, runtime, cgroup_prefix, **_kwargs):
     """Generate a node information report for the scheduler.
 
     :param tm_env:
@@ -283,11 +283,12 @@ def _node_info_linux(tm_env, runtime):
         # We normalize bogomips into logical "cores", each core == 5000 bmips.
         # Each virtual "core" is then equated to 100 units.
         # The formula is bmips / BMIPS_PER_CPU * 100
-        app_bogomips = cgutils.get_cpu_shares('treadmill/apps')
+        apps_group = cgutils.apps_group_name(cgroup_prefix)
+        app_bogomips = cgutils.get_cpu_shares(apps_group)
         cpucapacity = (app_bogomips * 100) // BMIPS_PER_CPU
         memcapacity = cgroups.get_value(
             'memory',
-            'treadmill/apps',
+            apps_group,
             'memory.limit_in_bytes'
         ) // _BYTES_IN_MB
         diskfree = localdisk_status['size'] // _BYTES_IN_MB
@@ -307,7 +308,7 @@ def _node_info_linux(tm_env, runtime):
     return info
 
 
-def _node_info_windows(_tm_env, runtime):
+def _node_info_windows(_tm_env, runtime, **_kwargs):
     """Generate a node information report for the scheduler.
 
     :param _tm_env:

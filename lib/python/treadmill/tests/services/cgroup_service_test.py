@@ -37,13 +37,13 @@ class CGroupServiceTest(unittest.TestCase):
     def test_initialize(self):
         """Test service initialization.
         """
-        svc = cgroup_service.CgroupResourceService(self.running)
+        svc = cgroup_service.CgroupResourceService(self.running, 'treadmill')
         svc.initialize(self.cgroup_svc)
 
     def test_report_status(self):
         """Test processing of status request.
         """
-        svc = cgroup_service.CgroupResourceService(self.running)
+        svc = cgroup_service.CgroupResourceService(self.running, 'treadmill')
         status = svc.report_status()
 
         self.assertEqual(
@@ -54,7 +54,7 @@ class CGroupServiceTest(unittest.TestCase):
     def test_event_handlers(self):
         """Test event_handlers request.
         """
-        svc = cgroup_service.CgroupResourceService(self.running)
+        svc = cgroup_service.CgroupResourceService(self.running, 'treadmill')
         handlers = svc.event_handlers()
 
         self.assertEqual(
@@ -74,7 +74,8 @@ class CGroupServiceTest(unittest.TestCase):
         """
         # Access to a protected member _register_oom_handler of a client class
         # pylint: disable=W0212
-        svc = cgroup_service.CgroupResourceService(self.running)
+        svc = cgroup_service.CgroupResourceService(self.running,
+                                                   'treadmill.slice')
 
         request = {
             'memory': '100M',
@@ -84,7 +85,7 @@ class CGroupServiceTest(unittest.TestCase):
 
         svc.on_create_request(request_id, request)
 
-        cgrp = os.path.join('treadmill/apps', request_id)
+        cgrp = os.path.join('treadmill.slice/apps', request_id)
         svc._register_oom_handler.assert_called_with(cgrp, request_id)
         treadmill.cgroups.create.assert_has_calls(
             [
@@ -124,13 +125,14 @@ class CGroupServiceTest(unittest.TestCase):
         # Access to a protected member _unregister_oom_handler of a client
         # class
         # pylint: disable=W0212
-        svc = cgroup_service.CgroupResourceService(self.running)
+        svc = cgroup_service.CgroupResourceService(self.running,
+                                                   'treadmill.slice')
 
         request_id = 'myproid.test-0-ID1234'
 
         svc.on_delete_request(request_id)
 
-        cgrp = os.path.join('treadmill/apps', request_id)
+        cgrp = os.path.join('treadmill.slice/apps', request_id)
         treadmill.cgutils.delete.assert_has_calls(
             [
                 mock.call(ss, cgrp)
@@ -146,13 +148,14 @@ class CGroupServiceTest(unittest.TestCase):
         """
         # Access to a protected member _register_oom_handler of a client class
         # pylint: disable=W0212
-        svc = cgroup_service.CgroupResourceService(self.running)
+        svc = cgroup_service.CgroupResourceService(self.running,
+                                                   'treadmill.slice')
         registered_handlers = svc.event_handlers()
         self.assertNotIn(
             ('fake_efd', select.POLLIN, mock.ANY),
             registered_handlers
         )
-        cgrp = 'treadmill/apps/myproid.test-42-ID1234'
+        cgrp = 'treadmill.slice/apps/myproid.test-42-ID1234'
 
         svc._register_oom_handler(cgrp, 'myproid.test-42-ID1234')
 
@@ -172,8 +175,9 @@ class CGroupServiceTest(unittest.TestCase):
         # Access to a protected member _unregister_oom_handler of a client
         # class
         # pylint: disable=W0212
-        svc = cgroup_service.CgroupResourceService(self.running)
-        cgrp = 'treadmill/apps/myproid.test-42-ID1234'
+        svc = cgroup_service.CgroupResourceService(self.running,
+                                                   'treadmill.slice')
+        cgrp = 'treadmill.slice/apps/myproid.test-42-ID1234'
         svc._register_oom_handler(cgrp, 'myproid.test-42-ID1234')
         registered_handlers = svc.event_handlers()
         self.assertIn(

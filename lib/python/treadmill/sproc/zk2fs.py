@@ -15,11 +15,12 @@ import tempfile
 
 import click
 
-from treadmill import apptrace
 from treadmill import fs
 from treadmill import context
 from treadmill import zknamespace as z
 from treadmill import utils
+from treadmill.trace.app import zk as app_zk
+from treadmill.trace.server import zk as server_zk
 from treadmill.zksync import zk2fs
 from treadmill.zksync import utils as zksync_utils
 
@@ -102,13 +103,13 @@ def _on_del_trace_event(zk2fs_sync, zkpath):
     fs.rm_safe(fpath)
 
 
-def _on_add_trace_db(zk2fs_sync, zkpath, sow_dir, tmp_dir):
+def _on_add_trace_db(zk2fs_sync, zkpath, sow_dir):
     """Called when new trace DB snapshot is added."""
     _LOGGER.info('Added trace db snapshot: %s', zkpath)
     data, _metadata = zk2fs_sync.zkclient.get(zkpath)
     with tempfile.NamedTemporaryFile(delete=False,
                                      mode='wb',
-                                     dir=tmp_dir) as trace_db:
+                                     dir=zk2fs_sync.tmp_dir) as trace_db:
         trace_db.write(zlib.decompress(data))
     db_name = os.path.basename(zkpath)
     os.rename(trace_db.name, os.path.join(sow_dir, db_name))
@@ -123,6 +124,30 @@ def _on_del_trace_db(zk2fs_sync, zkpath, sow_dir):
 
     fpath = zk2fs_sync.fpath(zkpath)
     fs.rm_safe(fpath)
+
+
+def _sync_trace(zk2fs_sync, trace_path, trace_history_path, trace_sow_dir):
+    zk2fs_sync.sync_children(
+        trace_path,
+        on_add=lambda p: _on_add_trace_shard(zk2fs_sync, p),
+        on_del=lambda p: _on_del_trace_shard(zk2fs_sync, p)
+    )
+
+    trace_sow_dir = os.path.join(
+        zk2fs_sync.fsroot, trace_sow_dir
+    )
+    _LOGGER.info('Using trace sow dir: %s', trace_sow_dir)
+    fs.mkdir_safe(trace_sow_dir)
+
+    zk2fs_sync.sync_children(
+        trace_history_path,
+        on_add=lambda p: _on_add_trace_db(
+            zk2fs_sync, p, trace_sow_dir
+        ),
+        on_del=lambda p: _on_del_trace_db(
+            zk2fs_sync, p, trace_sow_dir
+        ),
+    )
 
 
 def init():
@@ -149,13 +174,15 @@ def init():
                   is_flag=True, default=False)
     @click.option('--trace', help='Sync trace.',
                   is_flag=True, default=False)
+    @click.option('--server-trace', help='Sync server trace.',
+                  is_flag=True, default=False)
     @click.option('--app-monitors', help='Sync app monitors.',
                   is_flag=True, default=False)
     @click.option('--once', help='Sync once and exit.',
                   is_flag=True, default=False)
     def zk2fs_cmd(root, endpoints, identity_groups, appgroups, running,
                   scheduled, servers, servers_data, placement, trace,
-                  app_monitors, once):
+                  server_trace, app_monitors, once):
         """Starts appcfgmgr process."""
 
         fs.mkdir_safe(root)
@@ -200,26 +227,19 @@ def init():
                 on_del=lambda p: _on_del_placement_server(zk2fs_sync, p))
 
         if trace:
-            zk2fs_sync.sync_children(
+            _sync_trace(
+                zk2fs_sync,
                 z.TRACE,
-                on_add=lambda p: _on_add_trace_shard(zk2fs_sync, p),
-                on_del=lambda p: _on_del_trace_shard(zk2fs_sync, p)
-            )
-
-            trace_sow_dir = os.path.join(
-                zk2fs_sync.fsroot, apptrace.TRACE_SOW_DIR
-            )
-            _LOGGER.info('Using trace sow dir: %s', trace_sow_dir)
-            fs.mkdir_safe(trace_sow_dir)
-
-            zk2fs_sync.sync_children(
                 z.TRACE_HISTORY,
-                on_add=lambda p: _on_add_trace_db(
-                    zk2fs_sync, p, trace_sow_dir, tmp_dir
-                ),
-                on_del=lambda p: _on_del_trace_db(
-                    zk2fs_sync, p, trace_sow_dir
-                ),
+                app_zk.TRACE_SOW_DIR
+            )
+
+        if server_trace:
+            _sync_trace(
+                zk2fs_sync,
+                z.SERVER_TRACE,
+                z.SERVER_TRACE_HISTORY,
+                server_zk.SERVER_TRACE_SOW_DIR
             )
 
         zk2fs_sync.mark_ready()

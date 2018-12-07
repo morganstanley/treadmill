@@ -61,7 +61,7 @@ class PostmortemTest(unittest.TestCase):
                                     'postmortem',
                                     'archive.tar.gz')
         with tarfile.open(archive_path, 'w:gz') as archive:
-            postmortem.collect(self.tmroot, archive)
+            postmortem.collect(self.tmroot, archive, 'treadmill')
         with tarfile.open(archive_path, 'r:gz') as archive:
             listing = archive.getnames()
             self.assertTrue([

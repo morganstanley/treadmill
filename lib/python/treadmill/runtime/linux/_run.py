@@ -73,7 +73,7 @@ def run(tm_env, runtime_config, container_dir, manifest):
         network_client.put(unique_name, network_req)
 
     # Apply memory limits first thing, so that app_run does not consume memory
-    # from treadmill/core.
+    # from cgroups of <treadmill_root_cgroup>/core.
     app_cgroups = cgroup_client.wait(unique_name)
     _apply_cgroup_limits(app_cgroups)
     localdisk = localdisk_client.wait(unique_name)
@@ -111,7 +111,7 @@ def run(tm_env, runtime_config, container_dir, manifest):
     # NOTE: below here, MOUNT namespace is private
 
     # Unpack the image to the root directory.
-    img_impl.unpack(container_dir, root_dir, app)
+    img_impl.unpack(container_dir, root_dir, app, app_cgroups)
 
     # clean mounts.
     wanted_mounts = runtime_config.host_mount_whitelist

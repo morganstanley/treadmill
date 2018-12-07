@@ -64,7 +64,9 @@ class UtilsTest(unittest.TestCase):
         env_dir = os.path.join(self.root, 'env_dir')
         os.mkdir(env_dir)
 
-        supervisor_utils.environ_dir_write(env_dir, {'foo': 'bar', 'baz': '0'})
+        supervisor_utils.environ_dir_write(
+            env_dir, {'foo': 'bar', 'baz': '0', 'empty': None}
+        )
 
         with io.open(os.path.join(env_dir, 'foo'), 'rb') as f:
             self.assertEqual(f.read(), b'bar')
@@ -77,6 +79,11 @@ class UtilsTest(unittest.TestCase):
         if os.name == 'posix':
             self.assertEqual(
                 os.stat(os.path.join(env_dir, 'baz')).st_mode, 0o100644
+            )
+        self.assertTrue(os.path.exists(os.path.join(env_dir, 'empty')))
+        if os.name == 'posix':
+            self.assertEqual(
+                os.stat(os.path.join(env_dir, 'empty')).st_mode, 0o100644
             )
 
     def test_script_write(self):

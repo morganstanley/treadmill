@@ -16,8 +16,6 @@ from treadmill import context
 from treadmill import restclient
 
 
-_DEFAULT_PRIORITY = 1
-
 _LOGGER = logging.getLogger(__name__)
 
 
@@ -296,18 +294,18 @@ def init():
         if delete:
             restclient.delete(restapi, url)
         else:
-            default_prio = None
+            data = {}
+            if priority:
+                data['priority'] = priority
             existing = restclient.get(restapi, url).json()
+            rest_func = restclient.post
             for assignment in existing:
                 if assignment['pattern'] == pattern:
-                    default_prio = assignment['priority']
-            if default_prio is None:
-                default_prio = _DEFAULT_PRIORITY
+                    rest_func = restclient.put
+                    break
+            rest_func(restapi, url, payload=data)
 
-            data = {'priority': priority if priority else default_prio}
-            restclient.put(restapi, url, payload=data)
-
-        _display_tenant(restapi, allocation)
+            _display_tenant(restapi, allocation)
 
     def _check_reservation(restapi, tenant):
         """ check whether there are reservations

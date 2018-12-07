@@ -1,0 +1,12 @@
+command: |
+  exec {{ _alias.slapd }} \
+      -F {{ dir_config }} \
+  {%- for log_level in log_levels %}
+      -d {{ log_level }} \
+  {%- endfor %}
+      -h {{ uri }}
+
+environ_dir: "{{ dir }}/env"
+environ:
+  KRB5CCNAME: "FILE:/var/spool/tickets/{{ treadmillid }}"
+  KRB5_KTNAME: "FILE:/var/spool/keytabs/{{ treadmillid }}"

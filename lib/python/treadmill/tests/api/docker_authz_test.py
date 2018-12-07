@@ -66,6 +66,101 @@ class DockerAuthzPluginTest(unittest.TestCase):
         )
         self.assertTrue(allow)
 
+    def test_run_privilege(self):
+        """test run docker container with privilege
+        """
+        plugin = plugins.DockerRunPrivilegePlugin()
+        (allow, msg) = plugin.run_req(
+            'POST',
+            '/v1.26/containers/create',
+            {
+                'Image': 'foo',
+                'HostConfig': {
+                    'Privileged': False
+                }
+            },
+        )
+        self.assertTrue(allow)
+
+        (allow, msg) = plugin.run_req(
+            'POST',
+            '/v1.26/containers/create',
+            {
+                'Image': 'foo',
+                'HostConfig': {
+                    'Privileged': True
+                }
+            },
+        )
+        self.assertFalse(allow)
+
+        plugin = plugins.DockerRunPrivilegePlugin(privileged=True)
+
+        (allow, msg) = plugin.run_req(
+            'POST',
+            '/v1.26/containers/create',
+            {
+                'Image': 'foo',
+                'HostConfig': {
+                    'Privileged': True
+                }
+            },
+        )
+        self.assertTrue(allow)
+
+    def test_run_cap(self):
+        """test run docker container with additional capabilities
+        """
+        plugin = plugins.DockerRunPrivilegePlugin()
+        (allow, msg) = plugin.run_req(
+            'POST',
+            '/v1.26/containers/create',
+            {
+                'Image': 'foo',
+                'HostConfig': {
+                    'CapAdd': None
+                }
+            },
+        )
+        self.assertTrue(allow)
+
+        (allow, msg) = plugin.run_req(
+            'POST',
+            '/v1.26/containers/create',
+            {
+                'Image': 'foo',
+                'HostConfig': {
+                    'CapAdd': ['SYS_ADMIN']
+                }
+            },
+        )
+        self.assertFalse(allow)
+
+        plugin = plugins.DockerRunPrivilegePlugin(caps=['SYS_ADMIN'])
+        (allow, msg) = plugin.run_req(
+            'POST',
+            '/v1.26/containers/create',
+            {
+                'Image': 'foo',
+                'HostConfig': {
+                    'CapAdd': ['SYS_ADMIN']
+                }
+            },
+        )
+        self.assertTrue(allow)
+
+        (allow, msg) = plugin.run_req(
+            'POST',
+            '/v1.26/containers/create',
+            {
+                'Image': 'foo',
+                'HostConfig': {
+                    'CapAdd': ['SYS_ADMIN', 'NET_ADMIN']
+                }
+            },
+        )
+        self.assertFalse(allow)
+
 
 class DockerAuthzAPITest(unittest.TestCase):
     """Test Docker Authz API

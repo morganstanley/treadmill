@@ -1,7 +1,0 @@
-command: >
-  {{ treadmill }}\scripts\treadmill sproc appevents {{ dir }}\appevents
-monitor_policy:
-  limit: 5
-  interval: 60
-  tombstone:
-    path: "{{ dir }}\\tombstones\\init"

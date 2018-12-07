@@ -20,6 +20,65 @@ class AppCfgWarpgateFeatureTest(unittest.TestCase):
     """Test for warpgate feature
     """
 
+    def setUp(self):
+        self.tm_env = mock.Mock(
+            cell='testcell',
+            zkurl='zookeeper://foo@foo:123',
+            apps_dir='apps',
+            root='/var/tmp/treadmill',
+        )
+
+    @mock.patch('treadmill.appcfg.features.warpgate.WarpgateFeature.'
+                '_get_warpgate_config', mock.Mock(
+                    return_value=(['somehost:1234'], 'foo')
+                ))
+    @mock.patch('treadmill.subproc.resolve', mock.Mock(return_value='tm'))
+    def test_warpgate_configure(self):
+        """Test warpgate feature configure.
+        """
+        feature_mod = features.get_feature('warpgate')(self.tm_env)
+
+        self.assertTrue(
+            feature_mod.applies(
+                manifest={
+                    'features': ['warpgate'],
+                    'proid': 'foo',
+                    'tickets': ['foo@realm'],
+                    'environ': [],
+                },
+                runtime='linux'
+            )
+        )
+
+        self.assertFalse(
+            feature_mod.applies(
+                manifest={
+                    'features': ['warpgate'],
+                    'proid': 'foo',
+                    'tickets': ['foo@realm'],
+                    'environ': [],
+                },
+                runtime='notlinux'
+            ),
+            'Must use "linux" runtime'
+        )
+        self.assertFalse(
+            feature_mod.applies(
+                manifest={
+                    'features': ['warpgate'],
+                    'proid': 'foo',
+                    'tickets': [],
+                    'environ': [],
+                },
+                runtime='linux'
+            ),
+            'Must have some tickets'
+        )
+
+    @mock.patch('treadmill.appcfg.features.warpgate.WarpgateFeature.'
+                '_get_warpgate_config', mock.Mock(
+                    return_value=(['somehost:1234'], 'foo')
+                ))
     @mock.patch('treadmill.subproc.resolve', mock.Mock(return_value='tm'))
     def test_warpgate_feature(self):
         """Test warpgate feature.
@@ -30,25 +89,45 @@ class AppCfgWarpgateFeatureTest(unittest.TestCase):
             'features': ['warpgate'],
             'proid': 'foo',
             'environ': [],
+            'tickets': ['foo@realm'],
         }
 
-        tm_env = mock.Mock(
-            cell='testcell',
-            zkurl='zookeeper://foo@foo:123',
-            apps_dir='apps',
-            root='/var/tmp/treadmill',
-        )
-
         self.assertTrue(features.feature_exists('warpgate'))
+        feature_mod = features.get_feature('warpgate')(self.tm_env)
 
-        feature_mod = features.get_feature('warpgate')(tm_env)
         feature_mod.configure(manifest)
-        self.assertEqual(len(manifest['system_services']), 1)
-        self.assertEqual(manifest['system_services'][0]['name'], 'warpgate')
-        self.assertTrue(manifest['system_services'][0]['root'])
+        self.assertEqual(len(manifest['services']), 1)
+        self.assertEqual(manifest['services'][0]['name'], 'warpgate')
+        self.assertTrue(manifest['services'][0]['root'])
         self.assertEqual(
-            manifest['system_services'][0]['command'],
-            'exec $TREADMILL/bin/treadmill sproc warpgate'
+            manifest['services'][0],
+            {
+                'command': (
+                    'exec $TREADMILL/bin/treadmill sproc'
+                    ' --logging-conf daemon_container.json'
+                    ' warpgate'
+                    ' --policy-servers somehost:1234'
+                    ' --service-principal foo'
+                    ' --tun-dev eth0'
+                    ' --tun-addr ${TREADMILL_CONTAINER_IP}'
+                ),
+                'config': None,
+                'downed': False,
+                'environ': [
+                    {
+                        'name': 'KRB5CCNAME',
+                        'value': 'FILE:/var/spool/tickets/foo@realm'
+                    }
+                ],
+                'name': 'warpgate',
+                'proid': 'root',
+                'restart': {
+                    'interval': 60,
+                    'limit': 5
+                },
+                'root': True,
+                'trace': False
+            }
         )
 
 

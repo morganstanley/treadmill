@@ -105,4 +105,4 @@ class RuntimeBase:
     def manifest(cls, tm_env, manifest):
         """Add runtime modification to manifest, default does nothing
         """
-        app_manifest.add_manifest_features(manifest, cls.name, tm_env)
+        pass

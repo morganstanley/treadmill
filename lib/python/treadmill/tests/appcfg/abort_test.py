@@ -20,7 +20,7 @@ import treadmill
 from treadmill import appenv
 from treadmill import context
 from treadmill import fs
-from treadmill.apptrace import events
+from treadmill.trace.app import events
 from treadmill.appcfg import abort as app_abort
 
 
@@ -79,7 +79,7 @@ class AppCfgAbortTest(unittest.TestCase):
     @mock.patch('kazoo.client.KazooClient.create', mock.Mock())
     @mock.patch('kazoo.client.KazooClient.delete', mock.Mock())
     @mock.patch('kazoo.client.KazooClient.get_children', mock.Mock())
-    @mock.patch('treadmill.appevents.post', mock.Mock())
+    @mock.patch('treadmill.trace.post', mock.Mock())
     @mock.patch('treadmill.sysinfo.hostname',
                 mock.Mock(return_value='xxx.xx.com'))
     @mock.patch('treadmill.zkutils.connect', mock.Mock())
@@ -97,7 +97,7 @@ class AppCfgAbortTest(unittest.TestCase):
         app_abort.report_aborted(self.tm_env, 'proid.myapp#001',
                                  why=app_abort.AbortedReason.TICKETS,
                                  payload='test')
-        treadmill.appevents.post.assert_called_with(
+        treadmill.trace.post.assert_called_with(
             mock.ANY,
             events.AbortedTraceEvent(
                 instanceid='proid.myapp#001',
