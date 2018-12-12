@@ -33,8 +33,8 @@ _CLOSE_FDS = os.name != 'nt'
 
 
 class CommandAliasError(Exception):
-    """Error raised if alises can't be resolved."""
-    pass
+    """Error raised if alises can't be resolved.
+    """
 
 
 def load_aliases(aliases_path):

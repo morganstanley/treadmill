@@ -28,4 +28,3 @@ def resolve(_ctx, attr):
 def init(_ctx):
     """Init context.
     """
-    pass

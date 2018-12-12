@@ -25,7 +25,8 @@ _MINIMUM_THRESHOLD = 5
 
 
 def _resolve_partition_threshold(cell, partition, value):
-    """Resolve threshold % to an integer."""
+    """Resolve threshold % to an integer.
+    """
     admin_srv = context.GLOBAL.admin.server()
     servers = admin_srv.list({'cell': cell})
 
@@ -41,7 +42,10 @@ def _resolve_partition_threshold(cell, partition, value):
 
 
 def init():
-    """Configures Partition CLI group"""
+    """Configures Partition CLI group.
+    """
+    # pylint: disable=too-many-statements
+
     formatter = cli.make_formatter('partition')
 
     @click.group()
@@ -50,8 +54,8 @@ def init():
                   is_eager=True, callback=cli.handle_context_opt,
                   expose_value=False)
     def partition():
-        """Manage partitions"""
-        pass
+        """Manage partitions.
+        """
 
     @partition.command()
     @click.option('-m', '--memory', help='Memory.',
@@ -70,10 +74,10 @@ def init():
     @cli.admin.ON_EXCEPTIONS
     def configure(memory, cpu, disk, systems,
                   down_threshold, reboot_schedule, data, partition):
-        """Create, get or modify partition configuration"""
-        # Disable too many branches.
-        #
-        # pylint: disable=R0912
+        """Create, get or modify partition configuration.
+        """
+        # pylint: disable=too-many-branches
+
         cell = context.GLOBAL.cell
         admin_part = context.GLOBAL.admin.partition()
 

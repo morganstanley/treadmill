@@ -91,7 +91,6 @@ def init():
         extra capacity is offered to sibling apps first (by environment), and
         then up the tree for applications in parent allocations.
         """
-        pass
 
     @allocation_grp.command(name='list')
     @cli.handle_exceptions(restclient.CLI_REST_EXCEPTIONS)

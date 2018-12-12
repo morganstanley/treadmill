@@ -62,8 +62,8 @@ def base_api(title=None, cors_origin=None):
         _LOGGER.debug('This is an OPTIONS call')
 
         def _noop_options():
-            """No noop response handler for all OPTIONS"""
-            pass
+            """No noop response handler for all OPTIONS.
+            """
 
         headers = flask.request.headers.get('Access-Control-Request-Headers')
         options_cors = webutils.cors(origin=cors_origin,

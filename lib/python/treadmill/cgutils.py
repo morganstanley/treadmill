@@ -25,8 +25,8 @@ NANOSECS_PER_SEC = 10**9
 
 
 class TreadmillCgroupError(exc.TreadmillError):
-    """Treadmill Cgroup operation error."""
-    pass
+    """Treadmill Cgroup operation error.
+    """
 
 
 def core_group_name(prefix):

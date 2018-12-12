@@ -20,13 +20,11 @@ class TraceEvent(abc.ABC):
     def to_data(self):
         """Return a 6 tuple represtation of an event.
         """
-        pass
 
     @abc.abstractmethod
     def to_dict(self):
         """Return a dictionary representation of an event.
         """
-        pass
 
     def __repr__(self):
         return '{classname}<{data}>'.format(
@@ -56,7 +54,6 @@ class TraceEventHandler(abc.ABC):
     def dispatch(self, event):
         """Dispatch event to one of the handler methods.
         """
-        pass
 
     def process(self, event, ctx=None):
         """Process a given event dispatching to one of the handler methods.

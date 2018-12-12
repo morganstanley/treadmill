@@ -15,9 +15,8 @@ DEFAULT_ALLOW_MSG = 'Allowed'
 
 
 class NotAllowedError(Exception):
-    """General not allowed excpetion for plugins
+    """General not allowed excpetion for plugins.
     """
-    pass
 
 
 class AuthzPlugin:

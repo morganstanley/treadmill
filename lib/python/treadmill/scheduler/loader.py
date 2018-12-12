@@ -480,8 +480,8 @@ class Loader:
         self.cell.remove_app(appname)
 
     def load_strategies(self):
-        """Load affinity strategies for buckets."""
-        pass
+        """Load affinity strategies for buckets.
+        """
 
     def load_identity_groups(self):
         """Load identity groups."""
@@ -704,5 +704,5 @@ class Loader:
             )
 
     def _record_server_state(self, servername):
-        """Record server state."""
-        pass
+        """Record server state.
+        """

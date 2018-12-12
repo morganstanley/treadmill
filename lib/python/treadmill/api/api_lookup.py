@@ -1,5 +1,6 @@
 """Implementation of API lookup API.
 """
+
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
@@ -44,11 +45,12 @@ class API:
         ctx = context.GLOBAL
 
         def _list():
-            pass
+            """No LIST method.
+            """
 
         def _get():
-            """No get method"""
-            pass
+            """No GET method.
+            """
 
         class _AdminApiLookupAPI:
             """Treadmill Admin API Lookup API"""
@@ -56,7 +58,8 @@ class API:
             def __init__(self):
 
                 def _list():
-                    pass
+                    """No LIST method.
+                    """
 
                 @schema.schema()
                 def get():

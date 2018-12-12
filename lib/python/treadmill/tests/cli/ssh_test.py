@@ -17,8 +17,8 @@ from treadmill import plugin_manager
 
 
 class BadExit(Exception):
-    """Test exception"""
-    pass
+    """Test exception.
+    """
 
 
 class SshTest(unittest.TestCase):

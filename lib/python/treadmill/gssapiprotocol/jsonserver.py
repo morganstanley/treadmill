@@ -26,7 +26,6 @@ class GSSAPIJsonServer(lineserver.GSSAPILineServer):
         :param ``request`` dict:
             Data received from the client.
         """
-        pass
 
     def got_line(self, data):
         """Line callback.

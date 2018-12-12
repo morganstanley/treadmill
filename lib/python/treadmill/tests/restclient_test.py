@@ -21,8 +21,8 @@ class RESTClientTest(unittest.TestCase):
     """Mock test for RESTClient"""
 
     def setUp(self):
-        """Setup common test variables"""
-        pass
+        """Setup common test variables.
+        """
 
     @mock.patch('requests.get',
                 return_value=mock.MagicMock(requests.Response))

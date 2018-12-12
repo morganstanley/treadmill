@@ -25,8 +25,8 @@ def init():
     @click.group()
     @cli.admin.ON_EXCEPTIONS
     def cell():
-        """Manage cell configuration"""
-        pass
+        """Manage cell configuration.
+        """
 
     @cell.command()
     @click.option('-v', '--version', help='Version.')

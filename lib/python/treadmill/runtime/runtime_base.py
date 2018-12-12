@@ -56,12 +56,11 @@ class RuntimeBase:
         :rtype:
             ``Boolean``
         """
-        pass
 
     @abc.abstractmethod
     def _run(self, manifest):
-        """Prepares container environment and exec's container."""
-        pass
+        """Prepares container environment and exec's container.
+        """
 
     def run(self):
         """Prepares container environment and exec's container
@@ -82,11 +81,12 @@ class RuntimeBase:
 
     @abc.abstractmethod
     def _finish(self):
-        """Frees allocated resources and mark then as available."""
-        pass
+        """Frees allocated resources and mark then as available.
+        """
 
     def finish(self):
-        """Frees allocated resources and mark then as available."""
+        """Frees allocated resources and mark then as available.
+        """
         # Required because on windows log files are archived and deleted
         # which cannot happen when the supervisor/log is still running.
         supervisor.ensure_not_supervised(self._service.directory)
@@ -98,11 +98,10 @@ class RuntimeBase:
 
     @abc.abstractmethod
     def kill(self):
-        """Kills a container."""
-        pass
+        """Kills a container.
+        """
 
     @classmethod
     def manifest(cls, tm_env, manifest):
-        """Add runtime modification to manifest, default does nothing
+        """Add runtime modification to manifest, default does nothing.
         """
-        pass

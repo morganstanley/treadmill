@@ -16,7 +16,7 @@ def init():
 
     @click.group(cls=cli.make_commands(__name__))
     def ldap():
-        """Manage Treadmill LDAP data"""
-        pass
+        """Manage Treadmill LDAP data.
+        """
 
     return ldap

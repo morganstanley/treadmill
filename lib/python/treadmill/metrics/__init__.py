@@ -167,10 +167,9 @@ def read_cpu_stat(cgrp):
 
 
 def read_cpu_system_usage():
-    """ read cpu system usage
+    """ read cpu system usage.
     """
-    # read /proc/stat
-    pass
+    # XXX: read /proc/stat
 
 
 def read_cpu_stats(cgrp):

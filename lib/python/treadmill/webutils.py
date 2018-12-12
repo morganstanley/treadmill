@@ -27,8 +27,8 @@ _LOGGER = logging.getLogger(__name__)
 
 
 def add_dependencies():
-    """Load (imports) flask dependencies."""
-    pass
+    """Load (imports) flask dependencies.
+    """
 
 
 def as_json(func):

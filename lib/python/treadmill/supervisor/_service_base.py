@@ -53,7 +53,6 @@ class Service:
         :returns ``ServiceType``:
             Type of the service.
         """
-        pass
 
     @property
     def name(self):

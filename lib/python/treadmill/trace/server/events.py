@@ -48,7 +48,6 @@ class ServerTraceEvent(_events.TraceEvent):
     def event_data(self):
         """Return an event's event_data.
         """
-        pass
 
     @classmethod
     def _class_from_type(cls, event_type):
@@ -251,16 +250,13 @@ class ServerTraceEventHandler(_events.TraceEventHandler):
     def on_server_state(self, when, servername, state):
         """Invoked when server state changes.
         """
-        pass
 
     @abc.abstractmethod
     def on_server_blackout(self, when, servername):
         """Invoked when server is blackedout.
         """
-        pass
 
     @abc.abstractmethod
     def on_server_blackout_cleared(self, when, servername):
         """Invoked when server blackout is cleared.
         """
-        pass

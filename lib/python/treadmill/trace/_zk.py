@@ -36,7 +36,6 @@ class TraceLoop(abc.ABC):
     def run(self, snapshot=False, ctx=None):
         """Run event loop.
         """
-        pass
 
     def wait(self, timeout=None):
         """Wait for event loop to finish.
@@ -72,7 +71,6 @@ class TraceLoop(abc.ABC):
                        event_data, ctx):
         """Process event of given type.
         """
-        pass
 
 
 def upload_batch(zkclient, db_node_path, table, batch):

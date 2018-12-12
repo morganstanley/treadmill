@@ -109,4 +109,3 @@ class AppEnvironment:
             dictionary of parameters passed to the OS specific
             `meth:initialize` implementation.
         """
-        pass
