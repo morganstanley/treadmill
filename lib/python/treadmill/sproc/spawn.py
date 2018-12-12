@@ -22,8 +22,8 @@ def init():
 
     @click.group(name='spawn')
     def spawn_grp():
-        """Spawn group."""
-        pass
+        """Spawn group.
+        """
 
     @spawn_grp.command(name='watch_manifest')
     @click.option('--approot', type=click.Path(exists=True),

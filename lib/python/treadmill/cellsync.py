@@ -14,7 +14,6 @@ import logging
 import sqlite3
 import tempfile
 
-from treadmill import admin
 from treadmill import context
 from treadmill import fs
 from treadmill import utils
@@ -171,7 +170,7 @@ def _remove_extra_appgroup_lookup(zkclient, proid, digest):
 def sync_appgroups():
     """Sync app-groups from LDAP to Zookeeper."""
     _LOGGER.info('Sync appgroups.')
-    admin_app_group = admin.AppGroup(context.GLOBAL.ldap.conn)
+    admin_app_group = context.GLOBAL.admin.app_group()
     app_groups = admin_app_group.list({})
     cell_app_groups = [group for group in app_groups if _match_appgroup(group)]
     _sync_collection(context.GLOBAL.zk.conn,
@@ -185,7 +184,7 @@ def sync_partitions():
     _LOGGER.info('Sync: partitions.')
     zkclient = context.GLOBAL.zk.conn
 
-    admin_cell = admin.Cell(context.GLOBAL.ldap.conn)
+    admin_cell = context.GLOBAL.admin.cell()
     partitions = admin_cell.partitions(context.GLOBAL.cell)
 
     zkclient.ensure_path(z.path.partition())
@@ -223,7 +222,7 @@ def sync_allocations():
     _LOGGER.info('Sync allocations.')
     zkclient = context.GLOBAL.zk.conn
 
-    admin_alloc = admin.CellAllocation(context.GLOBAL.ldap.conn)
+    admin_alloc = context.GLOBAL.admin.cell_allocation()
     allocations = admin_alloc.list({'cell': context.GLOBAL.cell})
 
     filtered = []
@@ -239,7 +238,7 @@ def sync_allocations():
 def sync_servers():
     """Sync global servers list."""
     _LOGGER.info('Sync servers.')
-    admin_srv = admin.Server(context.GLOBAL.ldap.conn)
+    admin_srv = context.GLOBAL.admin.server()
     global_servers = admin_srv.list({})
     zkutils.ensure_exists(
         context.GLOBAL.zk.conn,
@@ -251,7 +250,7 @@ def sync_servers():
 def sync_traits():
     """Sync cell traits."""
     _LOGGER.info('Sync traits.')
-    admin_cell = admin.Cell(context.GLOBAL.ldap.conn)
+    admin_cell = context.GLOBAL.admin.cell()
     cell = admin_cell.get(context.GLOBAL.cell)
     payload = cell['traits']
     zkutils.ensure_exists(
@@ -264,7 +263,7 @@ def sync_traits():
 def sync_server_topology():
     """Sync servers into buckets in the masterapi.
     """
-    admin_srv = admin.Server(context.GLOBAL.ldap.conn)
+    admin_srv = context.GLOBAL.admin.server()
     servers = admin_srv.list({'cell': context.GLOBAL.cell})
     zkclient = context.GLOBAL.zk.conn
 

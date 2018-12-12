@@ -7,11 +7,9 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import errno
-import glob
+import ipaddress  # pylint: disable=wrong-import-order
 import logging
 import os
-
-import six
 
 from treadmill import fs
 
@@ -21,54 +19,74 @@ _LOGGER = logging.getLogger(__name__)
 
 class VipMgr:
     """VIP allocation manager.
-
-    :param basepath:
-        Base directory that will contain all the allocated VIPs.
-    :type basepath:
-        ``str``
     """
     __slots__ = (
         '_base_path',
+        '_cidr',
         '_owner_path',
     )
 
-    def __init__(self, path, owner_path):
+    def __init__(self, cidr, path, owner_path):
+        """
+        :param ``str`` cidr:
+            CIDR to allocate IPs from.
+        :param ``str`` path:
+            Base directory that will contain all the allocated VIPs.
+        :param ``str`` owner_path:
+            Directory that will contain all the VIPs owners.
+        """
+        self._cidr = ipaddress.IPv4Network(cidr)
         # Make sure vips directory exists.
         fs.mkdir_safe(path)
         self._base_path = os.path.realpath(path)
         self._owner_path = os.path.realpath(owner_path)
 
     def initialize(self):
-        """Initialize the vip folder."""
-        for vip in glob.glob(os.path.join(self._base_path, '*')):
-            os.unlink(vip)
+        """Initialize the vip folder.
+
+        Remove any IP we own from our base path.
+        """
+        for vip in os.listdir(self._base_path):
+            try:
+                vip_addr = ipaddress.ip_address(vip)
+            except ValueError:
+                # Not an IP
+                continue
+            if vip_addr in self._cidr:
+                try:
+                    os.unlink(os.path.join(self._base_path, vip))
+                except OSError as err:
+                    if err.errno == errno.ENOENT:
+                        continue
+                    raise
 
     def alloc(self, owner, picked_ip=None):
         """Atomically allocates virtual IP pair for the container.
+
+        :returns:
+            ``str`` - Allocated IPv4 address.
         """
         if picked_ip is not None:
+            if ipaddress.IPv4Address(picked_ip) not in self._cidr:
+                raise ValueError('IP not in CIDR')
             if not self._alloc(owner, picked_ip):
                 raise Exception(
-                    'Unabled to assign IP %r for %r' % (picked_ip, owner)
+                    'Unable to assign IP %r for %r' % (picked_ip, owner)
                 )
             return picked_ip
 
-        for index in six.moves.range(0, 256**2):
-            major, minor = (index >> 8), (index % 256)
-            if major in [128, 256]:
-                continue
-            if minor in [0, 256]:
-                continue
-            ip = '192.168.{major}.{minor}'.format(major=major, minor=minor)
-            if not self._alloc(owner, ip):
+        for vip in self._cidr.hosts():
+            vip = str(vip)  # Convert IPv*Address to string
+            if not self._alloc(owner, vip):
                 continue
             # We were able to grab the IP.
             break
 
         else:
-            raise Exception('Unabled to find free IP for %r' % owner)
+            vip = None  # Assure pylint this variable is set
+            raise Exception('Unable to find a free IP for %r' % owner)
 
-        return ip
+        return vip
 
     def free(self, owner, owned_ip):
         """Atomically frees virtual IP associated with the container.
@@ -92,10 +110,8 @@ class VipMgr:
     def garbage_collect(self):
         """Garbage collect all VIPs without owner.
         """
-        allocated = glob.glob(
-            os.path.join(self._base_path, '*')
-        )
-        for link in allocated:
+        for vip in os.listdir(self._base_path):
+            link = os.path.join(self._base_path, vip)
             try:
                 _link_st = os.stat(link)
             except OSError as err:
@@ -115,10 +131,8 @@ class VipMgr:
         """List all allocated IPs and their owner
         """
         ips = []
-        allocated = glob.glob(
-            os.path.join(self._base_path, '*')
-        )
-        for link in allocated:
+        for vip in os.listdir(self._base_path):
+            link = os.path.join(self._base_path, vip)
             try:
                 ip_owner = os.readlink(link)
             except OSError as err:
@@ -126,7 +140,7 @@ class VipMgr:
                     # not a link
                     continue
                 raise
-            ips.append((os.path.basename(link), os.path.basename(ip_owner)))
+            ips.append((vip, os.path.basename(ip_owner)))
 
         return ips
 

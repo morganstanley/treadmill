@@ -52,13 +52,13 @@ class RestServer:
 
     @abc.abstractmethod
     def _setup_auth(self):
-        """Setup the http authentication."""
-        pass
+        """Setup the http authentication.
+        """
 
     @abc.abstractmethod
     def _setup_endpoint(self, http_server):
-        """Setup the http server endpoint."""
-        pass
+        """Setup the http server endpoint.
+        """
 
     def run(self):
         """Start server."""

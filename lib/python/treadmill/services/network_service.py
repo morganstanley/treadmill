@@ -54,6 +54,7 @@ class NetworkResourceService(BaseResourceServiceImpl):
     _TM_DEV0 = 'tm0'
     _TM_DEV1 = 'tm1'
     _TM_IP = '192.168.254.254'
+    _TM_CIDR = '192.168.0.0/16'  # TODO: node cidr fixed for now
 
     def __init__(self, ext_device, ext_ip=None, ext_mtu=None, ext_speed=None):
         super(NetworkResourceService, self).__init__()
@@ -82,7 +83,12 @@ class NetworkResourceService(BaseResourceServiceImpl):
         # container vips.
         vips_dir = os.path.join(service_dir, self._VIPS_DIR)
         # Initialize vips
-        self._vips = vipfile.VipMgr(vips_dir, self._service_rsrc_dir)
+        self._vips = vipfile.VipMgr(
+            cidr=self._TM_CIDR,
+            path=vips_dir,
+            owner_path=self._service_rsrc_dir
+        )
+        # TODO: brige IP should be reserved to avoid possible assignment.
 
         # Clear all environment assignments here. They will be re-assigned
         # below.

@@ -26,7 +26,6 @@ class GSSAPIJsonServer(lineserver.GSSAPILineServer):
         :param ``request`` dict:
             Data received from the client.
         """
-        pass
 
     def got_line(self, data):
         """Line callback.
@@ -38,8 +37,9 @@ class GSSAPIJsonServer(lineserver.GSSAPILineServer):
             reply = self.on_request(request)
             self.write(json.dumps(reply).encode())
         except Exception as err:  # pylint: disable=broad-except
-            _LOGGER.warning('Unhandled error: %r', err)
+            _LOGGER.exception('Unhandled error: %r', err)
             reply = {
                 '_error': str(err)
             }
             self.write(json.dumps(reply).encode())
+            self.transport.loseConnection()

@@ -13,7 +13,8 @@ import six
 
 @six.add_metaclass(abc.ABCMeta)
 class ImageRepository:
-    """A repository for images."""
+    """A repository for images.
+    """
 
     __slots__ = (
         'tm_env',
@@ -35,4 +36,3 @@ class ImageRepository:
         :rtype:
             ``Image``
         """
-        pass

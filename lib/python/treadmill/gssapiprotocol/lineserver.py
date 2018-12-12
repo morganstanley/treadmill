@@ -9,7 +9,7 @@ import logging
 import base64
 import abc
 
-import gssapi
+import gssapi  # pylint: disable=import-error
 
 from twisted.protocols import basic
 
@@ -103,8 +103,7 @@ class GSSAPILineServer(basic.LineReceiver):  # pylint: disable=C0103
         :param ``bytes`` data:
             Data received from the client.
         """
-        pass
 
     def rawDataReceived(self, data):
-        """Not implemented."""
-        pass
+        """Not implemented.
+        """

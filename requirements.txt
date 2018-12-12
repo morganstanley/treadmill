@@ -8,7 +8,7 @@ Flask-RESTful>=0.3,<1
 flask-restplus>=0.10,<1
 Flask>=0.12,<1
 gevent>=1.1
-gssapi>=1.2
+gssapi>=1.2 ; sys_platform == 'linux'
 ipaddress>=1.0 ; python_version <= '3.3'
 Jinja2>=2.9,<3
 jsonschema>=2.5,<3
@@ -36,4 +36,4 @@ winkerberos>=0.6 ; sys_platform == 'win32'
 urllib3<1.23
 
 # Until Kazoo SASL patches are upstreamed
-kazoo>=2.2,<3
+kazoo>=2.2,<=2.5.0

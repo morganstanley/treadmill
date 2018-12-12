@@ -15,9 +15,8 @@ DEFAULT_ALLOW_MSG = 'Allowed'
 
 
 class NotAllowedError(Exception):
-    """General not allowed excpetion for plugins
+    """General not allowed excpetion for plugins.
     """
-    pass
 
 
 class AuthzPlugin:
@@ -37,6 +36,49 @@ class AuthzPlugin:
         return (True, DEFAULT_ALLOW_MSG)
 
 
+class DockerRunPrivilegePlugin(AuthzPlugin):
+    """Authz plugin to check run as privileged container
+    """
+
+    def __init__(self, privileged=False, caps=None):
+        """parameter to allow privileged container and add capablity
+        it could be used in the future
+        """
+        self._privileged = privileged
+        self._caps = set() if caps is None else set(caps)
+
+    def run_req(self, method, url, request, **kwargs):
+        """Check user from request_id
+        request example:
+            POST /v1.26/containers/create
+            ---
+            Privileged: true
+            CapAdd: ["SYS_ADMIN"]
+            ...
+        """
+        allow = True
+        msg = DEFAULT_ALLOW_MSG
+
+        if method == 'POST' and 'containers/create' in url:
+            # if privileged not allowed and run as privileged
+            host_config = request.get('HostConfig', {})
+            privileged = host_config.get('Privileged', False)
+            if privileged and not self._privileged:
+                msg = 'Privileged container not allowed'
+                allow = False
+
+            # normalize cap_add as set
+            cap_add = host_config.get('CapAdd', None)
+            cap_add = set() if cap_add is None else set(cap_add)
+
+            # if cap added and not in allowed caps, we deny the request
+            if cap_add and not cap_add <= self._caps:
+                msg = 'Capacity {} not allowed'.format(cap_add - self._caps)
+                allow = False
+
+        return (allow, msg)
+
+
 class DockerRunUserPlugin(AuthzPlugin):
     """Authz plugin to check user for docker run
     """
@@ -54,7 +96,6 @@ class DockerRunUserPlugin(AuthzPlugin):
 
         if method == 'POST' and 'containers/create' in url:
             # User name and image name defined in request body
-            # TODO: will check privileged container and cap later
             run_user = request.get('User', '')
             image = request.get('Image', '')
             # run_user provided by 'docker run --user USER'

@@ -76,9 +76,10 @@ def cgrp_meminfo(cgrp, *pseudofiles):
     return metrics
 
 
-def read_psmem_stats(appname, allpids):
+def read_psmem_stats(appname, allpids, cgroup_prefix):
     """Reads per-proc memory details stats."""
-    cgrp = os.path.join('treadmill/apps', appname)
+    apps_group = cgutils.apps_group_name(cgroup_prefix)
+    cgrp = os.path.join(apps_group, appname)
     group_pids = set(cgutils.pids_in_cgroup('memory', cgrp))
 
     # Intersection of all /proc pids (allpids) and pid in .../tasks will give
@@ -166,10 +167,9 @@ def read_cpu_stat(cgrp):
 
 
 def read_cpu_system_usage():
-    """ read cpu system usage
+    """ read cpu system usage.
     """
-    # read /proc/stat
-    pass
+    # XXX: read /proc/stat
 
 
 def read_cpu_stats(cgrp):

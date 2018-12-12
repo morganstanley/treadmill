@@ -10,7 +10,7 @@ import functools
 import logging
 
 from treadmill.websocket import client as wsc
-from treadmill.apptrace import events
+from treadmill.trace.app import events
 
 _LOGGER = logging.getLogger(__name__)
 

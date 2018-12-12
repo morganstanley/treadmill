@@ -280,6 +280,7 @@ class Application:
         'final_util',
         'constraints',
         'blacklisted',
+        '_traits',
     )
 
     def __init__(self, name, priority, demand, affinity,
@@ -288,6 +289,7 @@ class Application:
                  lease=0,
                  identity_group=None,
                  identity=None,
+                 traits=0,
                  schedule_once=False):
 
         self.global_order = _global_order()
@@ -309,6 +311,7 @@ class Application:
         self.placement_expiry = None
         self.renew = False
         self.blacklisted = False
+        self._traits = traits
 
     def shape(self):
         """Return tuple of application (constraints, demand).
@@ -362,9 +365,9 @@ class Application:
         """The app traits are derived from allocation.
         """
         if self.allocation is None:
-            return 0
+            return self._traits
         else:
-            return self.allocation.traits
+            return self._traits | self.allocation.traits
 
 
 @six.add_metaclass(abc.ABCMeta)
@@ -376,13 +379,11 @@ class Strategy:
     def suggested_node(self):
         """Suggested node that should be tried first.
         """
-        pass
 
     @abc.abstractmethod
     def next_node(self):
         """Next node to try, if previous suggestion was rejected.
         """
-        pass
 
 
 class SpreadStrategy(Strategy):
@@ -1801,7 +1802,6 @@ class Cell(Bucket):
     def resolve_reboot_conflicts(self):
         """Adjust server exipiration time to avoid conflicts.
         """
-        pass
 
 
 def dumps(cell):

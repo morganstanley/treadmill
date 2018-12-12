@@ -7,8 +7,6 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import errno
-import io
-import json
 import logging
 import os
 
@@ -22,6 +20,7 @@ if os.name == 'nt':
     import win32security  # pylint: disable=E0401
 
 from treadmill import dirwatch
+from treadmill import nodedata
 from treadmill import utils
 
 from . import _servers as servers
@@ -419,9 +418,7 @@ class HostGroupCheck:
     )
 
     def __init__(self, tm_env):
-        with io.open(os.path.join(tm_env.configs_dir, 'node.json')) as f:
-            data = json.load(f)
-
+        data = nodedata.get(tm_env.configs_dir)
         self._config = GMSAConfig(data['nt_group_ou'],
                                   data['nt_group_pattern'])
 

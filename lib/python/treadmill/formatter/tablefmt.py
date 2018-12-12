@@ -217,6 +217,7 @@ class AppPrettyFormatter:
             ('passthrough', None, '\n'.join),
             ('data-retention-timeout', 'data_retention_timeout', None),
             ('lease', 'lease', None),
+            ('traits', 'traits', None),
             ('affinity', 'affinity', None),
             ('affinity-limits', 'affinity_limits', affinity_limits_tbl),
         ]
@@ -619,12 +620,20 @@ class PartitionPrettyFormatter:
     def format(item):
         """Return pretty-formatted item."""
 
+        limits_tbl = make_list_to_table([
+            ('trait', None, None),
+            ('cpu', None, None),
+            ('disk', None, None),
+            ('memory', None, None),
+        ])
+
         list_schema = [
             ('id', 'partition', None),
             ('cell', None, None),
             ('cpu', None, None),
             ('disk', None, None),
             ('memory', None, None),
+            ('limits', None, limits_tbl),
             ('system', 'systems', None),
             ('down threshold', 'down-threshold', None),
             ('reboot schedule', 'reboot-schedule', None),

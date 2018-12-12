@@ -24,8 +24,8 @@ def init():
 
     @click.group()
     def top():
-        """Manage Kerberos keytabs."""
-        pass
+        """Manage Kerberos keytabs.
+        """
 
     @top.command()
     @click.option('--kt-spool-dir',

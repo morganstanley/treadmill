@@ -24,6 +24,7 @@ class API:
 
     _plugins = [
         plugins.DockerRunUserPlugin(),
+        plugins.DockerRunPrivilegePlugin(),
         plugins.DockerExecUserPlugin(),
     ]
 
@@ -44,7 +45,11 @@ class API:
                 (allow, msg) = plugin.run_req(
                     data['RequestMethod'], data['RequestUri'], request_obj,
                 )
-
+                _LOGGER.debug(
+                    'Request %s: %s',
+                    plugin.__class__,
+                    ('Authorized' if allow else 'Not authorized'),
+                )
                 if not allow:
                     break
             else:
@@ -66,7 +71,6 @@ class API:
             """
             if 'RequestBody' in data:
                 request_body = base64.b64decode(data['RequestBody'])
-                _LOGGER.debug('request body: %s', request_body)
                 request_obj = json.loads(request_body.decode())
             else:
                 request_obj = {}
@@ -82,6 +86,11 @@ class API:
                 (allow, msg) = plugin.run_res(
                     data['RequestMethod'], data['RequestUri'],
                     request_obj, response_obj,
+                )
+                _LOGGER.debug(
+                    'Response %s: %s',
+                    plugin.__class__,
+                    ('Authorized' if allow else 'Not authorized'),
                 )
 
                 if not allow:

@@ -156,6 +156,7 @@ class NetworkServiceTest(unittest.TestCase):
         svc.initialize(self.root)
 
         mock_vipmgr.assert_called_with(
+            '192.168.0.0/16',
             mock.ANY,
             svc._service_rsrc_dir
         )
@@ -250,6 +251,7 @@ class NetworkServiceTest(unittest.TestCase):
         svc.initialize(self.root)
 
         mock_vipmgr.assert_called_with(
+            '192.168.0.0/16',
             mock.ANY,
             svc._service_rsrc_dir
         )
@@ -298,7 +300,7 @@ class NetworkServiceTest(unittest.TestCase):
             ext_speed=10000,
             ext_mtu=9000,
         )
-        svc._vips = mock_vipmgr('/mock', '/mock')
+        svc._vips = mock_vipmgr(mock.ANY, mock.ANY, mock.ANY)
         svc._devices = {
             'reqid_foo': {
                 'alias': 'reqid_foo',
@@ -576,7 +578,7 @@ class NetworkServiceTest(unittest.TestCase):
     @mock.patch('treadmill.services.network_service._delete_mark_rule',
                 mock.Mock(set_spec=True))
     def test_on_delete_request(self, mock_vipmgr):
-        """Test processing of a localdisk delete request.
+        """Test processing of a vip delete request.
         """
         # Access to a protected member
         # pylint: disable=W0212
@@ -586,7 +588,7 @@ class NetworkServiceTest(unittest.TestCase):
             ext_speed=10000,
             ext_mtu=9000,
         )
-        svc._vips = mock_vipmgr(mock.ANY, mock.ANY)
+        svc._vips = mock_vipmgr(mock.ANY, mock.ANY, mock.ANY)
         request_id = 'myproid.test-0-ID1234'
         svc._devices[request_id] = {
             'ip': 'test_ip',

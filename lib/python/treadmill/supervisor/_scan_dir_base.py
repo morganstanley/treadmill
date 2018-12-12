@@ -43,14 +43,12 @@ class ScanDir:
     def _create_service(svc_basedir, svc_name, svc_type, **kwargs):
         """Implementation specifc service object creation from service data.
         """
-        pass
 
     @staticmethod
     @abc.abstractmethod
     def control_dir_name():
         """Gets the name of the svscan control directory.
         """
-        pass
 
     def __repr__(self):
         return '{type}({dir!r})'.format(

@@ -1,6 +1,5 @@
 """Treadmill node bootstrap.
 """
-
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
@@ -26,8 +25,10 @@ DEFAULTS = {
     'treadmill_cpu_shares': None,
     'treadmill_core_cpu_shares': None,
     'system_cpuset_cores': None,
+    'system_mem': None,
     'treadmill_core_cpuset_cpus': None,
     'treadmill_apps_cpuset_cpus': None,
+    'treadmill_root_cgroup': 'treadmill',
     'localdisk_img_location': None,
     'localdisk_img_size': None,
     'localdisk_block_dev': None,

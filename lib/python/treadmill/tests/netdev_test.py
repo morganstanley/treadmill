@@ -33,6 +33,56 @@ class NetDevTest(unittest.TestCase):
             shutil.rmtree(self.root)
 
     @mock.patch('io.open', mock.mock_open())
+    @mock.patch('os.listdir', mock.Mock(spec_set=True))
+    def test_dev_list(self):
+        """Test device listing.
+        """
+        os.listdir.return_value = [
+            'foo', 'bar', 'baz', 'bad',
+        ]
+
+        def _mock_open_dispatch(f, **kwargs):
+            if f == '/sys/class/net/foo/type':
+                return mock.mock_open(read_data='1\n')(f, **kwargs)
+            elif f == '/sys/class/net/bar/type':
+                return mock.mock_open(read_data='772\n')(f, **kwargs)
+            elif f == '/sys/class/net/baz/type':
+                return mock.mock_open(read_data='778\n')(f, **kwargs)
+            elif f == '/sys/class/net/bad/type':
+                return mock.mock_open(read_data='-1\n')(f, **kwargs)
+            else:
+                return io.open.return_value
+        io.open.side_effect = _mock_open_dispatch
+
+        res = netdev.dev_list()
+
+        self.assertEqual(res, ['foo', 'bar', 'baz', 'bad'])
+        io.open.reset_mock()
+
+        res = netdev.dev_list(typefilter=netdev.DevType.Ether)
+
+        io.open.assert_has_calls(
+            [
+                mock.call('/sys/class/net/foo/type'),
+                mock.call('/sys/class/net/bar/type'),
+                mock.call('/sys/class/net/baz/type'),
+            ],
+            any_order=True
+        )
+        self.assertEqual(res, ['foo'])
+        io.open.reset_mock()
+
+        self.assertEqual(
+            netdev.dev_list(typefilter=netdev.DevType.GRE),
+            ['baz']
+        )
+
+        self.assertEqual(
+            netdev.dev_list(typefilter=netdev.DevType.Loopback),
+            ['bar']
+        )
+
+    @mock.patch('io.open', mock.mock_open())
     def test_dev_mtu(self):
         """Test device MTU read.
         """
@@ -253,12 +303,25 @@ class NetDevTest(unittest.TestCase):
     def test_addr_add(self):
         """Test IP address configuration.
         """
-        netdev.addr_add('1.2.3.4', 'foo_dev', 'foo_scope')
+        netdev.addr_add('1.2.3.4', 'foo_dev', addr_scope='foo_scope')
 
         treadmill.subproc.check_call.assert_called_with(
             [
                 'ip', 'addr',
                 'add', '1.2.3.4',
+                'dev', 'foo_dev',
+                'scope', 'foo_scope',
+            ],
+        )
+
+        netdev.addr_add('1.2.3.4', 'foo_dev',
+                        ptp_addr='3.4.5.6', addr_scope='foo_scope')
+
+        treadmill.subproc.check_call.assert_called_with(
+            [
+                'ip', 'addr',
+                'add', '1.2.3.4',
+                'peer', '3.4.5.6',
                 'dev', 'foo_dev',
                 'scope', 'foo_scope',
             ],
@@ -273,7 +336,7 @@ class NetDevTest(unittest.TestCase):
         treadmill.subproc.check_call.assert_called_with(
             [
                 'ip', 'route',
-                'add', '1.2.3.4',
+                'add', 'unicast', '1.2.3.4',
                 'via', 'bar',
             ],
         )
@@ -284,7 +347,7 @@ class NetDevTest(unittest.TestCase):
         treadmill.subproc.check_call.assert_called_with(
             [
                 'ip', 'route',
-                'add', '1.2.3.4',
+                'add', 'unicast', '1.2.3.4',
                 'dev', 'foo_dev',
             ],
         )
@@ -295,7 +358,7 @@ class NetDevTest(unittest.TestCase):
         treadmill.subproc.check_call.assert_called_with(
             [
                 'ip', 'route',
-                'add', '1.2.3.4',
+                'add', 'unicast', '1.2.3.4',
                 'via', 'bar',
                 'src', 'baz',
                 'scope', 'local',
@@ -310,7 +373,7 @@ class NetDevTest(unittest.TestCase):
 
         treadmill.subproc.check_call.assert_called_with(
             [
-                'ip', 'link', 'add', 'name', 'foo', 'type', 'bridge',
+                'brctl', 'addbr', 'foo',
             ],
         )
 
@@ -322,7 +385,7 @@ class NetDevTest(unittest.TestCase):
 
         treadmill.subproc.check_call.assert_called_with(
             [
-                'ip', 'link', 'del', 'dev', 'foo', 'type', 'bridge',
+                'brctl', 'delbr', 'foo',
             ],
         )
 
@@ -334,8 +397,7 @@ class NetDevTest(unittest.TestCase):
 
         treadmill.subproc.check_call.assert_called_with(
             [
-                'ip', 'link', 'set', 'dev', 'foo', 'type', 'bridge',
-                'forward_delay', '2',
+                'brctl', 'setfd', 'foo', '2'
             ],
         )
 
@@ -347,7 +409,7 @@ class NetDevTest(unittest.TestCase):
 
         treadmill.subproc.check_call.assert_called_with(
             [
-                'ip', 'link', 'set', 'dev', 'bar', 'master', 'foo',
+                'brctl', 'addif', 'foo', 'bar',
             ],
         )
 
@@ -355,11 +417,11 @@ class NetDevTest(unittest.TestCase):
     def test_bridge_delif(self):
         """Test bridge interface removal.
         """
-        netdev.bridge_delif('bar')
+        netdev.bridge_delif('foo', 'bar')
 
         treadmill.subproc.check_call.assert_called_with(
             [
-                'ip', 'link', 'set', 'dev', 'bar', 'nomaster',
+                'brctl', 'delif', 'foo', 'bar',
             ],
         )
 

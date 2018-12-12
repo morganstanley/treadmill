@@ -1,0 +1,16 @@
+user: "{{ treadmillid }}"
+command: |
+  exec \
+      {{ treadmill }}/bin/treadmill \
+      sproc \
+      events-publisher \
+          --app-events-dir /treadmill/events/app \
+          --server-events-dir /treadmill/events/server
+environ_dir: "/treadmill/env"
+environ:
+  KRB5CCNAME: "FILE:/var/spool/tickets/{{ treadmillid }}"
+monitor_policy:
+  limit: "{{ restart_limit }}"
+  interval: "{{ restart_interval }}"
+  tombstone:
+    path: "/treadmill/tombstones"

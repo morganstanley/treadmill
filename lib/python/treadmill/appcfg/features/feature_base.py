@@ -32,7 +32,6 @@ class Feature:
         :return:
             ``True`` if the given manifest applies
         """
-        pass
 
     @abc.abstractmethod
     def configure(self, manifest):
@@ -43,4 +42,3 @@ class Feature:
         :type manifest:
             ``dict``
         """
-        pass

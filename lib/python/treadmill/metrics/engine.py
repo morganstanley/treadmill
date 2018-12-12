@@ -9,10 +9,9 @@ from __future__ import unicode_literals
 import glob
 import logging
 import os
-import threading
-import time
 
 from treadmill import appenv
+from treadmill import cgutils
 from treadmill import exc
 from treadmill import metrics
 
@@ -36,67 +35,53 @@ def _sys_svcs(root_dir):
         if not (s.endswith('.out') or s.endswith('.err'))])
 
 
+def _read(path, *paths, block_dev=None):
+    if paths:
+        path = os.path.join(path, *paths)
+    return metrics.app_metrics(path, block_dev)
+
+
 class CgroupReader:
-    """Cgroup reader engine to spawn new thread to read cgroup periodically
+    """Cgroup reader engine to read cgroup
     """
 
-    def __init__(self, approot, interval):
-        self.cache = {'treadmill': {}, 'core': {}, 'app': {}}
-        self._interval = interval
+    def __init__(self, approot, cgroup_prefix):
+        self._approot = approot
+        self._cgroup_prefix = cgroup_prefix
+        # lazy load fields to prevent `treadmill.cli.admin.invoke` initializing
+        # cgroup resources when `approot` is None
+        self._initialized = {}
 
-        self._tm_env = appenv.AppEnvironment(root=approot)
-        self._sys_svcs = _sys_svcs(approot)
+    @property
+    def _tm_env(self):
+        if '_tm_env' not in self._initialized:
+            self._initialized['_tm_env'] = appenv.AppEnvironment(
+                root=self._approot
+            )
+        return self._initialized['_tm_env']
+
+    @property
+    def _sys_svcs(self):
+        if '_sys_svcs' not in self._initialized:
+            self._initialized['_sys_svcs'] = _sys_svcs(self._approot)
+        return self._initialized['_sys_svcs']
+
+    @property
+    def _sys_maj_min(self):
         # TODO: sys_maj_min will be used changing treadmill.metrics.app_metrics
-        self._sys_maj_min = '{}:{}'.format(
-            *fs_linux.maj_min_from_path(approot)
-        )
-        self._sys_block_dev = fs_linux.maj_min_to_blk(
-            *fs_linux.maj_min_from_path(approot)
-        )
+        if '_sys_maj_min' not in self._initialized:
+            self._initialized['_sys_maj_min'] = '{}:{}'.format(
+                *fs_linux.maj_min_from_path(self._approot)
+            )
+        return self._initialized['_sys_maj_min']
 
-        # if interval is zero, we just read one time
-        if interval <= 0:
-            self._read()
-        else:
-            self._loop()
-
-    def get(self, cgrp_name):
-        """Get a cgroup data"""
-        (data_type, cgrp) = cgrp_name.split('.', 1)
-
-        return self.cache[data_type][cgrp]
-
-    def snapshot(self):
-        """Get all cgroups data in cache"""
-        return self.cache
-
-    def list(self):
-        """Get all cgroups item name in a  list"""
-        return (
-            [
-                'treadmill.{}'.format(cgrp)
-                for cgrp in self.cache['treadmill']
-            ] +
-            [
-                'core.{}'.format(cgrp)
-                for cgrp in self.cache['core']
-            ] +
-            [
-                'app.{}'.format(cgrp)
-                for cgrp in self.cache['app']
-            ]
-        )
-
-    def _loop(self):
-        before = time.time()
-        self._read()
-        now = time.time()
-        next_wait = int(self._interval + before - now)
-        # should not happen as it means _read() lasting too much time
-        if next_wait < 0:
-            next_wait = 0
-
-        threading.Timer(next_wait, self._loop).start()
+    @property
+    def _sys_block_dev(self):
+        if '_sys_block_dev' not in self._initialized:
+            self._initialized['_sys_block_dev'] = fs_linux.maj_min_to_blk(
+                *fs_linux.maj_min_from_path(self._approot)
+            )
+        return self._initialized['_sys_block_dev']
 
     def _get_block_dev_version(self, app_unique_name):
         try:
@@ -112,47 +97,59 @@ class CgroupReader:
 
         return (block_dev, blkio_major_minor)
 
-    def _read(self):
-        _LOGGER.info('start reading cgroups')
-        sys_block_dev = self._sys_block_dev
+    def read_system(self, path, *paths):
+        """Get aggregated system-level cgroup value."""
+        # use configurable cgroup root for treadmill aggregated value
+        if path == 'treadmill':
+            path = self._cgroup_prefix
+        return _read(path, *paths, block_dev=self._sys_block_dev)
 
-        for cgrp in CORE_GROUPS:
-            if cgrp == 'treadmill':
-                self.cache['treadmill'][cgrp] = metrics.app_metrics(
-                    cgrp, sys_block_dev
-                )
-            else:
-                core_cgrp = os.path.join('treadmill', cgrp)
-                self.cache['treadmill'][cgrp] = metrics.app_metrics(
-                    core_cgrp, None
-                )
+    def read_service(self, svc):
+        """Get treadmill core service cgroup value."""
+        path = cgutils.core_group_name(self._cgroup_prefix)
+        return _read(path, svc, block_dev=None)
 
-        for svc in self._sys_svcs:
-            svc_cgrp = os.path.join('treadmill', 'core', svc)
-            self.cache['core'][svc] = metrics.app_metrics(
-                svc_cgrp, None
-            )
+    def read_services(self, detail=False):
+        """Get all treadmill core service cgroup names.
 
-        seen_apps = set()
+        :param detail:
+            if `True`, returns service's cgroup value along.
+        """
+        _LOGGER.info(
+            'start reading core services cgroups with detail %s', detail
+        )
+
+        snapshot = {
+            svc: self.read_service(svc) if detail else None
+            for svc in self._sys_svcs
+        }
+        _LOGGER.info('%d core services', len(snapshot))
+        return snapshot
+
+    def read_app(self, name):
+        """Get treadmill app cgroup value."""
+        path = cgutils.apps_group_name(self._cgroup_prefix)
+        (block_dev, _blkio_major_minor) = self._get_block_dev_version(name)
+        return _read(path, name, block_dev=block_dev)
+
+    def read_apps(self, detail=False):
+        """Get all treadmill app cgroup names.
+
+        :param detail:
+            if `True`, returns app's cgroup value along.
+        """
+        _LOGGER.info('start reading apps cgroups with detail %s', detail)
+
+        names = []
         for app_dir in glob.glob('%s/*' % self._tm_env.apps_dir):
             if not os.path.isdir(app_dir):
                 continue
+            name = os.path.basename(app_dir)
+            names.append(name)
 
-            app_unique_name = os.path.basename(app_dir)
-            seen_apps.add(app_unique_name)
-            (block_dev, _blkio_major_minor) = self._get_block_dev_version(
-                app_unique_name
-            )
-            app_cgrp = os.path.join('treadmill', 'apps', app_unique_name)
-            self.cache['app'][app_unique_name] = metrics.app_metrics(
-                app_cgrp, block_dev
-            )
-
-        # Removed metrics for apps that are not present anymore
-        for cgrp in set(self.cache['app']) - seen_apps:
-            del self.cache['app'][cgrp]
-
-        _LOGGER.info(
-            '%d core services, %d containers in cache',
-            len(self.cache['core']), len(self.cache['app'])
-        )
+        snapshot = {
+            name: self.read_app(name) if detail else None
+            for name in names
+        }
+        _LOGGER.info('%d containers', len(snapshot))
+        return snapshot

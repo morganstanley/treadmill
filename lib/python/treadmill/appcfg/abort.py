@@ -11,11 +11,11 @@ import os
 
 import enum
 
-from treadmill import appevents
 from treadmill import fs
 from treadmill import supervisor
+from treadmill import trace
 from treadmill import utils
-from treadmill.apptrace import events
+from treadmill.trace.app import events
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -110,7 +110,7 @@ def report_aborted(tm_env, instance, why=None, payload=None):
     if payload is not None:
         payload = str(payload)
 
-    appevents.post(
+    trace.post(
         tm_env.app_events_dir,
         events.AbortedTraceEvent(
             instanceid=instance,

@@ -15,9 +15,9 @@ import socket
 import time
 
 import click
-from six.moves import urllib_parse
 
 from treadmill import appenv
+from treadmill import endpoints
 from treadmill import exc
 from treadmill import fs
 from treadmill import restclient
@@ -160,15 +160,11 @@ def init():
                   help='Metrics collection frequency (sec)')
     @click.option('--approot', type=click.Path(exists=True),
                   envvar='TREADMILL_APPROOT', required=True)
-    @click.option('--socket', 'api_socket',
-                  help='unix-socket of cgroup API service',
-                  required=True)
-    def metrics(step, approot, api_socket):
+    def metrics(step, approot):
         """Collect node and container metrics."""
-        remote = 'http+unix://{}'.format(urllib_parse.quote_plus(api_socket))
-        _LOGGER.info('remote cgroup API address %s', remote)
 
         tm_env = appenv.AppEnvironment(root=approot)
+        endpoints_mgr = endpoints.EndpointsMgr(tm_env.endpoints_dir)
 
         app_metrics_dir = os.path.join(tm_env.metrics_dir, 'apps')
         core_metrics_dir = os.path.join(tm_env.metrics_dir, 'core')
@@ -189,36 +185,59 @@ def init():
         _LOGGER.info('Loading rrd client')
         rrd_loader = RRDClientLoader()
         second_used = 0
+
         while True:
             if step > second_used:
                 time.sleep(step - second_used)
 
+            spec = endpoints_mgr.get_spec(proto='tcp', endpoint='nodeinfo')
+            if spec is None:
+                second_used = 0
+                _LOGGER.warning('Cgroup REST api port not found.')
+                continue
+
+            # appname = 'root.{hostname}#{pid}'
+            appname = spec[0]
+            host = appname.split('#')[0][len('root.'):]
+            port = int(spec[-1])
+            remote = 'http://{0}:{1}'.format(host, port)
+            _LOGGER.info('remote cgroup API address: %s', remote)
+
             starttime_sec = time.time()
             count = 0
-            data = restclient.get(remote, '/cgroup/_bulk', auth=None).json()
 
+            # aggregated cgroup values of `treadmill.core` and `treadmill.apps`
+            url = '/cgroup/treadmill/*/'
+            data = restclient.get(remote, url, auth=None).json()
+
+            url = '/cgroup/treadmill'
+            data['treadmill'] = restclient.get(remote, url, auth=None).json()
             count += _update_core_rrds(
-                data['treadmill'], core_metrics_dir,
+                data, core_metrics_dir,
                 rrd_loader.client,
                 step, sys_maj_min
             )
 
+            url = '/cgroup/treadmill/core/*/?detail=true'
+            data = restclient.get(remote, url, auth=None).json()
             count += _update_service_rrds(
-                data['core'],
+                data,
                 core_metrics_dir,
                 rrd_loader.client,
                 step, sys_maj_min
             )
 
+            url = '/cgroup/treadmill/apps/*/?detail=true'
+            data = restclient.get(remote, url, auth=None).json()
             count += _update_app_rrds(
-                data['app'],
+                data,
                 app_metrics_dir,
                 rrd_loader.client,
                 step, tm_env
             )
 
             # Removed metrics for apps that are not present anymore
-            seen_apps = set(data['app'].keys())
+            seen_apps = set(data)
             for app_unique_name in monitored_apps - seen_apps:
                 rrdfile = os.path.join(
                     app_metrics_dir, '{app}.rrd'.format(app=app_unique_name))

@@ -94,7 +94,7 @@ def init():
 
     @click.group(cls=make_manage_multi_command('treadmill.cli.manage'))
     def manage():
-        """Manage applications."""
-        pass
+        """Manage applications.
+        """
 
     return manage

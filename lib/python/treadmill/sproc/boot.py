@@ -37,7 +37,8 @@ def init():
                   envvar='TREADMILL_APPS_CPUSET_CPUS', required=False)
     @click.option('--core-memory-limit', default=None,
                   envvar='TREADMILL_CORE_MEMORY_LIMIT', required=False)
-    def boot(approot, runtime,
+    @click.pass_context
+    def boot(ctx, approot, runtime,
              preserve_mounts,
              core_cpu_shares,
              core_cpuset_cpus, apps_cpuset_cpus,
@@ -59,7 +60,8 @@ def init():
         _cgroup_init(
             core_cpu_shares,
             core_cpuset_cpus, apps_cpuset_cpus,
-            core_memory_limit
+            core_memory_limit,
+            ctx.obj['ROOT_CGROUP'],
         )
 
         subproc.safe_exec(
@@ -73,11 +75,11 @@ def init():
     return boot
 
 
-def _get_cgroup_memory(treadmill_core_memory_limit):
+def _get_cgroup_memory(treadmill_core_memory_limit, cgroup_prefix):
     """get cgroup memory parameter for treadmill core/apps group
     """
     total_physical_mem = sysinfo.mem_info().total * 1024
-    total_treadmill_mem = cgutils.get_memory_limit('treadmill')
+    total_treadmill_mem = cgutils.get_memory_limit(cgroup_prefix)
 
     if total_treadmill_mem > total_physical_mem:
         _LOGGER.warning(
@@ -170,11 +172,13 @@ def _get_cgroup_cpuset_cpus(treadmill_core_cpuset_cpus,
 def _cgroup_init(treadmill_core_cpu_shares,
                  treadmill_core_cpuset_cpus,
                  treadmill_apps_cpuset_cpus,
-                 treadmill_core_memory_limit):
+                 treadmill_core_memory_limit,
+                 root_cgroup):
 
     # calculate memory limit
-    (core_memory,
-     apps_memory) = _get_cgroup_memory(treadmill_core_memory_limit)
+    (core_memory, apps_memory) = _get_cgroup_memory(
+        treadmill_core_memory_limit, root_cgroup
+    )
 
     # calculate CPU shares allocation
     (core_cpu_shares,
@@ -192,7 +196,8 @@ def _cgroup_init(treadmill_core_cpu_shares,
         core_cpuset_cpus,
         apps_cpuset_cpus,
         core_memory,
-        apps_memory
+        apps_memory,
+        root_cgroup,
     )
 
 

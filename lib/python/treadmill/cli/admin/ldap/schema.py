@@ -38,9 +38,9 @@ def init():
             )
 
             schema = yaml.load(stream=schema_rsrc)
-            context.GLOBAL.ldap.conn.update_schema(schema)
+            context.GLOBAL.admin.conn.update_schema(schema)
 
-        schema_obj = context.GLOBAL.ldap.conn.schema()
+        schema_obj = context.GLOBAL.admin.conn.schema()
 
         def dict_to_namevalue_list(item):
             """Translates name: value dict into [{name: $name, ...}]

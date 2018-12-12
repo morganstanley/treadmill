@@ -44,9 +44,17 @@ class MasterTest(mockzk.MockZookeeperTestCase):
 
         scheduler.DIMENSION_COUNT = 3
 
-        backend = zkbackend.ZkBackend(treadmill.zkutils.ZkClient())
         self.events_dir = tempfile.mkdtemp()
-        self.master = master.Master(backend, 'test-cell', self.events_dir)
+        self.app_events_dir = tempfile.mkdtemp(dir=self.events_dir)
+        self.server_events_dir = tempfile.mkdtemp(dir=self.events_dir)
+
+        backend = zkbackend.ZkBackend(treadmill.zkutils.ZkClient())
+        self.master = master.Master(
+            backend,
+            'test-cell',
+            self.app_events_dir,
+            self.server_events_dir
+        )
         # Use 111 to assert on zkhandle value.
         # Disable the exit on exception hack for tests
         self.old_exit_on_unhandled = treadmill.utils.exit_on_unhandled
@@ -171,6 +179,7 @@ class MasterTest(mockzk.MockZookeeperTestCase):
     @mock.patch('kazoo.client.KazooClient.set', mock.Mock())
     @mock.patch('kazoo.client.KazooClient.create', mock.Mock())
     @mock.patch('kazoo.client.KazooClient.exists', mock.Mock())
+    @mock.patch('treadmill.zkutils.put', mock.Mock())
     @mock.patch('time.time', mock.Mock(return_value=0))
     def test_adjust_server_state(self):
         """Tests load of server and bucket data."""
@@ -217,6 +226,17 @@ class MasterTest(mockzk.MockZookeeperTestCase):
             (scheduler.State.up, 200),
             self.master.servers['test.xx.com'].get_state()
         )
+        treadmill.zkutils.put.assert_called_with(
+            mock.ANY,
+            '/placement/test.xx.com',
+            {'state': 'up', 'since': 200},
+            acl=mock.ANY
+        )
+        event = os.path.join(
+            self.server_events_dir,
+            '200,test.xx.com,server_state,up'
+        )
+        self.assertTrue(os.path.exists(event))
 
     @mock.patch('kazoo.client.KazooClient.get', mock.Mock())
     def test_load_allocations(self):
@@ -433,7 +453,10 @@ class MasterTest(mockzk.MockZookeeperTestCase):
             mock.ANY,
             '/placement/test.xx.com/xxx.app1#1234'
         )
-        event = os.path.join(self.events_dir, '123.34,xxx.app1#1234,deleted,')
+        event = os.path.join(
+            self.app_events_dir,
+            '123.34,xxx.app1#1234,deleted,'
+        )
         self.assertTrue(os.path.exists(event))
         treadmill.zkutils.put.assert_called_with(
             mock.ANY,
@@ -457,7 +480,10 @@ class MasterTest(mockzk.MockZookeeperTestCase):
             mock.ANY,
             '/placement/test.xx.com/xxx.app2#2345'
         )
-        event = os.path.join(self.events_dir, '123.34,xxx.app2#2345,deleted,')
+        event = os.path.join(
+            self.app_events_dir,
+            '123.34,xxx.app2#2345,deleted,'
+        )
         self.assertTrue(os.path.exists(event))
         treadmill.zkutils.put.assert_not_called()
         self.assertNotIn('xxx.app2#2345', self.master.cell.apps)
@@ -468,7 +494,10 @@ class MasterTest(mockzk.MockZookeeperTestCase):
         self.master.remove_app('xxx.app3#3456')
 
         treadmill.zkutils.ensure_deleted.assert_not_called()
-        event = os.path.join(self.events_dir, '123.34,xxx.app3#3456,deleted,')
+        event = os.path.join(
+            self.app_events_dir,
+            '123.34,xxx.app3#3456,deleted,'
+        )
         self.assertTrue(os.path.exists(event))
         treadmill.zkutils.put.assert_called_with(
             mock.ANY,
@@ -1330,6 +1359,11 @@ class MasterTest(mockzk.MockZookeeperTestCase):
             {'state': 'frozen', 'since': 200},
             acl=mock.ANY
         )
+        event = os.path.join(
+            self.server_events_dir,
+            '200,test.xx.com,server_state,frozen'
+        )
+        self.assertTrue(os.path.exists(event))
 
         # Reschedule, remove app from the server, delete placement, post event.
         # App becomes pending, there is no other server where it can be placed.
@@ -1347,7 +1381,7 @@ class MasterTest(mockzk.MockZookeeperTestCase):
             '/placement/test.xx.com/xxx.app1#1234'
         )
         event = os.path.join(
-            self.events_dir,
+            self.app_events_dir,
             '200,xxx.app1#1234,pending,test.xx.com:frozen'
         )
         self.assertTrue(os.path.exists(event))
@@ -1372,6 +1406,11 @@ class MasterTest(mockzk.MockZookeeperTestCase):
             {'state': 'up', 'since': 300},
             acl=mock.ANY
         )
+        event = os.path.join(
+            self.server_events_dir,
+            '300,test.xx.com,server_state,up'
+        )
+        self.assertTrue(os.path.exists(event))
 
         # Set server state to down.
         time.time.return_value = 400
@@ -1393,11 +1432,16 @@ class MasterTest(mockzk.MockZookeeperTestCase):
             {'state': 'down', 'since': 400},
             acl=mock.ANY
         )
+        event = os.path.join(
+            self.server_events_dir,
+            '400,test.xx.com,server_state,down'
+        )
+        self.assertTrue(os.path.exists(event))
 
     @mock.patch('kazoo.client.KazooClient.get', mock.Mock())
     @mock.patch('kazoo.client.KazooClient.create', mock.Mock())
     @mock.patch('time.time', mock.Mock(return_value=123.34))
-    @mock.patch('treadmill.appevents._HOSTNAME', 'xxx')
+    @mock.patch('treadmill.trace.app.zk._HOSTNAME', 'xxx')
     def test_create_apps(self):
         """Tests app api."""
         zkclient = treadmill.zkutils.ZkClient()
@@ -1456,7 +1500,7 @@ class MasterTest(mockzk.MockZookeeperTestCase):
     @mock.patch('kazoo.client.KazooClient.delete', mock.Mock())
     @mock.patch('kazoo.client.KazooClient.create', mock.Mock())
     @mock.patch('time.time', mock.Mock(return_value=123.34))
-    @mock.patch('treadmill.appevents._HOSTNAME', 'xxx')
+    @mock.patch('treadmill.trace.app.zk._HOSTNAME', 'xxx')
     def test_delete_apps(self):
         """Tests app api."""
         zkclient = treadmill.zkutils.ZkClient()
@@ -1842,6 +1886,7 @@ class MasterTest(mockzk.MockZookeeperTestCase):
             },
             'identity-groups': {},
             'partitions': {},
+            'blackedout.servers': {},
             'servers': {
                 'test1.xx.com': {
                     'memory': '16G',
@@ -2066,6 +2111,11 @@ class MasterTest(mockzk.MockZookeeperTestCase):
             {'state': 'frozen', 'since': 501},
             acl=mock.ANY
         )
+        event = os.path.join(
+            self.server_events_dir,
+            '501,test2.xx.com,server_state,frozen'
+        )
+        self.assertTrue(os.path.exists(event))
 
         # Reschedule, move app1 to test1, update placement, post event.
         # app2 stays on test2, it is already running there.
@@ -2089,7 +2139,7 @@ class MasterTest(mockzk.MockZookeeperTestCase):
             acl=mock.ANY
         )
         event = os.path.join(
-            self.events_dir,
+            self.app_events_dir,
             '501,xxx.app1#1234,scheduled,test1.xx.com:test2.xx.com:frozen'
         )
         self.assertTrue(os.path.exists(event))
@@ -2121,7 +2171,7 @@ class MasterTest(mockzk.MockZookeeperTestCase):
     @mock.patch('kazoo.client.KazooClient.exists', mock.Mock())
     @mock.patch('treadmill.zkutils.ensure_deleted', mock.Mock())
     @mock.patch('treadmill.zkutils.put', mock.Mock())
-    def test_blacklisted(self):
+    def test_blacklisted_apps(self):
         """Tests handling of blacklisted apps."""
         # Disable warning accessing protected member.
         #
@@ -2228,7 +2278,9 @@ class MasterTest(mockzk.MockZookeeperTestCase):
             mock.call(mock.ANY, '/placement/test.xx.com/xxx.app1#1234'),
             mock.call(mock.ANY, '/placement/test.xx.com/xxx.app2#2345'),
         ], any_order=True)
-        event = os.path.join(self.events_dir, '*,xxx.app*,pending,blacklisted')
+        event = os.path.join(
+            self.app_events_dir, '*,xxx.app*,pending,blacklisted'
+        )
         self.assertEqual(len(glob.glob(event)), 2)
 
         # Add zzz.app5 to blacklist.
@@ -2262,7 +2314,7 @@ class MasterTest(mockzk.MockZookeeperTestCase):
             '/placement/test.xx.com/zzz.app5#5678'
         )
         event = os.path.join(
-            self.events_dir, '*,zzz.app5#5678,pending,blacklisted'
+            self.app_events_dir, '*,zzz.app5#5678,pending,blacklisted'
         )
         self.assertEqual(len(glob.glob(event)), 1)
 
@@ -2299,6 +2351,46 @@ class MasterTest(mockzk.MockZookeeperTestCase):
             '/placement/test.xx.com/zzz.app5#5678',
             mock.ANY,
             acl=mock.ANY
+        )
+
+    @mock.patch('kazoo.client.KazooClient.get', mock.Mock())
+    @mock.patch('kazoo.client.KazooClient.exists', mock.Mock())
+    @mock.patch('kazoo.client.KazooClient.get_children', mock.Mock())
+    @mock.patch('kazoo.client.KazooClient.set', mock.Mock())
+    @mock.patch('kazoo.client.KazooClient.create', mock.Mock())
+    @mock.patch('kazoo.client.KazooClient.exists', mock.Mock())
+    @mock.patch('time.time', mock.Mock(return_value=100))
+    def test_blacklisted_servers(self):
+        """Tests handling of blacklisted servers."""
+        zk_content = {
+            'blackedout.servers': {
+                'test1.xx.com': {},
+                'test2.xx.com': {},
+            }
+        }
+
+        self.make_mock_zk(zk_content)
+
+        self.master.load_servers_blacklist()
+        self.assertEqual(
+            self.master.servers_blacklist,
+            {'test1.xx.com', 'test2.xx.com'}
+        )
+
+        self.master.process_blackedout_servers(
+            ['test2.xx.com', 'test3.xx.com']
+        )
+        events = [
+            '100,test3.xx.com,server_blackout,',
+            '100,test1.xx.com,server_blackout_cleared,'
+        ]
+        for event in events:
+            self.assertTrue(
+                os.path.exists(os.path.join(self.server_events_dir, event))
+            )
+        self.assertEqual(
+            self.master.servers_blacklist,
+            {'test2.xx.com', 'test3.xx.com'}
         )
 
 

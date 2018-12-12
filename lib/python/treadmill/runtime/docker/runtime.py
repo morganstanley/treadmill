@@ -15,18 +15,20 @@ import socket
 import time
 
 import docker
+import netifaces
 
 from treadmill import appcfg
-from treadmill import appevents
 from treadmill import context
+from treadmill import fs
 from treadmill import exc
 from treadmill import logcontext as lc
 from treadmill import presence
 from treadmill import runtime
+from treadmill import trace
 from treadmill import zkutils
 
 from treadmill.appcfg import abort as app_abort
-from treadmill.apptrace import events
+from treadmill.trace.app import events
 from treadmill.runtime import runtime_base
 
 if os.name == 'nt':
@@ -116,7 +118,7 @@ def _log_port_mapping_config(ports):
         'port mapping config (container port/proto : host port): %s', port_str)
 
 
-def _create_container(tm_env, conf, client, app):
+def _create_container(tm_env, conf, client, app, volume_mapping):
     """Create docker container from given app.
     """
     ports = {}
@@ -148,6 +150,7 @@ def _create_container(tm_env, conf, client, app):
         'storage_opt': {
             'size': app.disk
         },
+        'volumes': volume_mapping
     }
 
     if os.name == 'nt':
@@ -164,7 +167,21 @@ def _create_container(tm_env, conf, client, app):
     return client.containers.create(**container_args)
 
 
-def _update_ports_in_manifest(container, manifest):
+def _device_ip(device):
+    """Return the IPv4 address assigned to a give device.
+
+    :param ``str``:
+        Device name
+    :returns:
+        ``str`` - IPv4 address of the device
+    """
+    ifaddresses = netifaces.ifaddresses(device)
+    # FIXME: We are making an assumption and always taking the first IPv4
+    #        assigned to the device.
+    return ifaddresses[netifaces.AF_INET][0]['addr']
+
+
+def _update_network_info_in_manifest(container, manifest):
     """ update endpoint['real_port'] in manifest according to
         container setting
     """
@@ -188,6 +205,11 @@ def _update_ports_in_manifest(container, manifest):
 
         time.sleep(1)
         container.reload()
+
+    # update host ip
+    manifest['network'] = {
+        'external_ip': _device_ip(netifaces.interfaces()[0])
+    }
 
 
 def _check_aborted(container_dir):
@@ -264,6 +286,24 @@ class DockerRuntime(runtime_base.RuntimeBase):
             manifest['ephemeral_ports']['tcp'] = []
             manifest['ephemeral_ports']['udp'] = []
 
+            # create container_data dir
+            container_data_dir = os.path.join(
+                self._service.data_dir,
+                'container_data'
+            )
+
+            log.info('container_data %r', container_data_dir)
+
+            fs.mkdir_safe(container_data_dir)
+
+            # volume mapping config : read-only mapping
+            volume_mapping = {
+                container_data_dir: {
+                    'bind': 'c:\\container_data',
+                    'mode': 'ro'
+                }
+            }
+
             app = runtime.save_app(manifest, self._service.data_dir)
 
             app_presence = presence.EndpointPresence(
@@ -281,7 +321,8 @@ class DockerRuntime(runtime_base.RuntimeBase):
                     self._tm_env,
                     self._get_config(),
                     client,
-                    app
+                    app,
+                    volume_mapping
                 )
             except docker.errors.ImageNotFound:
                 raise exc.ContainerSetupError(
@@ -292,11 +333,12 @@ class DockerRuntime(runtime_base.RuntimeBase):
             container.start()
             container.reload()
 
-            _update_ports_in_manifest(container, manifest)
+            _update_network_info_in_manifest(container, manifest)
+            runtime.save_app(manifest, container_data_dir, app_json='app.json')
 
             _LOGGER.info('Container is running.')
             app_presence.register_endpoints()
-            appevents.post(
+            trace.post(
                 self._tm_env.app_events_dir,
                 events.ServiceRunningTraceEvent(
                     instanceid=app.name,
@@ -348,7 +390,7 @@ class DockerRuntime(runtime_base.RuntimeBase):
                         payload=state
                     )
 
-                appevents.post(self._tm_env.app_events_dir, event)
+                trace.post(self._tm_env.app_events_dir, event)
 
             if os.name == 'nt':
                 credential_spec.cleanup(name, client)

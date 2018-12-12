@@ -187,5 +187,5 @@ def cell_scope(cell):
 
 
 def init(_ctx):
-    """Init context."""
-    pass
+    """Init context.
+    """

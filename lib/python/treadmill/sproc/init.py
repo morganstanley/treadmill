@@ -17,8 +17,8 @@ import logging
 import os
 import time
 
-import click
 import kazoo
+import click
 
 from treadmill import appenv
 from treadmill import context
@@ -28,6 +28,7 @@ from treadmill import supervisor
 from treadmill import sysinfo
 from treadmill import traits
 from treadmill import utils
+from treadmill import version
 from treadmill import zknamespace as z
 from treadmill import zkutils
 
@@ -49,7 +50,8 @@ def init():
     @click.option('--approot', type=click.Path(exists=True),
                   envvar='TREADMILL_APPROOT', required=True)
     @click.option('--runtime', envvar='TREADMILL_RUNTIME', required=True)
-    def top(exit_on_fail, zkid, notification_fd, approot, runtime):
+    @click.pass_context
+    def top(ctx, exit_on_fail, zkid, notification_fd, approot, runtime):
         """Run treadmill init process."""
         _LOGGER.info('Initializing Treadmill: %s (%s)', approot, runtime)
 
@@ -76,10 +78,15 @@ def init():
         _LOGGER.info('Checking blackout list.')
         blacklisted = bool(zkclient.exists(zk_blackout_path))
 
+        root_cgroup = ctx.obj['ROOT_CGROUP']
+        os_args = {}
+        if os.name == 'posix':
+            os_args['cgroup_prefix'] = root_cgroup
+
         if not blacklisted:
             # Node startup.
             _node_start(tm_env, runtime, zkclient, hostname, zk_server_path,
-                        zk_presence_path)
+                        zk_presence_path, os_args)
 
             utils.report_ready(notification_fd)
 
@@ -105,7 +112,7 @@ def init():
                 trigger_postmortem = bool(zkclient.exists(zk_blackout_path))
 
             if trigger_postmortem:
-                postmortem.run(approot)
+                postmortem.run(approot, root_cgroup)
 
         else:
             # Node was already blacked out.
@@ -184,7 +191,7 @@ def _cleanup_network():
 
 
 def _node_start(tm_env, runtime, zkclient, hostname,
-                zk_server_path, zk_presence_path):
+                zk_server_path, zk_presence_path, os_args):
     """Node startup. Try to re-establish old session or start fresh.
     """
     old_session_ok = False
@@ -203,15 +210,15 @@ def _node_start(tm_env, runtime, zkclient, hostname,
     if not old_session_ok:
         _node_initialize(tm_env, runtime,
                          zkclient, hostname,
-                         zk_server_path, zk_presence_path)
+                         zk_server_path, zk_presence_path, os_args)
 
 
 def _node_initialize(tm_env, runtime, zkclient, hostname,
-                     zk_server_path, zk_presence_path):
+                     zk_server_path, zk_presence_path, os_args):
     """Node initialization. Should only be done on a cold start.
     """
     try:
-        new_node_info = sysinfo.node_info(tm_env, runtime)
+        new_node_info = sysinfo.node_info(tm_env, runtime, **os_args)
 
         traitz = zkutils.get(zkclient, z.path.traits())
         new_node_info['traits'] = traits.detect(traitz)
@@ -237,6 +244,16 @@ def _node_initialize(tm_env, runtime, zkclient, hostname,
             # that none but Treadmill manages these tables) and bulk load all
             # the Treadmill static rules
             iptables.initialize(node_info['network']['external_ip'])
+
+        node_version = version.get_version()
+        if zkclient.exists(z.VERSION) and zkclient.exists(z.VERSION_HISTORY):
+            _LOGGER.info('Registering node version: %r', node_version)
+            version.save_version(zkclient, hostname, node_version)
+        else:
+            _LOGGER.warning(
+                'Unable to register node version, namespace not ready: %r',
+                node_version
+            )
 
     except Exception:  # pylint: disable=W0703
         _LOGGER.exception('Node initialization failed')

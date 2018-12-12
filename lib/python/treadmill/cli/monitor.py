@@ -49,8 +49,8 @@ def init():  # pylint: disable=R0912
                   callback=cli.handle_context_opt,
                   expose_value=False)
     def monitor_group():
-        """Manage Treadmill app monitor configuration"""
-        pass
+        """Manage Treadmill app monitor configuration.
+        """
 
     @monitor_group.command()
     @click.option('-n', '--count', type=int, help='Instance count')

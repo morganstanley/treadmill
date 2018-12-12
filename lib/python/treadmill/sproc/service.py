@@ -189,7 +189,8 @@ def init():
             )
 
         @service.command()
-        def cgroup():
+        @click.pass_context
+        def cgroup(ctx):
             """Runs cgroup node service."""
             root_dir = local_ctx['root-dir']
             watchdogs_dir = local_ctx['watchdogs-dir']
@@ -202,6 +203,7 @@ def init():
             svc.run(
                 watchdogs_dir=os.path.join(root_dir, watchdogs_dir),
                 tm_env=appenv.AppEnvironment(root_dir),
+                cgroup_prefix=ctx.obj['ROOT_CGROUP'],
             )
 
         @service.command()

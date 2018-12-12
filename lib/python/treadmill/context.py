@@ -19,7 +19,6 @@ _LOGGER = logging.getLogger(__name__)
 class ContextError(Exception):
     """Raised when unable to connect to LDAP or Zookeeper.
     """
-    pass
 
 
 def required(msg):
@@ -247,6 +246,51 @@ class AdminContext:
                                     self.user, self.password)
         return self._conn
 
+    def partition(self):
+        """Return admin Partition object.
+        """
+        return self.conn.partition()
+
+    def allocation(self):
+        """Return admin Allocation object.
+        """
+        return self.conn.allocation()
+
+    def cell_allocation(self):
+        """Return admin CellAllocation object.
+        """
+        return self.conn.cell_allocation()
+
+    def tenant(self):
+        """Return admin Tenant object.
+        """
+        return self.conn.tenant()
+
+    def cell(self):
+        """Return admin Cell object.
+        """
+        return self.conn.cell()
+
+    def application(self):
+        """Return admin Application object.
+        """
+        return self.conn.application()
+
+    def app_group(self):
+        """Return admin AppGroup object.
+        """
+        return self.conn.app_group()
+
+    def dns(self):
+        """Return admin DNS object.
+        """
+        return self.conn.dns()
+
+    def server(self):
+        """Return admin Server object.
+        """
+        return self.conn.server()
+
 
 class ZkContext:
     """Zookeeper context.
@@ -317,6 +361,7 @@ class Context:
 
     __slots__ = (
         'ldap',
+        'admin',
         'zk',
         'dns',
         '_resolvers',
@@ -338,8 +383,11 @@ class Context:
 
         # Lazy connections to Zookeeper, LDAP and DNS
         self.zk = ZkContext(self)
-        self.ldap = AdminContext(self)
+        self.admin = AdminContext(self)
         self.dns = DnsContext(self)
+
+        # backward compatibility
+        self.ldap = self.admin
 
     def _load_profile(self):
         """Loads the profile.

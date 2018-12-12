@@ -11,11 +11,11 @@ import os
 import tempfile
 import traceback
 
+import kazoo
+import kazoo.exceptions
 import click
 import dns.exception
 import dns.resolver
-import kazoo
-import kazoo.exceptions
 import ldap3
 from ldap3.core import exceptions as ldap_exceptions
 
@@ -26,6 +26,7 @@ from treadmill import context
 from treadmill import logging as tl
 from treadmill import yamlwrapper as yaml
 from treadmill import kerberoswrapper as kerberos
+from treadmill.admin import exc as admin_exceptions
 
 
 def _handle_no_such_ldap_obj(err):
@@ -57,6 +58,9 @@ ON_EXCEPTIONS = cli.handle_exceptions([
      'Error: access denied.'),
     (ldap_exceptions.LDAPBindError, None),
     (ldap_exceptions.LDAPNoSuchObjectResult, _handle_no_such_ldap_obj),
+    (admin_exceptions.AdminAuthorizationError, 'Error: access denied.'),
+    (admin_exceptions.AdminConnectionError, None),
+    (admin_exceptions.NoSuchObjectResult, 'Error: resource does not exist.'),
     (kazoo.exceptions.NoAuthError, 'Error: not authorized.'),
     (kazoo.exceptions.NoNodeError, 'Error: resource does not exist.'),
     (kerberos.GSSError, _handle_krb_error),

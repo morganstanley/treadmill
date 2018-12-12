@@ -13,8 +13,8 @@ import time
 
 from datetime import datetime
 
-import click
 import kazoo.exceptions
+import click
 
 from twisted.internet import reactor, task
 

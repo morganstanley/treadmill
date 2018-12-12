@@ -29,8 +29,8 @@ def init():
         expose_value=False
     )
     def server_grp():
-        """List & display Treadmill servers."""
-        pass
+        """List & display Treadmill servers.
+        """
 
     @server_grp.command(name='list')
     @click.option(

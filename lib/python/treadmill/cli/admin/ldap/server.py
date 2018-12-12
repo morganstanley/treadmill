@@ -10,9 +10,8 @@ import io
 import json
 
 import click
-from ldap3.core import exceptions as ldap_exceptions
+from treadmill.admin import exc as admin_exceptions
 
-from treadmill import admin
 from treadmill import cli
 from treadmill import context
 
@@ -24,8 +23,8 @@ def init():
 
     @click.group()
     def server():
-        """Manage server configuration"""
-        pass
+        """Manage server configuration.
+        """
 
     @server.command()
     @click.option('-c', '--cell', help='Treadmll cell')
@@ -38,7 +37,7 @@ def init():
     @cli.admin.ON_EXCEPTIONS
     def configure(cell, traits, server, partition, data):
         """Create, get or modify server configuration"""
-        admin_srv = admin.Server(context.GLOBAL.ldap.conn)
+        admin_srv = context.GLOBAL.admin.server()
 
         attrs = {}
         if cell:
@@ -56,12 +55,12 @@ def init():
         if attrs:
             try:
                 admin_srv.create(server, attrs)
-            except ldap_exceptions.LDAPEntryAlreadyExistsResult:
+            except admin_exceptions.AlreadyExistsResult:
                 admin_srv.update(server, attrs)
 
         try:
             cli.out(formatter(admin_srv.get(server, dirty=bool(attrs))))
-        except ldap_exceptions.LDAPNoSuchObjectResult:
+        except admin_exceptions.NoSuchObjectResult:
             cli.bad_exit('Server does not exist: %s', server)
 
     @server.command(name='list')
@@ -72,7 +71,7 @@ def init():
     @cli.admin.ON_EXCEPTIONS
     def _list(cell, traits, partition):
         """List servers"""
-        admin_srv = admin.Server(context.GLOBAL.ldap.conn)
+        admin_srv = context.GLOBAL.admin.server()
         servers = admin_srv.list({'cell': cell,
                                   'traits': cli.combine(traits),
                                   'partition': partition})
@@ -83,7 +82,7 @@ def init():
     @cli.admin.ON_EXCEPTIONS
     def delete(servers):
         """Delete server(s)"""
-        admin_srv = admin.Server(context.GLOBAL.ldap.conn)
+        admin_srv = context.GLOBAL.admin.server()
         for server in servers:
             admin_srv.delete(server)
 

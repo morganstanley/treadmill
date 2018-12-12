@@ -120,6 +120,9 @@ class ZkBackend(ZkReadonlyBackend):
         for path in z.trace_shards():
             self.acls[path] = [servers_acl]
 
+        for path in z.server_trace_shards():
+            self.acls[path] = [servers_acl]
+
     def _acl(self, path):
         """Returns ACL of the Zookeeper node."""
         if path in self.acls:

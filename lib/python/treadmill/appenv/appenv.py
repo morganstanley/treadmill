@@ -41,6 +41,7 @@ class AppEnvironment:
         'cleanup_dir',
         'cleanup_tombstone_dir',
         'configs_dir',
+        'endpoints_dir',
         'images_dir',
         'init1_dir',
         'init_dir',
@@ -69,6 +70,7 @@ class AppEnvironment:
     APP_EVENTS_DIR = 'appevents'
     IMAGES_DIR = 'images'
     TOMBSTONES_DIR = 'tombstones'
+    ENDPOINTS_DIR = 'endpoints'
 
     def __init__(self, root):
         self.root = root
@@ -95,6 +97,7 @@ class AppEnvironment:
                                                   self.RUNNING_DIR)
         self.init_tombstone_dir = os.path.join(self.tombstones_dir,
                                                self.INIT_DIR)
+        self.endpoints_dir = os.path.join(self.root, self.ENDPOINTS_DIR)
 
         self.watchdogs = watchdog.Watchdog(self.watchdog_dir)
 
@@ -106,4 +109,3 @@ class AppEnvironment:
             dictionary of parameters passed to the OS specific
             `meth:initialize` implementation.
         """
-        pass

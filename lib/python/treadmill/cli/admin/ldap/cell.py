@@ -9,9 +9,8 @@ from __future__ import unicode_literals
 import io
 
 import click
-from ldap3.core import exceptions as ldap_exceptions
+from treadmill.admin import exc as admin_exceptions
 
-from treadmill import admin
 from treadmill import cli
 from treadmill import context
 from treadmill import yamlwrapper as yaml
@@ -26,8 +25,8 @@ def init():
     @click.group()
     @cli.admin.ON_EXCEPTIONS
     def cell():
-        """Manage cell configuration"""
-        pass
+        """Manage cell configuration.
+        """
 
     @cell.command()
     @click.option('-v', '--version', help='Version.')
@@ -47,7 +46,7 @@ def init():
     def configure(cell, version, root, location, username, data, status,
                   traits, zk_auth_scheme, manifest):
         """Create, get or modify cell configuration"""
-        admin_cell = admin.Cell(context.GLOBAL.ldap.conn)
+        admin_cell = context.GLOBAL.admin.cell()
         attrs = {}
         if manifest:
             with io.open(manifest, 'rb') as fd:
@@ -78,12 +77,12 @@ def init():
         if attrs:
             try:
                 admin_cell.create(cell, attrs)
-            except ldap_exceptions.LDAPEntryAlreadyExistsResult:
+            except admin_exceptions.AlreadyExistsResult:
                 admin_cell.update(cell, attrs)
 
         try:
             cli.out(formatter(admin_cell.get(cell, dirty=bool(attrs))))
-        except ldap_exceptions.LDAPNoSuchObjectResult:
+        except admin_exceptions.NoSuchObjectResult:
             click.echo('Cell does not exist: %s' % cell, err=True)
 
     @cell.command()
@@ -112,7 +111,7 @@ def init():
     def insert(cell, idx, hostname, client_port, jmx_port, followers_port,
                election_port, kafka_client_port):
         """Add master server to a cell"""
-        admin_cell = admin.Cell(context.GLOBAL.ldap.conn)
+        admin_cell = context.GLOBAL.admin.cell()
         cell_attrs = admin_cell.get(cell)
         masters = cell_attrs.get('masters', [])
         # remove current idx from masters
@@ -136,7 +135,7 @@ def init():
         try:
             admin_cell.update(cell, attrs)
             cli.out(formatter(admin_cell.get(cell, dirty=True)))
-        except ldap_exceptions.LDAPNoSuchObjectResult:
+        except admin_exceptions.NoSuchObjectResult:
             click.echo('Cell does not exist: %s' % cell, err=True)
 
     @cell.command()
@@ -147,7 +146,7 @@ def init():
     @cli.admin.ON_EXCEPTIONS
     def remove(cell, idx):
         """Remove master server from a cell"""
-        admin_cell = admin.Cell(context.GLOBAL.ldap.conn)
+        admin_cell = context.GLOBAL.admin.cell()
         attrs = {
             'masters': [{
                 'idx': int(idx),
@@ -162,14 +161,14 @@ def init():
         try:
             admin_cell.remove(cell, attrs)
             cli.out(formatter(admin_cell.get(cell, dirty=True)))
-        except ldap_exceptions.LDAPNoSuchObjectResult:
+        except admin_exceptions.NoSuchObjectResult:
             click.echo('Cell does not exist: %s' % cell, err=True)
 
     @cell.command(name='list')
     @cli.admin.ON_EXCEPTIONS
     def _list():
         """Displays master servers"""
-        admin_cell = admin.Cell(context.GLOBAL.ldap.conn)
+        admin_cell = context.GLOBAL.admin.cell()
         cells = admin_cell.list({})
         cli.out(formatter(cells))
 
@@ -178,11 +177,11 @@ def init():
     @cli.admin.ON_EXCEPTIONS
     def delete(cell):
         """Delete a cell"""
-        admin_cell = admin.Cell(context.GLOBAL.ldap.conn)
+        admin_cell = context.GLOBAL.admin.cell()
 
         try:
             admin_cell.delete(cell)
-        except ldap_exceptions.LDAPNoSuchObjectResult:
+        except admin_exceptions.NoSuchObjectResult:
             click.echo('Cell does not exist: %s' % cell, err=True)
 
     del delete

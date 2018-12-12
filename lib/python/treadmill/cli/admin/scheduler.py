@@ -10,8 +10,8 @@ import logging
 import os
 import time
 
-import click
 import kazoo
+import click
 
 import pandas as pd
 
@@ -151,8 +151,8 @@ def explain_group(parent):
 
     @parent.group()
     def explain():
-        """Explain scheduler internals"""
-        pass
+        """Explain scheduler internals.
+        """
 
     @explain.command()
     @click.option('--instance', help='Application instance')
@@ -194,8 +194,8 @@ def snapshot_group(parent):
 
     @parent.group()
     def snapshot():
-        """Snapshot scheduler state"""
-        pass
+        """Snapshot scheduler state.
+        """
 
     @snapshot.command()
     @click.option('--root', help='Output directory.',
@@ -237,8 +237,8 @@ def init():
                   callback=cli.handle_context_opt,
                   expose_value=False)
     def top():
-        """Report scheduler state."""
-        pass
+        """Report scheduler state.
+        """
 
     view_group(top)
     explain_group(top)

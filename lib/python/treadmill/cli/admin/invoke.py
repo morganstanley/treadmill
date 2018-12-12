@@ -108,8 +108,8 @@ def make_resource_group(ctx, parent, resource_type, api=None):
 
     @parent.group(name=resource_type, help=api.__doc__)
     def _rsrc_group():
-        """Creates a CLI group for the given resource type."""
-        pass
+        """Creates a CLI group for the given resource type.
+        """
 
     for verb in dir(api):
         if verb.startswith('__'):

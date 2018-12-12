@@ -9,9 +9,8 @@ from __future__ import unicode_literals
 import logging
 
 import click
-from ldap3.core import exceptions as ldap_exceptions
+from treadmill.admin import exc as admin_exceptions
 
-from treadmill import admin
 from treadmill import cli
 from treadmill import context
 
@@ -25,8 +24,8 @@ def init():  # pylint: disable=R0912
 
     @click.group()
     def app_group():  # pylint: disable=W0621
-        """Manage App Groups"""
-        pass
+        """Manage App Groups.
+        """
 
     @app_group.command()
     @click.argument('name', nargs=1, required=True)
@@ -42,7 +41,7 @@ def init():  # pylint: disable=R0912
                   'comma separated list', type=cli.LIST)
     def configure(name, group_type, cell, pattern, endpoints, data):
         """Create, get or modify an App Group"""
-        admin_app_group = admin.AppGroup(context.GLOBAL.ldap.conn)
+        admin_app_group = context.GLOBAL.admin.app_group()
 
         data_struct = {}
         if group_type:
@@ -60,13 +59,13 @@ def init():  # pylint: disable=R0912
             try:
                 admin_app_group.create(name, data_struct)
                 _LOGGER.debug('Created app group %s', name)
-            except ldap_exceptions.LDAPEntryAlreadyExistsResult:
+            except admin_exceptions.AlreadyExistsResult:
                 _LOGGER.debug('Updating app group %s', name)
                 admin_app_group.update(name, data_struct)
 
         try:
             cli.out(formatter(admin_app_group.get(name, dirty=True)))
-        except ldap_exceptions.LDAPNoSuchObjectResult:
+        except admin_exceptions.NoSuchObjectResult:
             cli.bad_exit('App group does not exist: %s', name)
 
     @app_group.command()
@@ -76,7 +75,7 @@ def init():  # pylint: disable=R0912
     @cli.admin.ON_EXCEPTIONS
     def cells(add, remove, name):
         """Add or remove cells from the app-group"""
-        admin_app_group = admin.AppGroup(context.GLOBAL.ldap.conn)
+        admin_app_group = context.GLOBAL.admin.app_group()
         existing = admin_app_group.get(name, dirty=bool(add or remove))
         group_cells = set(existing['cells'])
 
@@ -96,16 +95,16 @@ def init():  # pylint: disable=R0912
     def get(name):
         """Get an App Group entry"""
         try:
-            admin_app_group = admin.AppGroup(context.GLOBAL.ldap.conn)
+            admin_app_group = context.GLOBAL.admin.app_group()
             cli.out(formatter(admin_app_group.get(name)))
-        except ldap_exceptions.LDAPNoSuchObjectResult:
+        except admin_exceptions.NoSuchObjectResult:
             cli.bad_exit('App group does not exist: %s', name)
 
     @app_group.command(name='list')
     @cli.admin.ON_EXCEPTIONS
     def _list():
         """List App Group entries"""
-        admin_app_group = admin.AppGroup(context.GLOBAL.ldap.conn)
+        admin_app_group = context.GLOBAL.admin.app_group()
         app_group_entries = admin_app_group.list({})
         cli.out(formatter(app_group_entries))
 
@@ -114,7 +113,7 @@ def init():  # pylint: disable=R0912
     @cli.admin.ON_EXCEPTIONS
     def delete(name):
         """Delete an App Group entry"""
-        admin_app_group = admin.AppGroup(context.GLOBAL.ldap.conn)
+        admin_app_group = context.GLOBAL.admin.app_group()
         admin_app_group.delete(name)
 
     del delete

@@ -20,6 +20,8 @@ from treadmill import subproc
 _LOGGER = logging.getLogger(__name__)
 
 _SYSFS_NET = '/sys/class/net'
+_BRCTL_EXE = 'brctl'
+_IP_EXE = 'ip'
 
 _PROC_CONF_PROXY_ARP = '/proc/sys/net/ipv4/conf/{dev}/proxy_arp'
 _PROC_CONF_FORWARDING = '/proc/sys/net/ipv4/conf/{dev}/forwarding'
@@ -64,6 +66,33 @@ def dev_alias(devname):
         OSError, IOError if the device doesn't exist
     """
     return six.text_type(_get_dev_attr(devname, 'ifalias'))
+
+
+class DevType(enum.IntEnum):
+    """Network device types.
+
+    see include/uapi/linux/if_arp.h
+    """
+    # NOTE: Missing types below. Add as needed.
+    Ether = 1
+    GRE = 778
+    Loopback = 772
+
+
+def dev_list(typefilter=None):
+    """List network devices.
+
+    :returns:
+        ``list(str)`` - List of device names
+    """
+    all_devs = os.listdir(_SYSFS_NET)
+    if not typefilter:
+        return all_devs
+    return [
+        devname
+        for devname in all_devs
+        if int(_get_dev_attr(devname, 'type')) == DevType(typefilter).value
+    ]
 
 
 class DevState(enum.Enum):
@@ -121,7 +150,7 @@ def link_set_up(devname):
     """
     subproc.check_call(
         [
-            'ip', 'link',
+            _IP_EXE, 'link',
             'set',
             'dev', devname,
             'up'
@@ -137,7 +166,7 @@ def link_set_down(devname):
     """
     subproc.check_call(
         [
-            'ip', 'link',
+            _IP_EXE, 'link',
             'set',
             'dev', devname,
             'down'
@@ -153,7 +182,7 @@ def link_set_name(devname, newname):
     """
     subproc.check_call(
         [
-            'ip', 'link',
+            _IP_EXE, 'link',
             'set',
             'dev', devname,
             'name', newname,
@@ -169,7 +198,7 @@ def link_set_alias(devname, alias):
     """
     subproc.check_call(
         [
-            'ip', 'link',
+            _IP_EXE, 'link',
             'set',
             'dev', devname,
             'alias', alias,
@@ -185,7 +214,7 @@ def link_set_mtu(devname, mtu):
     """
     subproc.check_call(
         [
-            'ip', 'link',
+            _IP_EXE, 'link',
             'set',
             'dev', devname,
             'mtu', six.text_type(mtu),
@@ -201,7 +230,7 @@ def link_set_netns(devname, namespace):
     """
     subproc.check_call(
         [
-            'ip', 'link',
+            _IP_EXE, 'link',
             'set',
             'dev', devname,
             'netns', six.text_type(namespace),
@@ -219,7 +248,7 @@ def link_set_addr(devname, macaddr):
     """
     subproc.check_call(
         [
-            'ip', 'link',
+            _IP_EXE, 'link',
             'set',
             'dev', devname,
             'address', macaddr,
@@ -237,7 +266,7 @@ def link_add_veth(veth0, veth1):
     """
     subproc.check_call(
         [
-            'ip', 'link',
+            _IP_EXE, 'link',
             'add', 'name', veth0,
             'type', 'veth',
             'peer', 'name', veth1
@@ -253,7 +282,7 @@ def link_del_veth(devname):
     """
     subproc.check_call(
         [
-            'ip', 'link',
+            _IP_EXE, 'link',
             'delete',
             'dev', devname,
             'type', 'veth',
@@ -261,132 +290,138 @@ def link_del_veth(devname):
     )
 
 
-def addr_add(addr, devname, addr_scope='link'):
+def addr_add(addr, devname, ptp_addr=None, addr_scope='link'):
     """Add an IP address to a network device.
 
     :param ``str`` addr:
         IP address.
     :param ``str`` devname:
         The name of the network device.
+    :param ``str`` ptp_addr:
+        Peer address on Point-to-Point links.
     """
+    if ptp_addr is not None:
+        ipaddr = [addr, 'peer', ptp_addr]
+    else:
+        ipaddr = [addr]
+
     subproc.check_call(
         [
             'ip', 'addr',
             'add',
-            addr,
+        ] + ipaddr + [
             'dev', devname,
             'scope', addr_scope,
         ],
     )
 
 
-def route_add(dest, via=None, devname=None, src=None, route_scope=None):
+def route_add(dest, rtype='unicast',
+              via=None, devname=None, src=None, route_scope=None):
     """Define a new entry in the routing table.
 
     :param ``str`` devname:
         The name of the network device.
     """
-    assert devname or via
+    assert (rtype == 'unicast' and (devname or via)) or rtype == 'blackhole'
     route = [
         'ip', 'route',
-        'add', dest,
+        'add',
+        rtype, dest,
     ]
-    if via is not None:
-        route += ['via', via]
-    if devname is not None:
-        route += ['dev', devname]
-    if src is not None:
-        route += ['src', src]
+    if rtype == 'unicast':
+        if via is not None:
+            route += ['via', via]
+        if devname is not None:
+            route += ['dev', devname]
+        if src is not None:
+            route += ['src', src]
+
     if route_scope is not None:
         route += ['scope', route_scope]
 
     subproc.check_call(route)
 
 
-def bridge_create(brname):
+def bridge_create(devname):
     """Create a new network bridge device.
 
-    :param ``str`` brname:
+    :param ``str`` devname:
         The name of the network device.
     """
     subproc.check_call(
         [
-            'ip', 'link',
-            'add',
-            'name', brname,
-            'type', 'bridge',
+            _BRCTL_EXE,
+            'addbr',
+            devname
         ],
     )
 
 
-def bridge_delete(brname):
+def bridge_delete(devname):
     """Delete a new network bridge device.
 
-    :param ``str`` brname:
+    :param ``str`` devname:
         The name of the network device.
     """
     subproc.check_call(
         [
-            'ip', 'link',
-            'del',
-            'dev', brname,
-            'type', 'bridge',
+            _BRCTL_EXE,
+            'delbr',
+            devname
         ],
     )
 
 
-def bridge_setfd(brname, forward_delay):
+def bridge_setfd(devname, forward_delay):
     """Configure the forward-delay of a bridge device.
 
-    :param ``str`` brname:
+    :param ``str`` devname:
         The name of the network device.
     """
     subproc.check_call(
         [
-            'ip', 'link',
-            'set',
-            'dev', brname,
-            'type', 'bridge',
-            'forward_delay', six.text_type(forward_delay),
+            _BRCTL_EXE,
+            'setfd',
+            devname,
+            six.text_type(forward_delay),
         ],
     )
 
 
-def bridge_addif(brname, interface):
+def bridge_addif(devname, interface):
     """Add an interface to a bridge device.
 
-    :param ``str`` brname:
-        The name of the bridge device.
-    :param ``str`` interface:
+    :param ``str`` devname:
         The name of the network device.
     """
     subproc.check_call(
         [
-            'ip', 'link',
-            'set',
-            'dev', interface,
-            'master', brname,
+            _BRCTL_EXE,
+            'addif',
+            devname,
+            interface,
         ],
     )
 
 
-def bridge_delif(interface):
+def bridge_delif(devname, interface):
     """Remove an interface from a bridge device.
 
-    :param ``str`` brname:
+    :param ``str`` devname:
         The name of the network device.
     """
     subproc.check_call(
         [
-            'ip', 'link',
-            'set',
-            'dev', interface,
-            'nomaster',
+            _BRCTL_EXE,
+            'delif',
+            devname,
+            interface,
         ],
     )
 
 
-def bridge_forward_delay(brname):
+def bridge_forward_delay(devname):
     """Read a bridge device's forward delay timer.
 
     :returns ``int``:
@@ -394,10 +429,10 @@ def bridge_forward_delay(brname):
     :raises:
         OSError, IOError (ENOENT) if the device doesn't exist.
     """
-    return int(_get_dev_attr(brname, 'bridge/forward_delay'))
+    return int(_get_dev_attr(devname, 'bridge/forward_delay'))
 
 
-def bridge_brif(brname):
+def bridge_brif(devname):
     """Read a bridge device's slave devices.
 
     :returns ``list``:
@@ -406,7 +441,7 @@ def bridge_brif(brname):
         OSError, IOError (ENOENT) if the device doesn't exist or if the device
         is not a bridge.
     """
-    return list(_get_dev_attr(brname, 'brif', dirattr=True))
+    return list(_get_dev_attr(devname, 'brif', dirattr=True))
 
 
 def _get_dev_attr(devname, attr, dirattr=False):

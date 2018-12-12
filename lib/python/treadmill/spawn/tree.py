@@ -10,7 +10,6 @@ import logging
 import os
 import shutil
 
-from treadmill import apptrace
 from treadmill import fs
 from treadmill import spawn
 from treadmill import subproc
@@ -19,6 +18,7 @@ from treadmill import templates
 from treadmill import utils
 from treadmill import zknamespace
 from treadmill.spawn import utils as spawn_utils
+from treadmill.trace.app import zk as app_zk
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -44,7 +44,7 @@ class Tree:
             'TREADMILL_SPAWN_ZK2FS': self.paths.zk_mirror_dir,
             'TREADMILL_SPAWN_ZK2FS_SHARDS':
                 str(zknamespace.TRACE_SHARDS_COUNT),
-            'TREADMILL_SPAWN_ZK2FS_SOW': apptrace.TRACE_SOW_DIR,
+            'TREADMILL_SPAWN_ZK2FS_SOW': app_zk.TRACE_SOW_DIR,
             'TREADMILL_SPAWN_CELLAPI_SOCK': self.paths.cellapi_sock,
             'TREADMILL_SPAWN_CLEANUP': self.paths.cleanup_dir,
         }

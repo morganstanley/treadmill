@@ -82,6 +82,7 @@ def environ_dir_write(env_dir, env, update=False):
             _LOGGER.warning('Ignoring invalid environ variable %r', key)
             continue
 
+        filename = os.path.join(env_dir, key)
         if value is not None:
             # Make sure we have utf8 strings
             if hasattr(value, 'decode'):
@@ -95,12 +96,10 @@ def environ_dir_write(env_dir, env, update=False):
                 .rstrip(b'\n')
                 .replace(b'\n', b'\x00')
             )
-            _write_data(
-                os.path.join(env_dir, key),
-                data,
-                mode='wb',
-                permission=0o644
-            )
+            _write_data(filename, data, mode='wb', permission=0o644)
+        else:
+            # Write empty file, it will remove a variable from the environment.
+            _write(filename, None, mode='wb', permission=0o644)
 
 
 def environ_dir_read(env_dir):

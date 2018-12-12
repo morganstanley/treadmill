@@ -1,11 +1,14 @@
 command: |
+  echo "app_root: {{ dir }}" > /tmp/cgroup.cfg.yml
+  echo "cgroup_prefix: {{ treadmill_root_cgroup }}" >> /tmp/cgroup.cfg.yml
   exec \
     {{ treadmill }}/bin/treadmill \
     sproc --cgroup {{ name }} \
     nodeinfo \
         --register \
         --cors-origin='.*' \
-        -m local
+        -m local,cgroup \
+        --config cgroup /tmp/cgroup.cfg.yml
 environ_dir: "{{ dir }}/env"
 environ:
   KRB5CCNAME: "FILE:{{ treadmill_host_ticket }}"

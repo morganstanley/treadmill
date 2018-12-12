@@ -86,8 +86,8 @@ EXITS_DIR = 'exits'
 
 
 class InvalidServiceDirError(ValueError):
-    """Invalid service directory."""
-    pass
+    """Invalid service directory.
+    """
 
 
 def open_service(service_dir, existing=True):

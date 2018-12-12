@@ -21,8 +21,8 @@ class SchemaTest(unittest.TestCase):
 
         @schema.schema({'type': 'number'}, {'type': 'string'})
         def _simple(_number, _string):
-            """sample function."""
-            pass
+            """sample function.
+            """
 
         _simple(1, '1')
         self.assertRaises(

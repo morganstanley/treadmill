@@ -35,8 +35,8 @@ def init():
                   callback=cli.handle_context_opt,
                   expose_value=False)
     def top():
-        """Show Treadmill apps"""
-        pass
+        """Show Treadmill apps.
+        """
 
     @top.command()
     def scheduled():

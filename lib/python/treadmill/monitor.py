@@ -175,7 +175,6 @@ class MonitorTombstoneAction:
         :returns ``bool``:
             ``True`` - Monitor should delete the tombstone
         """
-        pass
 
 
 class MonitorNodeDown(MonitorTombstoneAction):
