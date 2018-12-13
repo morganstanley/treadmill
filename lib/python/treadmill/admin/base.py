@@ -10,54 +10,55 @@ import abc
 
 
 class Backend(metaclass=abc.ABCMeta):
-    """Admin plugin interface."""
+    """Admin plugin interface.
+    """
 
     @abc.abstractmethod
     def connect(self):
-        """Connect to backend server."""
-        pass
+        """Connect to backend server.
+        """
 
     @abc.abstractmethod
     def partition(self):
-        """Create Partition object."""
-        pass
+        """Create Partition object.
+        """
 
     @abc.abstractmethod
     def allocation(self):
-        """Create Allocation object."""
-        pass
+        """Create Allocation object.
+        """
 
     @abc.abstractmethod
     def cell_allocation(self):
-        """Create CellAllocation object."""
-        pass
+        """Create CellAllocation object.
+        """
 
     @abc.abstractmethod
     def tenant(self):
-        """Create Tenant object."""
-        pass
+        """Create Tenant object.
+        """
 
     @abc.abstractmethod
     def cell(self):
-        """Create Cell object."""
-        pass
+        """Create Cell object.
+        """
 
     @abc.abstractmethod
     def application(self):
-        """Create Application object."""
-        pass
+        """Create Application object.
+        """
 
     @abc.abstractmethod
     def app_group(self):
-        """Create AppGroup object."""
-        pass
+        """Create AppGroup object.
+        """
 
     @abc.abstractmethod
     def dns(self):
-        """Create DNS object."""
-        pass
+        """Create DNS object.
+        """
 
     @abc.abstractmethod
     def server(self):
-        """Create Server object."""
-        pass
+        """Create Server object.
+        """

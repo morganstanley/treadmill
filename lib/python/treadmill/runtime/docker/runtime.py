@@ -13,8 +13,9 @@ import multiprocessing
 import os
 import socket
 import time
-import netifaces
+
 import docker
+import netifaces
 
 from treadmill import appcfg
 from treadmill import context

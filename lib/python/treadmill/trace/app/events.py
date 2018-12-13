@@ -48,7 +48,6 @@ class AppTraceEvent(_events.TraceEvent):
     def event_data(self):
         """Return an event's event_data.
         """
-        pass
 
     @classmethod
     def _class_from_type(cls, event_type):
@@ -621,59 +620,49 @@ class AppTraceEventHandler(_events.TraceEventHandler):
     def on_scheduled(self, when, instanceid, server, why):
         """Invoked when task is scheduled.
         """
-        pass
 
     @abc.abstractmethod
     def on_pending(self, when, instanceid, why):
         """Invoked when task is pending.
         """
-        pass
 
     @abc.abstractmethod
     def on_pending_delete(self, when, instanceid, why):
         """Invoked when task is about to be deleted.
         """
-        pass
 
     @abc.abstractmethod
     def on_configured(self, when, instanceid, server, uniqueid):
         """Invoked when task is configured.
         """
-        pass
 
     @abc.abstractmethod
     def on_deleted(self, when, instanceid):
         """Invoked when task is deleted.
         """
-        pass
 
     @abc.abstractmethod
     def on_finished(self, when, instanceid, server, signal, exitcode):
         """Invoked when task is finished.
         """
-        pass
 
     @abc.abstractmethod
     def on_aborted(self, when, instanceid, server, why):
         """Invoked when task is aborted.
         """
-        pass
 
     @abc.abstractmethod
     def on_killed(self, when, instanceid, server, is_oom):
         """Default task-finished handler.
         """
-        pass
 
     @abc.abstractmethod
     def on_service_running(self, when, instanceid, server, uniqueid, service):
         """Invoked when service is running.
         """
-        pass
 
     @abc.abstractmethod
     def on_service_exited(self, when, instanceid, server, uniqueid, service,
                           exitcode, signal):
         """Invoked when service exits.
         """
-        pass

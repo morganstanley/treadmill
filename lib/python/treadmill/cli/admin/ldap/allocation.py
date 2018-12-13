@@ -21,8 +21,8 @@ def init():
 
     @click.group()
     def allocation():
-        """Manage allocations"""
-        pass
+        """Manage allocations.
+        """
 
     @allocation.command()
     @click.option('-e', '--environment', help='Environment',

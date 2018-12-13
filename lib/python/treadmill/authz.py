@@ -27,11 +27,12 @@ class NullAuthorizer:
     """Passthrough authorization class."""
 
     def __init__(self):
-        pass
+        """Null constructor.
+        """
 
     def authorize(self, _resource, _action, _args, _kwargs):
-        """Null authorization - always succeeds."""
-        pass
+        """Null authorization - always succeeds.
+        """
 
 
 class ClientAuthorizer:

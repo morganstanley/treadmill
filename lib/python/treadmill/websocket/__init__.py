@@ -182,8 +182,8 @@ def make_handler(pubsub):
                                     sub_id=sub_id, close_conn=close_conn)
 
         def data_received(self, chunk):
-            """Passthrough of abstract method data_received"""
-            pass
+            """Passthrough of abstract method data_received.
+            """
 
         def on_event(self, filename, operation, _content):
             """Default event handler."""

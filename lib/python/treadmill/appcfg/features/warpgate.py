@@ -32,17 +32,27 @@ class WarpgateFeature(feature_base.Feature):
         return (
             runtime == 'linux' and
             self._servers and
-            len(manifest.get('tickets', []))
+            len(manifest.get('tickets', [])) and
+            any([env for env in manifest.get('environ', [])
+                 if env['name'] == 'WARPGATE_POLICY'])
         )
 
     def configure(self, manifest):
         _LOGGER.info('Configuring warpgate.')
 
+        # TODO: workaround to get policy from WARPGATE_POLICY env variable
+        policy = None
+        for environ in manifest['environ']:
+            if environ['name'] == 'WARPGATE_POLICY':
+                policy = environ['value']
+                break
+
         manifest['services'].append(
             _generate_warpgate_service(
                 account=manifest['tickets'][0],
                 servers=self._servers,
-                service_principal=self._principal
+                service_principal=self._principal,
+                policy=policy,
             )
         )
         manifest['warpgate'] = True
@@ -57,18 +67,20 @@ class WarpgateFeature(feature_base.Feature):
         return (servers, principal)
 
 
-def _generate_warpgate_service(account, servers, service_principal):
+def _generate_warpgate_service(account, servers, service_principal, policy):
     cmd = (
         'exec $TREADMILL/bin/treadmill sproc'
         ' --logging-conf daemon_container.json'
         ' warpgate'
         ' --policy-servers {warpgates}'
+        ' --policy {policy}'
         ' --service-principal {service_principal}'
         ' --tun-dev {tun_devname}'
         ' --tun-addr {tun_ipaddr}'
     ).format(
         warpgates=','.join(servers),
         service_principal=service_principal,
+        policy=policy,
         tun_devname='eth0',
         tun_ipaddr='${TREADMILL_CONTAINER_IP}'
     )

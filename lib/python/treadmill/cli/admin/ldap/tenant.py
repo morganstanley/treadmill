@@ -20,8 +20,8 @@ def init():
 
     @click.group()
     def tenant():
-        """Manage tenants"""
-        pass
+        """Manage tenants.
+        """
 
     @tenant.command()
     @click.option('-s', '--system', help='System eon id', type=int,

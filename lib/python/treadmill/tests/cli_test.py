@@ -54,12 +54,12 @@ class CliTest(unittest.TestCase):
     def test_exceptions_wrapper(self):
         """Tests wrapping function with exceptions wrapper."""
         class AExc(Exception):
-            """Sample exception."""
-            pass
+            """Sample exception.
+            """
 
         class BExc(Exception):
-            """Another exception."""
-            pass
+            """Another exception.
+            """
 
         on_exceptions = cli.handle_exceptions([
             (AExc, 'a'),

@@ -22,8 +22,8 @@ def server_group(parent):
 
     @parent.group()
     def server():
-        """Manage server configuration"""
-        pass
+        """Manage server configuration.
+        """
 
     @server.command()
     @cli.admin.ON_EXCEPTIONS
@@ -147,8 +147,8 @@ def app_group(parent):
 
     @parent.group(name='app')
     def app():
-        """Manage app configuration"""
-        pass
+        """Manage app configuration.
+        """
 
     @app.command()
     @cli.admin.ON_EXCEPTIONS
@@ -213,8 +213,8 @@ def monitor_group(parent):
 
     @parent.group()
     def monitor():
-        """Manage app monitors configuration"""
-        pass
+        """Manage app monitors configuration.
+        """
 
     @monitor.command()
     @click.option('-n', '--count', type=int, help='Instance count')
@@ -282,8 +282,8 @@ def cell_group(parent):
 
     @parent.group()
     def cell():
-        """Manage top level cell configuration"""
-        pass
+        """Manage top level cell configuration.
+        """
 
     @cell.command()
     @click.argument('bucket')
@@ -318,8 +318,8 @@ def bucket_group(parent):
 
     @parent.group()
     def bucket():
-        """Manage Treadmill bucket configuration"""
-        pass
+        """Manage Treadmill bucket configuration.
+        """
 
     @bucket.command()
     @click.option('-f', '--features', help='Bucket features, - to reset',
@@ -371,8 +371,8 @@ def identity_group_group(parent):
 
     @parent.group(name='identity-group')
     def identity_group():
-        """Manage identity group configuration"""
-        pass
+        """Manage identity group configuration.
+        """
 
     @identity_group.command()
     @click.option('-n', '--count', type=int)
@@ -422,8 +422,8 @@ def init():
                   callback=cli.handle_context_opt,
                   expose_value=False)
     def master_group():
-        """Manage Treadmill master data"""
-        pass
+        """Manage Treadmill master data.
+        """
 
     cell_group(master_group)
     bucket_group(master_group)

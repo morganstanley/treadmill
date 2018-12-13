@@ -25,8 +25,8 @@ def init():
 
     @click.group(name='app-dns')
     def appdns():
-        """Manage Treadmill App DNS configuration"""
-        pass
+        """Manage Treadmill App DNS configuration.
+        """
 
     @appdns.command()
     @click.argument('name', nargs=1, required=True)

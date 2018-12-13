@@ -1,4 +1,5 @@
-"""The base implementation for managing images."""
+"""The base implementation for managing images.
+"""
 
 from __future__ import absolute_import
 from __future__ import division
@@ -12,7 +13,8 @@ import six
 
 @six.add_metaclass(abc.ABCMeta)
 class Image:
-    """Represents an image."""
+    """Represents an image.
+    """
 
     @abc.abstractmethod
     def unpack(self, container_dir, root_dir, app, app_cgroups):
@@ -35,4 +37,3 @@ class Image:
         :type app_cgroups:
             ``dict``
         """
-        pass

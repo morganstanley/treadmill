@@ -18,8 +18,8 @@ def init():
 
     @click.group()
     def direct():
-        """Direct access to LDAP data"""
-        pass
+        """Direct access to LDAP data.
+        """
 
     @direct.command()
     @click.option('-c', '--cls', help='Object class', required=True)

@@ -84,7 +84,7 @@ def init():
         expose_value=False
     )
     def run():
-        """Report scheduler state."""
-        pass
+        """Report scheduler state.
+        """
 
     return run

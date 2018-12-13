@@ -44,7 +44,9 @@ class AppCfgWarpgateFeatureTest(unittest.TestCase):
                     'features': ['warpgate'],
                     'proid': 'foo',
                     'tickets': ['foo@realm'],
-                    'environ': [],
+                    'environ': [
+                        {'name': 'WARPGATE_POLICY', 'value': 'foo'},
+                    ],
                 },
                 runtime='linux'
             )
@@ -56,7 +58,9 @@ class AppCfgWarpgateFeatureTest(unittest.TestCase):
                     'features': ['warpgate'],
                     'proid': 'foo',
                     'tickets': ['foo@realm'],
-                    'environ': [],
+                    'environ': [
+                        {'name': 'WARPGATE_POLICY', 'value': 'foo'},
+                    ],
                 },
                 runtime='notlinux'
             ),
@@ -68,11 +72,25 @@ class AppCfgWarpgateFeatureTest(unittest.TestCase):
                     'features': ['warpgate'],
                     'proid': 'foo',
                     'tickets': [],
-                    'environ': [],
+                    'environ': [
+                        {'name': 'WARPGATE_POLICY', 'value': 'foo'},
+                    ],
                 },
                 runtime='linux'
             ),
             'Must have some tickets'
+        )
+        self.assertFalse(
+            feature_mod.applies(
+                manifest={
+                    'features': ['warpgate'],
+                    'proid': 'foo',
+                    'tickets': ['foo@realm'],
+                    'environ': [],
+                },
+                runtime='linux'
+            ),
+            'Must have env variable WARPGATE_POLICY'
         )
 
     @mock.patch('treadmill.appcfg.features.warpgate.WarpgateFeature.'
@@ -88,7 +106,9 @@ class AppCfgWarpgateFeatureTest(unittest.TestCase):
             'system_services': [],
             'features': ['warpgate'],
             'proid': 'foo',
-            'environ': [],
+            'environ': [
+                {'name': 'WARPGATE_POLICY', 'value': 'foo'},
+            ],
             'tickets': ['foo@realm'],
         }
 
@@ -107,6 +127,7 @@ class AppCfgWarpgateFeatureTest(unittest.TestCase):
                     ' --logging-conf daemon_container.json'
                     ' warpgate'
                     ' --policy-servers somehost:1234'
+                    ' --policy foo'
                     ' --service-principal foo'
                     ' --tun-dev eth0'
                     ' --tun-addr ${TREADMILL_CONTAINER_IP}'
