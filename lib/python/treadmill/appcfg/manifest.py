@@ -13,6 +13,7 @@ import os
 
 from treadmill import appcfg
 from treadmill import context
+from treadmill import exc
 from treadmill import subproc
 from treadmill import supervisor
 from treadmill import utils
@@ -360,16 +361,24 @@ def add_manifest_features(manifest, runtime, tm_env):
     for feature in manifest.get('features', []):
         if not features.feature_exists(feature):
             _LOGGER.error('Unable to load feature: %s', feature)
-            raise Exception('Unsupported feature: ' + feature)
+            raise exc.ContainerSetupError(
+                msg='Unsupported feature: {}'.format(feature),
+                reason='feature',
+            )
 
         feature_mod = features.get_feature(feature)(tm_env)
 
         if not feature_mod.applies(manifest, runtime):
             _LOGGER.error('Feature does not apply: %s', feature)
-            raise Exception('Unsupported feature: ' + feature)
-
+            raise exc.ContainerSetupError(
+                msg='Unsupported feature: {}'.format(feature),
+                reason='feature',
+            )
         try:
             feature_mod.configure(manifest)
         except Exception:
             _LOGGER.exception('Error configuring feature: %s', feature)
-            raise Exception('Error configuring feature: ' + feature)
+            raise exc.ContainerSetupError(
+                msg='Error configuring feature: {}'.format(feature),
+                reason='feature',
+            )

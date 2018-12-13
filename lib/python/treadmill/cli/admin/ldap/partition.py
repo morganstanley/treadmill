@@ -11,8 +11,6 @@ import logging
 
 import click
 
-import six
-
 from treadmill.admin import exc as admin_exceptions
 from treadmill import cli
 from treadmill import context
@@ -92,7 +90,7 @@ def init():
             if systems == ['-']:
                 attrs['systems'] = None
             else:
-                attrs['systems'] = list(six.moves.map(int, systems))
+                attrs['systems'] = [int(s) for s in systems]
         if down_threshold:
             if down_threshold.endswith('%'):
                 attrs['down-threshold'] = _resolve_partition_threshold(
@@ -138,7 +136,16 @@ def init():
             if srv['cell'] != cell:
                 cli.bad_exit('Server does not belong to %s: %s',
                              cell, srv['cell'])
-            cli.out(formatter(admin_part.get([srv['partition'], cell])))
+
+            # The server checks out (otherwise there will be exception already)
+            #
+            # If partition is not explicitely defined, return empty dict.
+            try:
+                partition_obj = admin_part.get([srv['partition'], cell])
+            except admin_exceptions.NoSuchObjectResult:
+                partition_obj = {}
+
+            cli.out(formatter(partition_obj))
         else:
             cli.bad_exit('Partition or server name is required')
 
