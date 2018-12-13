@@ -278,6 +278,7 @@ def _install_services(scan_dir, package, src_dir, dst_dir, params, prefix_len,
                 call_before_run=service_conf['call_before_run'],
                 call_before_finish=service_conf['call_before_finish'],
                 logger_args=service_conf['logger_args'],
+                ionice_prio=0,
             )
 
             for file in service_conf['data_dir']:
