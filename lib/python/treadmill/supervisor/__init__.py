@@ -267,6 +267,7 @@ def _create_service_s6(base_dir,
                        log_run_script='s6.logger.run',
                        finish_script='s6.finish',
                        logger_args=None,
+                       ionice_prio=None,
                        **kwargs):
     """Initializes service directory.
 
@@ -300,10 +301,11 @@ def _create_service_s6(base_dir,
     svc_environ['HOME'] = home_dir
     svc.environ = svc_environ
 
-    if environment == 'prod':
-        ionice_prio = 5
-    else:
-        ionice_prio = 6
+    if ionice_prio is None:
+        if environment == 'prod':
+            ionice_prio = 5
+        else:
+            ionice_prio = 6
 
     # Setup the run script
     svc.run_script = templates.generate_template(
@@ -312,6 +314,7 @@ def _create_service_s6(base_dir,
         shell=shell,
         environ_dir=environ_dir,
         trace=trace,
+        ionice_prio=ionice_prio,
         call_before_run=call_before_run,
         _alias=subproc.get_aliases()
     )
