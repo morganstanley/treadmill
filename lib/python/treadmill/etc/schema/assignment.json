@@ -7,9 +7,11 @@
         "type": "object",
         "additionalProperties": false,
         "properties": {
-            "priority": { "type": "integer" },
-            "minimum": 0,
-            "maximum": 100
+            "priority": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 100
+            }
         }
     },
     "verbs": {

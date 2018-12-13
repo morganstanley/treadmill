@@ -37,6 +37,13 @@ def init():
     def warpgate(policy_servers, service_principal, policy, tun_dev, tun_addr):
         """Run warpgate connection manager.
         """
+        _LOGGER.info(
+            'Launch client => %s, tunnel: %s[%s], policy: %s, principal: %s',
+            policy_servers,
+            tun_dev, tun_addr,
+            policy,
+            service_principal,
+        )
         # Never exits
         client.run_client(
             policy_servers, service_principal, policy,

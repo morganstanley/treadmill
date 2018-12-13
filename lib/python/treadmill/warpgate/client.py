@@ -111,7 +111,7 @@ def run_client(policy_servers, service_principal, policy_name,
                     }
                 )
                 policy = client.read_json()
-                _LOGGER.info('Policy: %r', policy)
+                _LOGGER.info('Policy[%s]: %r', policy_name, policy)
                 # TODO: Validate policy response.
                 if '_error' in policy:
                     # TODO: handle temporary(fail) vs permanent(denied)
