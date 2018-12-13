@@ -176,7 +176,7 @@ class RuntimeTest(unittest.TestCase):
         """Tests archiving local logs."""
         # Access protected module _archive_logs
         #
-        # pylint: disable=W0212
+        # pylint: disable=W0212,too-many-statements
         data_dir = os.path.join(self.root, 'xxx.yyy-1234-qwerty', 'data')
         fs.mkdir_safe(data_dir)
         archives_dir = os.path.join(self.root, 'archives')

@@ -328,7 +328,6 @@ class ResourceService:
         :raises ``socket.error``:
             If there is a communication error with the service.
         """
-        pass
 
     def get(self, req_id):
         """Read the reply of a given request.
@@ -449,7 +448,6 @@ class ResourceService:
 
         This should only be called by the client instance.
         """
-        pass
 
     def _check_requests(self):
         """Check each existing request and remove stale ones.
@@ -588,7 +586,6 @@ class BaseResourceServiceImpl:
         """Assert that the internal state of the service matches the backend
         state.
         """
-        pass
 
     @abc.abstractmethod
     def on_create_request(self, rsrc_id, rsrc_data):
@@ -602,7 +599,6 @@ class BaseResourceServiceImpl:
             ``dict``: Result communicated back to the requestor, ``None``,
             ``False`` or ``{}`` if no changes to the service were made.
         """
-        pass
 
     @abc.abstractmethod
     def on_delete_request(self, rsrc_id):
@@ -611,7 +607,6 @@ class BaseResourceServiceImpl:
         Arguments::
             rsrc_id ``str``: Unique resource identifier
         """
-        pass
 
     @abc.abstractmethod
     def retry_request(self, rsrc_id):
@@ -620,4 +615,3 @@ class BaseResourceServiceImpl:
         Arguments::
             rsrc_id ``str``: Unique resource identifier
         """
-        pass

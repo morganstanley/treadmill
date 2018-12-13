@@ -137,8 +137,8 @@ def init():
                   callback=cli.handle_context_opt,
                   expose_value=False)
     def show():
-        """Show state of scheduled applications."""
-        pass
+        """Show state of scheduled applications.
+        """
 
     @show.command()
     @cli.handle_exceptions(restclient.CLI_REST_EXCEPTIONS)

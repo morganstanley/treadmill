@@ -35,24 +35,24 @@ class _AppTraceEventsOnly(events.AppTraceEventHandler):
     """
 
     def on_scheduled(self, when, instanceid, server, why):
-        """Invoked when task is scheduled."""
-        pass
+        """Invoked when task is scheduled.
+        """
 
     def on_pending(self, when, instanceid, why):
-        """Invoked when task is pending."""
-        pass
+        """Invoked when task is pending.
+        """
 
     def on_pending_delete(self, when, instanceid, why):
-        """Invoked when task is about to be deleted."""
-        pass
+        """Invoked when task is about to be deleted.
+        """
 
     def on_configured(self, when, instanceid, server, uniqueid):
-        """Invoked when task is configured."""
-        pass
+        """Invoked when task is configured.
+        """
 
     def on_deleted(self, when, instanceid):
-        """Invoked when task is deleted."""
-        pass
+        """Invoked when task is deleted.
+        """
 
     def on_finished(self, when, instanceid, server, signal, exitcode):
         """Invoked when task is finished."""
@@ -86,16 +86,16 @@ class _AppTraceEventsOnly(events.AppTraceEventHandler):
             )
 
     def on_killed(self, when, instanceid, server, is_oom):
-        """Default task-finished handler."""
-        pass
+        """Default task-finished handler.
+        """
 
     def on_aborted(self, when, instanceid, server, why):
-        """Invoked when task is aborted."""
-        pass
+        """Invoked when task is aborted.
+        """
 
     def on_service_running(self, when, instanceid, server, uniqueid, service):
-        """Invoked when service is running."""
-        pass
+        """Invoked when service is running.
+        """
 
     def on_service_exited(self, when, instanceid, server, uniqueid, service,
                           exitcode, signal):

@@ -23,8 +23,8 @@ def init():
 
     @click.group()
     def server():
-        """Manage server configuration"""
-        pass
+        """Manage server configuration.
+        """
 
     @server.command()
     @click.option('-c', '--cell', help='Treadmll cell')

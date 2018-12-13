@@ -57,8 +57,8 @@ def init():
 
     @click.group()
     def top():
-        """Manage Kerberos tickets."""
-        pass
+        """Manage Kerberos tickets.
+        """
 
     @top.command(name='locker')
     @click.option('--tkt-spool-dir',

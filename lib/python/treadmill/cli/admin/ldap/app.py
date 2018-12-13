@@ -25,8 +25,8 @@ def init():
 
     @click.group()
     def app():
-        """Manage applications"""
-        pass
+        """Manage applications.
+        """
 
     @app.command()
     @click.option('-m', '--manifest', help='Application manifest.',

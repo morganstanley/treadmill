@@ -54,8 +54,8 @@ def init():
 
     @click.group()
     def trace():
-        """Manage Treadmill traces."""
-        pass
+        """Manage Treadmill traces.
+        """
 
     @trace.command()
     @click.option('--interval', help='Timeout between checks (sec).',

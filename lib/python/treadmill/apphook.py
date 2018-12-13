@@ -39,19 +39,16 @@ class AppHookPluginBase:
     def init(self):
         """Initializes the plugin.
         """
-        pass
 
     @abc.abstractmethod
     def configure(self, app, container_dir):
         """Configures the hook in plugin.
         """
-        pass
 
     @abc.abstractmethod
     def cleanup(self, app, container_dir):
         """cleanup the hook in plugin.
         """
-        pass
 
 
 def init(tm_env):

@@ -43,6 +43,7 @@ class AbortedReason(enum.Enum):
     GMSA = 'GMSA'
     TIMEOUT = 'timeout'
     PIVOT_ROOT = 'pivot_root'
+    FEATURE = 'feature'
 
     def description(self):
         """Gets the description for the current aborted reason."""
@@ -56,6 +57,7 @@ class AbortedReason(enum.Enum):
             AbortedReason.GMSA: 'host is not part of GMSA group',
             AbortedReason.PIVOT_ROOT: 'pivot_root failure',
             AbortedReason.UNSUPPORTED: 'unsupported on the node',
+            AbortedReason.FEATURE: 'failed to configure feature',
         }.get(self, self.value)
 
 

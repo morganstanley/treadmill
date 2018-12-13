@@ -11,8 +11,8 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class JournalError(Exception):
-    """ journal exception class """
-    pass
+    """Journal exception class.
+    """
 
 
 def _get_tx_id():
@@ -20,7 +20,8 @@ def _get_tx_id():
 
 
 def _journal(journaler):
-    """ journaler to decorate API functions """
+    """Journaler to decorate API functions.
+    """
 
     @decorator.decorator
     def decorated(func, *args, **kwargs):

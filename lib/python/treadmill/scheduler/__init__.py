@@ -379,13 +379,11 @@ class Strategy:
     def suggested_node(self):
         """Suggested node that should be tried first.
         """
-        pass
 
     @abc.abstractmethod
     def next_node(self):
         """Next node to try, if previous suggestion was rejected.
         """
-        pass
 
 
 class SpreadStrategy(Strategy):
@@ -1804,7 +1802,6 @@ class Cell(Bucket):
     def resolve_reboot_conflicts(self):
         """Adjust server exipiration time to avoid conflicts.
         """
-        pass
 
 
 def dumps(cell):

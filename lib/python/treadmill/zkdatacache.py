@@ -31,14 +31,12 @@ class ZkCachedEntry(collections.namedtuple('_ZkCachedEntry',
                                            ['fname', 'chksum', 'ctime'])):
     """Entry in the local data cache.
     """
-    pass
 
 
 class ZkDataEntry(collections.namedtuple('_ZkDataEntry',
                                          ['zname', 'chksum', 'seq'])):
     """Entry in the Zookeeper store.
     """
-    pass
 
 
 class ZkDataCache:

@@ -95,8 +95,8 @@ class BaseJournaler:
     def _log_exec(self, step, transaction_id,
                   resource, action, rsrc_id, payload,
                   user, timestamp):
-        """ This needs to implement due to different backend of journler """
-        pass
+        """This needs to implement due to different backend of journler.
+        """
 
     @staticmethod
     def _get_timestamp():

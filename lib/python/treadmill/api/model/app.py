@@ -78,6 +78,7 @@ def models(api):
             description='Data retention timeout'),
         'lease': fields.String(description='Application lease interval.'),
         'affinity_limits': fields.Nested(affinity_limits),
+        'traits': fields.List(fields.String(description='Traits')),
     }
 
     app_model = api.model(

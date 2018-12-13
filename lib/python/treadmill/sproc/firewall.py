@@ -253,8 +253,8 @@ def init():
 
     @click.group()
     def firewall():
-        """Manage Treadmill firewall."""
-        pass
+        """Manage Treadmill firewall.
+        """
 
     @firewall.command()
     def node_sync():

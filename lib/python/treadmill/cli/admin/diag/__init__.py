@@ -18,7 +18,7 @@ def init():
     @click.group(cls=cli.make_commands(__name__))
     @click.pass_context
     def run(_ctxp):
-        """Manage Local node and container diagnostics."""
-        pass
+        """Manage Local node and container diagnostics.
+        """
 
     return run

@@ -19,7 +19,6 @@ _LOGGER = logging.getLogger(__name__)
 class ContextError(Exception):
     """Raised when unable to connect to LDAP or Zookeeper.
     """
-    pass
 
 
 def required(msg):

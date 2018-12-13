@@ -22,8 +22,8 @@ def init():
 
     @click.group(name='ad')
     def ad_grp():
-        """Manage Active Directory integration."""
-        pass
+        """Manage Active Directory integration.
+        """
 
     @ad_grp.command(name='gmsa')
     @click.option('--fs-root', help='Path that mirrors Zookeeper data.',

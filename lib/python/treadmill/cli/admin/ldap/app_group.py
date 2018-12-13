@@ -24,8 +24,8 @@ def init():  # pylint: disable=R0912
 
     @click.group()
     def app_group():  # pylint: disable=W0621
-        """Manage App Groups"""
-        pass
+        """Manage App Groups.
+        """
 
     @app_group.command()
     @click.argument('name', nargs=1, required=True)

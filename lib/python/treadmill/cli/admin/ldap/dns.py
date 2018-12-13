@@ -27,8 +27,8 @@ def init():  # pylint: disable=R0912
 
     @click.group()
     def dns():
-        """Manage Critical DNS server configuration"""
-        pass
+        """Manage Critical DNS server configuration.
+        """
 
     @dns.command()
     @click.argument('name', nargs=1, required=True)

@@ -40,7 +40,6 @@ class PresenceServiceTest(unittest.TestCase):
     def test_synchronize(self):
         """Test service synchronize.
         """
-        pass
 
     @mock.patch('treadmill.zkutils.get', mock.Mock())
     @mock.patch('treadmill.zkutils.create', mock.Mock())

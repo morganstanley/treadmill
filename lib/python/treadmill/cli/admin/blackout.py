@@ -1,4 +1,6 @@
-"""Kills all connections from a given treadmill server."""
+"""Kills all connections from a given treadmill server.
+"""
+
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
@@ -121,8 +123,8 @@ def init():
                   callback=cli.handle_context_opt,
                   expose_value=False)
     def blackout():
-        """Manage server and app blackouts."""
-        pass
+        """Manage server and app blackouts.
+        """
 
     @blackout.command(name='server')
     @click.option('--server', help='Server name to blackout.')

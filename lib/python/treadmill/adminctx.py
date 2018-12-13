@@ -66,5 +66,5 @@ def resolve(ctx, attr):
 
 
 def init(_ctx):
-    """Init context."""
-    pass
+    """Init context.
+    """

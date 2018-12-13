@@ -1,4 +1,5 @@
-"""The base implementation for fs plugins."""
+"""The base implementation for fs plugins.
+"""
 
 from __future__ import absolute_import
 from __future__ import division
@@ -37,8 +38,8 @@ class FilesystemPluginBase:
 
     @abc.abstractmethod
     def init(self):
-        """Initializes the plugin."""
-        pass
+        """Initializes the plugin.
+        """
 
     @abc.abstractmethod
     def configure(self, container_dir, app):
@@ -49,11 +50,11 @@ class FilesystemPluginBase:
         :param ``object`` app:
             Container manifest object.
         """
-        pass
 
 
 def init_plugins(tm_env):
-    """Inits all plugins."""
+    """Inits all plugins.
+    """
     for app_type in appcfg.AppType:
         namespace = _FS_PLUGIN_NAMESPACE.format(app_type.value)
         for plugin in plugin_manager.load_all(namespace):

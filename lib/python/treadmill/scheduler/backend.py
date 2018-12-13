@@ -13,15 +13,16 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class ObjectNotFoundError(Exception):
-    """Storage exception raised if object is not found."""
-    pass
+    """Storage exception raised if object is not found.
+    """
 
 
 class Backend(metaclass=abc.ABCMeta):
     """Master storage interface."""
 
     def __init__(self):
-        pass
+        """Backend constructor.
+        """
 
     def list(self, _path):
         """Return path listing."""
@@ -34,7 +35,6 @@ class Backend(metaclass=abc.ABCMeta):
         returns:
             ``object`` -- Object at path
         """
-        pass
 
     @abc.abstractmethod
     def get_with_metadata(self, path):
@@ -43,7 +43,6 @@ class Backend(metaclass=abc.ABCMeta):
         returns:
             (``object``, ``object``) -- Object at path and its metadata.
         """
-        pass
 
     def get_default(self, path, default=None):
         """Return stored object given path, default if not found."""
@@ -54,30 +53,30 @@ class Backend(metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def put(self, path, value):
-        """Store object at a given path."""
-        pass
+        """Store object at a given path.
+        """
 
     @abc.abstractmethod
     def exists(self, path):
-        """Check if object exists."""
-        pass
+        """Check if object exists.
+        """
 
     @abc.abstractmethod
     def ensure_exists(self, path):
-        """Ensure storage path exists."""
-        pass
+        """Ensure storage path exists.
+        """
 
     @abc.abstractmethod
     def delete(self, path):
-        """Delete object given the path."""
-        pass
+        """Delete object given the path.
+        """
 
     @abc.abstractmethod
     def update(self, path, data, check_content=False):
-        """Set data into ZK node."""
-        pass
+        """Set data into ZK node.
+        """
 
     @abc.abstractmethod
     def event_object(self):
-        """Create a new event object."""
-        pass
+        """Create a new event object.
+        """

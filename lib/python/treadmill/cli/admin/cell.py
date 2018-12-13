@@ -31,7 +31,7 @@ def init():
         expose_value=False
     )
     def cell_grp():
-        """Manage treadmill cell."""
-        pass
+        """Manage treadmill cell.
+        """
 
     return cell_grp

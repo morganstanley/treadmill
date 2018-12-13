@@ -18,8 +18,8 @@ _CONNECT_TIMEOUT = 10
 
 
 class GSSError(Exception):
-    """GSS error."""
-    pass
+    """GSS error.
+    """
 
 
 class GSSAPILineClient:
