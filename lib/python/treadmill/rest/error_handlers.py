@@ -97,7 +97,7 @@ def register(api):
     def _admin_found_exc(err):
         """Admin exception handler."""
         _LOGGER.info('Already exists error: %r', err)
-        resp = {'message': err.result,
+        resp = {'message': str(err),
                 'status': http_client.CONFLICT}
         return resp, http_client.CONFLICT, _cors_headers()
 

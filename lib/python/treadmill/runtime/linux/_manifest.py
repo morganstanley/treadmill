@@ -6,7 +6,6 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
-import copy
 import logging
 import shlex
 
@@ -102,9 +101,6 @@ def _transform_services(manifest):
             # TODO: Implement use_shell=False for standard commands.
             cmd = service['command']
 
-        service_env = copy.copy(manifest['environ'])
-        service_env.extend(service.get('environ', []))
-
         services.append(
             {
                 'name': service['name'],
@@ -118,7 +114,7 @@ def _transform_services(manifest):
                     'root' if service.get('root', False)
                     else manifest['proid']
                 ),
-                'environ': service_env,
+                'environ': service.get('environ', []),
                 'config': None,
                 'downed': service.get('downed', False),
                 'trace': True,
