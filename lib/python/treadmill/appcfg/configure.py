@@ -51,6 +51,23 @@ def load_runtime_manifest(tm_env, event, runtime):
     runtime_cls.manifest(tm_env, manifest_data)
 
     app_manifest.add_manifest_features(manifest_data, runtime_cls.name, tm_env)
+
+    # TODO: This is HORRIBLE hack.
+    #       The code inside "cls".manifest used to create a copy of service
+    #       environment (manifest environ + svc environ).
+    #
+    #       As such, any later changes to environment that were added by
+    #       loaded features did not have any effect.
+    #
+    #       Service startup need to honor proper environment hierarchy. Load
+    #       "treadmill" envdif, then envdir of the container, then per svc.
+    #
+    #       Need to move on, so making this change for now.
+    for svc in manifest_data['services']:
+        assert isinstance(manifest_data['environ'], list)
+        assert isinstance(svc['environ'], list)
+        svc['environ'] = manifest_data['environ'] + svc['environ']
+
     return manifest_data
 
 
