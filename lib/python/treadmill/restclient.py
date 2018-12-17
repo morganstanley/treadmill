@@ -35,6 +35,8 @@ _DEFAULT_CONNECT_TIMEOUT = .5
 
 _CONNECTION_ERROR_STATUS_CODE = 599
 
+_DEBUG_TXT_LEN = 120
+
 
 def _krb_auth():
     """Returns kerberos auth object."""
@@ -188,7 +190,12 @@ def _call(url, method, payload=None, headers=None, auth=None,
     try:
         # pylint: disable=not-callable
         response = getattr(requests, method.lower())(url, **method_kwargs)
-        _LOGGER.debug('response: %r', response)
+        _LOGGER.debug(
+            'Response[%d] - %s',
+            response.status_code,
+            (response.text if len(response.text) <= _DEBUG_TXT_LEN
+             else '{}...'.format(response.text[:_DEBUG_TXT_LEN]))
+        )
     except requests.exceptions.ConnectionError:
         _LOGGER.debug('Connection error: %r', url)
         return False, None, _CONNECTION_ERROR_STATUS_CODE
