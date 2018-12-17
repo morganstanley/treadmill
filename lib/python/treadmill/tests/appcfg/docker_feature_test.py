@@ -61,6 +61,10 @@ class AppCfgDockerFeatureTest(unittest.TestCase):
         )
         self.assertEqual(manifest['services'][1]['name'], 'docker-auth')
         self.assertTrue(manifest['services'][1]['root'])
+        self.assertIn(
+            {'name': 'DOCKER_HOST', 'value': 'tcp://127.0.0.1:2375'},
+            manifest['environ']
+        )
 
 
 if __name__ == '__main__':

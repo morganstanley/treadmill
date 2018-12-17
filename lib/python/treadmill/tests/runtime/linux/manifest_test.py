@@ -87,10 +87,6 @@ class LinuxRuntimeManifestTest(unittest.TestCase):
                         'downed': False,
                         'environ': [
                             {
-                                'name': 'FOO',
-                                'value': 'lala'
-                            },
-                            {
                                 'name': 'BAR',
                                 'value': 'lolo'
                             }
