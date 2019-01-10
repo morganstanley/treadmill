@@ -13,6 +13,7 @@ from __future__ import unicode_literals
 
 import os
 import logging
+import platform
 import ctypes
 
 from ctypes import (
@@ -28,8 +29,21 @@ from ctypes.util import find_library
 
 _LOGGER = logging.getLogger(__name__)
 
+
+def _get_gssapi_path():
+    if os.name == 'nt':
+        if platform.architecture()[0] == '64bit':
+            lib_name = 'krb5_64'
+        else:
+            lib_name = 'krb5_32'
+    else:
+        lib_name = 'gssapi_krb5'
+
+    return find_library(lib_name)
+
+
 try:
-    _GSSAPI_PATH = find_library('gssapi_krb5')
+    _GSSAPI_PATH = _get_gssapi_path()
     _GSSAPI = ctypes.CDLL(_GSSAPI_PATH, use_errno=True)
 except Exception:  # pylint: disable=W0703
     _GSSAPI = None

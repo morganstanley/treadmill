@@ -6,7 +6,6 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
-import io
 import logging
 
 import click
@@ -37,8 +36,8 @@ def _configure(apis, manifest, appname):
             existing = None
 
     if manifest:
-        with io.open(manifest, 'rb') as fd:
-            app = yaml.load(stream=fd)
+        app = yaml.load(stream=manifest)
+
         if existing:
             response = restclient.put(
                 apis, _APP_REST_PATH + appname, payload=app
@@ -78,7 +77,7 @@ def init():
                   help='API service principal for SPNEGO auth (default HTTP)',
                   expose_value=False)
     @click.option('-m', '--manifest', help='App manifest file (stream)',
-                  type=click.Path(exists=True, readable=True))
+                  type=click.File('rb'))
     @click.option('--match', help='Application name pattern match')
     @click.option('--delete', help='Delete the app.',
                   is_flag=True, default=False)

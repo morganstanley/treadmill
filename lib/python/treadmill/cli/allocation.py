@@ -296,13 +296,9 @@ def init():
             data = {}
             if priority:
                 data['priority'] = priority
-            existing = restclient.get(restapi, url).json()
-            rest_func = restclient.post
-            for assignment in existing:
-                if assignment['pattern'] == pattern:
-                    rest_func = restclient.put
-                    break
-            rest_func(restapi, url, payload=data)
+            # assign is always put
+            # because assign and reserve belong to the same ldap obj
+            restclient.put(restapi, url, payload=data)
 
             _display_tenant(restapi, allocation)
 

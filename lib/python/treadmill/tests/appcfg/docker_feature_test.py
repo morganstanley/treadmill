@@ -20,6 +20,7 @@ class AppCfgDockerFeatureTest(unittest.TestCase):
     """
 
     @mock.patch('treadmill.subproc.resolve', mock.Mock(return_value='tm'))
+    @mock.patch('treadmill.utils.get_ulimit', mock.Mock(return_value=(0, 0)))
     @mock.patch('treadmill.appcfg.features.docker._get_docker_registry',
                 mock.Mock(return_value=iter(['foo:5050', 'bar:5050'])))
     def test_docker_feature(self):
@@ -56,6 +57,13 @@ class AppCfgDockerFeatureTest(unittest.TestCase):
              ' --exec-opt native.cgroupdriver=cgroupfs --bridge=none'
              ' --ip-forward=false --ip-masq=false --iptables=false'
              ' --cgroup-parent=docker --block-registry="*"'
+             ' --default-ulimit core=0:0'
+             ' --default-ulimit data=0:0'
+             ' --default-ulimit fsize=0:0'
+             ' --default-ulimit nproc=0:0'
+             ' --default-ulimit nofile=0:0'
+             ' --default-ulimit rss=0:0'
+             ' --default-ulimit stack=0:0'
              ' --insecure-registry foo:5050 --add-registry foo:5050'
              ' --insecure-registry bar:5050 --add-registry bar:5050')
         )

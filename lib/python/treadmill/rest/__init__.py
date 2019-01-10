@@ -56,12 +56,18 @@ class RestServer:
         """
 
     @abc.abstractmethod
+    def _setup_rate_limit(self):
+        """Setup the http request rate limit control.
+        """
+
+    @abc.abstractmethod
     def _setup_endpoint(self, http_server):
         """Setup the http server endpoint.
         """
 
     def run(self):
         """Start server."""
+        self._setup_rate_limit()
         self._setup_auth()
 
         FLASK_APP.config['REST_SERVER'] = self
@@ -78,7 +84,7 @@ class TcpRestServer(RestServer):
     """TCP based REST Server."""
 
     def __init__(self, port, host='0.0.0.0', auth_type=None, protect=None,
-                 workers=1, backlog=128):
+                 workers=1, backlog=128, rate_limit=None):
         """Init methods
 
         :param int port: port number to listen on (required)
@@ -87,6 +93,7 @@ class TcpRestServer(RestServer):
         :param str protect: which URLs to protect, default is None
         :param int workers: the number of workers to be forked, default is 1
         :param int backlog: the connection backlog, default is 128
+        :param int rate_limit: API request rate limit rule, default is None
         """
         self.port = int(port)
         self.host = host
@@ -94,6 +101,22 @@ class TcpRestServer(RestServer):
         self.protect = protect
         self.workers = workers
         self.backlog = backlog
+        self.rate_limit = rate_limit
+
+    def _setup_rate_limit(self):
+        """Setup the http request rate limit control."""
+        if self.rate_limit is not None:
+            _LOGGER.info('Starting REST (rate limit: %s) server on %s:%i',
+                         self.rate_limit, self.host, self.port)
+            try:
+                limit = plugin_manager.load('treadmill.rest', 'limit')
+                limit.wrap(FLASK_APP, self.rate_limit)
+            except Exception:
+                _LOGGER.exception('Unable to setup rate limit.')
+                raise
+        else:
+            _LOGGER.info('Starting REST (no rate limit) server on %s:%i',
+                         self.host, self.port)
 
     def _setup_auth(self):
         """Setup the http authentication."""
@@ -130,6 +153,10 @@ class UdsRestServer(RestServer):
         self.auth_type = auth_type
         self.workers = workers
         self.backlog = backlog
+
+    def _setup_rate_limit(self):
+        """Setup the http request rate limit control.
+        """
 
     def _setup_auth(self):
         """Setup the http authentication."""
