@@ -101,6 +101,8 @@ def init(api, cors, impl):
             """Bulk deletes list of instances."""
             user = flask.g.get('user')
             instance_ids = flask.request.json['instances']
+            if not instance_ids:
+                return
             # Bulk operations are allowed on on same proid.
             proid = None
             for instance_id in instance_ids:

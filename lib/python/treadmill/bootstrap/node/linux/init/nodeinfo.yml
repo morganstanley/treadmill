@@ -8,6 +8,7 @@ command: |
         --register \
         --cors-origin='.*' \
         -m local,cgroup \
+        --rate-limit '5/second' \
         --config cgroup /tmp/cgroup.cfg.yml
 environ_dir: "{{ dir }}/env"
 environ:

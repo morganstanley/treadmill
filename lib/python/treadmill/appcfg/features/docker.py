@@ -8,6 +8,7 @@ from __future__ import unicode_literals
 import logging
 import socket
 
+from treadmill import dockerutils
 from treadmill import nodedata
 from treadmill import subproc
 from treadmill.appcfg.features import feature_base
@@ -72,6 +73,8 @@ def _generate_docker_authz_service():
 def _generate_dockerd_service(tm_env):
     """Configure docker daemon services."""
     # add dockerd service
+    ulimits = dockerutils.init_ulimit()
+    default_ulimit = dockerutils.fmt_ulimit_to_flag(ulimits)
 
     # we disable advanced network features
     command = (
@@ -88,9 +91,11 @@ def _generate_dockerd_service(tm_env):
         ' --iptables=false'
         ' --cgroup-parent=docker'
         ' --block-registry="*"'
+        ' {default_ulimit}'
     ).format(
         dockerd=subproc.resolve('dockerd'),
         docker_runtime=subproc.resolve('docker_runtime'),
+        default_ulimit=default_ulimit,
     )
 
     # we only allow pull image from specified registry
