@@ -30,6 +30,8 @@ warpgate = treadmill.appcfg.features.warpgate:WarpgateFeature
 
 [treadmill.apphooks]
 
+[treadmill.rest]
+limit = treadmill.rest.limit
 
 [treadmill.rest.authentication]
 trusted = treadmill.rest.auth.trusted

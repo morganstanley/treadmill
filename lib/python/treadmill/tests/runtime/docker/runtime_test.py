@@ -109,6 +109,8 @@ class DockerRuntimeTest(unittest.TestCase):
     @mock.patch('docker.DockerClient', autospec=True)
     @mock.patch('multiprocessing.cpu_count', mock.Mock(return_value=4))
     @mock.patch('treadmill.runtime.docker.runtime._get_gmsa', mock.Mock())
+    @mock.patch('treadmill.runtime.docker.runtime._create_docker_log_symlink',
+                mock.Mock())
     def test__create_container(self, client):
         """Tests creating a docker container using the api."""
 

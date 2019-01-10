@@ -20,6 +20,7 @@ import requests
 import six
 
 from treadmill import cli
+from treadmill import dockerutils
 from treadmill import exc
 from treadmill import utils
 from treadmill import supervisor
@@ -30,7 +31,6 @@ _LOGGER = logging.getLogger(__name__)
 
 # wait for dockerd is ready in seconds
 _MAX_WAIT = 64
-_DEFAULT_ULIMIT = ['core', 'data', 'fsize', 'nproc', 'nofile', 'rss', 'stack']
 
 
 def _read_environ(envdirs):
@@ -74,29 +74,6 @@ def _load_image(client, load):
     with open(load, 'rb') as f:
         # load returns image list
         return client.images.load(data=f)[0]
-
-
-def _init_ulimit(ulimit):
-    """init ulimit value
-    """
-    total_result = []
-
-    if not ulimit:
-        for u_type in _DEFAULT_ULIMIT:
-            (soft_limit, hard_limit) = utils.get_ulimit(u_type)
-            total_result.append(
-                {'Name': u_type, 'Soft': soft_limit, 'Hard': hard_limit}
-            )
-
-        return total_result
-
-    for u_string in ulimit:
-        (u_type, soft_limit, hard_limit) = u_string.split(':', 3)
-        total_result.append(
-            {'Name': u_type, 'Soft': int(soft_limit), 'Hard': int(hard_limit)}
-        )
-
-    return total_result
 
 
 def _create_container(client, name, image_meta,
@@ -261,7 +238,7 @@ class DockerSprocClient:
         if 'envdirs' in args:
             args['environment'] = _read_environ(args.pop('envdirs'))
 
-        ulimit = _init_ulimit(args.pop('ulimit'))
+        ulimit = dockerutils.init_ulimit(args.pop('ulimit'))
 
         image_meta = _fetch_image(client, image)
 
