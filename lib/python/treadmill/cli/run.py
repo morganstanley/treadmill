@@ -6,7 +6,6 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
-import io
 import logging
 import os
 import shlex
@@ -48,8 +47,7 @@ def _run(apis,
     # pylint: disable=R0912
     app = {}
     if manifest:
-        with io.open(manifest, 'rb') as fd:
-            app = yaml.load(stream=fd)
+        app = yaml.load(stream=manifest)
 
     if endpoint:
         app['endpoints'] = [{'name': name, 'port': port}
@@ -133,7 +131,7 @@ def init():
     @click.option('--count', help='Number of instances to start',
                   default=1)
     @click.option('-m', '--manifest', help='App manifest file (stream)',
-                  type=click.Path(exists=True, readable=True))
+                  type=click.File('rb'))
     @click.option('--memory', help='Memory demand, default %s.' % _DEFAULT_MEM,
                   metavar='G|M',
                   callback=cli.validate_memory)

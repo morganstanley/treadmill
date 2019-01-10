@@ -212,6 +212,25 @@ def _update_network_info_in_manifest(container, manifest):
     }
 
 
+def _create_docker_log_symlink(svc_data_dir):
+    """ crete a app/data/service/log link which points to app/log/
+        :param app_data_dir:
+            app/data path
+    """
+    docker_data_dir = os.path.join(
+        os.path.realpath(svc_data_dir),
+        'services',
+        'docker',
+        'data'
+    )
+
+    fs.mkdir_safe(docker_data_dir)
+    link = os.path.join(docker_data_dir, 'log')
+    target = os.path.join(svc_data_dir, 'log')
+    _LOGGER.info('linking %s -> %s', link, target)
+    fs.symlink_safe(link, target)
+
+
 def _check_aborted(container_dir):
     """check if app was aborted and why.
     """
@@ -295,6 +314,8 @@ class DockerRuntime(runtime_base.RuntimeBase):
             log.info('container_data %r', container_data_dir)
 
             fs.mkdir_safe(container_data_dir)
+
+            _create_docker_log_symlink(self._service.data_dir)
 
             # volume mapping config : read-only mapping
             volume_mapping = {

@@ -90,43 +90,6 @@ class DockerTest(unittest.TestCase):
             ],
         )
 
-    @mock.patch('resource.getrlimit')
-    def test__init_ulimit(self, mock_getrlimit):
-        """test ulimit init method
-        """
-        mock_getrlimit.return_value = (1, 2)
-
-        # pylint: disable=protected-access
-        self.assertEqual(
-            sproc_docker._init_ulimit([]),
-            [
-                {'Name': 'core', 'Soft': 1, 'Hard': 2},
-                {'Name': 'data', 'Soft': 1, 'Hard': 2},
-                {'Name': 'fsize', 'Soft': 1, 'Hard': 2},
-                {'Name': 'nproc', 'Soft': 1, 'Hard': 2},
-                {'Name': 'nofile', 'Soft': 1, 'Hard': 2},
-                {'Name': 'rss', 'Soft': 1, 'Hard': 2},
-                {'Name': 'stack', 'Soft': 1, 'Hard': 2},
-            ]
-        )
-        mock_getrlimit.assert_has_calls([
-            mock.call(4),   # RLIMIT_CORE
-            mock.call(2),   # RLIMIT_DATA
-            mock.call(1),   # RLIMIT_FSIZE
-            mock.call(6),   # RLIMIT_NPROC
-            mock.call(7),   # RLIMIT_NOFILE
-            mock.call(5),   # RLIMIT_RSS
-            mock.call(3),   # RLIMIT_STACK
-        ])
-        # self.assertEqual(sproc_docker._init_ulimit(None), [])
-        self.assertEqual(
-            sproc_docker._init_ulimit(['nofile:1:1', 'core:2:2']),
-            [
-                {'Name': 'nofile', 'Soft': 1, 'Hard': 1},
-                {'Name': 'core', 'Soft': 2, 'Hard': 2},
-            ]
-        )
-
     def test__parse_image_name(self):
         """test parse image name string
         """

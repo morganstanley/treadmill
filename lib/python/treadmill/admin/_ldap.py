@@ -1169,15 +1169,18 @@ class LdapObject:
         assert ident is not None
         self.admin.delete(self.dn(ident))
 
-    def children(self, ident, clazz, dirty=False):
+    def children(self, ident, clazz, dirty=False, extra_filters=None):
         """Selects all children given the children type."""
         dn = self.dn(ident)
-
         children_admin = clazz(self.admin)
         attrs = [elem[0] for elem in children_admin.schema()]
+        filters = ["(objectclass={})".format(clazz.oc())]
+        if extra_filters:
+            filters.extend(extra_filters)
+        search_filter = "(&{})".format(''.join(filters))
         children = self.admin.paged_search(
             search_base=dn,
-            search_filter='(objectclass=%s)' % clazz.oc(),
+            search_filter=search_filter,
             attributes=attrs,
             dirty=dirty
         )
@@ -1667,11 +1670,29 @@ class Tenant(LdapObject):
 
     def allocations(self, ident, dirty=False):
         """Return all tenant's allocations."""
-        return self.children(ident, Allocation, dirty=dirty)
+        return self.children(ident,
+                             Allocation,
+                             dirty=dirty,
+                             extra_filters=["(allocation={}/*)".format(ident)])
 
     def reservations(self, ident, dirty=False):
         """Return all tenant's reservations."""
-        return self.children(ident, CellAllocation, dirty=dirty)
+        # TODO:
+        # Traversing a tenant's and all its subtenants' CellAllocations
+        # in LDAP, and then filtering out those belong to subtenats.
+        # This is inefficient.
+        # Need to find a better search_filter and/or search_scope in
+        # LDAP searching to exlcude those subtenants,
+        # namely to exclude some sub-RDN ('tenant=<subtenant name>').
+        subtree_reservations = self.children(ident,
+                                             CellAllocation,
+                                             dirty=dirty)
+        reservations_generator = filter(
+            lambda reserv: reserv['_id'].startswith(ident + '/'),
+            subtree_reservations
+        )
+
+        return list(reservations_generator)
 
 
 Tenant.oc = staticmethod(lambda: Tenant._oc)  # pylint: disable=W0212

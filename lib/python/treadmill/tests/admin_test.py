@@ -910,7 +910,7 @@ class AllocationTest(unittest.TestCase):
             attributes=mock.ANY,
             search_base='allocation=prod1,tenant=bar,tenant=foo,'
                         'ou=allocations,ou=treadmill,dc=xx,dc=com',
-            search_filter='(objectclass=tmCellAllocation)',
+            search_filter='(&(objectclass=tmCellAllocation))',
             dirty=False
         )
         self.assertEqual(obj['reservations'][0]['cell'], 'xxx')

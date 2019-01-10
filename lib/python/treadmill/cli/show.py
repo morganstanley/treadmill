@@ -173,16 +173,10 @@ def init():
     @cli.handle_exceptions(restclient.CLI_REST_EXCEPTIONS)
     @click.option('--match', help='Application name pattern match')
     @click.option('--partition', help='Filter apps by partition')
-    @click.option('--details', is_flag=True, default=False,
-                  help='Show details.')
-    def finished(match, partition, details):
+    def finished(match, partition):
         """Show finished instances."""
         apis = context.GLOBAL.state_api()
-        if details:
-            return _show_finished(apis, match, partition)
-        return _show_list(
-            apis, match, _FINISHED_STATES, finished=True, partition=partition
-        )
+        return _show_finished(apis, match, partition)
 
     @show.command()
     @cli.handle_exceptions(restclient.CLI_REST_EXCEPTIONS)
