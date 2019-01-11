@@ -27,10 +27,12 @@ CAN_BUILD_WHEELS="
     dateutils
     gssapi
     flask
+    flask-limiter
     flask-restfull
     ipaddress
     iscpy
     itsdangerous
+    limits
     markupsafe
     netifaces
     parse
