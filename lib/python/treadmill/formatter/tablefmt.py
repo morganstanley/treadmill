@@ -107,13 +107,14 @@ def _cell(item, column, key, fmt):
     return value
 
 
-def dict_to_table(item, schema):
+def dict_to_table(item, schema, sortby=None):
     """Display object as table."""
     table = _make_table(['key', '', 'value'], header=False)
     for column, key, fmt in schema:
         value = _cell(item, column, key, fmt)
         table.add_row([column, ':', value])
 
+    table.sortby = sortby
     return table
 
 
@@ -122,7 +123,7 @@ def make_dict_to_table(schema):
     return lambda item: dict_to_table(item, schema)
 
 
-def list_to_table(items, schema, header=True, align=None):
+def list_to_table(items, schema, header=True, align=None, sortby=None):
     """Display  list of items as table."""
     columns = [column for column, _, _ in schema]
     table = _make_table(columns, header=header, align=align)
@@ -134,6 +135,7 @@ def list_to_table(items, schema, header=True, align=None):
             row.append(_cell(item, column, key, fmt))
         table.add_row(row)
 
+    table.sortby = sortby
     return table
 
 
