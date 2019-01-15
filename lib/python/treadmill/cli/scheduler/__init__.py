@@ -38,21 +38,25 @@ def fetch_report(report_type, match=None, partition=None):
     return pd.DataFrame(response['data'], columns=response['columns'])
 
 
-def print_report(frame):
+def print_report(frame, explain=False):
     """Pretty-print the report."""
     if cli.OUTPUT_FORMAT is None:
         frame.replace(True, ' ', inplace=True)
         frame.replace(False, 'X', inplace=True)
         dict_ = frame.to_dict(orient='split')
         del dict_['index']
-
         cli.out(
             tabulate.tabulate(
                 dict_['data'], dict_['columns'], tablefmt='simple'
             )
         )
-        cli.echo_green('\nX: designates the factor that prohibits scheduling '
-                       'the instance on the given server')
+
+        if explain:
+            cli.echo_green(
+                '\nX: designates the factor that prohibits scheduling '
+                'the instance on the given server'
+            )
+
     elif cli.OUTPUT_FORMAT == 'yaml':
         fmt = plugin_manager.load('treadmill.formatters', 'yaml')
         cli.out(fmt.format(frame.to_dict(orient='records')))

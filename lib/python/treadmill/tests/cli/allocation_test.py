@@ -180,6 +180,7 @@ class AllocationTest(unittest.TestCase):
                                           "traits": []}
         get_mock.side_effect = [return_mock1,
                                 treadmill.restclient.NotFoundError,
+                                return_mock1, return_mock2,
                                 return_mock1, return_mock2]
 
         result = self.runner.invoke(
@@ -194,29 +195,52 @@ class AllocationTest(unittest.TestCase):
                              '--partition', 'aq7'])
         self.assertEqual(result.exit_code, 0)
 
+        result = self.runner.invoke(
+            self.alloc_cli, ['reserve', 'tent', '--env', 'qa',
+                             '--cell', 'test-v3',
+                             '--max-utilization', '10'])
+        self.assertEqual(result.exit_code, 0)
+
+        result = self.runner.invoke(
+            self.alloc_cli, ['reserve', 'tent', '--env', 'qa',
+                             '--cell', 'test-v3', '--traits', 'X,Y'])
+        self.assertEqual(result.exit_code, 1)
+
         call1 = mock.call(['http://xxx:1234'], '/tenant/tent')
         call2 = mock.call(['http://xxx:1234'],
                           '/allocation/tent/qa/reservation/test-v3')
-        calls = [call1, call2, call1, call2]
+        calls = [call1, call2, call1, call2, call1, call2, call1]
 
-        self.assertEqual(get_mock.call_count, 4)
-        get_mock.assert_has_calls(calls)
+        self.assertEqual(get_mock.call_count, 7)
+        get_mock.assert_has_calls(calls, any_order=False)
 
         call1 = mock.call(['http://xxx:1234'], '/allocation/tent/qa',
                           payload={'environment': 'qa'})
         call2 = mock.call(['http://xxx:1234'],
                           '/allocation/tent/qa/reservation/test-v3',
                           payload={'memory': '0M', 'cpu': '0%', 'disk': '0M'})
-        calls = [call1, call2, call1]
-        post_mock.assert_has_calls(calls)
-        self.assertEqual(post_mock.call_count, 3)
+        calls = [call1, call2, call1, call1]
+        post_mock.assert_has_calls(calls, any_order=False)
+        self.assertEqual(post_mock.call_count, 4)
 
-        put_mock.assert_called_once_with(['http://xxx:1234'],
-                                         '/allocation/tent/qa/reservation/' +
-                                         'test-v3',
-                                         payload={'memory': '125M',
-                                                  'partition': 'aq7',
-                                                  'cpu': '0%', 'disk': '0M'})
+        call1 = mock.call(['http://xxx:1234'],
+                          '/allocation/tent/qa/reservation/' +
+                          'test-v3',
+                          payload={'memory': '125M',
+                                   'partition': 'aq7',
+                                   'cpu': '0%',
+                                   'disk': '0M'})
+        call2 = mock.call(['http://xxx:1234'],
+                          '/allocation/tent/qa/reservation/' +
+                          'test-v3',
+                          payload={'memory': '0M',
+                                   'partition': '_default',
+                                   'cpu': '0%',
+                                   'disk': '0M',
+                                   'max_utilization': 10})
+        calls = [call1, call2]
+        self.assertEqual(put_mock.call_count, 2)
+        put_mock.assert_has_calls(calls, any_order=False)
 
 
 if __name__ == '__main__':
