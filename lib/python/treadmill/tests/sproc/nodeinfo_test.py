@@ -36,6 +36,26 @@ class NodeinfoTest(unittest.TestCase):
             with self.assertRaises(click.BadParameter):
                 nodeinfo._validate_rate_limit(None, None, rule)
 
+    def test_get_rate_limit(self):
+        """Test nodeinfo._get_rate_limit."""
+        # pylint: disable=W0212
+        self.assertIsNone(nodeinfo._get_rate_limit(None, None))
+        self.assertDictEqual(
+            nodeinfo._get_rate_limit('1/second', None),
+            {'_global': '1/second'},
+        )
+        self.assertDictEqual(
+            nodeinfo._get_rate_limit(None, {'foo': '2/minutes'}),
+            {'foo': '2/minutes'},
+        )
+        self.assertDictEqual(
+            nodeinfo._get_rate_limit('3/second', {'bar': '4/minutes'}),
+            {'_global': '3/second', 'bar': '4/minutes'},
+        )
+
+        with self.assertRaises(click.BadParameter):
+            nodeinfo._get_rate_limit(None, {'baz': 'invalid-rule-fmt'})
+
 
 if __name__ == '__main__':
     unittest.main()

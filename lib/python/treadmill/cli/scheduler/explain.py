@@ -41,6 +41,6 @@ def init():
             report = pd.DataFrame(
                 response['data'], columns=response['columns']
             )
-            print_report(report)
+            print_report(report, explain=True)
 
     return explain

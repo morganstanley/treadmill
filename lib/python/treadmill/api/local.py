@@ -15,6 +15,7 @@ import io
 import json
 import logging
 import os
+import operator
 import re
 import shutil
 import tarfile
@@ -480,55 +481,107 @@ class API:
 
             return self._tm_env
 
-        def _list_running():
-            """List all running instances.
+        def _replace(app_name):
+            """Replace application's name format (i.e. '$name#$instance') with
+               glob file format (i.e. '$name-$instance').
             """
-            result = {}
-            running_glob = os.path.join(tm_env().running_dir, '*')
-            for running in glob.glob(running_glob):
-                try:
-                    app_path = os.readlink(running)
-                    full_name = os.path.basename(app_path)
-                    name, instance, uniq = full_name.rsplit('-', 2)
-                    ctime = os.stat(app_path).st_ctime
-                    result[full_name] = {
+            return '-'.join(app_name.rsplit('#', 1))
+
+        def _get_running(path_name):
+            """Get running instance.
+            """
+            try:
+                app_path = os.readlink(path_name)
+                full_name = os.path.basename(app_path)
+                name, instance, uniq = full_name.rsplit('-', 2)
+                ctime = os.stat(app_path).st_ctime
+                return {
+                    full_name: {
                         '_id': '%s#%s/%s' % (name, instance, uniq),
                         'ctime': ctime,
                         'state': 'running',
                     }
-                except OSError as oserr:
-                    if oserr.errno == errno.ENOENT:
-                        continue
+                }
+
+            except OSError as err:
+                if err.errno == errno.ENOENT:
+                    _LOGGER.info('pathname %s does not exist.', path_name)
+                else:
+                    _LOGGER.warning(
+                        'Unable to get running instance: %s', str(err)
+                    )
+
+            return None
+
+        def _list_running(app_name=None):
+            """List all running instances.
+
+            :param app_name: application's full name, i.e. '$name#$instance'.
+            """
+            pattern = '*' if app_name is None else app_name
+            running_glob = os.path.join(tm_env().running_dir, pattern)
+
+            result = {}
+            for path_name in glob.glob(running_glob):
+                data = _get_running(path_name)
+                if data is not None:
+                    result.update(data)
 
             return result
 
-        def _list_finished():
-            """List all finished instances.
+        def _get_finished(path_name):
+            """Get finished instance.
             """
-            result = {}
-            archive_glob = os.path.join(tm_env().archives_dir, '*.sys.tar.gz')
-            pattern = re.compile(r'''.*/        # archives dir
-                                     \w+        # proid
-                                     \.         # .
-                                     \w+        # app
-                                     -\d+       # id
-                                     -\w+       # uniq
-                                     .sys.tar.gz''', re.X)
-
-            for archive in [f for f in glob.glob(archive_glob)
-                            if pattern.match(f)]:
-                try:
-                    full_name = os.path.basename(archive)[:-len('.sys.tar.gz')]
-                    name, instance, uniq = full_name.rsplit('-', 2)
-                    ctime = os.stat(archive).st_ctime
-                    result[full_name] = {
+            try:
+                full_name = os.path.basename(path_name)[:-len('.sys.tar.gz')]
+                name, instance, uniq = full_name.rsplit('-', 2)
+                ctime = os.stat(path_name).st_ctime
+                return {
+                    full_name: {
                         '_id': '%s#%s/%s' % (name, instance, uniq),
                         'ctime': ctime,
                         'state': 'finished',
                     }
-                except OSError as oserr:
-                    if oserr.errno == errno.ENOENT:
-                        continue
+                }
+
+            except OSError as err:
+                if err.errno == errno.ENOENT:
+                    _LOGGER.info('pathname %s does not exist.', path_name)
+                else:
+                    _LOGGER.warning(
+                        'Unable to get finished instance: %s', str(err)
+                    )
+
+            return None
+
+        def _list_finished(app_name=None):
+            """List all finished instances.
+
+            :param app_name: application's full name, i.e. '$name#$instance'.
+            """
+            fmt = '*.sys.tar.gz'
+            if app_name is not None:
+                # list instances matching '$name-$instance-$uniq.sys.tar.gz'
+                fmt = '{}-*.sys.tar.gz'.format(_replace(app_name))
+                _LOGGER.debug('list finished instances with pattern: %r', fmt)
+
+            archive_glob = os.path.join(tm_env().archives_dir, fmt)
+            sep = r'\\' if os.name == 'nt' else os.sep
+            pattern = re.compile(r'''.*{sep}       # archives dir
+                                     \w+        # proid
+                                     \.         # .
+                                     [\w.]+     # app
+                                     -\d+       # id
+                                     -\w+       # uniq
+                                     .sys.tar.gz'''.format(sep=sep), re.X)
+
+            result = {}
+            for archive in [f for f in glob.glob(archive_glob)
+                            if pattern.match(f)]:
+                data = _get_finished(archive)
+                if data is not None:
+                    result.update(data)
+
             return result
 
         def _list_services():
@@ -551,17 +604,23 @@ class API:
                         continue
             return result
 
-        def _list(state=None, inc_svc=False):
+        def _list(state=None, inc_svc=False, app_name=None):
             """List all instances on the node.
             """
             result = {}
             if state is None or state == 'running':
-                result.update(_list_running())
+                result.update(_list_running(app_name=app_name))
                 if inc_svc:
                     result.update(_list_services())
             if state is None or state == 'finished':
-                result.update(_list_finished())
-            return list(six.itervalues(result))
+                result.update(_list_finished(app_name=app_name))
+
+            values = list(result.values())
+            values.sort(
+                key=operator.itemgetter('state', 'ctime'),
+                reverse=True,
+            )
+            return values
 
         # TODO: implementation of this is placeholder, need to think about
         #       more relevant info.

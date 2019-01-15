@@ -19,6 +19,8 @@ import mock
 import six
 from six.moves import _thread
 
+from treadmill import appenv
+from treadmill import fs
 from treadmill.api import local
 # pylint: disable=W0622
 from treadmill.exc import (LocalFileNotFoundError, InvalidInputError)
@@ -376,6 +378,38 @@ class APITest(unittest.TestCase):
     def setUp(self):
         self.root = tempfile.mkdtemp()
         os.environ['TREADMILL_APPROOT'] = self.root
+        self.tm_env = appenv.AppEnvironment(root=self.root)
+
+        fs.mkdir_safe(self.tm_env.apps_dir)
+        fs.mkdir_safe(self.tm_env.archives_dir)
+
+        full_names = (
+            ('proid.simplehttp', '0001025686', 'ymweWiRm86C7A'),
+            ('proid.myapi.test', '0001027473', 'kJoV4j0DU6dtJ'),
+        )
+        for app, instance, uniq in full_names:
+            link = '#'.join([app, instance])
+            fs.mkfile_safe(os.path.join(self.tm_env.running_dir, link))
+
+            target = '-'.join([app, instance, uniq])
+            fs.mkdir_safe(os.path.join(self.tm_env.apps_dir, target, 'data'))
+
+            fs.symlink_safe(
+                os.path.join(self.tm_env.running_dir, link),
+                os.path.join(self.tm_env.apps_dir, target),
+            )
+
+        files = (
+            # incorrect file
+            'proid.app-foo-bar#123.sys.tar.gz',
+            'proid.app#123.sys.tar.gz',
+            # correct file
+            'proid.app-123-uniq.sys.tar.gz',
+            'proid.test.sleep-901-uniq.sys.tar.gz',
+        )
+        for f in files:
+            fs.mkfile_safe(os.path.join(self.tm_env.archives_dir, f))
+
         self.api = local.API()
 
     def tearDown(self):
@@ -388,54 +422,80 @@ class APITest(unittest.TestCase):
         with self.assertRaises(LocalFileNotFoundError):
             self.api.archive.get('no/such/archive')
 
-    @mock.patch('glob.glob',
-                mock.Mock(spec_set=True, return_value=[
-                    '.../archives/proid.app-foo-bar#123.sys.tar.gz',
-                    '.../archives/proid.app-123-uniq.sys.tar.gz',
-                    '.../archives/proid.app#123.sys.tar.gz',
-                ]))
-    @mock.patch('os.stat', mock.Mock(spec_set=True))
-    @mock.patch('treadmill.fs.mkdir_safe', mock.Mock(spec_set=True))
+    def test_list_running(self):
+        """Test _list_running().
+        """
+        res = self.api.list(state='running')
+        self.assertEqual(len(res), 2)
+        self.assertSetEqual(
+            set(ins['_id'] for ins in res),
+            set([
+                'proid.simplehttp#0001025686/ymweWiRm86C7A',
+                'proid.myapi.test#0001027473/kJoV4j0DU6dtJ',
+            ])
+        )
+
+        res = self.api.list(
+            state='running',
+            app_name='proid.simplehttp#0001025686',
+        )
+        self.assertEqual(len(res), 1)
+        self.assertEqual(
+            res[0]['_id'], 'proid.simplehttp#0001025686/ymweWiRm86C7A'
+        )
+
     def test_list_finished(self):
         """Test _list_finished().
         """
-        res = self.api.list('finished')
-        self.assertEqual(len(res), 1)
-        self.assertEqual(res[0]['_id'], 'proid.app#123/uniq')
+        res = self.api.list(state='finished')
+        self.assertEqual(len(res), 2)
+        self.assertSetEqual(
+            set(ins['_id'] for ins in res),
+            set([
+                'proid.app#123/uniq',
+                'proid.test.sleep#901/uniq',
+            ])
+        )
+
+        cases = [
+            ('proid.app#123', 1),
+            ('proid.test.sleep#901', 1),
+            ('proid.unknown#1', 0),
+        ]
+        for app_name, expected in cases:
+            res = self.api.list(state='finished', app_name=app_name)
+            self.assertEqual(len(res), expected)
 
     def test_get(self):
         """Test _get(uniqid).
         """
         state = {'foo': 'bar'}
-        path_to_archives = os.path.join(self.root, 'archives')
-        os.makedirs(path_to_archives)
-        path_to_app = os.path.join(
-            self.root,
-            'apps',
-            'proid.app-123-uniq',
-            'data'
+
+        path_to_state_file = os.path.join(
+            self.tm_env.apps_dir,
+            'proid.simplehttp-0001025686-ymweWiRm86C7A',
+            'data',
+            'state.json',
         )
-        os.makedirs(path_to_app)
-        path_to_state_file = os.path.join(path_to_app, 'state.json')
         with io.open(path_to_state_file, 'w') as f:
             json.dump(state, f)
 
         # check that state.json can be read back successfully
         self.assertEqual(
-            self.api.get('proid.app-123/uniq'),
-            state
+            self.api.get('proid.simplehttp-0001025686/ymweWiRm86C7A'),
+            state,
         )
 
         # add state.json to an archive
         path_to_archive = os.path.join(
-            path_to_archives,
-            'proid.app-122-uniq.sys.tar.gz'
+            self.tm_env.archives_dir,
+            'proid.app-123-uniq.sys.tar.gz'
         )
         with tarfile.open(path_to_archive, mode='w') as out:
             out.add(path_to_state_file, arcname='state.json')
 
         # check that state.json can be read back from an archive
-        self.assertEqual(self.api.get('proid.app-122/uniq'), state)
+        self.assertEqual(self.api.get('proid.app-123/uniq'), state)
 
 
 if __name__ == '__main__':
