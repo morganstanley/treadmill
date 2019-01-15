@@ -209,6 +209,9 @@ class DockerRuntimeTest(unittest.TestCase):
     @mock.patch(
         'treadmill.runtime.docker.runtime._update_network_info_in_manifest',
         mock.Mock())
+    @mock.patch(
+        'treadmill.runtime.docker.runtime._print_container_logs',
+        mock.Mock())
     @mock.patch('treadmill.presence.EndpointPresence',
                 mock.Mock(set_spec=True))
     @mock.patch('treadmill.context.GLOBAL.zk', mock.Mock())
@@ -243,8 +246,7 @@ class DockerRuntimeTest(unittest.TestCase):
             )
         )
 
-        self.assertEqual(container.wait.call_count, 2)
-        self.assertEqual(container.reload.call_count, 3)
+        self.assertEqual(container.reload.call_count, 1)
 
     @mock.patch('treadmill.runtime.allocate_network_ports', mock.Mock())
     @mock.patch('treadmill.runtime.docker.runtime._create_container',

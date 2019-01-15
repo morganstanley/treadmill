@@ -11,6 +11,7 @@ import json
 import logging
 import multiprocessing
 import os
+import sys
 import socket
 import time
 
@@ -247,6 +248,25 @@ def _check_aborted(container_dir):
     return aborted
 
 
+def _print_container_logs(container):
+    """Iterate and print container logs.
+    """
+    # with tty allocated, logs will be prefixed by some control
+    # characters and it will make container.logs return char by char
+    # instead of line by line so we need to fix it
+
+    log_obj = container.logs(stream=True, follow=True)
+
+    # skip first line of control characters
+    for ch in log_obj:
+        if ch.decode('utf-8') == '\n':
+            break
+
+    # print the rest of messages
+    for ch in log_obj:
+        print(ch.decode('utf-8'), file=sys.stdout, end='', flush=True)
+
+
 class DockerRuntime(runtime_base.RuntimeBase):
     """Docker Treadmill runtime.
     """
@@ -368,9 +388,7 @@ class DockerRuntime(runtime_base.RuntimeBase):
                 )
             )
 
-            while container.status == 'running':
-                container.wait(timeout=10)
-                container.reload()
+            _print_container_logs(container)
 
     def _finish(self):
         app = runtime.load_app(self._service.data_dir, runtime.STATE_JSON)

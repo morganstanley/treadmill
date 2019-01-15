@@ -93,7 +93,7 @@ class TcpRestServer(RestServer):
         :param str protect: which URLs to protect, default is None
         :param int workers: the number of workers to be forked, default is 1
         :param int backlog: the connection backlog, default is 128
-        :param int rate_limit: API request rate limit rule, default is None
+        :param dict rate_limit: API request rate limit rule, default is None
         """
         self.port = int(port)
         self.host = host

@@ -213,6 +213,12 @@ def init():
             data['disk'] = disk
         if partition:
             data['partition'] = partition
+        if rank is not None:
+            data['rank'] = rank
+        if rank_adjustment is not None:
+            data['rank_adjustment'] = rank_adjustment
+        if max_utilization is not None:
+            data['max_utilization'] = max_utilization
 
         reservation_url = '/allocation/{}/{}/reservation/{}'.format(
             allocation, env, cell
@@ -230,17 +236,12 @@ def init():
                     data['disk'] = existing['disk']
                 if 'partition' not in data:
                     data['partition'] = existing['partition']
+                if traits:
+                    cli.error('cannot modify traits on existing reservation.')
                 restclient.put(restapi, reservation_url, payload=data)
         except restclient.NotFoundError:
-            if rank is not None:
-                data['rank'] = rank
-            if rank_adjustment is not None:
-                data['rank_adjustment'] = rank_adjustment
-            if max_utilization is not None:
-                data['max_utilization'] = max_utilization
             if traits:
                 data['traits'] = cli.combine(traits)
-
             restclient.post(restapi, reservation_url, payload=data)
 
         _display_tenant(restapi, allocation)
