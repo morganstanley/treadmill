@@ -48,14 +48,18 @@ def init(api, cors, impl):
                             location='args', required=False,
                             type=inputs.boolean)
 
-    @app_ns.route('/',)
+    @app_ns.route('/', defaults={'app': None})
+    @app_ns.route('/<app>')
     class _AppList(restplus.Resource):
         """Local app list resource."""
 
         @webutils.get_api(api, cors)
-        def get(self):
-            """Returns list of local instances."""
-            return impl.list(flask.request.args.get('state'))
+        def get(self, app):
+            """Returns listof local instances."""
+            return impl.list(
+                state=flask.request.args.get('state'),
+                app_name=app,
+            )
 
     @app_ns.route('/<app>/<uniq>',)
     class _AppDetails(restplus.Resource):

@@ -40,6 +40,20 @@ def _validate_rate_limit(_ctx, _param, value):
     return value
 
 
+def _get_rate_limit(global_rule, module_rule):
+    """Get rate limit rule."""
+    limit = {}
+    if global_rule is not None:
+        limit['_global'] = global_rule
+
+    if module_rule is not None:
+        for name, value in module_rule.items():
+            _validate_rate_limit(None, None, value)
+            limit[name] = value
+
+    return limit if limit else None
+
+
 def init():
     """Top level command handler."""
 
@@ -57,12 +71,18 @@ def init():
     @click.option('-t', '--title', help='API Doc Title',
                   default='Treadmill Nodeinfo REST API')
     @click.option('-c', '--cors-origin', help='CORS origin REGEX')
-    @click.option('--rate-limit',
+    @click.option('--rate-limit', 'rate_limit_global',
                   required=False, callback=_validate_rate_limit,
-                  help='API request rate limit rule (eg. "5/second")')
+                  help='Global request rate limit rule (eg. "5/second")')
+    @click.option('--rate-limit-module',
+                  required=False, type=cli.DICT,
+                  help='Modular request rate limit rule '
+                       '(eg. "cgroup=1/second,local=2/minute")')
     def server(approot, register, port, auth, modules, config, title,
-               cors_origin, rate_limit):
+               cors_origin, rate_limit_global, rate_limit_module):
         """Runs nodeinfo server."""
+        rate_limit = _get_rate_limit(rate_limit_global, rate_limit_module)
+
         if port == 0:
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             sock.bind(('0.0.0.0', 0))
