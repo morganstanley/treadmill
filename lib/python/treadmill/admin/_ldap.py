@@ -1068,12 +1068,22 @@ class LdapObject:
     # Allow such names as 'dn', 'ou'
     # pylint: disable=invalid-name
 
+    _operational_attrs = ['createTimestamp', 'modifyTimestamp']
+
     def __init__(self, admin):
         self.admin = admin
 
     def from_entry(self, entry, _dn=None):
         """Converts ldap entry to dict."""
-        return _entry_2_dict(entry, self.schema())
+        obj = _entry_2_dict(entry, self.schema())
+
+        # Add operational attrs if they were requested, those can only be read.
+        # create/modifyTimestamp are single-valued, UTC aware datetime objects.
+        if entry.get('createTimestamp'):
+            obj['_create_timestamp'] = entry['createTimestamp'].timestamp()
+        if entry.get('modifyTimestamp'):
+            obj['_modify_timestamp'] = entry['modifyTimestamp'].timestamp()
+        return obj
 
     def to_entry(self, obj):
         """Converts object to LDAP entry."""
@@ -1097,10 +1107,13 @@ class LdapObject:
 
         return dn
 
-    def get(self, ident, dirty=False):
+    def get(self, ident, dirty=False, get_operational_attrs=False):
         """Gets object given identity."""
+        attrs = self.attrs()
+        if get_operational_attrs:
+            attrs += self._operational_attrs
         entry = self.admin.get(
-            self.dn(ident), self._query(), self.attrs(), dirty=dirty,
+            self.dn(ident), self._query(), attrs, dirty=dirty,
         )
         if entry:
             return self.from_entry(entry, self.dn(ident))
@@ -1120,7 +1133,8 @@ class LdapObject:
 
         self.admin.create(self.dn(ident), entry)
 
-    def list(self, attrs, generator=False, dirty=False):
+    def list(self, attrs, generator=False, dirty=False,
+             get_operational_attrs=False):
         """List records, given attribute filter."""
         query = self._query()
         for ldap_field, obj_field, _field_type in self.schema():
@@ -1136,12 +1150,16 @@ class LdapObject:
                     query(arg, value)
             else:
                 query(arg, attrs[obj_field])
-
         _LOGGER.debug('Query: %s', query.to_str())
+
+        attributes = self.attrs()
+        if get_operational_attrs:
+            attributes += self._operational_attrs
+
         result = self.admin.paged_search(search_base=self.dn(),
                                          search_filter=query.to_str(),
                                          search_scope=ldap3.SUBTREE,
-                                         attributes=self.attrs(),
+                                         attributes=attributes,
                                          dirty=dirty)
         if generator:
             return (self.from_entry(entry, dn) for dn, entry in result)
@@ -1259,9 +1277,12 @@ class AppGroup(LdapObject):
     _entity = 'app-group'
 
     # pylint: disable=arguments-differ
-    def get(self, ident, group_type=None, dirty=False):
+    def get(self, ident, group_type=None, dirty=False,
+            get_operational_attrs=False):
         """Gets object given identity and group_type"""
-        entry = super(AppGroup, self).get(ident, dirty)
+        entry = super(AppGroup, self).get(
+            ident, dirty, get_operational_attrs=get_operational_attrs
+        )
         if entry and group_type and entry['group-type'] != group_type:
             return None
 
@@ -1575,9 +1596,11 @@ class Cell(LdapObject):
             [_name_only(e) for e in Cell._master_host_schema]
         )
 
-    def get(self, ident, dirty=False):
+    def get(self, ident, dirty=False, get_operational_attrs=False):
         """Gets cell given primary key."""
-        obj = super(Cell, self).get(ident, dirty=dirty)
+        obj = super(Cell, self).get(
+            ident, dirty=dirty, get_operational_attrs=get_operational_attrs
+        )
         obj['partitions'] = self.partitions(ident, dirty=dirty)
         return obj
 
@@ -1853,9 +1876,11 @@ class Allocation(LdapObject):
         """Returns combined schema for retrieval."""
         return Allocation._schema
 
-    def get(self, ident, dirty=False):
+    def get(self, ident, dirty=False, get_operational_attrs=False):
         """Gets allocation given primary key."""
-        obj = super(Allocation, self).get(ident, dirty=dirty)
+        obj = super(Allocation, self).get(
+            ident, dirty=dirty, get_operational_attrs=get_operational_attrs
+        )
         obj['reservations'] = self.reservations(ident, dirty=dirty)
         return obj
 
