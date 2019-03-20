@@ -76,7 +76,7 @@ def set_memory_hardlimit(cgrp, limit):
                                            'Cgroup %r memory over limit.' %
                                            (limit, cgrp))
 
-            elif err.errno == errno.EINVAL:
+            if err.errno == errno.EINVAL:
                 # This means we did the hard limit operation in the wrong
                 # order. If we have a different ordering to try, go ahead.
                 if memory_hardlimit_funs:

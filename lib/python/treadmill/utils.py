@@ -330,8 +330,7 @@ def validate(struct, schema):
             if required:
                 raise exc.InvalidInputError(
                     struct, 'Required field: %s' % field)
-            else:
-                continue
+            continue
 
         # Make str type validation work across Py2 and Py3
         if ftype is str:

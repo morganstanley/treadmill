@@ -58,7 +58,7 @@ class BundleService(_service_base.Service):
         # Mandatory settings
         if not self._contents and not os.path.exists(self._contents_file):
             raise ValueError('Invalid Bundle: No content')
-        elif self._contents is not None:
+        if self._contents is not None:
             if not self._contents:
                 raise ValueError('Invalid Bundle: empty')
             _utils.set_list_write(self._contents_file, self._contents)
@@ -413,7 +413,7 @@ class LongrunService(_AtomicService):
         # Mandatory settings
         if self._run_script is None and not os.path.exists(self._run_file):
             raise ValueError('Invalid LongRun service: not run script')
-        elif self._run_script is not None:
+        if self._run_script is not None:
             _utils.script_write(self._run_file, self._run_script)
             # Handle the case where the run script is a generator
             if not isinstance(self._run_script, six.string_types):
@@ -526,7 +526,7 @@ class OneshotService(_AtomicService):
         # Mandatory settings
         if not self._up and not os.path.exists(self._up_file):
             raise ValueError('Invalid Oneshot service: not up script')
-        elif self._up is not None:
+        if self._up is not None:
             _utils.script_write(self._up_file, self._up)
             if not isinstance(self._up_file, six.string_types):
                 self._up_file = None
