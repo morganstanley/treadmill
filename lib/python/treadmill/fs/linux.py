@@ -509,8 +509,7 @@ def blk_uuid(block_dev):
     match_obj = _UUID_RE.search(output)
     if match_obj is None:
         raise ValueError('Invalid device: %s' % block_dev)
-    else:
-        return match_obj.group(1)
+    return match_obj.group(1)
 
 
 def blk_maj_min(block_dev):

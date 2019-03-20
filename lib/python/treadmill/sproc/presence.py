@@ -75,8 +75,7 @@ def _get_tickets(manifest, container_dir):
                           princ, krbcc_file)
             raise exc.ContainerSetupError(princ,
                                           app_abort.AbortedReason.TICKETS)
-        else:
-            _LOGGER.info('Ticket ok: %s, %s', princ, krbcc_file)
+        _LOGGER.info('Ticket ok: %s, %s', princ, krbcc_file)
 
     return True
 

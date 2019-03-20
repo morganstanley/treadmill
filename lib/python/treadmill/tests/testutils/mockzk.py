@@ -165,8 +165,7 @@ class MockZookeeperTestCase(unittest.TestCase):
             # verified that parent exists. now delete the node.
             if last not in content:
                 raise kazoo.client.NoNodeError()
-            else:
-                del content[last]
+            del content[last]
 
         def mock_get(zkpath, watch=None):
             """Traverse data recursively, return the node content."""

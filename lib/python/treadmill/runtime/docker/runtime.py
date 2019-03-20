@@ -12,7 +12,6 @@ import logging
 import multiprocessing
 import os
 import sys
-import socket
 import time
 
 import docker
@@ -25,6 +24,7 @@ from treadmill import exc
 from treadmill import logcontext as lc
 from treadmill import presence
 from treadmill import runtime
+from treadmill import sysinfo
 from treadmill import trace
 from treadmill import zkutils
 
@@ -56,7 +56,7 @@ def _create_environ(app):
         'TREADMILL_IDENTITY_GROUP': app.identity_group,
         'TREADMILL_PROID': app.proid,
         'TREADMILL_ENV': app.environment,
-        'TREADMILL_HOSTNAME': socket.getfqdn().lower()
+        'TREADMILL_HOSTNAME': sysinfo.hostname()
     })
 
     for endpoint in app.endpoints:

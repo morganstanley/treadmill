@@ -310,8 +310,7 @@ def get_appmonitor(zkclient, monitor_id,
         _LOGGER.info('App monitor does not exist: %s', monitor_id)
         if raise_notfound:
             raise
-        else:
-            return None
+        return None
 
 
 def update_appmonitor(zkclient, monitor_id, count, policy=None):

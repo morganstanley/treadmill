@@ -478,8 +478,7 @@ def get_with_metadata(zkclient, path, watcher=None, strict=True):
             except yaml.YAMLError:
                 if strict:
                     raise
-                else:
-                    result = data
+                result = data
 
     return result, metadata
 
