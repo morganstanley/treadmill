@@ -9,9 +9,9 @@ from __future__ import unicode_literals
 import functools
 import logging
 import os
-import socket
 
 from treadmill import plugin_manager
+from treadmill import sysinfo
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -397,7 +397,7 @@ class Context:
             return
 
         self._defaults = {
-            'dns_domain': '.'.join(socket.getfqdn().split('.')[1:])
+            'dns_domain': '.'.join(sysinfo.hostname().split('.')[1:])
         }
 
         if self._profile_name:
