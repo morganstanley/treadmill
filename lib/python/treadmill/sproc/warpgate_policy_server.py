@@ -12,6 +12,7 @@ import socket
 import click
 
 from treadmill import cli
+from treadmill import sysinfo
 from treadmill.warpgate import policy_server
 
 
@@ -38,7 +39,7 @@ def init():
                                policies_dir, state_dir):
         """Run warpgate policy server."""
 
-        myhostname = socket.getfqdn()
+        myhostname = sysinfo.hostname()
         policy_server.run_server(
             admin_address=myhostname,
             admin_port=port,

@@ -164,6 +164,10 @@ def _cpuflags_windows():
 
 def hostname():
     """Hostname of the server."""
+    treadmill_hostname = os.environ.get('TREADMILL_HOSTNAME')
+    if treadmill_hostname:
+        return treadmill_hostname.lower()
+
     host_name = socket.gethostname()
     port = 0
     family = 0

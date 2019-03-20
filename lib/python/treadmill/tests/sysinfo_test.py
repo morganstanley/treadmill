@@ -246,6 +246,29 @@ power management: [8]
             }
         )
 
+    @mock.patch('socket.gethostname', mock.Mock(return_value='foo'))
+    @mock.patch('socket.getaddrinfo', mock.Mock(return_value=[
+        (None, None, None, 'foo.bar', None)
+    ]))
+    def test_hostname(self):
+        """Test getting hostname of the server.
+        """
+        self.assertEqual(
+            sysinfo.hostname(),
+            'foo.bar'
+        )
+
+    @mock.patch.dict('os.environ', {'TREADMILL_HOSTNAME': 'foo.bar'})
+    @mock.patch('socket.gethostname', mock.Mock())
+    @mock.patch('socket.getaddrinfo', mock.Mock())
+    def test_hostname_env(self):
+        """Test getting hostname of the server (TREADMILL_HOSTNAME is set).
+        """
+        self.assertEqual(
+            sysinfo.hostname(),
+            'foo.bar'
+        )
+
 
 if __name__ == '__main__':
     unittest.main()

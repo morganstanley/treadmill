@@ -1379,6 +1379,9 @@ class PartitionDict(dict):
 def reboot_dates(schedule, start_date=None):
     """Generate list of valid reboot dates.
     """
+    # make sure the keys in schedule are ints
+    schedule = {int(k): v for k, v in schedule.items()}
+
     date = datetime.date.today()
     if start_date:
         date = start_date

@@ -109,10 +109,10 @@ def open_service(service_dir, existing=True):
                 raise InvalidServiceDirError(
                     'Invalid Service directory: %r' % service_dir
                 )
-            else:
-                svc_type = _service_base.ServiceType.LongRun
-                svc_basedir = os.path.dirname(service_dir)
-                svc_name = os.path.basename(service_dir)
+
+            svc_type = _service_base.ServiceType.LongRun
+            svc_basedir = os.path.dirname(service_dir)
+            svc_name = os.path.basename(service_dir)
 
         else:
             svc_type, svc_basedir, svc_name = svc_data

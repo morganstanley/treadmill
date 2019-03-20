@@ -206,7 +206,8 @@ class ContextTest(unittest.TestCase):
             context.GLOBAL.state_api(), ['http://x:123']
         )
 
-    @mock.patch('socket.getfqdn', mock.Mock(return_value='a.b.c.d'))
+    @mock.patch('treadmill.sysinfo.hostname',
+                mock.Mock(return_value='a.b.c.d'))
     def test_default_domain(self):
         """Test default resoltion of dns domain."""
         ctx = context.Context()

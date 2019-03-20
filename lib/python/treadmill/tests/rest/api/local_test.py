@@ -99,6 +99,7 @@ class LocalTest(unittest.TestCase):
     def test_app_log_success(self):
         """Dummy tests for returning application logs."""
         self.impl.log.get.side_effect = get_log_success
+        self.impl.log.get_all.side_effect = get_log_success
 
         resp = self.client.get(
             '/local-app/proid.app/uniq/service/service_name'
