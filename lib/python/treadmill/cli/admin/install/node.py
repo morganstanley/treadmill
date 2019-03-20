@@ -13,6 +13,7 @@ import click
 
 from treadmill import bootstrap
 from treadmill import context
+from treadmill import cli
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -24,15 +25,18 @@ def init():
     @click.command()
     @click.option('--run/--no-run', is_flag=True, default=False)
     @click.option('--runtime', envvar='TREADMILL_RUNTIME')
+    @click.option('--runtime-param', type=cli.LIST, required=False)
     @click.option('--benchmark/--no-benchmark', is_flag=True, default=False)
     @click.pass_context
-    def node(ctx, run, benchmark, runtime=None):
+    def node(ctx, run, benchmark, runtime=None, runtime_param=None):
         """Installs Treadmill node."""
         dst_dir = ctx.obj['PARAMS']['dir']
         profile = ctx.obj['PARAMS'].get('profile')
 
         if runtime is not None:
             ctx.obj['PARAMS']['treadmill_runtime'] = runtime
+
+        ctx.obj['PARAMS']['treadmill_runtime_param'] = runtime_param
 
         if os.name == 'nt':
             wipe_script = [

@@ -8,7 +8,6 @@ from __future__ import unicode_literals
 
 import logging
 import os
-import socket
 
 import click
 import limits
@@ -40,11 +39,14 @@ def _validate_rate_limit(_ctx, _param, value):
     return value
 
 
-def _get_rate_limit(global_rule, module_rule):
+def _get_rate_limit(global_rule, module_rule, limit_by):
     """Get rate limit rule."""
     limit = {}
     if global_rule is not None:
         limit['_global'] = global_rule
+
+    if limit_by is not None:
+        limit['_limit_by'] = limit_by
 
     if module_rule is not None:
         for name, value in module_rule.items():
@@ -78,16 +80,20 @@ def init():
                   required=False, type=cli.DICT,
                   help='Modular request rate limit rule '
                        '(eg. "cgroup=1/second,local=2/minute")')
+    @click.option('--rate-limit-by', required=False,
+                  type=click.Choice(['user', 'ip']),
+                  help='Rate limit key generation rule.')
     def server(approot, register, port, auth, modules, config, title,
-               cors_origin, rate_limit_global, rate_limit_module):
+               cors_origin, rate_limit_global, rate_limit_module,
+               rate_limit_by):
         """Runs nodeinfo server."""
-        rate_limit = _get_rate_limit(rate_limit_global, rate_limit_module)
+        rate_limit = _get_rate_limit(
+            rate_limit_global, rate_limit_module, rate_limit_by
+        )
 
-        if port == 0:
-            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            sock.bind(('0.0.0.0', 0))
-            port = sock.getsockname()[1]
-            sock.close()
+        rest_server = rest.TcpRestServer(port, auth_type=auth,
+                                         rate_limit=rate_limit)
+        port = rest_server.port
 
         hostname = sysinfo.hostname()
         hostport = '%s:%s' % (hostname, port)
@@ -132,7 +138,6 @@ def init():
 
         utils.drop_privileges()
 
-        api_paths = []
         if modules:
             api_modules = {module: None for module in modules}
             for module, cfg in config:
@@ -143,15 +148,12 @@ def init():
                 api_modules[module] = yaml.load(stream=cfg)
                 cfg.close()
 
-            api_paths = api.init(
+            rest_server.protect = api.init(
                 api_modules,
                 title.replace('_', ' '),
                 cors_origin
             )
 
-        rest_server = rest.TcpRestServer(port, auth_type=auth,
-                                         protect=api_paths,
-                                         rate_limit=rate_limit)
         rest_server.run()
 
     return server

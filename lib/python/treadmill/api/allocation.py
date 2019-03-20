@@ -185,8 +185,6 @@ class API:
 
     def __init__(self, plugins=None):
 
-        self._plugins = _api_plugins(plugins)
-
         def _admin_alloc():
             """Lazily return admin allocation object.
             """
@@ -426,5 +424,5 @@ class API:
         self.create = create
         self.update = update
         self.delete = delete
-        self.reservation = _ReservationAPI()
+        self.reservation = _ReservationAPI(plugins)
         self.assignment = _AssignmentAPI()

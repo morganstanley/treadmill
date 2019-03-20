@@ -90,7 +90,6 @@ class StateTest(unittest.TestCase):
         self.assertEqual(resp.status_code, http_client.OK)
         self.impl.list.assert_called_with('test*', True, 'part1')
 
-    @unittest.skip('BROKEN: Flask exception handling')  # FIXME
     def test_get_state(self):
         """Test getting an instance state."""
         self.impl.get.return_value = {
@@ -110,7 +109,6 @@ class StateTest(unittest.TestCase):
         self.assertEqual(resp.status_code, http_client.OK)
         self.impl.get.assert_called_with('foo.bar#0000000001')
 
-    @unittest.skip('BROKEN: Flask exception handling')  # FIXME
     def test_get_state_notfound(self):
         """Test getting an instance state (not found)."""
         self.impl.get.return_value = None

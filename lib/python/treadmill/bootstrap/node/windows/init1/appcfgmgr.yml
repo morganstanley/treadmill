@@ -1,5 +1,5 @@
 command: >
-  {{ treadmill }}\scripts\treadmill sproc appcfgmgr
+  {{ treadmill }}\scripts\treadmill sproc appcfgmgr {% if treadmill_runtime_param %}--runtime-param {{ treadmill_runtime_param|join(',') }} {% endif %}
 monitor_policy:
   limit: 2
   interval: 60

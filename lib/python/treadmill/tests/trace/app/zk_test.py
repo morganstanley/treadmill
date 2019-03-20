@@ -6,6 +6,7 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
+import json
 import unittest
 import time
 import sqlite3
@@ -66,7 +67,12 @@ class AppTraceZKTest(mockzk.MockZookeeperTestCase):
             ),
             mock.call(
                 '/finished/foo.bar#123',
-                b'{data: test, host: baz, state: aborted, when: \'100\'}\n',
+                json.dumps({
+                    'data': 'test',
+                    'host': 'baz',
+                    'state': 'aborted',
+                    'when': '100'
+                }, sort_keys=True).encode(),
                 ephemeral=False, makepath=True, sequence=False,
                 acl=mock.ANY
             )

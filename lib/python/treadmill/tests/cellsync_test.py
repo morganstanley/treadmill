@@ -50,7 +50,7 @@ class CellsyncTest(unittest.TestCase):
         ], any_order=True)
         zkclient.create.assert_called_once_with(
             '/app-groups/test.foo',
-            b'cells: [test]\n',
+            b'{"cells": ["test"]}',
             makepath=True, ephemeral=False, acl=mock.ANY, sequence=False
         )
 

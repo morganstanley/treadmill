@@ -109,11 +109,15 @@ def _process_existing_alerts(alerts_dir, process_func):
         process_func(os.path.join(alerts_dir, alert_file))
 
 
-def _remove_extra_alerts(alerts_dir, max_queue_length):
+def _remove_extra_alerts(alerts_dir, max_queue_length=0):
     """Keep the most recent max_queue_length files in alerts_dir.
     """
-    for alert_file in sorted(os.listdir(alerts_dir))[:-1 * max_queue_length]:
-        fs.rm_safe(os.path.join(alerts_dir, alert_file))
+    # None means do not slice
+    index = None if max_queue_length == 0 else 0 - max_queue_length
+    for alert_file in sorted(os.listdir(alerts_dir))[:index]:
+        # if file/dir started as '.', we do not remove
+        if alert_file[0] != '.':
+            fs.rm_safe(os.path.join(alerts_dir, alert_file))
 
 
 def init():

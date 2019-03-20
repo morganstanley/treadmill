@@ -9,6 +9,7 @@ from __future__ import unicode_literals
 import click
 
 from treadmill import appcfgmgr
+from treadmill import cli
 
 
 def init():
@@ -18,9 +19,10 @@ def init():
     @click.option('--approot', type=click.Path(exists=True),
                   envvar='TREADMILL_APPROOT', required=True)
     @click.option('--runtime', envvar='TREADMILL_RUNTIME', required=True)
-    def run(approot, runtime):
+    @click.option('--runtime-param', type=cli.LIST, required=False)
+    def run(approot, runtime, runtime_param=None):
         """Starts appcfgmgr process."""
-        mgr = appcfgmgr.AppCfgMgr(approot, runtime)
+        mgr = appcfgmgr.AppCfgMgr(approot, runtime, runtime_param)
         mgr.run()
 
     return run

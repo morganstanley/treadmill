@@ -76,7 +76,7 @@ def replace(path_from, path_to):
 
 
 def write_safe(filename, func, mode='wb', prefix='tmp', permission=None,
-               owner=None):
+               owner=None, subdir=None):
     """Safely write file.
 
     :param filename:
@@ -91,8 +91,13 @@ def write_safe(filename, func, mode='wb', prefix='tmp', permission=None,
         file permission
     :param owner
         file owner (uid, gui) tuple
+    :param subdir
+        create tempdir in subdir
     """
     dirname = os.path.dirname(filename)
+    if subdir:
+        dirname = os.path.join(dirname, subdir)
+
     try:
         os.makedirs(dirname)
     except OSError as err:

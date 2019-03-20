@@ -447,6 +447,16 @@ class ApiInstanceTest(unittest.TestCase):
             ['sleep1', 'sleep2']
         )
 
+    @mock.patch('treadmill.context.ZkContext.conn', mock.Mock())
+    @mock.patch('treadmill.scheduler.masterapi.delete_apps')
+    def test_bulk_delete_pers_container(self, delete_apps_mock):
+        """Test bulk deleting personal container.
+        """
+        self.instance.bulk_delete('foo@bar', ['foo@bar.baz#123'])
+        delete_apps_mock.assert_called_once_with(
+            mock.ANY, ['foo@bar.baz#123'], None
+        )
+
 
 if __name__ == '__main__':
     unittest.main()

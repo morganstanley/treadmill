@@ -62,7 +62,8 @@ class AppCfgMgrTest(unittest.TestCase):
         treadmill.appcfg.configure.configure.assert_called_with(
             self.appcfgmgr.tm_env,
             os.path.join(self.cache, 'foo#1'),
-            'linux'
+            'linux',
+            None
         )
         treadmill.fs.symlink_safe.assert_called_with(
             os.path.join(self.running, 'foo#1'),

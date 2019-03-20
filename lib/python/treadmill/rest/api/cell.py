@@ -47,6 +47,7 @@ def init(api, cors, impl):
         'status': fields.String(description='Status'),
         'masters': fields.List(fields.Nested(master)),
         'partitions': fields.List(fields.Nested(partition)),
+        'traits': fields.List(fields.String(description='Traits')),
         'data': fields.Raw(),
     }
 

@@ -7,6 +7,7 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import logging
+import os
 import random
 
 from treadmill import dnsutils
@@ -48,58 +49,93 @@ def _api(ctx, target, proto=None):
 
 
 def _cell_api(ctx, scope=None):
+    """Resolve cell api given context and scope.
+
+    Default srv lookup - _http._tcp.cellapi.<cell>.cell
+
+    Override - environment var: TREADMILL_CELLAPI_LOOKUP_<cell>
+    all upper case.
+    """
+
     if scope is None:
         if not ctx.cell:
             raise context.ContextError('Cell not specified.')
         scope = cell_scope(ctx.cell)
-    return _api(
-        ctx,
-        '_http._tcp.cellapi.{scope}'.format(scope=scope),
-        'http'
-    )
+
+    # Check if there is srv record override for the given cell.
+    env_override = 'TREADMILL_CELLAPI_LOOKUP_{cell}'.format(
+        cell=ctx.cell
+    ).upper()
+
+    srvlookup = os.environ.get(env_override, '_http._tcp.cellapi.{scope}')
+    return _api(ctx, srvlookup.format(scope=scope, cell=ctx.cell), 'http')
 
 
 def _state_api(ctx, scope=None):
+    """Resolve state api given context and scope.
+
+    Default srv lookup - _http._tcp.stateapi.<cell>.cell
+
+    Override - environment var: TREADMILL_STATEAPI_LOOKUP_<cell>
+    all upper case.
+    """
     if scope is None:
         if not ctx.cell:
             raise context.ContextError('Cell not specified.')
         scope = cell_scope(ctx.cell)
-    return _api(
-        ctx,
-        '_http._tcp.stateapi.{scope}'.format(scope=scope),
-        'http'
-    )
+
+    env_override = 'TREADMILL_STATEAPI_LOOKUP_{cell}'.format(
+        cell=ctx.cell
+    ).upper()
+
+    srvlookup = os.environ.get(env_override, '_http._tcp.stateapi.{scope}')
+    return _api(ctx, srvlookup.format(scope=scope, cell=ctx.cell), 'http')
 
 
 def _ws_api(ctx, scope=None):
+    """Resolve webscocket api given context and scope.
+
+    Default srv lookup - _ws._tcp.wsapi.<cell>.cell
+
+    Override - environment var: TREADMILL_WS_LOOKUP_<cell>
+    all upper case.
+    """
     if scope is None:
         if not ctx.cell:
             raise context.ContextError('Cell not specified.')
         scope = cell_scope(ctx.cell)
-    return _api(
-        ctx,
-        '_ws._tcp.wsapi.{scope}'.format(scope=scope),
-        'ws'
-    )
+
+    env_override = 'TREADMILL_WSAPI_LOOKUP_{cell}'.format(
+        cell=ctx.cell
+    ).upper()
+
+    srvlookup = os.environ.get(env_override, '_ws._tcp.wsapi.{scope}')
+    return _api(ctx, srvlookup.format(scope=scope, cell=ctx.cell), 'ws')
 
 
 def _admin_api(ctx, scope=None):
     """Resolve admin API SRV records."""
     # Default.
-    #
     def _lookup(ctx, scope):
+        """Lookup admin api based on scope."""
+
         if scope == 'global':
-            return _api(ctx, '_http._tcp.adminapi', 'http')
+            default_lookup = '_http._tcp.adminapi'
         else:
-            return _api(
-                ctx,
-                '_http._tcp.adminapi.{scope}'.format(scope=scope),
-                'http'
-            )
+            default_lookup = '_http._tcp.adminapi.{scope}'
+
+        env_override = 'TREADMILL_ADMINAPI_LOOKUP_{scope}'.format(
+            scope=scope
+        ).upper().replace('.', '_')
+
+        srvlookup = os.environ.get(env_override, default_lookup)
+        if not srvlookup:
+            return None
+
+        return _api(ctx, srvlookup.format(scope=scope), 'http')
 
     if scope is not None:
         return _lookup(ctx, scope)
-
     else:
         scopes = ctx.get('api_scope', [])
         if 'global' not in scopes:
