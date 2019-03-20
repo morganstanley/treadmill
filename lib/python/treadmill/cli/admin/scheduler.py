@@ -136,7 +136,7 @@ def view_group(parent):
         if not full:
             output = output[[
                 'instance', 'allocation', 'partition', 'server',
-                'mem', 'cpu', 'disk'
+                'mem', 'cpu', 'disk', 'traits'
             ]]
 
         _print(output)

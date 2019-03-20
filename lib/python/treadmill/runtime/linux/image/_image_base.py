@@ -17,23 +17,17 @@ class Image:
     """
 
     @abc.abstractmethod
-    def unpack(self, container_dir, root_dir, app, app_cgroups):
+    def unpack(self, container_dir, root_dir, app, app_cgroups, data):
         """Unpacks the image to the root dir.
 
-        :param container_dir:
+        :param ``str`` container_dir:
             The root path of the container.
-        :type container_dir:
-            ``str``
-        :param root_dir:
-            The root path to unpack the image
-        :type root_dir:
-            ``str``
-        :param app:
-            The application manifest
-        :type app:
-            ``dict``
-        :param app_cgroups:
-            The paths of app cgroups
-        :type app_cgroups:
-            ``dict``
+        :param ``str`` root_dir:
+            The root path to unpack the image.
+        :param ``dict`` app:
+            The application manifest.
+        :param ``dict`` app_cgroups:
+            The paths of app cgroups.
+        :param ``dict`` data:
+            Local configuration data.
         """

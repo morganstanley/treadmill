@@ -177,7 +177,7 @@ class PresenceTest(mockzk.MockZookeeperTestCase):
 
         kazoo.client.KazooClient.create.reset()
         kazoo.client.KazooClient.create.side_effect = node_exists
-        kazoo.client.KazooClient.get.return_value = ('{}', {})
+        kazoo.client.KazooClient.get.return_value = (b'{}', {})
         app_presence.register_endpoints()
         self.assertTrue(retry_happened)
         self.assertTrue(time.sleep.called)
@@ -327,11 +327,11 @@ class PresenceTest(mockzk.MockZookeeperTestCase):
         )
         zkclient_mock.set.assert_called_once_with(
             '/servers/xxx.xx.com',
-            b"{parent: 'rack:test123', up_since: '123.45'}\n"
+            b'{"parent": "rack:test123", "up_since": "123.45"}'
         )
         zkclient_mock.create.assert_called_once_with(
             '/server.presence/xxx.xx.com#',
-            b'{seen: false}\n',
+            b'{"seen": false}',
             acl=mock.ANY, ephemeral=True, makepath=True, sequence=True
         )
 

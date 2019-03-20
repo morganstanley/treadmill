@@ -29,14 +29,17 @@ def create(alerts_dir,
         }
     )
 
+    filename = os.path.join(alerts_dir, _to_filename(instanceid, type_))
     fs.write_safe(
-        os.path.join(alerts_dir, _to_filename(instanceid, type_)),
+        filename,
         lambda f: f.write(
             json.dumps(alert_data, indent=4).encode()
         ),
         prefix='.tmp',
-        permission=0o644
+        permission=0o644,
+        subdir='.tmp',
     )
+    return filename
 
 
 def _to_filename(instanceid, type_):

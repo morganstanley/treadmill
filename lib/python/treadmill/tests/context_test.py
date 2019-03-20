@@ -157,6 +157,33 @@ class ContextTest(unittest.TestCase):
             mock.call('_http._tcp.adminapi.na.region.a.com', mock.ANY),
         ])
 
+    @mock.patch('treadmill.dnsutils.srv', mock.Mock(return_value=[]))
+    @mock.patch.dict(
+        'os.environ', {
+            'TREADMILL_ADMINAPI_LOOKUP_GLOBAL': '_http._tcp.foo.admin',
+            'TREADMILL_CELLAPI_LOOKUP_Y': '_http._tcp.foo.cell',
+            'TREADMILL_WSAPI_LOOKUP_Y': '_http._tcp.foo.ws',
+            'TREADMILL_STATEAPI_LOOKUP_Y': '_http._tcp.foo.state',
+        }
+    )
+    def test_api_resolve_override(self):
+        """Test DNS resolution of the api with override."""
+        ctx = context.Context()
+        ctx.dns_domain = 'a.com'
+        ctx.cell = 'y'
+        treadmill.dnsutils.srv.return_value = [('xxx', 123, 1, 2),
+                                               ('yyy', 234, 3, 4)]
+        ctx.admin_api()
+        ctx.cell_api()
+        ctx.ws_api()
+        ctx.state_api()
+        treadmill.dnsutils.srv.assert_has_calls([
+            mock.call('_http._tcp.foo.admin.a.com', mock.ANY),
+            mock.call('_http._tcp.foo.cell.a.com', mock.ANY),
+            mock.call('_http._tcp.foo.ws.a.com', mock.ANY),
+            mock.call('_http._tcp.foo.state.a.com', mock.ANY),
+        ])
+
     @mock.patch.dict(
         'os.environ', {
             'TREADMILL_ADMINAPI': 'http://x:123',

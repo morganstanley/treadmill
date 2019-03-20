@@ -45,7 +45,7 @@ class ZkwatchersTest(mockzk.MockZookeeperTestCase):
         # Test using ExistingDataWatch as a class
         foo_func = mock.Mock()
         zkwatchers.ExistingDataWatch(zkclient, '/foo', foo_func)
-        foo_func.assert_called_once_with('foo_data', mock.ANY, None)
+        foo_func.assert_called_once_with(b'foo_data', mock.ANY, None)
 
         # Test using ExistingDataWatch on a non-existing node
         bar_func = mock.Mock()
@@ -61,7 +61,7 @@ class ZkwatchersTest(mockzk.MockZookeeperTestCase):
         def _func(data, stat, event):
             baz_func(data, stat, event)
             baz_func_event.set()
-        baz_func.assert_called_once_with('baz_data', mock.ANY, None)
+        baz_func.assert_called_once_with(b'baz_data', mock.ANY, None)
         self.assertTrue(baz_func_event.is_set())
 
         foo_func.reset_mock()
@@ -81,11 +81,11 @@ class ZkwatchersTest(mockzk.MockZookeeperTestCase):
         baz_func_event.wait(timeout=1)
 
         foo_func.assert_called_once_with(
-            'foo_data', mock.ANY, ('CHANGED', 'CONNECTED', '/foo')
+            b'foo_data', mock.ANY, ('CHANGED', 'CONNECTED', '/foo')
         )
         self.assertEqual(bar_func.call_count, 0)
         baz_func.assert_called_once_with(
-            'baz_data', mock.ANY, ('CHANGED', 'CONNECTED', '/baz')
+            b'baz_data', mock.ANY, ('CHANGED', 'CONNECTED', '/baz')
         )
 
 

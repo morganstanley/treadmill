@@ -68,7 +68,7 @@ class CleanupTest(unittest.TestCase):
             )
         )
 
-    @mock.patch('os.path.islink', mock.Mock())
+    @mock.patch('treadmill.cleanup._islink', mock.Mock())
     @mock.patch('treadmill.supervisor.create_service', mock.Mock())
     @mock.patch('treadmill.fs.symlink_safe', mock.Mock())
     @mock.patch('treadmill.cleanup.Cleanup._refresh_supervisor', mock.Mock())
@@ -79,7 +79,7 @@ class CleanupTest(unittest.TestCase):
         """
         # Access to a protected member _add_cleanup_app of a client class
         # pylint: disable=W0212
-        os.path.islink.side_effect = [False, True]
+        treadmill.cleanup._islink.side_effect = [False, True]
 
         self.cleanup._add_cleanup_app(
             os.path.join(self.cleanup_dir, 'proid.app#0000000000001'))
@@ -109,14 +109,14 @@ class CleanupTest(unittest.TestCase):
 
         treadmill.cleanup.Cleanup._refresh_supervisor.assert_called()
 
-    @mock.patch('os.path.islink', mock.Mock())
+    @mock.patch('treadmill.cleanup._islink', mock.Mock())
     @mock.patch('treadmill.supervisor.create_service', mock.Mock())
     def test__add_cleanup_app_exists(self):
         """Tests add app when already exists.
         """
         # Access to a protected member _add_cleanup_app of a client class
         # pylint: disable=W0212
-        os.path.islink.side_effect = [True]
+        treadmill.cleanup._islink.side_effect = [True]
 
         self.cleanup._add_cleanup_app(
             os.path.join(self.cleanup_dir, 'proid.app#0000000000001'))
@@ -125,14 +125,14 @@ class CleanupTest(unittest.TestCase):
 
     # Disable C0103(Invalid method name)
     # pylint: disable=C0103
-    @mock.patch('os.path.islink', mock.Mock())
+    @mock.patch('treadmill.cleanup._islink', mock.Mock())
     @mock.patch('treadmill.supervisor.create_service', mock.Mock())
     def test__add_cleanup_app_not_exists(self):
         """Tests add app when cleanup link does not exist.
         """
         # Access to a protected member _add_cleanup_app of a client class
         # pylint: disable=W0212
-        os.path.islink.side_effect = [False, False]
+        treadmill.cleanup._islink.side_effect = [False, False]
 
         self.cleanup._add_cleanup_app(
             os.path.join(self.cleanup_dir, 'proid.app#0000000000001'))

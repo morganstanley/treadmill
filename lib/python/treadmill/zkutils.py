@@ -9,6 +9,7 @@ from __future__ import unicode_literals
 import fnmatch
 import io
 import logging
+import json
 import os
 import pickle
 import sys
@@ -24,7 +25,6 @@ import six
 from treadmill import plugin_manager
 from treadmill import utils
 from treadmill import sysinfo
-from treadmill import yamlwrapper as yaml
 from treadmill import zknamespace as z
 
 
@@ -378,7 +378,7 @@ def _payload(data):
         elif isinstance(data, six.string_types) and hasattr(data, 'encode'):
             payload = data.encode()
         else:
-            payload = yaml.dump(data).encode()
+            payload = json.dumps(data, sort_keys=True).encode()
     return payload
 
 
@@ -397,7 +397,7 @@ def create(zkclient, path, data=None, acl=None, sequence=False,
 
 def put(zkclient, path, data=None, acl=None, sequence=False, default_acl=True,
         ephemeral=False, check_content=False):
-    """Serialize data into Zk node, converting data to YAML.
+    """Serialize data into Zk node, converting data to json.
 
     Default acl is set to admin:all, anonymous:readonly. These acls are
     appended to any addidional acls provided in the argument.
@@ -436,7 +436,7 @@ def put(zkclient, path, data=None, acl=None, sequence=False, default_acl=True,
 
 
 def update(zkclient, path, data, check_content=False):
-    """Set data into Zk node, converting data to YAML."""
+    """Set data into Zk node, converting data to json."""
     _LOGGER.debug('update %s', path)
 
     payload = _payload(data)
@@ -450,25 +450,36 @@ def update(zkclient, path, data, check_content=False):
 
 
 def get(zkclient, path, watcher=None, strict=True):
-    """Read content of Zookeeper node and return YAML parsed object."""
+    """Read content of Zookeeper node and return json parsed object."""
     data, _metadata = get_with_metadata(zkclient, path, watcher=watcher,
                                         strict=strict)
     return data
 
 
 def get_with_metadata(zkclient, path, watcher=None, strict=True):
-    """Read content of Zookeeper node and return YAML parsed object."""
+    """Read content of Zookeeper node and return json parsed object."""
+
+    # Import yaml in the function scope, to stress that it should be decoed
+    # once all legacy clients are upgraded.
+    #
+    # For now, this code provides backward compatibility with values stored
+    # in YAML.
+    from treadmill import yamlwrapper as yaml
+
     data, metadata = zkclient.get(path, watch=watcher)
 
     result = None
     if data is not None:
         try:
-            result = yaml.load(data)
-        except yaml.YAMLError:
-            if strict:
-                raise
-            else:
-                result = data
+            result = json.loads(data.decode())
+        except ValueError:
+            try:
+                result = yaml.load(data)
+            except yaml.YAMLError:
+                if strict:
+                    raise
+                else:
+                    result = data
 
     return result, metadata
 

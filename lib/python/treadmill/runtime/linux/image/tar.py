@@ -74,14 +74,14 @@ class TarImage(_image_base.Image):
         self.tm_env = tm_env
         self.image_path = image_path
 
-    def unpack(self, container_dir, root_dir, app, app_cgroups):
+    def unpack(self, container_dir, root_dir, app, app_cgroups, data):
         _LOGGER.debug('Extracting tar file %r to %r.', self.image_path,
                       root_dir)
         with tarfile.open(self.image_path) as tar:
             tar.extractall(path=root_dir)
 
         native.NativeImage(self.tm_env).unpack(
-            container_dir, root_dir, app, app_cgroups
+            container_dir, root_dir, app, app_cgroups, data
         )
 
         # TODO: cache instead of removing TAR files.

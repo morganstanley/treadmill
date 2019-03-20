@@ -71,9 +71,14 @@ def load_runtime_manifest(tm_env, event, runtime):
     return manifest_data
 
 
-def configure(tm_env, event, runtime):
+def configure(tm_env, event, runtime, runtime_param=None):
     """Creates directory necessary for starting the application.
-
+    :param runtime_param:
+        describe runtime paramater
+    :type runtime_param:
+        ``str list``
+        if not None contains list of 'parami=xyz' used for passing param
+         to runtime
     This operation is idem-potent (it can be repeated).
 
     The directory layout is::
@@ -115,8 +120,12 @@ def configure(tm_env, event, runtime):
 
     # Write the actual container start script
     if os.name == 'nt':
-        run_script = '{treadmill}/scripts/treadmill sproc run .'.format(
-            treadmill=subproc.resolve('treadmill'),
+        run_script = (
+            '{treadmill}/scripts/treadmill sproc run {param} .'.format(
+                treadmill=subproc.resolve('treadmill'),
+                param='--runtime-param {}'.format(','.join(runtime_param))
+                if runtime_param else '',
+            )
         )
     else:
         run_script = 'exec {treadmill}/bin/treadmill sproc run ../'.format(

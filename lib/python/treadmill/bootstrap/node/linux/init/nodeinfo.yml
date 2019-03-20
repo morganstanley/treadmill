@@ -10,6 +10,7 @@ command: |
         -m local,cgroup \
         --rate-limit '10/second' \
         --rate-limit-module cgroup=5/second \
+        --rate-limit-by user \
         --config cgroup /tmp/cgroup.cfg.yml
 environ_dir: "{{ dir }}/env"
 environ:

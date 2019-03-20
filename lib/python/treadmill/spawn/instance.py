@@ -55,7 +55,7 @@ class Instance:
 
             for doc in generator:
                 docs.append(doc)
-        except (IOError, yaml.YAMLError) as ex:
+        except (IOError, ValueError, yaml.YAMLError) as ex:
             _LOGGER.error(ex)
             return
 

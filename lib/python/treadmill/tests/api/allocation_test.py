@@ -66,6 +66,17 @@ class ApiAllocationTest(unittest.TestCase):
              'memory': '1G'},
         )
 
+    # Disable W0212(protected-access)
+    # pylint: disable=W0212
+    @mock.patch('treadmill.api.allocation._api_plugins',
+                mock.Mock(return_value=[]))
+    def test_reservation_plugin_loading(self):
+        """Test loading of plugins"""
+        alloc_api = allocation.API(['test-plugin'])
+        treadmill.api.allocation._api_plugins.assert_called_once_with(
+            ['test-plugin']
+        )
+
     @mock.patch('treadmill.context.AdminContext.partition',
                 mock.Mock(return_value=mock.Mock(**{
                     'get.return_value': {

@@ -166,9 +166,10 @@ class ZkSyncTest(mockzk.MockZookeeperTestCase):
     @mock.patch('kazoo.client.KazooClient.get', mock.Mock())
     @mock.patch('kazoo.client.KazooClient.exists', mock.Mock())
     @mock.patch('kazoo.client.KazooClient.get_children', mock.Mock())
+    @mock.patch('treadmill.zksync.zk2fs.zkwatchers', mock.Mock())
     def test_sync_data(self):
         """Test data sync."""
-        # accessing protexted members.
+        # accessing protected members.
         # pylint: disable=W0212
         zk_content = {
             'a': {
@@ -189,18 +190,37 @@ class ZkSyncTest(mockzk.MockZookeeperTestCase):
 
         self._check_file('a/x', 'aaa')
 
+        zk2fs_sync._data_watch('/a/y', b'bbb', mock_stat, event,
+                               os.path.join(self.root, 'path'))
+        self._check_file('path', 'bbb')
+
         event = kazoo.protocol.states.WatchedEvent(
             'DELETED', 'CONNECTED', '/a/x')
         zk2fs_sync._data_watch('/a/x', b'aaa', mock_stat, event)
         self.assertFalse(os.path.exists(os.path.join(self.root, 'a/x')))
+
+        zk2fs_sync._data_watch('/a/y', b'bbb', mock_stat, event,
+                               os.path.join(self.root, 'path'))
+        self.assertFalse(os.path.exists(os.path.join(self.root, 'path')))
 
         event = kazoo.protocol.states.WatchedEvent(
             'CREATED', 'CONNECTED', '/a/x')
         zk2fs_sync._data_watch('/a/x', b'aaa', mock_stat, event)
         self._check_file('a/x', 'aaa')
 
+        zk2fs_sync._data_watch('/a/y', b'bbb', mock_stat, event,
+                               os.path.join(self.root, 'path'))
+        self._check_file('path', 'bbb')
+
         zk2fs_sync._data_watch('/a/x', None, None, None)
         self.assertFalse(os.path.exists(os.path.join(self.root, 'a/x')))
+
+        zk2fs_sync._data_watch('/a/y', None, None, None,
+                               os.path.join(self.root, 'path'))
+        self.assertFalse(os.path.exists(os.path.join(self.root, 'path')))
+
+        zk2fs_sync.sync_data('/a/y', 'path', watch=True)
+        self.assertIn('/a/y', zk2fs_sync.watches)
 
     @mock.patch('kazoo.client.KazooClient.get', mock.Mock())
     @mock.patch('kazoo.client.KazooClient.exists', mock.Mock())

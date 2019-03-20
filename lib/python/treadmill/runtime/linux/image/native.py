@@ -268,7 +268,51 @@ def make_dev(newroot_norm):
     fs_linux.mount_bind(newroot_norm, '/dev/log', read_only=False)
 
 
-def make_fsroot(root_dir, app):
+def make_extra_dev(newroot_norm, extra_devices, owner):
+    """Create all the configured "extra" passthrough devices.
+
+    :param ``str`` newroot_norm:
+        Path to the container root directory.
+    :param ``list`` extra_devices:
+        List of extra device specification.
+    :param ``str`` owner:
+        Username of the owner of the new devices.
+    """
+    (uid, gid) = utils.get_uid_gid(owner)
+    for extra_dev in extra_devices:
+        if not extra_dev.startswith('/dev'):
+            _LOGGER.warning('Bad passthrough device %r.', extra_dev)
+            continue
+
+        try:
+            dev_stat = os.stat(extra_dev)
+        except OSError as err:
+            _LOGGER.warning('Failed to stat() %r: Skipping.', extra_dev)
+            continue
+
+        if stat.S_ISDIR(dev_stat.st_mode):
+            _LOGGER.warning('Cannot Passthrough directory %r', extra_dev)
+            continue
+
+        passthrough_dev = os.path.join(newroot_norm, extra_dev[1:])
+
+        if os.path.dirname(extra_dev) != '/dev':
+            # We have to create more directories under '/dev'
+            fs.mkdir_safe(os.path.dirname(passthrough_dev))
+
+        os.mknod(
+            passthrough_dev,
+            stat.S_IFMT(dev_stat.st_mode) | 0o600,
+            dev_stat.st_rdev
+        )
+        os.chown(
+            passthrough_dev,
+            uid,
+            gid
+        )
+
+
+def make_fsroot(root_dir, app, data):
     """Initializes directory structure for the container in a new root.
 
     The container uses pretty much a blank a FHS 3 layout.
@@ -281,8 +325,13 @@ def make_fsroot(root_dir, app):
        - /var/spool - create empty with dirs.
      - Bind everything in /var, skipping /spool/tickets
 
-     tm_env is used to deliver abort events
-     """
+    :param ``str`` root_dit:
+        Container root directory.
+    :param app:
+        Container app manifest.
+    :param ``dict`` data:
+        Local configuration data.
+    """
     newroot_norm = fs.norm_safe(root_dir)
 
     emptydirs = [
@@ -365,6 +414,13 @@ def make_fsroot(root_dir, app):
     )
 
     make_dev(newroot_norm)
+    # Passthrough node devices per the node config data
+    extra_devices = data.get('runtime', {}).get('passthrough_devices', [])
+    make_extra_dev(
+        newroot_norm,
+        extra_devices,
+        app.proid
+    )
 
     # Per FHS3 /var/run should be a symlink to /run which should be tmpfs
     fs.symlink_safe(
@@ -580,9 +636,9 @@ class NativeImage(_image_base.Image):
     def __init__(self, tm_env):
         self.tm_env = tm_env
 
-    def unpack(self, container_dir, root_dir, app, app_cgroups):
+    def unpack(self, container_dir, root_dir, app, app_cgroups, data):
 
-        make_fsroot(root_dir, app)
+        make_fsroot(root_dir, app, data)
 
         image_fs.configure_plugins(self.tm_env, container_dir, app)
 

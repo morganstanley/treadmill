@@ -202,12 +202,6 @@ class ApiSchemaTest(unittest.TestCase):
         # FIXME(boysson) _fail(api.create, 'foo.bla',
         #                      _patch(good, '/passthrough/0', '@.example.com'))
 
-        # archive
-        good.update({'archive': ['/var/tmp', 'xxx/*.log']})
-        _ok(api.create, 'foo.bla', good)
-        _fail(api.create, 'foo.bla', _patch(good, '/archive/0', 1))
-        _fail(api.create, 'foo.bla', _patch(good, '/archive', 'aaa'))
-
         # vring.
         good.update({'vring': {
             'cells': ['aaa-001', 'bbb-001'],

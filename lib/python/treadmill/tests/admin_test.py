@@ -6,6 +6,7 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
+import datetime
 import unittest
 
 import ldap3
@@ -782,19 +783,19 @@ class AdminTest(unittest.TestCase):
         """Tests update logic.
         """
         mock_admin = admin.Admin(None, 'dc=test,dc=com')
-        mock_admin.paged_search.return_value = [
-            (
-                'cell=xxx,allocation=prod1,...',
-                {
+        mock_admin.paged_search.return_value = iter([
+            {
+                'dn': 'cell=xxx,allocation=prod1,...',
+                'attributes': {
                     'disk': ['2G'],
                     'trait': ['a', 'b'],
                     'priority;tm-alloc-assignment-123': [80],
                     'pattern;tm-alloc-assignment-123': ['ppp.ttt'],
                     'priority;tm-alloc-assignment-345': [60],
                     'pattern;tm-alloc-assignment-345': ['ppp.ddd'],
-                }
-            )
-        ]
+                },
+            },
+        ])
 
         mock_admin.update(
             'cell=xxx,allocation=prod1,...',
@@ -818,7 +819,7 @@ class AdminTest(unittest.TestCase):
                 'priority',
                 'trait',
             ],
-            dirty=False,
+            dirty=True,
         )
         mock_admin.modify.assert_called_once_with(
             'cell=xxx,allocation=prod1,...',
@@ -892,19 +893,23 @@ class AllocationTest(unittest.TestCase):
         """Tests loading cell allocations."""
         # Disable warning about accessing protected member _ldap
         # pylint: disable=W0212
-        treadmill.admin._ldap.Admin.paged_search.return_value = [
-            ('cell=xxx,allocation=prod1,...',
-             {'cell': ['xxx'],
-              'memory': ['1G'],
-              'cpu': ['100%'],
-              'disk': ['2G'],
-              'rank': [100],
-              'trait': ['a', 'b'],
-              'priority;tm-alloc-assignment-123': [80],
-              'pattern;tm-alloc-assignment-123': ['ppp.ttt'],
-              'priority;tm-alloc-assignment-345': [60],
-              'pattern;tm-alloc-assignment-345': ['ppp.ddd']})
-        ]
+        treadmill.admin._ldap.Admin.paged_search.return_value = iter([
+            {
+                'dn': 'cell=xxx,allocation=prod1,...',
+                'attributes': {
+                    'cell': ['xxx'],
+                    'memory': ['1G'],
+                    'cpu': ['100%'],
+                    'disk': ['2G'],
+                    'rank': [100],
+                    'trait': ['a', 'b'],
+                    'priority;tm-alloc-assignment-123': [80],
+                    'pattern;tm-alloc-assignment-123': ['ppp.ttt'],
+                    'priority;tm-alloc-assignment-345': [60],
+                    'pattern;tm-alloc-assignment-345': ['ppp.ddd'],
+                },
+            },
+        ])
         obj = self.alloc.get('foo:bar/prod1')
         treadmill.admin._ldap.Admin.paged_search.assert_called_with(
             attributes=mock.ANY,
@@ -1043,6 +1048,181 @@ class PartitionTest(unittest.TestCase):
 
         self.assertEqual(ldap_entry, self.part.to_entry(obj))
         self.assertEqual(obj, self.part.from_entry(ldap_entry))
+
+
+class ServerTest(unittest.TestCase):
+    """Tests Server ldapobject routines."""
+
+    def setUp(self):
+        self.server = admin.Server(
+            admin.Admin(None, 'dc=xx,dc=com'))
+
+    @mock.patch('treadmill.admin._ldap.Admin.get')
+    def test_get(self, get_mock):
+        """Test getting server from LDAP."""
+        get_mock.return_value = {
+            'server': ['xxx'],
+            'cell': ['yyy'],
+            'partition': ['p'],
+        }
+
+        server = self.server.get('xxx')
+
+        self.assertEqual(
+            server,
+            {'_id': 'xxx', 'cell': 'yyy', 'partition': 'p', 'traits': []}
+        )
+        get_mock.assert_called_once_with(
+            'server=xxx,ou=servers,ou=treadmill,dc=xx,dc=com',
+            mock.ANY,
+            ['server', 'cell', 'trait', 'partition', 'data'],
+            dirty=False
+        )
+
+    @mock.patch('treadmill.admin._ldap.Admin.get')
+    def test_get_operational_attrs(self, get_mock):
+        """Test getting server from LDAP with operational attrs."""
+        get_mock.return_value = {
+            'server': ['xxx'],
+            'cell': ['yyy'],
+            'partition': ['p'],
+            'createTimestamp': datetime.datetime(
+                2018, 11, 20, 21, 22, 23, tzinfo=datetime.timezone.utc
+            ),
+            'modifyTimestamp': datetime.datetime(
+                2018, 11, 21, 21, 22, 23, tzinfo=datetime.timezone.utc
+            ),
+        }
+
+        server = self.server.get('xxx', get_operational_attrs=True)
+
+        self.assertEqual(
+            server,
+            {
+                '_id': 'xxx',
+                'cell': 'yyy',
+                'partition': 'p',
+                'traits': [],
+                '_create_timestamp': 1542748943.0,
+                '_modify_timestamp': 1542835343.0,
+            }
+        )
+        get_mock.assert_called_once_with(
+            'server=xxx,ou=servers,ou=treadmill,dc=xx,dc=com',
+            mock.ANY,
+            [
+                'server', 'cell', 'trait', 'partition', 'data',
+                'createTimestamp', 'modifyTimestamp'
+            ],
+            dirty=False
+        )
+
+    @mock.patch('treadmill.admin._ldap.Admin.paged_search')
+    def test_list(self, paged_search_mock):
+        """Test getting a list of servers from LDAP."""
+        paged_search_mock.return_value = iter([
+            {
+                'dn': 'server=xxx,ou=servers,ou=treadmill,dc=xx,dc=com',
+                'attributes': {
+                    'server': ['xxx'],
+                    'cell': ['yyy'],
+                    'partition': ['p'],
+                },
+            },
+            {
+                'dn': 'server=zzz,ou=servers,ou=treadmill,dc=xx,dc=com',
+                'attributes': {
+                    'server': ['zzz'],
+                    'cell': ['yyy'],
+                    'partition': ['p'],
+                },
+            }
+        ])
+
+        servers = self.server.list({'cell': 'yyy'})
+
+        self.assertEqual(
+            servers,
+            [
+                {'_id': 'xxx', 'cell': 'yyy', 'partition': 'p', 'traits': []},
+                {'_id': 'zzz', 'cell': 'yyy', 'partition': 'p', 'traits': []},
+            ]
+        )
+        paged_search_mock.assert_called_once_with(
+            search_base='ou=servers,ou=treadmill,dc=xx,dc=com',
+            search_filter='(&(objectClass=tmServer)(cell=yyy))',
+            search_scope='SUBTREE',
+            attributes=['server', 'cell', 'trait', 'partition', 'data'],
+            dirty=False
+        )
+
+    @mock.patch('treadmill.admin._ldap.Admin.paged_search')
+    def test_list_operational_attrs(self, paged_search_mock):
+        """Test getting a list of servers from LDAP with operational attrs."""
+        paged_search_mock.return_value = iter([
+            {
+                'dn': 'server=xxx,ou=servers,ou=treadmill,dc=xx,dc=com',
+                'attributes': {
+                    'server': ['xxx'],
+                    'cell': ['yyy'],
+                    'partition': ['p'],
+                    'createTimestamp': datetime.datetime(
+                        2018, 11, 20, 21, 22, 23, tzinfo=datetime.timezone.utc
+                    ),
+                    'modifyTimestamp': datetime.datetime(
+                        2018, 11, 21, 21, 22, 23, tzinfo=datetime.timezone.utc
+                    ),
+                },
+            },
+            {
+                'dn': 'server=zzz,ou=servers,ou=treadmill,dc=xx,dc=com',
+                'attributes': {
+                    'server': ['zzz'],
+                    'cell': ['yyy'],
+                    'partition': ['p'],
+                    'createTimestamp': datetime.datetime(
+                        2018, 11, 22, 21, 22, 23, tzinfo=datetime.timezone.utc
+                    ),
+                    'modifyTimestamp': datetime.datetime(
+                        2018, 11, 23, 21, 22, 23, tzinfo=datetime.timezone.utc
+                    ),
+                },
+            },
+        ])
+
+        servers = self.server.list({'cell': 'yyy'}, get_operational_attrs=True)
+
+        self.assertEqual(
+            servers,
+            [
+                {
+                    '_id': 'xxx',
+                    'cell': 'yyy',
+                    'partition': 'p',
+                    'traits': [],
+                    '_create_timestamp': 1542748943.0,
+                    '_modify_timestamp': 1542835343.0,
+                },
+                {
+                    '_id': 'zzz',
+                    'cell': 'yyy',
+                    'partition': 'p',
+                    'traits': [],
+                    '_create_timestamp': 1542921743.0,
+                    '_modify_timestamp': 1543008143.0,
+                },
+            ]
+        )
+        paged_search_mock.assert_called_once_with(
+            search_base='ou=servers,ou=treadmill,dc=xx,dc=com',
+            search_filter='(&(objectClass=tmServer)(cell=yyy))',
+            search_scope='SUBTREE',
+            attributes=[
+                'server', 'cell', 'trait', 'partition', 'data',
+                'createTimestamp', 'modifyTimestamp'
+            ],
+            dirty=False
+        )
 
 
 if __name__ == '__main__':
