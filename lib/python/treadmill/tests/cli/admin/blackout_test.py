@@ -33,7 +33,7 @@ class AdminBlackoutTest(unittest.TestCase):
     def test_list_app_blackouts(self):
         """Test listing app blackouts."""
         context.GLOBAL.zk.conn.get.return_value = (
-            """
+            b"""
                 foo.*: {reason: test, when: 1234567890.0}
                 bar.baz: {reason: test, when: 1234567890.0}
             """,
@@ -67,7 +67,7 @@ class AdminBlackoutTest(unittest.TestCase):
     def test_blackout_app(self):
         """Test app blackout."""
         context.GLOBAL.zk.conn.get.return_value = (
-            """
+            b"""
                 foo.*: {reason: test, when: 1234567890.0}
             """,
             mock.Mock()
@@ -128,7 +128,7 @@ class AdminBlackoutTest(unittest.TestCase):
     def test_clear_app_blackout(self):
         """Test clearing app blackout."""
         context.GLOBAL.zk.conn.get.return_value = (
-            """
+            b"""
                 foo.*: {reason: test, when: 1234567890.0}
                 bar.baz: {reason: test, when: 1234567890.0}
             """,

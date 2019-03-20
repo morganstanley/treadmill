@@ -330,8 +330,7 @@ def validate(struct, schema):
             if required:
                 raise exc.InvalidInputError(
                     struct, 'Required field: %s' % field)
-            else:
-                continue
+            continue
 
         # Make str type validation work across Py2 and Py3
         if ftype is str:
@@ -624,7 +623,9 @@ else:
 def get_ulimit(u_type):
     """get ulimit value
     resource type name nofile => RLIMIT_NOFILE
-    return tuple of (soft_limit, hard_limit)
+
+    :returns:
+        ``tuple(int, int)`` --  Tuple of (soft_limit, hard_limit).
     """
     type_name = 'RLIMIT_{}'.format(u_type.upper())
     return resource.getrlimit(getattr(resource, type_name))

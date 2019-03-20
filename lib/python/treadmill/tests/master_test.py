@@ -241,7 +241,7 @@ class MasterTest(mockzk.MockZookeeperTestCase):
     @mock.patch('kazoo.client.KazooClient.get', mock.Mock())
     def test_load_allocations(self):
         """Tests loading allocation from serialized db data."""
-        kazoo.client.KazooClient.get.return_value = ("""
+        kazoo.client.KazooClient.get.return_value = (b"""
 ---
 - name: treadmill/dev
   assignments:
@@ -1452,7 +1452,7 @@ class MasterTest(mockzk.MockZookeeperTestCase):
         kazoo.client.KazooClient.create.assert_has_calls([
             mock.call(
                 '/scheduled/foo.bar#',
-                value=b'{}\n',
+                value=b'{}',
                 makepath=True,
                 sequence=True,
                 ephemeral=False,
@@ -1467,7 +1467,7 @@ class MasterTest(mockzk.MockZookeeperTestCase):
             # Mock call returns same instance (#12), so same task is created
             # twice.
             mock.call('/scheduled/foo.bar#',
-                      value=b'{}\n',
+                      value=b'{}',
                       makepath=True,
                       sequence=True,
                       ephemeral=False,
@@ -1482,7 +1482,7 @@ class MasterTest(mockzk.MockZookeeperTestCase):
         masterapi.create_apps(zkclient, 'foo.bar', {}, 1, 'monitor')
         kazoo.client.KazooClient.create.assert_has_calls([
             mock.call('/scheduled/foo.bar#',
-                      value=b'{}\n',
+                      value=b'{}',
                       makepath=True,
                       sequence=True,
                       ephemeral=False,
@@ -1544,7 +1544,7 @@ class MasterTest(mockzk.MockZookeeperTestCase):
         ])
 
     @mock.patch('kazoo.client.KazooClient.get', mock.Mock(
-        return_value=('{}', None)))
+        return_value=(b'{}', None)))
     @mock.patch('kazoo.client.KazooClient.set', mock.Mock())
     @mock.patch('kazoo.client.KazooClient.create', mock.Mock())
     def test_update_app_priority(self):
@@ -1556,8 +1556,8 @@ class MasterTest(mockzk.MockZookeeperTestCase):
                                                    'foo.bar#2': 20})
         kazoo.client.KazooClient.set.assert_has_calls(
             [
-                mock.call('/scheduled/foo.bar#1', b'{priority: 10}\n'),
-                mock.call('/scheduled/foo.bar#2', b'{priority: 20}\n'),
+                mock.call('/scheduled/foo.bar#1', b'{"priority": 10}'),
+                mock.call('/scheduled/foo.bar#2', b'{"priority": 20}'),
             ],
             any_order=True
         )
@@ -1569,7 +1569,7 @@ class MasterTest(mockzk.MockZookeeperTestCase):
         )
 
     @mock.patch('kazoo.client.KazooClient.get', mock.Mock(
-        return_value=('{}', None)))
+        return_value=(b'{}', None)))
     @mock.patch('treadmill.zkutils.update', mock.Mock(return_value=None))
     @mock.patch('treadmill.scheduler.masterapi.create_event',
                 mock.Mock(return_value=None))
@@ -1594,7 +1594,7 @@ class MasterTest(mockzk.MockZookeeperTestCase):
         self.assertFalse(treadmill.scheduler.masterapi.create_event.called)
 
     @mock.patch('kazoo.client.KazooClient.get', mock.Mock(
-        return_value=('{}', None)))
+        return_value=(b'{}', None)))
     @mock.patch('kazoo.client.KazooClient.set', mock.Mock())
     @mock.patch('kazoo.client.KazooClient.create', mock.Mock())
     @mock.patch('kazoo.client.KazooClient.exists',
@@ -1831,7 +1831,7 @@ class MasterTest(mockzk.MockZookeeperTestCase):
         )
 
     @mock.patch('kazoo.client.KazooClient.get', mock.Mock(
-        return_value=('{}', None)))
+        return_value=(b'{}', None)))
     @mock.patch('kazoo.client.KazooClient.set', mock.Mock())
     @mock.patch('kazoo.client.KazooClient.create', mock.Mock())
     def test_update_server_features(self):
@@ -1843,7 +1843,7 @@ class MasterTest(mockzk.MockZookeeperTestCase):
 
         kazoo.client.KazooClient.set.assert_has_calls(
             [
-                mock.call('/servers/foo.ms.com', b'features: [test]\n'),
+                mock.call('/servers/foo.ms.com', b'{"features": ["test"]}'),
             ],
             any_order=True
         )

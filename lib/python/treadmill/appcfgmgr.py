@@ -63,13 +63,16 @@ class AppCfgMgr:
         'tm_env',
         '_is_active',
         '_runtime',
+        '_runtime_param',
     )
 
-    def __init__(self, root, runtime):
-        _LOGGER.info('init appcfgmgr: %s, %s', root, runtime)
+    def __init__(self, root, runtime, runtime_param=None):
+        _LOGGER.info('init appcfgmgr: %s, %s, %s', root, runtime,
+                     runtime_param)
         self.tm_env = appenv.AppEnvironment(root=root)
         self._is_active = False
         self._runtime = runtime
+        self._runtime_param = runtime_param
 
     @property
     def name(self):
@@ -331,7 +334,8 @@ class AppCfgMgr:
             try:
                 _LOGGER.info('Configuring')
                 container_dir = app_cfg.configure(self.tm_env, event_file,
-                                                  self._runtime)
+                                                  self._runtime,
+                                                  self._runtime_param)
                 if container_dir is None:
                     # configure step failed, skip.
                     fs.rm_safe(event_file)

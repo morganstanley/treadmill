@@ -752,7 +752,8 @@ class FsTest(unittest.TestCase):
         )
 
     def test_write_safe(self):
-        """Tests write safe."""
+        """Tests write_safe.
+        """
         tmpdir = tempfile.mkdtemp()
         treadmill.fs.write_safe(
             os.path.join(tmpdir, 'xxx'), lambda f: f.write(b'foo')
@@ -760,6 +761,24 @@ class FsTest(unittest.TestCase):
         with io.open(os.path.join(tmpdir, 'xxx'), 'rb') as f:
             self.assertEqual(b'foo', f.read())
         self.assertEqual(['xxx'], os.listdir(tmpdir))
+        os.unlink(os.path.join(tmpdir, 'xxx'))
+        # Cleanup.
+        shutil.rmtree(tmpdir)
+
+    def test_write_safe_subdir(self):
+        """Tests write_safe with subdir
+        """
+        tmpdir = tempfile.mkdtemp()
+        treadmill.fs.write_safe(
+            os.path.join(tmpdir, 'xxx'),
+            lambda f: f.write(f.name.encode()),
+            subdir='.tmp'
+        )
+
+        with io.open(os.path.join(tmpdir, 'xxx'), 'rb') as f:
+            self.assertTrue(os.path.join(tmpdir, '.tmp') in f.read().decode())
+
+        self.assertEqual(set(['xxx', '.tmp']), set(os.listdir(tmpdir)))
         os.unlink(os.path.join(tmpdir, 'xxx'))
         # Cleanup.
         shutil.rmtree(tmpdir)

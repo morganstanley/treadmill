@@ -32,8 +32,7 @@ def _configure(apis, manifest, appname):
     except restclient.NotFoundError:
         if not manifest:
             raise
-        else:
-            existing = None
+        existing = None
 
     if manifest:
         app = yaml.load(stream=manifest)

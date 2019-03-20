@@ -90,6 +90,10 @@ class ValidationError(HttpExceptionWithResponse):
     """Error raised on HTTP 424 (Failed Dependency)."""
 
 
+class TooManyRequestsError(HttpExceptionWithResponse):
+    """Error raised on HTTP 429 (Over rate limit threshold)."""
+
+
 class NotFoundError(Exception):
     """Error raised on HTTP 404 (Not Found).
 
@@ -134,6 +138,7 @@ def _handle_error(url, response):
         http_client.CONFLICT: AlreadyExistsError(
             'Resource already exists: {}'.format(url)
         ),
+        http_client.TOO_MANY_REQUESTS: TooManyRequestsError(response),
         http_client.FAILED_DEPENDENCY: ValidationError(response),
         # XXX: Correct code is FORBIDDEN. Support invalid UNAUTHORIZED during
         #      migration.
@@ -356,5 +361,6 @@ CLI_REST_EXCEPTIONS = [
     (ValidationError, None),
     (NotAuthorizedError, handle_not_authorized),
     (BadRequestError, None),
+    (TooManyRequestsError, 'Exceed request limitation, Try again later.'),
     (MaxRequestRetriesError, None)
 ]

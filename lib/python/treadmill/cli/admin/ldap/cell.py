@@ -22,6 +22,8 @@ def init():
     # pylint: disable=too-many-statements
     formatter = cli.make_formatter('cell')
 
+    masters_idx = ['1', '2', '3', '4', '5']
+
     @click.group()
     @cli.admin.ON_EXCEPTIONS
     def cell():
@@ -87,7 +89,7 @@ def init():
 
     @cell.command()
     @click.option('--idx', help='Master index.',
-                  type=click.Choice(['1', '2', '3', '4', '5']),
+                  type=click.Choice(masters_idx),
                   required=True)
     @click.option('--hostname', help='Master hostname.',
                   required=True)
@@ -140,7 +142,7 @@ def init():
 
     @cell.command()
     @click.option('--idx', help='Master index.',
-                  type=click.Choice(['1', '2', '3']),
+                  type=click.Choice(masters_idx),
                   required=True)
     @click.argument('cell')
     @cli.admin.ON_EXCEPTIONS

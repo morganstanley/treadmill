@@ -30,13 +30,10 @@ _LOGGER = logging.getLogger(__name__)
 def register(api):
     """Register common error handlers."""
 
-    # TODO: flask.errorhandler is **flaky**. This whole error handling method
-    #       needs to be re-written.
-    #
-    #       Depending on some randomness, they are either registered, or not.
-    #
-    #       Example of randomness can be calling "print" inside the handler,
-    #       or similar non-significant code changes.
+    # Note: flask-restplus keeps error handlers as dict and when handling error
+    #       it picks the first handler that can pass isinstance check on error.
+    #       It results in unpredictable behavior when registering error handler
+    #       for super and subclass at the same time.
     def _cors_headers():
         return webutils.cors_make_headers(base_origin='.*',
                                           max_age=21600,
@@ -66,16 +63,6 @@ def register(api):
         resp = {'message': 'Resource already exists',
                 'status': http_client.CONFLICT}
         return resp, http_client.CONFLICT, _cors_headers()
-
-    @api.errorhandler(kazoo.exceptions.KazooException)
-    def _zookeeper_exc(err):
-        """Zookeeper exception handler."""
-        _LOGGER.exception('Zookeeper error: %r', err)
-        resp = {
-            'message': str(err),
-            'status': http_client.INTERNAL_SERVER_ERROR
-        }
-        return resp, http_client.INTERNAL_SERVER_ERROR, _cors_headers()
 
     @api.errorhandler(ldap_exceptions.LDAPEntryAlreadyExistsResult)
     def _ldap_found_exc(err):
@@ -165,10 +152,10 @@ def register(api):
         }
         return resp, http_client.CONFLICT, _cors_headers()
 
-    @api.errorhandler(exc.TreadmillError)
-    def _treadmill_exc(err):
-        """Treadmill exception handler."""
-        _LOGGER.exception('Treadmill error: %r', err)
+    @api.errorhandler(exc.InternalError)
+    def _internal_exc(err):
+        """Internal exception handler."""
+        _LOGGER.exception('Internal error: %r', err)
         resp = {
             'message': str(err),
             'status': http_client.INTERNAL_SERVER_ERROR

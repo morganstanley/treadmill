@@ -33,6 +33,7 @@ def _run(apis,
          cpu,
          disk,
          tickets,
+         traits,
          service,
          restart_limit,
          restart_interval,
@@ -54,6 +55,9 @@ def _run(apis,
                             for name, port in endpoint]
     if tickets:
         app['tickets'] = tickets
+
+    if traits:
+        app['traits'] = traits
 
     if command:
         if not service:
@@ -143,6 +147,8 @@ def init():
                   callback=cli.validate_disk)
     @click.option('--tickets', help='Tickets.',
                   type=cli.LIST)
+    @click.option('--traits', help='Traits.',
+                  type=cli.LIST)
     @click.option('--service', help='Service name.', type=str)
     @click.option('--restart-limit', type=int, default=0,
                   help='Service restart limit.')
@@ -163,6 +169,7 @@ def init():
             cpu,
             disk,
             tickets,
+            traits,
             service,
             restart_limit,
             restart_interval,
@@ -181,7 +188,7 @@ def init():
         """
         apis = context.GLOBAL.cell_api()
         return _run(
-            apis, count, manifest, memory, cpu, disk, tickets,
+            apis, count, manifest, memory, cpu, disk, tickets, traits,
             service, restart_limit, restart_interval, endpoint,
             debug, debug_services, appname, command)
 

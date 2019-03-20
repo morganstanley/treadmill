@@ -104,13 +104,13 @@ class ZkTest(unittest.TestCase):
     def test_get(self):
         """Test zkutils.get parsing of YAML data."""
         client = treadmill.zkutils.ZkClient()
-        treadmill.zkutils.ZkClient.get.return_value = ('{xxx: 123}', None)
+        treadmill.zkutils.ZkClient.get.return_value = (b'{xxx: 123}', None)
         self.assertEqual({'xxx': 123}, zkutils.get(client, '/foo'))
 
         # parsing error
-        treadmill.zkutils.ZkClient.get.return_value = ('{xxx: 123', None)
+        treadmill.zkutils.ZkClient.get.return_value = (b'{xxx: 123', None)
         self.assertEqual(
-            '{xxx: 123',
+            b'{xxx: 123',
             zkutils.get(client, '/foo', strict=False)
         )
         self.assertRaises(yaml.YAMLError, zkutils.get, client, '/foo')

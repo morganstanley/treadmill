@@ -14,6 +14,7 @@ import zlib
 import tempfile
 
 import click
+import kazoo
 
 from treadmill import fs
 from treadmill import context
@@ -28,10 +29,22 @@ from treadmill.zksync import utils as zksync_utils
 _LOGGER = logging.getLogger(__name__)
 
 
-def _on_add_identity(zk2fs_sync, zkpath):
+def _on_add_identity(zk2fs_sync, zkpath, watch_group_metadata=False):
     """Invoked when new identity group is added."""
     _LOGGER.info('Added identity-group: %s', zkpath)
     zk2fs_sync.sync_children(zkpath, watch_data=True)
+
+    # if the identity-group's metadata ('count') has to be sync'ed as well
+    if watch_group_metadata:
+        fpath = os.path.join(zk2fs_sync.fpath(zkpath),
+                             zksync_utils.NODE_DATA_FILE)
+
+        try:
+            zk2fs_sync.sync_data(zkpath, fpath, watch=True)
+        except kazoo.client.NoNodeError:
+            _LOGGER.warning('Tried to add node that no longer exists: %s',
+                            zkpath)
+            fs.rm_safe(fpath)
 
 
 def _on_del_identity(zk2fs_sync, zkpath):
@@ -160,6 +173,8 @@ def init():
                   is_flag=True, default=False)
     @click.option('--identity-groups', help='Sync identity-groups.',
                   is_flag=True, default=False)
+    @click.option('--identity-groups-meta', help='Sync identity-group '
+                  'metadata.', is_flag=True, default=False)
     @click.option('--appgroups', help='Sync appgroups.',
                   is_flag=True, default=False)
     @click.option('--running', help='Sync running.',
@@ -180,9 +195,9 @@ def init():
                   is_flag=True, default=False)
     @click.option('--once', help='Sync once and exit.',
                   is_flag=True, default=False)
-    def zk2fs_cmd(root, endpoints, identity_groups, appgroups, running,
-                  scheduled, servers, servers_data, placement, trace,
-                  server_trace, app_monitors, once):
+    def zk2fs_cmd(root, endpoints, identity_groups, identity_groups_meta,
+                  appgroups, running, scheduled, servers, servers_data,
+                  placement, trace, server_trace, app_monitors, once):
         """Starts appcfgmgr process."""
 
         fs.mkdir_safe(root)
@@ -208,7 +223,8 @@ def init():
         if identity_groups:
             zk2fs_sync.sync_children(
                 z.IDENTITY_GROUPS,
-                on_add=lambda p: _on_add_identity(zk2fs_sync, p),
+                on_add=lambda p: _on_add_identity(zk2fs_sync, p,
+                                                  identity_groups_meta),
                 on_del=lambda p: _on_del_identity(zk2fs_sync, p))
 
         if scheduled:

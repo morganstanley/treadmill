@@ -143,23 +143,23 @@ class ReportsTest(unittest.TestCase):
             [
                 'bla.xxx#3', 't2/a1', 100, 'bla.xxx', 'part',
                 None, -1, 3, 0, 100,
-                0, 0, 'srv1', -0.142857142857, -0.128571, 1, 1, 1
+                0, 0, 'srv1', -0.142857142857, -0.128571, 1, 1, 1, ''
             ],
             [
                 'foo.xxx#1', 't1/t3/a2', 100, 'foo.xxx', '_default',
                 None, -1, 1, 0, 100,
-                0, 0, 'srv3', -0.142857142857, -0.128571, 1, 1, 1
+                0, 0, 'srv3', -0.142857142857, -0.128571, 1, 1, 1, ''
             ],
             [
                 'foo.xxx#2', 't1/t3/a2', 100, 'foo.xxx', '_default',
                 None, -1, 2, 0, 100,
-                0, 0, 'srv4', -0.128571428571, -0.114286, 1, 1, 1
+                0, 0, 'srv4', -0.128571428571, -0.114286, 1, 1, 1, ''
             ],
         ], columns=[
             'instance', 'allocation', 'rank', 'affinity', 'partition',
             'identity_group', 'identity', 'order', 'lease', 'expires',
             'data_retention', 'pending', 'server', 'util0', 'util1',
-            'mem', 'cpu', 'disk'
+            'mem', 'cpu', 'disk', 'traits'
         ]).sort_values(by=['partition',
                            'rank',
                            'util0',
@@ -223,7 +223,7 @@ class ReportsTest(unittest.TestCase):
             'identity_group', 'identity',
             'order', 'lease', 'expires', 'data_retention',
             'pending', 'server', 'util0', 'util1',
-            'mem', 'cpu', 'disk'
+            'mem', 'cpu', 'disk', 'traits'
         ]).astype({
             'mem': 'int',
             'cpu': 'int',

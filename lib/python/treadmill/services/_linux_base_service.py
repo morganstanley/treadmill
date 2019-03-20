@@ -105,11 +105,11 @@ class LinuxResourceService(_base_service.ResourceService):
     def _run(self, impl, watchdog_lease):
         """Linux implementation of run.
         """
-        # Create the status socket
-        ss = self._create_status_socket()
-
         # Run initialization
         impl.initialize(self._dir)
+
+        # Create the status socket
+        ss = self._create_status_socket()
 
         watcher = dirwatch.DirWatcher(self._rsrc_dir)
         # Call all the callbacks with the implementation instance

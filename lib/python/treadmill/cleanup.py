@@ -47,6 +47,16 @@ _MAX_REQUEST_PER_CYCLE = 1
 _SERVICE_NAME = 'Cleanup'
 
 
+def _islink(path):
+    """
+    A local function wrap os.path.islink.
+    """
+    # CAVEAT : Coverage uses islink internally to determine the scope to trace.
+    # While mocking islink in unit test, coverage uses moocked islink which may
+    # potentially cause StopIterationException.
+    return os.path.islink(path)
+
+
 class Cleanup:
     """Orchestrate the cleanup of apps which are scheduled to be stopped and/or
     removed.
@@ -79,12 +89,12 @@ class Cleanup:
             return
 
         cleaning_link = os.path.join(self.tm_env.cleaning_dir, name)
-        if os.path.islink(cleaning_link):
+        if _islink(cleaning_link):
             _LOGGER.warning('Cleaning app already configured %s', name)
             return
 
         cleanup_link = os.path.join(self.tm_env.cleanup_dir, name)
-        if not os.path.islink(cleanup_link):
+        if not _islink(cleanup_link):
             _LOGGER.info('Ignore - not a link: %s', cleanup_link)
             return
 

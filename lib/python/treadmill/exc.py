@@ -88,3 +88,9 @@ class QuotaExceededError(TreadmillError):
     """Thrown if quota is exceeded."""
 
     __slots__ = ()
+
+
+class InternalError(TreadmillError):
+    """Thrown on internal error that doesn't fall into any other category."""
+
+    __slots__ = ()

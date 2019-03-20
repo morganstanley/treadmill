@@ -151,8 +151,9 @@ def _create_container(tm_env, conf, client, app, volume_mapping):
         'storage_opt': {
             'size': app.disk
         },
-        'volumes': volume_mapping
     }
+    if volume_mapping:
+        container_args['volumes'] = volume_mapping
 
     if os.name == 'nt':
         _get_gmsa(tm_env, client, app, container_args)
@@ -312,8 +313,37 @@ class DockerRuntime(runtime_base.RuntimeBase):
         if self._client is not None:
             return self._client
 
-        self._client = docker.from_env(**self._param)
+        # volume_mapping is not for docker
+        docker_param = self._param.copy()
+        docker_param.pop('volume_mapping', None)
+        self._client = docker.from_env(**docker_param)
+
         return self._client
+
+    def _get_volume_mapping(self):
+        """Gets volume mapping config.
+        """
+        if 'volume_mapping' in self._param:
+            # host_dir:container_dir:mode
+            mapping = self._param['volume_mapping'].split(';')
+            # create container_data dir
+            container_data_dir = os.path.join(
+                self._service.data_dir,
+                mapping[0]
+            )
+
+            fs.mkdir_safe(container_data_dir)
+            _LOGGER.info('container_data : %r', container_data_dir)
+
+            # volume mapping config : read-only mapping
+            return {
+                container_data_dir: {
+                    'bind': mapping[1],
+                    'mode': mapping[2]
+                }
+            }
+
+        return None
 
     def _run(self, manifest):
         context.GLOBAL.zk.conn.add_listener(zkutils.exit_on_lost)
@@ -325,27 +355,11 @@ class DockerRuntime(runtime_base.RuntimeBase):
             manifest['ephemeral_ports']['tcp'] = []
             manifest['ephemeral_ports']['udp'] = []
 
-            # create container_data dir
-            container_data_dir = os.path.join(
-                self._service.data_dir,
-                'container_data'
-            )
-
-            log.info('container_data %r', container_data_dir)
-
-            fs.mkdir_safe(container_data_dir)
-
             _create_docker_log_symlink(self._service.data_dir)
 
-            # volume mapping config : read-only mapping
-            volume_mapping = {
-                container_data_dir: {
-                    'bind': 'c:\\container_data',
-                    'mode': 'ro'
-                }
-            }
-
             app = runtime.save_app(manifest, self._service.data_dir)
+
+            volume_mapping = self._get_volume_mapping()
 
             app_presence = presence.EndpointPresence(
                 context.GLOBAL.zk.conn,
@@ -375,7 +389,11 @@ class DockerRuntime(runtime_base.RuntimeBase):
             container.reload()
 
             _update_network_info_in_manifest(container, manifest)
-            runtime.save_app(manifest, container_data_dir, app_json='app.json')
+            # needs to share manifest with container
+            if volume_mapping:
+                container_data_dir = next(iter(volume_mapping))
+                runtime.save_app(manifest, container_data_dir,
+                                 app_json='app.json')
 
             _LOGGER.info('Container is running.')
             app_presence.register_endpoints()

@@ -5,6 +5,7 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
+import collections
 import logging
 import socket
 
@@ -29,7 +30,7 @@ class DockerdFeature(feature_base.Feature):
         # when they are stable
 
         manifest['services'].append(
-            _generate_dockerd_service(self._tm_env)
+            _generate_dockerd_service(self._tm_env, manifest)
         )
         manifest['services'].append(
             _generate_docker_authz_service()
@@ -70,7 +71,7 @@ def _generate_docker_authz_service():
     return docker_authz_svc
 
 
-def _generate_dockerd_service(tm_env):
+def _generate_dockerd_service(tm_env, manifest):
     """Configure docker daemon services."""
     # add dockerd service
     ulimits = dockerutils.init_ulimit()
@@ -98,12 +99,31 @@ def _generate_dockerd_service(tm_env):
         default_ulimit=default_ulimit,
     )
 
-    # we only allow pull image from specified registry
-    for registry_name in _get_docker_registry(tm_env):
+    tls_conf = _get_tls_conf(tm_env)
+    if tls_conf['ca_cert']:
         command += (
-            ' --insecure-registry {registry}'
+            ' --tlsverify'
+            ' --tlscacert={ca_cert}'
+        ).format(
+            ca_cert=tls_conf['ca_cert'],
+        )
+    if tls_conf['host_cert'] or tls_conf['host_key']:
+        # NOTE: host_cert/host_key come in pair.
+        command += (
+            ' --tlscert={host_cert}'
+            ' --tlskey={host_key}'
+        ).format(
+            host_cert=tls_conf['host_cert'],
+            host_key=tls_conf['host_key']
+        )
+
+    # we only allow pull image from specified registry
+    for registry_name in _get_docker_registry(tm_env, manifest['environment']):
+        command += (
             ' --add-registry {registry}'
-        ).format(registry=registry_name)
+        ).format(
+            registry=registry_name
+        )
 
     dockerd_svc = {
         'name': 'dockerd',
@@ -122,20 +142,45 @@ def _generate_dockerd_service(tm_env):
     return dockerd_svc
 
 
-def _get_docker_registry(tm_env):
+def _get_tls_conf(tm_env):
+    """Return the paths to the TLS certificates on the host.
+
+    :returns:
+        ``dict(ca_cert=str, host_cert=str, host_key=str)`` -- Paths to the
+        CA root certificate, host certificate and host key.
+    """
+    # get registry address from node.json
+    data = nodedata.get(tm_env.configs_dir)
+    tls_conf = data['tls_certs']
+    return {
+        'ca_cert': tls_conf.get('ca_cert', ''),
+        'host_cert': tls_conf.get('host_cert', ''),
+        'host_key': tls_conf.get('host_key', ''),
+    }
+
+
+def _get_docker_registry(tm_env, app_environment):
     """Return the registry to use.
     """
     # get registry address from node.json
     data = nodedata.get(tm_env.configs_dir)
-    registries = data['docker_registries']
+    registry_conf = data['docker_registries']
+    if isinstance(registry_conf, list):
+        # Backward compatibility: If the conf is a list turn in to dict
+        registries = collections.defaultdict(lambda: list(registry_conf))
+    else:
+        # If the conf is a dict, ensure it has all necessary keys
+        registries = collections.defaultdict(lambda: [])
+        registries.update(registry_conf)
 
-    for registry in registries:
+    for registry in registries[app_environment]:
         if ':' in registry:
             host, _sep, port = registry.partition(':')
         else:
             host = registry
-            port = '5000'
+            port = None
 
         # Ensure we have teh FQDN for the registry host.
         host = socket.getfqdn(host)
-        yield ':'.join([host, port])
+        res = [host, port] if port is not None else [host]
+        yield ':'.join(res)

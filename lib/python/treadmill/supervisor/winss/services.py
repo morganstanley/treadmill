@@ -197,7 +197,7 @@ class LongrunService(_service_base.Service):
             _utils.environ_dir_write(self.env_dir, self._env)
         if self._run_script is None and not os.path.exists(self._run_file):
             raise ValueError('Invalid LongRun service: not run script')
-        elif self._run_script is not None:
+        if self._run_script is not None:
             _utils.script_write(self._run_file, self._run_script)
             # Handle the case where the run script is a generator
             if not isinstance(self._run_script, six.string_types):

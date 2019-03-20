@@ -12,6 +12,7 @@ import os
 
 import six
 
+from treadmill import nodedata
 from treadmill import watchdog
 
 
@@ -52,6 +53,7 @@ class AppEnvironment:
         'tombstones_dir',
         'watchdogs',
         'watchdog_dir',
+        'data',
     )
 
     ALERTS_DIR = 'alerts'
@@ -100,6 +102,8 @@ class AppEnvironment:
         self.endpoints_dir = os.path.join(self.root, self.ENDPOINTS_DIR)
 
         self.watchdogs = watchdog.Watchdog(self.watchdog_dir)
+        # Load the local config data.
+        self.data = nodedata.get(self.configs_dir)
 
     @abc.abstractmethod
     def initialize(self, params):
