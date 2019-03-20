@@ -15,6 +15,7 @@ import click.testing
 import mock
 
 from treadmill import alert
+from treadmill import fs
 from treadmill.sproc import alert_monitor
 
 
@@ -40,10 +41,9 @@ class AlertMonitorTest(unittest.TestCase):
                 alert_monitor._load_alert_backend(None)
             )
 
-            alert.create(alerts_dir, **alert_)
-            alert_file = os.listdir(alerts_dir)[0]
+            alert_file = alert.create(alerts_dir, **alert_)
 
-            on_created(os.path.join(alerts_dir, alert_file))
+            on_created(alert_file)
 
             logger_mock.critical.assert_called_once_with(
                 mock.ANY, alert_['type_'], alert_['instanceid'],
@@ -55,7 +55,7 @@ class AlertMonitorTest(unittest.TestCase):
 
             # check that success callback is invoked and the alert is deleted
             with self.assertRaises(FileNotFoundError):
-                alert.read(alert_file, alerts_dir)
+                alert.read(os.path.basename(alert_file), alerts_dir)
 
     def test_load_alert_backend(self):
         """Test _load_alert_backend().
@@ -108,6 +108,20 @@ class AlertMonitorTest(unittest.TestCase):
             alert_monitor._remove_extra_alerts(dir_name, max_queue_length=1)
 
             self.assertEqual(os.listdir(dir_name), ['mock_alert_2'])
+
+    def test_remove_extra_alerts_dir(self):
+        """Test _remove_extra_alerts(). tmp dir '.tmp' is kept
+        """
+        # pylint: disable=protected-access
+        with tempfile.TemporaryDirectory() as dir_name:
+            with open(os.path.join(dir_name, 'mock_alert'), 'w') as f:
+                f.write('{"type_": "mock"}')
+
+            fs.mkdir_safe(os.path.join(dir_name, '.tmp'))
+
+            alert_monitor._remove_extra_alerts(dir_name, max_queue_length=0)
+
+            self.assertEqual(os.listdir(dir_name), ['.tmp'])
 
 
 if __name__ == '__main__':

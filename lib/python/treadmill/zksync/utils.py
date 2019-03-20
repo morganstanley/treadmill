@@ -14,7 +14,7 @@ import time
 from treadmill import utils
 
 MODIFIED = '.modified'
-
+NODE_DATA_FILE = '.data'
 
 _LOGGER = logging.getLogger(__name__)
 

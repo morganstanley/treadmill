@@ -137,6 +137,28 @@ class LinuxRuntimeManifestTest(unittest.TestCase):
 
         cmd = app_manifest._get_docker_run_cmd(
             name='foo',
+            image='test afterspace'
+        )
+        self.assertEqual(
+            cmd,
+            (
+                'exec $TREADMILL/bin/treadmill sproc docker'
+                ' --name foo'
+                ' --envdirs /env,/docker/env,/services/foo/env'
+                ' --volume /var/log:/var/log:rw'
+                ' --volume /var/spool:/var/spool:rw'
+                ' --volume /var/tmp:/var/tmp:rw'
+                ' --volume /docker/etc/hosts:/etc/hosts:ro'
+                ' --volume /docker/etc/passwd:/etc/passwd:ro'
+                ' --volume /docker/etc/group:/etc/group:ro'
+                ' --volume /env:/env:ro'
+                ' --volume /treadmill-bind:/opt/treadmill-bind:ro'
+                ' --image \'test afterspace\''
+            )
+        )
+
+        cmd = app_manifest._get_docker_run_cmd(
+            name='foo',
             image='testwt2',
             commands='/bin/sh -c "echo $foo $bar"',
         )

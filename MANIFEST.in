@@ -4,6 +4,7 @@ recursive-include lib/python/treadmill/bootstrap/node/linux *
 recursive-include lib/python/treadmill/bootstrap/node/windows *
 recursive-include lib/python/treadmill/bootstrap/openldap/linux *
 recursive-include lib/python/treadmill/bootstrap/spawn/linux *
+recursive-include lib/python/treadmill/bootstrap/tkt_fwd/linux *
 recursive-include lib/python/treadmill/bootstrap/zookeeper/linux *
 # Treadmill resources
 recursive-include lib/python/treadmill/etc/ldap *

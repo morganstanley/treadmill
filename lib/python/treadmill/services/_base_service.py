@@ -293,10 +293,8 @@ class ResourceService:
     _IO_EVENT_PENDING = struct.pack('@Q', 1)
 
     def __init__(self, service_dir, impl):
-        fs.mkdir_safe(service_dir)
         self._dir = os.path.realpath(service_dir)
         self._rsrc_dir = os.path.join(self._dir, RSRC_DIR)
-        fs.mkdir_safe(self._rsrc_dir)
         self._is_dead = False
         self._service_impl = impl
         self._service_class = None
@@ -580,6 +578,8 @@ class BaseResourceServiceImpl:
         """Service initialization."""
         self._service_dir = service_dir
         self._service_rsrc_dir = os.path.join(service_dir, RSRC_DIR)
+        fs.mkdir_safe(self._service_dir)
+        fs.mkdir_safe(self._service_rsrc_dir)
 
     @abc.abstractmethod
     def synchronize(self):

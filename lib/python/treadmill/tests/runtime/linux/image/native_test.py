@@ -7,7 +7,6 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import collections
-from collections import namedtuple
 import io
 import os
 import shutil
@@ -87,9 +86,92 @@ class NativeImageTest(unittest.TestCase):
         if self.container_dir and os.path.isdir(self.container_dir):
             shutil.rmtree(self.container_dir)
 
+    @mock.patch('treadmill.runtime.linux.image.native.os',
+                autospec=True)
+    @mock.patch('treadmill.utils.get_uid_gid', mock.Mock(spec_set=True))
+    def test_make_extra_dev(self, mock_os):
+        """Validates passthrough host device creation.
+        """
+        treadmill.utils.get_uid_gid.return_value = (142, 143)
+        for name in dir(os):
+            if name in ('chown', 'mknod', 'stat'):
+                continue
+            setattr(mock_os, name, getattr(os, name))
+        mock_stat_result = collections.namedtuple(
+            'stat_result', ['st_mode', 'st_rdev']
+        )
+        mock_os.stat.side_effect = [
+            mock_stat_result(stat.S_IFSOCK | 0o600, os.makedev(42, 2)),
+            mock_stat_result(stat.S_IFCHR | 0o644, os.makedev(42, 3)),
+            mock_stat_result(stat.S_IFDIR | 0o755, os.makedev(42, 4)),
+            mock_stat_result(stat.S_IFBLK | 0o000, os.makedev(42, 5)),
+        ]
+
+        native.make_extra_dev(
+            self.root,
+            [
+                '/dev/nvidia0',
+                '/dev/nv/subdev',
+                '/dev/foodir',
+                '/dev/nvidiactl',
+                'bad/dev',
+                '/notdev/dev',
+            ],
+            'cnt_owner'
+        )
+
+        mock_os.stat.assert_has_calls(
+            [
+                mock.call('/dev/nvidia0'),
+                mock.call('/dev/nv/subdev'),
+                mock.call('/dev/foodir'),
+                mock.call('/dev/nvidiactl'),
+            ]
+        )
+        mock_os.mknod.assert_has_calls(
+            [
+                mock.call(
+                    os.path.join(self.root, 'dev/nvidia0'),
+                    stat.S_IFSOCK | 0o600,
+                    os.makedev(42, 2)
+                ),
+                mock.call(
+                    os.path.join(self.root, 'dev/nv/subdev'),
+                    stat.S_IFCHR | 0o600,
+                    os.makedev(42, 3)
+                ),
+                mock.call(
+                    os.path.join(self.root, 'dev/nvidiactl'),
+                    stat.S_IFBLK | 0o600,
+                    os.makedev(42, 5)
+                ),
+            ]
+        )
+        mock_os.chown.assert_has_calls(
+            [
+                mock.call(
+                    os.path.join(self.root, 'dev/nvidia0'),
+                    142, 143
+                ),
+                mock.call(
+                    os.path.join(self.root, 'dev/nv/subdev'),
+                    142, 143
+                ),
+                mock.call(
+                    os.path.join(self.root, 'dev/nvidiactl'),
+                    142, 143
+                ),
+            ]
+        )
+
     @mock.patch('os.chown', mock.Mock(spec_set=True))
     @mock.patch('os.mknod', mock.Mock(spec_set=True))
     @mock.patch('os.makedev', mock.Mock(spec_set=True))
+    @mock.patch('pwd.getpwnam', mock.Mock(
+        return_value=collections.namedtuple(
+            'pwnam',
+            ['pw_uid', 'pw_gid']
+        )(42, 43)))
     @mock.patch('treadmill.fs.symlink_safe', mock.Mock(spec_set=True))
     @mock.patch('treadmill.fs.linux.mount_bind', mock.Mock(spec_set=True))
     @mock.patch('treadmill.fs.linux.mount_devpts', mock.Mock(spec_set=True))
@@ -98,7 +180,7 @@ class NativeImageTest(unittest.TestCase):
     @mock.patch('treadmill.fs.linux.mount_tmpfs', mock.Mock(spec_set=True))
     def test_make_fsroot(self):
         """Validates directory layout in chrooted environment."""
-        native.make_fsroot(self.root, self.app)
+        native.make_fsroot(self.root, self.app, {})
 
         def isdir(path):
             """Checks directory presence in chrooted environment."""
@@ -203,7 +285,7 @@ class NativeImageTest(unittest.TestCase):
         )
 
     @mock.patch('pwd.getpwnam', mock.Mock(
-        return_value=namedtuple(
+        return_value=collections.namedtuple(
             'pwnam',
             ['pw_uid', 'pw_dir', 'pw_shell']
         )(3, '/', '/bin/sh')))

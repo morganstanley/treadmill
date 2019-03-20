@@ -200,6 +200,9 @@ class MockZookeeperTestCase(unittest.TestCase):
             # Setup the watch
             watches[(zkpath, states.EventType.CHANGED)] = watch
 
+            if data is not None and not isinstance(data, bytes):
+                data = data.encode()
+
             return (data, metadata)
 
         def mock_get_children(zkpath, watch=None):
@@ -225,19 +228,23 @@ class MockZookeeperTestCase(unittest.TestCase):
 
             def run_events():
                 """Invoke watcher callback for each event."""
-                while True:
-                    event = self.watch_events.get()
-                    if event == 'exit':
-                        break
+                try:
+                    while True:
+                        event = self.watch_events.get()
+                        if event == 'exit':
+                            break
 
-                    delay, event_type, state, path = event
-                    if delay:
-                        time.sleep(delay)
-                    watch = watches.get((path, event_type), None)
-                    if watch:
-                        watch(states.WatchedEvent(type=event_type,
-                                                  state=state,
-                                                  path=path))
+                        delay, event_type, state, path = event
+                        if delay:
+                            time.sleep(delay)
+                        watch = watches.get((path, event_type), None)
+                        if watch:
+                            watch(states.WatchedEvent(type=event_type,
+                                                      state=state,
+                                                      path=path))
+                except Exception as err:
+                    print(err)
+                    raise
 
             threading.Thread(target=run_events).start()
 

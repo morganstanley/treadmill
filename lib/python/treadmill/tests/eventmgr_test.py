@@ -81,7 +81,7 @@ class EventMgrTest(mockzk.MockZookeeperTestCase):
             side_effect=lambda func: func({'valid_until': 123.0}, None, None)
         )
 
-        mock_zkclient.get.return_value = ('{}', mock.Mock(ctime=1000))
+        mock_zkclient.get.return_value = (b'{}', mock.Mock(ctime=1000))
         mock_zkclient.exits.return_value = mock.Mock()
         # Decorator style watch
         mock_zkclient.DataWatch.return_value = mock_data_watch
@@ -120,7 +120,7 @@ class EventMgrTest(mockzk.MockZookeeperTestCase):
             side_effect=lambda func: func(None, None, None)
         )
 
-        mock_zkclient.get.return_value = ('{}', mock.Mock(ctime=1000))
+        mock_zkclient.get.return_value = (b'{}', mock.Mock(ctime=1000))
         mock_zkclient.exits.return_value = mock.Mock()
         # Decorator style watch
         mock_zkclient.DataWatch.return_value = mock_data_watch

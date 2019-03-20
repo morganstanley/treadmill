@@ -148,25 +148,21 @@ def cors(origin=None, methods=None, headers=None, max_age=21600,
     return decorator
 
 
-def log_header(header=None):
-    # pylint: disable=R0912
-    """Flask decorator to log headers or a specific header
-
-    :param header:
-        This can be a string as to which header to log
+def log_request():
+    """Flask decorator to log request
     """
     def decorator(func):
         """Function decorator to log header(s)"""
         def wrapped_function(*args, **kwargs):
             """Wrapper function to add required headers."""
+            _LOGGER.info(
+                'source: %s, path: %s, header: %r',
+                flask.request.remote_addr,
+                flask.request.full_path,
+                flask.request.headers
+            )
+
             resp = flask.make_response(func(*args, **kwargs))
-
-            headers = flask.request.headers
-            if header is not None:
-                _LOGGER.info('header: %s: %r', header, headers.get(header))
-                return resp
-
-            _LOGGER.info('headers: %r', headers)
             return resp
 
         func.provide_automatic_options = False
@@ -250,7 +246,7 @@ def get_api(api, cors_handler, marshal=None, resp_model=None,
     funcs = [
         cors_handler,
         no_cache,
-        log_header(),
+        log_request(),
     ]
 
     if json_resp:
@@ -285,7 +281,7 @@ def _common_api(api, cors_handler, marshal=None, req_model=None,
     funcs = [
         cors_handler,
         no_cache,
-        log_header(),
+        log_request(),
         as_json,
         api.doc(responses={
             403: 'Not Authorized',

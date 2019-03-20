@@ -783,19 +783,19 @@ class AdminTest(unittest.TestCase):
         """Tests update logic.
         """
         mock_admin = admin.Admin(None, 'dc=test,dc=com')
-        mock_admin.paged_search.return_value = [
-            (
-                'cell=xxx,allocation=prod1,...',
-                {
+        mock_admin.paged_search.return_value = iter([
+            {
+                'dn': 'cell=xxx,allocation=prod1,...',
+                'attributes': {
                     'disk': ['2G'],
                     'trait': ['a', 'b'],
                     'priority;tm-alloc-assignment-123': [80],
                     'pattern;tm-alloc-assignment-123': ['ppp.ttt'],
                     'priority;tm-alloc-assignment-345': [60],
                     'pattern;tm-alloc-assignment-345': ['ppp.ddd'],
-                }
-            )
-        ]
+                },
+            },
+        ])
 
         mock_admin.update(
             'cell=xxx,allocation=prod1,...',
@@ -819,7 +819,7 @@ class AdminTest(unittest.TestCase):
                 'priority',
                 'trait',
             ],
-            dirty=False,
+            dirty=True,
         )
         mock_admin.modify.assert_called_once_with(
             'cell=xxx,allocation=prod1,...',
@@ -893,19 +893,23 @@ class AllocationTest(unittest.TestCase):
         """Tests loading cell allocations."""
         # Disable warning about accessing protected member _ldap
         # pylint: disable=W0212
-        treadmill.admin._ldap.Admin.paged_search.return_value = [
-            ('cell=xxx,allocation=prod1,...',
-             {'cell': ['xxx'],
-              'memory': ['1G'],
-              'cpu': ['100%'],
-              'disk': ['2G'],
-              'rank': [100],
-              'trait': ['a', 'b'],
-              'priority;tm-alloc-assignment-123': [80],
-              'pattern;tm-alloc-assignment-123': ['ppp.ttt'],
-              'priority;tm-alloc-assignment-345': [60],
-              'pattern;tm-alloc-assignment-345': ['ppp.ddd']})
-        ]
+        treadmill.admin._ldap.Admin.paged_search.return_value = iter([
+            {
+                'dn': 'cell=xxx,allocation=prod1,...',
+                'attributes': {
+                    'cell': ['xxx'],
+                    'memory': ['1G'],
+                    'cpu': ['100%'],
+                    'disk': ['2G'],
+                    'rank': [100],
+                    'trait': ['a', 'b'],
+                    'priority;tm-alloc-assignment-123': [80],
+                    'pattern;tm-alloc-assignment-123': ['ppp.ttt'],
+                    'priority;tm-alloc-assignment-345': [60],
+                    'pattern;tm-alloc-assignment-345': ['ppp.ddd'],
+                },
+            },
+        ])
         obj = self.alloc.get('foo:bar/prod1')
         treadmill.admin._ldap.Admin.paged_search.assert_called_with(
             attributes=mock.ANY,
@@ -1116,24 +1120,24 @@ class ServerTest(unittest.TestCase):
     @mock.patch('treadmill.admin._ldap.Admin.paged_search')
     def test_list(self, paged_search_mock):
         """Test getting a list of servers from LDAP."""
-        paged_search_mock.return_value = [
-            (
-                'server=xxx,ou=servers,ou=treadmill,dc=xx,dc=com',
-                {
+        paged_search_mock.return_value = iter([
+            {
+                'dn': 'server=xxx,ou=servers,ou=treadmill,dc=xx,dc=com',
+                'attributes': {
                     'server': ['xxx'],
                     'cell': ['yyy'],
                     'partition': ['p'],
                 },
-            ),
-            (
-                'server=zzz,ou=servers,ou=treadmill,dc=xx,dc=com',
-                {
+            },
+            {
+                'dn': 'server=zzz,ou=servers,ou=treadmill,dc=xx,dc=com',
+                'attributes': {
                     'server': ['zzz'],
                     'cell': ['yyy'],
                     'partition': ['p'],
                 },
-            )
-        ]
+            }
+        ])
 
         servers = self.server.list({'cell': 'yyy'})
 
@@ -1155,10 +1159,10 @@ class ServerTest(unittest.TestCase):
     @mock.patch('treadmill.admin._ldap.Admin.paged_search')
     def test_list_operational_attrs(self, paged_search_mock):
         """Test getting a list of servers from LDAP with operational attrs."""
-        paged_search_mock.return_value = [
-            (
-                'server=xxx,ou=servers,ou=treadmill,dc=xx,dc=com',
-                {
+        paged_search_mock.return_value = iter([
+            {
+                'dn': 'server=xxx,ou=servers,ou=treadmill,dc=xx,dc=com',
+                'attributes': {
                     'server': ['xxx'],
                     'cell': ['yyy'],
                     'partition': ['p'],
@@ -1169,10 +1173,10 @@ class ServerTest(unittest.TestCase):
                         2018, 11, 21, 21, 22, 23, tzinfo=datetime.timezone.utc
                     ),
                 },
-            ),
-            (
-                'server=zzz,ou=servers,ou=treadmill,dc=xx,dc=com',
-                {
+            },
+            {
+                'dn': 'server=zzz,ou=servers,ou=treadmill,dc=xx,dc=com',
+                'attributes': {
                     'server': ['zzz'],
                     'cell': ['yyy'],
                     'partition': ['p'],
@@ -1183,8 +1187,8 @@ class ServerTest(unittest.TestCase):
                         2018, 11, 23, 21, 22, 23, tzinfo=datetime.timezone.utc
                     ),
                 },
-            )
-        ]
+            },
+        ])
 
         servers = self.server.list({'cell': 'yyy'}, get_operational_attrs=True)
 

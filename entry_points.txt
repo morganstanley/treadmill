@@ -253,6 +253,7 @@ host-ring = treadmill.sproc.host_ring
 init = treadmill.sproc.init
 kernel-watchdog = treadmill.sproc.kernel_watchdog
 keytabs = treadmill.sproc.keytabs
+keytabs2 = treadmill.sproc.keytabs2
 metrics = treadmill.sproc.metrics
 monitor = treadmill.sproc.monitor
 nodeinfo = treadmill.sproc.nodeinfo

@@ -152,7 +152,7 @@ def allocations(cell, trait_codes):
     }).sort_values(by=['partition', 'name']).reset_index(drop=True)
 
 
-def apps(cell, _trait_codes):
+def apps(cell, trait_codes):
     """Prepare DataFrame with app and queue information."""
 
     # Hard-code order of columns
@@ -161,7 +161,7 @@ def apps(cell, _trait_codes):
         'identity_group', 'identity',
         'order', 'lease', 'expires', 'data_retention',
         'pending', 'server', 'util0', 'util1',
-        'mem', 'cpu', 'disk'
+        'mem', 'cpu', 'disk', 'traits'
     ]
 
     def _app_row(item):
@@ -182,6 +182,7 @@ def apps(cell, _trait_codes):
             'mem': app.demand[0],
             'cpu': app.demand[1],
             'disk': app.demand[2],
+            'traits': traits.format_traits(trait_codes, app.traits),
             'lease': app.lease,
             'expires': app.placement_expiry,
             'data_retention': app.data_retention_timeout,

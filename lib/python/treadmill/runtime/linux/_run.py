@@ -111,7 +111,7 @@ def run(tm_env, runtime_config, container_dir, manifest):
     # NOTE: below here, MOUNT namespace is private
 
     # Unpack the image to the root directory.
-    img_impl.unpack(container_dir, root_dir, app, app_cgroups)
+    img_impl.unpack(container_dir, root_dir, app, app_cgroups, tm_env.data)
 
     # clean mounts.
     wanted_mounts = runtime_config.host_mount_whitelist

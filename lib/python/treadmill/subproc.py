@@ -77,10 +77,12 @@ def _check(path):
     if path is None:
         return False
 
-    if path.endswith('.so') and (path.find('$ISA') >= 0 or
-                                 path.find('$LIB') >= 0):
-        # TODO: not sure how to handle $LIB and $ISA for now.
-        return True
+    if path.endswith('.so'):
+        if (path.find('$ISA') >= 0 or path.find('$LIB') >= 0):
+            # TODO: not sure how to handle $LIB and $ISA for now.
+            return True
+        else:
+            return os.access(path, os.R_OK)
     else:
         return os.access(path, os.X_OK)
 

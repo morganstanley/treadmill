@@ -105,21 +105,18 @@ class KeytabLocker:
         return keytabs
 
 
-def run_server(locker):
-    """Runs keytab server.
+def get_listening_server(locker, port):
+    """Get listening keytab server.
     """
     from treadmill import gssapiprotocol
     from twisted.internet import protocol
     from twisted.internet import reactor
 
-    _LOGGER.info('Keytab locker server starting.')
-
     # no __init__ method.
     #
     # pylint: disable=W0232
-    class KeytabLockerServer(gssapiprotocol.GSSAPILineServer):
-        """Keytab locker server.
-        """
+    class _KeytabLockerServerProtocol(gssapiprotocol.GSSAPILineServer):
+        """Implement keytab locker server protocol."""
 
         def _get(self):
             """Get keytabs for given host/app.
@@ -160,16 +157,26 @@ def run_server(locker):
 
             self.write(b'')
 
-    class KeytabLockerServerFactory(protocol.Factory):
-        """KeytabLockerServer factory.
-        """
+    class _KeytabLockerServer:
+        """Keytab locker server."""
 
-        def buildProtocol(self, addr):  # pylint: disable=C0103
-            return KeytabLockerServer()
+        def __init__(self):
+            """_KeytabLockerServer constructor."""
+            factory = protocol.Factory.forProtocol(_KeytabLockerServerProtocol)
+            listening_port = reactor.listenTCP(port, factory)
 
-    port = reactor.listenTCP(0, KeytabLockerServerFactory()).getHost().port
-    locker.register_endpoint(port)
-    reactor.run()
+            def _get_actual_port():
+                """Get actual listening port."""
+                return listening_port.getHost().port
+
+            def _run():
+                """Start keytab locker server"""
+                reactor.run()
+
+            self.get_actual_port = _get_actual_port
+            self.run = _run
+
+    return _KeytabLockerServer()
 
 
 def _get_keytabs_from(host, port, spool_dir):

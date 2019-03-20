@@ -16,7 +16,7 @@ import logging
 import shlex
 
 import ldap3
-from ldap3.core import exceptions as ldap_exceptions
+import ldap3.core.exceptions as ldap_exceptions
 import jinja2
 import six
 
@@ -602,10 +602,17 @@ class Admin:
                 )
             )
 
-    def search(self, search_base, search_filter,
+    def search(self, search_base=None, search_filter=None,
                search_scope=ldap3.SUBTREE, attributes=None, dirty=False):
         """Call ldap search and return a generator of dn, entry tuples.
         """
+        if search_base is None:
+            search_base = self.root_ou
+        if search_filter is None:
+            search_filter = '(objectClass=*)'
+        if attributes is None:
+            attributes = ['*', '+']
+
         # If entries in the potential search results were written or modified
         # recently, we use the connection to the write server to avoid problems
         # with replication delays between provider and consumer
@@ -621,13 +628,22 @@ class Admin:
         )
         self._test_raise_exceptions(ldap)
 
-        for entry in ldap.response:
-            yield entry['dn'], entry['attributes']
+        return iter(ldap.response)
 
-    def paged_search(self, search_base, search_filter,
+    def paged_search(self, search_base=None, search_filter=None,
                      search_scope=ldap3.SUBTREE, attributes=None, dirty=False):
         """Call ldap paged search and return a generator of dn, entry tuples.
+
+        :returns:
+            ``generator`` - Search result generator
         """
+        if search_base is None:
+            search_base = self.root_ou
+        if search_filter is None:
+            search_filter = '(objectClass=*)'
+        if attributes is None:
+            attributes = ['*', '+']
+
         # If entries in the potential search results were written or modified
         # recently, we use the connection to the write server to avoid problems
         # with replication delays between provider and consumer
@@ -646,8 +662,7 @@ class Admin:
         )
         self._test_raise_exceptions(ldap)
 
-        for entry in res_gen:
-            yield entry['dn'], entry['attributes']
+        return res_gen
 
     def _test_raise_exceptions(self, ldap=None):
         """
@@ -698,17 +713,6 @@ class Admin:
         self.write_ldap.delete(dn)
         self._test_raise_exceptions(self.write_ldap)
 
-    def list(self, root=None, dirty=False):
-        """Lists all objects in the database."""
-        if not root:
-            root = self.root_ou
-        result = self.paged_search(
-            search_base=root,
-            search_filter='(objectClass=*)',
-            dirty=dirty
-        )
-        return [dn for dn, _ in result]
-
     def schema(self, abstract=True):
         """Get schema."""
         # Disable too many branches warning.
@@ -722,13 +726,14 @@ class Admin:
                              attributes=['olcAttributeTypes',
                                          'olcObjectClasses'])
 
-        try:
-            schema_dn, entry = next(result)
-        except StopIteration:
+        entry = next(result, None)
+        if entry is None:
             return None
 
+        schema_dn, schema = entry['dn'], entry['attributes']
+
         attr_types = []
-        for attr_type_s in entry.get('olcAttributeTypes', []):
+        for attr_type_s in schema.get('olcAttributeTypes', []):
             # Split preserving quotes.
             attr_type_l = shlex.split(attr_type_s)
             # Remove leading and closing bracket.
@@ -780,7 +785,7 @@ class Admin:
                     return result
                 assert sep == '$'
 
-        for obj_cls_s in entry.get('olcObjectClasses', []):
+        for obj_cls_s in schema.get('olcObjectClasses', []):
             # Split preserving quotes.
             obj_cls_l = shlex.split(obj_cls_s)
             # Remove leading and closing bracket.
@@ -1013,10 +1018,7 @@ class Admin:
                              attributes=attrs,
                              dirty=dirty)
 
-        for _dn, entry in result:
-            return entry
-
-        return None
+        return next(iter(result), {}).get('attributes')
 
     def create(self, dn, entry):
         """Creates LDAP record."""
@@ -1035,11 +1037,23 @@ class Admin:
         old_entry = self.get(
             dn,
             '(objectClass=*)',
-            _entry_plain_keys(new_entry)
+            _entry_plain_keys(new_entry),
+            dirty=True
         )
         diff = _diff_entries(old_entry, new_entry)
-
         self.modify(dn, diff)
+
+    def set(self, entry_dn, entry_data):
+        """Create or update and LDAP record.
+        """
+        try:
+            self.add(
+                entry_dn, attributes=entry_data
+            )
+        except ldap_exceptions.LDAPEntryAlreadyExistsResult:
+            self.update(
+                entry_dn, entry_data
+            )
 
     def remove(self, dn, entry):
         """Removes attributes from the record."""
@@ -1049,8 +1063,11 @@ class Admin:
         self.modify(dn, to_be_removed)
 
     def get_repls(self):
-        """Get replication information."""
-        # paged_search does not work with config backend, so using low level
+        """Get replication information.
+
+        NOTE: OpenLDAP specific
+        """
+        # paged_search does not work with cn=config backend, so using low level
         # search instead of higher level wrappers.
         result = self.search(
             search_base='olcDatabase={1}mdb,cn=config',
@@ -1058,8 +1075,11 @@ class Admin:
             attributes=['olcSyncrepl'],
             search_scope=ldap3.BASE,
         )
-        for _dn, entry in result:
+        entry = next(iter(result), {}).get('attributes')
+        if entry:
             return entry.get('olcSyncrepl')
+        else:
+            return None
 
 
 class LdapObject:
@@ -1162,8 +1182,15 @@ class LdapObject:
                                          attributes=attributes,
                                          dirty=dirty)
         if generator:
-            return (self.from_entry(entry, dn) for dn, entry in result)
-        return [self.from_entry(entry, dn) for dn, entry in result]
+            return (
+                self.from_entry(entry['attributes'], entry['dn'])
+                for entry in result
+            )
+        else:
+            return [
+                self.from_entry(entry['attributes'], entry['dn'])
+                for entry in result
+            ]
 
     def update(self, ident, attrs):
         """Updates LDAP record."""
@@ -1203,8 +1230,8 @@ class LdapObject:
             dirty=dirty
         )
         return [
-            children_admin.from_entry(entry, child_dn)
-            for child_dn, entry in children
+            children_admin.from_entry(entry['attributes'], entry['dn'])
+            for entry in children
         ]
 
 
@@ -1646,8 +1673,8 @@ class Cell(LdapObject):
             attributes=[]
         )
 
-        for dn, _entry in cell_partitions:
-            self.admin.delete(dn)
+        for entry in cell_partitions:
+            self.admin.delete(entry['dn'])
 
         return super(Cell, self).delete(ident)
 
@@ -1893,8 +1920,8 @@ class Allocation(LdapObject):
             attributes=[]
         )
 
-        for dn, _entry in cell_allocs_search:
-            self.admin.delete(dn)
+        for entry in cell_allocs_search:
+            self.admin.delete(entry['dn'])
 
         return super(Allocation, self).delete(ident)
 

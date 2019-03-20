@@ -78,7 +78,7 @@ def _get_docker_run_cmd(name, image,
 
     return tpl.format(
         name=name,
-        image=image,
+        image=shlex.quote(image),
         entrypoint=entrypoint,
         cmds=' '.join((shlex.quote(cmd) for cmd in commands))
     )

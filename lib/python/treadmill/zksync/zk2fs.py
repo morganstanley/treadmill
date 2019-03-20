@@ -72,10 +72,10 @@ class Zk2Fs:
             raise_err=True, tmp_dir=self.tmp_dir
         )
 
-    def _data_watch(self, zkpath, data, stat, event):
+    def _data_watch(self, zkpath, data, stat, event, fpath=None):
         """Invoked when data changes.
         """
-        fpath = self.fpath(zkpath)
+        fpath = fpath or self.fpath(zkpath)
         if event is not None and event.type == 'DELETED':
             _LOGGER.info('Node deleted: %s', zkpath)
             self.watches.discard(zkpath)
@@ -177,18 +177,21 @@ class Zk2Fs:
         """Returns file path to given zk node."""
         return os.path.join(self.fsroot, zkpath.lstrip('/'))
 
-    def sync_data(self, zkpath):
+    def sync_data(self, zkpath, fpath=None, watch=False):
         """Sync zk node data to file."""
+        fpath = fpath or self.fpath(zkpath)
+
+        if watch:
+            self.watches.add(zkpath)
 
         if zkpath in self.watches:
             @zkwatchers.ExistingDataWatch(self.zkclient, zkpath)
             @utils.exit_on_unhandled
             def _data_watch(data, stat, event):
                 """Invoked when data changes."""
-                self._data_watch(zkpath, data, stat, event)
+                self._data_watch(zkpath, data, stat, event, fpath)
                 self._update_last()
         else:
-            fpath = self.fpath(zkpath)
             data, stat = self.zkclient.get(zkpath)
             self._write_data(fpath, data, stat)
             self._update_last()

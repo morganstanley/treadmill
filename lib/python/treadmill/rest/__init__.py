@@ -95,12 +95,14 @@ class TcpRestServer(RestServer):
         :param int backlog: the connection backlog, default is 128
         :param dict rate_limit: API request rate limit rule, default is None
         """
-        self.port = int(port)
+        self._socket = tornado.netutil.bind_sockets(
+            int(port), address=host, backlog=backlog)[0]
+
+        self.port = self._socket.getsockname()[1]
         self.host = host
         self.auth_type = auth_type
         self.protect = protect
         self.workers = workers
-        self.backlog = backlog
         self.rate_limit = rate_limit
 
     def _setup_rate_limit(self):
@@ -140,8 +142,11 @@ class TcpRestServer(RestServer):
 
     def _setup_endpoint(self, http_server):
         """Setup the http server endpoint."""
-        http_server.bind(self.port, backlog=self.backlog)
-        http_server.start(self.workers)
+
+        if self.workers != 1:
+            tornado.process.fork_processes(self.workers)
+
+        http_server.add_socket(self._socket)
 
 
 class UdsRestServer(RestServer):

@@ -13,6 +13,9 @@ from treadmill import sysinfo
 
 _LOGGER = logging.getLogger(__name__)
 
+# Invalid trait
+INVALID = 'invalid'
+
 
 def format_traits(code, value):
     """Format traits as list of names.
@@ -46,20 +49,20 @@ def detect(traits):
 def create_code(traits):
     """Assign bits to list of traits.
     """
-    if not traits:
-        return {}
-
-    result = {}
     code = 1
+    result = {INVALID: code}
+
+    if not traits:
+        return result
 
     for trait in traits:
-        result[trait] = code
         code = code << 1
+        result[trait] = code
 
     return result
 
 
-def encode(code, traits):
+def encode(code, traits, use_invalid=False):
     """Code the list of traits into a number.
     """
     result = 0
@@ -69,6 +72,8 @@ def encode(code, traits):
             result |= code[trait]
         else:
             _LOGGER.error('Unknown trait %s', trait)
+            if use_invalid:
+                result |= code[INVALID]
 
     return result
 

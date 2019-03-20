@@ -53,11 +53,11 @@ def _validate(rsrc):
 def _check_required_attributes(configured):
     """Check that all required attributes are populated."""
     if 'proid' not in configured:
-        raise exc.TreadmillError(
+        raise exc.InternalError(
             'Missing required attribute: proid')
 
     if 'environment' not in configured:
-        raise exc.TreadmillError(
+        raise exc.InternalError(
             'Missing required attribute: environment')
 
 
@@ -218,7 +218,10 @@ class API:
             return masterapi.get_app(context.GLOBAL.zk.conn, rsrc_id)
 
         @schema.schema(
-            {'$ref': 'common.json#/proid'},
+            {'anyOf': [
+                {'$ref': 'common.json#/proid'},
+                {'$ref': 'common.json#/app_user'},
+            ]},
             {'type': 'array',
              'items': {'$ref': 'instance.json#/verbs/update'},
              'minItems': 1}
@@ -273,7 +276,10 @@ class API:
             )
 
         @schema.schema(
-            {'$ref': 'common.json#/proid'},
+            {'anyOf': [
+                {'$ref': 'common.json#/proid'},
+                {'$ref': 'common.json#/app_user'},
+            ]},
             {'$ref': 'instance.json#/resource_ids'},
             deleted_by={'anyOf': [
                 {'type': 'null'},

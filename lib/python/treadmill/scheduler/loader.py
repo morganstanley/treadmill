@@ -467,7 +467,9 @@ class Loader:
                                         schedule_once=schedule_once,
                                         data_retention_timeout=data_retention,
                                         traits=traits.encode(
-                                            self.trait_codes, traitz
+                                            self.trait_codes,
+                                            traitz,
+                                            use_invalid=True
                                         ),
                                         lease=lease)
 

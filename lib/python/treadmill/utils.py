@@ -624,7 +624,9 @@ else:
 def get_ulimit(u_type):
     """get ulimit value
     resource type name nofile => RLIMIT_NOFILE
-    return tuple of (soft_limit, hard_limit)
+
+    :returns:
+        ``tuple(int, int)`` --  Tuple of (soft_limit, hard_limit).
     """
     type_name = 'RLIMIT_{}'.format(u_type.upper())
     return resource.getrlimit(getattr(resource, type_name))

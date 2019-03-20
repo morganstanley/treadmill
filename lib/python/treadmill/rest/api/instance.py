@@ -175,9 +175,6 @@ def init(api, cors, impl):
             count = args.get('count', 1)
             debug = args.get('debug', False)
             debug_services = args.get('debug_services')
-            # FIXME: figure why action='split' doesn't split it.
-            if debug_services:
-                debug_services = debug_services.split(',')
 
             user = flask.g.get('user')
 

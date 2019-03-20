@@ -41,8 +41,9 @@ def fetch_report(report_type, match=None, partition=None):
 def print_report(frame, explain=False):
     """Pretty-print the report."""
     if cli.OUTPUT_FORMAT is None:
-        frame.replace(True, ' ', inplace=True)
-        frame.replace(False, 'X', inplace=True)
+        if explain:
+            frame.replace(True, ' ', inplace=True)
+            frame.replace(False, 'X', inplace=True)
         dict_ = frame.to_dict(orient='split')
         del dict_['index']
         cli.out(

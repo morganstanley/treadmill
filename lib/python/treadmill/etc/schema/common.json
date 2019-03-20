@@ -76,6 +76,10 @@
         "maxLength": 128,
         "pattern": "^[a-zA-Z0-9-_]+=[a-zA-Z0-9\\-_\\.]+$"
     },
+    "app_user": {
+        "type": "string",
+        "pattern": "^([\\w\\-]+)@([\\w\\-]+)$"
+    },
     "app_id": {
         "anyOf": [
             {

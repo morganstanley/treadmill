@@ -129,7 +129,7 @@ def init():
         # Need to delete/create endpoints for the disovery to pick it up in
         # case of master restart.
         #
-        # Unlile typical endpoint, we cannot make the node ephemeral as we
+        # Unlike typical endpoint, we cannot make the node ephemeral as we
         # exec into tkt-recv.
         zkutils.ensure_deleted(context.GLOBAL.zk.conn, endpoint_path)
         time.sleep(5)

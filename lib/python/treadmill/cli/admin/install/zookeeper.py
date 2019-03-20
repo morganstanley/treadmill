@@ -12,6 +12,7 @@ import os
 import click
 
 from treadmill import bootstrap
+from treadmill import cli
 from treadmill import context
 from treadmill import sysinfo
 from treadmill.syscall import krb5
@@ -30,8 +31,12 @@ def init():
                   type=click.Path(exists=True),
                   envvar='TREADMILL_ZOOKEEPER_DATA_DIR',
                   help='Zookeeper data directory.')
+    @click.option('--zk-admins',
+                  type=cli.LIST,
+                  envvar='TREADMILL_ZOOKEEPER_ADMINS',
+                  help='Zookeeper admin roles')
     @click.pass_context
-    def zookeeper(ctx, run, master_id, data_dir):
+    def zookeeper(ctx, run, master_id, data_dir, zk_admins):
         """Installs Treadmill master."""
 
         ctx.obj['PARAMS']['zookeeper'] = context.GLOBAL.zk.url
@@ -54,6 +59,12 @@ def init():
         run_sh = None
         if run:
             run_sh = os.path.join(dst_dir, 'treadmill', 'bin', 'run.sh')
+
+        if zk_admins:
+            zk_admins.append(ctx.obj['PARAMS']['treadmillid'])
+            ctx.obj['PARAMS']['zk_admins'] = ','.join(set(zk_admins))
+        else:
+            ctx.obj['PARAMS']['zk_admins'] = ctx.obj['PARAMS']['treadmillid']
 
         bootstrap.install(
             'zookeeper',
