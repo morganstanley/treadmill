@@ -11,7 +11,7 @@ import os
 
 import click
 
-from treadmill import bootstrap
+from treadmill.bootstrap import install as bs_install
 from treadmill import context
 from treadmill import cli
 
@@ -46,7 +46,7 @@ def init():
         else:
             wipe_script = os.path.join(dst_dir, 'bin', 'wipe_node.sh')
 
-        bootstrap.wipe(
+        bs_install.wipe(
             os.path.join(dst_dir, 'wipe_me'),
             wipe_script
         )
@@ -76,7 +76,7 @@ def init():
                 else:
                     run_script = os.path.join(dst_dir, 'bin', 'run.sh')
 
-        bootstrap.install(
+        bs_install.install(
             'node',
             dst_dir,
             ctx.obj['PARAMS'],

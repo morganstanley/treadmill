@@ -11,7 +11,7 @@ import os
 
 import click
 
-from treadmill import bootstrap
+from treadmill.bootstrap import install as bs_install
 from treadmill import cli
 from treadmill import context
 
@@ -82,7 +82,7 @@ def init():
         else:
             ctx.obj['PARAMS']['suffix'] = context.GLOBAL.ldap_suffix
 
-        bootstrap.install(
+        bs_install.install(
             'openldap',
             dst_dir,
             ctx.obj['PARAMS'],
