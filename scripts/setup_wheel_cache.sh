@@ -32,6 +32,7 @@ CAN_BUILD_WHEELS="
     ipaddress
     iscpy
     itsdangerous
+    ldif3
     limits
     markupsafe
     netifaces
