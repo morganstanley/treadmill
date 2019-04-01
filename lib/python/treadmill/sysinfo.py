@@ -14,7 +14,6 @@ import os
 import platform
 import socket
 
-import docker
 import psutil
 
 from . import exc
@@ -25,6 +24,7 @@ if os.name == 'posix':
     from . import cgutils
 else:
     # Pylint warning unable to import because it is on Windows only
+    import docker
     import win32api  # pylint: disable=E0401
     import win32con  # pylint: disable=E0401
     import win32security  # pylint: disable=E0401

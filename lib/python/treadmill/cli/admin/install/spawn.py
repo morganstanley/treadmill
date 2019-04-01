@@ -11,7 +11,7 @@ import os
 
 import click
 
-from treadmill import bootstrap
+from treadmill.bootstrap import install as bs_install
 from treadmill import context
 
 
@@ -33,7 +33,7 @@ def init():
         dst_dir = ctx.obj['PARAMS']['dir']
         profile = ctx.obj['PARAMS'].get('profile')
 
-        bootstrap.wipe(
+        bs_install.wipe(
             os.path.join(dst_dir, 'wipe_me'),
             os.path.join(dst_dir, 'bin', 'wipe_spawn.sh')
         )
@@ -50,7 +50,7 @@ def init():
                 '--treadmill-id is required, '
                 'unable to derive treadmill-id from context.')
 
-        bootstrap.install(
+        bs_install.install(
             'spawn',
             dst_dir,
             ctx.obj['PARAMS'],

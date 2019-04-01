@@ -19,8 +19,10 @@ from treadmill import zkutils
 
 _LOGGER = logging.getLogger(__name__)
 
+_DEFAULT_INTERVAL = 60
 
-def _run_sync(cellsync_plugins, once):
+
+def _run_sync(cellsync_plugins, once, interval):
     """Sync Zookeeper with LDAP, runs with lock held.
     """
     while True:
@@ -37,7 +39,7 @@ def _run_sync(cellsync_plugins, once):
         if once:
             return
 
-        time.sleep(60)
+        time.sleep(interval)
 
 
 def init():
@@ -51,7 +53,9 @@ def init():
                   help='List of plugins to run.')
     @click.option('--once', is_flag=True, default=False,
                   help='Run once.')
-    def top(no_lock, sync_plugins, once):
+    @click.option('--interval', type=int, default=_DEFAULT_INTERVAL,
+                  help='Time interval between runs (seconds).')
+    def top(no_lock, sync_plugins, once, interval):
         """Sync LDAP data with Zookeeper data.
         """
         if not no_lock:
@@ -59,9 +63,9 @@ def init():
             lock = zkutils.make_lock(context.GLOBAL.zk.conn,
                                      z.path.election(__name__))
             with lock:
-                _run_sync(sync_plugins, once)
+                _run_sync(sync_plugins, once, interval)
         else:
             _LOGGER.info('Running without lock.')
-            _run_sync(sync_plugins, once)
+            _run_sync(sync_plugins, once, interval)
 
     return top

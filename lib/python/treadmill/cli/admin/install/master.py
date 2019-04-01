@@ -11,7 +11,7 @@ import os
 
 import click
 
-from treadmill import bootstrap
+from treadmill.bootstrap import install as bs_install
 from treadmill import context
 
 
@@ -43,7 +43,7 @@ def init():
         if run:
             run_sh = os.path.join(dst_dir, 'treadmill', 'bin', 'run.sh')
 
-        bootstrap.install(
+        bs_install.install(
             'master',
             dst_dir,
             ctx.obj['PARAMS'],

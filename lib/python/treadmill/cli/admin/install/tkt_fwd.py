@@ -11,7 +11,7 @@ import logging
 
 import click
 
-from treadmill import bootstrap
+from treadmill.bootstrap import install as bs_install
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -34,7 +34,7 @@ def init():
         if run:
             run_script = os.path.join(dst_dir, 'bin', 'run.sh')
 
-        bootstrap.install(
+        bs_install.install(
             'tkt-fwd',
             dst_dir,
             ctx.obj['PARAMS'],
