@@ -11,7 +11,7 @@ import os
 
 import click
 
-from treadmill import bootstrap
+from treadmill.bootstrap import install as bs_install
 from treadmill import cli
 from treadmill import context
 from treadmill import sysinfo
@@ -66,7 +66,7 @@ def init():
         else:
             ctx.obj['PARAMS']['zk_admins'] = ctx.obj['PARAMS']['treadmillid']
 
-        bootstrap.install(
+        bs_install.install(
             'zookeeper',
             dst_dir,
             ctx.obj['PARAMS'],
