@@ -21,6 +21,7 @@ except ImportError:
     import xml.etree.ElementTree as etree
 
 from treadmill import firewall
+from treadmill import netdev
 from treadmill import subproc
 
 from treadmill import templates
@@ -177,6 +178,12 @@ def initialize(external_ip):
     :param ``str`` external_ip:
         External IP to use with NAT rules
     """
+    # Exclude all *our* ports from the default ephemeral port range.
+    netdev.net_conf_ip_port_range(
+        max(NONPROD_PORT_HIGH, PROD_PORT_HIGH) + 1,  # Highest in PROD/NONPROD
+        65535                                        # Default
+    )
+
     # Ensure all the IPSets exists.
     ipsets_ensure_exist()
 
@@ -267,6 +274,12 @@ def initialize_container():
 
     It is assumed that none but Treadmill manages these tables.
     """
+    # Exclude all *our* ports from the default ephemeral port range.
+    netdev.net_conf_ip_port_range(
+        max(NONPROD_PORT_HIGH, PROD_PORT_HIGH) + 1,  # Highest in PROD/NONPROD
+        65535                                        # Default
+    )
+    # Load empty default rules.
     _iptables_restore(templates.render(IPTABLES_EMPTY_RESTORE))
 
 

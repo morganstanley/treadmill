@@ -27,6 +27,7 @@ _PROC_CONF_PROXY_ARP = '/proc/sys/net/ipv4/conf/{dev}/proxy_arp'
 _PROC_CONF_FORWARDING = '/proc/sys/net/ipv4/conf/{dev}/forwarding'
 _PROC_CONF_ARP_IGNORE = '/proc/sys/net/ipv4/conf/{dev}/arp_ignore'
 _PROC_CONF_ROUTE_LOCALNET = '/proc/sys/net/ipv4/conf/{dev}/route_localnet'
+_PROC_NET_LOCAL_PORT_RANGE = '/proc/sys/net/ipv4/ip_local_port_range'
 
 
 def dev_mtu(devname):
@@ -510,6 +511,20 @@ def gre_delete(grename):
             'del', grename,
             'mode', 'gre',
         ],
+    )
+
+
+def net_conf_ip_port_range(lower, upper):
+    """Configure the usable ephemeral port range.
+    """
+    assert lower <= upper
+
+    _proc_sys_write(
+        _PROC_NET_LOCAL_PORT_RANGE,
+        '{lower:d} {upper:d}'.format(
+            lower=lower,
+            upper=upper
+        )
     )
 
 

@@ -162,6 +162,8 @@ def handle_context_opt(ctx, param, value):
         context.GLOBAL.ldap.password = _read_password(value)
     elif opt == 'zookeeper':
         context.GLOBAL.zk.url = value
+    elif opt == 'zookeeper_session_timeout':
+        context.GLOBAL.zk.session_timeout = value
     elif opt == 'profile':
         context.GLOBAL.set_profile_name(value)
         init_profile()

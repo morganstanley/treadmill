@@ -1,9 +1,18 @@
 {
     "$schema": "http://json-schema.org/draft-04/schema#",
     "resource_id": {
-        "type": "string",
-        "maxLength": 60,
-        "pattern": "^[a-zA-Z0-9_-]+(\\.[a-zA-Z0-9\\-_^#]+)+$"
+        "anyOf": [
+            {
+                "type": "string",
+                "maxLength": 127,
+                "pattern": "^[\\w\\-]+(\\.[\\w\\-^#]+)+$"
+            },
+            {
+                "type": "string",
+                "maxLength": 127,
+                "pattern": "^[\\w\\-]+@[\\w\\-]+(\\.[\\w\\-^#]+)+$"
+            }
+        ]
     },
     "resource": {
         "type": "object",
@@ -12,11 +21,19 @@
             "cells": {
                 "type": "array",
                 "items": { "$ref": "common.json#/cell" },
-                "minItems": 1
+                "minItems": 0
             },
             "pattern": {
-                "type": "string",
-                "pattern": "^[a-zA-Z0-9_-]+\\..+$"
+                "anyOf": [
+                    {
+                        "type": "string",
+                        "pattern": "^[\\w\\-]+\\..+$"
+                    },
+                    {
+                        "type": "string",
+                        "pattern": "^[\\w\\-]+\\@[\\w\\-]+\\..+$"
+                    }
+                ]
             },
             "pending": {
                 "type": "integer",

@@ -99,6 +99,7 @@ authz-group = treadmill.api.authz.group
 [treadmill.api.allocation.plugins]
 
 [treadmill.websocket.api]
+app-group = treadmill.websocket.api.app_group
 endpoint = treadmill.websocket.api.endpoint
 identity-group = treadmill.websocket.api.identity_group
 state = treadmill.websocket.api.state
@@ -224,6 +225,7 @@ server = treadmill.cli.admin.ldap.server
 tenant = treadmill.cli.admin.ldap.tenant
 
 [treadmill.cli.admin.checkout]
+ldap = treadmill.cli.admin.checkout.ldap
 zk = treadmill.cli.admin.checkout.zk
 servers = treadmill.cli.admin.checkout.servers
 

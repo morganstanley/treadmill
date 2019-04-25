@@ -535,9 +535,11 @@ class MasterTest(mockzk.MockZookeeperTestCase):
         cell.add_node(srv_2)
         cell.add_node(srv_3)
         cell.add_node(srv_4)
+        cell.configure_identity_group('foo.bar', 1)
 
         app1 = scheduler.Application('app1', 4, [1, 1, 1], 'app')
-        app2 = scheduler.Application('app2', 3, [2, 2, 2], 'app')
+        app2 = scheduler.Application('app2', 3, [2, 2, 2], 'app',
+                                     identity_group='foo.bar')
 
         cell.add_app(cell.partitions[None].allocation, app1)
         cell.add_app(cell.partitions[None].allocation, app2)
@@ -545,10 +547,16 @@ class MasterTest(mockzk.MockZookeeperTestCase):
         # At this point app1 is on server 1, app2 on server 2.
         self.master.reschedule()
         treadmill.zkutils.put.assert_has_calls([
-            mock.call(mock.ANY, '/placement/1/app1',
-                      {'expires': 500, 'identity': None}, acl=mock.ANY),
-            mock.call(mock.ANY, '/placement/2/app2',
-                      {'expires': 500, 'identity': None}, acl=mock.ANY),
+            mock.call(
+                mock.ANY, '/placement/1/app1',
+                {'expires': 500, 'identity': None, 'identity_count': None},
+                acl=mock.ANY
+            ),
+            mock.call(
+                mock.ANY, '/placement/2/app2',
+                {'expires': 500, 'identity': 0, 'identity_count': 1},
+                acl=mock.ANY
+            ),
         ], any_order=True)
 
         treadmill.zkutils.ensure_deleted.reset_mock()
@@ -560,8 +568,11 @@ class MasterTest(mockzk.MockZookeeperTestCase):
             mock.call(mock.ANY, '/placement/1/app1'),
         ])
         treadmill.zkutils.put.assert_has_calls([
-            mock.call(mock.ANY, '/placement/3/app1',
-                      {'expires': 500, 'identity': None}, acl=mock.ANY),
+            mock.call(
+                mock.ANY, '/placement/3/app1',
+                {'expires': 500, 'identity': None, 'identity_count': None},
+                acl=mock.ANY
+            ),
             mock.call(mock.ANY, '/placement', mock.ANY, acl=mock.ANY),
         ])
         # Verify that placement data was properly saved as a compressed json.
@@ -605,8 +616,11 @@ class MasterTest(mockzk.MockZookeeperTestCase):
 
         self.master.reschedule()
         treadmill.zkutils.put.assert_has_calls([
-            mock.call(mock.ANY, '/placement/1/app1',
-                      {'expires': 500, 'identity': None}, acl=mock.ANY),
+            mock.call(
+                mock.ANY, '/placement/1/app1',
+                {'expires': 500, 'identity': None, 'identity_count': None},
+                acl=mock.ANY
+            ),
         ])
 
         app2.priority = 5
@@ -616,8 +630,11 @@ class MasterTest(mockzk.MockZookeeperTestCase):
             mock.call(mock.ANY, '/placement/1/app1'),
         ])
         treadmill.zkutils.put.assert_has_calls([
-            mock.call(mock.ANY, '/placement/2/app2',
-                      {'expires': 500, 'identity': None}, acl=mock.ANY),
+            mock.call(
+                mock.ANY, '/placement/2/app2',
+                {'expires': 500, 'identity': None, 'identity_count': None},
+                acl=mock.ANY
+            ),
         ])
 
     @mock.patch('kazoo.client.KazooClient.get', mock.Mock())
@@ -652,10 +669,16 @@ class MasterTest(mockzk.MockZookeeperTestCase):
         # At this point app1 is on server 1, app2 on server 2.
         self.master.reschedule()
         treadmill.zkutils.put.assert_has_calls([
-            mock.call(mock.ANY, '/placement/1/app1',
-                      {'expires': 500, 'identity': None}, acl=mock.ANY),
-            mock.call(mock.ANY, '/placement/2/app2',
-                      {'expires': 500, 'identity': None}, acl=mock.ANY),
+            mock.call(
+                mock.ANY, '/placement/1/app1',
+                {'expires': 500, 'identity': None, 'identity_count': None},
+                acl=mock.ANY
+            ),
+            mock.call(
+                mock.ANY, '/placement/2/app2',
+                {'expires': 500, 'identity': None, 'identity_count': None},
+                acl=mock.ANY
+            ),
         ], any_order=True)
 
         srv_1.state = scheduler.State.down
@@ -2135,7 +2158,7 @@ class MasterTest(mockzk.MockZookeeperTestCase):
         treadmill.zkutils.put.assert_any_call(
             mock.ANY,
             '/placement/test1.xx.com/xxx.app1#1234',
-            {'identity': None, 'expires': 501},
+            {'identity': None, 'identity_count': None, 'expires': 501},
             acl=mock.ANY
         )
         event = os.path.join(

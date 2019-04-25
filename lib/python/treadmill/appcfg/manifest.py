@@ -127,6 +127,7 @@ def load(event):
     _set_default('vring', {})
     _set_default('cells', [], manifest['vring'])
     _set_default('identity_group', None)
+    _set_default('identity_count', None)
     _set_default('identity', None)
     _set_default('data_retention_timeout', None)
     _set_default('lease', None)
