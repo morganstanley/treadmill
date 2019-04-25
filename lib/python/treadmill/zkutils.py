@@ -180,7 +180,7 @@ def disconnect(zkclient):
 
 def connect(zkurl, idpath=None, listener=None, max_tries=30,
             timeout=ZK_MAX_CONNECTION_START_TIMEOUT, chroot=None,
-            **connargs):
+            session_timeout=None, **connargs):
     """Establish connection with Zk and return KazooClient.
 
     :param max_tries:
@@ -204,6 +204,7 @@ def connect(zkurl, idpath=None, listener=None, max_tries=30,
         listener=listener,
         timeout=timeout, max_tries=max_tries,
         chroot=chroot,
+        session_timeout=session_timeout,
         **connargs
     )
 
@@ -217,7 +218,7 @@ def connect(zkurl, idpath=None, listener=None, max_tries=30,
 
 def connect_native(zkurl, client_id=None, listener=None, max_tries=30,
                    timeout=ZK_MAX_CONNECTION_START_TIMEOUT, chroot=None,
-                   **connargs):
+                   session_timeout=None, **connargs):
     """Establish connection with Zk and return KazooClient.
     """
     _LOGGER.debug('Connecting to %s', zkurl)
@@ -258,6 +259,9 @@ def connect_native(zkurl, client_id=None, listener=None, max_tries=30,
         'command_retry': zk_retry,
         'hosts': hosts,
     })
+
+    if session_timeout is not None:
+        connargs['timeout'] = session_timeout
 
     _LOGGER.debug(
         'Connecting to zookeeper: [%s:%s]: %r',

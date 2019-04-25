@@ -57,9 +57,12 @@ def init():
 
         tm_env = appenv.AppEnvironment(approot)
         stop_on_lost = functools.partial(_stop_on_lost, tm_env)
-        zkclient = zkutils.connect(context.GLOBAL.zk.url,
-                                   idpath=zkid,
-                                   listener=stop_on_lost)
+        zkclient = zkutils.connect(
+            context.GLOBAL.zk.url,
+            idpath=zkid,
+            listener=stop_on_lost,
+            session_timeout=context.GLOBAL.zk.session_timeout
+        )
 
         while not zkclient.exists(z.SERVER_PRESENCE):
             _LOGGER.warning('namespace not ready.')

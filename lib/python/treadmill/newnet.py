@@ -12,9 +12,10 @@ import os
 import logging
 import multiprocessing
 
-from . import utils
+from . import exc
 from . import iptables
 from . import netdev
+from . import utils
 from .syscall import unshare
 
 
@@ -66,11 +67,13 @@ def create_newnet(veth, dev_ip, gateway_ip, service_ip=None):
         # the container (self)
         while True:
             try:
-                # FIXME(boysson): We need to check the child exited properly
-                (_pid, _status) = os.waitpid(childpid, 0)
+                (_pid, status) = os.waitpid(childpid, 0)
+                # We need to check the child exited properly
+                if not os.WIFEXITED(status) or os.WEXITSTATUS(status) != 0:
+                    raise exc.TreadmillError('network namespace setup error')
                 break
-            except OSError as exc:
-                if exc.errno == errno.EINTR:
+            except OSError as err:
+                if err.errno == errno.EINTR:
                     _LOGGER.info('waitpid interrupted, cont.')
                 else:
                     _LOGGER.exception('unhandled waitpid exception')
@@ -83,9 +86,17 @@ def create_newnet(veth, dev_ip, gateway_ip, service_ip=None):
         _configure_veth(veth, dev_ip, gateway_ip, service_ip)
 
     else:
-        # Child - wait for the parent to unshare network subsystem, then
+        # Child
+        # Wait for the parent to unshare network subsystem, then
         # proceed with passing the veth into the namespace.
-        unshared_event.wait()
+        # Handle the case where parent is killed.
+        while not unshared_event.wait(0.1):
+            # Still not ready, make sure parent is still alive.
+            ppid = os.getppid()
+            if ppid != pid:
+                # If we changed parent, the other side is gone.
+                utils.sys_exit(255)
+
         unshared_event = None
         # Move container device into the network namespace of the target
         # process.

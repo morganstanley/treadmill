@@ -11,6 +11,7 @@ import json
 import logging
 import os
 import random
+import socket
 from urllib import parse as urlparse
 
 from twisted.internet import protocol
@@ -56,6 +57,12 @@ class WarpgatePolicyServer(jsonserver.GSSAPIJsonServer):
         # TODO: Isn't there a way to do thing through Twisted?
         laddr = self.transport.socket.getsockname()
         raddr = self.transport.socket.getpeername()
+        # Enable TCP heartbeat on the control channel
+        self.transport.socket.setsockopt(
+            socket.SOL_SOCKET,
+            socket.SO_KEEPALIVE,
+            1
+        )
         _LOGGER.debug('Warpgate cnx: %r <-> %r', laddr, raddr)
 
         reply = self._process_request(
@@ -102,9 +109,9 @@ class WarpgatePolicyServer(jsonserver.GSSAPIJsonServer):
             name=policy_name
         )
         if not session:
-            _LOGGER.warning('Nonexistent session %r', policy_name)
+            _LOGGER.warning('Nonexistent policy %r', policy_name)
             return {
-                '_error': 'no session'
+                '_denied': 'no such policy'
             }
         # XXX: Find a better scheme to select session id
         session['id'] = random.randint(0, (2**32) - 1)
@@ -189,7 +196,7 @@ class WarpgatePolicyServerFactory(protocol.Factory):
         fs.mkdir_safe(state_dir)
 
         self._networks = _init_networks(self._state_dir, tun_cidrs)
-        # Now that the network routes (blackhost) are enabled, we can enable
+        # Now that the network (blackhole) routes are installed, we can enable
         # forwarding.
         netdev.dev_conf_forwarding_set(endpoint_dev, True)
 

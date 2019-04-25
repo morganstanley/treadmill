@@ -54,6 +54,21 @@
                             {{ _alias.exit }} 0
                     }
             }
+            {{ _alias.foreground }} {
+                {{ _alias.forbacktickx }} -o 0 STATE_FILE
+                    {
+                        {{ _alias.find }}  {{ wait_cgroups }} -depth -name freezer.state
+                    }
+                    {{ _alias.importas }} -nu STATE_FILE STATE_FILE
+                    {{ _alias.foreground }} {
+                        {{ _alias.echo }} "Thawing ${STATE_FILE}"
+                    }
+                    {{ _alias.foreground }} {
+                        {{ _alias.redirfd }} -w 1 ${STATE_FILE}
+                        {{ _alias.echo }} "THAWED"
+                    }
+                    {{ _alias.exit }} 0
+            }
             {{ _alias.exit }} 0
         }
         {

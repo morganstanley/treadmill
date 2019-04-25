@@ -128,7 +128,8 @@ def open_service(service_dir, existing=True):
 
 # Disable W0613: Unused argument 'kwargs' (for s6/winss compatibility)
 # pylint: disable=W0613
-def _create_scan_dir_s6(scan_dir, finish_timeout, wait_cgroups=None,
+def _create_scan_dir_s6(scan_dir, finish_timeout,
+                        wait_cgroups=None,
                         kill_svc=None, **kwargs):
     """Create a scan directory.
 

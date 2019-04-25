@@ -46,6 +46,7 @@ def create_environ_dir(container_dir, root_dir, app):
         'TREADMILL_DISK': app.disk,
         'TREADMILL_HOST_IP': app.network.external_ip,
         'TREADMILL_IDENTITY': app.identity,
+        'TREADMILL_IDENTITY_COUNT': app.identity_count,
         'TREADMILL_IDENTITY_GROUP': app.identity_group,
         'TREADMILL_INSTANCEID': app.task,
         'TREADMILL_MEMORY': app.memory,
@@ -655,8 +656,8 @@ class NativeImage(_image_base.Image):
         create_supervision_tree(
             self.tm_env, container_dir, root_dir, app,
             cgroups_path=cgroups.makepath(
-                'memory', cgrp
-            )
+                'freezer', cgrp
+            ),
         )
         create_overlay(self.tm_env, container_dir, root_dir, app)
 
