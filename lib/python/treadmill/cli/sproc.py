@@ -17,6 +17,22 @@ from treadmill import osnoop
 
 _LOGGER = logging.getLogger(__name__)
 
+_EXCLUDE_SUBSYSTEM = 'net_prio'
+
+
+def get_subsystems():
+    """subsystem to join
+    we exclude net_prio for now
+    as RH6 has issue to create subsubsytem in net_prio
+    """
+    from treadmill import cgroups
+    subsystems = cgroups.mounted_subsystems()
+
+    if _EXCLUDE_SUBSYSTEM in subsystems:
+        del subsystems[_EXCLUDE_SUBSYSTEM]
+
+    return subsystems.keys()
+
 
 @osnoop.windows
 def _configure_service_cgroups(cgroup, root_cgroup):
@@ -36,7 +52,8 @@ def _configure_service_cgroups(cgroup, root_cgroup):
     parent = os.path.dirname(group)
 
     # create group directory
-    for subsystem in ['memory', 'cpu', 'cpuacct', 'cpuset', 'blkio']:
+    subsystems = get_subsystems()
+    for subsystem in subsystems:
         _LOGGER.info('creating : %s/%s', subsystem, group)
         cgutils.create(subsystem, group)
 
@@ -61,7 +78,7 @@ def _configure_service_cgroups(cgroup, root_cgroup):
     cgroups.inherit_value('cpuset', group, 'cpuset.mems')
 
     # join cgroup
-    for subsystem in ['memory', 'cpu', 'cpuacct', 'cpuset', 'blkio']:
+    for subsystem in subsystems:
         _LOGGER.info('joining: %s/%s', subsystem, group)
         cgroups.join(subsystem, group)
 
@@ -82,6 +99,10 @@ def init():
                   envvar='TREADMILL_ZOOKEEPER',
                   callback=cli.handle_context_opt,
                   expose_value=False)
+    @click.option('--zookeeper-session-timeout', required=False,
+                  envvar='TREADMILL_ZOOKEEPER_SESSION_TIMEOUT',
+                  callback=cli.handle_context_opt,
+                  expose_value=False, type=int)
     @click.option('--root-cgroup', default='treadmill',
                   envvar='TREADMILL_ROOT_CGROUP', required=False)
     @click.pass_context

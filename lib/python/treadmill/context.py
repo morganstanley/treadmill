@@ -301,6 +301,7 @@ class ZkContext:
         '_conn',
         '_listeners',
         'idpath',
+        'session_timeout',
     )
 
     def __init__(self, ctx):
@@ -308,6 +309,7 @@ class ZkContext:
         self._conn = None
         self._listeners = []
         self.idpath = None
+        self.session_timeout = None
 
     def add_listener(self, listener):
         """Add a listener.
@@ -337,7 +339,11 @@ class ZkContext:
         _LOGGER.debug('Connecting to Zookeeper %s', self.url)
 
         plugin = plugin_manager.load('treadmill.context', 'zookeeper')
-        self._conn = plugin.connect(self.url, idpath=self.idpath)
+        self._conn = plugin.connect(
+            self.url,
+            idpath=self.idpath,
+            session_timeout=self.session_timeout
+        )
         if self._listeners:
             for listener in self._listeners:
                 self._conn.add_listener(listener)

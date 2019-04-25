@@ -74,6 +74,8 @@ class IptablesTest(unittest.TestCase):
     @mock.patch('treadmill.iptables.create_chain', mock.Mock(set_spec=True))
     @mock.patch('treadmill.iptables._iptables_restore',
                 mock.Mock(set_spec=True))
+    @mock.patch('treadmill.netdev.net_conf_ip_port_range',
+                mock.Mock(set_spec=True))
     def test_initialize(self):
         """Test iptables initialization"""
         # Disable protected-access: Test access protected members .
@@ -82,6 +84,7 @@ class IptablesTest(unittest.TestCase):
         # NOTE: keep this IP in sync with the tests' state file dumps
         iptables.initialize('1.2.3.4')
 
+        treadmill.netdev.net_conf_ip_port_range(49152, 65535)
         treadmill.iptables.ipset_restore.assert_called_with(
             self.ipset_state
         )
@@ -121,11 +124,14 @@ class IptablesTest(unittest.TestCase):
             use_except=True
         )
 
+    @mock.patch('treadmill.netdev.net_conf_ip_port_range',
+                mock.Mock(set_spec=True))
     @mock.patch('treadmill.subproc.invoke', mock.Mock(return_value=(0, '')))
     def test_initialize_container(self):
         """Test iptables container initialization"""
         iptables.initialize_container()
 
+        treadmill.netdev.net_conf_ip_port_range(49152, 65535)
         treadmill.subproc.invoke.assert_called_with(
             ['iptables_restore'],
             cmd_input=self.iptables_empty_state,

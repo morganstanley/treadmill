@@ -16,9 +16,9 @@ import click
 from treadmill import cli
 from treadmill import context
 from treadmill import dnsutils
-from treadmill import krb
 from treadmill import exc
 from treadmill import restclient
+from treadmill import tickets
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -27,28 +27,33 @@ _ON_EXCEPTIONS = cli.handle_exceptions([
 ])
 
 
-def _run_tkt_sender(cells):
-    """Actually run ticket sender"""
+def _forward_ticket(cells):
+    """Forward tickets to list of cells."""
     dns_domain = context.GLOBAL.dns_domain
 
     tktfwd_spn = None
     if os.name == 'nt':
-        tktfwd_spn = _tktfwd_spn(dns_domain)
-        _LOGGER.debug('Using tktfwd SPN: %s', tktfwd_spn)
+        _LOGGER.fatal('Unsupported platform.')
+        return 100
 
-    failure = 0
+    rc = 0
     for cellname in cells:
+        endpoints = _check_cell(cellname, 'ticketsreceiver', dns_domain)
+        if not endpoints:
+            _LOGGER.warning('All ticket receiver endpoints are down, cell: %s',
+                            cellname)
+            rc = 2
 
-        endpoints_v2 = _check_cell(cellname, 'tickets-v2', dns_domain)
-        if not endpoints_v2:
-            _LOGGER.error('Ticket locker is down for cell: %s', cellname)
-            failure += 1
-        else:
-            failure += krb.forward(
-                cellname, endpoints_v2, tktfwd_spn=tktfwd_spn
-            )
+        for host, port in endpoints:
+            if tickets.forward(host, int(port)):
+                _LOGGER.info('Tickets forwarded successfully: %s %s:%s',
+                             cellname, host, port)
+            else:
+                _LOGGER.warning('Error forwarding tickets: %s %s:%s',
+                                cellname, host, port)
+                rc = 1
 
-    return failure
+    return rc
 
 
 def _get_cells():
@@ -83,19 +88,6 @@ def _check_cell(cellname, appname, dns_domain):
     return active
 
 
-def _tktfwd_spn(dns_domain):
-    """Return tktfwd SPN for given dns domain."""
-    tktfwd_rec = dnsutils.txt(
-        'tktfwd.%s' % (dns_domain),
-        context.GLOBAL.dns_server
-    )
-
-    if tktfwd_rec:
-        return tktfwd_rec[0]
-    else:
-        return None
-
-
 def init():
     """Return top level command handler"""
 
@@ -110,9 +102,7 @@ def init():
         if not cell:
             cells = _get_cells()
 
-        failure = _run_tkt_sender(cells)
-        # TODO: it seems like returning from click callback with non-0 does not
-        #       set the $? correctly.
-        sys.exit(failure)
+        rc = _forward_ticket(cells)
+        sys.exit(rc)
 
     return forward

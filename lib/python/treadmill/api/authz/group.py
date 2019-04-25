@@ -79,25 +79,34 @@ class API:
                 try:
                     group = grp.getgrnam(group_name)
                     members = group.gr_mem
-                    _LOGGER.info(
-                        'Authorized: User %s is member of %s.',
-                        username,
-                        group_name
-                    )
 
                     if username in members:
+                        _LOGGER.info(
+                            'Authorized: User %s is member of %s.',
+                            username,
+                            group_name
+                        )
                         return True, why
                     else:
+                        _LOGGER.debug(
+                            'User %s not in %s', username, group_name
+                        )
                         why.append(
-                            '{} not member of {}'.format(
+                            '{} not in {}'.format(
                                 username,
                                 group_name
                             )
                         )
                 except KeyError:
-                    _LOGGER.info('Group does not exist: %s', group_name)
+                    _LOGGER.info(
+                        'Group does not exist: %s', group_name
+                    )
                     why.append('no such group: {}'.format(group_name))
 
+            _LOGGER.info(
+                'Not authorized: %s %s %s %s',
+                user, action, resource, resource_id
+            )
             return False, why
 
         self.authorize = authorize

@@ -392,14 +392,14 @@ class NativeImageTest(unittest.TestCase):
             base_dir,
             os.path.join(base_dir, 'root'),
             app,
-            '/test/cgroup/path'
+            '/test/cgroup/path',
         )
 
         treadmill.supervisor.create_scan_dir.assert_has_calls([
             mock.call(
                 os.path.join(base_dir, 'sys'),
                 finish_timeout=6000,
-                wait_cgroups='/test/cgroup/path'
+                wait_cgroups='/test/cgroup/path',
             ),
             mock.call().write(),
             mock.call(

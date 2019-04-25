@@ -48,7 +48,9 @@ def _apply_policy(policy, devname, devaddr):
 
 
 def _init_network():
-    """Re-initialize the network environment.
+    """(Re)initialize the network environment.
+
+    This is done once per WarpGate client start.
     """
     # Clean up old interfaces
     for old_devname in _utils.wg_dev_list():
@@ -92,17 +94,21 @@ def run_client(policy_servers, service_principal, policy_name,
             port = int(port)
             principal = '{}@{}'.format(service_principal, host)
 
+            nb_retries += 1
             _LOGGER.info('Connecting to %s on %s:%s', principal, host, port)
             client = jsonclient.GSSAPIJsonClient(
                 host, port, principal
             )
             try:
                 if not client.connect():
-                    nb_retries += 1
                     continue
 
-                # We connected
-                nb_retries = 0
+                # Enable TCP heartbeat on the control channel
+                client.sock.setsockopt(
+                    socket.SOL_SOCKET,
+                    socket.SO_KEEPALIVE,
+                    1
+                )
 
                 # Request the policy
                 client.write_json(
@@ -112,19 +118,31 @@ def run_client(policy_servers, service_principal, policy_name,
                 )
                 policy = client.read_json()
                 _LOGGER.info('Policy[%s]: %r', policy_name, policy)
-                # TODO: Validate policy response.
-                if '_error' in policy:
-                    # TODO: handle temporary(fail) vs permanent(denied)
-                    #       failures. For now, always abort
+
+                # TODO: Validate policy response schema.
+
+                # Handle temporary(error) vs permanent(denied) failures.
+                if '_denied' in policy:
                     nb_retries = -1
                     break
+                elif '_error' in policy:
+                    break
+                else:
+                    # We succesfuly connected, reset the retry count
+                    nb_retries = 0
 
                 _apply_policy(policy, tun_dev, tun_addr)
 
+                # TODO: Implement health checks over the tun interface
+
                 # This will block, holding the connection.
-                wait_for_reply = client.read()
-                if wait_for_reply is None:
-                    continue
+                while True:
+                    wait_for_reply = client.read()
+                    if not wait_for_reply:
+                        # Short read, connection closed.
+                        break
+                    _LOGGER.warning('Unexpected message: %r', wait_for_reply)
+
             except socket.error as sock_err:
                 _LOGGER.warning('Exception connecting to %s:%s - %s',
                                 host, port, sock_err)

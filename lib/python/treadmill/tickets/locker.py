@@ -26,8 +26,6 @@ from treadmill import zkutils
 
 _LOGGER = logging.getLogger(__name__)
 
-_DIRWATCH_EVENTS_COUNT = 10
-
 
 class TicketLocker:
     """Manages ticket exchange between ticket locker and the container."""

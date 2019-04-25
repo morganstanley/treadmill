@@ -182,15 +182,27 @@ def get_listening_server(locker, port):
             }
             return _response(success=True, keytabs=keytabs)
 
+        def _delete(self, req):
+            """delete keytab if removed
+            """
+            try:
+                keytab = req['keytab']
+            except KeyError:
+                raise _KeytabLockerError('No "keytab" in request')
+
+            _LOGGER.info('Delete keytab: %s', keytab)
+            fs.rm_safe(os.path.join(locker.kt_spool_dir, keytab))
+            return _response(success=True)
+
         def _put(self, req):
             """Store encoded keytab.
             """
             try:
                 keytab, encoded = req['keytab'], req['encoded']
             except KeyError:
-                raise _KeytabLockerError('Miss "keytab" or "encoded"')
+                raise _KeytabLockerError('No "keytab" or "encoded" in request')
 
-            _LOGGER.info('put %s - %s',
+            _LOGGER.info('Put keytab: %s - %s',
                          keytab,
                          hashlib.sha1(encoded).hexdigest())
 
@@ -208,6 +220,8 @@ def get_listening_server(locker, port):
                     return self._get(request)
                 elif action == 'put':
                     return self._put(request)
+                elif action == 'del':
+                    return self._delete(request)
                 else:
                     return _response(success=False, message='Unknown Action')
 

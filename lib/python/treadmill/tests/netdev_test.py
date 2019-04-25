@@ -527,6 +527,19 @@ class NetDevTest(unittest.TestCase):
         )
 
     @mock.patch('io.open', mock.mock_open())
+    def test_net_conf_ip_port_range(self):
+        """Test enabling to local network routing on interface.
+        """
+        mock_handle = io.open.return_value
+
+        netdev.net_conf_ip_port_range(42, 43)
+
+        io.open.assert_called_with(
+            '/proc/sys/net/ipv4/ip_local_port_range', 'w'
+        )
+        mock_handle.write.assert_called_with('42 43')
+
+    @mock.patch('io.open', mock.mock_open())
     def test_dev_conf_route_lnet_set(self):
         """Test enabling to local network routing on interface.
         """

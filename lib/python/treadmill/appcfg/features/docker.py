@@ -99,15 +99,19 @@ def _generate_dockerd_service(tm_env, manifest):
         default_ulimit=default_ulimit,
     )
 
+    tls_enabled = False
     tls_conf = _get_tls_conf(tm_env)
-    if tls_conf['ca_cert']:
+
+    if tls_conf.get('ca_cert'):
         command += (
             ' --tlsverify'
             ' --tlscacert={ca_cert}'
         ).format(
             ca_cert=tls_conf['ca_cert'],
         )
-    if tls_conf['host_cert'] or tls_conf['host_key']:
+        tls_enabled = True
+
+    if tls_conf.get('host_cert') or tls_conf.get('host_key'):
         # NOTE: host_cert/host_key come in pair.
         command += (
             ' --tlscert={host_cert}'
@@ -124,6 +128,12 @@ def _generate_dockerd_service(tm_env, manifest):
         ).format(
             registry=registry_name
         )
+        if not tls_enabled:
+            command += (
+                ' --insecure-registry {registry}'
+            ).format(
+                registry=registry_name
+            )
 
     dockerd_svc = {
         'name': 'dockerd',
@@ -148,10 +158,15 @@ def _get_tls_conf(tm_env):
     :returns:
         ``dict(ca_cert=str, host_cert=str, host_key=str)`` -- Paths to the
         CA root certificate, host certificate and host key.
+        ``dict()`` -- Empty dict if key not found.
     """
     # get registry address from node.json
     data = nodedata.get(tm_env.configs_dir)
-    tls_conf = data['tls_certs']
+    tls_conf = data.get('tls_certs')
+
+    if not tls_conf:
+        return {}
+
     return {
         'ca_cert': tls_conf.get('ca_cert', ''),
         'host_cert': tls_conf.get('host_cert', ''),
