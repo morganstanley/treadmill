@@ -11,6 +11,7 @@ import os
 import glob
 import errno
 import socket
+import time
 import logging
 
 import click
@@ -20,6 +21,9 @@ from treadmill import dirwatch
 
 
 _LOGGER = logging.getLogger(__name__)
+
+# In case there is DNS resolution error, retry every 10sec.
+_DNS_RETRY_INTERVAL = 10 * 1000
 
 
 def _canonical(hostname):
@@ -49,9 +53,10 @@ def _resolve(path, aliases):
                 del aliases[alias]
 
 
-def _generate(aliases, original, dest):
+def _generate(aliases, original, dest, retry):
     """Generate target hosts file."""
     _LOGGER.info('Generating: %s', dest)
+    retry.clear()
     with io.open(dest, 'w') as f:
         f.write(original)
         for alias, hostname in six.iteritems(aliases):
@@ -63,6 +68,13 @@ def _generate(aliases, original, dest):
                     fqdn=fqdn,
                     alias=alias
                 ))
+            except socket.gaierror as err:
+                _LOGGER.info(
+                    'Unable to resolve hostname: %s, errno: %s',
+                    hostname,
+                    err.errno
+                )
+                retry.add(1)
             except Exception:  # pylint: disable=W0703
                 _LOGGER.warning('Invalid alias: %s, %s', alias, hostname)
 
@@ -78,6 +90,7 @@ def init():
     def hosts_aliases_cmd(aliases_dir, source, dest):
         """Manage /etc/hosts aliases."""
         aliases = {}
+        retry = set()
         with io.open(source, 'r') as fd:
             original = fd.read()
 
@@ -87,7 +100,7 @@ def init():
                 return
 
             _resolve(path, aliases)
-            _generate(aliases, original, dest)
+            _generate(aliases, original, dest, retry)
 
         def _on_deleted(path):
             """Callback invoked when alias is removed."""
@@ -96,7 +109,7 @@ def init():
             if alias in aliases:
                 del aliases[alias]
 
-            _generate(aliases, original, dest)
+            _generate(aliases, original, dest, retry)
 
         watcher = dirwatch.DirWatcher(aliases_dir)
         watcher.on_created = _on_created
@@ -110,10 +123,16 @@ def init():
 
             _resolve(path, aliases)
 
-        _generate(aliases, original, dest)
+        _generate(aliases, original, dest, retry)
 
+        last_retry = 0
         while True:
             if watcher.wait_for_events(timeout=100):
                 watcher.process_events(max_events=100)
+                last_retry = time.time()
+
+            if retry and (time.time() > (last_retry + _DNS_RETRY_INTERVAL)):
+                _generate(aliases, original, dest, retry)
+                last_retry = time.time()
 
     return hosts_aliases_cmd
