@@ -46,6 +46,7 @@ DEFAULTS = {
         '/,/dev*,/proc*,/sys*,/run*,/mnt*,'
     ),
     'docker_network': 'nat',
+    'zookeeper_session_timeout': None,
 }
 
 ALIASES = aliases.ALIASES

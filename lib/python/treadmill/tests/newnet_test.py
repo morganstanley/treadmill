@@ -50,6 +50,7 @@ class NewnetTest(unittest.TestCase):
     @mock.patch('multiprocessing.synchronize.Event', mock.Mock())
     @mock.patch('os.fork', mock.Mock(return_value=0))
     @mock.patch('os.getpid', mock.Mock(return_value=7777))
+    @mock.patch('os.getppid', mock.Mock(return_value=7777))
     @mock.patch('treadmill.netdev.link_set_netns', mock.Mock())
     @mock.patch('treadmill.utils.sys_exit', mock.Mock())
     def test_create_newnet_child(self):
@@ -65,6 +66,54 @@ class NewnetTest(unittest.TestCase):
             'foo1234', 7777,
         )
         treadmill.utils.sys_exit.assert_called_with(0)
+
+    @mock.patch('multiprocessing.synchronize.Event', mock.Mock())
+    @mock.patch('os.fork', mock.Mock(return_value=0))
+    @mock.patch('os.getpid', mock.Mock(return_value=7777))
+    @mock.patch('os.getppid', mock.Mock(return_value=1))
+    @mock.patch('treadmill.netdev.link_set_netns', mock.Mock())
+    @mock.patch('treadmill.utils.sys_exit', mock.Mock())
+    def test_create_newnet_child_fail(self):
+        """Tests configuring veth pair failure (child, parent dies)"""
+        mock_event = multiprocessing.synchronize.Event.return_value
+        mock_event.wait.return_value = False
+        treadmill.utils.sys_exit.side_effect = SystemExit()
+
+        self.assertRaises(
+            SystemExit,
+            newnet.create_newnet,
+            'foo1234', '192.168.0.100', '192.168.254.254', '10.0.0.1',
+        )
+
+        self.assertTrue(mock_event.wait.called)
+        self.assertFalse(treadmill.netdev.link_set_netns.called)
+        treadmill.utils.sys_exit.assert_called_with(255)
+
+    @mock.patch('multiprocessing.synchronize.Event', mock.Mock())
+    @mock.patch('os.fork', mock.Mock(return_value=1234))
+    @mock.patch('os.getpid', mock.Mock(return_value=7777))
+    @mock.patch('os.waitpid', mock.Mock())
+    @mock.patch('treadmill.syscall.unshare.unshare', mock.Mock(return_value=0))
+    @mock.patch('treadmill.newnet._configure_veth', mock.Mock())
+    def test_create_newnet_parent_fail(self):
+        """Tests configuring unshared network (parent, child fails)"""
+        # Access protected _configure_veth
+        # pylint: disable=W0212
+        mock_event = multiprocessing.synchronize.Event.return_value
+        os.waitpid.return_value = (1234, 255 << 8)
+
+        self.assertRaises(
+            treadmill.exc.TreadmillError,
+            newnet.create_newnet,
+            'foo1234', '192.168.0.100', '192.168.254.254', '10.0.0.1',
+        )
+
+        treadmill.syscall.unshare.unshare.assert_called_with(
+            treadmill.syscall.unshare.CLONE_NEWNET
+        )
+        self.assertTrue(mock_event.set.called)
+        os.waitpid.assert_called_with(1234, 0)
+        self.assertFalse(treadmill.newnet._configure_veth.called)
 
     @mock.patch('treadmill.iptables.initialize_container', mock.Mock())
     @mock.patch('treadmill.netdev.addr_add', mock.Mock())

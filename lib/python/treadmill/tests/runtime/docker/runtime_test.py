@@ -59,6 +59,7 @@ class DockerRuntimeTest(unittest.TestCase):
             'name': 'proid.app#001',
             'uniqueid': 'abcdefghijklm',
             'identity': None,
+            'identity_count': None,
             'identity_group': None,
             'proid': 'proid',
             'environment': 'dev',

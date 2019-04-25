@@ -55,10 +55,11 @@ def _print_check_result(description, data, status):
 def _run_check(conn, check, verbose, index_col):
     """Run check."""
     query = check['query']
-    metric = check['metric']
     alerts = check.get('alerts', [])
 
-    cursor = conn.execute(metric.format(query=query))
+    metric_sql = check['metric'].format(query=query)
+    _LOGGER.debug('metric_sql: %s', metric_sql)
+    cursor = conn.execute(metric_sql)
     check_failed = False
     empty = True
     for row in cursor:

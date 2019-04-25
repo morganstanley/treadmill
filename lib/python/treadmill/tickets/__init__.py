@@ -278,3 +278,41 @@ def store_ticket(tkt, tkt_spool_dir):
                      os.path.basename(tkt_spool_path))
         fs.symlink_safe(tkt_spool_link, os.path.basename(tkt_spool_path))
     return True
+
+
+def forward(host, port, tktfile=None):
+    """Forward tickets to the ticket acceptor."""
+
+    service = 'host@%s' % host
+    _LOGGER.debug('connecting: %s:%s, %s', host, port, service)
+
+    if tktfile is None:
+        krb5ccname = os.environ.get('KRB5CCNAME',
+                                    'FILE:/tmp/krb5cc_{}'.format(os.getuid()))
+        if krb5ccname.startswith('KEYRING'):
+            raise Exception('Keyring is not supported yet.')
+
+        if krb5ccname.startswith('FILE:'):
+            tktfile = krb5ccname[len('FILE:'):]
+        else:
+            tktfile = krb5ccname
+
+    _LOGGER.debug('Using KRB5CCNAME: %s', tktfile)
+    with io.open(tktfile, 'rb') as f:
+        tkt = f.read()
+        _LOGGER.debug('Ticket checksum: %s', hashlib.sha1(tkt).hexdigest())
+        # encoded = base64.urlsafe_b64encode(tkt)
+
+        client = gssapiprotocol.GSSAPILineClient(host, int(port), service)
+        try:
+            if client.connect():
+                client.write(tkt)
+                line = client.read()
+                _LOGGER.debug('Got reply: %s', line.decode())
+        except Exception as err:  # pylint: disable=broad-except
+            _LOGGER.warning('Failed to forward tickets: %s:%s, %s',
+                            host, port, err)
+            return False
+        finally:
+            client.disconnect()
+    return True

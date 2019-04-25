@@ -17,6 +17,7 @@ import click
 from treadmill import appenv
 from treadmill import endpoints
 from treadmill import fs
+from treadmill.tickets import receiver
 from treadmill.tickets import locker
 from treadmill import context
 from treadmill import zknamespace as z
@@ -88,7 +89,7 @@ def init():
                   help='Ticket spool directory.')
     @click.option('--approot', type=click.Path(exists=True),
                   envvar='TREADMILL_APPROOT', required=True)
-    @click.option('--port', help='Acceptor port.', default=0)
+    @click.option('--port', help='Receiver port.', default=0)
     @click.option('--appname', help='Pseudo app name to use for discovery',
                   required=True)
     @click.option('--endpoint', help='Pseudo endpoint to use for discovery',
@@ -96,8 +97,11 @@ def init():
     @click.option('--keytab', help='List of keytabs to merge.',
                   multiple=True,
                   required=False)
-    def accept_cmd(tkt_spool_dir, approot, port, appname, endpoint, keytab):
-        """Run ticket locker acceptor."""
+    @click.option('--use-tktrecv', help='Run ticketreceiver protocol.',
+                  is_flag=True, default=False)
+    def accept_cmd(tkt_spool_dir, approot, port, appname, endpoint, keytab,
+                   use_tktrecv):
+        """Run ticket locker receiver."""
         if keytab:
             _construct_keytab(keytab)
 
@@ -157,9 +161,13 @@ def init():
             owner='/proc/{}'.format(os.getpid()),
         )
 
-        subproc.safe_exec(['tkt_recv_v2',
-                           '-p{}'.format(port),
-                           '-d{}'.format(tkt_spool_dir)])
+        if not use_tktrecv:
+            subproc.safe_exec(['tkt_recv_v2',
+                               '-p{}'.format(port),
+                               '-d{}'.format(tkt_spool_dir)])
+        else:
+            _LOGGER.info('Running ticket receiver.')
+            receiver.run_server(port, tkt_spool_dir)
 
     del accept_cmd
     del locker_cmd

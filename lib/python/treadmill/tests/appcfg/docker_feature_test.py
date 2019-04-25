@@ -46,20 +46,11 @@ class AppCfgDockerFeatureTest(unittest.TestCase):
             }
         )
 
-        mock_nodedata_get.return_value = {
-            'tls_certs': {}
-        }
+        mock_nodedata_get.return_value = {}
 
         res = docker_feature._get_tls_conf(mock_env)
 
-        self.assertEqual(
-            res,
-            {
-                'ca_cert': '',
-                'host_cert': '',
-                'host_key': '',
-            }
-        )
+        self.assertDictEqual(res, {})
 
     @mock.patch('treadmill.appcfg.features.docker.socket.getfqdn',
                 specs_set=True)
@@ -212,6 +203,57 @@ class AppCfgDockerFeatureTest(unittest.TestCase):
         self.assertIn(
             {'name': 'DOCKER_HOST', 'value': 'tcp://127.0.0.1:2375'},
             manifest['environ']
+        )
+
+    @mock.patch('treadmill.subproc.resolve', mock.Mock(return_value='tm'))
+    @mock.patch('treadmill.utils.get_ulimit', mock.Mock(return_value=(0, 0)))
+    @mock.patch('treadmill.appcfg.features.docker._get_tls_conf',
+                mock.Mock(return_value={}))
+    @mock.patch('treadmill.appcfg.features.docker._get_docker_registry',
+                mock.Mock(return_value=iter(['foo:5050', 'bar:5050'])))
+    def test_insecure_docker_feature(self):
+        """Test insecure registry logic
+        """
+        manifest = {
+            'environment': 'dev',
+            'services': [],
+            'system_services': [],
+            'features': ['docker'],
+            'proid': 'foo',
+            'environ': [],
+        }
+
+        tm_env = mock.Mock(
+            cell='testcell',
+            zkurl='zookeeper://foo@foo:123',
+            apps_dir='apps',
+            root='/var/tmp/treadmill',
+        )
+
+        feature_mod = features.get_feature('docker')(tm_env)
+        feature_mod.configure(manifest)
+        self.assertEqual(
+            manifest['services'][0]['command'],
+            (
+                'exec tm'
+                ' -H tcp://127.0.0.1:2375'
+                ' --authorization-plugin=authz'
+                ' --add-runtime docker-runc=tm --default-runtime=docker-runc'
+                ' --exec-opt native.cgroupdriver=cgroupfs --bridge=none'
+                ' --ip-forward=false --ip-masq=false --iptables=false'
+                ' --cgroup-parent=docker --block-registry="*"'
+                ' --default-ulimit core=0:0'
+                ' --default-ulimit data=0:0'
+                ' --default-ulimit fsize=0:0'
+                ' --default-ulimit nproc=0:0'
+                ' --default-ulimit nofile=0:0'
+                ' --default-ulimit rss=0:0'
+                ' --default-ulimit stack=0:0'
+                ' --add-registry foo:5050'
+                ' --insecure-registry foo:5050'
+                ' --add-registry bar:5050'
+                ' --insecure-registry bar:5050'
+            )
         )
 
 

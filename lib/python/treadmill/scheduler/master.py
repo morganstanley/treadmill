@@ -424,8 +424,16 @@ class Master(loader.Loader):
 
     def _placement_data(self, app):
         """Return placement data for given app."""
+        identity = self.cell.apps[app].identity
+        identity_group_ref = self.cell.apps[app].identity_group_ref
+
+        identity_count = None
+        if identity is not None and identity_group_ref is not None:
+            identity_count = identity_group_ref.count
+
         return {
-            'identity': self.cell.apps[app].identity,
+            'identity': identity,
+            'identity_count': identity_count,
             'expires': self.cell.apps[app].placement_expiry
         }
 
