@@ -180,7 +180,10 @@ class NativeImageTest(unittest.TestCase):
     @mock.patch('treadmill.fs.linux.mount_tmpfs', mock.Mock(spec_set=True))
     def test_make_fsroot(self):
         """Validates directory layout in chrooted environment."""
-        native.make_fsroot(self.root, self.app, {})
+
+        empty, sticky, mounts = native.configure()
+        native.make_fsroot(self.root, empty, sticky, mounts)
+        native.make_osroot(self.root, self.app, {})
 
         def isdir(path):
             """Checks directory presence in chrooted environment."""
@@ -253,6 +256,9 @@ class NativeImageTest(unittest.TestCase):
         self.assertEqual(
             treadmill.fs.linux.mount_tmpfs.call_args_list,
             [
+                mock.call(self.root, '/var/spool/tickets'),
+                mock.call(self.root, '/var/spool/keytabs'),
+                mock.call(self.root, '/var/spool/tokens'),
                 mock.call(
                     self.root, '/dev',
                     nodev=False, noexec=False, nosuid=True, relatime=False,

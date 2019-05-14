@@ -140,6 +140,10 @@
                 "type": "array",
                 "items": { "$ref": "common.json#/ticket" }
             },
+            "keytabs": {
+                "type": "array",
+                "items": { "$ref": "common.json#/keytab" }
+            },
             "features": {
                 "type": "array",
                 "items": {

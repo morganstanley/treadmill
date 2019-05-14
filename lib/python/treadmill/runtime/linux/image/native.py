@@ -214,11 +214,11 @@ def create_supervision_tree(tm_env, container_dir, root_dir, app,
     )
 
 
-def make_dev(newroot_norm):
+def make_dev(root_dir):
     """Make /dev.
     """
     fs_linux.mount_tmpfs(
-        newroot_norm, '/dev',
+        root_dir, '/dev',
         nodev=False, noexec=False, nosuid=True, relatime=False,
         mode='0755'
     )
@@ -234,13 +234,13 @@ def make_dev(newroot_norm):
     prev_umask = os.umask(0000)
     for device, permissions, major, minor in devices:
         os.mknod(
-            newroot_norm + device,
+            root_dir + device,
             permissions | stat.S_IFCHR,
             os.makedev(major, minor)
         )
     os.umask(prev_umask)
     st = os.stat('/dev/tty')
-    os.chown(newroot_norm + '/dev/tty', st.st_uid, st.st_gid)
+    os.chown(root_dir + '/dev/tty', st.st_uid, st.st_gid)
 
     symlinks = [
         ('/dev/fd', '/proc/self/fd'),
@@ -250,29 +250,29 @@ def make_dev(newroot_norm):
         ('/dev/core', '/proc/kcore'),
     ]
     for link, target in symlinks:
-        fs.symlink_safe(newroot_norm + link, target)
+        fs.symlink_safe(root_dir + link, target)
 
     for directory in ['/dev/shm', '/dev/pts', '/dev/mqueue']:
-        fs.mkdir_safe(newroot_norm + directory)
+        fs.mkdir_safe(root_dir + directory)
     fs_linux.mount_tmpfs(
-        newroot_norm, '/dev/shm',
+        root_dir, '/dev/shm',
         nodev=True, noexec=False, nosuid=True, relatime=False
     )
     fs_linux.mount_devpts(
-        newroot_norm, '/dev/pts',
+        root_dir, '/dev/pts',
         gid=st.st_gid, mode='0620', ptmxmode='0666'
     )
-    fs.symlink_safe(newroot_norm + '/dev/ptmx', 'pts/ptmx')
-    fs_linux.mount_mqueue(newroot_norm, '/dev/mqueue')
+    fs.symlink_safe(root_dir + '/dev/ptmx', 'pts/ptmx')
+    fs_linux.mount_mqueue(root_dir, '/dev/mqueue')
 
     # Passthrough container log to host system logger.
-    fs_linux.mount_bind(newroot_norm, '/dev/log', read_only=False)
+    fs_linux.mount_bind(root_dir, '/dev/log', read_only=False)
 
 
-def make_extra_dev(newroot_norm, extra_devices, owner):
+def make_extra_dev(root_dir, extra_devices, owner):
     """Create all the configured "extra" passthrough devices.
 
-    :param ``str`` newroot_norm:
+    :param ``str`` root_dir:
         Path to the container root directory.
     :param ``list`` extra_devices:
         List of extra device specification.
@@ -295,7 +295,7 @@ def make_extra_dev(newroot_norm, extra_devices, owner):
             _LOGGER.warning('Cannot Passthrough directory %r', extra_dev)
             continue
 
-        passthrough_dev = os.path.join(newroot_norm, extra_dev[1:])
+        passthrough_dev = os.path.join(root_dir, extra_dev[1:])
 
         if os.path.dirname(extra_dev) != '/dev':
             # We have to create more directories under '/dev'
@@ -313,29 +313,18 @@ def make_extra_dev(newroot_norm, extra_devices, owner):
         )
 
 
-def make_fsroot(root_dir, app, data):
-    """Initializes directory structure for the container in a new root.
+def configure():
+    """Returns directories and mounts to be created.
 
-    The container uses pretty much a blank a FHS 3 layout.
+    Return value - tuple of (emptydirs, stickydirs, mounts), where:
 
-     - Bind directories in parent / (with exceptions - see below.)
-     - Skip /tmp, create /tmp in the new root with correct permissions.
-     - Selectively create / bind /var.
-       - /var/tmp (new)
-       - /var/log (new)
-       - /var/spool - create empty with dirs.
-     - Bind everything in /var, skipping /spool/tickets
+        - emptydirs - set
+        - stickydirs - set
+        - mounts - dict of mount : mount args as accepted by
+                   fs.linux.mount_bind
 
-    :param ``str`` root_dit:
-        Container root directory.
-    :param app:
-        Container app manifest.
-    :param ``dict`` data:
-        Local configuration data.
     """
-    newroot_norm = fs.norm_safe(root_dir)
-
-    emptydirs = [
+    emptydirs = {
         '/bin',
         '/dev',
         '/etc',
@@ -364,9 +353,9 @@ def make_fsroot(root_dir, app, data):
         '/var/spool/tokens',
         # for SSS
         '/var/lib/sss',
-    ]
+    }
 
-    stickydirs = [
+    stickydirs = {
         '/opt',
         '/run',
         '/tmp',
@@ -379,10 +368,10 @@ def make_fsroot(root_dir, app, data):
         '/var/spool/keytabs',
         '/var/spool/tickets',
         '/var/spool/tokens',
-    ]
+    }
 
     # these folders are shared with underlying host and other containers,
-    mounts = [
+    mounts = {mount: None for mount in [
         '/bin',
         '/etc',  # TODO: Add /etc/opt
         '/lib',
@@ -395,53 +384,83 @@ def make_fsroot(root_dir, app, data):
         # TODO: Remove below once PAM UDS is implemented
         os.path.expandvars('${TREADMILL_APPROOT}/env'),
         os.path.expandvars('${TREADMILL_APPROOT}/spool'),
-    ]
+    ] if os.path.exists(mount)}
 
-    for directory in emptydirs:
-        fs.mkdir_safe(newroot_norm + directory)
+    return emptydirs, stickydirs, mounts
 
-    for directory in stickydirs:
-        os.chmod(newroot_norm + directory, 0o777 | stat.S_ISVTX)
+
+def make_fsroot(root_dir, emptydirs, stickydirs, mounts):
+    """Initializes directory structure for the container in a new root.
+    """
+    _LOGGER.info('Creating fs root in: %s', root_dir)
+    for directory in sorted(emptydirs):
+        fs.mkdir_safe(root_dir + directory)
+
+    for directory in sorted(stickydirs):
+        os.chmod(root_dir + directory, 0o777 | stat.S_ISVTX)
+
+    # Make shared directories/files readonly to container
+    reserved = {'/run',
+                '/sys/fs',
+                '/var/spool/tickets',
+                '/var/spool/keytabs',
+                '/var/spool/tokens'}
+    for mount, args in mounts.items():
+        # These are reserved, mounted on memory in make_osroot.
+        if mount in reserved:
+            continue
+
+        if not args:
+            fs_linux.mount_bind(
+                root_dir, mount,
+                recursive=True, read_only=True
+            )
+        else:
+            fs_linux.mount_bind(root_dir, mount, **args)
+
+
+def make_osroot(root_dir, app, data):
+    """Creates mandatory system directories in the container chroot."""
+    _LOGGER.info('Creating os root in: %s', root_dir)
+    # Mount .../tickets .../keytabs on tempfs, so that they will be cleaned
+    # up when the container exits.
+    #
+    for tmpfsdir in ['/var/spool/tickets',
+                     '/var/spool/keytabs',
+                     '/var/spool/tokens']:
+        fs_linux.mount_tmpfs(root_dir, tmpfsdir)
 
     # /var/empty must be owned by root and not group or world-writable.
-    os.chmod(os.path.join(newroot_norm, 'var/empty'), 0o711)
+    os.chmod(os.path.join(root_dir, 'var/empty'), 0o711)
 
     # Mount a new sysfs for the container, bring in the /sys/fs subtree from
     # the host.
-    fs_linux.mount_sysfs(newroot_norm)
+    fs_linux.mount_sysfs(root_dir)
     fs_linux.mount_bind(
-        newroot_norm, os.path.join(os.sep, 'sys', 'fs'),
+        root_dir, os.path.join(os.sep, 'sys', 'fs'),
         recursive=True, read_only=False
     )
 
-    make_dev(newroot_norm)
+    make_dev(root_dir)
     # Passthrough node devices per the node config data
     extra_devices = data.get('runtime', {}).get('passthrough_devices', [])
     make_extra_dev(
-        newroot_norm,
+        root_dir,
         extra_devices,
         app.proid
     )
 
     # Per FHS3 /var/run should be a symlink to /run which should be tmpfs
     fs.symlink_safe(
-        os.path.join(newroot_norm, 'var', 'run'),
+        os.path.join(root_dir, 'var', 'run'),
         '/run'
     )
     # We create an unbounded tmpfs mount so that runtime data can be written to
     # it, counting against the memory limit of the container.
-    fs_linux.mount_tmpfs(newroot_norm, '/run')
-
-    # Make shared directories/files readonly to container
-    for mount in mounts:
-        if os.path.exists(mount):
-            fs_linux.mount_bind(
-                newroot_norm, mount,
-                recursive=True, read_only=True
-            )
+    fs_linux.mount_tmpfs(root_dir, '/run')
 
     # /etc/docker is a file neceesary for docker daemon
-    _docker.mount_docker_daemon_path(newroot_norm, app)
+    _docker.mount_docker_daemon_path(root_dir, app)
 
 
 def create_overlay(tm_env, container_dir, root_dir, app):
@@ -639,9 +658,19 @@ class NativeImage(_image_base.Image):
 
     def unpack(self, container_dir, root_dir, app, app_cgroups, data):
 
-        make_fsroot(root_dir, app, data)
+        root_dir = fs.norm_safe(root_dir)
 
-        image_fs.configure_plugins(self.tm_env, container_dir, app)
+        emptydirs, stickydirs, mounts = configure()
+        for plugin in image_fs.plugins(app):
+            _LOGGER.info('Processing plugin: %r', plugin)
+            extra = plugin(self.tm_env).configure(container_dir, app)
+            if extra is not None:
+                emptydirs.update(extra[0])
+                stickydirs.update(extra[1])
+                mounts.update(extra[2])
+
+        make_fsroot(root_dir, emptydirs, stickydirs, mounts)
+        make_osroot(root_dir, app, data)
 
         # FIXME: Lots of things are still reading this file.
         #        Copy updated state manifest as app.json in the

@@ -143,9 +143,10 @@ class Watchdog:
                 lambda f: f.write(self.content),
                 prefix='.' + filename,
                 mode='w',
-                permission=0o600
+                permission=0o600,
+                utimes=(timeout_at, timeout_at),
+                fsync=True
             )
-            os.utime(self.filename, (timeout_at, timeout_at))
 
         def heartbeat(self):
             """Renew a watchdog for one timeout.

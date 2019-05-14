@@ -216,6 +216,16 @@ def sync_partitions():
             _LOGGER.info('Up to date: %s', zkname)
 
 
+def _check_assignments(assignments):
+    filtered = []
+    for assignment in assignments:
+        if 'pattern' in assignment and 'priority' in assignment:
+            filtered.append(assignment)
+        else:
+            _LOGGER.warning('Invalid assignment: %r', assignment)
+    return filtered
+
+
 def sync_allocations():
     """Syncronize allocations.
     """
@@ -230,6 +240,9 @@ def sync_allocations():
         _LOGGER.info('Sync allocation: %s', alloc)
         name, _cell = alloc['_id'].rsplit('/', 1)
         alloc['name'] = name
+        assignments = alloc.get('assignments')
+        if assignments:
+            alloc['assignments'] = _check_assignments(assignments)
         filtered.append(alloc)
 
     masterapi.update_allocations(zkclient, filtered)

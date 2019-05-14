@@ -18,8 +18,9 @@ import mock
 # Disable W0611: Unused import
 import treadmill.tests.treadmill_test_skip_windows  # pylint: disable=W0611
 
-from treadmill import fs
 from treadmill import keytabs2
+from treadmill.keytabs2 import client as kt2_client
+from treadmill.keytabs2 import receiver as kt2_receiver
 
 
 class Keytabs2Test(unittest.TestCase):
@@ -36,13 +37,12 @@ class Keytabs2Test(unittest.TestCase):
     @mock.patch('kazoo.client.KazooClient')
     @mock.patch('treadmill.discovery.iterator')
     @mock.patch('treadmill.gssapiprotocol.jsonclient.GSSAPIJsonClient')
-    @mock.patch('treadmill.keytabs2._write_keytab')
+    @mock.patch('treadmill.keytabs2.write_keytab')
     def test_request_keytabs(self, mock_write_keytab, mock_client_class,
-                             mock_iterator, mock_zkclient):
+                             mock_iterator, mock_zk):
         """Test request_keytabs"""
         os.environ['TREADMILL_ID'] = 'treadmill'
-        proid = 'proida'
-        vips = ['host1.com', 'host2.com']
+        app_name = 'proida.foo'
         spool_dir = self.spool_dir
 
         mock_iterator.return_value = [('foo:tcp:keytabs', '127.0.0.1:12345')]
@@ -51,9 +51,9 @@ class Keytabs2Test(unittest.TestCase):
 
         # test connection error
         mock_json_client.connect.return_value = False
-        self.assertFalse(
-            keytabs2.request_keytabs(mock_zkclient, proid, vips, spool_dir)
-        )
+
+        with self.assertRaises(keytabs2.KeytabClientError):
+            kt2_client.request_keytabs(mock_zk, app_name, spool_dir, 'foo')
         mock_json_client.connect.assert_called_once()
 
         # test server internal error
@@ -63,30 +63,26 @@ class Keytabs2Test(unittest.TestCase):
             'success': False,
             'message': 'ops..',
         }
-        self.assertFalse(
-            keytabs2.request_keytabs(mock_zkclient, proid, vips, spool_dir)
-        )
+        with self.assertRaises(keytabs2.KeytabClientError):
+            kt2_client.request_keytabs(mock_zk, app_name, spool_dir, 'foo')
         mock_json_client.write_json.assert_called_once_with(
             {
                 'action': 'get',
-                'proid': proid,
-                'vips': vips,
+                'app': app_name,
             }
         )
 
         # test valid keytabs with arbitrary bytes
-        keytab_1 = os.urandom(10)
-        keytab_2 = os.urandom(10)
+        keytab_1 = base64.b64encode(os.urandom(10))
+        keytab_2 = base64.b64encode(os.urandom(10))
         mock_json_client.read_json.return_value = {
             'success': True,
             'keytabs': {
-                'ktname_1': base64.b64encode(keytab_1),
-                'ktname_2': base64.b64encode(keytab_2),
+                'ktname_1': keytab_1,
+                'ktname_2': keytab_2,
             },
         }
-        self.assertTrue(
-            keytabs2.request_keytabs(mock_zkclient, proid, vips, spool_dir)
-        )
+        kt2_client.request_keytabs(mock_zk, app_name, spool_dir, 'foo')
         mock_write_keytab.assert_has_calls(
             [
                 mock.call(os.path.join(self.spool_dir, 'ktname_1'), keytab_1),
@@ -95,30 +91,74 @@ class Keytabs2Test(unittest.TestCase):
             any_order=True,
         )
 
+    def test_compare_data(self):
+        """test compare data
+        """
+        stored = []
+        desired = [(1, 1), (2, 2)]
+
+        # pylint: disable=protected-access
+        (add, modify, delete) = kt2_receiver._compare_data(stored, desired)
+        self.assertEqual(add, desired)
+        self.assertEqual(modify, [])
+        self.assertEqual(delete, [])
+
+        stored = [(1, 1)]
+        desired = [(1, 1), (2, 2)]
+        (add, modify, delete) = kt2_receiver._compare_data(stored, desired)
+        self.assertEqual(add, [(2, 2)])
+        self.assertEqual(modify, [])
+        self.assertEqual(delete, [])
+
+        stored = [(2, 2), (3, 3)]
+        desired = [(1, 1), (2, 3), (4, 4)]
+        (add, modify, delete) = kt2_receiver._compare_data(stored, desired)
+        self.assertEqual(add, [(1, 1), (4, 4)])
+        self.assertEqual(modify, [(2, 3)])
+        self.assertEqual(delete, [(3, 3)])
+
+        stored = [(2, 2), (3, 3)]
+        desired = [(1, 1), (2, 3)]
+        (add, modify, delete) = kt2_receiver._compare_data(stored, desired)
+        self.assertEqual(add, [(1, 1)])
+        self.assertEqual(modify, [(2, 3)])
+        self.assertEqual(delete, [(3, 3)])
+
+    @mock.patch('pwd.getpwnam', mock.Mock())
+    @mock.patch('os.chown', mock.Mock())
     def test_sync_relations(self):
         """Test sync_relations"""
-        fs.mkfile_safe(os.path.join(self.spool_dir, 'princ#vip1.com@realm'))
-        fs.mkfile_safe(os.path.join(self.spool_dir, 'princ#vip2.com@realm'))
+        data = [
+            ('proid1', 'vip1.com'),
+            ('proid2', 'vip2.com'),
+        ]
 
-        data = {
-            'princ#vip1.com@realm': 'proid1',
-            'princ#vip2.com@realm': 'proid2',
-        }
-
-        def find_proid(ktname):
-            """Peuso proid lookup func"""
-            return data[ktname]
-
-        keytabs2.ensure_table_exists(self.database)
-        keytabs2.sync_relations(self.spool_dir, self.database, find_proid)
+        receiver = kt2_receiver.KeytabReceiver(
+            self.spool_dir, self.database, 'owner'
+        )
+        receiver.sync('owner', data)
 
         conn = sqlite3.connect(self.database)
         cur = conn.cursor()
-        rows = cur.execute('SELECT keytab, proid FROM keytab_proid_relations')
-        try:
-            self.assertEqual(data, dict(rows))
-        finally:
-            conn.close()
+        rows = cur.execute(
+            'SELECT proid, vip FROM keytab_proid'
+        ).fetchall()
+        self.assertEqual(data, rows)
+
+        data = [
+            ('proid1', 'vip1.com'),
+            ('proid3', 'vip2.com'),
+            ('proid2', 'vip3.com'),
+        ]
+        receiver.sync('owner', data)
+
+        cur = conn.cursor()
+        rows = cur.execute(
+            'SELECT proid, vip FROM keytab_proid order by vip'
+        ).fetchall()
+        self.assertEqual(data, rows)
+
+        conn.close()
 
 
 if __name__ == '__main__':
