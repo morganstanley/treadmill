@@ -17,7 +17,6 @@ TABLE = 'keytab_proid'
 class KeytabClientError(Exception):
     """Treadmill keytab client error
     """
-    pass
 
 
 class KeytabLockerError(exc.TreadmillError):
