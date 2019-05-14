@@ -14,9 +14,10 @@ import ldap3
 from treadmill import utils
 from treadmill.ad import _servers as servers
 
-import treadmill.ldap3kerberos
+if sys.platform == 'win32':
+    import treadmill.ldap3kerberos
+    sys.modules['ldap3.protocol.sasl.kerberos'] = treadmill.ldap3kerberos
 
-sys.modules['ldap3.protocol.sasl.kerberos'] = treadmill.ldap3kerberos
 
 _LOGGER = logging.getLogger(__name__)
 

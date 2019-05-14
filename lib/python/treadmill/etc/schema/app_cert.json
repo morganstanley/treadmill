@@ -14,24 +14,20 @@
                 "items": { "$ref": "file://treadmill/etc/schema/common.json#/cell" },
                 "minItems": 1
             },
-            "pattern": {
-                "type": "string"
-            },
-            "endpoints": {
+            "pattern": {"type": "string"},
+            "types": {
                 "type": "array",
-                "items": { "$ref": "file://treadmill/etc/schema/common.json#/endpoint" },
-                "minItems": 0
+                "items": { "enum": ["host", "internode"] },
+                "minItems": 1
             },
-            "alias": { "$ref": "common.json#/dns_alias" },
-            "scope": {
-                "type": "string",
-                "pattern": "^cell$|^campus$|^region$|^global$"
-            }
+            "identity-group": { "$ref": "common.json#/identity_group_id" },
+            "alias": { "$ref": "common.json#/dns_alias" }
         }
     },
     "verbs": {
         "create": {
-            "required": ["scope", "pattern", "alias"]
+            "required": ["cells", "pattern", "types", "identity-group",
+                         "alias"]
         },
         "update": {
             "required": []

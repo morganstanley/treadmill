@@ -61,9 +61,8 @@ def init_plugins(tm_env):
             plugin(tm_env).init()
 
 
-def configure_plugins(tm_env, container_dir, app):
-    """Configures all plugins.
+def plugins(app):
+    """Load and return all filesystem plugins for the app type.
     """
     namespace = _FS_PLUGIN_NAMESPACE.format(app.type)
-    for plugin in plugin_manager.load_all(namespace):
-        plugin(tm_env).configure(container_dir, app)
+    return plugin_manager.load_all(namespace)

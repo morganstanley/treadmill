@@ -20,12 +20,12 @@ import ldap3.core.exceptions as ldap_exceptions
 import jinja2
 import six
 
-import treadmill.ldap3kerberos
+if sys.platform == 'win32':
+    import treadmill.ldap3kerberos
+    sys.modules['ldap3.protocol.sasl.kerberos'] = treadmill.ldap3kerberos
+
 
 # pylint: disable=too-many-lines
-# pylint: disable=C0302
-
-sys.modules['ldap3.protocol.sasl.kerberos'] = treadmill.ldap3kerberos
 
 _LOGGER = logging.getLogger(__name__)
 

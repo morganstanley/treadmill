@@ -86,6 +86,7 @@ _LINUX_ALIASES = {
     'pvs': _SBIN,
     'pwd': _BIN,
     'readlink': _BIN,
+    'reboot': _SBIN,
     'rm': _BIN,
     'rmdir': _BIN,
     'route': _SBIN,

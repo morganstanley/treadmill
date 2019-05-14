@@ -165,6 +165,14 @@ def _watcher(root_dir, rules_dir, containers_dir, watchdogs_dir):
                 _LOGGER.info('Adding passthrough %r', rule.src_ip)
                 iptables.add_ip_set(iptables.SET_PASSTHROUGHS, rule.src_ip)
                 iptables.flush_pt_conntrack_table(rule.src_ip)
+            elif isinstance(rule, (fw.SNATRule, fw.DNATRule)):
+                if rule.proto == 'udp':
+                    iptables.flush_conntrack_table(
+                        src_ip=rule.src_ip,
+                        src_port=rule.src_port,
+                        dst_ip=rule.dst_ip,
+                        dst_port=rule.dst_port,
+                    )
         else:
             _LOGGER.warning('Ignoring unparseable rule %r', rule_file)
 
@@ -193,15 +201,7 @@ def _watcher(root_dir, rules_dir, containers_dir, watchdogs_dir):
                     iptables.flush_pt_conntrack_table(rule.src_ip)
                 else:
                     passthrough[rule.src_ip] -= 1
-            elif isinstance(rule, fw.DNATRule):
-                if rule.proto == 'udp':
-                    iptables.flush_conntrack_table(
-                        src_ip=rule.src_ip,
-                        src_port=rule.src_port,
-                        dst_ip=rule.dst_ip,
-                        dst_port=rule.dst_port,
-                    )
-            elif isinstance(rule, fw.SNATRule):
+            elif isinstance(rule, (fw.SNATRule, fw.DNATRule)):
                 if rule.proto == 'udp':
                     iptables.flush_conntrack_table(
                         src_ip=rule.src_ip,

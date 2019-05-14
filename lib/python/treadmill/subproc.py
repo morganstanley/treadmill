@@ -11,6 +11,7 @@ import os
 import functools
 import io
 import json
+import shlex
 
 import six
 
@@ -72,6 +73,37 @@ def get_aliases():
     return _EXECUTABLES
 
 
+def _split(command):
+    """Split command into parts.
+    """
+    # On windows, shlex does not seem to work properly, in particular:
+    #
+    # >>> shlex.split('/x/y/z\\xxx')
+    # >>> ['/x/y/zxxx']
+    #
+    # This is clearly wrong, so on windows just split on whitespace. It is
+    # bad design to have alias with arguments containing whitespace anyway, so
+    # does not seem like critical regression.
+    if os.name == 'nt':
+        return command.split()
+    else:
+        return shlex.split(command)
+
+
+def _quote(arg):
+    """Quote argument to be shell safe.
+    """
+    # On windows, shell.quote adds extra "" as in:
+    #
+    # >>> shlex.quote('\\s\\d')
+    # "'\\s\\d'"
+    if os.name == 'nt':
+        assert len(arg.split()) == 1
+        return arg
+    else:
+        return shlex.quote(arg)
+
+
 def _check(path):
     """Check that path exists and is executable."""
     if path is None:
@@ -84,7 +116,14 @@ def _check(path):
         else:
             return os.access(path, os.R_OK)
     else:
-        return os.access(path, os.X_OK)
+        return os.access(_split(path)[0], os.X_OK)
+
+
+def _normalize(command):
+    """Normalize command."""
+    split = _split(command)
+    split[0] = os.path.normpath(split[0])
+    return ' '.join(_quote(part) for part in split)
 
 
 @functools.lru_cache(maxsize=256)
@@ -100,24 +139,22 @@ def resolve(exe):
         return None
 
     if callable(executables[exe]):
-        safe_exe = executables[exe](exe)
+        command = executables[exe](exe)
     else:
-        safe_exe = executables[exe]
+        command = executables[exe]
 
-    if isinstance(safe_exe, list):
-        for choice in safe_exe:
-            choice = os.path.normpath(choice)
+    if isinstance(command, list):
+        for choice in command:
             if _check(choice):
-                return choice
+                return _normalize(choice)
         _LOGGER.debug('Cannot resolve: %s', exe)
         return None
     else:
-        safe_exe = os.path.normpath(safe_exe)
-        if not _check(safe_exe):
-            _LOGGER.debug('Command not found: %s, %s', exe, safe_exe)
+        if not _check(command):
+            _LOGGER.debug('Command not found: %s, %s', exe, command)
             return None
 
-    return safe_exe
+    return _normalize(command)
 
 
 def _resolve(exe):
@@ -130,9 +167,11 @@ def _resolve(exe):
 
 def _alias_command(cmdline):
     """Checks that the command line is in the aliases."""
-    safe_cmdline = list(cmdline)
-    safe_cmdline.insert(0, _resolve(safe_cmdline.pop(0)))
-    return safe_cmdline
+    cmdlist = list(cmdline)
+    alias = cmdlist.pop(0)
+    resolved = _resolve(alias)
+    split = _split(resolved)
+    return split + cmdlist
 
 
 def check_call(cmdline, environ=(), runas=None, **kwargs):

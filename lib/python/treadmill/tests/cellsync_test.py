@@ -54,6 +54,106 @@ class CellsyncTest(unittest.TestCase):
             makepath=True, ephemeral=False, acl=mock.ANY, sequence=False
         )
 
+    @mock.patch('treadmill.context.AdminContext.cell_allocation')
+    @mock.patch('treadmill.context.GLOBAL.zk', mock.Mock())
+    @mock.patch('treadmill.scheduler.masterapi.update_allocations',
+                mock.Mock(spec_set=True))
+    def test_sync_allocations(self, cell_allocation_factory):
+        """"Test syncing allocations to Zookeeper.
+        """
+        treadmill.context.GLOBAL.cell = 'test'
+        mock_admalloc = cell_allocation_factory.return_value
+
+        mock_admalloc.list.return_value = [
+            {
+                '_id': 'foo/dev/test',
+                'cell': 'test',
+                'partition': 'test',
+                'assignments': [],
+                'rank': 0,
+                'cpu': '100%',
+                'memory': '1G',
+                'disk': '1G',
+                'traits': [],
+            },
+            {
+                '_id': 'bar/dev/test',
+                'cell': 'test',
+                'partition': 'test',
+                'assignments': [
+                    {'priority': 99, 'pattern': 'test.*'},
+                ],
+                'rank': 0,
+                'cpu': '100%',
+                'memory': '1G',
+                'disk': '1G',
+                'traits': [],
+            },
+            {
+                '_id': 'baz/dev/test',
+                'cell': 'test',
+                'partition': 'test',
+                'assignments': [
+                    {'priority': 99, 'pattern': 'test.*'},
+                    {'pattern': 'test.*'},
+                    {'priority': 99},
+                ],
+                'rank': 0,
+                'cpu': '100%',
+                'memory': '1G',
+                'disk': '1G',
+                'traits': [],
+            },
+        ]
+
+        cellsync.sync_allocations()
+
+        treadmill.scheduler.masterapi.update_allocations.assert_called_with(
+            mock.ANY,
+            [
+                {
+                    '_id': 'foo/dev/test',
+                    'name': 'foo/dev',
+                    'cell': 'test',
+                    'partition': 'test',
+                    'assignments': [],
+                    'rank': 0,
+                    'cpu': '100%',
+                    'memory': '1G',
+                    'disk': '1G',
+                    'traits': [],
+                },
+                {
+                    '_id': 'bar/dev/test',
+                    'name': 'bar/dev',
+                    'cell': 'test',
+                    'partition': 'test',
+                    'assignments': [
+                        {'priority': 99, 'pattern': 'test.*'},
+                    ],
+                    'rank': 0,
+                    'cpu': '100%',
+                    'memory': '1G',
+                    'disk': '1G',
+                    'traits': [],
+                },
+                {
+                    '_id': 'baz/dev/test',
+                    'name': 'baz/dev',
+                    'cell': 'test',
+                    'partition': 'test',
+                    'assignments': [
+                        {'priority': 99, 'pattern': 'test.*'},
+                    ],
+                    'rank': 0,
+                    'cpu': '100%',
+                    'memory': '1G',
+                    'disk': '1G',
+                    'traits': [],
+                },
+            ]
+        )
+
     @mock.patch('treadmill.context.AdminContext.server')
     @mock.patch('treadmill.context.GLOBAL.zk', mock.Mock())
     @mock.patch('treadmill.scheduler.masterapi.create_bucket',

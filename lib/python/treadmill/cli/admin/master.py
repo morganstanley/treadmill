@@ -187,10 +187,17 @@ def app_group(parent):
             print(app_id)
 
     @app.command()
+    @click.option('--priority', help='Priority.', required=False, type=int)
     @click.argument('instance')
     @cli.admin.ON_EXCEPTIONS
-    def configure(instance):
+    def configure(priority, instance):
         """View app instance configuration"""
+        if priority is not None:
+            masterapi.update_app_priorities(
+                context.GLOBAL.zk.conn,
+                {instance: priority}
+            )
+
         scheduled = masterapi.get_app(context.GLOBAL.zk.conn, instance)
         cli.out(formatter(scheduled))
 

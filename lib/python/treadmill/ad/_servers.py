@@ -20,9 +20,9 @@ import six
 from treadmill import dirwatch
 from treadmill import yamlwrapper as yaml
 
-import treadmill.ldap3kerberos
-
-sys.modules['ldap3.protocol.sasl.kerberos'] = treadmill.ldap3kerberos
+if sys.platform == 'win32':
+    import treadmill.ldap3kerberos
+    sys.modules['ldap3.protocol.sasl.kerberos'] = treadmill.ldap3kerberos
 
 DC_KEY = 'nt.dc'
 DN_KEY = 'nt.dn'
