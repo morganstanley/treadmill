@@ -117,14 +117,9 @@ def save_app(manifest, container_dir, app_json=STATE_JSON):
             utils.json_genencode(manifest)
         ),
         mode='w',
+        # chmod for the file to be world readable.
         permission=0o644
     )
-    # chmod for the file to be world readable.
-    if os.name == 'posix':
-        os.chmod(
-            state_file,
-            stat.S_IWUSR | stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH
-        )
 
     # Freeze the app data into a namedtuple object
     return utils.to_obj(manifest)

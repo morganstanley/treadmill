@@ -136,7 +136,7 @@ def get_listening_server(locker, port):
                          kt_name,
                          hashlib.sha1(encoded).hexdigest())
             _write_keytab(
-                os.path.join(locker.kt_spool_dir, kt_name),
+                os.path.join(locker.kt_spool_dir, kt_name.decode()),
                 encoded
             )
 

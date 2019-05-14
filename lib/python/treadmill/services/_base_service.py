@@ -550,7 +550,12 @@ class ResourceService:
                            adapter_cls=lc.ContainerAdapter) as log:
 
             log.debug('deleted %r', req_id)
-            res = impl.on_delete_request(req_id)
+            try:
+                res = impl.on_delete_request(req_id)
+
+            except Exception as err:  # pylint: disable=W0703
+                log.exception('Unable to delete request: %r', req_id)
+                res = {'_error': {'why': str(err)}}
 
         return res
 

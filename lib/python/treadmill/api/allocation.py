@@ -366,7 +366,7 @@ class API:
                     admin_cell_alloc = _admin_cell_alloc()
 
                     allocation, cell, pattern = rsrc_id.rsplit('/', 2)
-                    priority = rsrc.get('priority', 0)
+                    priority = rsrc.get('priority', _DEFAULT_PRIORITY)
 
                     assignments = admin_cell_alloc.get(
                         [cell, allocation], dirty=True

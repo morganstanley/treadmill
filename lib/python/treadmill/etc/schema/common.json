@@ -21,13 +21,19 @@
     },
     "proid": {
         "type": "string",
-        "maxLength": 16,
+        "minLength": 2,
+        "maxLength": 20,
         "pattern": "^[a-zA-Z0-9_-]+$"
     },
     "ticket": {
         "type": "string",
         "maxLength": 32,
-        "pattern": "^[a-zA-Z0-9_-]+@[\\.a-zA-Z0-9_]+$"
+        "pattern": "^[\\w\\-]+@[\\w\\.]+$"
+    },
+    "keytab": {
+        "type": "string",
+        "maxLength": 128,
+        "pattern": "^[\\w\\-]+#[\\w\\-\\.]+@[\\w\\.]+$"
     },
     "endpoint": {
         "type": "string",
@@ -85,12 +91,12 @@
             {
                 "type": "string",
                 "maxLength": 117,
-                "pattern": "^[\\w\\-]+(\\.[\\w\\-]+)+$"
+                "pattern": "^[a-zA-Z0-9_-]{2,20}([.][\\w-]+)+$"
             },
             {
                 "type": "string",
                 "maxLength": 117,
-                "pattern": "^([\\w\\-]+)@([\\w\\-]+)(\\.[\\w\\-]+)+$"
+                "pattern": "^[a-zA-Z0-9_-]{2,20}@[\\w-]+([.][\\w-]+)+$"
             }
         ]
     },
@@ -104,12 +110,12 @@
             {
                 "type": "string",
                 "maxLength": 128,
-                "pattern": "^[\\w\\-]+(\\.[\\w\\-]+)+(#\\d+)$"
+                "pattern": "^[a-zA-Z0-9_-]{2,20}([.][\\w-]+)+#\\d+$"
             },
             {
                 "type": "string",
                 "maxLength": 128,
-                "pattern": "^([\\w\\-]+)@([\\w\\-]+)(\\.[\\w\\-]+)+(#\\d+)$"
+                "pattern": "^[a-zA-Z0-9_-]{2,20}@[\\w-]+([.][\\w-]+)+#\\d+$"
             }
         ]
     },
@@ -165,5 +171,9 @@
     "user": {
         "type": "string",
         "pattern": "^[\\w\\-]+(@[\\w\\-\\.]+)?$"
+    },
+    "dns_alias": {
+        "type": "string",
+        "pattern": "^[a-zA-Z0-9]+(\\.[a-zA-Z0-9\\-]+)+$"
     }
 }

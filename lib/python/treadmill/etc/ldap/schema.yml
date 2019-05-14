@@ -176,6 +176,9 @@ attributeTypes:
   ticket:
     desc: Treadmill prestashed ticket (userIDs)
     type: str
+  keytab:
+    desc: Treadmill kerberos keytabs
+    type: str
   trait:
     desc: Treadmill server and allocation trait
     type: str
@@ -320,6 +323,7 @@ objectClasses:
     - envvar-value
     - identity-group
     - ticket
+    - keytab
     - feature
     - shared-ip
     - shared-network
