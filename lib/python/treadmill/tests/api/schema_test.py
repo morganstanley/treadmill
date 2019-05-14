@@ -239,14 +239,22 @@ class ApiSchemaTest(unittest.TestCase):
         _fail(api.create, 'foo.bla', _patch(good, '/affinity_limits/foo', 1))
 
         # Data retention.
-        _ok(api.create, 'f.b', _patch(good, '/data_retention_timeout', '1s'))
-        _ok(api.create, 'f.b', _patch(good, '/data_retention_timeout', '12m'))
-        _ok(api.create, 'f.b', _patch(good, '/data_retention_timeout', '12h'))
-        _ok(api.create, 'f.b', _patch(good, '/data_retention_timeout', '12d'))
-        _ok(api.create, 'f.b', _patch(good, '/data_retention_timeout', '12m'))
-        _ok(api.create, 'f.b', _patch(good, '/data_retention_timeout', '12y'))
-        _fail(api.create, 'f.b', _patch(good, '/data_retention_timeout', 12))
-        _fail(api.create, 'f.b', _patch(good, '/data_retention_timeout', 'm'))
+        _ok(api.create, 'mockproid.mockapp',
+            _patch(good, '/data_retention_timeout', '1s'))
+        _ok(api.create, 'mockproid.mockapp',
+            _patch(good, '/data_retention_timeout', '12m'))
+        _ok(api.create, 'mockproid.mockapp',
+            _patch(good, '/data_retention_timeout', '12h'))
+        _ok(api.create, 'mockproid.mockapp',
+            _patch(good, '/data_retention_timeout', '12d'))
+        _ok(api.create, 'mockproid.mockapp',
+            _patch(good, '/data_retention_timeout', '12m'))
+        _ok(api.create, 'mockproid.mockapp',
+            _patch(good, '/data_retention_timeout', '12y'))
+        _fail(api.create, 'mockproid.mockapp',
+              _patch(good, '/data_retention_timeout', 12))
+        _fail(api.create, 'mockproid.mockapp',
+              _patch(good, '/data_retention_timeout', 'm'))
 
     @mock.patch('treadmill.context.AdminContext.conn',
                 mock.Mock(return_value=None))

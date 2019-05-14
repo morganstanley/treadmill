@@ -142,6 +142,8 @@ def collect_services(approot, archive):
     _add_glob(archive,
               os.path.join(approot, 'init', '*', 'log', 'current'))
     _add_glob(archive,
+              os.path.join(approot, 'init1', '*', 'log', 'current'))
+    _add_glob(archive,
               os.path.join(approot, 'network_svc', '*'))
     _add_glob(archive,
               os.path.join(approot, 'localdisk_svc', '*'))

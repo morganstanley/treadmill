@@ -12,8 +12,7 @@ import logging
 
 import click
 
-from treadmill import context
-from treadmill import keytabs2
+from treadmill.keytabs2 import receiver as kt2_receiver
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -34,6 +33,9 @@ def init():
                   type=click.Path(exists=True),
                   envvar='TREADMILL_APPROOT',
                   required=True)
+    @click.option('--treadmill-id',
+                  envvar='TREADMILL_ID',
+                  required=True)
     @click.option('--appname',
                   help='Pseudo app name to use for discovery',
                   required=True)
@@ -45,22 +47,24 @@ def init():
                   default=0)
     @click.option('--database',
                   required=True,
-                  type=click.Path(exists=True, readable=True),
                   help='SQLite3 db file stores VIP keytab/proid relations.')
-    def locker(kt_spool_dir, approot, appname, endpoint, port, database):
-        """Run keytab locker daemon."""
-        kt_locker = keytabs2.KeytabLocker(context.GLOBAL.zk.conn, kt_spool_dir)
-        kt_server = keytabs2.get_listening_server(kt_locker, port)
+    def receiver(kt_spool_dir, approot, treadmill_id, appname, endpoint, port,
+                 database):
+        """Run keytab receiver daemon."""
+        # we keep the sqlite file own by treadmill proid
+        kt_receiver = kt2_receiver.KeytabReceiver(
+            kt_spool_dir, database, treadmill_id
+        )
+        kt_server = kt2_receiver.get_receiver_server(kt_receiver, port)
 
         # TODO: refator this as an untility function
         from treadmill.sproc.keytabs import create_endpoint_file
 
         port = kt_server.get_actual_port()
         create_endpoint_file(approot, port, appname, endpoint)
-        keytabs2.ensure_table_exists(database)
 
-        _LOGGER.info('Starting keytab locker server on port: %s', port)
+        _LOGGER.info('Starting keytab receiver server on port: %s', port)
         kt_server.run()
 
-    del locker
+    del receiver
     return top

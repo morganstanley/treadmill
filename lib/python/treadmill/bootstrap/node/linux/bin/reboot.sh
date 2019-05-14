@@ -2,13 +2,17 @@
 #
 # Reboot local node.
 
-SLEEP={{ _alias.sleep }}
-ECHO={{ _alias.echo }}
-REBOOT={{ _alias.reboot }}
+SLEEP="{{ _alias.sleep }}"
+ECHO="{{ _alias.echo }}"
+REBOOT="{{ _alias.reboot }}"
 
-$ECHO $REBOOT -noexception -nooptout -noschedule -nouptime
-$REBOOT -noexception -nooptout -noschedule -nouptime
+set -e
 
-$ECHO Reboot failed.
+while [ 1 ];
+do
+    ${REBOOT} && break
+    ${ECHO} "Reboot failed, retrying in 60s ..."
+    ${SLEEP} 60
+done
 
-while true; do $SLEEP 10000; done
+exec ${SLEEP} inf

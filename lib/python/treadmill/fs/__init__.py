@@ -75,8 +75,8 @@ def replace(path_from, path_to):
         os.replace(path_from, path_to)
 
 
-def write_safe(filename, func, mode='wb', prefix='tmp', permission=None,
-               owner=None, subdir=None):
+def write_safe(filename, func, mode='wb', prefix='tmp', subdir=None,
+               permission=None, owner=None, utimes=None, fsync=False,):
     """Safely write file.
 
     :param filename:
@@ -87,12 +87,19 @@ def write_safe(filename, func, mode='wb', prefix='tmp', permission=None,
         same as tempfile.NamedTemporaryFile
     :param prefix:
         same as tempfile.NamedTemporaryFile
+    :param owner:
+        file owner (uid, gui) tuple
     :param permission:
         file permission
     :param owner
         file owner (uid, gui) tuple
     :param subdir
         create tempdir in subdir
+    :param utimes:
+        If utimes is not None, it must be a tuple (atime, mtime);
+        atime and mtime should be expressed as float seconds since the epoch.
+    :param ``bool`` fsync:
+        If True, call fsync to ensure all data is writen to disk.
     """
     dirname = os.path.dirname(filename)
     if subdir:
@@ -108,16 +115,26 @@ def write_safe(filename, func, mode='wb', prefix='tmp', permission=None,
                                          delete=False,
                                          prefix=prefix,
                                          mode=mode) as tmpfile:
+            func(tmpfile)
+
             if permission is not None and os.name == 'posix':
                 os.fchmod(tmpfile.fileno(), permission)
-
-            func(tmpfile)
 
             if owner:
                 uid, gid = owner
                 os.fchown(tmpfile.fileno(), uid, gid)
 
+            if fsync:
+                tmpfile.flush()  # Flush buffer then fsync, per docs.
+                os.fsync(tmpfile.fileno())
+
+            if utimes is not None:
+                if not fsync:
+                    tmpfile.flush()  # Force a flush now.
+                os.utime(tmpfile.name, times=utimes)
+
         replace(tmpfile.name, filename)
+
     finally:
         rm_safe(tmpfile.name)
 
