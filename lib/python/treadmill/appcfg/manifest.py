@@ -334,6 +334,7 @@ def add_linux_services(manifest):
             'interval': 60,
         },
         'command': (
+            'unset KRB5_KTNAME;unset KRB5CCNAME;'
             'exec {sshd} -D -f /etc/ssh/sshd_config'
             ' -p {sshd_port}'
         ).format(
