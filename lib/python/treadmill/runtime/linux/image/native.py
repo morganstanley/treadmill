@@ -22,6 +22,7 @@ from treadmill import runtime
 from treadmill import subproc
 from treadmill import supervisor
 from treadmill import utils
+from treadmill import templates
 
 from treadmill.fs import linux as fs_linux
 
@@ -195,6 +196,15 @@ def create_supervision_tree(tm_env, container_dir, root_dir, app,
             monitor_policy=monitor_policy
         )
     services_scandir.write()
+
+    # Create services startup script.
+    boot_commands = getattr(app, 'boot_commands', [])
+    templates.create_script(
+        os.path.join(container_dir, 'services', 'services.init'),
+        's6.init',
+        boot_commands=boot_commands,
+        _alias=subproc.get_aliases(),
+    )
 
     # Bind the service directory in the container volume
     fs.mkdir_safe(os.path.join(root_dir, 'services'))
