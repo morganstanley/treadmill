@@ -11,7 +11,6 @@ import os
 import functools
 import io
 import json
-import shlex
 
 import six
 
@@ -76,32 +75,7 @@ def get_aliases():
 def _split(command):
     """Split command into parts.
     """
-    # On windows, shlex does not seem to work properly, in particular:
-    #
-    # >>> shlex.split('/x/y/z\\xxx')
-    # >>> ['/x/y/zxxx']
-    #
-    # This is clearly wrong, so on windows just split on whitespace. It is
-    # bad design to have alias with arguments containing whitespace anyway, so
-    # does not seem like critical regression.
-    if os.name == 'nt':
-        return command.split()
-    else:
-        return shlex.split(command)
-
-
-def _quote(arg):
-    """Quote argument to be shell safe.
-    """
-    # On windows, shell.quote adds extra "" as in:
-    #
-    # >>> shlex.quote('\\s\\d')
-    # "'\\s\\d'"
-    if os.name == 'nt':
-        assert len(arg.split()) == 1
-        return arg
-    else:
-        return shlex.quote(arg)
+    return command.split()
 
 
 def _check(path):
@@ -123,7 +97,7 @@ def _normalize(command):
     """Normalize command."""
     split = _split(command)
     split[0] = os.path.normpath(split[0])
-    return ' '.join(_quote(part) for part in split)
+    return ' '.join(split)
 
 
 @functools.lru_cache(maxsize=256)

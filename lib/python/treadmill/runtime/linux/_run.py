@@ -89,6 +89,8 @@ def run(tm_env, runtime_config, container_dir, manifest):
         'ip1': app_network['vip'],
     }
 
+    manifest['boot_commands'] = []
+
     # Allocate dynamic ports
     #
     # Ports are taken from ephemeral range, by binding to socket to port 0.

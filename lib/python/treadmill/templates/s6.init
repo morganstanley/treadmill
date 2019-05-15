@@ -1,0 +1,14 @@
+#!/bin/sh
+
+set -e
+
+unset PYTHONPATH
+unset LC_ALL
+unset LANG
+unset TREADMILL_ALIASES_PATH
+
+{% for cmd in boot_commands %}
+{{ cmd }}
+{% endfor %}
+
+exec {{ _alias.s6_svscan }} -s /services

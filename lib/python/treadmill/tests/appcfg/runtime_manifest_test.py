@@ -239,6 +239,7 @@ class AppCfgRuntimeManifestTest(unittest.TestCase):
                 },
                 {
                     'command': (
+                        'unset KRB5_KTNAME;unset KRB5CCNAME;'
                         'exec /path/to/sshd'
                         ' -D -f /etc/ssh/sshd_config'
                         ' -p 22'
