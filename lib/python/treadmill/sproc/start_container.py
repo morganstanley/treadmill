@@ -68,21 +68,6 @@ def init():
         _LOGGER.debug('Current mounts: %s',
                       pprint.pformat(fs_linux.list_mounts()))
 
-        # Clean the environ
-        # TODO: Remove me once clean environment management is merged in.
-        os.environ.pop('PYTHONPATH', None)
-        os.environ.pop('LC_ALL', None)
-        os.environ.pop('LANG', None)
-
-        # Clear aliases path.
-        os.environ.pop('TREADMILL_ALIASES_PATH', None)
-
-        subproc.safe_exec(
-            [
-                's6_svscan',
-                '-s',
-                '/services'
-            ]
-        )
+        subproc.safe_exec(['/services/services.init'])
 
     return start_container

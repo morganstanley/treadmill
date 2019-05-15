@@ -29,12 +29,17 @@ class SubprocTest(unittest.TestCase):
         'foo': 'bar',
         'xxx': functools.partial(os.path.join, '/x/y/z'),
         'xxx_d': functools.partial(os.path.join, '/x/y/z')('.'),
+        'lib': '/x/$LIB/lib.so',
     }))
     @mock.patch('treadmill.subproc._check', mock.Mock(return_value=True))
     def test_resolve(self):
         """Test resolve.
         """
         self.assertEqual(subproc.resolve('foo'), 'bar')
+
+        if os.name != 'nt':
+            self.assertEqual(subproc.resolve('lib'), '/x/$LIB/lib.so')
+
         if os.name == 'nt':
             self.assertEqual(subproc.resolve('xxx'), '\\x\\y\\z\\xxx')
             self.assertEqual(subproc.resolve('xxx_d'), '\\x\\y\\z')

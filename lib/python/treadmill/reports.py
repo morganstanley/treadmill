@@ -294,6 +294,7 @@ class ExplainVisitor:
             'cpu': int(acc_demand[1]),
             'disk': int(acc_demand[2]),
             'name': app.name,
+            'server': app.server,
         })
 
     def finish(self):
