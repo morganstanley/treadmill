@@ -26,6 +26,7 @@ from treadmill import tickets
 from treadmill import utils
 from treadmill import zkutils
 
+from treadmill.keytabs2 import client as kt_client
 from treadmill.appcfg import abort as app_abort
 from treadmill.appcfg import manifest as app_manifest
 
@@ -44,6 +45,33 @@ def _start_service_sup(container_dir):
         )
     except subproc.CalledProcessError:
         raise exc.ContainerSetupError('start_container')
+
+
+def _get_keytabs(manifest, container_dir, locker_pattern):
+    """Get keytabs."""
+    # keytab of 'proid:service' is not fetched from keytab locker
+    keytabs = [
+        kt for kt in manifest.get('keytabs', [])
+        if ':' not in kt
+    ]
+    _LOGGER.debug('keytabs to fetch from locker: %r', keytabs)
+    if not keytabs:
+        return
+
+    kts_spool_dir = os.path.join(
+        container_dir, 'root', 'var', 'spool', 'keytabs')
+
+    try:
+        kt_client.request_keytabs(
+            context.GLOBAL.zk.conn,
+            manifest['name'],
+            kts_spool_dir,
+            locker_pattern,
+        )
+    except Exception:
+        _LOGGER.exception('Exception processing keytabs.')
+        raise exc.ContainerSetupError('Get keytabs error',
+                                      app_abort.AbortedReason.KEYTABS)
 
 
 def _get_tickets(manifest, container_dir):
@@ -111,9 +139,12 @@ def init():
     @presence_grp.command(name='register')
     @click.option('--refresh-interval', type=int,
                   default=_TICKETS_REFRESH_INTERVAL)
+    @click.option('--kt-locker-pattern', required=True,
+                  help='kt locker discovery pattern')
     @click.argument('manifest', type=click.Path(exists=True))
     @click.argument('container-dir', type=click.Path(exists=True))
-    def register_cmd(refresh_interval, manifest, container_dir):
+    def register_cmd(refresh_interval, kt_locker_pattern,
+                     manifest, container_dir):
         """Register container presence."""
         try:
             _LOGGER.info('Configuring sigterm handler.')
@@ -128,6 +159,7 @@ def init():
             refresh = False
             try:
                 refresh = _get_tickets(app, container_dir)
+                _get_keytabs(app, container_dir, kt_locker_pattern)
                 _start_service_sup(container_dir)
             except exc.ContainerSetupError as err:
                 app_abort.abort(

@@ -38,6 +38,7 @@ class AppDNSTest(unittest.TestCase):
             'cells': ['foo-cell'],
             'pattern': 'proid.app_dns*',
             'alias': 'foo-alias',
+            'identity-group': 'proid.id-group',
         }
 
         result = self.runner.invoke(self.app_dns,
@@ -45,6 +46,7 @@ class AppDNSTest(unittest.TestCase):
         self.assertEqual(result.exit_code, 0)
         self.assertIn('proid.app_dns1', result.output)
         self.assertIn('foo-alias', result.output)
+        self.assertIn('proid.id-group', result.output)
 
     @mock.patch('treadmill.restclient.call',
                 mock.Mock(return_value=mock.MagicMock(requests.Response)))
@@ -79,6 +81,7 @@ class AppDNSTest(unittest.TestCase):
             'cells': ['foo-cell'],
             'pattern': 'proid.yyy',
         }
+
         restclient.post.side_effect = restclient.AlreadyExistsError('')
 
         self.runner.invoke(
@@ -89,6 +92,26 @@ class AppDNSTest(unittest.TestCase):
         restclient.put.assert_called_with(
             mock.ANY, '/app-dns/proid.app_dns1', {
                 'pattern': 'proid.xxx'})
+
+        restclient.put.reset_mock()
+        self.runner.invoke(
+            self.app_dns, ['srv', 'configure', 'proid.app_dns1',
+                           '--pattern', 'proid.xxx', '--endpoints', 'foo']
+        )
+
+        restclient.put.assert_called_with(
+            mock.ANY, '/app-dns/proid.app_dns1', {
+                'pattern': 'proid.xxx', 'endpoints': ['foo']})
+
+        restclient.put.reset_mock()
+        self.runner.invoke(
+            self.app_dns, ['cname', 'configure', 'proid.app_dns1',
+                           '--pattern', 'proid.xxx', '--identity-group', 'foo']
+        )
+
+        restclient.put.assert_called_with(
+            mock.ANY, '/app-dns/proid.app_dns1', {
+                'pattern': 'proid.xxx', 'identity-group': 'foo'})
 
     @mock.patch('treadmill.restclient.call',
                 mock.Mock(return_value=mock.MagicMock(requests.Response)))
@@ -104,7 +127,8 @@ class AppDNSTest(unittest.TestCase):
             {'_id': 'proid.app_dns2',
              'cells': ['foo-cell'],
              'pattern': 'proid.app_dns*',
-             'alias': 'proid.foo'}
+             'alias': 'proid.foo',
+             'identity-group': 'proid.identity-group'}
         ]
 
         result = self.runner.invoke(self.app_dns, ['list'])
@@ -113,6 +137,7 @@ class AppDNSTest(unittest.TestCase):
         self.assertIn('proid.app_dns1', result.output)
         self.assertIn('proid.app_dns2', result.output)
         self.assertIn('proid.foo', result.output)
+        self.assertIn('proid.identity-group', result.output)
 
 
 if __name__ == '__main__':

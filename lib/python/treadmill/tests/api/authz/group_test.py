@@ -32,8 +32,47 @@ class GroupAuthzTest(unittest.TestCase):
     def test_authorize(self, mock_getgrnam):
         """Dummy test for treadmill.api.cell.get()"""
         # set templates directly.
-        grp_authz = group.API(groups=['treadmill.{proid}'])
+        grp_authz = group.API(
+            groups=['treadmill.{proid}'],
+            exclude=['*:get', '*:list', 'r2:create']
+        )
         mock_getgrnam.return_value = _MockGrp(['u1'])
+
+        authorized, _ = grp_authz.authorize(
+            'u1@realm', 'get', 'r1', {'pk': 'proidX.a'}
+        )
+        self.assertTrue(authorized)
+        mock_getgrnam.assert_not_called()
+
+        authorized, _ = grp_authz.authorize(
+            'u2@realm', 'get', 'r1', {'pk': 'proidX.a'}
+        )
+        self.assertTrue(authorized)
+        mock_getgrnam.assert_not_called()
+
+        authorized, _ = grp_authz.authorize(
+            'u1@realm', 'list', 'r1', {}
+        )
+        self.assertTrue(authorized)
+        mock_getgrnam.assert_not_called()
+
+        authorized, _ = grp_authz.authorize(
+            'u2@realm', 'list', 'r1', {}
+        )
+        self.assertTrue(authorized)
+        mock_getgrnam.assert_not_called()
+
+        authorized, _ = grp_authz.authorize(
+            'u1@realm', 'create', 'r2', {'pk': 'proidX.a'}
+        )
+        self.assertTrue(authorized)
+        mock_getgrnam.assert_not_called()
+
+        authorized, _ = grp_authz.authorize(
+            'u2@realm', 'create', 'r2', {'pk': 'proidX.a'}
+        )
+        self.assertTrue(authorized)
+        mock_getgrnam.assert_not_called()
 
         authorized, _ = grp_authz.authorize(
             'u1@realm', 'create', 'r1', {'pk': 'proidX.a'}

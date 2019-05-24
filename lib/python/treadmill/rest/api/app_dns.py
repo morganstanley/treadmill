@@ -27,6 +27,8 @@ def init(api, cors, impl):
         'endpoints': fields.List(fields.String(description='Endpoints')),
         'alias': fields.String(description='Alias'),
         'scope': fields.String(description='Scope', required=True),
+        'identity-group': fields.String(description='Identity gruop id',
+                                        required=False),
     }
 
     app_dns_model = api.model(

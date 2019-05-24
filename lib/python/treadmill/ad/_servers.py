@@ -46,6 +46,7 @@ def create_ldap_connection(domain_controller):
         server,
         authentication=ldap3.SASL,
         sasl_mechanism='GSSAPI',
+        sasl_credentials=(True,),
         client_strategy=ldap3.RESTARTABLE,
         auto_bind=True,
         auto_range=True,

@@ -172,6 +172,8 @@ class TicketLockerTest(unittest.TestCase):
     @mock.patch('treadmill.fs.rm_safe', mock.Mock(spec_set=True))
     @mock.patch('treadmill.tickets.krbcc_ok',
                 mock.Mock(spec_set=True, return_value=True))
+    @mock.patch('treadmill.tickets.kinit_renew',
+                mock.Mock(spec_set=True))
     def test_ticket_write(self):
         """Tests writing ticket to the file system.
         """

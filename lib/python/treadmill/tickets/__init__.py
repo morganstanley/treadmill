@@ -103,6 +103,7 @@ class Ticket:
 
                 # Only write valid tickets.
                 if krbcc_ok(tkt_file.name):
+                    kinit_renew(tkt_file.name, self.user)
                     os.rename(tkt_file.name, path)
                 else:
                     _LOGGER.warning('Invalid or expired ticket: %s',
@@ -148,23 +149,8 @@ class Ticket:
                     fs.rm_safe(tkt_dst_file.name)
 
     def renew(self):
-        """Runs kinit -R against the existing CCNAME."""
-        if not os.path.exists(self.tkt_path):
-            _LOGGER.info('Renew: ticket file %s does not exist', self.tkt_path)
-            return
-
-        try:
-            subproc.check_call(
-                ['kinit', '-R'],
-                environ={
-                    'KRB5CCNAME': 'FILE:' + self.tkt_path,
-                },
-                runas=self.user
-            )
-            _LOGGER.info('Tickets renewed successfully.')
-        except subproc.CalledProcessError as err:
-            _LOGGER.info('Tickets not renewable, kinit rc: %s',
-                         err.returncode)
+        """Renew the ticket."""
+        kinit_renew(self.tkt_path, self.user)
 
     @property
     def tkt_path(self):
@@ -184,6 +170,22 @@ def krbcc_ok(tkt_path):
     except subproc.CalledProcessError:
         _LOGGER.warning('Ticket cache invalid: %s', tkt_path)
         return False
+
+
+def kinit_renew(tkt_path, user):
+    """Run kinit -R against the existing CCNAME to renew the ticket."""
+    try:
+        subproc.check_call(
+            ['kinit', '-R'],
+            environ={
+                'KRB5CCNAME': 'FILE:' + tkt_path,
+            },
+            runas=user
+        )
+        _LOGGER.info('Tickets renewed successfully.')
+    except subproc.CalledProcessError as err:
+        _LOGGER.info('Error while renewing tickets, kinit rc: %s',
+                     err.returncode)
 
 
 def lockers(zkclient):
@@ -258,7 +260,6 @@ def store_ticket(tkt, tkt_spool_dir):
     if not tkt.write():
         return False
 
-    tkt.renew()
     tkt_spool_path = os.path.join(tkt_spool_dir, tkt.princ)
     tkt.copy(tkt_spool_path)
 

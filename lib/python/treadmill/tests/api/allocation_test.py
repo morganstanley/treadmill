@@ -129,6 +129,26 @@ class ApiAllocationTest(unittest.TestCase):
              'memory': '10G'},
         )
 
+        # make sure capacity checking works without specifing traits
+        # in reservation request
+        self.alloc_api.reservation.create(
+            'tenant/alloc/cellname',
+            {
+                'cpu': '100%',
+                'memory': '10G',
+                'disk': '10G',
+                'partition': 'ppp',
+            }
+        )
+        alloc_admin.create.assert_called_with(
+            ['cellname', 'tenant/alloc'],
+            {'disk': '10G',
+             'partition': 'ppp',
+             'cpu': '100%',
+             'rank': 100,
+             'memory': '10G'},
+        )
+
         # let's add a reservation so we don't have anough free
         # capacity anymore
         alloc_admin.list.return_value = [

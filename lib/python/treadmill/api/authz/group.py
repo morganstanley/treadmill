@@ -6,6 +6,7 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
+import fnmatch
 import grp      # pylint: disable=import-error
 import logging
 import pwd      # pylint: disable=import-error
@@ -32,7 +33,7 @@ class API:
         for group in groups:
             _LOGGER.info('Using authorization template: %s', group)
 
-        exclude = kwargs.get('exclude', {})
+        exclude = kwargs.get('exclude', [])
         _LOGGER.info('Unrestricted whitelist: %s', exclude)
 
         me = pwd.getpwuid(os.getuid())[0]
@@ -47,13 +48,14 @@ class API:
                 'Authorize: %s %s %s %s', user, action, resource, resource_id
             )
 
-            if '{}:{}'.format(resource, action) in exclude:
-                _LOGGER.info(
-                    'Access allowed based on exclusion whitelist: %s:%s',
-                    action,
-                    resource
-                )
-                return True, []
+            resource_action = '{}:{}'.format(resource, action)
+            for exclusion in exclude:
+                if fnmatch.fnmatch(resource_action, exclusion):
+                    _LOGGER.info(
+                        'Access allowed based on exclusion whitelist: %s, %s',
+                        resource_action, exclusion
+                    )
+                    return True, []
 
             username = user.partition('@')[0]
 

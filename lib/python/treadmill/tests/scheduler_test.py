@@ -967,6 +967,161 @@ class CellTest(unittest.TestCase):
         self.assertIsNone(app3.server)
         self.assertIsNotNone(app4.server)
 
+    def test_affinity_limits_bunker(self):
+        """Simple placement test with bunker in level"""
+        cell = scheduler.Cell('top')
+        bunker1 = scheduler.Bucket('bunker1', traits=0)
+        bunker2 = scheduler.Bucket('bunker2', traits=0)
+        b1_left = scheduler.Bucket('b1_left', traits=0)
+        b1_right = scheduler.Bucket('b1_right', traits=0)
+        b2 = scheduler.Bucket('b2', traits=0)
+        srv_a = scheduler.Server('a', [10, 10], traits=0, valid_until=500)
+        srv_b = scheduler.Server('b', [10, 10], traits=0, valid_until=500)
+        srv_c = scheduler.Server('c', [10, 10], traits=0, valid_until=500)
+        srv_y = scheduler.Server('y', [10, 10], traits=0, valid_until=500)
+        srv_z = scheduler.Server('z', [10, 10], traits=0, valid_until=500)
+
+        cell.add_node(bunker1)
+        cell.add_node(bunker2)
+        bunker1.add_node(b1_left)
+        bunker1.add_node(b1_right)
+        bunker2.add_node(b2)
+        b1_left.add_node(srv_a)
+        b1_left.add_node(srv_b)
+        b1_right.add_node(srv_c)
+        b2.add_node(srv_y)
+        b2.add_node(srv_z)
+
+        bunker1.level = 'bunker'
+        bunker2.level = 'bunker'
+        b1_left.level = 'rack'
+        b1_right.level = 'rack'
+        b2.level = 'rack'
+
+        apps = app_list(10, 'app', 50, [1, 1],
+                        affinity_limits={'server': 1, 'bunker': 1})
+
+        cell.add_app(cell.partitions[None].allocation, apps[0])
+        cell.add_app(cell.partitions[None].allocation, apps[1])
+        cell.add_app(cell.partitions[None].allocation, apps[2])
+        cell.add_app(cell.partitions[None].allocation, apps[3])
+        cell.schedule()
+
+        self.assertIsNotNone(apps[0].server)
+        self.assertIsNotNone(apps[1].server)
+        self.assertIsNone(apps[2].server)
+        self.assertIsNone(apps[3].server)
+
+        apps = app_list(10, 'app', 50, [1, 1],
+                        affinity_limits={'server': 1, 'rack': 1, 'bunker': 2})
+
+        for app in apps:
+            cell.remove_app(app.name)
+
+        cell.add_app(cell.partitions[None].allocation, apps[0])
+        cell.add_app(cell.partitions[None].allocation, apps[1])
+        cell.add_app(cell.partitions[None].allocation, apps[2])
+        cell.add_app(cell.partitions[None].allocation, apps[3])
+        cell.schedule()
+
+        self.assertIsNotNone(apps[0].server)
+        self.assertIsNotNone(apps[1].server)
+        self.assertIsNotNone(apps[2].server)
+        self.assertIsNone(apps[3].server)
+
+    def test_affinity_limits_levels(self):
+        """Simple placement test with 2 layer of bucket"""
+        # pylint: disable=too-many-statements
+        cell = scheduler.Cell('top')
+        group1 = scheduler.Bucket('group1', traits=0)
+        group2 = scheduler.Bucket('group2', traits=0)
+        g1_left = scheduler.Bucket('g1_left', traits=0)
+        g1_right = scheduler.Bucket('g1_right', traits=0)
+        g2_left = scheduler.Bucket('g2_left', traits=0)
+        g2_right = scheduler.Bucket('g2_right', traits=0)
+        srv_a = scheduler.Server('a', [10, 10], traits=0, valid_until=500)
+        srv_b = scheduler.Server('b', [10, 10], traits=0, valid_until=500)
+        srv_c = scheduler.Server('c', [10, 10], traits=0, valid_until=500)
+        srv_x = scheduler.Server('x', [10, 10], traits=0, valid_until=500)
+        srv_y = scheduler.Server('y', [10, 10], traits=0, valid_until=500)
+        srv_z = scheduler.Server('z', [10, 10], traits=0, valid_until=500)
+
+        cell.add_node(group1)
+        cell.add_node(group2)
+        group1.add_node(g1_left)
+        group1.add_node(g1_right)
+        group2.add_node(g2_left)
+        group2.add_node(g2_right)
+        g1_left.add_node(srv_a)
+        g1_left.add_node(srv_b)
+        g1_right.add_node(srv_c)
+        g2_left.add_node(srv_x)
+        g2_right.add_node(srv_y)
+        g2_right.add_node(srv_z)
+
+        g1_left.level = 'rack'
+        g1_right.level = 'rack'
+        g2_left.level = 'rack'
+        g2_right.level = 'rack'
+
+        apps = app_list(10, 'app', 50, [1, 1],
+                        affinity_limits={'server': 1})
+        cell.add_app(cell.partitions[None].allocation, apps[0])
+        cell.add_app(cell.partitions[None].allocation, apps[1])
+        cell.add_app(cell.partitions[None].allocation, apps[2])
+        cell.add_app(cell.partitions[None].allocation, apps[3])
+        cell.add_app(cell.partitions[None].allocation, apps[4])
+        cell.add_app(cell.partitions[None].allocation, apps[5])
+        cell.add_app(cell.partitions[None].allocation, apps[6])
+
+        cell.schedule()
+
+        self.assertIsNotNone(apps[0].server)
+        self.assertIsNotNone(apps[1].server)
+        self.assertIsNotNone(apps[2].server)
+        self.assertIsNotNone(apps[3].server)
+        self.assertIsNotNone(apps[4].server)
+        self.assertIsNotNone(apps[5].server)
+        self.assertIsNone(apps[6].server)
+
+        for app in apps:
+            cell.remove_app(app.name)
+
+        apps = app_list(10, 'app', 50, [1, 1],
+                        affinity_limits={'server': 1, 'rack': 1})
+
+        cell.add_app(cell.partitions[None].allocation, apps[0])
+        cell.add_app(cell.partitions[None].allocation, apps[1])
+        cell.add_app(cell.partitions[None].allocation, apps[2])
+        cell.add_app(cell.partitions[None].allocation, apps[3])
+        cell.add_app(cell.partitions[None].allocation, apps[4])
+        cell.add_app(cell.partitions[None].allocation, apps[5])
+        cell.schedule()
+
+        self.assertIsNotNone(apps[0].server)
+        self.assertIsNotNone(apps[1].server)
+        self.assertIsNotNone(apps[2].server)
+        self.assertIsNotNone(apps[3].server)
+        self.assertIsNone(apps[4].server)
+        self.assertIsNone(apps[5].server)
+
+        apps = app_list(10, 'app', 50, [1, 1],
+                        affinity_limits={'server': 1, 'rack': 2, 'cell': 3})
+
+        for app in apps:
+            cell.remove_app(app.name)
+
+        cell.add_app(cell.partitions[None].allocation, apps[0])
+        cell.add_app(cell.partitions[None].allocation, apps[1])
+        cell.add_app(cell.partitions[None].allocation, apps[2])
+        cell.add_app(cell.partitions[None].allocation, apps[3])
+        cell.schedule()
+
+        self.assertIsNotNone(apps[0].server)
+        self.assertIsNotNone(apps[1].server)
+        self.assertIsNotNone(apps[2].server)
+        self.assertIsNone(apps[3].server)
+
     def test_affinity_limits(self):
         """Simple placement test."""
         cell = scheduler.Cell('top')
@@ -1036,6 +1191,78 @@ class CellTest(unittest.TestCase):
         self.assertIsNotNone(apps[1].server)
         self.assertIsNotNone(apps[2].server)
         self.assertIsNone(apps[3].server)
+
+    @mock.patch('time.time', mock.Mock(return_value=0))
+    def test_data_retention_levels(self):
+        """Tests data retention."""
+        cell = scheduler.Cell('top')
+        group1 = scheduler.Bucket('group1', traits=0)
+        group2 = scheduler.Bucket('group2', traits=0)
+        g1_left = scheduler.Bucket('g1_left', traits=0)
+        g1_right = scheduler.Bucket('g1_right', traits=0)
+        g2 = scheduler.Bucket('g2', traits=0)
+        srvs = {
+            'a': scheduler.Server('a', [10, 10], traits=0, valid_until=500),
+            'b': scheduler.Server('b', [10, 10], traits=0, valid_until=500),
+            'c': scheduler.Server('c', [10, 10], traits=0, valid_until=500),
+            'y': scheduler.Server('y', [10, 10], traits=0, valid_until=500),
+            'z': scheduler.Server('z', [10, 10], traits=0, valid_until=500),
+        }
+
+        cell.add_node(group1)
+        cell.add_node(group2)
+        group1.add_node(g1_left)
+        group1.add_node(g1_right)
+        group2.add_node(g2)
+        g1_left.add_node(srvs['a'])
+        g1_left.add_node(srvs['b'])
+        g1_right.add_node(srvs['c'])
+        g2.add_node(srvs['y'])
+        g2.add_node(srvs['z'])
+
+        g1_left.level = 'rack'
+        g1_right.level = 'rack'
+        g2.level = 'rack'
+
+        time.time.return_value = 100
+
+        sticky_apps = app_list(10, 'sticky', 50, [1, 1],
+                               affinity_limits={'server': 1, 'rack': 1},
+                               data_retention_timeout=30)
+        unsticky_app = scheduler.Application('unsticky', 10, [1., 1.],
+                                             'unsticky',
+                                             data_retention_timeout=0)
+
+        cell.partitions[None].allocation.add(sticky_apps[0])
+        cell.partitions[None].allocation.add(unsticky_app)
+
+        cell.schedule()
+
+        # Both apps having different affinity, will be on same node.
+        first_srv = sticky_apps[0].server
+        self.assertEqual(sticky_apps[0].server, unsticky_app.server)
+
+        # Mark srv_a as down, unsticky app migrates right away,
+        # sticky stays.
+        srvs[first_srv].state = scheduler.State.down
+
+        cell.schedule()
+        self.assertEqual(sticky_apps[0].server, first_srv)
+        self.assertNotEqual(unsticky_app.server, first_srv)
+        self.assertEqual(cell.next_event_at, 130)
+
+        time.time.return_value = 110
+
+        cell.schedule()
+        self.assertEqual(sticky_apps[0].server, first_srv)
+        self.assertNotEqual(unsticky_app.server, first_srv)
+        self.assertEqual(cell.next_event_at, 130)
+
+        time.time.return_value = 130
+        cell.schedule()
+        self.assertNotEqual(sticky_apps[0].server, first_srv)
+        self.assertNotEqual(unsticky_app.server, first_srv)
+        self.assertEqual(cell.next_event_at, np.inf)
 
     @mock.patch('time.time', mock.Mock(return_value=0))
     def test_data_retention(self):

@@ -29,6 +29,7 @@ def _group2dns(app_group):
 
     app_dns['alias'] = None
     app_dns['scope'] = None
+    app_dns['identity-group'] = None
 
     if data:
         data_dict = data
@@ -39,6 +40,8 @@ def _group2dns(app_group):
             app_dns['alias'] = data_dict.get('alias')
         if data_dict.get('scope'):
             app_dns['scope'] = data_dict.get('scope')
+        if data_dict.get('identity-group'):
+            app_dns['identity-group'] = data_dict.get('identity-group')
 
     return app_dns
 
@@ -49,6 +52,7 @@ def _dns2group(app_dns):
     app_group['group-type'] = 'dns'
     alias = app_group.get('alias')
     scope = app_group.get('scope')
+    id_group = app_group.get('identity-group')
     if not alias:
         return app_group
 
@@ -57,9 +61,16 @@ def _dns2group(app_dns):
         app_group['data'].append('alias={0}'.format(alias))
     if scope:
         app_group['data'].append('scope={0}'.format(scope))
+    if id_group:
+        app_group['data'].append('identity-group={0}'.format(id_group))
 
-    del app_group['alias']
-    del app_group['scope']
+    try:
+        del app_group['alias']
+        del app_group['scope']
+        del app_group['identity-group']
+    except KeyError:
+        pass
+
     if not app_group['data']:
         del app_group['data']
 
