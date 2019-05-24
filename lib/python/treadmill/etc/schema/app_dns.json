@@ -26,7 +26,8 @@
             "scope": {
                 "type": "string",
                 "pattern": "^cell$|^campus$|^region$|^global$"
-            }
+            },
+            "identity-group": { "$ref": "common.json#/identity_group_id" }
         }
     },
     "verbs": {

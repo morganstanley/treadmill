@@ -227,12 +227,14 @@ def add_linux_system_services(tm_env, manifest):
             ' --cell {cell}'
             ' presence register'
             ' {manifest} {container_dir}'
+            ' --kt-locker-pattern {treadmill_id}.keytabs-locker-v2'
         ).format(
             treadmill=subproc.resolve('treadmill'),
             zkurl=manifest['zookeeper'],
             cell=manifest['cell'],
             manifest=os.path.join(container_data_dir, 'state.json'),
-            container_dir=container_data_dir
+            container_dir=container_data_dir,
+            treadmill_id=os.environ['TREADMILL_ID'],
         ),
         'environ': [
             {

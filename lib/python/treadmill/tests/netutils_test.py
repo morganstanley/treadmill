@@ -19,7 +19,7 @@ class NetutilsTest(unittest.TestCase):
     """Tests for teadmill.netutils
     """
 
-    def test_netstat_listen_0_0_0_0(self):
+    def test_netstat_listen(self):
         """Tests netutils.netstat"""
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.bind(('0.0.0.0', 0))
@@ -29,7 +29,17 @@ class NetutilsTest(unittest.TestCase):
         self.assertIn(port, netutils.netstat(os.getpid()))
         sock.close()
 
-    def test_netstat_listen_127_0_0_1(self):
+    def test_netstat_listen6(self):
+        """Tests netutils.netstat"""
+        sock = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
+        sock.bind(('::0', 0))
+        sock.listen(1)
+        port = sock.getsockname()[1]
+
+        self.assertIn(port, netutils.netstat(os.getpid()))
+        sock.close()
+
+    def test_netstat_listen_loopback(self):
         """Tests netutils.netstat"""
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.bind(('127.0.0.1', 0))
@@ -37,6 +47,17 @@ class NetutilsTest(unittest.TestCase):
         port = sock.getsockname()[1]
 
         # Do not report ports listening on 127.0.0.1
+        self.assertNotIn(port, netutils.netstat(os.getpid()))
+        sock.close()
+
+    def test_netstat_listen_loopback6(self):
+        """Tests netutils.netstat"""
+        sock = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
+        sock.bind(('::1', 0))
+        sock.listen(1)
+        port = sock.getsockname()[1]
+
+        # Do not report ports listening on loopback.
         self.assertNotIn(port, netutils.netstat(os.getpid()))
         sock.close()
 

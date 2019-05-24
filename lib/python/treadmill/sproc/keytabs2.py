@@ -12,7 +12,9 @@ import logging
 
 import click
 
+from treadmill import context
 from treadmill.keytabs2 import receiver as kt2_receiver
+from treadmill.keytabs2 import locker as kt2_locker
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -43,7 +45,7 @@ def init():
                   help='Pseudo endpoint to use for discovery',
                   default='keytabs-v2')
     @click.option('-p', '--port',
-                  help='Keytab locker server port.',
+                  help='Keytab receiver server port.',
                   default=0)
     @click.option('--database',
                   required=True,
@@ -66,5 +68,42 @@ def init():
         _LOGGER.info('Starting keytab receiver server on port: %s', port)
         kt_server.run()
 
+    @top.command()
+    @click.option('--kt-spool-dir',
+                  help='Keytab spool directory.')
+    @click.option('--approot',
+                  type=click.Path(exists=True),
+                  envvar='TREADMILL_APPROOT',
+                  required=True)
+    @click.option('--appname',
+                  help='Pseudo app name to use for discovery',
+                  required=True)
+    @click.option('--endpoint',
+                  help='Pseudo endpoint to use for discovery',
+                  default='keytabs-v2')
+    @click.option('-p', '--port',
+                  help='Keytab locker server port.',
+                  default=0)
+    @click.option('--database',
+                  required=True,
+                  help='SQLite3 db file stores VIP keytab/proid relations.')
+    def locker(kt_spool_dir, approot, appname, endpoint, port, database):
+        """Run keytab locker daemon."""
+        kt_locker = kt2_locker.KeytabLocker(
+            kt_spool_dir, database, context.GLOBAL.zk.conn,
+        )
+        kt_server = kt2_locker.get_locker_server(kt_locker, port)
+
+        # TODO: refator this as an untility function
+        from treadmill.sproc.keytabs import create_endpoint_file
+
+        port = kt_server.get_actual_port()
+        create_endpoint_file(approot, port, appname, endpoint)
+
+        _LOGGER.info('Starting keytab receiver server on port: %s', port)
+        kt_server.run()
+
+    del locker
     del receiver
+
     return top

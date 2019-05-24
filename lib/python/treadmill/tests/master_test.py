@@ -1677,6 +1677,50 @@ class MasterTest(mockzk.MockZookeeperTestCase):
     @mock.patch('kazoo.client.KazooClient.get', mock.Mock())
     @mock.patch('kazoo.client.KazooClient.exists', mock.Mock())
     @mock.patch('kazoo.client.KazooClient.get_children', mock.Mock())
+    @mock.patch('kazoo.client.KazooClient.set', mock.Mock())
+    @mock.patch('kazoo.client.KazooClient.create', mock.Mock())
+    @mock.patch('kazoo.client.KazooClient.exists', mock.Mock())
+    @mock.patch('time.time', mock.Mock(return_value=0))
+    def test_load_buckets_levels(self):
+        """Test adding new buckets to the topology.
+        """
+        zk_content = {
+            'buckets': {
+                'pod:pod1': {
+                    'traits': None,
+                },
+                'pod:pod2': {
+                    'traits': None,
+                },
+                'podgroup:pg1': {
+                    'traits': None,
+                    'parent': 'pod:pod1',
+                },
+                'podgroup:pg2': {
+                    'traits': None,
+                    'parent': 'pod:pod2',
+                },
+                'rack:1234': {
+                    'traits': None,
+                    'parent': 'podgroup:pg1',
+                },
+            },
+        }
+        time.time.return_value = 100
+        self.make_mock_zk(zk_content)
+        self.master.load_buckets()
+
+        # Add a new server in a new bucket, make sure it is properly added.
+        zk_content['buckets']['rack:4321'] = {
+            'traits': None,
+            'parent': 'podgroup:pg2',
+        }
+        self.master.load_buckets()
+        self.assertIn('rack:4321', self.master.buckets)
+
+    @mock.patch('kazoo.client.KazooClient.get', mock.Mock())
+    @mock.patch('kazoo.client.KazooClient.exists', mock.Mock())
+    @mock.patch('kazoo.client.KazooClient.get_children', mock.Mock())
     @mock.patch('treadmill.zkutils.ensure_exists', mock.Mock())
     @mock.patch('treadmill.zkutils.ensure_deleted', mock.Mock())
     @mock.patch('treadmill.zkutils.put', mock.Mock())

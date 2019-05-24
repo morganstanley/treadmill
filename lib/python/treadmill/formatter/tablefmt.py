@@ -196,6 +196,7 @@ class AppPrettyFormatter:
         ])
 
         affinity_limits_tbl = make_dict_to_table([
+            ('bunker', None, None),
             ('pod', None, None),
             ('rack', None, None),
             ('server', None, None),
@@ -685,12 +686,15 @@ class AppDNSPrettyFormatter:
     @staticmethod
     def format(item):
         """Return pretty-formatted item."""
-        schema = [('name', '_id', None),
-                  ('scope', None, None),
-                  ('cells', None, None),
-                  ('pattern', None, None),
-                  ('endpoints', None, None),
-                  ('alias', None, None)]
+        schema = [
+            ('name', '_id', None),
+            ('scope', None, None),
+            ('cells', None, None),
+            ('pattern', None, None),
+            ('endpoints', None, None),
+            ('alias', None, None),
+            ('identity-group', None, None),
+        ]
 
         format_item = make_dict_to_table(schema)
         format_list = make_list_to_table(schema)

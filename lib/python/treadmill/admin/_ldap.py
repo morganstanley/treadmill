@@ -540,7 +540,8 @@ class Admin:
             else:
                 ldap_auth = {
                     'authentication': ldap3.SASL,
-                    'sasl_mechanism': 'GSSAPI'
+                    'sasl_mechanism': 'GSSAPI',
+                    'sasl_credentials': (True,)
                 }
 
             return ldap3.Connection(

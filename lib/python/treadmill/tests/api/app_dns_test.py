@@ -32,15 +32,52 @@ class AppDnsTest(unittest.TestCase):
         self.assertEqual(
             app_dns._group2dns(group),
             {'pattern': 'xxx.yyy', 'cells': ['cell1'],
-             'alias': None, 'scope': None}
+             'alias': None, 'scope': None, 'identity-group': None}
         )
+        # TODO
+        # self.assertEqual(app_dns._dns2group(app_dns._group2dns(group)),
+        #                  group)
 
-        group['data'] = ['alias=foo', 'scope=region']
+        group['data'] = ['alias=foo', 'scope=region', 'identity-group=bar']
         self.assertEqual(
             app_dns._group2dns(group),
             {'pattern': 'xxx.yyy', 'cells': ['cell1'],
-             'alias': 'foo', 'scope': 'region'}
+             'alias': 'foo', 'scope': 'region', 'identity-group': 'bar'}
         )
+        # TODO
+        # self.assertEqual(app_dns._dns2group(app_dns._group2dns(group)),
+        #                  group)
+
+    def test_dns2group(self):
+        """Tests app-dns to app-group conversion."""
+        # Disable W0212: accessing protected members.
+        # pylint: disable=W0212
+
+        dns = {'pattern': 'xxx.yyy*', 'alias': 'x.alias', 'scope': 'cell'}
+        self.assertEqual(
+            app_dns._dns2group(dns), {
+                'pattern': 'xxx.yyy*',
+                'data': ['alias=x.alias', 'scope=cell'],
+                'group-type': 'dns'
+            })
+
+        dns = {
+            'pattern': 'xxx.yyy*',
+            'cells': ['cell1'],
+            'alias': 'x.alias',
+            'scope': 'cell',
+            'identity-group': 'x.id-group',
+            'endpoints': ['http']
+        }
+        self.assertEqual(
+            app_dns._dns2group(dns), {
+                'cells': ['cell1'],
+                'data': ['alias=x.alias', 'scope=cell',
+                         'identity-group=x.id-group'],
+                'endpoints': ['http'],
+                'group-type': 'dns',
+                'pattern': 'xxx.yyy*'
+            })
 
 
 if __name__ == '__main__':
