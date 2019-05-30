@@ -229,6 +229,7 @@ tenant = treadmill.cli.admin.ldap.tenant
 ldap = treadmill.cli.admin.checkout.ldap
 zk = treadmill.cli.admin.checkout.zk
 servers = treadmill.cli.admin.checkout.servers
+sysapp = treadmill.cli.admin.checkout.sysapp
 
 [treadmill.server.traits]
 sse4 = treadmill.traits:has_sse4
