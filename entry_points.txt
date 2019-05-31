@@ -194,6 +194,7 @@ checkout = treadmill.cli.admin.checkout
 check-aliases = treadmill.cli.admin.check_aliases
 
 [treadmill.cli.admin.install]
+kt-fwd = treadmill.cli.admin.install.kt_fwd
 master = treadmill.cli.admin.install.master
 node = treadmill.cli.admin.install.node
 openldap = treadmill.cli.admin.install.openldap
@@ -228,6 +229,7 @@ tenant = treadmill.cli.admin.ldap.tenant
 ldap = treadmill.cli.admin.checkout.ldap
 zk = treadmill.cli.admin.checkout.zk
 servers = treadmill.cli.admin.checkout.servers
+sysapp = treadmill.cli.admin.checkout.sysapp
 
 [treadmill.server.traits]
 sse4 = treadmill.traits:has_sse4
@@ -290,6 +292,7 @@ monitor = treadmill.cron.model.monitor
 
 [treadmill.bootstrap]
 aliases = treadmill.bootstrap.aliases
+kt-fwd = treadmill.bootstrap.kt_fwd
 master = treadmill.bootstrap.master
 node = treadmill.bootstrap.node
 openldap = treadmill.bootstrap.openldap

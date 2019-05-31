@@ -48,6 +48,7 @@ def models(api):
         'rules': fields.List(fields.Nested(vring_rule)),
     })
     affinity_limits = api.model('AffinityLimit', {
+        'bunker': fields.Integer(description='Bunker'),
         'pod': fields.Integer(description='Pod'),
         'rack': fields.Integer(description='Rack'),
         'server': fields.Integer(description='Server'),

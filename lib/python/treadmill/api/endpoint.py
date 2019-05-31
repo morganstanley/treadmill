@@ -7,7 +7,7 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import logging
-
+import json
 import fnmatch
 
 import kazoo
@@ -73,7 +73,12 @@ def make_discovery_state_watcher(zkclient, state, server):
             # Reestablish the watch.
             # TODO: need to remember change it to json once zkutils is modified
             #       to store json rather than yaml.
-            state[server] = yaml.load(data)
+            try:
+                state[server] = json.loads(data.decode())
+            except ValueError:
+                temp = yaml.load(data)
+                state[server] = {str(k): v for k, v in temp.items()}
+
             return True
 
 
@@ -154,11 +159,11 @@ class API:
                     continue
                 appname, proto, endpoint = name.split(':')
                 host, port = hostport.split(':')
-                port = int(port)
+
                 try:
                     state = bool(ports_state[host][port])
                 except KeyError:
-                    _LOGGER.exception('not found: %s:%d', host, port)
+                    _LOGGER.info('not found: %s:%d', host, port)
                     state = None
 
                 filtered.append({'name': proid + '.' + appname,

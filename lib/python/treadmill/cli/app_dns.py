@@ -28,17 +28,7 @@ def init():
         """Manage Treadmill App DNS configuration.
         """
 
-    @appdns.command()
-    @click.argument('name', nargs=1, required=True)
-    @click.option('--cell', help='List of cells',
-                  type=cli.LIST)
-    @click.option('--pattern', help='App pattern')
-    @click.option('--endpoints', help='Endpoints to be included in SRV rec',
-                  type=cli.LIST)
-    @click.option('--alias', help='App DNS alias')
-    @click.option('--scope', help='DNS scope')
-    @cli.handle_exceptions(restclient.CLI_REST_EXCEPTIONS)
-    def configure(name, cell, pattern, endpoints, alias, scope):
+    def configure_base(name, cell, pattern, endpoints, alias, scope, id_group):
         """Create, modify or get Treadmill App DNS entry"""
         restapi = context.GLOBAL.admin_api()
         url = _REST_PATH + name
@@ -54,6 +44,8 @@ def init():
             data['alias'] = alias
         if scope is not None:
             data['scope'] = scope
+        if id_group is not None:
+            data['identity-group'] = id_group
 
         if data:
             try:
@@ -67,6 +59,58 @@ def init():
         app_dns_entry = restclient.get(restapi, url).json()
 
         cli.out(formatter(app_dns_entry))
+
+    @appdns.command()
+    @click.argument('name', nargs=1, required=True)
+    @click.option('--cell', help='List of cells',
+                  type=cli.LIST)
+    @click.option('--pattern', help='App pattern')
+    @click.option('--endpoints', help='Endpoints to be included in SRV rec',
+                  type=cli.LIST)
+    @click.option('--alias', help='App DNS alias')
+    @click.option('--scope', help='DNS scope')
+    @cli.handle_exceptions(restclient.CLI_REST_EXCEPTIONS)
+    def configure(name, cell, pattern, endpoints, alias, scope):
+        """Create, modify or get DNS SRV entry"""
+        configure_base(name, cell, pattern, endpoints, alias, scope, None)
+
+    @appdns.group(name='cname')
+    def cname():
+        """Manage DNS CNAME configuration.
+        """
+
+    @cname.command(name='configure')
+    @click.argument('name', nargs=1, required=True)
+    @click.option('--cell', help='List of cells',
+                  type=cli.LIST)
+    @click.option('--pattern', help='App pattern')
+    @click.option('--alias', help='App DNS alias')
+    @click.option('--scope', help='DNS scope')
+    @click.option('--identity-group', 'id_group', help='Identity group to '
+                  'create alias(es) pointing to the instances\' hosts')
+    @cli.handle_exceptions(restclient.CLI_REST_EXCEPTIONS)
+    def configure_cname(name, cell, pattern, alias, scope, id_group):
+        """Create, modify or get DNS CNAME configuration"""
+        configure_base(name, cell, pattern, None, alias, scope, id_group)
+
+    @appdns.group(name='srv')
+    def srv():
+        """Manage DNS SRV configuration.
+        """
+
+    @srv.command(name='configure')
+    @click.argument('name', nargs=1, required=True)
+    @click.option('--cell', help='List of cells',
+                  type=cli.LIST)
+    @click.option('--pattern', help='App pattern')
+    @click.option('--endpoints', help='Endpoints to be included in SRV rec',
+                  type=cli.LIST)
+    @click.option('--alias', help='App DNS alias')
+    @click.option('--scope', help='DNS scope')
+    @cli.handle_exceptions(restclient.CLI_REST_EXCEPTIONS)
+    def configure_srv(name, cell, pattern, endpoints, alias, scope):
+        """Create, modify or get DNS SRV entry"""
+        configure_base(name, cell, pattern, endpoints, alias, scope, None)
 
     @appdns.command()
     @click.argument('name', nargs=1, required=True)
@@ -112,5 +156,9 @@ def init():
     del cells
     del _list
     del configure
+    del configure_cname
+    del configure_srv
+    del cname
+    del srv
 
     return appdns

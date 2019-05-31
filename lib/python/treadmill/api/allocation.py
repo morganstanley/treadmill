@@ -86,7 +86,7 @@ def _check_capacity(cell, allocation, rsrc):
     limits = [
         limit
         for limit in part_obj['limits']
-        if limit['trait'] in rsrc['traits']
+        if limit['trait'] in rsrc.get('traits', [])
     ]
 
     # check trait based allocation limits
