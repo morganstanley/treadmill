@@ -38,7 +38,7 @@ def _netstat(pid, fname):
     try:
         with io.open(fname, 'r') as f:
             first = True
-            for line in f:
+            for line in f.readlines():
                 # Skip header line
                 if first:
                     first = False
