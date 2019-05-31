@@ -112,7 +112,9 @@ class KeytabLocker:
         try:
             query = 'SELECT vip FROM {} where proid = ?'.format(keytabs2.TABLE)
             store_virtuals = cur.execute(query, (proid,)).fetchall()
-            res = set([virtual[0] for virtual in store_virtuals])
+            res = {
+                virtual[0] for virtual in store_virtuals
+            }
         except sqlite3.OperationalError as err:
             # table may not exist yet, try sync in the next execution
             _LOGGER.warning('wait for keytab locker starting.')

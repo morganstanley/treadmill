@@ -11,24 +11,23 @@ import logging
 _LOGGER = logging.getLogger(__name__)
 
 # Loopback - 127.0.0.1 IP
-_LOOPBACK_IP = '0100007F'
-
+_LOOPBACK_IP4 = '0100007F'
 _LOOPBACK_IP6 = '00000000000000000000000001000000'
+
+_ANYADDR_IP4 = '00000000:0000'
+_ANYADDR_IP6 = '00000000000000000000000000000000:0000'
 
 
 def _listen_state(status, rem_addr):
     """Check if socket is in listen state."""
     return (
-        status == '0A' and (
-            rem_addr == '00000000:0000' or
-            rem_addr == '00000000000000000000000000000000:0000'
-        )
+        status == '0A' and rem_addr in (_ANYADDR_IP4, _ANYADDR_IP6)
     )
 
 
 def _is_loopback(local_ip):
     """Check if IP is loopback."""
-    return local_ip == _LOOPBACK_IP or local_ip == _LOOPBACK_IP6
+    return local_ip in (_LOOPBACK_IP4, _LOOPBACK_IP6)
 
 
 def _netstat(pid, fname):

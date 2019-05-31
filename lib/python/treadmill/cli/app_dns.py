@@ -20,7 +20,10 @@ _REST_PATH = '/app-dns/'
 
 
 def init():
-    """Configures App DNS"""
+    """Configures App DNS
+    """
+    # pylint: disable=too-many-statements
+
     formatter = cli.make_formatter('app-dns')
 
     @click.group(name='app-dns')
