@@ -504,11 +504,11 @@ def _prepare_krb(tm_env, container_dir, root_dir, app):
     keytabs.make_keytab(kt_dest, kt_sources)
 
     for kt_spec in app.keytabs:
-        if ':' in kt_spec:
-            owner, princ = kt_spec.split(':', 1)
-        else:
-            owner = kt_spec
-            princ = kt_spec
+        if ':' not in kt_spec:
+            # if ':' not in spec we tried to fetch from keytab locker
+            continue
+
+        owner, princ = kt_spec.split(':', 1)
 
         kt_dest = os.path.join(root_dir, 'var', 'spool', 'keytabs', owner)
         kt_sources = glob.glob(os.path.join(tm_env.spool_dir, 'keytabs',

@@ -34,6 +34,7 @@ class AbortedReason(enum.Enum):
     UNKNOWN = 'unknown'
     UNSUPPORTED = 'unsupported'
     INVALID_TYPE = 'invalid_type'
+    KEYTABS = 'keytabs'
     TICKETS = 'tickets'
     SCHEDULER = 'scheduler'
     PORTS = 'ports'
@@ -49,6 +50,7 @@ class AbortedReason(enum.Enum):
         """Gets the description for the current aborted reason."""
         return {
             AbortedReason.INVALID_TYPE: 'invalid image type',
+            AbortedReason.KEYTABS: 'keytabs could not be fetched',
             AbortedReason.TICKETS: 'tickets could not be fetched',
             AbortedReason.SCHEDULER: 'scheduler error',
             AbortedReason.PORTS: 'ports could not be assigned',

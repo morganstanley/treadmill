@@ -20,6 +20,7 @@ import treadmill.tests.treadmill_test_skip_windows  # pylint: disable=W0611
 
 from treadmill import keytabs2
 from treadmill.keytabs2 import client as kt2_client
+from treadmill.keytabs2 import locker as kt2_locker
 from treadmill.keytabs2 import receiver as kt2_receiver
 
 
@@ -33,6 +34,7 @@ class Keytabs2Test(unittest.TestCase):
 
     def tearDown(self):
         shutil.rmtree(self.spool_dir)
+        shutil.rmtree(self.sqlite3_dir)
 
     @mock.patch('kazoo.client.KazooClient')
     @mock.patch('treadmill.discovery.iterator')
@@ -159,6 +161,52 @@ class Keytabs2Test(unittest.TestCase):
         self.assertEqual(data, rows)
 
         conn.close()
+
+    @mock.patch('socket.gethostbyname', mock.Mock(return_value='192.168.1.1'))
+    def test_translate_vip(self):
+        """test translate keytab magic string to vip address
+        """
+        # pylint: disable=protected-access
+        self.assertEqual('192.168.1.1',
+                         kt2_locker._translate_vip('host#myhost@realm'))
+
+        # test wrong keytab format
+        with self.assertRaises(keytabs2.KeytabLockerError):
+            kt2_locker._translate_vip('host#myhost#realm')
+
+    @mock.patch('pwd.getpwnam', mock.Mock())
+    @mock.patch('os.chown', mock.Mock())
+    @mock.patch('treadmill.zkutils.with_retry',
+                mock.Mock(return_value={'keytabs': ['vip1.com']}))
+    @mock.patch('treadmill.keytabs2.locker._translate_vip',
+                mock.Mock(side_effect=['192.168.1.1', '192.168.2.1']))
+    def test_locker(self):
+        """test locker method
+        """
+        locker = kt2_locker.KeytabLocker(
+            self.spool_dir, self.database, mock.Mock()
+        )
+        with self.assertRaises(keytabs2.KeytabLockerError):
+            # pylint: disable=protected-access
+            locker._get_app_keytabs('foo/xxxx@xxx', 'foo.bar')
+
+        data = [
+            ('proid1', '192.168.1.1'),
+            ('proid2', '192.168.1.2'),
+        ]
+
+        receiver = kt2_receiver.KeytabReceiver(
+            self.spool_dir, self.database, 'owner'
+        )
+        receiver.sync('owner', data)
+
+        # first test, vip 192.168.1.1 is in the db
+        keytabs = locker.query('host/xxxx@xxx', 'proid1.xxx')
+        self.assertEqual(['vip1.com'], keytabs)
+
+        # second test, vip 192.168.2.1 is not in sqlite db
+        with self.assertRaises(keytabs2.KeytabLockerError):
+            locker.query('host/xxxx@xxx', 'proid1.yyy')
 
 
 if __name__ == '__main__':

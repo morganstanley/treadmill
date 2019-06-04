@@ -191,6 +191,7 @@
                 "type" : "object",
                 "additionalProperties" : false,
                 "properties": {
+                    "bunker": { "$ref": "#/limit" },
                     "pod": { "$ref": "#/limit" },
                     "rack": { "$ref": "#/limit" },
                     "server": { "$ref": "#/limit" },

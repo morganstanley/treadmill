@@ -121,6 +121,7 @@ def init():
         tl.set_log_level(log_level)
 
         if cgroup:
+            ctx.obj['CGROUP'] = cgroup
             _configure_service_cgroups(cgroup, root_cgroup)
 
     return run

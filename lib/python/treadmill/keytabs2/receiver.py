@@ -54,7 +54,7 @@ class KeytabReceiver:
     __slot__ = ['_kt_spool_dir', '_database', '_owner']
 
     def __init__(self, kt_spool_dir, database, owner):
-        """KeytabLocker constructor.
+        """KeytabReceiver constructor.
 
         :param kt_spool_dir: Path to store keytab files.
         :param database: Path to SQLite3 db file which stores VIP keytab/proid
