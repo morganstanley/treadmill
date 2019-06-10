@@ -130,7 +130,9 @@ def open_service(service_dir, existing=True):
 # pylint: disable=W0613
 def _create_scan_dir_s6(scan_dir, finish_timeout,
                         wait_cgroups=None,
-                        kill_svc=None, **kwargs):
+                        kill_svc=None,
+                        finish_commands=None,
+                        **kwargs):
     """Create a scan directory.
 
     :param ``str`` scan_dir:
@@ -147,10 +149,14 @@ def _create_scan_dir_s6(scan_dir, finish_timeout,
     if not isinstance(scan_dir, sup_impl.ScanDir):
         scan_dir = sup_impl.ScanDir(scan_dir)
 
+    if not finish_commands:
+        finish_commands = []
+
     svscan_finish_script = templates.generate_template(
         's6.svscan.finish',
         timeout=finish_timeout,
         wait_cgroups=wait_cgroups,
+        finish_commands=finish_commands,
         _alias=subproc.get_aliases()
     )
     scan_dir.finish = svscan_finish_script

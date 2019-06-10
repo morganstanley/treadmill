@@ -24,6 +24,7 @@ else:
 
 from treadmill import plugin_manager
 from treadmill import utils
+from treadmill import deprecated
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -72,14 +73,14 @@ def get_aliases():
     return _EXECUTABLES
 
 
-def _split(command):
-    """Split command into parts.
-    """
-    return command.split()
-
-
 def _check(path):
-    """Check that path exists and is executable."""
+    """Check that path exists and is executable.
+
+    :param ``str`` path:
+        Alias path to check
+    :returns:
+        ``bool`` -- True if the path is valid, False otherwise.
+    """
     if path is None:
         return False
 
@@ -90,25 +91,24 @@ def _check(path):
         else:
             return os.access(path, os.R_OK)
     else:
-        return os.access(_split(path)[0], os.X_OK)
-
-
-def _normalize(command):
-    """Normalize command."""
-    split = _split(command)
-    split[0] = os.path.normpath(split[0])
-    return ' '.join(split)
+        return os.access(path, os.X_OK)
 
 
 @functools.lru_cache(maxsize=256)
-def resolve(exe):
-    """Resolve logical name to full path."""
+def resolve_argv(exe):
+    """Resolve logical name to full argv command suitable for execv.
+
+    :param ``str`` exe:
+        Executable alias we are looking for.
+    :returns:
+        ``list`` -- Argv to pass execv or None if not found.
+    """
     if os.path.isabs(exe):
-        return exe
+        return [exe]
 
     executables = get_aliases()
 
-    if not executables.get(exe):
+    if exe not in executables:
         _LOGGER.debug('Not in aliases: %s', exe)
         return None
 
@@ -117,35 +117,64 @@ def resolve(exe):
     else:
         command = executables[exe]
 
-    if isinstance(command, list):
-        for choice in command:
-            if _check(choice):
-                return _normalize(choice)
+    if command is None:
         _LOGGER.debug('Cannot resolve: %s', exe)
         return None
-    else:
-        if not _check(command):
-            _LOGGER.debug('Command not found: %s, %s', exe, command)
-            return None
 
-    return _normalize(command)
+    if isinstance(command, list):
+        # We got a list of argv.
+        command, argv = command[0], command[1:]
+    else:
+        argv = []
+
+    if not _check(command):
+        _LOGGER.debug('Command not found: %s: %s', exe, command)
+        return None
+
+    command = os.path.normpath(command)
+
+    return [command] + argv
+
+
+@deprecated.deprecated('Use subproc.resolve_argv instead.')
+def resolve(exe):
+    """Resolve logical name to full path.
+
+    :param ``str`` exe:
+        Executable alias we are looking for.
+
+    :returns:
+        ``str`` -- Full cmdline as a single string or None if not found.
+    """
+    cmds = resolve_argv(exe)
+    if cmds is None:
+        return None
+
+    return ' '.join(cmds)
 
 
 def _resolve(exe):
-    """Resolve alias, raise exception if not found."""
-    resolved = resolve(exe)
+    """Resolve alias, raise exception if not found.
+
+    :returns:
+        ``list`` -- Argv to pass execv
+    """
+    resolved = resolve_argv(exe)
     if not resolved:
         raise CommandAliasError('Unable to resolve: {}'.format(exe))
     return resolved
 
 
 def _alias_command(cmdline):
-    """Checks that the command line is in the aliases."""
+    """Checks that the command line is in the aliases.
+
+    :returns:
+        ``list`` -- Argv to pass execv
+    """
     cmdlist = list(cmdline)
     alias = cmdlist.pop(0)
     resolved = _resolve(alias)
-    split = _split(resolved)
-    return split + cmdlist
+    return resolved + cmdlist
 
 
 def check_call(cmdline, environ=(), runas=None, **kwargs):
@@ -170,7 +199,7 @@ def check_call(cmdline, environ=(), runas=None, **kwargs):
     args = _alias_command(cmdline)
     if runas:
         s6_setguid = _resolve('s6_setuidgid')
-        args = [s6_setguid, runas] + args
+        args = s6_setguid + [runas] + args
 
     # Setup a copy of the environ with the provided overrides
     cmd_environ = dict(os.environ.items())
@@ -349,13 +378,13 @@ def popen(cmdline, environ=(), stdin=None, stdout=None, stderr=None):
 
 
 def exec_pid1(cmd, ipc=True, mount=True, proc=True,
-              close_fds=True, restore_signals=True,
+              close_child_fds=False, close_fds=True, restore_signals=True,
               propagation=None):
     """Exec command line under pid1.
     """
     pid1 = _resolve('pid1')
     safe_cmd = _alias_command(cmd)
-    args = [pid1]
+    args = pid1
     if ipc:
         args.append('-i')
     if mount:
@@ -365,6 +394,8 @@ def exec_pid1(cmd, ipc=True, mount=True, proc=True,
     if propagation is not None:
         args.append('--propagation')
         args.append(propagation)
+    if close_child_fds:
+        args.extend(['--closefrom', '3'])
 
     args.extend(safe_cmd)
     _LOGGER.debug('exec_pid1: %r', args)
@@ -378,7 +409,7 @@ def exec_fghack(cmd, close_fds=True, restore_signals=True):
     """
     fghack = _resolve('s6_fghack')
     safe_cmd = _alias_command(cmd)
-    args = [fghack] + safe_cmd
+    args = fghack + safe_cmd
     _LOGGER.debug('exec_fghack: %r', args)
     utils.sane_execvp(
         args[0], args,
@@ -409,5 +440,6 @@ __all__ = [
     'get_aliases',
     'invoke',
     'resolve',
+    'resolve_argv',
     'safe_exec',
 ]

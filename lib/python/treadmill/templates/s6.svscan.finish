@@ -97,6 +97,12 @@
 }
 {%- endif %}
 
+{% for cmd in finish_commands %}
+{{ _alias.foreground }} {
+    {{ cmd }}
+}
+{% endfor %}
+
 {{ _alias.foreground }} {
     {{ _alias.echo }} "All services are finished"
 }

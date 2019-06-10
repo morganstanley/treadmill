@@ -111,6 +111,7 @@ def write_safe(filename, func, mode='wb', prefix='tmp', subdir=None,
         if err.errno != errno.EEXIST:
             raise
     try:
+        tmpfile = None
         with tempfile.NamedTemporaryFile(dir=dirname,
                                          delete=False,
                                          prefix=prefix,
@@ -136,7 +137,8 @@ def write_safe(filename, func, mode='wb', prefix='tmp', subdir=None,
         replace(tmpfile.name, filename)
 
     finally:
-        rm_safe(tmpfile.name)
+        if tmpfile is not None:
+            rm_safe(tmpfile.name)
 
 
 def mkdir_safe(path, mode=0o777):

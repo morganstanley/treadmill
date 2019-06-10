@@ -146,9 +146,11 @@ def create_supervision_tree(tm_env, container_dir, root_dir, app,
     sys_scandir.write()
 
     services_dir = os.path.join(container_dir, 'services')
+    finish_commands = getattr(app, 'finish_commands', [])
     services_scandir = supervisor.create_scan_dir(
         services_dir,
-        finish_timeout=5000
+        finish_timeout=5000,
+        finish_commands=finish_commands
     )
 
     for svc_def in app.services:
@@ -200,7 +202,7 @@ def create_supervision_tree(tm_env, container_dir, root_dir, app,
     # Create services startup script.
     boot_commands = getattr(app, 'boot_commands', [])
     templates.create_script(
-        os.path.join(container_dir, 'services', 'services.init'),
+        os.path.join(container_dir, 'services', '.services.init'),
         's6.init',
         boot_commands=boot_commands,
         _alias=subproc.get_aliases(),

@@ -16,14 +16,14 @@ import mock
 from treadmill import subproc
 
 
-# pylint: disable=protected-access
 class SubprocTest(unittest.TestCase):
     """Tests for teadmill.subproc
     """
+    # pylint: disable=protected-access
 
     def setUp(self):
         subproc._EXECUTABLES = None
-        subproc.resolve.cache_clear()
+        subproc.resolve_argv.cache_clear()
 
     @mock.patch('treadmill.subproc.get_aliases', mock.Mock(return_value={
         'foo': 'bar',
@@ -47,9 +47,63 @@ class SubprocTest(unittest.TestCase):
             self.assertEqual(subproc.resolve('xxx'), '/x/y/z/xxx')
             self.assertEqual(subproc.resolve('xxx_d'), '/x/y/z')
 
+    @unittest.skipUnless(os.name == 'posix', 'Linux specific tests')
+    @mock.patch('treadmill.subproc.get_aliases', mock.Mock(return_value={
+        'xxx': functools.partial(os.path.join, '/x/y/z'),
+        'foo2': ['/bin/foo', '-a', '-b'],
+        'xxx2': lambda x: ['/bin/{}'.format(x), '--some-opt'],
+    }))
+    @mock.patch('treadmill.subproc._check', mock.Mock(return_value=True))
+    def test_resolve_argv_posix(self):
+        """Test resolve (Linux).
+        """
+        self.assertEqual(
+            subproc.resolve_argv('/some/abs/path'),
+            ['/some/abs/path']
+        )
+        self.assertEqual(
+            subproc.resolve_argv('xxx'),
+            ['/x/y/z/xxx']
+        )
+        self.assertEqual(
+            subproc.resolve_argv('foo2'),
+            ['/bin/foo', '-a', '-b']
+        )
+        self.assertEqual(
+            subproc.resolve_argv('xxx2'),
+            ['/bin/xxx2', '--some-opt']
+        )
+
+    @unittest.skipUnless(os.name == 'nt', 'Windows specific tests')
+    @mock.patch('treadmill.subproc.get_aliases', mock.Mock(return_value={
+        'xxx': functools.partial(os.path.join, r'\\x\y\z'),
+        'foo2': [r'C:\bin\foo', '-a', '-b'],
+        'xxx2': lambda x: [r'Z:\bin\{}'.format(x), '--some-opt'],
+    }))
+    @mock.patch('treadmill.subproc._check', mock.Mock(return_value=True))
+    def test_resolve_argv_nt(self):
+        """Test resolve (Windows)
+        """
+        self.assertEqual(
+            subproc.resolve_argv(r'A:\some\abs\path'),
+            [r'A:\some\abs\path']
+        )
+        self.assertEqual(
+            subproc.resolve_argv('xxx'),
+            [r'\\x\y\z\xxx']
+        )
+        self.assertEqual(
+            subproc.resolve_argv('foo2'),
+            [r'C:\bin\foo', '-a', '-b']
+        )
+        self.assertEqual(
+            subproc.resolve_argv('xxx2'),
+            [r'Z:\bin\xxx2', '--some-opt']
+        )
+
     @unittest.skipIf(os.name == 'nt', 'windows not supported')
     @mock.patch('treadmill.subproc.get_aliases', mock.Mock(return_value={
-        'ls': '/bin/ls -al',
+        'ls': ['/bin/ls', '-al'],
         'mv': functools.partial(os.path.join, '/bin', '.'),
     }))
     @mock.patch('treadmill.subproc._check', mock.Mock(return_value=True))
@@ -61,7 +115,7 @@ class SubprocTest(unittest.TestCase):
 
     @unittest.skipIf(os.name == 'nt', 'windows not supported')
     @mock.patch('treadmill.subproc.get_aliases', mock.Mock(return_value={
-        'ls': '/bin/ls -al',
+        'ls': ['/bin/ls', '-al'],
     }))
     @mock.patch('subprocess.call', mock.Mock())
     def test_command(self):
@@ -74,8 +128,8 @@ class SubprocTest(unittest.TestCase):
 
     @unittest.skipIf(os.name == 'nt', 'windows not supported')
     @mock.patch('treadmill.subproc.get_aliases', mock.Mock(return_value={
-        'ls': '/bin/ls -al',
-        'mv': functools.partial('/bin/{} -v'.format),
+        'ls': ['/bin/ls', '-al'],
+        'mv': lambda x: ['/bin/{}'.format(x), '-v'],
     }))
     def test_alias_cmd(self):
         """Test resolving alias command.
@@ -88,3 +142,7 @@ class SubprocTest(unittest.TestCase):
             subproc._alias_command(['mv', 'a', 'b']),
             ['/bin/mv', '-v', 'a', 'b']
         )
+
+
+if __name__ == '__main__':
+    unittest.main()
