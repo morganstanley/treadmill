@@ -411,6 +411,7 @@ class NativeImageTest(unittest.TestCase):
             mock.call(
                 os.path.join(base_dir, 'services'),
                 finish_timeout=5000,
+                finish_commands=[],
             ),
             mock.call().write(),
         ])

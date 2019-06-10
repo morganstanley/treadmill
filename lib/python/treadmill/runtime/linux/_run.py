@@ -90,6 +90,7 @@ def run(tm_env, runtime_config, container_dir, manifest):
     }
 
     manifest['boot_commands'] = []
+    manifest['finish_commands'] = []
 
     # Allocate dynamic ports
     #
@@ -150,7 +151,8 @@ def run(tm_env, runtime_config, container_dir, manifest):
         ],
         propagation='slave',
         # We need to keep our mapped ports open
-        close_fds=False
+        close_fds=False,
+        close_child_fds=True
     )
 
 
