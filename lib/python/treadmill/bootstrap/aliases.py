@@ -112,6 +112,7 @@ _LINUX_ALIASES = {
 
     # s6 root dir.
     's6': None,
+    's6_distro': None,
 
     # s6 utilities
     'backtick': _s6,
@@ -126,6 +127,7 @@ _LINUX_ALIASES = {
     'forbacktickx': _s6,
     'foreground': _s6,
     'forstdin': _s6,
+    'getpid': _s6,
     'heredoc': _s6,
     'if': _s6,
     'ifelse': _s6,
@@ -196,8 +198,8 @@ _WINDOWS_ALIASES = {
     'winss_svscan': None,
     'winss_svscanctl': None,
     'winss_svwait': None,
-    'powershell': 'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\'
-                  'powershell.exe',
+    'powershell': ('C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\'
+                   'powershell.exe'),
 }
 
 if os.name == 'nt':

@@ -129,6 +129,6 @@ def init():
         _LOGGER.debug('Current mounts: %s',
                       pprint.pformat(fs_linux.list_mounts()))
 
-        subproc.safe_exec(['/services/services.init'])
+        subproc.safe_exec(['/services/.services.init'])
 
     return start_container
