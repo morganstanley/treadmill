@@ -68,6 +68,13 @@ def init(api, cors, impl):
             """Updates Treadmill application configuration."""
             return impl.update(app, flask.request.json)
 
+        @webutils.put_api(api, cors,
+                          req_model=request_model,
+                          resp_model=response_model)
+        def patch(self, app):
+            """Updates Treadmill application configuration."""
+            return impl.patch(app, flask.request.json)
+
         @webutils.delete_api(api, cors)
         def delete(self, app):
             """Deletes Treadmill application."""

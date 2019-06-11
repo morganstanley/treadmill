@@ -89,6 +89,20 @@ class API:
             _admin_app().replace(rsrc_id, rsrc)
             return _admin_app().get(rsrc_id, dirty=True)
 
+        @schema.schema(
+            {'$ref': 'app.json#/resource_id'},
+            {'allOf': [{'$ref': 'app.json#/resource'},
+                       {'$ref': 'app.json#/verbs/patch'}]}
+        )
+        def patch(rsrc_id, rsrc):
+            """Patch application configuration."""
+            stored_rsrc = _admin_app().get(rsrc_id)
+            verify_feature(rsrc.get('features', []))
+
+            stored_rsrc.update(rsrc)
+            _admin_app().replace(rsrc_id, stored_rsrc)
+            return stored_rsrc
+
         @schema.schema({'$ref': 'app.json#/resource_id'})
         def delete(rsrc_id):
             """Delete configured application."""
@@ -98,4 +112,5 @@ class API:
         self.get = get
         self.create = create
         self.update = update
+        self.patch = patch
         self.delete = delete
