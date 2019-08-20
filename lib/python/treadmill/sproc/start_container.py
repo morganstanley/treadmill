@@ -16,6 +16,7 @@ from treadmill import subproc
 from treadmill.fs import linux as fs_linux
 from treadmill import cgroups
 from treadmill import pivot_root
+from treadmill import supervisor
 from treadmill import trace
 
 from treadmill.appcfg import abort as app_abort
@@ -129,6 +130,6 @@ def init():
         _LOGGER.debug('Current mounts: %s',
                       pprint.pformat(fs_linux.list_mounts()))
 
-        subproc.safe_exec(['/services/.services.init'])
+        subproc.safe_exec(['/services/{}'.format(supervisor.SVC_INIT_FILE)])
 
     return start_container

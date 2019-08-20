@@ -69,7 +69,7 @@ class KeytabReceiver:
 
     def _check_principal_user(self, princ):
         """Validate keytab principal."""
-        if not princ or princ.split('/')[0] != self._owner:
+        if not princ or princ.split('@')[0] != self._owner:
             raise keytabs2.KeytabLockerError(
                 'expect user {}, got: {}'.format(self._owner, princ)
             )

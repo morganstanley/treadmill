@@ -80,6 +80,7 @@ class Tree:
                 os.path.join(log, 'run'),
                 's6.logger.run',
                 logdir='.',
+                logger_args='-b T n20 s1000000',
                 _alias=subproc.get_aliases()
             )
 

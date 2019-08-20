@@ -282,6 +282,7 @@ class ApiInstanceTest(unittest.TestCase):
             'memory': '100M',
             'disk': '100M',
             'image': 'docker://foo',
+            'keytabs': [],
             'tickets': [],
             'endpoints': [],
             'features': [],

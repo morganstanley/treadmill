@@ -1,0 +1,10 @@
+command: |
+  exec \
+    {{ treadmill }}/bin/treadmill \
+    sproc --cell - tickets monitor \
+        --tkt-spool-dir {{ dir }}/spool/tickets \
+        --scandir {{ dir }}/lockers
+environ_dir: "{{ dir }}/env"
+environ:
+  KRB5CCNAME: "{{ krb5ccname }}"
+logger_args: "-b -p T n200 s5000000"

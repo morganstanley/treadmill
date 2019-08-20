@@ -1,0 +1,5 @@
+command: |
+  {{ tkt_recv_v2 }} -p2022 -d{{ dir }}/spool/tickets
+environ_dir: "{{ dir }}/env"
+environ:
+  KRB5_KTNAME: "{{ dir }}/spool/tktlocker.keytab"

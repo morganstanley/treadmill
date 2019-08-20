@@ -12,6 +12,7 @@ from treadmill import subproc
 from treadmill import supervisor
 from treadmill import utils
 
+from treadmill import dockerutils
 from treadmill.appcfg import abort as app_abort
 from treadmill.fs import linux as fs_linux
 
@@ -60,7 +61,7 @@ def create_docker_environ_dir(container_dir, root_dir, app):
     )
 
 
-def mount_docker_daemon_path(newroot_norm, app):
+def prepare_docker_daemon_path(newroot_norm, app, data):
     """Mount tmpfs for docker
     """
     if not _has_docker(app):
@@ -76,6 +77,13 @@ def mount_docker_daemon_path(newroot_norm, app):
             msg=str(err),
             reason=app_abort.AbortedReason.UNSUPPORTED,
         )
+
+    # Setup the dockerd confdir
+    dockerutils.prepare_docker_confdir(
+        os.path.join(newroot_norm, 'etc', 'docker'),
+        app,
+        data
+    )
 
 
 def overlay_docker(container_dir, root_dir, app):

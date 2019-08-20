@@ -8,7 +8,12 @@
 }
 
 {{ _alias.foreground }} {
-    {{ _alias.elglob }} -v SVC_DIRS * {{ _alias.s6_svwait }} -aD -t {{ timeout }} ${SVC_DIRS}
+    # wait until all supervisor terminates
+    # call s6-svwait repeatedly as long as it returns 102 (s6-supervise process
+    #      monitoring one of the services died)
+    # continue as soon as s6-svwait returns something else (eg. success (0) or
+    #      other error)
+    {{ _alias.loopwhilex }} -o 102 {{ _alias.elglob }} -v SVC_DIRS * {{ _alias.s6_svwait }} -aD -t {{ timeout }} ${SVC_DIRS}
 }
 
 {% if wait_cgroups -%}

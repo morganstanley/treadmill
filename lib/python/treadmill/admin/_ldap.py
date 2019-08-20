@@ -1343,6 +1343,7 @@ class Application(LdapObject):
         ('command', 'command', str),
         ('args', 'args', [str]),
         ('ticket', 'tickets', [str]),
+        ('keytab', 'keytabs', [str]),
         ('feature', 'features', [str]),
         ('identity-group', 'identity_group', str),
         ('shared-ip', 'shared_ip', bool),

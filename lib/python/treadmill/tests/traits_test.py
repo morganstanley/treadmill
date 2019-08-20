@@ -11,9 +11,10 @@ import unittest
 from treadmill import traits
 
 
-def _transform(code, traitz, use_invalid=False):
+def _transform(codes, trait_list, use_invalid=False, add_new=False):
     """Encode then decode traitz"""
-    return traits.format_traits(code, traits.encode(code, traitz, use_invalid))
+    result, new_codes = traits.encode(codes, trait_list, use_invalid, add_new)
+    return traits.format_traits(new_codes, result)
 
 
 class TraitsTest(unittest.TestCase):
@@ -55,6 +56,20 @@ class TraitsTest(unittest.TestCase):
                 use_invalid=True
             ),
             'invalid'
+        )
+
+    def test_adding_traits(self):
+        """Adding traits test."""
+        code = traits.create_code([])
+
+        self.assertEqual(
+            _transform(code, ['a']),
+            ''
+        )
+
+        self.assertEqual(
+            _transform(code, ['a'], add_new=True),
+            'a'
         )
 
 

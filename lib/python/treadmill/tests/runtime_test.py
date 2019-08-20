@@ -302,6 +302,21 @@ class RuntimeTest(unittest.TestCase):
         self.assertFalse(os.path.exists(file1))
         self.assertTrue(os.path.exists(file2))
 
+        os.utime(file2, (time.time() - 1, time.time() - 1))
+        file3 = os.path.join(self.tm_env.archives_dir, '3')
+        with io.open(file3, 'w') as f:
+            f.write('x' * 15)
+        # Mock glob.glob to test that FileNotFoundError is properly handled.
+        with mock.patch('glob.glob', mock.Mock()) as mock_archives:
+            mock_archives.return_value = [
+                file2,
+                file3,
+                os.path.join(self.tm_env.archives_dir, 'deleted'),
+            ]
+            treadmill.runtime._cleanup_archive_dir(self.tm_env)
+            self.assertFalse(os.path.exists(file2))
+            self.assertTrue(os.path.exists(file3))
+
     def test_load_app_safe(self):
         """Test loading corrupted or invalid app manifest."""
         data_dir = os.path.join(self.root, 'xxx.yyy-1234-qwerty', 'data')

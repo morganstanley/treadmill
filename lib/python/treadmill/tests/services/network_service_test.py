@@ -639,6 +639,18 @@ class NetworkServiceTest(unittest.TestCase):
         treadmill.iptables.test_ip_set.assert_called_with(
             treadmill.iptables.SET_NONPROD_CONTAINERS, '3.3.3.3'
         )
+        treadmill.iptables.add_ip_set.reset_mock()
+        treadmill.iptables.test_ip_set.reset_mock()
+
+        # uat
+        network_service._add_mark_rule('4.4.4.4', 'uat')
+
+        treadmill.iptables.add_ip_set.assert_called_with(
+            treadmill.iptables.SET_PROD_CONTAINERS, '4.4.4.4'
+        )
+        treadmill.iptables.test_ip_set.assert_called_with(
+            treadmill.iptables.SET_NONPROD_CONTAINERS, '4.4.4.4'
+        )
 
     @mock.patch('treadmill.iptables.add_ip_set', mock.Mock())
     @mock.patch('treadmill.iptables.test_ip_set',
