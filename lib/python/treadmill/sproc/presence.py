@@ -20,6 +20,7 @@ import click
 
 from treadmill import context
 from treadmill import exc
+from treadmill import keytabs
 from treadmill import subproc
 from treadmill import supervisor
 from treadmill import tickets
@@ -50,12 +51,16 @@ def _start_service_sup(container_dir):
 def _get_keytabs(manifest, container_dir, locker_pattern):
     """Get keytabs."""
     # keytab of 'proid:service' is not fetched from keytab locker
-    keytabs = [
-        kt for kt in manifest.get('keytabs', [])
-        if ':' not in kt
-    ]
-    _LOGGER.debug('keytabs to fetch from locker: %r', keytabs)
-    if not keytabs:
+    keytabs_to_fetch = set()
+    kt_specs = set()
+    for kt in manifest.get('keytabs', []):
+        if ':' not in kt:
+            keytabs_to_fetch.add(kt)
+        else:
+            kt_specs.add(kt)
+
+    _LOGGER.debug('keytabs to fetch from locker: %r', keytabs_to_fetch)
+    if not keytabs_to_fetch:
         return
 
     kts_spool_dir = os.path.join(
@@ -72,6 +77,16 @@ def _get_keytabs(manifest, container_dir, locker_pattern):
         _LOGGER.exception('Exception processing keytabs.')
         raise exc.ContainerSetupError('Get keytabs error',
                                       app_abort.AbortedReason.KEYTABS)
+
+    # add fetched host keytabs to /etc/krb5.keytab
+    kt_dest = os.path.join(container_dir, 'overlay', 'etc', 'krb5.keytab')
+    keytabs.add_keytabs_to_file(kts_spool_dir, 'host', kt_dest)
+
+    # add fetched keytabs to keytab spec file
+    for kt_spec in kt_specs:
+        owner, princ = kt_spec.split(':', 1)
+        kt_dest = os.path.join(kts_spool_dir, owner)
+        keytabs.add_keytabs_to_file(kts_spool_dir, princ, kt_dest, owner)
 
 
 def _get_tickets(manifest, container_dir):

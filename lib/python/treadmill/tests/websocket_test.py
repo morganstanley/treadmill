@@ -204,8 +204,11 @@ class PubSubTest(unittest.TestCase):
         handler.send_msg.assert_has_calls(
             [
                 mock.call({'when': 1, 'echo': 1}),
+                mock.call().add_done_callback(mock.ANY),
                 mock.call({'when': 2, 'echo': 2}),
+                mock.call().add_done_callback(mock.ANY),
                 mock.call({'when': 3, 'echo': 3}),
+                mock.call().add_done_callback(mock.ANY),
                 mock.call({'when': modified, 'echo': 4}),
             ]
         )
@@ -230,8 +233,11 @@ class PubSubTest(unittest.TestCase):
         handler.send_msg.assert_has_calls(
             [
                 mock.call({'when': 1, 'echo': 1}),
+                mock.call().add_done_callback(mock.ANY),
                 mock.call({'when': 2, 'echo': 2}),
+                mock.call().add_done_callback(mock.ANY),
                 mock.call({'when': 3, 'echo': 3}),
+                mock.call().add_done_callback(mock.ANY),
                 mock.call({'when': modified, 'echo': 4}),
             ]
         )

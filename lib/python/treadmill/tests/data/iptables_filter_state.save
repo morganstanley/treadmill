@@ -33,7 +33,9 @@
 -F TM_FILTER
 -A TM_FILTER -m state --state ESTABLISHED,RELATED -j ACCEPT
 -A TM_FILTER -m state --state INVALID -j DROP_N_LOG_FORWARD
--A TM_FILTER -m state --state NEW -m set --match-set tm:infra-services dst,dst -j ACCEPT
+-A TM_FILTER -m state --state NEW -m set --match-set tm:infra-inbound src -j ACCEPT
+-A TM_FILTER -m state --state NEW -m set --match-set tm:infra-outbound dst -j ACCEPT
+-A TM_FILTER -m state --state NEW -m set --match-set tm:container-infra-services dst,dst -j ACCEPT
 -A TM_FILTER -j TM_EXCEPTION_FILTER
 -A TM_FILTER -m state --state NEW -m connmark --mark 0x2/0xffffffff -m set --match-set tm:prod-containers dst -j REJECT_N_LOG_FORWARD
 -A TM_FILTER -m state --state NEW -m connmark --mark 0x2/0xffffffff -j TM_FILTER_OUT_NONPROD

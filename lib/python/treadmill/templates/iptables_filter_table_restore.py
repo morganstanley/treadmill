@@ -47,11 +47,15 @@ T = """
 -F TM_FILTER
 -A TM_FILTER -m state --state ESTABLISHED,RELATED -j ACCEPT
 -A TM_FILTER -m state --state INVALID -j DROP_N_LOG_FORWARD
--A TM_FILTER -m state --state NEW -m set \
-    --match-set {{infra_services}} dst,dst -j ACCEPT
+-A TM_FILTER -m state --state NEW \
+    -m set --match-set {{infra_inbound}} src -j ACCEPT
+-A TM_FILTER -m state --state NEW \
+    -m set --match-set {{infra_outbound}} dst -j ACCEPT
+-A TM_FILTER -m state --state NEW \
+    -m set --match-set {{container_infra_services}} dst,dst -j ACCEPT
 -A TM_FILTER -j {{ filter_exception_chain }}
--A TM_FILTER -m state --state NEW -m connmark --mark {{nonprod_mark}} -m set \
-    --match-set {{prod_containers}} dst -j REJECT_N_LOG_FORWARD
+-A TM_FILTER -m state --state NEW -m connmark --mark {{nonprod_mark}} \
+    -m set --match-set {{prod_containers}} dst -j REJECT_N_LOG_FORWARD
 -A TM_FILTER -m state --state NEW -m connmark --mark {{nonprod_mark}} \
     -j TM_FILTER_OUT_NONPROD
 -A TM_FILTER -m state --state NEW \

@@ -20,7 +20,6 @@ import requests
 import six
 
 from treadmill import cli
-from treadmill import dockerutils
 from treadmill import exc
 from treadmill import utils
 from treadmill import supervisor
@@ -199,6 +198,17 @@ def _fetch_image(client, image):
     return image_meta
 
 
+def _get_ulimits(ulimit):
+    """return ulimits param that docker client can recognize
+    """
+    total = []
+    for u_string in ulimit:
+        (u_type, soft_limit, hard_limit) = u_string.split(':', 3)
+        total.append({'Name': u_type, 'Soft': soft_limit, 'Hard': hard_limit})
+
+    return total
+
+
 class DockerSprocClient:
     """Docker Treadmill Sproc client
     """
@@ -238,7 +248,7 @@ class DockerSprocClient:
         if 'envdirs' in args:
             args['environment'] = _read_environ(args.pop('envdirs'))
 
-        ulimit = dockerutils.init_ulimit(args.pop('ulimit'))
+        ulimit = _get_ulimits(args.pop('ulimit'))
 
         image_meta = _fetch_image(client, image)
 
@@ -261,7 +271,8 @@ class DockerSprocClient:
         while container.status == 'running':
             try:
                 for log_lines in logs_gen:
-                    print(log_lines, file=sys.stderr, end='', flush=True)
+                    print(log_lines.decode(),
+                          file=sys.stderr, end='', flush=True)
             except socket.error:
                 pass
 

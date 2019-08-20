@@ -46,21 +46,18 @@ class CgroupResourceService(BaseResourceServiceImpl):
 
     def initialize(self, service_dir):
         super(CgroupResourceService, self).initialize(service_dir)
-        # NOTE(boysson): We assume cgroup initialization is done by cginit
-        #                during node startup. Otherwise it would need to be
-        #                done here.
+        # NOTE: We assume cgroup initialization is done by cginit during node
+        #       startup. Otherwise it would need to be done here.
         _LOGGER.info('Cgroup service initialized')
 
     def synchronize(self):
-        # NOTE(boysson): We assume cgroup initialization is done by cginit
-        #                during node startup. Otherwise this would need to be
-        #                implemented.
+        # NOTE: We assume cgroup initialization is done by cginit during node
+        #       startup. Otherwise this would need to be implemented.
         pass
 
     def report_status(self):
-        # TODO: Once more cgroup responsibilities are handed over to
-        #                this service, there should be more information
-        #                published here.
+        # TODO: Once more cgroup responsibilities are handed over to this
+        #        service, there should be more information published here.
         return {'ready': True}
 
     def event_handlers(self):
@@ -156,20 +153,6 @@ class CgroupResourceService(BaseResourceServiceImpl):
             log.info('Deleting cgroups: %s:%s', self.SUBSYSTEMS, cgrp)
             for subsystem in self.SUBSYSTEMS:
                 cgutils.delete(subsystem, cgrp)
-
-        # Recalculate the cgroup hard limits on remaining apps
-        #
-        # TODO: commented out until proper fix implemented.
-        #
-        # expunged = cgutils.reset_memory_limit_in_bytes()
-        # for expunged_uniq_name in expunged:
-        #     exp_app_dir = os.path.join(tm_env.apps_dir, expunged_uniq_name)
-        #     with open(os.path.join(exp_app_dir,
-        #                            'services', 'finished'), 'w') as f:
-        #         f.write('oom')
-        #     exp_cgrp = os.path.join('treadmill', 'apps', expunged_uniq_name)
-        #     cgutils.kill_apps_in_cgroup('memory', exp_cgrp,
-        #                                 delete_cgrp=False)
 
         return True
 

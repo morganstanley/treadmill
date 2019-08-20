@@ -40,18 +40,21 @@ def init():
     @click.option('--config', help='API configuration.',
                   multiple=True,
                   type=(str, click.File()))
+    @click.option('--params', help='API parameters.',
+                  multiple=True,
+                  type=(str, str))
     @click.option('-c', '--cors-origin', help='CORS origin REGEX',
                   required=True)
     @click.option('--workers', help='Number of workers', default=1)
     @click.option('--backlog', help='Maximum ', default=128)
     @click.option('-A', '--authz', help='Authoriztion argument',
                   required=False)
-    def top(port, socket, auth, title, modules, config, cors_origin, workers,
-            backlog, authz):
+    def top(port, socket, auth, title, modules, config, params, cors_origin,
+            workers, backlog, authz):
         """Run Treadmill API server."""
         context.GLOBAL.zk.add_listener(zkutils.exit_on_lost)
 
-        api_modules = {module: None for module in modules}
+        api_modules = {module: {} for module in modules}
         for module, cfg in config:
             if module not in api_modules:
                 raise click.UsageError(
@@ -59,6 +62,14 @@ def init():
                 )
             api_modules[module] = yaml.load(stream=cfg)
             cfg.close()
+
+        for module, param in params:
+            if module not in api_modules:
+                raise click.UsageError(
+                    'Orphan config: %s, not in: %r' % (module, modules)
+                )
+
+            api_modules[module].update(yaml.load(param))
 
         api_paths = api.init(api_modules, title.replace('_', ' '), cors_origin,
                              authz)

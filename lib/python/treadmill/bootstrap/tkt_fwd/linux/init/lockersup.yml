@@ -1,0 +1,5 @@
+command: |
+    {{ _alias.s6_svscan }} {{ dir }}/lockers
+environ_dir: "{{ dir }}/env"
+environ:
+  KRB5CCNAME: "{{ krb5ccname }}"

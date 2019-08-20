@@ -97,6 +97,16 @@ def get_keytabs(client, app_name):
     return send_request(client, request)
 
 
+def sync_proids(client, mapping):
+    """sync lbv3 proid keytab mapping data
+    """
+    request = {
+        'action': 'sync',
+        'mapping': mapping
+    }
+    return send_request(client, request)
+
+
 def dump_keytabs(client, app_name, dest):
     """Get VIP keytabs from keytab locker server.
     """

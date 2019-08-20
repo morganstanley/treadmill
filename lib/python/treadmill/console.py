@@ -19,6 +19,9 @@ from treadmill import logging as tl
 click.disable_unicode_literals_warning = True
 
 
+_FORMATS = ['json', 'json-raw', 'yaml', 'yaml-raw', 'csv']
+
+
 # TODO: add options to configure logging.
 @click.group(cls=cli.make_commands('treadmill.cli'))
 @click.option('--dns-domain', required=False,
@@ -59,7 +62,7 @@ click.disable_unicode_literals_warning = True
               callback=cli.handle_context_opt,
               is_eager=True,
               expose_value=False)
-@click.option('--outfmt', type=click.Choice(['json', 'yaml', 'csv']))
+@click.option('--outfmt', type=click.Choice(_FORMATS))
 @click.option('--debug/--no-debug',
               help='Sets logging level to debug',
               is_flag=True, default=False)

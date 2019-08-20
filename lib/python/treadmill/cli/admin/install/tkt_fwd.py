@@ -6,8 +6,10 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
+import glob
 import os
 import logging
+import shutil
 
 import click
 
@@ -33,6 +35,11 @@ def init():
         run_script = None
         if run:
             run_script = os.path.join(dst_dir, 'bin', 'run.sh')
+
+        locker_scandir = os.path.join(dst_dir, 'lockers', '*')
+        for locker in glob.glob(locker_scandir):
+            _LOGGER.info('Removing: %s', locker)
+            shutil.rmtree(locker)
 
         bs_install.install(
             'tkt-fwd',

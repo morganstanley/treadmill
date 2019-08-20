@@ -292,14 +292,18 @@ class Loader:
             label = _DEFAULT_PARTITION
         up_since = data.get('up_since', int(time.time()))
 
-        traitz = data.get('traits', [])
+        trait_list = data.get('traits', [])
+        traitz, code = traits.encode(
+            self.trait_codes, trait_list, add_new=True
+        )
+        self.trait_codes = code
 
         server = scheduler.Server(
             servername,
             resources(data),
             up_since=up_since,
             label=label,
-            traits=traits.encode(self.trait_codes, traitz)
+            traits=traitz
         )
         return server
 
@@ -374,8 +378,9 @@ class Loader:
             alloc.update(capacity, obj['rank'], obj.get('rank_adjustment'),
                          obj.get('max_utilization'))
 
-            traitz = obj.get('traits', [])
-            alloc.set_traits(traits.encode(self.trait_codes, traitz))
+            trait_list = obj.get('traits', [])
+            traitz, _ = traits.encode(self.trait_codes, trait_list)
+            alloc.set_traits(traitz)
 
             for assignment in obj.get('assignments', []):
                 pattern = assignment['pattern'] + '[#]' + ('[0-9]' * 10)
@@ -459,18 +464,17 @@ class Loader:
             affinity_limits = manifest.get('affinity_limits', None)
             identity_group = manifest.get('identity_group')
             schedule_once = manifest.get('schedule_once')
-            traitz = manifest.get('traits', [])
+            trait_list = manifest.get('traits', [])
+            traitz, _ = traits.encode(
+                self.trait_codes, trait_list, use_invalid=True
+            )
             app = scheduler.Application(appname, priority, demand,
                                         affinity=affinity,
                                         affinity_limits=affinity_limits,
                                         identity_group=identity_group,
                                         schedule_once=schedule_once,
                                         data_retention_timeout=data_retention,
-                                        traits=traits.encode(
-                                            self.trait_codes,
-                                            traitz,
-                                            use_invalid=True
-                                        ),
+                                        traits=traitz,
                                         lease=lease)
 
         app.blacklisted = self._is_blacklisted(appname)

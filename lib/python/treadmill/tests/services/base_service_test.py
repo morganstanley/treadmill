@@ -145,9 +145,8 @@ class BaseServiceTest(unittest.TestCase):
         # pylint: disable=W0212
 
         mock_impl_instance = mock_load_impl.return_value.return_value
-        mock_impl_instance.configure_mock(
-            WATCHDOG_HEARTBEAT_SEC=60
-        )
+        # Mock a configured WATCHDOG_HEARTBEAT_SEC value
+        mock_impl_instance.WATCHDOG_HEARTBEAT_SEC = 1234
         mock_impl_instance.report_status.return_value = {
             'hello': 'world'
         }
@@ -184,7 +183,7 @@ class BaseServiceTest(unittest.TestCase):
         mock_watchdog.return_value.create.assert_called_with(
             content=mock.ANY,
             name='svc-MyTestService',
-            timeout='60s'
+            timeout='1234s'
         )
         mock_watchdog_lease = mock_watchdog.return_value.create.return_value
 

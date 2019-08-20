@@ -207,6 +207,7 @@ class AppPrettyFormatter:
             ('memory', None, None),
             ('cpu', None, None),
             ('disk', None, None),
+            ('keytabs', None, None),
             ('tickets', None, None),
             ('features', None, None),
             ('identity-group', 'identity_group', None),
@@ -232,6 +233,7 @@ class AppPrettyFormatter:
             ('memory', None, None),
             ('cpu', None, None),
             ('disk', None, None),
+            ('keytabs', None, None),
             ('tickets', None, None),
             ('features', None, None),
         ])

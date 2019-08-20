@@ -16,6 +16,7 @@ SVSCAN_TREE_DIR = os.path.join(APPS_DIR, 'svscan_tree')
 JOBS_DIR = os.path.join(APPS_DIR, 'jobs')
 MANIFEST_DIR = 'manifest'
 RUNNING_DIR = 'running'
+RUN_DIR = 'run'
 CLEANUP_DIR = 'cleanup'
 ZK_MIRROR_DIR = 'zk_mirror'
 CELLAPI_SOCK = 'cellapi.sock'
@@ -32,6 +33,7 @@ class SpawnPaths:
         'jobs_dir',
         'manifest_dir',
         'running_dir',
+        'run_dir',
         'cleanup_dir',
         'zk_mirror_dir',
         'cellapi_sock',
@@ -46,8 +48,9 @@ class SpawnPaths:
         self.jobs_dir = os.path.join(self.root, JOBS_DIR)
         self.manifest_dir = os.path.join(self.root, MANIFEST_DIR)
         self.running_dir = os.path.join(self.root, RUNNING_DIR)
+        self.run_dir = os.path.join(self.root, RUN_DIR)
         self.cleanup_dir = os.path.join(self.root, CLEANUP_DIR)
-        self.cellapi_sock = os.path.join(self.root, CELLAPI_SOCK)
+        self.cellapi_sock = os.path.join(self.root, RUN_DIR, CELLAPI_SOCK)
         self.zk_mirror_dir = os.path.join(self.root, ZK_MIRROR_DIR)
         self.svscan_tree_dir = os.path.join(self.root, SVSCAN_TREE_DIR)
         self.env_dir = os.path.join(self.svscan_tree_dir, '.s6-svscan', 'env')

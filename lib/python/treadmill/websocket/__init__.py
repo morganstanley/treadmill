@@ -33,6 +33,41 @@ from treadmill import utils
 _LOGGER = logging.getLogger(__name__)
 
 
+class AggregateFuture(tornado.concurrent.Future):
+    """Aggregation future to get done state if all depending future is done
+    """
+
+    def __init__(self, name):
+        super(AggregateFuture, self).__init__()
+        self._not_ready = set()
+        self._ready_for_finish = False
+        self._name = name
+        self._total = 0
+
+    def ready_for_finish(self):
+        """set ready for finish
+        if no pending, we directly set result
+        """
+        self._ready_for_finish = True
+        if not self._not_ready:
+            self.set_result(self._total)
+
+    def depend(self, future):
+        """add more dependency for ready
+        """
+        self._total += 1
+        self._not_ready.add(id(future))
+        future.add_done_callback(self._done_callback)
+
+    def _done_callback(self, future):
+        """future complete"""
+        self._not_ready.remove(id(future))
+        if self._ready_for_finish and (not self._not_ready):
+            _LOGGER.info('Future %s is to finish, %d aggregated.',
+                         self._name, self._total)
+            self.set_result(self._total)
+
+
 def make_handler(pubsub):
     """Make websocket handler factory."""
     # pylint: disable=too-many-statements
@@ -70,10 +105,17 @@ def make_handler(pubsub):
             """Send message."""
             _LOGGER.info('[%s] Sending message: %r', self._request_id, msg)
             try:
-                self.write_message(msg)
+                future = self.write_message(msg)
             except Exception:  # pylint: disable=W0703
                 _LOGGER.exception('[%s] Error sending message: %r',
                                   self._request_id, msg)
+            return future
+
+        def close_with_log(self):
+            """close current handler's socket with logging id
+            """
+            _LOGGER.info('[%s] Closing connection.', self._request_id)
+            self.close()
 
         def send_error_msg(self, error_str, sub_id=None, close_conn=True):
             """Convenience method for logging and returning errors.
@@ -95,11 +137,11 @@ def make_handler(pubsub):
                 except KeyError:
                     pass
 
-            self.send_msg(error_msg)
-
+            future = self.send_msg(error_msg)
             if close_conn:
-                _LOGGER.info('[%s] Closing connection.', self._request_id)
-                self.close()
+                future.add_done_callback(lambda _f: self.close_with_log())
+
+            return future
 
         def on_close(self):
             """Called when connection is closed.
@@ -171,11 +213,20 @@ def make_handler(pubsub):
                                  self._request_id, sub_id)
                     self._subscriptions.add(sub_id)
 
-                for watch, pattern in subscription:
-                    pubsub.register(watch, pattern, self, impl, since, sub_id)
+                sub_future = AggregateFuture('subscribe')
+                # if snapshot mode, we close handler socket after sow is done
                 if snapshot and close_conn:
-                    _LOGGER.info('[%s] Closing connection.', self._request_id)
-                    self.close()
+                    sub_future.add_done_callback(
+                        lambda _f: self.close_with_log()
+                    )
+
+                for watch, pattern in subscription:
+                    future = pubsub.register(
+                        watch, pattern, self, impl, since, sub_id
+                    )
+                    sub_future.depend(future)
+
+                sub_future.ready_for_finish()
 
             except Exception as err:  # pylint: disable=W0703
                 self.send_error_msg(str(err),
@@ -219,7 +270,10 @@ class DirWatchPubSub:
         self.handlers = collections.defaultdict(list)
 
     def register(self, watch, pattern, ws_handler, impl, since, sub_id=None):
-        """Register handler with pattern."""
+        """Register handler with pattern.
+        return `tornado.concurrent.Future`
+        future will be done when sow completes
+        """
         watch_dirs = self._get_watch_dirs(watch)
         for directory in watch_dirs:
             if ((not self.handlers[directory] and
@@ -234,7 +288,10 @@ class DirWatchPubSub:
             self.handlers[directory].append(
                 (pattern_re, ws_handler, impl, sub_id)
             )
-        self._sow(watch, pattern, since, ws_handler, impl, sub_id=sub_id)
+        return self._sow(
+            watch, pattern, since, ws_handler, impl,
+            sub_id=sub_id
+        )
 
     def _get_watch_dirs(self, watch):
         pathname = os.path.realpath(os.path.join(self.root, watch.lstrip('/')))
@@ -359,6 +416,7 @@ class DirWatchPubSub:
             conn.close()
             return (None, None)
 
+    # pylint: disable=too-many-branches
     def _sow(self, watch, pattern, since, handler, impl, sub_id=None):
         """Publish state of the world."""
         if since is None:
@@ -366,18 +424,22 @@ class DirWatchPubSub:
 
         def _publish(item):
             when, path, content = item
+            future = None
             try:
                 payload = impl.on_event(str(path), None, content)
                 if payload is not None:
                     payload['when'] = when
                     if sub_id is not None:
                         payload['sub-id'] = sub_id
-                    handler.send_msg(payload)
+                    future = handler.send_msg(payload)
             except Exception as err:  # pylint: disable=W0703
                 _LOGGER.exception('Error handling sow event: %s, %s, %s, %s',
                                   path, content, when, sub_id)
-                handler.send_error_msg(str(err), sub_id=sub_id)
+                future = handler.send_error_msg(str(err), sub_id=sub_id)
 
+            return future
+
+        sow_future = AggregateFuture('sow[{}]'.format(pattern))
         db_connections = []
         fs_records = self._get_fs_sow(watch, pattern, since)
 
@@ -412,11 +474,18 @@ class DirWatchPubSub:
                 if path == prev_path:
                     continue
                 prev_path = path
-                _publish(item)
+                future = _publish(item)
+                if future is not None:
+                    sow_future.depend(future)
+
+            # sow future will be done after all send_msg() are done
+            sow_future.ready_for_finish()
         finally:
             for conn in db_connections:
                 if conn:
                     conn.close()
+
+        return sow_future
 
     def _get_fs_sow(self, watch, pattern, since):
         """Get state of the world from filesystem."""
@@ -450,11 +519,11 @@ class DirWatchPubSub:
                 if handler.active(sub_id=sub_id)
             ]
 
-            _LOGGER.info('Number of active handlers for %s: %s',
-                         directory, len(handlers))
+            _LOGGER.debug('Number of active handlers for %s: %s',
+                          directory, len(handlers))
 
             if not handlers:
-                _LOGGER.info('No active handlers for %s', directory)
+                _LOGGER.debug('No active handlers for %s', directory)
                 self.handlers.pop(directory, None)
                 if directory not in self.watch_dirs:
                     # Watch is not permanent, remove dir from watcher.

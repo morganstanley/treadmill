@@ -23,8 +23,10 @@ def init():
 
     @click.command(name='kt-fwd')
     @click.option('--run/--no-run', is_flag=True, default=False)
+    @click.option('--treadmill-id', required=False,
+                  help='Treadmill admin user.')
     @click.pass_context
-    def kt_fwd(ctx, run):
+    def kt_fwd(ctx, treadmill_id, run):
         """Installs Treadmill keytab fwd server.
         """
         dst_dir = ctx.obj['PARAMS']['dir']
@@ -33,6 +35,14 @@ def init():
         run_script = None
         if run:
             run_script = os.path.join(dst_dir, 'bin', 'run.sh')
+
+        if treadmill_id:
+            ctx.obj['PARAMS']['treadmillid'] = treadmill_id
+
+        if not ctx.obj['PARAMS'].get('treadmillid'):
+            raise click.UsageError(
+                '--treadmill-id is required, '
+                'unable to derive treadmill-id from context.')
 
         bs_install.install(
             'kt-fwd',
