@@ -30,18 +30,18 @@ def format_traits(code, value):
     return ','.join(result)
 
 
-def detect(traits):
+def detect():
     """Detect traits usign plugins.
     """
     result = []
 
-    for trait in traits:
+    plugins = plugin_manager.load_all('treadmill.server.traits')
+
+    for plugin in plugins:
         try:
-            plugin = plugin_manager.load('treadmill.server.traits', trait)
-            if plugin():
-                result.append(trait)
+            result.extend(plugin())
         except Exception:  # pylint: disable=W0703
-            _LOGGER.exception('Error processing trait plugin: %s', trait)
+            _LOGGER.exception('Error processing plugin: %s', plugin)
 
     return result
 
@@ -62,31 +62,47 @@ def create_code(traits):
     return result
 
 
-def encode(code, traits, use_invalid=False):
+def encode(code, traits, use_invalid=False, add_new=False):
     """Code the list of traits into a number.
     """
     result = 0
+    next_code = max(code.values(), default=1)
 
     for trait in traits:
         if trait in code:
+            result |= code[trait]
+        elif add_new:
+            next_code = next_code << 1
+            code[trait] = next_code
             result |= code[trait]
         else:
             _LOGGER.error('Unknown trait %s', trait)
             if use_invalid:
                 result |= code[INVALID]
 
+    return result, code
+
+
+def detect_cpuflags():
+    """Return traits describing cpu capabilities.
+    """
+    result = []
+    flags = sysinfo.cpu_flags()
+
+    if 'sse4_1' in flags and 'sse4_2' in flags:
+        result.append('sse4')
+
+    if 'rdtscp' in flags:
+        result.append('rdtscp')
+
     return result
 
 
-def has_sse4():
-    """Return true if current cpu has sse4 flag.
+def detect_hwmodel():
+    """Return trait corresponding to hw model.
     """
-    flags = sysinfo.cpu_flags()
-    return 'sse4_1' in flags and 'sse4_2' in flags
-
-
-def has_rdtscp():
-    """Return true if current cpu has rdtscp flag.
-    """
-    flags = sysinfo.cpu_flags()
-    return 'rdtscp' in flags
+    model = sysinfo.hwmodel()
+    if model:
+        return [model.replace(' ', '_')]
+    else:
+        return []

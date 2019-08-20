@@ -84,6 +84,8 @@ ERR_TIMEOUT = 99
 
 EXITS_DIR = 'exits'
 
+SVC_INIT_FILE = '.services.init'
+
 
 class InvalidServiceDirError(ValueError):
     """Invalid service directory.
@@ -309,7 +311,7 @@ def _create_service_s6(base_dir,
     svc.environ = svc_environ
 
     if ionice_prio is None:
-        if environment == 'prod':
+        if environment in ('uat', 'prod'):
             ionice_prio = 5
         else:
             ionice_prio = 6

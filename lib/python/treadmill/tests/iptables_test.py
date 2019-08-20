@@ -944,38 +944,27 @@ class IptablesTest(unittest.TestCase):
         )
 
     @mock.patch('treadmill.iptables._ipset', mock.Mock())
-    def test_list_set(self):
-        """Test listing set membership.
+    def test_list_all_sets(self):
+        """Testchecking set existence.
         """
         # Disable protected-access: Test access protected members .
         # pylint: disable=protected-access
         iptables._ipset.return_value = (
             42,
             """
-<ipset name="tm:prod-containers">
-  <type>hash:ip</type>
-  <header>
-    <family>inet</family>
-    <hashsize>1024</hashsize>
-    <maxelem>65536</maxelem>
-    <memsize>16520</memsize>
-    <references>3</references>
-  </header>
-  <members>
-    <member>192.168.0.2</member>
-    <member>192.168.0.7</member>
-  </members>
-</ipset>
+foo
+tm:bar
+baz
             """
         )
 
-        res = iptables.list_set('tm:prod-containers')
+        res = iptables.list_all_sets()
         iptables._ipset.assert_called_with(
-            'list', '-o', 'xml', 'tm:prod-containers'
+            'list', '-name',
         )
         self.assertAlmostEqual(
             res,
-            ['192.168.0.2', '192.168.0.7']
+            {'foo', 'tm:bar', 'baz'}
         )
 
     @mock.patch('treadmill.iptables._ipset', mock.Mock())

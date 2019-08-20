@@ -67,6 +67,7 @@ def models(api):
         'endpoints': fields.List(fields.Nested(endpoint)),
         'ephemeral_ports': fields.Nested(ephemeral_ports),
         'tickets': fields.List(fields.String(description='Tickets')),
+        'keytabs': fields.List(fields.String(description='Keytabs')),
         'features': fields.List(fields.String(description='Features')),
         'passthrough': fields.List(fields.String(description='Passthrough')),
         'identity_group': fields.String(description='Identity Group'),

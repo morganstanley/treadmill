@@ -1,8 +1,10 @@
 create tm:containers list:set size 8
-create tm:infra-services hash:ip,port family inet hashsize 1024 maxelem 65536
+create tm:container-infra-services hash:ip,port family inet hashsize 1024 maxelem 65536
 create tm:nonprod-containers hash:ip family inet hashsize 1024 maxelem 65536
 create tm:prod-containers hash:ip family inet hashsize 1024 maxelem 65536
 create tm:passthroughs hash:ip family inet hashsize 1024 maxelem 65536
 create tm:nodes hash:ip family inet hashsize 1024 maxelem 65536
 create tm:prod-sources hash:ip family inet hashsize 4096 maxelem 262144
 create tm:vring-containers hash:ip family inet hashsize 1024 maxelem 65536
+create tm:infra-inbound hash:ip family inet hashsize 4096 maxelem 262144
+create tm:infra-outbound hash:ip family inet hashsize 4096 maxelem 262144

@@ -294,6 +294,7 @@ class AdminTest(unittest.TestCase):
             'memory': '1G',
             'disk': '1G',
             'tickets': ['a', None, 'b'],
+            'keytabs': ['a'],
             'features': [],
             'args': [],
             'environ': [
@@ -342,6 +343,7 @@ class AdminTest(unittest.TestCase):
             'memory': ['1G'],
             'disk': ['1G'],
             'ticket': ['a', 'b'],
+            'keytab': ['a'],
             'trait': ['foo'],
             'service-name;tm-service-0': ['a'],
             'service-name;tm-service-1': ['b'],
@@ -399,6 +401,7 @@ class AdminTest(unittest.TestCase):
             'memory': '1G',
             'disk': '1G',
             'tickets': [],
+            'keytabs': [],
             'features': [],
             'endpoints': [],
             'environ': [],
@@ -466,6 +469,7 @@ class AdminTest(unittest.TestCase):
 
         expected = {
             'tickets': [],
+            'keytabs': [],
             'traits': [],
             'features': [],
             'endpoints': [{'name': 'y', 'port': 2}],

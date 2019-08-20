@@ -27,7 +27,7 @@ _LOGGER = logging.getLogger(__name__)
 _SET_BY_ENVIRONMENT = {
     'dev': iptables.SET_NONPROD_CONTAINERS,
     'qa': iptables.SET_NONPROD_CONTAINERS,
-    'uat': iptables.SET_NONPROD_CONTAINERS,
+    'uat': iptables.SET_PROD_CONTAINERS,
     'prod': iptables.SET_PROD_CONTAINERS,
 }
 
@@ -203,7 +203,7 @@ class NetworkResourceService(BaseResourceServiceImpl):
         """
         with lc.LogContext(_LOGGER, rsrc_id,
                            adapter_cls=lc.ContainerAdapter) as log:
-            log.debug('req: %r', rsrc_data)
+            log.debug('create request: %r', rsrc_data)
 
             app_unique_name = rsrc_id
             environment = rsrc_data['environment']
@@ -388,6 +388,7 @@ def _add_mark_rule(src_ip, environment):
         'Unknown environment: %r' % environment
 
     target_set = _SET_BY_ENVIRONMENT[environment]
+    _LOGGER.debug('Add %s ip %s to ipset %s', environment, src_ip, target_set)
     iptables.add_ip_set(target_set, src_ip)
 
     # Check that the IP is not marked in any other environment

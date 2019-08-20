@@ -129,7 +129,7 @@ def _allocate_sockets(environment, host_ip, sock_type, count):
     """Return a list of `count` socket bound to an ephemeral port.
     """
     # TODO: this should probably be abstracted away
-    if environment == 'prod':
+    if environment in ('uat', 'prod'):
         port_pool = six.moves.range(PROD_PORT_LOW, PROD_PORT_HIGH + 1)
     else:
         port_pool = six.moves.range(NONPROD_PORT_LOW, NONPROD_PORT_HIGH + 1)
@@ -228,7 +228,12 @@ def _cleanup_archive_dir(tm_env):
     infos = []
     dir_size = 0
     for archive in archives:
-        archive_stat = os.stat(archive)
+        try:
+            archive_stat = os.stat(archive)
+        except OSError as err:
+            if err.errno == errno.ENOENT:
+                continue
+            raise
         dir_size += archive_stat.st_size
         infos.append((archive_stat.st_mtime, archive_stat.st_size, archive))
 

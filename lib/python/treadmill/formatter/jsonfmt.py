@@ -7,7 +7,28 @@ from __future__ import unicode_literals
 
 import json
 
+from . import sanitize
 
-def format(obj):  # pylint: disable=W0622
-    """Output object as json."""
-    return json.dumps(obj)
+
+class Default:
+    """Default json formatter."""
+
+    @staticmethod
+    def format(obj):  # pylint: disable=W0622
+        """Output object as indented json with removed nulls."""
+        if isinstance(obj, dict):
+            obj.pop('_id', None)
+
+        return json.dumps(sanitize(obj), indent=2)
+
+
+class Raw:
+    """Raw json formatter."""
+
+    @staticmethod
+    def format(obj):  # pylint: disable=W0622
+        """Output object as json."""
+        if isinstance(obj, dict):
+            obj.pop('_id', None)
+
+        return json.dumps(obj)

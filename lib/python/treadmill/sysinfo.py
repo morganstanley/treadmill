@@ -238,6 +238,17 @@ def _kernel_ver_windows():
     return int(kver[0]), int(kver[1]), int(kver[2])
 
 
+def _hwmodel_linux():
+    """Return hardware model of the host."""
+    with open('/sys/devices/virtual/dmi/id/product_name') as f:
+        return f.read().strip()
+
+
+def _hwmodel_windows():
+    """Return hardware model of the host."""
+    return None
+
+
 def _get_docker_node_info(info):
     """Gets the node info specific to docker.
     """
@@ -360,6 +371,7 @@ if os.name == 'nt':
     port_range = _port_range_windows
     kernel_ver = _kernel_ver_windows
     node_info = _node_info_windows
+    hwmodel = _hwmodel_windows
 else:
     disk_usage = _disk_usage_linux
     mem_info = _mem_info_linux
@@ -370,4 +382,5 @@ else:
     port_range = _port_range_linux
     kernel_ver = _kernel_ver_linux
     node_info = _node_info_linux
+    hwmodel = _hwmodel_linux
     available_cpu_count = _available_cpu_count_linux

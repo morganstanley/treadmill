@@ -9,8 +9,7 @@ from __future__ import unicode_literals
 import logging
 import math
 import os
-
-import six
+import time
 
 from treadmill import cgroups
 from treadmill import cgutils
@@ -54,6 +53,8 @@ class LocalDiskResourceService(BaseResourceServiceImpl):
         '_volumes',
         '_extent_reserved',
     )
+
+    WATCHDOG_HEARTBEAT_SEC = 60 * 5
 
     PAYLOAD_SCHEMA = (
         ('size', True, str),
@@ -124,7 +125,7 @@ class LocalDiskResourceService(BaseResourceServiceImpl):
         """Make sure that all stale volumes are removed.
         """
         modified = False
-        for uniqueid in six.viewkeys(self._volumes.copy()):
+        for uniqueid in list(self._volumes.keys()):
             if self._volumes[uniqueid].pop('stale', False):
                 modified = True
                 # This is a stale volume, destroy it.
@@ -289,7 +290,15 @@ class LocalDiskResourceService(BaseResourceServiceImpl):
             return False
 
         # This should not fail.
-        lvm.lvremove(uniqueid, group=self._vg_name)
+        while True:
+            # XXX: Workaround AFSClient delayed cleanup.
+            try:
+                lvm.lvremove(uniqueid, group=self._vg_name)
+                break
+            except subproc.CalledProcessError:
+                _LOGGER.critical('Ignoring volume %r deletion error', uniqueid)
+                time.sleep(1)
+
         _LOGGER.info('Destroyed volume %r', uniqueid)
 
         return True

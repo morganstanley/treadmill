@@ -422,7 +422,10 @@ class Context:
 
         _LOGGER.debug('Loading plugins.')
 
-        # TODO: Thsi is a hack, need a better way to determine if plugin
+        # First plugin wins, so environment variables are evaluated first.
+        self._plugins.append(EnvContext(self))
+
+        # TODO: This is a hack, need a better way to determine if plugin
         #       should be loaded.
         if self.get('dns_domain', resolve=False):
             _LOGGER.debug('Loading dns plugin.')
@@ -436,8 +439,24 @@ class Context:
             ldap.init(self)
             self._plugins.append(ldap)
 
-        # Last plugin wins, so environment variables are evaluated last.
-        self._plugins.append(EnvContext(self))
+    def _resolve(self, attr):
+        """Resolve attribute via plugins.
+        """
+        self._init_plugins()
+        for plugin in self._plugins:
+            try:
+                resolved_attr = plugin.resolve(self, attr)
+                if resolved_attr is not None:
+                    return resolved_attr
+            except ContextError as err:
+                _LOGGER.warning(
+                    'Error resolving attribute %s in %s: %s',
+                    attr, plugin, err
+                )
+            except KeyError:
+                # Plugin is not responsible fot the attribute.
+                pass
+        return None
 
     def get(self, attr, default=None, resolve=True, volatile=False):
         """Get attribute from profile or defaults.
@@ -450,18 +469,9 @@ class Context:
         if resolve and attr not in self._stack:
             self._stack.add(attr)
             try:
-                self._init_plugins()
-                for plugin in self._plugins:
-                    try:
-                        self._profile[attr] = plugin.resolve(self, attr)
-                    except ContextError as err:
-                        _LOGGER.warning(
-                            'Error resolving attribute %s in %s: %s',
-                            attr, plugin, err
-                        )
-                    except KeyError:
-                        # Plugin is not responsible fot the attribute.
-                        pass
+                resolved_attr = self._resolve(attr)
+                if resolved_attr is not None:
+                    self._profile[attr] = resolved_attr
             finally:
                 self._stack.discard(attr)
 

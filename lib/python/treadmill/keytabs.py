@@ -246,3 +246,14 @@ def make_keytab(kt_target, kt_components, owner=None):
     if owner:
         (uid, _gid) = utils.get_uid_gid(owner)
         os.chown(kt_target, uid, -1)
+
+
+def add_keytabs_to_file(keytabs_dir, princ, dest_file, owner=None):
+    """Add princ keytabs files in a directory to a dest keytab file
+    """
+    kt_sources = glob.glob(os.path.join(keytabs_dir, '%s#*' % princ))
+
+    if kt_sources:
+        make_keytab(dest_file, kt_sources, owner)
+    else:
+        _LOGGER.info('No %s keytabs fetched from locker', princ)
