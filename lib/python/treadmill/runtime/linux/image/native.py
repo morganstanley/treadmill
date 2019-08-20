@@ -7,7 +7,6 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import errno
-import glob
 import io
 import logging
 import os
@@ -202,7 +201,7 @@ def create_supervision_tree(tm_env, container_dir, root_dir, app,
     # Create services startup script.
     boot_commands = getattr(app, 'boot_commands', [])
     templates.create_script(
-        os.path.join(container_dir, 'services', '.services.init'),
+        os.path.join(container_dir, 'services', supervisor.SVC_INIT_FILE),
         's6.init',
         boot_commands=boot_commands,
         _alias=subproc.get_aliases(),
@@ -472,7 +471,7 @@ def make_osroot(root_dir, app, data):
     fs_linux.mount_tmpfs(root_dir, '/run')
 
     # /etc/docker is a file neceesary for docker daemon
-    _docker.mount_docker_daemon_path(root_dir, app)
+    _docker.prepare_docker_daemon_path(root_dir, app, data)
 
 
 def create_overlay(tm_env, container_dir, root_dir, app):
@@ -499,11 +498,11 @@ def create_overlay(tm_env, container_dir, root_dir, app):
 def _prepare_krb(tm_env, container_dir, root_dir, app):
     """Manage kerberos environment inside container.
     """
+    kts_dir = os.path.join(tm_env.spool_dir, 'keytabs')
     etc_dir = os.path.join(container_dir, 'overlay', 'etc')
     fs.mkdir_safe(etc_dir)
     kt_dest = os.path.join(etc_dir, 'krb5.keytab')
-    kt_sources = glob.glob(os.path.join(tm_env.spool_dir, 'keytabs', 'host#*'))
-    keytabs.make_keytab(kt_dest, kt_sources)
+    keytabs.add_keytabs_to_file(kts_dir, 'host', kt_dest)
 
     for kt_spec in app.keytabs:
         if ':' not in kt_spec:
@@ -511,11 +510,8 @@ def _prepare_krb(tm_env, container_dir, root_dir, app):
             continue
 
         owner, princ = kt_spec.split(':', 1)
-
         kt_dest = os.path.join(root_dir, 'var', 'spool', 'keytabs', owner)
-        kt_sources = glob.glob(os.path.join(tm_env.spool_dir, 'keytabs',
-                                            '%s#*' % princ))
-        keytabs.make_keytab(kt_dest, kt_sources, owner)
+        keytabs.add_keytabs_to_file(kts_dir, princ, kt_dest, owner)
 
 
 def _prepare_ldpreload(container_dir, app):

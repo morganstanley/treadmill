@@ -53,12 +53,14 @@ dns = treadmill.rest.api.dns
 endpoint = treadmill.rest.api.endpoint
 identity-group = treadmill.rest.api.identity_group
 instance = treadmill.rest.api.instance
+keytab-locker = treadmill.rest.api.keytab_locker
 local = treadmill.rest.api.local
 nodeinfo = treadmill.rest.api.nodeinfo
 scheduler = treadmill.rest.api.scheduler
 server = treadmill.rest.api.server
 state = treadmill.rest.api.state
 tenant = treadmill.rest.api.tenant
+ticket-locker = treadmill.rest.api.ticket_locker
 docker_authz.authzreq = treadmill.rest.api.docker_authz.authzreq
 docker_authz.authzres = treadmill.rest.api.docker_authz.authzres
 docker_authz.activate = treadmill.rest.api.docker_authz.activate
@@ -81,12 +83,14 @@ dns = treadmill.api.dns
 endpoint = treadmill.api.endpoint
 identity-group = treadmill.api.identity_group
 instance = treadmill.api.instance
+keytab-locker = treadmill.api.keytab_locker
 local = treadmill.api.local
 nodeinfo = treadmill.api.nodeinfo
 scheduler = treadmill.api.scheduler
 server = treadmill.api.server
 state = treadmill.api.state
 tenant = treadmill.api.tenant
+ticket-locker = treadmill.api.ticket_locker
 docker_authz.authzreq = treadmill.api.docker_authz
 docker_authz.authzres = treadmill.api.docker_authz
 docker_authz.activate = treadmill.api.docker_authz
@@ -108,8 +112,10 @@ server-trace = treadmill.websocket.api.server_trace
 
 
 [treadmill.formatters]
-json = treadmill.formatter.jsonfmt
-yaml = treadmill.formatter.yamlfmt
+json = treadmill.formatter.jsonfmt:Default
+yaml = treadmill.formatter.yamlfmt:Default
+json-raw = treadmill.formatter.jsonfmt:Raw
+yaml-raw = treadmill.formatter.yamlfmt:Raw
 allocation = treadmill.formatter.tablefmt:AllocationPrettyFormatter
 app = treadmill.formatter.tablefmt:AppPrettyFormatter
 app-dns = treadmill.formatter.tablefmt:AppDNSPrettyFormatter
@@ -194,12 +200,12 @@ checkout = treadmill.cli.admin.checkout
 check-aliases = treadmill.cli.admin.check_aliases
 
 [treadmill.cli.admin.install]
+tkt-fwd = treadmill.cli.admin.install.tkt_fwd
 kt-fwd = treadmill.cli.admin.install.kt_fwd
 master = treadmill.cli.admin.install.master
 node = treadmill.cli.admin.install.node
 openldap = treadmill.cli.admin.install.openldap
 spawn = treadmill.cli.admin.install.spawn
-tkt-fwd = treadmill.cli.admin.install.tkt_fwd
 zookeeper = treadmill.cli.admin.install.zookeeper
 
 [treadmill.cli.admin.krb]
@@ -232,8 +238,8 @@ servers = treadmill.cli.admin.checkout.servers
 sysapp = treadmill.cli.admin.checkout.sysapp
 
 [treadmill.server.traits]
-sse4 = treadmill.traits:has_sse4
-rdtscp = treadmill.traits:has_rdtscp
+cpuflags = treadmill.traits:detect_cpuflags
+hwmodel = treadmill.traits:detect_hwmodel
 
 [treadmill.sproc]
 ad = treadmill.sproc.ad

@@ -10,15 +10,12 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import logging
+import os
 import random
 import re
 import shlex
+import tempfile
 import time
-
-try:
-    import xml.etree.cElementTree as etree
-except ImportError:
-    import xml.etree.ElementTree as etree
 
 from treadmill import firewall
 from treadmill import netdev
@@ -72,9 +69,15 @@ _SET_CONTAINERS = 'tm:containers'
 SET_PROD_SOURCES = 'tm:prod-sources'
 #: IPSet set of the IPs of all Treadmill nodes
 SET_TM_NODES = 'tm:nodes'
-#: IPSet set of the IP/Port of all services that should bypass environment.
+#: IPSet set of the IP/Port of all container services that should bypass
+#: environment filtering.
+SET_INFRA_SVC = 'tm:container-infra-services'
+#: IPSet all IPs from which inbound connections should bypass environment
 #: filtering.
-SET_INFRA_SVC = 'tm:infra-services'
+SET_INFRA_INBOUND = 'tm:infra-inbound'
+#: IPSet all IPs to which outbound connections should bypass environment
+#: filtering.
+SET_INFRA_OUTBOUND = 'tm:infra-outbound'
 #: IPSet set of the IPs of all containers' passthrough addresses.
 SET_PASSTHROUGHS = 'tm:passthroughs'
 
@@ -215,6 +218,8 @@ def initialize(external_ip):
         vring_containers=SET_VRING_CONTAINERS,
         vring_dnat_chain=VRING_DNAT,
         vring_snat_chain=VRING_SNAT,
+        infra_inbound=SET_INFRA_INBOUND,
+        infra_outbound=SET_INFRA_INBOUND,
     )
     _iptables_restore(iptables_state)
 
@@ -225,13 +230,15 @@ def ipsets_ensure_exist():
     ipset_rules = templates.render(
         IPSET_HOST_RESTORE,
         any_container=_SET_CONTAINERS,
-        infra_services=SET_INFRA_SVC,
+        container_infra_services=SET_INFRA_SVC,
         passthroughs=SET_PASSTHROUGHS,
         nodes=SET_TM_NODES,
         nonprod_containers=SET_NONPROD_CONTAINERS,
         prod_containers=SET_PROD_CONTAINERS,
         prod_sources=SET_PROD_SOURCES,
         vring_containers=SET_VRING_CONTAINERS,
+        infra_inbound=SET_INFRA_INBOUND,
+        infra_outbound=SET_INFRA_OUTBOUND,
     )
     ipset_restore(ipset_rules)
 
@@ -251,7 +258,9 @@ def filter_table_set(filter_in_nonprod_chain, filter_out_nonprod_chain):
     filtering_table = templates.render(
         IPTABLES_FILTER_TABLE_RESTORE,
         any_container=_SET_CONTAINERS,
-        infra_services=SET_INFRA_SVC,
+        container_infra_services=SET_INFRA_SVC,
+        infra_inbound=SET_INFRA_INBOUND,
+        infra_outbound=SET_INFRA_OUTBOUND,
         nonprod_mark=_CONNTRACK_NONPROD_MARK,
         prod_containers=SET_PROD_CONTAINERS,
         nonprod_containers=SET_NONPROD_CONTAINERS,
@@ -961,27 +970,6 @@ def atomic_set(target_set, content, set_type='hash:ip', **set_options):
         destroy_set(new_set)
 
 
-def list_set(target_set):
-    """List members of the set.
-
-    :param ``str`` target_set:
-        Name of the IPSet set to list.
-    :returns:
-        ``list`` -- List of the set member IPs as strings.
-    """
-    (_res, output) = _ipset(
-        'list',
-        '-o', 'xml',
-        target_set
-    )
-    # Extract the members from the xml output
-    et = etree.fromstring(output)
-    return [
-        c.text
-        for c in et.find('members')
-    ]
-
-
 def list_all_sets():
     """List all sets.
 
@@ -996,7 +984,7 @@ def list_all_sets():
 
 
 def test_ip_set(target_set, test_ip):
-    """Check persence of an IP in an IPSet set
+    """Check presence of an IP in an IPSet set
 
     :param ``str`` target_set:
         Name of the IPSet set to check.
@@ -1051,7 +1039,12 @@ def ipset_restore(ipset_state):
     :param ``str`` ipset_state:
         Target state for IPSet (using `ipset save` syntax)
     """
-    _ipset('-exist', 'restore', cmd_input=ipset_state)
+    try:
+        _ipset('-exist', 'restore', cmd_input=ipset_state)
+    except subproc.CalledProcessError as err:
+        toubleshoot_file = _temp_dump_file(ipset_state)
+        _LOGGER.error('Check ipset state in %s', toubleshoot_file)
+        raise err
 
 
 def _ipset(*args, **kwargs):
@@ -1133,6 +1126,17 @@ def _iptables_restore(iptables_state, noflush=False):
                 # table locked, spin and try again
                 time.sleep(random.uniform(0, 1))
             else:
-                raise
+                toubleshoot_file = _temp_dump_file(iptables_state)
+                _LOGGER.error('Check iptables state in %s', toubleshoot_file)
+                raise err
 
     return res
+
+
+def _temp_dump_file(data):
+    """dump rule,ipset into a temp file
+    """
+    with tempfile.NamedTemporaryFile(delete=False, mode='w') as f:
+        f.write(data)
+        os.fchmod(f.fileno(), 0o644)
+        return f.name

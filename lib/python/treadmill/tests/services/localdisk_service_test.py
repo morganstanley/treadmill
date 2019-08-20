@@ -324,6 +324,7 @@ class LocalDiskServiceTest(unittest.TestCase):
         treadmill.lvm.lvremove.assert_not_called()
         treadmill.localdiskutils.refresh_vg_status.assert_not_called()
 
+    @mock.patch('time.sleep', mock.Mock())
     @mock.patch('treadmill.lvm.lvdisplay', mock.Mock())
     @mock.patch('treadmill.lvm.lvremove', mock.Mock())
     @mock.patch('treadmill.localdiskutils.refresh_vg_status',
@@ -344,15 +345,20 @@ class LocalDiskServiceTest(unittest.TestCase):
         )
         request_id = 'myproid.test-0-ID1234'
         # trying to lvremote fails
-        treadmill.lvm.lvremove.side_effect = (
+        treadmill.lvm.lvremove.side_effect = [
             subproc.CalledProcessError(returncode=5, cmd='lvm'),
-        )
+            subproc.CalledProcessError(returncode=5, cmd='lvm'),
+            subproc.CalledProcessError(returncode=5, cmd='lvm'),
+            0
+        ]
 
-        self.assertRaises(
-            subproc.CalledProcessError,
-            svc.on_delete_request,
-            request_id
-        )
+        # XXX: Remove once AFSClient workaround is removed.
+        # XXX: self.assertRaises(
+        # XXX:     subproc.CalledProcessError,
+        # XXX:     svc.on_delete_request,
+        # XXX:     request_id
+        # XXX: )
+        svc.on_delete_request(request_id)
 
         treadmill.lvm.lvdisplay.assert_called_with(
             'tm-ID1234',

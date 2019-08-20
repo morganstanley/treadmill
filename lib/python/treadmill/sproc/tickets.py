@@ -6,6 +6,8 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
+import json
+import fnmatch
 import logging
 import os
 import socket
@@ -13,17 +15,22 @@ import time
 import tempfile
 
 import click
+import gssapi  # pylint: disable=import-error
 
 from treadmill import appenv
+from treadmill import context
 from treadmill import endpoints
 from treadmill import fs
-from treadmill.tickets import receiver
-from treadmill.tickets import locker
-from treadmill import context
-from treadmill import zknamespace as z
 from treadmill import subproc
+from treadmill import supervisor
 from treadmill import sysinfo
+from treadmill import zknamespace as z
 from treadmill import zkutils
+from treadmill import dirwatch
+from treadmill import cli
+from treadmill.syscall import krb5
+from treadmill.tickets import locker
+from treadmill.tickets import receiver
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -50,6 +57,41 @@ def _construct_keytab(keytabs):
 
     for temp_keytab in temp_keytabs:
         fs.rm_safe(temp_keytab)
+
+
+def _configure_locker(tkt_spool_dir, scandir, cell, celluser):
+    """Configure ticket forwarding service."""
+    if os.path.exists(os.path.join(scandir, cell)):
+        return
+
+    _LOGGER.info('Configuring ticket locker: %s/%s', scandir, cell)
+    name = cell
+    realms = krb5.get_host_realm(sysinfo.hostname())
+    krb5ccname = 'FILE:{tkt_spool_dir}/{celluser}@{realm}'.format(
+        tkt_spool_dir=tkt_spool_dir,
+        celluser=celluser,
+        realm=realms[0],
+    )
+    supervisor.create_service(
+        scandir,
+        name=name,
+        app_run_script=(
+            '{treadmill}/bin/treadmill sproc '
+            'tickets locker --tkt-spool-dir {tkt_spool_dir}'.format(
+                treadmill=subproc.resolve('treadmill'),
+                tkt_spool_dir=tkt_spool_dir
+            )
+        ),
+        userid='root',
+        environ_dir=os.path.join(scandir, name, 'env'),
+        environ={
+            'KRB5CCNAME': krb5ccname,
+            'TREADMILL_CELL': cell,
+        },
+        downed=False,
+        trace=None,
+        monitor_policy=None
+    )
 
 
 def init():
@@ -169,6 +211,113 @@ def init():
             _LOGGER.info('Running ticket receiver.')
             receiver.run_server(port, tkt_spool_dir)
 
+    @top.command(name='monitor')
+    @click.option('--tkt-spool-dir', help='Ticket spool directory.',
+                  required=True)
+    @click.option('--scandir', help='Supervisor scan directory.',
+                  required=True)
+    @click.option('--location', help='Location pattern to filter cells.',
+                  required=False, envvar='TREADMILL_TKTFWD_CELLLOC')
+    def monitor_cmd(tkt_spool_dir, scandir, location):
+        """Configure ticket locker for each cell."""
+        if location:
+            _LOGGER.info('Using location filter: %s', location)
+        else:
+            _LOGGER.info('No location filter, configuring all cells.')
+
+        admin_cell = context.GLOBAL.admin.cell()
+        while True:
+            for cell in admin_cell.list({}):
+                celluser = cell['username']
+                cellname = cell['_id']
+                celllocation = cell.get('location', '')
+                if location and not fnmatch.fnmatch(celllocation, location):
+                    _LOGGER.info(
+                        'Skip cell by location: %s %s', cellname, celllocation
+                    )
+                    continue
+
+                _configure_locker(tkt_spool_dir, scandir, cellname, celluser)
+
+            # TODO: need to stop/remove extra services. For now, extra
+            #       services are removed on group restart.
+
+            supervisor.control_svscan(scandir, (
+                supervisor.SvscanControlAction.alarm,
+                supervisor.SvscanControlAction.nuke
+            ))
+            time.sleep(60)
+
+    @top.command(name='info')
+    @click.option('--tkt-spool-dir', help='Ticket spool directory.',
+                  required=True)
+    @click.option('--tkt-info-dir', help='Ticket info directory.',
+                  required=True)
+    @click.option('--tkt-realms', help='List of supported kerberos realms.',
+                  required=False, type=cli.LIST)
+    def info_cmd(tkt_spool_dir, tkt_info_dir, tkt_realms):
+        """Monitor tickets and dump ticket info as json file."""
+
+        realms = krb5.get_host_realm(sysinfo.hostname())
+        if tkt_realms:
+            realms.extend(tkt_realms)
+
+        def _is_valid(princ):
+            if princ.startswith('.'):
+                return False
+
+            for realm in realms:
+                if princ.endswith(realm):
+                    return True
+
+            return False
+
+        def handle_tkt_event(tkt_file):
+            """Handle ticket created event.
+            """
+            princ = os.path.basename(tkt_file)
+            if not _is_valid(princ):
+                return
+
+            infofile = os.path.join(tkt_info_dir, princ)
+            _LOGGER.info('Processing: %s', princ)
+            try:
+                os.environ['KRB5CCNAME'] = os.path.join(tkt_spool_dir, princ)
+                creds = gssapi.creds.Credentials(usage='initiate')
+                with open(infofile, 'wb') as f:
+                    f.write(json.dumps({
+                        'expires_at': int(time.time()) + creds.lifetime
+                    }).encode())
+            except gssapi.raw.GSSError as gss_err:
+                fs.rm_safe(infofile)
+            finally:
+                del os.environ['KRB5CCNAME']
+
+        def handle_tkt_delete(tkt_file):
+            """Delete ticket info.
+            """
+            princ = os.path.basename(tkt_file)
+            if not _is_valid(princ):
+                return
+
+            infofile = os.path.join(tkt_info_dir, princ)
+            _LOGGER.info('Deleting: %s', princ)
+            fs.rm_safe(infofile)
+
+        watch = dirwatch.DirWatcher(tkt_spool_dir)
+        watch.on_created = handle_tkt_event
+        watch.on_deleted = handle_tkt_delete
+
+        for tkt_file in os.listdir(tkt_spool_dir):
+            handle_tkt_event(tkt_file)
+
+        while True:
+            if watch.wait_for_events(timeout=60):
+                watch.process_events(max_events=100)
+
     del accept_cmd
+    del monitor_cmd
     del locker_cmd
+    del info_cmd
+
     return top

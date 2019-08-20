@@ -223,8 +223,7 @@ def _node_initialize(tm_env, runtime, zkclient, hostname,
     try:
         new_node_info = sysinfo.node_info(tm_env, runtime, **os_args)
 
-        traitz = zkutils.get(zkclient, z.path.traits())
-        new_node_info['traits'] = traits.detect(traitz)
+        new_node_info['traits'] = traits.detect()
 
         # Merging scheduler data with node_info data
         node_info = zkutils.get(zkclient, zk_server_path)
