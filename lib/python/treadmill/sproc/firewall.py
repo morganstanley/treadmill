@@ -235,12 +235,19 @@ def _watcher(root_dir, rules_dir, containers_dir, watchdogs_dir):
             iptables.add_ip_set(iptables.SET_PASSTHROUGHS, rule.src_ip)
 
     _LOGGER.info('Current rules: %r', current_rules)
+
     while True:
+        _LOGGER.debug('Processing rules')
         if watch.wait_for_events(timeout=_FW_WATCHER_HEARTBEAT):
             # Process no more than 5 events between heartbeats
             watch.process_events(max_events=5)
+        wd.heartbeat()
 
-        rulemgr.garbage_collect()
+        # GC can take time, pass watchdog lease so that it can be extended.
+        _LOGGER.debug('Garbage collecting rules')
+        rulemgr.garbage_collect(
+            watchdog_lease=wd, watchdog_heartbeat=_FW_WATCHER_HEARTBEAT
+        )
         wd.heartbeat()
 
     _LOGGER.info('service shutdown.')
