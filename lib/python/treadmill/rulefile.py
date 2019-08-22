@@ -10,6 +10,7 @@ import errno
 import logging
 import os
 import re
+import time
 
 from treadmill import firewall
 
@@ -278,9 +279,11 @@ class RuleMgr:
                                   rule_file)
                 raise
 
-    def garbage_collect(self):
+    def garbage_collect(self, watchdog_lease=None, watchdog_heartbeat=None):
         """Garbage collect all rules without owner.
         """
+        last_heartbeat = time.time()
+
         for rule in self._list_rules():
             link = os.path.join(self._base_path, rule)
             try:
@@ -298,6 +301,12 @@ class RuleMgr:
                             raise
                 else:
                     raise
+
+            now = time.time()
+            if ((watchdog_lease and watchdog_heartbeat and
+                 now - last_heartbeat >= watchdog_heartbeat)):
+                watchdog_lease.heartbeat()
+                last_heartbeat = now
 
     @staticmethod
     def _filenameify(chain, rule):
