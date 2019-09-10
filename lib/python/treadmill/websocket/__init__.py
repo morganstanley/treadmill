@@ -104,6 +104,7 @@ def make_handler(pubsub):
         def send_msg(self, msg):
             """Send message."""
             _LOGGER.info('[%s] Sending message: %r', self._request_id, msg)
+            future = None
             try:
                 future = self.write_message(msg)
             except Exception:  # pylint: disable=W0703
@@ -139,7 +140,10 @@ def make_handler(pubsub):
 
             future = self.send_msg(error_msg)
             if close_conn:
-                future.add_done_callback(lambda _f: self.close_with_log())
+                if future is None:
+                    self.close_with_log()
+                else:
+                    future.add_done_callback(lambda _f: self.close_with_log())
 
             return future
 

@@ -7,8 +7,6 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import logging
-import fnmatch
-import re
 
 import jsonschema.exceptions
 
@@ -39,24 +37,11 @@ class API:
             """Lazily return admin object."""
             return context.GLOBAL.admin.application()
 
-        def _list(match=None):
+        def _list(match):
             """List configured applications."""
-            if match is None:
-                match = '*'
-
-            # If match contains full proid, do initial server-side filtering.
-            attrs = {}
-            res = re.search(r'^([\w-]+)\.', match)
-            if res:
-                proid = res.group(1)
-                attrs = {'_id': '{0}.*'.format(proid)}
-
-            apps = _admin_app().list(attrs, generator=True)
-            filtered = [
-                app for app in apps
-                if fnmatch.fnmatch(app['_id'], match)
-            ]
-            return sorted(filtered, key=lambda item: item['_id'])
+            # Do server-side filtering.
+            apps = _admin_app().list({'_id': match}, generator=True)
+            return sorted(apps, key=lambda item: item['_id'])
 
         @schema.schema({'$ref': 'app.json#/resource_id'})
         def get(rsrc_id):

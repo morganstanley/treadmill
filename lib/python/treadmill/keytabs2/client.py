@@ -87,12 +87,22 @@ def put_keytab(client, keytabs):
     return send_request(client, request)
 
 
-def get_keytabs(client, app_name):
+def get_app_keytabs(client, app_name):
     """get keytabs from keytab locker
     """
     request = {
         'action': 'get',
         'app': app_name,
+    }
+    return send_request(client, request)
+
+
+def get_keytabs(client, addresses):
+    """get keytabs by giving keytab address
+    """
+    request = {
+        'action': 'get',
+        'addresses': addresses
     }
     return send_request(client, request)
 
@@ -107,12 +117,10 @@ def sync_proids(client, mapping):
     return send_request(client, request)
 
 
-def dump_keytabs(client, app_name, dest):
-    """Get VIP keytabs from keytab locker server.
+def _write_keytabs(result, dest):
+    """write keytabs to files from result of keytab locker
     """
-    res = get_keytabs(client, app_name)
-
-    for ktname, encoded in res['keytabs'].items():
+    for ktname, encoded in result['keytabs'].items():
         if not encoded:
             _LOGGER.warning('got empty keytab %s', ktname)
             continue
@@ -123,13 +131,8 @@ def dump_keytabs(client, app_name, dest):
         keytabs2.write_keytab(kt_file, encoded)
 
 
-def request_keytabs(zkclient, app_name, spool_dir, pattern):
-    """Request VIP keytabs from the keytab locker.
-
-    :param zkclient: Existing zk connection.
-    :param app_name: Appname of container
-    :param spool_dir: Path to keep keytabs fetched from keytab locker.
-    :param pattern: app pattern for discovery endpoint of locker
+def _get_locker_hostports(zkclient, pattern):
+    """get keytab locker hostport by endpoint pattern
     """
     iterator = discovery.iterator(zkclient, pattern, 'keytabs', False)
     hostports = []
@@ -142,11 +145,50 @@ def request_keytabs(zkclient, app_name, spool_dir, pattern):
 
     random.shuffle(hostports)
 
+    return hostports
+
+
+def request_cell_keytabs(zkclient, addresses, spool_dir, pattern):
+    """Request cell's associated keytabs from the keytab locker.
+    """
+    hostports = _get_locker_hostports(zkclient, pattern)
+    fs.mkdir_safe(spool_dir)
+
     for (host, port) in hostports:
-        fs.mkdir_safe(spool_dir)
         try:
             with connect_endpoint(host, port) as client:
-                dump_keytabs(client, app_name, spool_dir)
+                result = get_keytabs(client, addresses)
+                _write_keytabs(result, spool_dir)
+
+            return
+        # pylint: disable=broad-except
+        except Exception as err:
+            _LOGGER.warning(
+                'Failed to get keytab from %s:%d: %r', host, port, err
+            )
+
+    # if no host, port can provide keytab
+    raise keytabs2.KeytabClientError(
+        'Failed to get keytabs from {}'.format(hostports)
+    )
+
+
+def request_keytabs(zkclient, app_name, spool_dir, pattern):
+    """Request VIP keytabs from the keytab locker.
+
+    :param zkclient: Existing zk connection.
+    :param app_name: Appname of container
+    :param spool_dir: Path to keep keytabs fetched from keytab locker.
+    :param pattern: app pattern for discovery endpoint of locker
+    """
+    hostports = _get_locker_hostports(zkclient, pattern)
+    fs.mkdir_safe(spool_dir)
+
+    for (host, port) in hostports:
+        try:
+            with connect_endpoint(host, port) as client:
+                result = get_app_keytabs(client, app_name)
+                _write_keytabs(result, spool_dir)
             return
         # pylint: disable=broad-except
         except Exception as err:

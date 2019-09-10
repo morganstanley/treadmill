@@ -108,6 +108,7 @@ class LinuxRuntimeManifestTest(unittest.TestCase):
     @mock.patch(
         'treadmill.subproc.resolve', mock.Mock(return_value='/treadmill-bind')
     )
+    @mock.patch('os.path.exists', mock.Mock())
     def test__get_docker_run_cmd(self):
         """Test docker command parsing/generation.
         """
@@ -131,6 +132,7 @@ class LinuxRuntimeManifestTest(unittest.TestCase):
                 ' --volume /docker/etc/group:/etc/group:ro'
                 ' --volume /env:/env:ro'
                 ' --volume /treadmill-bind:/opt/treadmill-bind:ro'
+                ' --volume /etc/krb5.conf:/etc/krb5.conf:ro'
                 ' --image testwt2'
             )
         )
@@ -153,6 +155,7 @@ class LinuxRuntimeManifestTest(unittest.TestCase):
                 ' --volume /docker/etc/group:/etc/group:ro'
                 ' --volume /env:/env:ro'
                 ' --volume /treadmill-bind:/opt/treadmill-bind:ro'
+                ' --volume /etc/krb5.conf:/etc/krb5.conf:ro'
                 ' --image \'test afterspace\''
             )
         )
@@ -176,6 +179,7 @@ class LinuxRuntimeManifestTest(unittest.TestCase):
                 ' --volume /docker/etc/group:/etc/group:ro'
                 ' --volume /env:/env:ro'
                 ' --volume /treadmill-bind:/opt/treadmill-bind:ro'
+                ' --volume /etc/krb5.conf:/etc/krb5.conf:ro'
                 ' --image testwt2'
                 ' --'
                 ' /bin/sh -c \'echo $foo $bar\''
@@ -202,6 +206,7 @@ class LinuxRuntimeManifestTest(unittest.TestCase):
                 ' --volume /docker/etc/group:/etc/group:ro'
                 ' --volume /env:/env:ro'
                 ' --volume /treadmill-bind:/opt/treadmill-bind:ro'
+                ' --volume /etc/krb5.conf:/etc/krb5.conf:ro'
                 ' --image testwt2'
                 ' --entrypoint entry_point.sh'
             )
