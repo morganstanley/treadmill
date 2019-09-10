@@ -7,6 +7,7 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
+import glob
 import logging
 import os
 import re
@@ -60,6 +61,37 @@ class KeytabLocker:
         self._kt_spool_dir = kt_spool_dir
         self._database = database
 
+    def fetch(self, princ, addresses):
+        """fetch keytabs of the address from locker
+        returns:
+            list -- encoded keytab contents belonging to addresses
+        """
+        if not princ or not princ.startswith('host/'):
+            raise keytabs2.KeytabLockerError(
+                'princ "{}" not accepted'.format(princ)
+            )
+
+        hostname = princ[len('host/'):princ.rfind('@')]
+        if not self.zkclient.exists(z.path.server(hostname)):
+            _LOGGER.error('Invalid server: %s', hostname)
+            return {}
+
+        try:
+            for hostname in addresses:
+                keytab_files = glob.glob(
+                    os.path.join(self._kt_spool_dir, '*#{}@*'.format(hostname))
+                )
+                kts = {
+                    os.path.basename(keytab_file): keytabs2.read_keytab(
+                        keytab_file
+                    )
+                    for keytab_file in keytab_files
+                }
+        except OSError as err:
+            raise keytabs2.KeytabLockerError(err)
+
+        return kts
+
     def get(self, princ, app_name):
         """Get keytabs defined in manifest from locker.
         returns:
@@ -75,7 +107,7 @@ class KeytabLocker:
                 for keytab in keytab_names
             }
         except OSError as err:
-            raise keytabs.KeytabLockerError(err)
+            raise keytabs2.KeytabLockerError(err)
 
         return keytabs
 
@@ -165,12 +197,17 @@ def get_locker_server(locker, port):
         def _get(self, req):
             """get keytabs from appname
             """
-            try:
+            if 'app' in req:
                 app_name = req['app']
-            except KeyError:
-                raise keytabs2.KeytabLockerError('No "app" in request')
-            keytabs = locker.get(self.peer(), app_name)
-            return _response(success=True, keytabs=keytabs)
+                kts = locker.get(self.peer(), app_name)
+            elif 'addresses' in req:
+                addresses = req['addresses']
+                kts = locker.fetch(self.peer(), addresses)
+            else:
+                raise keytabs2.KeytabLockerError(
+                    '"app" or "addresses" must be in request'
+                )
+            return _response(success=True, keytabs=kts)
 
         def _query(self, req):
             """query keytabs from appname

@@ -271,8 +271,9 @@ class DockerSprocClient:
         while container.status == 'running':
             try:
                 for log_lines in logs_gen:
-                    print(log_lines.decode(),
-                          file=sys.stderr, end='', flush=True)
+                    if isinstance(log_lines, bytes):
+                        log_lines = log_lines.decode()
+                    print(log_lines, file=sys.stderr, end='', flush=True)
             except socket.error:
                 pass
 

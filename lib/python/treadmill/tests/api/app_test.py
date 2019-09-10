@@ -61,7 +61,7 @@ class ApiAppTest(unittest.TestCase):
                 'traits': [],
             },
             {
-                '_id': 'bar.app1',
+                '_id': 'foo.app3',
                 'affinity_limits': {},
                 'args': [],
                 'cpu': '100%',
@@ -79,7 +79,7 @@ class ApiAppTest(unittest.TestCase):
         ]
         # paged_search returns generator
         admin_mock = app_factory.return_value
-        admin_mock.list.return_value = apps
+        admin_mock.list.return_value = iter(apps)
 
         self.assertEqual(
             self.app.list(match='foo.*'),
@@ -116,48 +116,27 @@ class ApiAppTest(unittest.TestCase):
                     'tickets': [],
                     'traits': [],
                 },
+                {
+                    '_id': 'foo.app3',
+                    'affinity_limits': {},
+                    'args': [],
+                    'cpu': '100%',
+                    'disk': '1G',
+                    'endpoints': [],
+                    'environ': [],
+                    'ephemeral_ports': {},
+                    'features': [],
+                    'memory': '1G',
+                    'passthrough': [],
+                    'services': [],
+                    'tickets': [],
+                    'traits': [],
+                },
             ]
         )
-
-    @mock.patch('treadmill.context.AdminContext.application')
-    def test_list_proid_filtering(self, app_factory):
-        """Test treadmill.api.app._list() proid filtering"""
-        apps = [
-            {'_id': 'foo.app1'},
-            {'_id': 'foo.app2'},
-            {'_id': 'bar.app1'},
-        ]
-        admin_mock = app_factory.return_value
-        admin_mock.list.return_value = apps
-
-        result = self.app.list()
-        self.assertEqual(
-            {item['_id'] for item in result},
-            {'foo.app1', 'foo.app2', 'bar.app1'}
-        )
-
-        result = self.app.list(match='*')
-        self.assertEqual(
-            {item['_id'] for item in result},
-            {'foo.app1', 'foo.app2', 'bar.app1'}
-        )
-
-        result = self.app.list(match='foo.*')
-        self.assertEqual(
-            {item['_id'] for item in result},
-            {'foo.app1', 'foo.app2'}
-        )
-
-        result = self.app.list(match='foo.app?')
-        self.assertEqual(
-            {item['_id'] for item in result},
-            {'foo.app1', 'foo.app2'}
-        )
-
-        result = self.app.list(match='foo?app*')
-        self.assertEqual(
-            {item['_id'] for item in result},
-            {'foo.app1', 'foo.app2'}
+        admin_mock.list.assert_called_once_with(
+            {'_id': 'foo.*'},
+            generator=True
         )
 
     @mock.patch('treadmill.context.AdminContext.application',

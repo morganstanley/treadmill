@@ -52,6 +52,7 @@ def _create_environ(app):
         'TREADMILL_CELL': app.cell,
         'TREADMILL_APP': app.app,
         'TREADMILL_INSTANCEID': app.task,
+        'TREADMILL_UNIQUEID': app.uniqueid,
         'TREADMILL_IDENTITY': app.identity,
         'TREADMILL_IDENTITY_COUNT': app.identity_count,
         'TREADMILL_IDENTITY_GROUP': app.identity_group,
