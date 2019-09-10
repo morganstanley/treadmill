@@ -13,6 +13,17 @@ from treadmill import webutils
 
 from treadmill.api.model import app as app_model
 
+# We allow '(<userid>|<userid@group>).simple pattern'
+# Note: needs to align `schema/common.json#app_id`.
+_MATCH_RE = (
+    r'^'
+    r'[a-zA-Z0-9_-]{2,20}'
+    r'(?:@[\w-]+)?'     # optional @group notation
+    r'[.]'              # mandatory first dot
+    r'[\w.*-]+'         # segment(s) with optional '*' prefix/suffix
+    r'$'
+)
+
 
 def init(api, cors, impl):
     """Configures REST handlers for app resource."""
@@ -24,8 +35,13 @@ def init(api, cors, impl):
     request_model, response_model = app_model.models(api)
 
     match_parser = api.parser()
-    match_parser.add_argument('match', help='A glob match on an app name',
-                              location='args', required=False,)
+    match_parser.add_argument(
+        'match',
+        help='A glob match on an app name',
+        type=restplus.inputs.regex(_MATCH_RE),
+        location='args',
+        required=True
+    )
 
     @namespace.route(
         '/',
@@ -40,7 +56,7 @@ def init(api, cors, impl):
         def get(self):
             """Returns list of configured applications."""
             args = match_parser.parse_args()
-            return impl.list(args.get('match'))
+            return impl.list(match=args.get('match'))
 
     @namespace.route('/<app>')
     @api.doc(params={'app': 'Application ID/Name'})

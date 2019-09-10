@@ -7,6 +7,7 @@ from __future__ import unicode_literals
 from __future__ import print_function
 
 import io
+import time
 
 import click
 
@@ -14,6 +15,8 @@ from treadmill import cli
 from treadmill import context
 from treadmill import yamlwrapper as yaml
 from treadmill.scheduler import masterapi
+from treadmill import zknamespace as z
+from treadmill import zkutils
 
 
 def server_group(parent):
@@ -373,7 +376,7 @@ def bucket_group(parent):
 
 
 def identity_group_group(parent):
-    """App monitor CLI group"""
+    """Identity group CLI group"""
     formatter = cli.make_formatter('identity-group')
 
     @parent.group(name='identity-group')
@@ -416,6 +419,112 @@ def identity_group_group(parent):
     del _list
 
 
+def presence_group(parent):
+    """Server presence CLI group"""
+    # TODO: add presence to master API.
+
+    @parent.group(name='server-presence')
+    def presence():
+        """Manage server presence.
+        """
+
+    @presence.command(name='list')
+    @cli.admin.ON_EXCEPTIONS
+    def _list():
+        """List server presence."""
+        zkclient = context.GLOBAL.zk.conn
+        servers = zkclient.get_children(z.SERVER_PRESENCE)
+
+        for server in servers:
+            cli.out(server)
+
+    @presence.command(name='delete')
+    @click.argument('server')
+    @cli.admin.ON_EXCEPTIONS
+    def delete(server):
+        """Delete server presence."""
+        zkclient = context.GLOBAL.zk.conn
+        zkutils.ensure_deleted(zkclient, z.path.server_presence(server))
+
+    @presence.command(name='create')
+    @click.option('--valid-until', type=int,
+                  help='Valid until as number of days from now',
+                  required=False,
+                  default=21)
+    @click.argument('server')
+    @cli.admin.ON_EXCEPTIONS
+    def create(valid_until, server):
+        """Create server presence."""
+        zkclient = context.GLOBAL.zk.conn
+        zkutils.put(
+            zkclient,
+            z.path.server_presence(server),
+            {'valid_until': int(time.time()) + (valid_until * 24 * 60 * 60)}
+        )
+
+    del create
+    del delete
+    del _list
+
+
+def placement_group(parent):
+    """App placement CLI group"""
+    # TODO: add placement to master API.
+
+    @parent.group()
+    def placement():
+        """Manage app placement.
+        """
+
+    @placement.command(name='list')
+    @click.argument('server')
+    @cli.admin.ON_EXCEPTIONS
+    def _list(server):
+        """List apps placed on the server."""
+        zkclient = context.GLOBAL.zk.conn
+        apps = zkclient.get_children(z.path.placement(server))
+
+        for app in sorted(apps):
+            cli.out(app)
+
+    del _list
+
+
+def endpoints_group(parent):
+    """Endpoint CLI group."""
+
+    @parent.group(name='endpoint')
+    def endpoint_grp():
+        """Manage app endpoints.
+        """
+
+    @endpoint_grp.command()
+    @click.option('--endpoint', help='Endpoint name', required=True)
+    @click.option('--proto', help='Proto', default='tcp')
+    @click.option('--hostport', help='Host:Port', required=True)
+    @click.argument('app')
+    @cli.admin.ON_EXCEPTIONS
+    def create(endpoint, proto, hostport, app):
+        """Create permanent endpoint."""
+        zknode = z.path.endpoint(app, proto, endpoint)
+        zkclient = context.GLOBAL.zk.conn
+        zkutils.put(zkclient, zknode, hostport)
+
+    @endpoint_grp.command()
+    @click.option('--endpoint', help='Endpoint name', required=True)
+    @click.option('--proto', help='Proto', default='tcp')
+    @click.argument('app')
+    @cli.admin.ON_EXCEPTIONS
+    def delete(endpoint, proto, app):
+        """Delete endpoint."""
+        zknode = z.path.endpoint(app, proto, endpoint)
+        zkclient = context.GLOBAL.zk.conn
+        zkutils.ensure_deleted(zkclient, zknode)
+
+    del create
+    del delete
+
+
 def init():
     """Return top level command handler"""
 
@@ -438,5 +547,8 @@ def init():
     app_group(master_group)
     monitor_group(master_group)
     identity_group_group(master_group)
+    presence_group(master_group)
+    placement_group(master_group)
+    endpoints_group(master_group)
 
     return master_group

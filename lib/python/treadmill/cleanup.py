@@ -20,6 +20,7 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
+import errno
 import glob
 import logging
 import os
@@ -171,7 +172,14 @@ class Cleanup:
         """Actually do the cleanup of the instance.
         """
         cleanup_link = os.path.join(self.tm_env.cleanup_dir, instance)
-        container_dir = os.readlink(cleanup_link)
+        try:
+            container_dir = os.readlink(cleanup_link)
+        except OSError as err:
+            if err.errno == errno.ENOENT:
+                _LOGGER.info('Cleanup link does not exist: %r', cleanup_link)
+                return
+            raise
+
         _LOGGER.info('Cleanup: %s => %s', instance, container_dir)
         if os.path.exists(container_dir):
             with lc.LogContext(_LOGGER, os.path.basename(container_dir),
