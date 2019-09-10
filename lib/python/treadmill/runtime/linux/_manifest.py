@@ -7,6 +7,7 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import logging
+import os
 import shlex
 
 from treadmill import subproc
@@ -50,6 +51,12 @@ def _get_docker_run_cmd(name, image,
         ('/env', '/env', 'ro'),
         (treadmill_bind, TREADMILL_BIND_PATH, 'ro'),
     ]
+
+    # TODO: we need better way to handle volume list including cases for NFS
+    # If host has krb5.conf, we suppose container always mounts it inside now
+    if os.path.exists('/etc/krb5.conf'):
+        volumes.append(('/etc/krb5.conf', '/etc/krb5.conf', 'ro'))
+
     for volume in volumes:
         tpl += ' --volume {source}:{dest}:{mode}'.format(
             source=volume[0],

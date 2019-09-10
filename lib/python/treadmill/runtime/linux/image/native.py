@@ -49,6 +49,7 @@ def create_environ_dir(container_dir, root_dir, app):
         'TREADMILL_IDENTITY_COUNT': app.identity_count,
         'TREADMILL_IDENTITY_GROUP': app.identity_group,
         'TREADMILL_INSTANCEID': app.task,
+        'TREADMILL_UNIQUEID': app.uniqueid,
         'TREADMILL_MEMORY': app.memory,
         'TREADMILL_PROID': app.proid,
         'TREADMILL_ENV': app.environment,
