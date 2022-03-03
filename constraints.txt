@@ -19,7 +19,7 @@ dnspython==1.16.0
 docker==3.7.2
 docker-pycreds==0.4.0
 docutils==0.14
-Flask==0.12.4
+Flask==1.0
 Flask-Limiter==1.0.1
 Flask-RESTful==0.3.7
 flask-restplus==0.12.1
